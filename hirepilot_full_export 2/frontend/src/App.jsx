@@ -1,19 +1,22 @@
-// App.jsx
+// src/App.jsx
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import SigninScreen from './screens/SigninScreen';
+import SignupScreen from './screens/SignupScreen';
+import OnboardingWizard from './screens/OnboardingWizard';
+import Dashboard from './screens/Dashboard';
 
-import SigninScreen from './pages/SigninScreen';
-// Add more pages as you recreate them
-
-function App() {
+export default function App() {
   return (
     <Router>
       <Routes>
+        <Route path="/" element={<Navigate to="/signin" />} />
         <Route path="/signin" element={<SigninScreen />} />
-        {/* Later you'll add things like: <Route path="/dashboard" element={<Dashboard />} /> */}
+        <Route path="/signup" element={<SignupScreen />} />
+        <Route path="/onboarding" element={<OnboardingWizard />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        {/* Add more routes here as we expand */}
       </Routes>
     </Router>
   );
 }
-
-export default App;
