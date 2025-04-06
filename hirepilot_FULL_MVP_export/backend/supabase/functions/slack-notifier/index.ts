@@ -1,1 +1,0 @@
-# Mock content for supabase/functions/slack-notifier/index.ts

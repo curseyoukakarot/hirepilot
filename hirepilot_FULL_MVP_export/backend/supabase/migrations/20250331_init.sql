@@ -1,1 +1,0 @@
-# Mock content for supabase/migrations/20250331_init.sql

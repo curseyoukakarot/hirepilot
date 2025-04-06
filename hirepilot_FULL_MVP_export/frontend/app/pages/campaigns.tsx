@@ -1,1 +1,0 @@
-// Mock content for app/pages/campaigns.tsx
