@@ -1,1 +1,0 @@
-// Mock content for utils/prompts.ts
