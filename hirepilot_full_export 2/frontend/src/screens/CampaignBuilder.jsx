@@ -1,5 +1,5 @@
 // CampaignBuilder.jsx (with state + interactivity)
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   FaArrowLeft,
   FaRocket,
@@ -21,11 +21,36 @@ export default function CampaignBuilder() {
   const [leadSource, setLeadSource] = useState('CSV');
   const [tone, setTone] = useState('Professional');
   const [message, setMessage] = useState('');
+const [user, setUser] = useState(null);
 
-  const handleLaunch = () => {
-    console.log({ campaignName, jobReq, leadSource, tone, message });
-    // TODO: API call to save campaign
+useEffect(() => {
+  const fetchUser = async () => {
+    const { data, error } = await supabase.auth.getUser();
+    if (data?.user) setUser(data.user);
   };
+  fetchUser();
+}, []);
+  const handleLaunch = async () => {
+  const response = await fetch('/api/saveCampaign', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      user_id: user?.id,
+      campaignName,
+      jobReq
+    })
+  });
+
+  const data = await response.json();
+
+  if (response.ok) {
+    console.log('✅ Campaign saved:', data.campaign);
+  } else {
+    console.error('❌ Failed to save campaign:', data.error);
+  }
+};
 
   return (
     <div className="min-h-screen bg-slate-50">
