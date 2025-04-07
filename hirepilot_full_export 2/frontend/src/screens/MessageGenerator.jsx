@@ -11,17 +11,37 @@ export default function MessageGenerator() {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const generateMessage = async () => {
-    setLoading(true);
-    const response = await fetch('/api/generate-message', {
+ const generateMessage = async () => {
+  setOutput('Generating...');
+  setError(null);
+
+  try {
+    const res = await fetch('/api/generate-message', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ role, tone, persona, prompt })
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        role,
+        tone,
+        persona,
+        prompt
+      })
     });
-    const data = await response.json();
-    setMessage(data.message);
-    setLoading(false);
-  };
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || 'Something went wrong');
+    }
+
+    setOutput(data.message);
+  } catch (err) {
+    console.error('Generate message error:', err);
+    setError(err.message);
+    setOutput('');
+  }
+};
 
   const saveMessage = async () => {
     const user = await supabase.auth.getUser();
