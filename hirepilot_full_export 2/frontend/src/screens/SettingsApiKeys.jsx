@@ -1,7 +1,36 @@
-import React from 'react';
-import { FaRocket, FaVial, FaCode, FaCopy, FaWebhook } from 'react-icons/fa6';
+import React, { useEffect, useState } from 'react';
+import { FaRocket, FaVial, FaCode, FaCopy, FaWebhook, FaPlus } from 'react-icons/fa6';
 
 export default function SettingsApiKeys() {
+  const [apiKeys, setApiKeys] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const fetchKeys = async () => {
+    const res = await fetch('/api/getApiKeys');
+    const data = await res.json();
+    if (res.ok) {
+      setApiKeys(data.apiKeys);
+    } else {
+      console.error('Error fetching API keys:', data.error);
+    }
+  };
+
+  const generateKey = async () => {
+    setLoading(true);
+    const res = await fetch('/api/createApiKey', { method: 'POST' });
+    const data = await res.json();
+    setLoading(false);
+    if (res.ok) {
+      setApiKeys((prev) => [...prev, data.apiKey]);
+    } else {
+      console.error('Error creating API key:', data.error);
+    }
+  };
+
+  useEffect(() => {
+    fetchKeys();
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200 px-6 py-4">
@@ -41,87 +70,51 @@ export default function SettingsApiKeys() {
           </div>
         </div>
 
-        <div className="space-y-8">
-          <div className="border rounded-lg">
-            <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
-              <div className="flex items-center space-x-3">
-                <FaRocket className="text-green-500" />
-                <h3 className="font-medium">Production API Key</h3>
-                <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full">Active</span>
-              </div>
-              <button className="text-red-600 hover:text-red-700 text-sm font-medium">Revoke</button>
-            </div>
-            <div className="p-4">
-              <div className="flex items-center space-x-2 mb-4">
-                <input
-                  type="text"
-                  value="hp_live_2x94K8nXp6v3mQ9RjLwTkY5H"
-                  readOnly
-                  className="w-full px-3 py-2 bg-gray-50 border rounded-md font-mono text-sm"
-                />
-                <button className="p-2 text-gray-500 hover:text-gray-700" title="Copy API Key">
-                  <FaCopy />
-                </button>
-              </div>
-              <div className="flex justify-between text-sm text-gray-500">
-                <span>Created on Mar 15, 2025</span>
-                <span>Last used: 2 hours ago</span>
-              </div>
-            </div>
-          </div>
+        <div className="flex justify-end mb-6">
+          <button
+            onClick={generateKey}
+            disabled={loading}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700"
+          >
+            {loading ? 'Generating...' : (
+              <>
+                <FaPlus className="mr-2" /> Generate New Key
+              </>
+            )}
+          </button>
+        </div>
 
-          <div className="border rounded-lg">
-            <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
-              <div className="flex items-center space-x-3">
-                <FaWebhook className="text-blue-500" />
-                <h3 className="font-medium">Webhook Secret</h3>
-                <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">Webhook</span>
+        <div className="space-y-4">
+          {apiKeys.length === 0 ? (
+            <p className="text-sm text-gray-500">No API keys found.</p>
+          ) : (
+            apiKeys.map((keyObj) => (
+              <div key={keyObj.id} className="p-4 border rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-medium capitalize">{keyObj.environment} API Key</h3>
+                  <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Active</span>
+                </div>
+                <div className="flex items-center space-x-2 mb-2">
+                  <input
+                    type="text"
+                    value={keyObj.key}
+                    readOnly
+                    className="w-full px-3 py-2 bg-gray-50 border rounded-md font-mono text-sm"
+                  />
+                  <button
+                    onClick={() => navigator.clipboard.writeText(keyObj.key)}
+                    className="p-2 text-gray-500 hover:text-gray-700"
+                    title="Copy API Key"
+                  >
+                    <FaCopy />
+                  </button>
+                </div>
+                <div className="text-sm text-gray-500">
+                  Created on {new Date(keyObj.created_at).toLocaleString()}
+                </div>
               </div>
-              <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">Rotate Secret</button>
-            </div>
-            <div className="p-4">
-              <div className="flex items-center space-x-2 mb-4">
-                <input
-                  type="text"
-                  value="whsec_1234567890abcdefghijklmnopqrstuvwxyz"
-                  readOnly
-                  className="w-full px-3 py-2 bg-gray-50 border rounded-md font-mono text-sm"
-                />
-                <button className="p-2 text-gray-500 hover:text-gray-700" title="Copy Webhook Secret">
-                  <FaCopy />
-                </button>
-              </div>
-              <span className="text-sm text-gray-500">Created on Mar 10, 2025</span>
-            </div>
-          </div>
-
-          <div className="border rounded-lg">
-            <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
-              <div className="flex items-center space-x-3">
-                <FaVial className="text-yellow-500" />
-                <h3 className="font-medium">Test API Key</h3>
-                <span className="text-xs px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full">Test</span>
-              </div>
-              <button className="text-red-600 hover:text-red-700 text-sm font-medium">Revoke</button>
-            </div>
-            <div className="p-4">
-              <div className="flex items-center space-x-2 mb-4">
-                <input
-                  type="text"
-                  value="hp_test_7yJ2mK9nXp4v8qW3rLzTkY5H"
-                  readOnly
-                  className="w-full px-3 py-2 bg-gray-50 border rounded-md font-mono text-sm"
-                />
-                <button className="p-2 text-gray-500 hover:text-gray-700" title="Copy API Key">
-                  <FaCopy />
-                </button>
-              </div>
-              <div className="flex justify-between text-sm text-gray-500">
-                <span>Created on Mar 1, 2025</span>
-                <span>Last used: 5 days ago</span>
-              </div>
-            </div>
-          </div>
+            ))
+          )}
         </div>
       </main>
     </div>
