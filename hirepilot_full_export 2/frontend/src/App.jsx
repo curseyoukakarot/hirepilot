@@ -1,18 +1,18 @@
 import { Routes, Route } from 'react-router-dom';
-import SigninScreen from './screens/SigninScreen';
 import SignupScreen from './screens/SignupScreen';
-import OnboardingWizard from './screens/OnboardingWizard';
+import SigninScreen from './screens/SigninScreen';
 import Dashboard from './screens/Dashboard';
-import MessageGenerator from './screens/MessageGenerator'; // 👈 new
+import CampaignBuilder from './screens/CampaignBuilder';
+import CampaignPerformance from './screens/CampaignPerformance';
 
 function App() {
   return (
     <Routes>
-      <Route path="/signin" element={<SigninScreen />} />
+      <Route path="/" element={<Dashboard />} />
       <Route path="/signup" element={<SignupScreen />} />
-      <Route path="/onboarding" element={<OnboardingWizard />} />
-      <Route path="/dashboard" element={<Dashboard />} />
-      <Route path="/generate-message" element={<MessageGenerator />} /> {/* 👈 new */}
+      <Route path="/signin" element={<SigninScreen />} />
+      <Route path="/campaign-builder" element={<CampaignBuilder />} />
+      <Route path="/campaigns" element={<CampaignPerformance />} />
     </Routes>
   );
 }
