@@ -15,6 +15,10 @@ import LeadManagement from './screens/LeadManagement';
 import LeadProfileDrawer from './screens/LeadProfileDrawer';
 import PricingScreen from './screens/PricingScreen';
 
+// ✅ NEW imports
+import RecruitingCoPilot from './screens/RecruitingCoPilot';
+import HandsFreeHiring from './screens/HandsFreeHiring';
+
 export default function App() {
   return (
     <Router>
@@ -46,6 +50,10 @@ export default function App() {
           <Route path="/leads" element={<LeadManagement />} />
           <Route path="/leads/profile" element={<LeadProfileDrawer />} />
           <Route path="/pricing" element={<PricingScreen />} />
+          
+          {/* ✅ NEW pages */}
+          <Route path="/copilot" element={<RecruitingCoPilot />} />
+          <Route path="/handsfree" element={<HandsFreeHiring />} />
         </Routes>
       </div>
     </Router>
