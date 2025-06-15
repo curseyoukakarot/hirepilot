@@ -206,4 +206,34 @@ export const createAdminUser = async (req: ApiRequest, res: Response) => {
   }
 };
 
+export const inviteTeamMember = async (req: ApiRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { email, firstName, lastName, role, company } = req.body;
+
+    const inviteData = {
+      to: email,
+      firstName,
+      lastName,
+      inviteLink: `${process.env.FRONTEND_URL}/invite?token=${Math.random().toString(36).substring(7)}`,
+      invitedBy: {
+        firstName: req.user.first_name || '',
+        lastName: req.user.last_name || '',
+        email: req.user.email
+      },
+      company,
+      role
+    };
+
+    await sendTeamInviteEmail(inviteData);
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Error inviting team member:', error);
+    return res.status(500).json({ error: 'Failed to invite team member' });
+  }
+};
+
 export default router; 

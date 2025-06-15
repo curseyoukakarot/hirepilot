@@ -1,13 +1,23 @@
 import { OpenAI } from 'openai';
 
+interface Profile {
+  full_name?: string;
+  headline?: string;
+  summary?: string;
+  experiences?: any[];
+}
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-export const analyzeProfile = async (profileData: any) => {
+export const analyzeProfile = async (profileData: Profile) => {
   try {
     const prompt = `Analyze this professional profile and provide insights:
-    ${JSON.stringify(profileData, null, 2)}`;
+    Name: ${profileData.full_name || 'N/A'}
+    Headline: ${profileData.headline || 'N/A'}
+    Summary: ${profileData.summary || 'N/A'}
+    Experience: ${JSON.stringify(profileData.experiences || [], null, 2)}`;
 
     const completion = await openai.chat.completions.create({
       messages: [{ role: "user", content: prompt }],

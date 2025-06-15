@@ -1,8 +1,8 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { supabase } from '../lib/supabase';
 import { ApiRequest } from '../../types/api';
-import { enrichProfile } from '../../services/enrichmentService';
-import { deductCredits } from '../../services/creditService';
+import { enrichProfile } from '../services/enrichmentService';
+import { deductCredits } from '../services/creditService';
 
 const router = express.Router();
 

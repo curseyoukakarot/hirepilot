@@ -15,42 +15,39 @@ const router = express.Router();
 console.log('Registering leads routes...');
 
 // GET /api/leads/candidates - fetch all candidates for the authenticated user
-router.get('/candidates', async (req: Request, res: Response) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader) {
-    return res.status(401).json({ error: 'No authorization header' });
-  }
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-  if (authError || !user) {
-    return res.status(401).json({ error: 'Invalid token' });
-  }
+router.get('/candidates', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as ApiRequest).user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
 
-  const { data: candidates, error } = await supabase
-    .from('candidates')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false });
+    const { data: candidates, error } = await supabase
+      .from('candidates')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
 
-  if (error) {
-    return res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.json(candidates);
+  } catch (error) {
+    console.error('Error fetching candidates:', error);
+    return res.status(500).json({ error: 'Failed to fetch candidates' });
   }
-  res.json(candidates);
 });
 
 // POST /api/leads/apollo/search
 router.post('/apollo/search', requireAuth, async (req: Request, res: Response) => {
   try {
-    // Debug: log incoming headers and body
-    console.log('[Apollo Search] Incoming headers:', req.headers);
-    console.log('[Apollo Search] Incoming body:', req.body);
-    const { jobTitle, keywords, location } = req.body;
-    const userId = (req as any).auth?.user?.id;
-    console.log('[Apollo Search] userId from req.auth:', userId);
+    const userId = (req as ApiRequest).user?.id;
     if (!userId) {
-      console.error('[Apollo Search] Not authenticated: req.auth is', (req as any).auth);
-      return res.status(401).json({ error: 'Not authenticated' });
+      return res.status(401).json({ error: 'Unauthorized' });
     }
+
+    const { jobTitle, keywords, location } = req.body;
 
     // 1. Check for active Apollo integration
     const { data: integration } = await supabase
@@ -63,14 +60,13 @@ router.post('/apollo/search', requireAuth, async (req: Request, res: Response) =
 
     // 2. If integration found, try to use OAuth token
     if (integration) {
-      // Try to get OAuth token
       const { data: apolloTokens } = await supabase
         .from('apollo_accounts')
         .select('access_token')
         .eq('user_id', userId)
         .single();
+
       if (apolloTokens?.access_token) {
-        // Use OAuth token in Authorization header
         const apolloPayload = {
           q_organization_domains: [],
           title: jobTitle,
@@ -79,81 +75,71 @@ router.post('/apollo/search', requireAuth, async (req: Request, res: Response) =
           page: 1,
           per_page: 10
         };
-        const apolloHeaders = { Authorization: `Bearer ${apolloTokens.access_token}` };
-        console.log('[Apollo API] Request payload:', apolloPayload);
-        console.log('[Apollo API] Request headers:', apolloHeaders);
-        try {
-          const response = await axios.post('https://api.apollo.io/v1/mixed_people/search', apolloPayload, {
-            headers: apolloHeaders
-          });
-          // Normalize response: always return { leads: [...] }
-          const leads = response.data.people || response.data.contacts || [];
-          return res.json({ leads });
-        } catch (err: any) {
-          console.error('[Apollo API] Error response:', err.response?.data);
-          throw err;
-        }
+
+        const response = await fetch('https://api.apollo.io/v1/mixed_people/search', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apolloTokens.access_token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(apolloPayload)
+        });
+
+        const data = await response.json() as { people?: any[]; contacts?: any[] };
+        const leads = data.people || data.contacts || [];
+        return res.json({ leads });
       }
     }
 
     // 3. Fallback: Use API key from user_settings
-    const { data: settings, error: settingsError } = await supabase
+    const { data: settings } = await supabase
       .from('user_settings')
       .select('apollo_api_key')
       .eq('user_id', userId)
       .single();
-    if (settingsError) throw settingsError;
+
     if (settings?.apollo_api_key) {
-      // Build search params for Apollo
-      const searchParams: any = {
+      const searchParams = {
         api_key: settings.apollo_api_key,
         page: 1,
-        per_page: 100
+        per_page: 100,
+        ...(jobTitle && { person_titles: [jobTitle] }),
+        ...(keywords && { q_keywords: keywords }),
+        ...(location && location !== 'Any' && { person_locations: [location] })
       };
-      if (jobTitle) searchParams.person_titles = [jobTitle];
-      if (keywords) searchParams.q_keywords = keywords;
-      if (location && location !== 'Any') searchParams.person_locations = [location];
-      try {
-        const { leads } = await searchAndEnrichPeople(searchParams);
-        return res.json({ leads });
-      } catch (err: any) {
-        console.error('[Apollo API] Enrich error:', err.response?.data || err.message);
-        throw err;
-      }
+
+      const { leads } = await searchAndEnrichPeople(searchParams);
+      return res.json({ leads });
     }
 
-    // 4. If neither integration nor API key, return error
-    return res.status(400).json({ error: 'No Apollo integration or API key found. Please connect your Apollo account or add an API key in the settings.' });
-  } catch (err) {
-    const error = err instanceof Error ? err : new Error(String(err));
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+    return res.status(400).json({ 
+      error: 'No Apollo integration or API key found. Please connect your Apollo account or add an API key in the settings.' 
+    });
+  } catch (error) {
+    console.error('Error searching Apollo:', error);
+    return res.status(500).json({ error: 'Failed to search Apollo' });
   }
 });
 
 // POST /api/leads/import
-router.post('/import', async (req: Request, res: Response) => {
+router.post('/import', requireAuth, async (req: Request, res: Response) => {
   try {
+    const userId = (req as ApiRequest).user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
     const { campaignId, leads } = req.body;
     if (!campaignId || !Array.isArray(leads)) {
       return res.status(400).json({ error: 'Missing campaignId or leads' });
     }
-    // Normalize leads to canonical schema
+
     const normalizedLeads = leads.map((lead: any) => {
-      // Split name into first and last name
-      let first_name = '';
-      let last_name = '';
-      if (lead.name) {
-        const parts = lead.name.trim().split(' ');
-        first_name = parts[0] || '';
-        last_name = parts.slice(1).join(' ') || '';
-      } else {
-        first_name = lead.first_name || '';
-        last_name = lead.last_name || '';
-      }
+      const parts = (lead.name || '').trim().split(' ');
       return {
         campaign_id: campaignId,
-        first_name,
-        last_name,
+        first_name: parts[0] || lead.first_name || '',
+        last_name: parts.slice(1).join(' ') || lead.last_name || '',
         title: lead.title || '',
         company: lead.company || '',
         email: lead.email || '',
@@ -162,13 +148,20 @@ router.post('/import', async (req: Request, res: Response) => {
         created_at: new Date().toISOString(),
       };
     });
-    // Insert into campaign_leads
-    const { data, error } = await supabase.from('campaign_leads').insert(normalizedLeads).select('*');
-    if (error) throw error;
-    res.json({ success: true, data });
-  } catch (err) {
-    const error = err instanceof Error ? err : new Error(String(err));
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+
+    const { data, error } = await supabase
+      .from('campaign_leads')
+      .insert(normalizedLeads)
+      .select('*');
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error importing leads:', error);
+    return res.status(500).json({ error: 'Failed to import leads' });
   }
 });
 
@@ -183,146 +176,67 @@ router.post('/csv/parse', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/leads/:id/enrich (child pattern, safest)
-router.post('/:id/enrich', async (req: Request, res: Response) => {
-  console.log('Enrich endpoint hit:', req.params.id);
+// POST /api/leads/:id/enrich
+router.post('/:id/enrich', requireAuth, async (req: Request, res: Response) => {
   try {
+    const userId = (req as ApiRequest).user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
     const { id } = req.params;
-    const authHeader = req.headers.authorization;
-    
-    // Sanity check: fail loudly if the table is missing
-    const { error: existsError } = await supabase
-      .from('leads')
-      .select('id')
-      .limit(1);
-    if (existsError?.code === '42P01') {
-      console.error('leads table missing! Run migrations.');
-      return res.status(500).json({ error: 'DB schema missing: leads' });
-    }
-
-    if (!authHeader) {
-      return res.status(401).json({ error: 'No authorization header' });
-    }
-
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
-    
-    // Verify JWT and get user
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError || !user) {
-      console.error('Auth error:', authError);
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    // Get the lead
     const { data: lead, error: leadError } = await supabase
       .from('leads')
       .select('*')
       .eq('id', id)
+      .eq('user_id', userId)
       .single();
 
-    if (leadError || !lead) {
-      console.warn('Lead not found in DB', { id, leadError });
-      if (!lead) return res.status(400).json({ error: 'Unknown lead id' });
+    if (leadError) {
+      return res.status(500).json({ error: leadError.message });
+    }
+
+    if (!lead) {
       return res.status(404).json({ error: 'Lead not found' });
     }
 
-    let enrichmentData = {};
-    let apolloErrorMsg = null;
-    let gptErrorMsg = null;
+    // Enrich with Apollo
+    const apolloData = await enrichWithApollo(lead);
+    
+    // Enrich with Proxycurl
+    const proxycurlData = await enrichWithProxycurl(lead);
 
-    // Log initial enrichmentData
-    console.log('Initial enrichmentData:', enrichmentData);
+    // Analyze with GPT
+    const gptAnalysis = await analyzeProfile({
+      full_name: lead.first_name + ' ' + lead.last_name,
+      headline: lead.title,
+      summary: lead.summary || '',
+      experiences: lead.experiences || []
+    });
 
-    // If no email, try Apollo enrichment
-    if (!lead.email && lead.linkedin_url) {
-      try {
-        const apolloResult = await enrichWithApollo({
-          leadId: id,
-          userId: user.id,
-          firstName: lead.first_name,
-          lastName: lead.last_name,
-          company: lead.company,
-          linkedinUrl: lead.linkedin_url
-        });
-        enrichmentData = { ...enrichmentData, ...apolloResult };
-        console.log('After Apollo enrichmentData:', enrichmentData);
-      } catch (apolloError: any) {
-        apolloErrorMsg = apolloError?.message || 'Apollo enrichment failed';
-        console.warn('Apollo enrichment failed:', apolloError);
-      }
-    }
-
-    // If we have a LinkedIn URL, do GPT analysis
-    if (lead.linkedin_url) {
-      try {
-        const { workHistory, gptNotes } = await analyzeProfile(lead.linkedin_url);
-        enrichmentData = {
-          ...enrichmentData,
-          workHistory,
-          gptNotes
-        };
-        console.log('After GPT enrichmentData:', enrichmentData);
-      } catch (gptError: any) {
-        gptErrorMsg = gptError?.message || 'GPT analysis failed';
-        console.warn('GPT analysis failed:', gptError);
-      }
-    }
-
-    // If we have a LinkedIn URL, do Proxycurl enrichment
-    if (lead.linkedin_url) {
-      try {
-        console.log('[Leads] Starting Proxycurl enrichment for lead:', {
-          id: lead.id,
-          linkedin_url: lead.linkedin_url
-        });
-        
-        const proxycurlResult = await enrichWithProxycurl({
-          leadId: id,
-          linkedinUrl: lead.linkedin_url
-        });
-        
-        console.log('[Leads] Proxycurl result:', proxycurlResult);
-        enrichmentData = { ...enrichmentData, proxycurl: proxycurlResult.data };
-        console.log('[Leads] After Proxycurl enrichmentData:', enrichmentData);
-      } catch (proxycurlError: any) {
-        console.error('[Leads] Proxycurl enrichment failed:', proxycurlError);
-        throw proxycurlError; // Re-throw to handle in the outer catch
-      }
-    }
-
-    // Log final enrichmentData before saving
-    console.log('Final enrichmentData to save:', enrichmentData);
-
-    // Update the lead with all enrichment data
-    const { data: updated, error: updateError } = await supabase
+    // Update lead with enriched data
+    const { data: updatedLead, error: updateError } = await supabase
       .from('leads')
       .update({
-        enrichment_data: {
-          ...lead.enrichment_data,
-          ...enrichmentData
+        enriched_data: {
+          apollo: apolloData,
+          proxycurl: proxycurlData,
+          gpt: gptAnalysis
         },
-        enrichment_status: 'success',
-        updated_at: new Date().toISOString()
+        enriched_at: new Date().toISOString()
       })
       .eq('id', id)
       .select()
       .single();
 
     if (updateError) {
-      throw updateError;
+      return res.status(500).json({ error: updateError.message });
     }
 
-    res.json({
-      success: true,
-      data: updated,
-      apolloErrorMsg,
-      gptErrorMsg
-    });
-  } catch (err) {
-    const error = err instanceof Error ? err : new Error(String(err));
-    console.error('Enrich error:', error);
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+    return res.json(updatedLead);
+  } catch (error) {
+    console.error('Error enriching lead:', error);
+    return res.status(500).json({ error: 'Failed to enrich lead' });
   }
 });
 
