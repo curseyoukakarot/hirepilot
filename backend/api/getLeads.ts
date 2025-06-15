@@ -16,7 +16,10 @@ const handler: ApiHandler = async (req: ApiRequest, res: ApiResponse) => {
 
     if (error) throw error;
 
-    return res.status(200).json({ leads: data as Lead[] });
+    const result = res as any;
+    if (result.status === 200) {
+      return res.status(200).json({ leads: data as Lead[] });
+    }
   } catch (error) {
     console.error('Error fetching leads:', error);
     const errorResponse: ErrorResponse = {

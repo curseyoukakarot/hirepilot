@@ -270,7 +270,8 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
 
     // Check if user exists in auth system
     const { data: authUser, error: authError } = await supabase.auth.admin.listUsers();
-    const existingAuthUser = authUser?.users.find(u => u.email === invite.email);
+    const users = authUser?.users as { email: string }[];
+    const existingAuthUser = users.find(u => u.email === invite.email);
 
     if (authError) {
       console.error('Error checking auth user:', authError);
@@ -412,7 +413,8 @@ router.delete('/invite/:id', async (req: Request, res: Response) => {
 
     // Find the user in auth system by email
     const { data: authUsers, error: authCheckError } = await supabase.auth.admin.listUsers();
-    const userToDelete = authUsers?.users.find(user => user.email === invite.email);
+    const users = authUsers?.users as { email: string }[];
+    const userToDelete = users.find(user => user.email === invite.email);
 
     if (authCheckError) {
       console.error('Error checking auth system:', authCheckError);

@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Simple wait helper function inline instead of importing
-const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const _wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 const APOLLO_API_URL = 'https://api.apollo.io/v1';
 
@@ -183,7 +183,7 @@ export async function searchAndEnrichPeople(params: ApolloSearchParams) {
 
         // Rate limit between batches
         if (index < batches.length - 1) {
-          await wait(1000);
+          await _wait(1000);
         }
       } catch (error: any) {
         console.error(`[Apollo] Batch ${index + 1} failed:`, {
