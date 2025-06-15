@@ -47,10 +47,6 @@ interface ApolloRecord {
   country?: string;
 }
 
-interface EnrichedRecord extends ApolloRecord {
-  is_gdpr_locked: boolean;
-}
-
 interface EnrichedPerson extends ApolloRecord {
   is_gdpr_locked: boolean;
 }

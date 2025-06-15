@@ -1,19 +1,22 @@
-import { Request, Response } from 'express';
-import { User } from '@supabase/supabase-js';
+import { Request } from 'express';
 
 export interface SupabaseUser {
   id: string;
   email: string;
-  role: string;
-  // Add any other user fields your middleware attaches
+  role?: string;
+  first_name?: string;
+  last_name?: string;
 }
 
-// @ts-ignore
 export interface ApiRequest extends Request {
-  user?: SupabaseUser;
+  user: SupabaseUser;
 }
 
-export interface ApiResponse extends Response {}
+export interface ApiResponse {
+  success: boolean;
+  data?: any;
+  error?: string;
+}
 
 export type ApiHandler = (req: ApiRequest, res: ApiResponse) => Promise<ApiResponse | void>;
 

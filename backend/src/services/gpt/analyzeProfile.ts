@@ -1,23 +1,22 @@
-import axios from 'axios';
+import { OpenAI } from 'openai';
 
-export async function analyzeProfile(linkedinUrl: string) {
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
+
+export const analyzeProfile = async (profileData: any) => {
   try {
-    // TODO: Implement actual GPT analysis
-    // For now, return mock data
-    return {
-      workHistory: [
-        {
-          company: 'Example Corp',
-          title: 'Senior Software Engineer',
-          startDate: '2020-01',
-          endDate: 'Present',
-          description: 'Led development of core platform features'
-        }
-      ],
-      gptNotes: 'Experienced software engineer with a focus on full-stack development. Strong background in React, Node.js, and cloud technologies.'
-    };
-  } catch (error: any) {
-    console.error('[analyzeProfile] Error:', error);
-    throw new Error(error.message || 'Failed to analyze profile');
+    const prompt = `Analyze this professional profile and provide insights:
+    ${JSON.stringify(profileData, null, 2)}`;
+
+    const completion = await openai.chat.completions.create({
+      messages: [{ role: "user", content: prompt }],
+      model: "gpt-4-turbo-preview",
+    });
+
+    return completion.choices[0].message.content;
+  } catch (error) {
+    console.error('Error analyzing profile:', error);
+    throw error;
   }
-} 
+}; 

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 // import { logger } from '../lib/logger';
 const logger = console;
 import { requireAuth } from '../../middleware/authMiddleware';
+import { ApiRequest } from '../../types/api';
 
 const router = express.Router();
 
@@ -62,5 +63,52 @@ router.post('/settings', requireAuth, async (req: Request, res: Response) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+export const getCurrentUser = async (req: ApiRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', req.user.id)
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.json(data);
+  } catch (error) {
+    console.error('Error fetching current user:', error);
+    return res.status(500).json({ error: 'Failed to fetch current user' });
+  }
+};
+
+export const updateUser = async (req: ApiRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { data, error } = await supabase
+      .from('users')
+      .update(req.body)
+      .eq('id', req.user.id)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.json(data);
+  } catch (error) {
+    console.error('Error updating user:', error);
+    return res.status(500).json({ error: 'Failed to update user' });
+  }
+};
 
 export default router; 

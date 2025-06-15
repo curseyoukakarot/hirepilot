@@ -7,6 +7,7 @@ import { analyzeProfile } from '../services/gpt/analyzeProfile';
 import { enrichLead as enrichWithProxycurl } from '../../services/proxycurl/enrichLead';
 import { requireAuth } from '../../middleware/authMiddleware';
 import { searchAndEnrichPeople } from '../../utils/apolloApi';
+import { ApiRequest } from '../../types/api';
 
 const router = express.Router();
 
@@ -454,4 +455,132 @@ router.post('/:id/convert', async (req: Request, res: Response) => {
 
 console.log('Leads routes registered');
 
-export default router; 
+export default router;
+
+export const getLeads = async (req: ApiRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { data, error } = await supabase
+      .from('leads')
+      .select('*')
+      .eq('user_id', req.user.id);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.json(data);
+  } catch (error) {
+    console.error('Error fetching leads:', error);
+    return res.status(500).json({ error: 'Failed to fetch leads' });
+  }
+};
+
+export const createLead = async (req: ApiRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { data, error } = await supabase
+      .from('leads')
+      .insert([{ ...req.body, user_id: req.user.id }])
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.status(201).json(data);
+  } catch (error) {
+    console.error('Error creating lead:', error);
+    return res.status(500).json({ error: 'Failed to create lead' });
+  }
+};
+
+export const updateLead = async (req: ApiRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { id } = req.params;
+    const { data, error } = await supabase
+      .from('leads')
+      .update(req.body)
+      .eq('id', id)
+      .eq('user_id', req.user.id)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    if (!data) {
+      return res.status(404).json({ error: 'Lead not found' });
+    }
+
+    return res.json(data);
+  } catch (error) {
+    console.error('Error updating lead:', error);
+    return res.status(500).json({ error: 'Failed to update lead' });
+  }
+};
+
+export const deleteLead = async (req: ApiRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { id } = req.params;
+    const { error } = await supabase
+      .from('leads')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', req.user.id);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.status(204).send();
+  } catch (error) {
+    console.error('Error deleting lead:', error);
+    return res.status(500).json({ error: 'Failed to delete lead' });
+  }
+};
+
+export const getLeadById = async (req: ApiRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { id } = req.params;
+    const { data, error } = await supabase
+      .from('leads')
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    if (!data) {
+      return res.status(404).json({ error: 'Lead not found' });
+    }
+
+    return res.json(data);
+  } catch (error) {
+    console.error('Error fetching lead:', error);
+    return res.status(500).json({ error: 'Failed to fetch lead' });
+  }
+}; 

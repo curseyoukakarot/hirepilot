@@ -1,5 +1,8 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { supabase } from '../lib/supabase';
+import { ApiRequest } from '../../types/api';
+import { enrichProfile } from '../../services/enrichmentService';
+import { deductCredits } from '../../services/creditService';
 
 const router = express.Router();
 
@@ -187,5 +190,76 @@ router.post('/test-mode', requireAdmin, async (req, res) => {
     return res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to run PhantomBuster test mode' });
   }
 });
+
+export const enrichProfileHandler = async (req: ApiRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { profileUrl } = req.body;
+    if (!profileUrl) {
+      return res.status(400).json({ error: 'Profile URL is required' });
+    }
+
+    const enrichedData = await enrichProfile(profileUrl, req.user.id);
+    return res.json(enrichedData);
+  } catch (error) {
+    console.error('Error enriching profile:', error);
+    return res.status(500).json({ error: 'Failed to enrich profile' });
+  }
+};
+
+export const getEnrichmentStatus = async (req: ApiRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { profileUrl } = req.query;
+    if (!profileUrl || typeof profileUrl !== 'string') {
+      return res.status(400).json({ error: 'Valid profile URL is required' });
+    }
+
+    const status = await enrichProfile(profileUrl, req.user.id, true);
+    return res.json(status);
+  } catch (error) {
+    console.error('Error getting enrichment status:', error);
+    return res.status(500).json({ error: 'Failed to get enrichment status' });
+  }
+};
+
+export const checkCredits = async (req: ApiRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const credits = await deductCredits(req.user.id, 0, true);
+    return res.json({ credits });
+  } catch (error) {
+    console.error('Error checking credits:', error);
+    return res.status(500).json({ error: 'Failed to check credits' });
+  }
+};
+
+export const deductCreditsHandler = async (req: ApiRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { amount } = req.body;
+    if (typeof amount !== 'number' || amount <= 0) {
+      return res.status(400).json({ error: 'Valid credit amount is required' });
+    }
+
+    const remainingCredits = await deductCredits(req.user.id, amount);
+    return res.json({ credits: remainingCredits });
+  } catch (error) {
+    console.error('Error deducting credits:', error);
+    return res.status(500).json({ error: 'Failed to deduct credits' });
+  }
+};
 
 export default router; 

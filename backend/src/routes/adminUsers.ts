@@ -5,6 +5,7 @@ console.log('[DEBUG] supabaseLib:', supabaseLib);
 import { requireAuth } from '../../middleware/authMiddleware';
 import { sendTeamInviteEmail } from '../../services/emailService';
 import { randomUUID } from 'crypto';
+import { ApiRequest } from '../../types/api';
 
 const router = express.Router();
 
@@ -151,5 +152,58 @@ router.delete('/users/:id', requireAuth, requireSuperAdmin, async (req: Request,
   // Optionally, delete from Auth as well
   res.json({ success: true });
 });
+
+export const getAdminUsers = async (req: ApiRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { data, error } = await supabaseLib.supabase
+      .from('users')
+      .select('*')
+      .eq('role', 'admin');
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.json(data);
+  } catch (error) {
+    console.error('Error fetching admin users:', error);
+    return res.status(500).json({ error: 'Failed to fetch admin users' });
+  }
+};
+
+export const createAdminUser = async (req: ApiRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { email, password, firstName, lastName } = req.body;
+
+    const { data: userData, error: userError } = await supabaseLib.supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          first_name: firstName,
+          last_name: lastName,
+          role: 'admin'
+        }
+      }
+    });
+
+    if (userError) {
+      return res.status(500).json({ error: userError.message });
+    }
+
+    return res.status(201).json(userData);
+  } catch (error) {
+    console.error('Error creating admin user:', error);
+    return res.status(500).json({ error: 'Failed to create admin user' });
+  }
+};
 
 export default router; 
