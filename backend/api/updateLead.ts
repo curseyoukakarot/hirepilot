@@ -54,7 +54,10 @@ const handler: ApiHandler = async (req: ApiRequest, res: ApiResponse) => {
 
     if (updateError) throw updateError;
 
-    return res.status(200).json({ lead: data as Lead });
+    const result = data as any;
+    if (result.status === 200) {
+      return res.status(200).json({ lead: data as Lead });
+    }
   } catch (error) {
     console.error('Error updating lead:', error);
     const errorResponse: ErrorResponse = {

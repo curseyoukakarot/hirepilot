@@ -13,11 +13,12 @@ const openai = new OpenAI({
 
 export const analyzeProfile = async (profileData: Profile) => {
   try {
+    const safeProfile = profileData as Profile;
     const prompt = `Analyze this professional profile and provide insights:
-    Name: ${profileData.full_name || 'N/A'}
-    Headline: ${profileData.headline || 'N/A'}
-    Summary: ${profileData.summary || 'N/A'}
-    Experience: ${JSON.stringify(profileData.experiences || [], null, 2)}`;
+    Name: ${safeProfile.full_name || 'N/A'}
+    Headline: ${safeProfile.headline || 'N/A'}
+    Summary: ${safeProfile.summary || 'N/A'}
+    Experience: ${JSON.stringify(safeProfile.experiences || [], null, 2)}`;
 
     const completion = await openai.chat.completions.create({
       messages: [{ role: "user", content: prompt }],
