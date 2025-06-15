@@ -1,0 +1,73 @@
+import { Router } from 'express';
+import { z } from 'zod';
+import { createClient } from '@supabase/supabase-js';
+
+console.log('✅ sendgridSave router loaded');
+
+const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+const router = Router();
+
+const bodySchema = z.object({
+  user_id:        z.string().uuid(),
+  api_key:        z.string().min(1),
+  default_sender: z.string().email()
+});
+
+router.post('/save', async (req, res) => {
+  console.log('📥 Handling /save request');
+  console.log('Request body:', req.body);  // Debug the raw body
+  
+  try {
+    // Validate required fields manually for better error messages
+    if (!req.body.user_id) {
+      return res.status(400).json({ error: 'user_id is required' });
+    }
+    if (!req.body.api_key) {
+      return res.status(400).json({ error: 'api_key is required' });
+    }
+    if (!req.body.default_sender) {
+      return res.status(400).json({ error: 'default_sender is required' });
+    }
+
+    const { user_id, api_key, default_sender } = bodySchema.parse(req.body);
+    console.log('💾 Saving SendGrid integration for user:', user_id);
+
+    // Save to user_sendgrid_keys table
+    const { error } = await supabase
+      .from('user_sendgrid_keys')
+      .upsert({
+        user_id,
+        api_key,
+        default_sender,
+        connected_at: new Date().toISOString()
+      }, { onConflict: 'user_id' });
+
+    if (error) {
+      console.error('❌ Supabase error:', error);
+      throw error;
+    }
+    
+    console.log('✅ SendGrid integration saved successfully');
+    res.sendStatus(204);
+  } catch (err: any) {
+    console.error('❌ sendgrid/save error:', err);
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ 
+        error: 'Invalid input',
+        details: err.errors.map(e => ({
+          field: e.path.join('.'),
+          message: e.message
+        }))
+      });
+    }
+    res.status(400).json({ error: err.message || 'save failed' });
+  }
+});
+
+// 🔍 DEBUG — Print router stack
+console.log('Router stack:', router.stack.map((layer: any) => ({
+  path: layer.route?.path,
+  methods: layer.route?.methods
+})));
+
+export default router; 

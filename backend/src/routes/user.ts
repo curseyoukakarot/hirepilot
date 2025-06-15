@@ -1,0 +1,66 @@
+import express, { Request, Response } from 'express';
+import { supabase } from '../lib/supabase';
+// import { logger } from '../lib/logger';
+const logger = console;
+import { requireAuth } from '../../middleware/authMiddleware';
+
+const router = express.Router();
+
+// GET /api/user/settings
+router.get('/settings', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).auth?.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Not authenticated' });
+
+    // Get user settings first
+    const { data: settings, error: settingsError } = await supabase
+      .from('user_settings')
+      .select('apollo_api_key')
+      .eq('user_id', userId)
+      .single();
+
+    if (settingsError) {
+      console.error('Error fetching settings:', settingsError);
+    }
+
+    // Check for active Apollo OAuth connection
+    const { data: integration } = await supabase
+      .from('integrations')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('provider', 'apollo')
+      .eq('status', 'connected')
+      .single();
+
+    // Return both OAuth status and API key
+    res.json({
+      apollo_connected: !!integration,
+      apollo_api_key: settings?.apollo_api_key || null
+    });
+  } catch (err) {
+    logger.error('Error in /api/user/settings:', err);
+    res.status(500).json({ error: 'Failed to fetch user settings' });
+  }
+});
+
+// POST /api/user/settings
+router.post('/settings', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).auth?.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Not authenticated' });
+    const { apollo_api_key } = req.body;
+    if (!apollo_api_key) return res.status(400).json({ error: 'Missing apollo_api_key' });
+    const { data, error } = await supabase
+      .from('user_settings')
+      .upsert([{ user_id: userId, apollo_api_key }], { onConflict: 'user_id' })
+      .select('*')
+      .single();
+    if (error) throw error;
+    res.json({ success: true, data });
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    res.status(500).json({ error: error.message });
+  }
+});
+
+export default router; 

@@ -1,0 +1,483 @@
+// backend/server.ts
+
+console.log('### LOADED', __filename);
+
+// Load environment variables first
+import 'dotenv/config';
+import dotenv from 'dotenv';
+dotenv.config();
+
+// Make sure NEXT_PUBLIC_SUPABASE_ANON_KEY is loaded from .env
+if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+  throw new Error('Missing NEXT_PUBLIC_SUPABASE_ANON_KEY in .env');
+}
+
+import express from 'express';
+import cors from 'cors';
+import sendSlackNotification from './api/sendSlackNotification';
+import saveCampaign from './api/saveCampaign';
+import generateMessage from './api/generate-message';
+import createUser from './api/createUser';
+import saveMessage from './api/saveMessage';
+import leadsRouter from './src/routes/leads';
+import outreachRouter from './api/outreach';
+import getCampaigns from './api/getCampaigns';
+import deleteCampaign from './api/deleteCampaign';
+import { createClient } from '@supabase/supabase-js';
+import axios from 'axios';
+import sendgridRouter from './api/sendgrid';
+import sendgridWebhookRouter from './api/sendgridWebhook';
+import sendgridValidateRouter from './api/sendgridValidate';
+import sendgridSaveRouter from './api/sendgridSave';
+import emailMetricsRouter from './api/emailMetrics';
+import messageRouter from './routers/messageRouter';
+import phantombusterValidateRouter from './api/phantombusterValidate';
+import emailTemplatesRouter from './api/emailTemplates';
+import googleAuthRouter from './api/googleAuth';
+import linkedinSaveCookieRouter from './api/linkedinSaveCookie';
+import linkedinCheckCookieRouter from './api/linkedinCheckCookie';
+import saveLeadSourceRouter from './api/saveLeadSource';
+import pipelinesRouter from './api/pipelines';
+import leadSourceRouter from './api/lead-source';
+import launchDataRouter from './api/launch-data';
+import apiRouter from './apiRouter';
+import { startCronJobs } from './cron/scheduler';
+import { resetStuckPhantoms } from './cron/resetStuckPhantoms';
+import { markExpiredCookies } from './cron/markExpiredCookies';
+import { enrichLeads } from './workers/enrichLeads';
+import { launchCampaign } from './api/campaigns/launch';
+const linkedinSessionAdminRouter = require('./api/linkedinSessionAdmin');
+import userRouter from './src/routes/user';
+import runPhantomRouter from './api/runPhantom';
+import phantombusterWebhookRouter from './api/phantombusterWebhook';
+import deleteJobRequisitions from './api/deleteJobRequisitions';
+import teamRouter from './routes/team';
+import slackRouter from './routes/slack';
+import billingRouter from './routes/billing';
+import cookieParser from 'cookie-parser';
+import listEndpoints from 'express-list-endpoints';
+import adminUsersRouter from './src/routes/adminUsers';
+
+declare module 'express-list-endpoints';
+
+const app = express();
+const PORT = process.env.PORT || 5001;
+
+// Debug endpoint to list all routes
+app.get('/api/debug/routes', (req, res) => {
+  const routes: any[] = [];
+  app._router.stack.forEach((middleware: any) => {
+    if (middleware.route) {
+      // Routes registered directly on the app
+      routes.push({
+        path: middleware.route.path,
+        methods: Object.keys(middleware.route.methods)
+      });
+    } else if (middleware.name === 'router') {
+      // Router middleware
+      middleware.handle.stack.forEach((handler: any) => {
+        if (handler.route) {
+          routes.push({
+            path: handler.route.path,
+            methods: Object.keys(handler.route.methods)
+          });
+        }
+      });
+    }
+  });
+  res.json(routes);
+});
+
+// Configure CORS before routes
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'https://thehirepilot.com',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: [
+    'Authorization',
+    'Content-Type',
+    'Accept',
+    'Origin',
+    'X-Requested-With',
+    'x-user-id',
+    'Access-Control-Allow-Headers',
+    'Access-Control-Allow-Origin',
+    'Access-Control-Allow-Methods'
+  ],
+  exposedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// Parse cookies
+app.use(cookieParser());
+
+// Parse JSON bodies
+app.use(express.json());
+
+// Debug middleware
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path}`, {
+    headers: req.headers,
+    query: req.query,
+    body: req.body
+  });
+  next();
+});
+
+// Initialize Supabase client
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+// At the top, after other env vars
+const APOLLO_AUTH_URL = process.env.APOLLO_AUTH_URL || 'https://developer.apollo.io/oauth/authorize';
+
+// Debug logging for route mounting
+console.log('Mounting routes...');
+
+// Routes
+app.post('/api/sendSlackNotification', sendSlackNotification);
+app.post('/api/saveCampaign', saveCampaign);
+app.post('/api/campaigns/:id/launch', launchCampaign);
+console.log('generateMessage:', generateMessage);
+app.post('/api/generate-message', generateMessage);
+app.post('/api/createUser', createUser);
+app.post('/api/saveMessage', saveMessage);
+app.use('/api/leads', leadsRouter);
+console.table(listEndpoints(app).filter((r: any) => r.path.startsWith('/api/leads')));
+app.use('/api/outreach', outreachRouter);
+app.get('/api/getCampaigns', getCampaigns);
+app.delete('/api/deleteCampaign', deleteCampaign);
+app.use('/api/sendgrid', sendgridRouter);
+app.use('/api/sendgrid', sendgridValidateRouter);
+app.use('/api/sendgrid', sendgridSaveRouter);
+app.use('/api', sendgridWebhookRouter);
+app.use('/api', emailMetricsRouter);
+app.use('/api/message', messageRouter);
+app.use('/api/phantombuster', phantombusterValidateRouter);
+app.use('/api/email', emailTemplatesRouter);
+app.use('/api/auth/google', googleAuthRouter);
+app.use('/api/linkedin', linkedinSaveCookieRouter);
+app.use('/api/linkedin', linkedinCheckCookieRouter);
+app.use('/api/campaigns', saveLeadSourceRouter);
+app.use('/api/campaigns', leadSourceRouter);
+app.use('/api/campaigns', launchDataRouter);
+app.use('/api/pipelines', pipelinesRouter);
+app.use('/api', apiRouter);
+app.use('/api/admin', linkedinSessionAdminRouter);
+app.use('/api/user', userRouter);
+app.use('/api/phantombuster', runPhantomRouter);
+app.use('/api/phantombuster', phantombusterWebhookRouter);
+app.delete('/api/deleteJobRequisitions', deleteJobRequisitions);
+app.use('/api/team', teamRouter);
+app.use('/api', slackRouter);
+app.use('/api/billing', billingRouter);
+app.use('/api/admin', adminUsersRouter);
+
+// Log all endpoints before starting the server
+console.table(
+  listEndpoints(app).map((r: any) => ({
+    method: r.methods.join(','),
+    path: r.path
+  }))
+);
+
+// 404 handler must be last
+app.use('*', (_req, res) => res.status(404).json({ error: 'Not Found' }));
+
+// Apollo OAuth endpoints
+app.get('/api/auth/apollo/init', async (req, res) => {
+  const { user_id } = req.query;
+  
+  if (!user_id) {
+    return res.status(400).json({ error: 'Missing user_id' });
+  }
+
+  const redirectUri = `${process.env.BACKEND_URL}/api/auth/apollo/callback`;
+  const apolloAuthUrl =
+    `https://app.apollo.io/#/oauth/authorize?` +
+    `client_id=${process.env.APOLLO_CLIENT_ID}&` +
+    `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+    `response_type=code&` +
+    `state=${user_id}`;
+
+  console.log('🔗 Apollo Auth URL:', apolloAuthUrl);
+  res.json({ url: apolloAuthUrl });
+});
+
+app.get('/api/auth/apollo/callback', async (req, res) => {
+  // Handle explicit Apollo OAuth errors
+  if (req.query.error) {
+    return res.status(400).json({
+      error: req.query.error,
+      description: req.query.error_message || 'Apollo returned an OAuth error'
+    });
+  }
+
+  console.log('⚡ Apollo callback query params:', req.query);
+  
+  const { code, state: user_id } = req.query;
+
+  if (!code || !user_id) {
+    console.log('❌ Missing code or state:', { code, user_id });
+    return res.status(400).json({ 
+      error: 'Missing code or state',
+      details: { code: !!code, state: !!user_id }
+    });
+  }
+
+  try {
+    // First, clean up any existing Apollo integration
+    await supabase
+      .from('integrations')
+      .delete()
+      .eq('user_id', user_id)
+      .eq('provider', 'apollo');
+
+    await supabase
+      .from('apollo_accounts')
+      .delete()
+      .eq('user_id', user_id);
+
+    console.log('🔄 Exchanging code for tokens...');
+    const tokenResponse = await axios.post(
+      'https://app.apollo.io/api/v1/oauth/token',
+      new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: code as string,
+        client_id: process.env.APOLLO_CLIENT_ID!,
+        client_secret: process.env.APOLLO_CLIENT_SECRET!,
+        redirect_uri: `${process.env.BACKEND_URL}/api/auth/apollo/callback`
+      })
+    );
+
+    console.log('✅ Token exchange successful:', tokenResponse.data);
+    // -------------- store tokens -----------------
+    const { access_token, refresh_token, expires_in } = tokenResponse.data;
+    const { error: dbError } = await supabase
+      .from('user_apollo_tokens')
+      .upsert({
+        user_id,
+        access_token,
+        refresh_token,
+        expires_at: new Date(Date.now() + expires_in * 1000), // 30 days ahead
+        updated_at: new Date()
+      });
+    if (dbError) throw dbError;
+    // ---------------------------------------------
+
+    // -------------- update integrations table -----------------
+    const { error: integrationError } = await supabase
+      .from('integrations')
+      .upsert({
+        user_id,
+        provider: 'apollo',
+        status: 'connected',
+        connected_at: new Date().toISOString()
+      });
+    if (integrationError) throw integrationError;
+    // ---------------------------------------------------------
+
+    // Redirect to frontend with success flag
+    res.redirect(`${process.env.FRONTEND_URL}/settings/integrations?apollo=connected`);
+
+  } catch (error: any) {
+    console.error('❌ Apollo OAuth error:', error.response?.data || error.message);
+    res.status(400).json({ 
+      error: 'Apollo OAuth failed',
+      details: error.response?.data || error.message
+    });
+  }
+});
+
+// Refresh token endpoint
+app.post('/api/auth/apollo/refresh', async (req, res) => {
+  const { user_id } = req.body;
+
+  if (!user_id) {
+    return res.status(400).json({ error: 'Missing user_id' });
+  }
+
+  try {
+    // Get refresh token from Supabase
+    const { data: tokens, error } = await supabase
+      .from('user_apollo_tokens')
+      .select('refresh_token')
+      .eq('user_id', user_id)
+      .single();
+
+    if (error || !tokens?.refresh_token) {
+      throw new Error('No refresh token found');
+    }
+
+    // Exchange refresh token for new access token
+    const response = await axios.post('https://app.apollo.io/api/v1/oauth/token', {
+      grant_type: 'refresh_token',
+      refresh_token: tokens.refresh_token,
+      client_id: process.env.APOLLO_CLIENT_ID,
+      client_secret: process.env.APOLLO_CLIENT_SECRET
+    });
+
+    const { access_token, refresh_token, expires_in } = response.data;
+
+    // Update tokens in Supabase
+    await supabase
+      .from('user_apollo_tokens')
+      .upsert({
+        user_id,
+        access_token,
+        refresh_token,
+        expires_in,
+        updated_at: new Date().toISOString()
+      });
+
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('Apollo refresh token error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Outlook OAuth callback endpoint
+app.get('/api/auth/outlook/callback', async (req, res) => {
+  console.log('DEBUG: Outlook callback hit', req.query);
+  const { code, state: user_id } = req.query;
+
+  if (!code || !user_id) {
+    console.log('DEBUG: Missing code or user_id', { code, user_id });
+    return res.status(400).json({ error: 'Missing code or user_id' });
+  }
+
+  try {
+    // Exchange code for tokens with Microsoft
+    const tokenResponse = await axios.post(
+      'https://login.microsoftonline.com/common/oauth2/v2.0/token',
+      new URLSearchParams({
+        client_id: process.env.OUTLOOK_CLIENT_ID!,
+        client_secret: process.env.OUTLOOK_CLIENT_SECRET!,
+        code: code as string,
+        redirect_uri: `${process.env.BACKEND_URL}/api/auth/outlook/callback`,
+        grant_type: 'authorization_code',
+        scope: 'openid profile email offline_access Mail.Send'
+      }).toString(),
+      {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+      }
+    );
+
+    console.log('DEBUG: Token response from Microsoft:', tokenResponse.data);
+
+    const { access_token, refresh_token, expires_in } = tokenResponse.data;
+
+    // Upsert into integrations table
+    const { error: integrationError } = await supabase
+      .from('integrations')
+      .upsert({
+        user_id,
+        provider: 'outlook',
+        status: 'connected',
+        tokens: {
+          access_token,
+          refresh_token,
+          expires_at: new Date(Date.now() + expires_in * 1000).toISOString()
+        },
+        connected_at: new Date().toISOString()
+      }, { onConflict: 'user_id,provider' });
+
+    console.log('DEBUG: Upsert result:', integrationError);
+
+    if (integrationError) throw integrationError;
+
+    // Redirect to frontend settings page after successful Outlook authentication
+    res.redirect(`${process.env.FRONTEND_URL}/settings/integrations?outlook=connected`);
+  } catch (error: any) {
+    console.error('❌ Outlook OAuth error:', error.response?.data || error.message);
+    res.status(400).json({ error: 'Outlook OAuth failed', details: error.response?.data || error.message });
+  }
+});
+
+// Health check route
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
+
+// Add health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// SendGrid types
+interface SendGridSender {
+  id: string;
+  from_email: string;
+  from_name: string;
+}
+
+app.post('/api/sendgrid/get-senders', async (req, res) => {
+  try {
+    // Get user from request body
+    const { user_id } = req.body;
+    if (!user_id) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    // Get user's SendGrid API key from user_sendgrid_keys table
+    const { data: sendgridData, error: sendgridError } = await supabase
+      .from('user_sendgrid_keys')
+      .select('*')
+      .eq('user_id', user_id)
+      .single();
+
+    if (sendgridError || !sendgridData?.api_key) {
+      return res.status(400).json({ error: 'SendGrid API key not found' });
+    }
+
+    // Call SendGrid API to get verified senders
+    const response = await axios.get('https://api.sendgrid.com/v3/verified_senders', {
+      headers: {
+        'Authorization': `Bearer ${sendgridData.api_key}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    console.log('SendGrid API Response:', JSON.stringify(response.data, null, 2));
+
+    // Format the response to match what frontend expects
+    const senders = response.data.results.map((sender: SendGridSender) => ({
+      id: sender.id,
+      email: sender.from_email,
+      name: sender.from_name
+    }));
+
+    console.log('Formatted senders:', senders);
+
+    // Get current sender from saved data
+    const current_sender = sendgridData.default_sender || null;
+
+    res.json({
+      senders,
+      current_sender
+    });
+  } catch (error) {
+    console.error('Error fetching SendGrid senders:', error);
+    res.status(500).json({ error: 'Failed to fetch SendGrid senders' });
+  }
+});
+
+// Start the server
+app.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
+  // Start cron jobs
+  startCronJobs();
+
+  // Run the reset stuck phantoms job every 10 minutes
+  setInterval(resetStuckPhantoms, 10 * 60 * 1000);
+
+  // Run the mark expired cookies job every hour
+  setInterval(markExpiredCookies, 60 * 60 * 1000);
+
+  // Run the enrichment worker every 2 minutes
+  setInterval(enrichLeads, 2 * 60 * 1000);
+});
+
+

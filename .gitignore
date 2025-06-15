@@ -1,0 +1,11 @@
+# Ignore secrets and environment configs
+.env
+.env.local
+supabase/supabase.env
+
+# Ignore build artifacts
+node_modules/
+dist/
+.vite/
+
+backend/.env*

@@ -1,0 +1,29 @@
+import { ApiRequest, ApiResponse, ApiHandler, ErrorResponse } from '../types/api';
+import { supabaseDb } from '../lib/supabase';
+
+const handler: ApiHandler = async (req: ApiRequest, res: ApiResponse) => {
+  try {
+    if (!req.user?.id) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { data, error } = await supabaseDb
+      .from('templates')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    return res.status(200).json({ templates: data });
+  } catch (error) {
+    console.error('Error fetching templates:', error);
+    const errorResponse: ErrorResponse = {
+      error: 'Failed to fetch templates',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    };
+    return res.status(500).json(errorResponse);
+  }
+};
+
+export default handler;

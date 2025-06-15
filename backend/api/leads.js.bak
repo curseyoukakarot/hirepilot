@@ -1,0 +1,192 @@
+console.log('### LOADED', __filename);
+const express = require('express');
+const router = express.Router();
+const { supabase } = require('../lib/supabase');
+const { validateLead } = require('../src/middleware/validation');
+
+// Get all leads
+router.get('/', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('leads')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching leads:', error);
+    res.status(500).json({ error: 'Failed to fetch leads' });
+  }
+});
+
+// Update lead
+router.put('/:id', validateLead, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    // Add audit log
+    await supabase.from('lead_audit_logs').insert({
+      lead_id: id,
+      action: 'update',
+      changes: updates,
+      user_id: req.user.id
+    });
+
+    const { data, error } = await supabase
+      .from('leads')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    console.error('Error updating lead:', error);
+    res.status(500).json({ error: 'Failed to update lead' });
+  }
+});
+
+// Delete lead
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Add audit log
+    await supabase.from('lead_audit_logs').insert({
+      lead_id: id,
+      action: 'delete',
+      user_id: req.user.id
+    });
+
+    const { error } = await supabase
+      .from('leads')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+    res.json({ message: 'Lead deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting lead:', error);
+    res.status(500).json({ error: 'Failed to delete lead' });
+  }
+});
+
+// Send message to lead
+router.post('/:id/messages', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { content } = req.body;
+
+    const { data, error } = await supabase
+      .from('lead_messages')
+      .insert({
+        lead_id: id,
+        content,
+        sender_id: req.user.id,
+        status: 'sent'
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    console.error('Error sending message:', error);
+    res.status(500).json({ error: 'Failed to send message' });
+  }
+});
+
+// Convert lead to candidate
+router.post('/:id/convert', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Start a transaction
+    const { data: lead, error: leadError } = await supabase
+      .from('leads')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (leadError) throw leadError;
+
+    // Check for existing candidate by email
+    const { data: existing } = await supabase
+      .from('candidates')
+      .select('id')
+      .eq('email', lead.email)
+      .single();
+
+    if (existing) {
+      return res.status(409).json({ error: 'Candidate already exists' });
+    }
+
+    // Create candidate record
+    const [firstName, ...lastNameParts] = (lead.name || '').split(' ');
+    const lastName = lastNameParts.join(' ');
+    const { data: candidate, error: candidateError } = await supabase
+      .from('candidates')
+      .insert({
+        first_name: firstName,
+        last_name: lastName,
+        email: lead.email,
+        phone: lead.phone,
+        title: lead.title,
+        location: lead.location,
+        source: 'lead_conversion',
+        original_lead_id: id,
+        status: 'sourced',
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    console.log('Candidate insert result:', candidate, candidateError);
+
+    if (candidateError) throw candidateError;
+    if (!candidate) throw new Error('Candidate insert did not return a row');
+
+    // Add conversion record
+    console.log('req.user:', req.user);
+    await supabase.from('lead_conversions').insert({
+      lead_id: id,
+      candidate_id: candidate.id,
+      converted_by: req.user ? req.user.id : null,
+      converted_at: new Date().toISOString()
+    });
+
+    // Delete the lead
+    await supabase
+      .from('leads')
+      .delete()
+      .eq('id', id);
+
+    res.json({ 
+      message: 'Lead converted to candidate successfully',
+      candidate 
+    });
+  } catch (error) {
+    console.error('Error converting lead:', error);
+    res.status(500).json({ error: 'Failed to convert lead' });
+  }
+});
+
+// Get all candidates
+router.get('/candidates', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('candidates')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching candidates:', error);
+    res.status(500).json({ error: 'Failed to fetch candidates' });
+  }
+});
+
+module.exports = router; 

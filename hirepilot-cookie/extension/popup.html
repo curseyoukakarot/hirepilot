@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>HirePilot Cookie Helper</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header>
+    <img src="img/hirepilot-logo.svg" alt="HirePilot" width="110" />
+  </header>
+
+  <section id="loginSection">
+    <input id="email" placeholder="Email" />
+    <input id="password" type="password" placeholder="Password" />
+    <button id="loginBtn">Log In</button>
+  </section>
+
+  <section id="mainSection" class="hidden">
+    <p id="hello"></p>
+    <button id="uploadBtn">Copy & Upload LinkedIn Cookie</button>
+    <p id="status"></p>
+    <button id="logoutBtn" class="secondary">Log Out</button>
+  </section>
+
+  <script src="popup.bundle.js"></script>
+</body>
+</html>
