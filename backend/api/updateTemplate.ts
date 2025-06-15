@@ -49,7 +49,10 @@ const handler: ApiHandler = async (req: ApiRequest, res: ApiResponse) => {
 
     if (updateError) throw updateError;
 
-    return res.status(200).json({ template: data });
+    const result = res as any;
+    if (result.status === 200) {
+      return res.status(200).json({ template: data });
+    }
   } catch (error) {
     console.error('Error updating template:', error);
     const errorResponse: ErrorResponse = {

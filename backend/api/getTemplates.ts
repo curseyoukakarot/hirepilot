@@ -15,7 +15,10 @@ const handler: ApiHandler = async (req: ApiRequest, res: ApiResponse) => {
 
     if (error) throw error;
 
-    return res.status(200).json({ templates: data });
+    const result = res as any;
+    if (result.status === 200) {
+      return res.status(200).json({ templates: data });
+    }
   } catch (error) {
     console.error('Error fetching templates:', error);
     const errorResponse: ErrorResponse = {

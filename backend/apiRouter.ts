@@ -1,5 +1,6 @@
-import { Router } from "express";
+import { Router, Response } from "express";
 import { requireAuth } from './middleware/authMiddleware';
+import { ApiRequest } from './types/api';
 
 import getCampaigns from "./api/getCampaigns";
 import saveMessage from "./api/saveMessage";
@@ -16,6 +17,8 @@ import userPerformance from './api/userPerformance';
 import teamRouter from './routes/team';
 
 const router = Router();
+
+export type ApiHandler = (req: ApiRequest, res: Response) => Promise<void>;
 
 // Get campaigns
 router.get("/getCampaigns", getCampaigns);

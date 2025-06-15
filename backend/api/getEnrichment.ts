@@ -54,7 +54,10 @@ const handler: ApiHandler = async (req: ApiRequest, res: ApiResponse) => {
       return res.status(200).json({ data: enrichedData });
     }
 
-    return res.status(200).json({ data: enrichment.data });
+    const result = res as any;
+    if (result.status === 200) {
+      return res.status(200).json({ data: enrichment.data });
+    }
   } catch (error) {
     console.error('Error getting enrichment:', error);
     const errorResponse: ErrorResponse = {
