@@ -1,11 +1,11 @@
 import { OpenAI } from 'openai';
 
-interface Profile {
+type Profile = {
   full_name?: string;
   headline?: string;
   summary?: string;
   experiences?: any[];
-}
+};
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY

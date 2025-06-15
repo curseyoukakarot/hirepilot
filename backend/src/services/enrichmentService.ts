@@ -1,5 +1,4 @@
 import { supabase } from '../lib/supabase';
-import { analyzeProfile } from './gpt/analyzeProfile';
 
 export const enrichProfile = async (profileUrl: string, userId: string, checkOnly: boolean = false) => {
   try {
