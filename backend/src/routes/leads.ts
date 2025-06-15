@@ -1,6 +1,5 @@
 console.log('### LOADED', __filename);
 import express, { Request, Response } from 'express';
-import axios from 'axios';
 import { supabase } from '../lib/supabase';
 import { enrichWithApollo } from '../services/apollo/enrichLead';
 import { analyzeProfile } from '../services/gpt/analyzeProfile';
