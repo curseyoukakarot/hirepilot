@@ -1,17 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
 import { createClient } from '@supabase/supabase-js';
+import { CustomUser } from '../types/api';
 
 // Initialize Supabase client
 const supabaseUrl = process.env.SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
-
-// Define custom user type
-interface CustomUser {
-  id: string;
-  email: string;
-  role: string;
-}
 
 // Extend Express Request type to include user
 declare global {

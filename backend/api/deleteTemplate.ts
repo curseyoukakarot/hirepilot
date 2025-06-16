@@ -1,7 +1,8 @@
-import { ApiRequest, ApiResponse, ApiHandler, ErrorResponse } from '../types/api';
+import { ApiRequest, ApiHandler, ErrorResponse } from '../types/api';
 import { supabaseDb } from '../lib/supabase';
+import { Response } from 'express';
 
-const handler: ApiHandler = async (req: ApiRequest, res: ApiResponse) => {
+const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
   try {
     if (!req.user?.id) {
       return res.status(401).json({ error: 'Unauthorized' });

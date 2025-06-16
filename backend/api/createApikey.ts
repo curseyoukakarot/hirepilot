@@ -1,10 +1,11 @@
 // backend/api/getApiKeys.ts
 
-import { ApiRequest, ApiResponse, ApiHandler, ErrorResponse } from '../types/api';
+import { ApiRequest, ApiHandler, ErrorResponse } from '../types/api';
 import { supabaseDb } from '../lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
+import { Response } from 'express';
 
-const handler: ApiHandler = async (req: ApiRequest, res: ApiResponse) => {
+const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
   try {
     if (!req.user?.id) {
       return res.status(401).json({ error: 'Unauthorized' });
