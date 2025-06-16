@@ -6,7 +6,8 @@ export default async function launchCampaign(req: Request, res: Response) {
     const { campaign_id } = req.body;
 
     if (!campaign_id) {
-      return res.status(400).json({ error: 'Missing campaign_id' });
+      res.status(400).json({ error: 'Missing campaign ID' });
+      return;
     }
 
     const { data: campaign, error: fetchError } = await supabase
@@ -17,15 +18,18 @@ export default async function launchCampaign(req: Request, res: Response) {
 
     if (fetchError) {
       console.error('[Launch Campaign Error]', fetchError);
-      return res.status(500).json({ error: fetchError.message });
+      res.status(500).json({ error: fetchError.message });
+      return;
     }
 
     if (!campaign) {
-      return res.status(404).json({ error: 'Campaign not found' });
+      res.status(404).json({ error: 'Campaign not found' });
+      return;
     }
 
     if (campaign.status !== 'draft') {
-      return res.status(400).json({ error: 'Only draft campaigns can be launched' });
+      res.status(400).json({ error: 'Only draft campaigns can be launched' });
+      return;
     }
 
     const { error: updateError } = await supabase
@@ -35,12 +39,15 @@ export default async function launchCampaign(req: Request, res: Response) {
 
     if (updateError) {
       console.error('[Launch Campaign Error]', updateError);
-      return res.status(500).json({ error: updateError.message });
+      res.status(500).json({ error: updateError.message });
+      return;
     }
 
-    return res.status(200).json({ message: 'Campaign launched successfully' });
+    res.status(200).json({ message: 'Campaign launched successfully' });
+    return;
   } catch (error: any) {
     console.error('[Launch Campaign Error]', error);
-    return res.status(500).json({ error: error.message || 'Failed to launch campaign' });
+    res.status(500).json({ error: 'Failed to launch campaign' });
+    return;
   }
 } 

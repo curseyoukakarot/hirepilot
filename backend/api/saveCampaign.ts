@@ -5,13 +5,15 @@ import { supabaseDb } from '../lib/supabase';
 
 export default async function saveCampaign(req: Request, res: Response) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
   }
 
   const { user_id, campaignName, jobReq, keywords, status } = req.body;
 
   if (!user_id || !campaignName || !jobReq) {
-    return res.status(400).json({ error: 'Missing required fields' });
+    res.status(400).json({ error: 'Missing required fields' });
+    return;
   }
 
   try {
@@ -23,7 +25,8 @@ export default async function saveCampaign(req: Request, res: Response) {
 
     if (userError) {
       console.error('[saveCampaign] User check error:', userError);
-      return res.status(500).json({ error: 'Error checking user' });
+      res.status(500).json({ error: 'Error checking user' });
+      return;
     }
 
     // If user doesn't exist, create them
@@ -36,7 +39,8 @@ export default async function saveCampaign(req: Request, res: Response) {
 
       if (createUserError) {
         console.error('[saveCampaign] User creation error:', createUserError);
-        return res.status(500).json({ error: 'Error creating user' });
+        res.status(500).json({ error: 'Error creating user' });
+        return;
       }
     }
 
@@ -56,7 +60,8 @@ export default async function saveCampaign(req: Request, res: Response) {
 
     if (jobError) {
       console.error('[saveCampaign] Job creation error:', jobError);
-      return res.status(500).json({ error: jobError.message });
+      res.status(500).json({ error: jobError.message });
+      return;
     }
 
     // Create the campaign
@@ -77,18 +82,20 @@ export default async function saveCampaign(req: Request, res: Response) {
 
     if (campaignError) {
       console.error('[saveCampaign] Campaign creation error:', campaignError);
-      return res.status(500).json({ error: campaignError.message });
+      res.status(500).json({ error: 'Failed to save campaign' });
+      return;
     }
 
     console.log('[saveCampaign] Campaign saved:', campaignData);
 
-    return res.status(200).json({ 
+    res.status(200).json({ 
       campaign: campaignData,
       job: jobData,
       keywords: campaignData.keywords
     });
   } catch (err: any) {
     console.error('[saveCampaign] Server Error:', err);
-    return res.status(500).json({ error: err.message || 'Internal Server Error' });
+    res.status(500).json({ error: err.message || 'Internal Server Error' });
+    return;
   }
 }

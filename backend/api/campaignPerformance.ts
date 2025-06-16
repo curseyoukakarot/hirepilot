@@ -5,8 +5,14 @@ export default async function campaignPerformance(req: Request, res: Response) {
   const { id } = req.params;
   // Assume user is authenticated and user id is available (adjust as needed)
   const userId = req.user?.id || req.query.user_id;
-  if (!userId) return res.status(400).json({ error: 'Missing user id' });
-  if (!id) return res.status(400).json({ error: 'Missing campaign id' });
+  if (!userId) {
+    res.status(400).json({ error: 'Missing user id' });
+    return;
+  }
+  if (!id) {
+    res.status(400).json({ error: 'Missing campaign id' });
+    return;
+  }
 
   try {
     // If id is 'all', aggregate for all messages to leads for this user
@@ -21,7 +27,8 @@ export default async function campaignPerformance(req: Request, res: Response) {
     const { count: sent, error: sentError } = await filter;
     if (sentError) {
       console.error('[campaignPerformance] Sent count error:', sentError);
-      return res.status(500).json({ error: sentError.message });
+      res.status(500).json({ error: sentError.message });
+      return;
     }
 
     // Opens
@@ -36,7 +43,8 @@ export default async function campaignPerformance(req: Request, res: Response) {
     const { count: opens, error: openError } = await openFilter;
     if (openError) {
       console.error('[campaignPerformance] Opens count error:', openError);
-      return res.status(500).json({ error: openError.message });
+      res.status(500).json({ error: openError.message });
+      return;
     }
 
     // Replies
@@ -51,7 +59,8 @@ export default async function campaignPerformance(req: Request, res: Response) {
     const { count: replies, error: replyError } = await replyFilter;
     if (replyError) {
       console.error('[campaignPerformance] Replies count error:', replyError);
-      return res.status(500).json({ error: replyError.message });
+      res.status(500).json({ error: replyError.message });
+      return;
     }
 
     // Calculate rates
@@ -67,6 +76,7 @@ export default async function campaignPerformance(req: Request, res: Response) {
     });
   } catch (error: any) {
     console.error('[campaignPerformance] Error:', error);
-    return res.status(500).json({ error: error.message || 'Failed to fetch campaign performance' });
+    res.status(500).json({ error: error.message || 'Failed to fetch campaign performance' });
+    return;
   }
 } 

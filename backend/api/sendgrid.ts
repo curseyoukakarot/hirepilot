@@ -13,7 +13,10 @@ const supabase = createClient(
 // 1) Validate key & return senders
 router.post('/validate', async (req, res) => {
   const body = z.object({ apiKey: z.string().min(10) }).safeParse(req.body);
-  if (!body.success) return res.status(400).json({ error: 'Bad payload' });
+  if (!body.success) {
+    res.status(400).json({ error: 'Bad payload' });
+    return;
+  }
 
   try {
     const sg = axios.create({
@@ -33,7 +36,8 @@ router.post('/save', async (req, res) => {
   try {
     const { user_id, api_key, default_sender } = req.body;
     if (!user_id || !api_key || !default_sender) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      res.status(400).json({ error: 'Missing required fields' });
+      return;
     }
     const { error } = await supabase
       .from('user_sendgrid_keys')
@@ -45,7 +49,8 @@ router.post('/save', async (req, res) => {
       });
     if (error) {
       console.error('Error saving SendGrid configuration:', error);
-      return res.status(500).json({ error: 'Failed to save SendGrid configuration' });
+      res.status(500).json({ error: 'Failed to save SendGrid configuration' });
+      return;
     }
     res.json({ success: true });
   } catch (error) {
@@ -57,14 +62,20 @@ router.post('/save', async (req, res) => {
 // 3) List senders again later
 router.post('/get-senders', async (req, res) => {
   const { user_id } = req.body;
-  if (!user_id) return res.status(400).json({ error: 'Missing user_id' });
+  if (!user_id) {
+    res.status(400).json({ error: 'Missing user_id' });
+    return;
+  }
   try {
     const { data: keyRow, error: keyError } = await supabase
       .from('user_sendgrid_keys')
       .select('api_key, default_sender')
       .eq('user_id', user_id)
       .single();
-    if (keyError || !keyRow?.api_key) return res.status(400).json({ error: 'No SendGrid API key found' });
+    if (keyError || !keyRow?.api_key) {
+      res.status(400).json({ error: 'No SendGrid API key found' });
+      return;
+    }
     const sg = axios.create({
       baseURL: 'https://api.sendgrid.com/v3',
       headers: { Authorization: `Bearer ${keyRow.api_key}` },
@@ -81,7 +92,10 @@ router.post('/get-senders', async (req, res) => {
 // 4) Change default sender without disconnecting
 router.patch('/sender', async (req, res) => {
   const { user_id, default_sender } = req.body;
-  if (!user_id || !default_sender) return res.status(400).json({ error: 'Missing required fields' });
+  if (!user_id || !default_sender) {
+    res.status(400).json({ error: 'Missing required fields' });
+    return;
+  }
   try {
     const { error } = await supabase
       .from('user_sendgrid_keys')
@@ -89,7 +103,8 @@ router.patch('/sender', async (req, res) => {
       .eq('user_id', user_id);
     if (error) {
       console.error('update-sender error:', error);
-      return res.status(500).json({ error: 'Failed to update sender' });
+      res.status(500).json({ error: 'Failed to update sender' });
+      return;
     }
     res.json({ success: true });
   } catch (err) {

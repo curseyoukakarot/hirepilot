@@ -9,7 +9,8 @@ router.post('/sendgrid/send', async (req, res) => {
   const { user_id, to, subject, html } = req.body;
 
   if (!user_id || !to || !subject || !html) {
-    return res.status(400).json({ error: 'Missing required fields' });
+    res.status(400).json({ error: 'Missing required fields' });
+    return;
   }
 
   try {
@@ -22,11 +23,13 @@ router.post('/sendgrid/send', async (req, res) => {
 
     if (error || !data?.api_key) {
       console.error('SendGrid key lookup error:', error);
-      return res.status(400).json({ error: 'No SendGrid API key found for user' });
+      res.status(400).json({ error: 'No SendGrid API key found for user' });
+      return;
     }
 
     if (!data.default_sender) {
-      return res.status(400).json({ error: 'No default sender configured for user' });
+      res.status(400).json({ error: 'No default sender configured for user' });
+      return;
     }
 
     // 2. Configure SendGrid

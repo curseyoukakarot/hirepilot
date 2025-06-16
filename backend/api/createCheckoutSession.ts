@@ -8,11 +8,17 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
 
 export default async function handler(req: Request, res: Response) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
   }
 
   try {
     const { priceId } = req.body;
+
+    if (!priceId) {
+      res.status(400).json({ error: 'Missing required fields' });
+      return;
+    }
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
@@ -30,6 +36,7 @@ export default async function handler(req: Request, res: Response) {
     res.status(200).json({ sessionId: session.id });
   } catch (error) {
     console.error('Error creating checkout session:', error);
-    res.status(500).json({ error: 'Error creating checkout session' });
+    res.status(500).json({ error: 'Failed to create checkout session' });
+    return;
   }
 }

@@ -5,12 +5,14 @@ import { Response } from 'express';
 const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
   try {
     if (!req.user?.id) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const { keyId } = req.params;
     if (!keyId) {
-      return res.status(400).json({ error: 'Missing API key ID' });
+      res.status(400).json({ error: 'Missing API key ID' });
+      return;
     }
 
     // Verify ownership
@@ -23,7 +25,8 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
 
     if (fetchError) throw fetchError;
     if (!key) {
-      return res.status(404).json({ error: 'API key not found' });
+      res.status(404).json({ error: 'API key not found' });
+      return;
     }
 
     const { error: deleteError } = await supabaseDb
@@ -34,14 +37,16 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
 
     if (deleteError) throw deleteError;
 
-    return res.status(200).json({ message: 'API key deleted successfully' });
+    res.status(200).json({ message: 'API key deleted successfully' });
+    return;
   } catch (error) {
     console.error('Error deleting API key:', error);
     const errorResponse: ErrorResponse = {
       error: 'Failed to delete API key',
       details: error instanceof Error ? error.message : 'Unknown error'
     };
-    return res.status(500).json(errorResponse);
+    res.status(500).json(errorResponse);
+    return;
   }
 };
 

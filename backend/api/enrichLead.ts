@@ -8,7 +8,8 @@ export default async function enrichLead(req: Request, res: Response) {
   const { lead_id, user_id } = req.body;
 
   if (!lead_id || !user_id) {
-    return res.status(400).json({ error: 'Missing required fields' });
+    res.status(400).json({ error: 'Missing required fields' });
+    return;
   }
 
   try {
@@ -45,11 +46,12 @@ export default async function enrichLead(req: Request, res: Response) {
 
     // If user doesn't have their own Apollo key, check credits
     if (!hasOwnApolloKey && (!userCredits || userCredits.balance < 1)) {
-      return res.status(402).json({ 
+      res.status(402).json({ 
         error: 'Insufficient credits',
         requiredCredits: 1,
         currentBalance: userCredits?.balance || 0
       });
+      return;
     }
 
     // Prepare Apollo API request
@@ -68,7 +70,8 @@ export default async function enrichLead(req: Request, res: Response) {
     });
 
     if (!response.data || !response.data.people || response.data.people.length === 0) {
-      return res.status(404).json({ error: 'No enrichment data found' });
+      res.status(404).json({ error: 'No enrichment data found' });
+      return;
     }
 
     const enrichmentData = response.data.people[0];
@@ -97,13 +100,15 @@ export default async function enrichLead(req: Request, res: Response) {
 
     if (updateLeadError) throw updateLeadError;
 
-    return res.status(200).json({ 
+    res.status(200).json({ 
       enrichment_data: enrichmentData,
       credits_used: hasOwnApolloKey ? 0 : 1,
       remaining_credits: hasOwnApolloKey ? userCredits?.balance : userCredits.balance - 1
     });
+    return;
   } catch (err: any) {
     console.error('[enrichLead] Error:', err);
-    return res.status(500).json({ error: err.message || 'Internal Server Error' });
+    res.status(500).json({ error: err.message || 'Internal Server Error' });
+    return;
   }
 } 

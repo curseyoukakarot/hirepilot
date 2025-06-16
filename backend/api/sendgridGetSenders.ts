@@ -26,7 +26,8 @@ router.post('/get-senders', async (req: Request, res: Response) => {
       .single();
     if (error) throw error;
     if (!data) {
-      return res.status(404).json({ error: 'SendGrid configuration not found' });
+      res.status(404).json({ error: 'SendGrid configuration not found' });
+      return;
     }
     // Fetch verified senders from SendGrid
     const sg = axios.create({

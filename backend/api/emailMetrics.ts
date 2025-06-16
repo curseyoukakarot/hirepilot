@@ -9,7 +9,8 @@ router.get('/email-metrics', async (req, res) => {
   const { user_id, time_range = '7d' } = req.query;
 
   if (!user_id) {
-    return res.status(400).json({ error: 'user_id is required' });
+    res.status(400).json({ error: 'user_id is required' });
+    return;
   }
 
   try {
@@ -121,6 +122,7 @@ router.get('/email-metrics', async (req, res) => {
   } catch (error) {
     console.error('Error fetching email metrics:', error);
     res.status(500).json({ error: 'Failed to fetch email metrics' });
+    return;
   }
 });
 

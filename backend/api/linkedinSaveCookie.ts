@@ -52,16 +52,19 @@ router.post('/save-cookie', async (req, res) => {
 
     if (error) {
       console.error('insert failed', error);
-      return res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message });
+      return;
     }
 
     return res.json({ ok: true });
   } catch (err) {
     console.error('insert failed', err);
     if (err instanceof Error) {
-      return res.status(500).json({ error: err.message });
+      res.status(500).json({ error: err.message });
+      return;
     } else {
-      return res.status(500).json({ error: 'Unknown error' });
+      res.status(500).json({ error: 'Unknown error' });
+      return;
     }
   }
 });
@@ -79,7 +82,8 @@ router.post('/test-cookie', async (req, res) => {
       .eq('user_id', user_id)
       .single();
     if (error || !data?.session_cookie) {
-      return res.status(404).json({ error: 'No cookie found for user' });
+      res.status(404).json({ error: 'No cookie found for user' });
+      return;
     }
     // Ping LinkedIn
     let isValid = false;
@@ -100,9 +104,11 @@ router.post('/test-cookie', async (req, res) => {
   } catch (err) {
     console.error('test-cookie failed', err);
     if (err instanceof Error) {
-      return res.status(500).json({ error: err.message });
+      res.status(500).json({ error: err.message });
+      return;
     } else {
-      return res.status(500).json({ error: 'Unknown error' });
+      res.status(500).json({ error: 'Unknown error' });
+      return;
     }
   }
 });
@@ -111,21 +117,27 @@ router.post('/test-cookie', async (req, res) => {
 router.post('/expire-cookie', async (req, res) => {
   try {
     const { user_id } = req.body;
-    if (!user_id) return res.status(400).json({ error: 'user_id required' });
+    if (!user_id) {
+      res.status(400).json({ error: 'user_id required' });
+      return;
+    }
     const { error } = await supabase
       .from('linkedin_cookies')
       .update({ status: 'stale', updated_at: new Date().toISOString() })
       .eq('user_id', user_id);
     if (error) {
-      return res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message });
+      return;
     }
     return res.json({ ok: true });
   } catch (err) {
     console.error('expire-cookie failed', err);
     if (err instanceof Error) {
-      return res.status(500).json({ error: err.message });
+      res.status(500).json({ error: err.message });
+      return;
     } else {
-      return res.status(500).json({ error: 'Unknown error' });
+      res.status(500).json({ error: 'Unknown error' });
+      return;
     }
   }
 });

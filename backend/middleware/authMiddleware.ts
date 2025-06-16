@@ -14,7 +14,8 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
     const auth = req.headers.authorization;
     if (!auth || !auth.startsWith('Bearer ')) {
       console.log('Missing or invalid auth header:', auth); // Debug auth header
-      return res.status(401).json({ error: 'Missing or invalid bearer token' });
+      res.status(401).json({ error: 'Missing or invalid bearer token' });
+      return;
     }
 
     const token = auth.split(' ')[1];
@@ -26,7 +27,8 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
       console.log('Decoded token:', decoded); // Debug decoded token
     } catch (e) {
       console.error('JWT decode error:', e); // Debug JWT error
-      return res.status(401).json({ error: 'Malformed JWT' });
+      res.status(401).json({ error: 'Malformed JWT' });
+      return;
     }
 
     // Get user from Supabase
@@ -35,7 +37,8 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
     
     if (error || !user) {
       console.error('Auth error:', error);
-      return res.status(401).json({ error: error?.message ?? 'Unauthorized' });
+      res.status(401).json({ error: error?.message ?? 'Unauthorized' });
+      return;
     }
 
     // Attach user to request object
@@ -43,6 +46,6 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
     next();
   } catch (error) {
     console.error('Auth middleware error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error' });
   }
 };

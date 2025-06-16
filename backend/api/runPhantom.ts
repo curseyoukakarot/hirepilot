@@ -12,7 +12,8 @@ const supabase = createClient(
 router.post('/run', async (req, res) => {
   const { user_id, campaign_id, search_url, job_title, location } = req.body;
   if (!user_id || !campaign_id || !search_url) {
-    return res.status(400).json({ error: 'Missing required fields' });
+    res.status(400).json({ error: 'Missing required fields' });
+    return;
   }
 
   try {
@@ -23,19 +24,22 @@ router.post('/run', async (req, res) => {
       .eq('user_id', user_id)
       .single();
     if (pbError || !pbAccount?.session_cookie) {
-      return res.status(400).json({ error: 'No LinkedIn session cookie found. Please connect on the Integrations page.' });
+      res.status(400).json({ error: 'No LinkedIn session cookie found. Please connect on the Integrations page.' });
+      return;
     }
     // Use user's API key if present, else use HirePilot's
     const apiKey = pbAccount.api_key || process.env.PHANTOMBUSTER_API_KEY;
     if (!apiKey) {
-      return res.status(400).json({ error: 'No PhantomBuster API key available.' });
+      res.status(400).json({ error: 'No PhantomBuster API key available.' });
+      return;
     }
 
     // 2. Launch the LinkedIn Search Phantom
     // (Replace with your actual PhantomBuster agent/agentId)
     const agentId = process.env.PHANTOMBUSTER_LINKEDIN_AGENT_ID;
     if (!agentId) {
-      return res.status(500).json({ error: 'PhantomBuster agent ID not configured.' });
+      res.status(500).json({ error: 'PhantomBuster agent ID not configured.' });
+      return;
     }
     const webhookUrl = `${process.env.BACKEND_URL}/api/phantombuster/webhook`;
     const launchRes = await axios.post(
@@ -68,7 +72,8 @@ router.post('/run', async (req, res) => {
 router.get('/status/:executionId', async (req, res) => {
   const { executionId } = req.params;
   if (!executionId) {
-    return res.status(400).json({ error: 'Missing execution ID' });
+    res.status(400).json({ error: 'Missing execution ID' });
+    return;
   }
 
   try {
@@ -84,7 +89,8 @@ router.get('/status/:executionId', async (req, res) => {
     }
 
     if (!execution) {
-      return res.status(404).json({ error: 'Execution not found' });
+      res.status(404).json({ error: 'Execution not found' });
+      return;
     }
 
     // If the execution is already completed or failed, return its status

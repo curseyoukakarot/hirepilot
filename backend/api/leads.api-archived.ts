@@ -16,7 +16,8 @@ router.post('/import', async (req: Request, res: Response) => {
     const leads = req.body.leads;
 
     if (!leads || !Array.isArray(leads)) {
-      return res.status(400).json({ error: 'Invalid leads payload' });
+      res.status(400).json({ error: 'Invalid leads payload' });
+      return;
     }
 
     const insertPromises = leads.map((lead: any) => {
@@ -54,7 +55,8 @@ router.get('/list', async (req: Request, res: Response) => {
     const { data, error } = await supabase.from('leads').select('*');
     if (error) {
       console.error('❌ Error fetching leads:', error);
-      return res.status(500).json({ error: 'Failed to fetch leads' });
+      res.status(500).json({ error: 'Failed to fetch leads' });
+      return;
     }
     res.status(200).json(data);
   } catch (error) {
@@ -68,7 +70,8 @@ router.post('/enrich', async (req: Request, res: Response) => {
   const { id } = req.body;
 
   if (!id) {
-    return res.status(400).json({ error: 'Lead ID is required' });
+    res.status(400).json({ error: 'Lead ID is required' });
+    return;
   }
 
   try {
@@ -85,7 +88,8 @@ router.post('/enrich', async (req: Request, res: Response) => {
 
     if (error) {
       console.error('❌ Supabase update error:', error);
-      return res.status(500).json({ error: 'Failed to enrich lead' });
+      res.status(500).json({ error: 'Failed to enrich lead' });
+      return;
     }
 
     res.status(200).json({ success: true, message: `Lead ${id} enriched`, data });
@@ -105,7 +109,10 @@ router.post('/:id/enrich', async (req: Request, res: Response) => {
       .select('*')
       .eq('id', id)
       .single();
-    if (error || !lead) return res.status(404).json({ error: 'Lead not found' });
+    if (error || !lead) {
+      res.status(404).json({ error: 'Lead not found' });
+      return;
+    }
 
     let enrichmentData = {};
     let apolloErrorMsg = null;
@@ -185,28 +192,34 @@ router.post('/:id/convert', async (req: Request, res: Response) => {
     console.log('user?.id:', user?.id);
   } catch (err) {
     console.error('getUser threw:', err);
-    return res.status(401).json({ error: 'JWT verification failed' });
+    res.status(401).json({ error: 'JWT verification failed' });
+    return;
   }
   // Decode JWT for iss/exp checks
   try {
     const { iss, exp } = (jwtDecode as any)(jwt);
     console.log('JWT iss:', iss, 'exp:', exp, 'now:', Math.floor(Date.now()/1000));
     if (!iss.startsWith(process.env.SUPABASE_URL)) {
-      return res.status(401).json({ error: 'token for wrong project' });
+      res.status(401).json({ error: 'token for wrong project' });
+      return;
     }
     if (exp < Math.floor(Date.now()/1000)) {
-      return res.status(401).json({ error: 'token expired' });
+      res.status(401).json({ error: 'token expired' });
+      return;
     }
   } catch (err) {
     console.error('JWT decode error:', err);
-    return res.status(401).json({ error: 'invalid JWT' });
+    res.status(401).json({ error: 'invalid JWT' });
+    return;
   }
   if (!user) {
     console.error('Auth failed:', userError);
-    return res.status(401).json({ error: 'invalid or expired JWT' });
+    res.status(401).json({ error: 'invalid or expired JWT' });
+    return;
   }
   if (!user_id || user.id !== user_id) {
-    return res.status(401).json({ error: 'User ID mismatch or missing' });
+    res.status(401).json({ error: 'User ID mismatch or missing' });
+    return;
   }
   // --- END PATCH ---
 
@@ -220,7 +233,8 @@ router.post('/:id/convert', async (req: Request, res: Response) => {
 
     if (leadError || !lead) {
       console.error('❌ Error fetching lead:', leadError);
-      return res.status(404).json({ error: 'Lead not found' });
+      res.status(404).json({ error: 'Lead not found' });
+      return;
     }
 
     // 2. Create candidate record
@@ -256,7 +270,8 @@ router.post('/:id/convert', async (req: Request, res: Response) => {
 
     if (candidateError) {
       console.error('❌ DB insert failed', candidateError);
-      return res.status(500).json({ error: 'db error' });
+      res.status(500).json({ error: 'db error' });
+      return;
     }
 
     // 3. Delete the lead
@@ -267,7 +282,8 @@ router.post('/:id/convert', async (req: Request, res: Response) => {
 
     if (deleteError) {
       console.error('❌ Error deleting lead:', deleteError);
-      return res.status(500).json({ error: 'Failed to delete lead' });
+      res.status(500).json({ error: 'Failed to delete lead' });
+      return;
     }
 
     res.status(200).json({
@@ -287,14 +303,16 @@ router.get('/candidates', async (req: Request, res: Response) => {
     // Get user from auth header
     const authHeader = req.headers.authorization;
     if (!authHeader) {
-      return res.status(401).json({ error: 'No authorization header' });
+      res.status(401).json({ error: 'No authorization header' });
+      return;
     }
 
     const token = authHeader.split(' ')[1];
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     
     if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
+      res.status(401).json({ error: 'Invalid token' });
+      return;
     }
 
     // Get candidates for this user
@@ -318,7 +336,8 @@ router.get('/candidates', async (req: Request, res: Response) => {
 
     if (error) {
       console.error('Error fetching candidates:', error);
-      return res.status(500).json({ error: 'Failed to fetch candidates' });
+      res.status(500).json({ error: 'Failed to fetch candidates' });
+      return;
     }
 
     res.status(200).json({ candidates: candidates || [] });

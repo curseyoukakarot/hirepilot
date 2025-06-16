@@ -8,7 +8,8 @@ export default async function searchLeverLeads(req: Request, res: Response) {
   const { user_id, job_title, location, keywords } = req.body;
 
   if (!user_id) {
-    return res.status(400).json({ error: 'Missing user_id' });
+    res.status(400).json({ error: 'Missing user_id' });
+    return;
   }
 
   try {
@@ -22,7 +23,8 @@ export default async function searchLeverLeads(req: Request, res: Response) {
     if (settingsError) throw settingsError;
 
     if (!settings?.lever_api_key) {
-      return res.status(400).json({ error: 'No Lever API key found' });
+      res.status(400).json({ error: 'No Lever API key found' });
+      return;
     }
 
     // Prepare Lever API request
@@ -45,7 +47,8 @@ export default async function searchLeverLeads(req: Request, res: Response) {
     });
 
     if (!response.data || !response.data.data) {
-      return res.status(404).json({ error: 'No leads found' });
+      res.status(404).json({ error: 'No leads found' });
+      return;
     }
 
     // Transform Lever response to our lead format
@@ -78,9 +81,11 @@ export default async function searchLeverLeads(req: Request, res: Response) {
       }
     }));
 
-    return res.status(200).json({ leads });
+    res.status(200).json({ leads });
+    return;
   } catch (err: any) {
     console.error('[searchLeverLeads] Error:', err);
-    return res.status(500).json({ error: err.message || 'Internal Server Error' });
+    res.status(500).json({ error: err.message || 'Internal Server Error' });
+    return;
   }
 } 

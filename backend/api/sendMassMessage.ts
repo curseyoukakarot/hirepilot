@@ -5,10 +5,16 @@ import { personalizeMessage } from '../utils/messageUtils';
 
 export default async function handler(req: Request, res: Response) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
   }
 
   const { lead_ids, template_id, custom_content, channel, user_id } = req.body;
+
+  if (!lead_ids || !template_id || !custom_content || !channel || !user_id) {
+    res.status(400).json({ error: 'Missing required fields' });
+    return;
+  }
 
   try {
     // Fetch leads
@@ -59,6 +65,7 @@ export default async function handler(req: Request, res: Response) {
     });
   } catch (error: any) {
     console.error('Error in sendMassMessage:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Failed to send mass message' });
+    return;
   }
 }

@@ -8,7 +8,8 @@ export default async function getCampaigns(req: Request, res: Response) {
     const { user_id } = req.query;
 
     if (!user_id) {
-      return res.status(400).json({ error: 'Missing user_id' });
+      res.status(400).json({ error: 'Missing user_id' });
+      return;
     }
 
     console.log('Incoming user_id:', user_id);
@@ -21,12 +22,15 @@ export default async function getCampaigns(req: Request, res: Response) {
 
     if (error) {
       console.error('[getCampaigns Error]', error);
-      return res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message });
+      return;
     }
 
-    return res.status(200).json({ campaigns: campaigns || [] });
+    res.status(200).json({ campaigns: campaigns || [] });
+    return;
   } catch (error: any) {
     console.error('[getCampaigns Error]', error);
-    return res.status(500).json({ error: error.message || 'Failed to fetch campaigns' });
+    res.status(500).json({ error: error.message || 'Failed to fetch campaigns' });
+    return;
   }
 }

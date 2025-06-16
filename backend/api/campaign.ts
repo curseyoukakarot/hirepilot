@@ -7,11 +7,13 @@ export async function startCampaign(req: Request, res: Response) {
     const userId = req.user?.id;
 
     if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     if (!campaignId || !searchUrl) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      res.status(400).json({ error: 'Missing required fields' });
+      return;
     }
 
     const result = await startCampaignFlow({
@@ -33,11 +35,13 @@ export async function processLeadEndpoint(req: Request, res: Response) {
     const userId = req.user?.id;
 
     if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     if (!leadId) {
-      return res.status(400).json({ error: 'Missing lead ID' });
+      res.status(400).json({ error: 'Missing lead ID' });
+      return;
     }
 
     const result = await processLead(leadId);
@@ -53,7 +57,8 @@ export async function phantomBusterWebhook(req: Request, res: Response) {
     const { executionId, results } = req.body;
 
     if (!executionId || !results) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      res.status(400).json({ error: 'Missing required fields' });
+      return;
     }
 
     // Verify webhook signature if needed

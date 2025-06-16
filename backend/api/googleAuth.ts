@@ -32,7 +32,10 @@ router.get('/init', async (req, res) => {
   });
   
   const user_id = req.query.user_id as string;
-  if (!user_id) return res.status(400).json({ error: 'Missing user_id' });
+  if (!user_id) {
+    res.status(400).json({ error: 'Missing user_id' });
+    return;
+  }
   const url = oauth2.generateAuthUrl({
     scope: [
       'https://www.googleapis.com/auth/gmail.send',
@@ -50,7 +53,10 @@ router.get('/init', async (req, res) => {
 // Step 2: Callback
 router.get('/callback', async (req, res) => {
   const { code, state: user_id } = req.query as { code: string; state: string };
-  if (!code || !user_id) return res.status(400).json({ error: 'Missing code or state' });
+  if (!code || !user_id) {
+    res.status(400).json({ error: 'Missing code or state' });
+    return;
+  }
   try {
     const { tokens } = await oauth2.getToken(code);
     oauth2.setCredentials(tokens);

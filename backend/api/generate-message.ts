@@ -7,12 +7,16 @@ const openai = new OpenAI({
 });
 
 export default async function generateMessage(req: Request, res: Response) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
 
   const { messages, model, temperature, max_tokens } = req.body;
 
   if (!messages || !Array.isArray(messages)) {
-    return res.status(400).json({ error: 'Missing or invalid messages array' });
+    res.status(400).json({ error: 'Missing or invalid messages array' });
+    return;
   }
 
   try {

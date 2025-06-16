@@ -5,7 +5,8 @@ export default async function saveMessage(req: Request, res: Response) {
   const { user_id, name, subject, message, tone, is_default } = req.body;
 
   if (!user_id || !name || !subject || !message) {
-    return res.status(400).json({ error: 'Missing required fields' });
+    res.status(400).json({ error: 'Missing required fields' });
+    return;
   }
 
   try {
@@ -27,7 +28,8 @@ export default async function saveMessage(req: Request, res: Response) {
 
     if (templateError) {
       console.error('[saveMessage] Error:', templateError);
-      return res.status(500).json({ error: templateError.message });
+      res.status(500).json({ error: templateError.message });
+      return;
     }
 
     // If this is set as default, update other templates to not be default
@@ -44,10 +46,10 @@ export default async function saveMessage(req: Request, res: Response) {
       }
     }
 
-    return res.status(200).json({ template });
+    res.status(200).json({ template });
   } catch (err: any) {
     console.error('[saveMessage] Server Error:', err);
-    return res.status(500).json({ error: err.message || 'Internal Server Error' });
+    res.status(500).json({ error: err.message || 'Internal Server Error' });
   }
 }
 

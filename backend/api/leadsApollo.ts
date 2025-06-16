@@ -28,12 +28,14 @@ router.post('/search', requireAuth, async (req, res) => {
 
     if (settingsError || !settings?.apollo_api_key) {
       console.error('[Apollo Search] API key error:', settingsError);
-      return res.status(401).json({ error: 'No valid Apollo API key found' });
+      res.status(401).json({ error: 'No valid Apollo API key found' });
+      return;
     }
 
     // Validate search parameters
     if (!jobTitle && !keywords && !location) {
-      return res.status(400).json({ error: 'At least one search parameter is required' });
+      res.status(400).json({ error: 'At least one search parameter is required' });
+      return;
     }
 
     // Construct search params
@@ -57,7 +59,8 @@ router.post('/search', requireAuth, async (req, res) => {
     // Search and enrich the leads
     const { leads } = await searchAndEnrichPeople(searchParams);
     
-    return res.json({ leads });
+    res.json({ leads });
+    return;
   } catch (error: any) {
     console.error('[Apollo Search] Error details:', {
       message: error.message,
@@ -65,10 +68,11 @@ router.post('/search', requireAuth, async (req, res) => {
       status: error.response?.status
     });
     
-    return res.status(500).json({ 
+    res.status(500).json({ 
       error: 'Failed to search leads',
       details: error.response?.data?.message || error.message
     });
+    return;
   }
 });
 
@@ -77,7 +81,8 @@ router.post('/validate-key', requireAuth, async (req, res) => {
   const { api_key } = req.body;
   if (!api_key) {
     console.log('Missing API key in request body');
-    return res.status(400).json({ error: 'Missing API key' });
+    res.status(400).json({ error: 'Missing API key' });
+    return;
   }
 
   // Log the API key and its length for debugging
@@ -118,7 +123,8 @@ router.get('/locations', requireAuth, async (req, res) => {
   console.log('[Apollo Locations] User ID:', userId);
 
   if (!q || typeof q !== 'string') {
-    return res.status(400).json({ error: 'Missing or invalid query parameter' });
+    res.status(400).json({ error: 'Missing or invalid query parameter' });
+    return;
   }
 
   try {
@@ -134,7 +140,8 @@ router.get('/locations', requireAuth, async (req, res) => {
 
     if (settingsError || !settings?.apollo_api_key) {
       console.error('[Apollo Locations] API key error:', settingsError);
-      return res.status(401).json({ error: 'No valid Apollo API key found' });
+      res.status(401).json({ error: 'No valid Apollo API key found' });
+      return;
     }
 
     // Call Apollo API for location suggestions
@@ -171,7 +178,8 @@ router.get('/locations', requireAuth, async (req, res) => {
     const uniqueLocations = Array.from(new Map(locations.map((loc: any) => [loc.id, loc])).values());
 
     console.log('[Apollo Locations] Transformed locations:', uniqueLocations);
-    return res.json({ locations: uniqueLocations });
+    res.json({ locations: uniqueLocations });
+    return;
   } catch (error: any) {
     console.error('[Apollo Locations] Error details:', {
       message: error.message,
@@ -180,10 +188,11 @@ router.get('/locations', requireAuth, async (req, res) => {
       headers: error.response?.headers
     });
     
-    return res.status(500).json({ 
+    res.status(500).json({ 
       error: 'Failed to fetch location suggestions',
       details: error.response?.data?.message || error.message
     });
+    return;
   }
 });
 
@@ -196,7 +205,8 @@ router.post('/save-key', requireAuth, async (req, res) => {
   
   if (!user_id || !api_key) {
     console.log('Missing required fields');
-    return res.status(400).json({ error: 'Missing user_id or api_key' });
+    res.status(400).json({ error: 'Missing user_id or api_key' });
+    return;
   }
 
   try {
@@ -211,7 +221,8 @@ router.post('/save-key', requireAuth, async (req, res) => {
       console.log('API key validation successful');
     } catch (err) {
       console.error('API key validation failed:', err);
-      return res.status(401).json({ error: 'Invalid API key' });
+      res.status(401).json({ error: 'Invalid API key' });
+      return;
     }
 
     console.log('Checking for existing user settings...');
@@ -258,7 +269,8 @@ router.post('/save-key', requireAuth, async (req, res) => {
 
     if (result.error) {
       console.error('Error saving Apollo API key:', result.error);
-      return res.status(500).json({ error: 'Failed to save API key' });
+      res.status(500).json({ error: 'Failed to save API key' });
+      return;
     }
 
     console.log('Successfully saved API key');

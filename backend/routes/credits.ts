@@ -13,12 +13,14 @@ router.get('/status', async (req, res) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const creditStatus = await CreditService.checkCreditStatus(userId);
     if (!creditStatus) {
-      return res.status(404).json({ error: 'No credit record found' });
+      res.status(404).json({ error: 'No credit record found' });
+      return;
     }
 
     res.json(creditStatus);
@@ -33,14 +35,16 @@ router.post('/purchase', async (req, res) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const { packageId } = req.body;
     const creditPackage = Object.values(A_LA_CARTE_PACKAGES).find(p => p.id === packageId);
 
     if (!creditPackage) {
-      return res.status(400).json({ error: 'Invalid package ID' });
+      res.status(400).json({ error: 'Invalid package ID' });
+      return;
     }
 
     const session = await stripe.checkout.sessions.create({
@@ -79,12 +83,14 @@ router.post('/check', async (req, res) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const { requiredCredits } = req.body;
     if (typeof requiredCredits !== 'number' || requiredCredits <= 0) {
-      return res.status(400).json({ error: 'Invalid credit amount' });
+      res.status(400).json({ error: 'Invalid credit amount' });
+      return;
     }
 
     const remainingCredits = await CreditService.getRemainingCredits(userId);
@@ -106,17 +112,20 @@ router.post('/use', async (req, res) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const { credits } = req.body;
     if (typeof credits !== 'number' || credits <= 0) {
-      return res.status(400).json({ error: 'Invalid credit amount' });
+      res.status(400).json({ error: 'Invalid credit amount' });
+      return;
     }
 
     const success = await CreditService.useCredits(userId, credits);
     if (!success) {
-      return res.status(400).json({ error: 'Insufficient credits' });
+      res.status(400).json({ error: 'Insufficient credits' });
+      return;
     }
 
     res.json({ success: true });

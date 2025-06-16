@@ -8,7 +8,8 @@ export async function getPipelines(req: Request, res: Response) {
   const { user_id } = req.query;
 
   if (!user_id) {
-    return res.status(400).json({ error: 'User ID is required' });
+    res.status(400).json({ error: 'User ID is required' });
+    return;
   }
 
   try {
@@ -19,13 +20,16 @@ export async function getPipelines(req: Request, res: Response) {
 
     if (error) {
       console.error('[getPipelines] Error:', error);
-      return res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message });
+      return;
     }
 
-    return res.status(200).json({ pipelines });
+    res.status(200).json({ pipelines });
+    return;
   } catch (err: any) {
     console.error('[getPipelines] Server Error:', err);
-    return res.status(500).json({ error: err.message || 'Internal Server Error' });
+    res.status(500).json({ error: err.message || 'Internal Server Error' });
+    return;
   }
 }
 
@@ -36,7 +40,8 @@ router.post('/', async (req: Request, res: Response) => {
     const { user_id, name, department, stages } = req.body;
     if (!user_id || !name || !department || !Array.isArray(stages) || stages.length === 0) {
       console.error('[POST /api/pipelines] Missing required fields:', req.body);
-      return res.status(400).json({ error: 'Missing required fields or stages' });
+      res.status(400).json({ error: 'Missing required fields or stages' });
+      return;
     }
     // Insert pipeline
     const { data: pipeline, error: pipelineError } = await supabaseDb
@@ -46,7 +51,8 @@ router.post('/', async (req: Request, res: Response) => {
       .single();
     if (pipelineError || !pipeline) {
       console.error('[POST /api/pipelines] Pipeline insert error:', pipelineError);
-      return res.status(500).json({ error: pipelineError?.message || 'Failed to create pipeline' });
+      res.status(500).json({ error: pipelineError?.message || 'Failed to create pipeline' });
+      return;
     }
     // Log the pipeline id before inserting stages
     console.log('[POST /api/pipelines] Using pipeline id for stages:', pipeline.id);
@@ -66,13 +72,16 @@ router.post('/', async (req: Request, res: Response) => {
     console.log('[POST /api/pipelines] Inserted stages:', insertedStages, 'Error:', stagesError);
     if (stagesError) {
       console.error('[POST /api/pipelines] Stages insert error:', stagesError);
-      return res.status(500).json({ error: stagesError.message });
+      res.status(500).json({ error: stagesError.message });
+      return;
     }
     // Return pipeline with stages
-    return res.status(200).json({ pipeline: { ...pipeline, stages: insertedStages } });
+    res.status(200).json({ pipeline: { ...pipeline, stages: insertedStages } });
+    return;
   } catch (error: any) {
     console.error('[POST /api/pipelines] Create pipeline error:', error);
-    return res.status(500).json({ error: error.message || 'Failed to create pipeline' });
+    res.status(500).json({ error: error.message || 'Failed to create pipeline' });
+    return;
   }
 });
 

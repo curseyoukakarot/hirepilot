@@ -24,9 +24,13 @@ async function isSuperAdmin(userId: string) {
 // Middleware: Restrict to super admins
 async function requireSuperAdmin(req: Request, res: Response, next: Function) {
   const userId = (req as any).auth?.user?.id;
-  if (!userId) return res.status(401).json({ error: 'Not authenticated' });
+  if (!userId) {
+    res.status(401).json({ error: 'Not authenticated' });
+    return;
+  }
   if (!(await isSuperAdmin(userId))) {
-    return res.status(403).json({ error: 'Forbidden: Super admin only' });
+    res.status(403).json({ error: 'Forbidden: Super admin only' });
+    return;
   }
   next();
 }
@@ -37,7 +41,8 @@ router.get('/users', requireAuth, requireSuperAdmin, async (req: Request, res: R
   const { data, error } = await dbClient.from('users').select('*');
   if (error) {
     console.error('[ADMIN USERS] Error fetching users:', error);
-    return res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message });
+    return;
   }
   console.log('[ADMIN USERS] Users fetched:', data);
   res.json(data);
@@ -48,7 +53,8 @@ router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: 
   try {
     const { email, firstName, lastName, role } = req.body;
     if (!email || !firstName || !lastName || !role) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      res.status(400).json({ error: 'Missing required fields' });
+      return;
     }
     // 1. Create user in Supabase Auth (invite)
     const { data: authUser, error: authError } = await dbClient.auth.admin.createUser({
@@ -57,7 +63,10 @@ router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: 
       user_metadata: { first_name: firstName, last_name: lastName, role },
     });
     console.log('[ADMIN USERS] Auth user creation result:', { authUser, authError });
-    if (authError) return res.status(500).json({ error: authError.message });
+    if (authError) {
+      res.status(500).json({ error: authError.message });
+      return;
+    }
     // 2. Insert into users table
     console.log('[ADMIN USERS] Attempting to insert user into users table:', {
       id: authUser.user.id,
@@ -78,7 +87,8 @@ router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: 
     console.log('[ADMIN USERS] Insert result:', { dbUser, dbError });
     if (dbError) {
       console.error('[ADMIN USERS] DB insert error (full object):', dbError);
-      return res.status(500).json({ error: dbError.message || 'Database error creating new user' });
+      res.status(500).json({ error: dbError.message || 'Database error creating new user' });
+      return;
     }
     // 3. If RecruitPro, initialize credits
     if (role === 'RecruitPro') {
@@ -93,7 +103,10 @@ router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: 
     // Get inviter info
     const inviterId = (req as any).auth?.user?.id;
     const { data: inviter, error: inviterError } = await dbClient.from('users').select('*').eq('id', inviterId).single();
-    if (inviterError || !inviter) return res.status(500).json({ error: 'Failed to fetch inviter info' });
+    if (inviterError || !inviter) {
+      res.status(500).json({ error: 'Failed to fetch inviter info' });
+      return;
+    }
     // Generate invite link (use user id as token)
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.FRONTEND_URL || 'https://hirepilot.com';
     const inviteLink = `${appUrl}/join?token=${authUser.user.id}`;
@@ -112,7 +125,8 @@ router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: 
         role
       });
     } catch (emailError) {
-      return res.status(500).json({ error: 'Failed to send invite email', details: emailError });
+      res.status(500).json({ error: 'Failed to send invite email', details: emailError });
+      return;
     }
     res.json({ success: true, user: dbUser });
   } catch (err) {
@@ -124,14 +138,20 @@ router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: 
 router.patch('/users/:id/credits', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
   const userId = req.params.id;
   const { total_credits } = req.body;
-  if (!total_credits) return res.status(400).json({ error: 'Missing total_credits' });
+  if (!total_credits) {
+    res.status(400).json({ error: 'Missing total_credits' });
+    return;
+  }
   const { data, error } = await dbClient.from('user_credits').upsert({
     user_id: userId,
     total_credits,
     used_credits: 0,
     remaining_credits: total_credits,
   }, { onConflict: 'user_id' }).select('*').single();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
   res.json(data);
 });
 
@@ -140,7 +160,10 @@ router.patch('/users/:id', requireAuth, requireSuperAdmin, async (req: Request, 
   const userId = req.params.id;
   const { firstName, lastName, role } = req.body;
   const { data, error } = await dbClient.from('users').update({ firstName, lastName, role }).eq('id', userId).select('*').single();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
   res.json(data);
 });
 
@@ -148,7 +171,10 @@ router.patch('/users/:id', requireAuth, requireSuperAdmin, async (req: Request, 
 router.delete('/users/:id', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
   const userId = req.params.id;
   const { error } = await dbClient.from('users').delete().eq('id', userId);
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
   // Optionally, delete from Auth as well
   res.json({ success: true });
 });
@@ -156,7 +182,8 @@ router.delete('/users/:id', requireAuth, requireSuperAdmin, async (req: Request,
 export const getAdminUsers = async (req: ApiRequest, res: Response) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const { data, error } = await supabaseLib.supabase
@@ -165,20 +192,23 @@ export const getAdminUsers = async (req: ApiRequest, res: Response) => {
       .eq('role', 'admin');
 
     if (error) {
-      return res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message });
+      return;
     }
 
     return res.json(data);
   } catch (error) {
     console.error('Error fetching admin users:', error);
-    return res.status(500).json({ error: 'Failed to fetch admin users' });
+    res.status(500).json({ error: 'Failed to fetch admin users' });
+    return;
   }
 };
 
 export const createAdminUser = async (req: ApiRequest, res: Response) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const { email, password, firstName, lastName } = req.body;
@@ -196,20 +226,24 @@ export const createAdminUser = async (req: ApiRequest, res: Response) => {
     });
 
     if (userError) {
-      return res.status(500).json({ error: userError.message });
+      res.status(500).json({ error: userError.message });
+      return;
     }
 
-    return res.status(201).json(userData);
+    res.status(201).json(userData);
+    return;
   } catch (error) {
     console.error('Error creating admin user:', error);
-    return res.status(500).json({ error: 'Failed to create admin user' });
+    res.status(500).json({ error: 'Failed to create admin user' });
+    return;
   }
 };
 
 export const inviteTeamMember = async (req: ApiRequest, res: Response) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const { email, firstName, lastName, role, company } = req.body;
@@ -232,7 +266,8 @@ export const inviteTeamMember = async (req: ApiRequest, res: Response) => {
     return res.json({ success: true });
   } catch (error) {
     console.error('Error inviting team member:', error);
-    return res.status(500).json({ error: 'Failed to invite team member' });
+    res.status(500).json({ error: 'Failed to invite team member' });
+    return;
   }
 };
 

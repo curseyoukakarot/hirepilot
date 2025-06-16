@@ -7,11 +7,13 @@ export default async function deleteCampaign(req: Request, res: Response) {
     const userId = req.headers['x-user-id'] as string;
 
     if (!campaign_id) {
-      return res.status(400).json({ error: 'Missing campaign_id' });
+      res.status(400).json({ error: 'Missing campaign ID' });
+      return;
     }
 
     if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized - Missing user ID' });
+      res.status(401).json({ error: 'Unauthorized - Missing user ID' });
+      return;
     }
 
     // First verify the campaign belongs to the user
@@ -24,7 +26,8 @@ export default async function deleteCampaign(req: Request, res: Response) {
 
     if (fetchError || !campaign) {
       console.error('[Delete Campaign Error] Campaign not found or unauthorized:', fetchError);
-      return res.status(404).json({ error: 'Campaign not found or unauthorized' });
+      res.status(404).json({ error: 'Campaign not found' });
+      return;
     }
 
     // Delete the campaign
@@ -36,12 +39,15 @@ export default async function deleteCampaign(req: Request, res: Response) {
 
     if (error) {
       console.error('[Delete Campaign Error]', error);
-      return res.status(500).json({ error: error.message });
+      res.status(500).json({ error: 'Failed to delete campaign' });
+      return;
     }
 
-    return res.status(200).json({ message: 'Campaign deleted successfully' });
+    res.status(200).json({ message: 'Campaign deleted successfully' });
+    return;
   } catch (err) {
     console.error('[Delete Campaign Exception]', err);
-    return res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Server error' });
+    return;
   }
 }

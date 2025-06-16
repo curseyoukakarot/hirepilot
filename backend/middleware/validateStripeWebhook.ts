@@ -9,7 +9,8 @@ export const validateStripeWebhook = async (req: Request, res: Response, next: N
   const signature = req.headers['stripe-signature'];
 
   if (!signature) {
-    return res.status(400).json({ error: 'Missing stripe-signature header' });
+    res.status(400).json({ error: 'Missing stripe-signature header' });
+    return;
   }
 
   try {
@@ -33,6 +34,7 @@ export const validateStripeWebhook = async (req: Request, res: Response, next: N
     } else {
       console.error('⚠️ Webhook signature verification failed:', err);
     }
-    return res.status(400).json({ error: 'Invalid signature' });
+    res.status(400).json({ error: 'Invalid signature' });
+    return;
   }
 }; 

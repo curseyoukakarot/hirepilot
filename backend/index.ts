@@ -53,13 +53,17 @@ app.post('/api/sendgrid/webhook', (req, res) => {
   const sig = req.get('x-twilio-email-event-webhook-signature') ?? '';
   const ts  = req.get('x-twilio-email-event-webhook-timestamp') ?? '';
 
-  if (!sig || !ts) return res.status(400).send('missing headers');
+  if (!sig || !ts) {
+    res.status(400).send('missing headers');
+    return;
+  }
 
   const ew  = new EventWebhook();
   const key = ew.convertPublicKeyToECDSA(process.env.SENDGRID_WEBHOOK_PUB_KEY!.trim());
 
   if (!ew.verifySignature(key, req.body as Buffer, sig, ts)) {
-    return res.status(400).send('signature mismatch');
+    res.status(400).send('signature mismatch');
+    return;
   }
 
   res.status(200).end();

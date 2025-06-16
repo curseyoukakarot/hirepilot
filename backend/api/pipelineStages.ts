@@ -10,7 +10,8 @@ router.get('/:jobId', async (req: Request, res: Response) => {
     const userId = req.headers['x-user-id'];
 
     if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     // Verify job ownership
@@ -22,7 +23,8 @@ router.get('/:jobId', async (req: Request, res: Response) => {
       .single();
 
     if (jobError || !job) {
-      return res.status(404).json({ error: 'Job not found' });
+      res.status(404).json({ error: 'Job not found' });
+      return;
     }
 
     // Get stages
@@ -48,7 +50,8 @@ router.post('/', async (req: Request, res: Response) => {
     const userId = req.headers['x-user-id'];
 
     if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     // Verify job ownership
@@ -60,7 +63,8 @@ router.post('/', async (req: Request, res: Response) => {
       .single();
 
     if (jobError || !job) {
-      return res.status(404).json({ error: 'Job not found' });
+      res.status(404).json({ error: 'Job not found' });
+      return;
     }
 
     // Create stage
@@ -92,7 +96,8 @@ router.put('/:stageId', async (req: Request, res: Response) => {
     const userId = req.headers['x-user-id'];
 
     if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     // Verify stage ownership through job
@@ -103,7 +108,8 @@ router.put('/:stageId', async (req: Request, res: Response) => {
       .single();
 
     if (stageError || !stage) {
-      return res.status(404).json({ error: 'Stage not found' });
+      res.status(404).json({ error: 'Stage not found' });
+      return;
     }
 
     const { data: job, error: jobError } = await supabase
@@ -114,7 +120,8 @@ router.put('/:stageId', async (req: Request, res: Response) => {
       .single();
 
     if (jobError || !job) {
-      return res.status(403).json({ error: 'Unauthorized' });
+      res.status(403).json({ error: 'Unauthorized' });
+      return;
     }
 
     // Update stage
@@ -145,7 +152,8 @@ router.delete('/:stageId', async (req: Request, res: Response) => {
     const userId = req.headers['x-user-id'];
 
     if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     // Verify stage ownership through job
@@ -156,7 +164,8 @@ router.delete('/:stageId', async (req: Request, res: Response) => {
       .single();
 
     if (stageError || !stage) {
-      return res.status(404).json({ error: 'Stage not found' });
+      res.status(404).json({ error: 'Stage not found' });
+      return;
     }
 
     const { data: job, error: jobError } = await supabase
@@ -167,7 +176,8 @@ router.delete('/:stageId', async (req: Request, res: Response) => {
       .single();
 
     if (jobError || !job) {
-      return res.status(403).json({ error: 'Unauthorized' });
+      res.status(403).json({ error: 'Unauthorized' });
+      return;
     }
 
     // Delete stage
@@ -192,7 +202,8 @@ router.post('/reorder', async (req: Request, res: Response) => {
     const userId = req.headers['x-user-id'];
 
     if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     // Verify all stages belong to user's jobs
@@ -214,7 +225,8 @@ router.post('/reorder', async (req: Request, res: Response) => {
     if (jobError) throw jobError;
 
     if (jobs.length !== jobIds.length) {
-      return res.status(403).json({ error: 'Unauthorized' });
+      res.status(403).json({ error: 'Unauthorized' });
+      return;
     }
 
     // Update positions

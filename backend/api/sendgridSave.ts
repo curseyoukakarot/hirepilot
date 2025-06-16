@@ -20,13 +20,16 @@ router.post('/save', async (req, res) => {
   try {
     // Validate required fields manually for better error messages
     if (!req.body.user_id) {
-      return res.status(400).json({ error: 'user_id is required' });
+      res.status(400).json({ error: 'user_id is required' });
+      return;
     }
     if (!req.body.api_key) {
-      return res.status(400).json({ error: 'api_key is required' });
+      res.status(400).json({ error: 'api_key is required' });
+      return;
     }
     if (!req.body.default_sender) {
-      return res.status(400).json({ error: 'default_sender is required' });
+      res.status(400).json({ error: 'default_sender is required' });
+      return;
     }
 
     const { user_id, api_key, default_sender } = bodySchema.parse(req.body);
@@ -52,15 +55,17 @@ router.post('/save', async (req, res) => {
   } catch (err: any) {
     console.error('❌ sendgrid/save error:', err);
     if (err instanceof z.ZodError) {
-      return res.status(400).json({ 
+      res.status(400).json({ 
         error: 'Invalid input',
         details: err.errors.map(e => ({
           field: e.path.join('.'),
           message: e.message
         }))
       });
+      return;
     }
     res.status(400).json({ error: err.message || 'save failed' });
+    return;
   }
 });
 

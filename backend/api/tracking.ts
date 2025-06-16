@@ -10,7 +10,8 @@ router.get('/pixel/:messageId', async (req, res) => {
   try {
     const messageId = req.params.messageId;
     if (!messageId) {
-      return res.status(400).send('Missing messageId parameter');
+      res.status(400).send('Missing messageId parameter');
+      return;
     }
 
     const ip = req.ip || req.socket.remoteAddress || '';
@@ -44,7 +45,8 @@ router.post('/gmail/webhook', async (req, res) => {
     const userId = req.headers['x-goog-channel-token'] as string;
 
     if (!userId || !message) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      res.status(400).json({ error: 'Missing required fields' });
+      return;
     }
 
     // Add job to process notification
@@ -67,7 +69,8 @@ router.post('/outlook/webhook', async (req, res) => {
     const clientState = req.headers['clientstate'] as string;
 
     if (!clientState || !value) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      res.status(400).json({ error: 'Missing required fields' });
+      return;
     }
 
     // Process each notification

@@ -12,7 +12,8 @@ const { supabase } = require('../src/lib/supabase');
 function requireAdmin(req: any, res: any, next: any) {
   // TODO: Replace with real auth check
   if (!req.headers['x-admin']) {
-    return res.status(403).json({ error: 'Admin access required' });
+    res.status(403).json({ error: 'Admin access required' });
+    return;
   }
   next();
 }
@@ -22,7 +23,10 @@ function requireAdmin(req: any, res: any, next: any) {
 router.get('/linkedin-accounts', requireAdmin, async (req: any, res: any) => {
   // Query the new linkedin_accounts table
   const { data: accounts, error } = await supabase.from('linkedin_accounts').select('*');
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
   // Mask li_at cookie
   const result = (accounts || []).map((acc: any) => ({
     id: acc.id,
@@ -41,7 +45,8 @@ router.get('/linkedin-accounts', requireAdmin, async (req: any, res: any) => {
 router.post('/update-session', requireAdmin, async (req: any, res: any) => {
   const { accountId, liat, userAgent, sourceBrowser, updatedBy, resetCooldown } = req.body;
   if (!accountId || !liat || !userAgent || !updatedBy) {
-    return res.status(400).json({ error: 'Missing required fields' });
+    res.status(400).json({ error: 'Missing required fields' });
+    return;
   }
   // TODO: Encrypt liat and userAgent in production
   const updates: any = {
@@ -55,7 +60,10 @@ router.post('/update-session', requireAdmin, async (req: any, res: any) => {
     updates.is_in_cooldown = false;
   }
   const { error } = await supabase.from('linkedin_accounts').update(updates).eq('id', accountId);
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
   res.json({ success: true, message: 'Session updated' });
 });
 
@@ -64,7 +72,8 @@ router.post('/update-session', requireAdmin, async (req: any, res: any) => {
 router.post('/refresh-session-extension', requireAdmin, async (req: any, res: any) => {
   const { accountId } = req.body;
   if (!accountId) {
-    return res.status(400).json({ error: 'Missing accountId' });
+    res.status(400).json({ error: 'Missing accountId' });
+    return;
   }
   // TODO: Fetch latest session from PhantomBuster API and update linkedin_accounts
   // Mock response

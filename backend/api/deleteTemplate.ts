@@ -5,12 +5,14 @@ import { Response } from 'express';
 const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
   try {
     if (!req.user?.id) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const { templateId } = req.params;
     if (!templateId) {
-      return res.status(400).json({ error: 'Missing template ID' });
+      res.status(400).json({ error: 'Missing template ID' });
+      return;
     }
 
     // First verify the template belongs to the user
@@ -22,7 +24,8 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
 
     if (fetchError) throw fetchError;
     if (!template || template.user_id !== req.user.id) {
-      return res.status(404).json({ error: 'Template not found' });
+      res.status(404).json({ error: 'Template not found' });
+      return;
     }
 
     // Delete the template
@@ -33,14 +36,16 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
 
     if (deleteError) throw deleteError;
 
-    return res.status(200).json({ message: 'Template deleted successfully' });
+    res.status(200).json({ message: 'Template deleted successfully' });
+    return;
   } catch (error) {
     console.error('Error deleting template:', error);
     const errorResponse: ErrorResponse = {
       error: 'Failed to delete template',
       details: error instanceof Error ? error.message : 'Unknown error'
     };
-    return res.status(500).json(errorResponse);
+    res.status(500).json(errorResponse);
+    return;
   }
 };
 

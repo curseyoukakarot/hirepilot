@@ -53,11 +53,13 @@ router.post('/sendEmail', async (req, res) => {
         }
       };
       await trySend();
-      return res.status(200).json({ success: true, message: '✅ Email sent!' });
+      res.status(200).json({ success: true, message: '✅ Email sent!' });
+      return;
     }
     // Fallback: other providers (e.g., Outlook, SendGrid) can use nodemailer or their SDKs
     // ... existing code for other providers ...
-    return res.status(400).json({ error: 'Unsupported provider' });
+    res.status(400).json({ error: 'Unsupported provider' });
+    return;
   } catch (error) {
     console.error('❌ Email send error:', error);
     res.status(500).json({ error: 'Failed to send email' });

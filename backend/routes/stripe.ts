@@ -86,7 +86,9 @@ router.post('/webhook', validateStripeWebhook, async (req, res) => {
         
         // Get user_id from metadata
         if (!session.metadata) {
-          return res.status(400).json({ error: 'Missing session metadata' });
+          await logWebhookEvent(event.id, event.type, event.data.object, 'Missing session metadata');
+          res.status(400).json({ error: 'Missing session metadata' });
+          return;
         }
         const userId = session.metadata.user_id;
         if (!userId) throw new Error('No user_id in session metadata');

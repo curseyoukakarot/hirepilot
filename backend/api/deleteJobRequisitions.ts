@@ -3,12 +3,14 @@ import { Request, Response } from 'express';
 
 export default async function handler(req: Request, res: Response) {
   if (req.method !== 'DELETE') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
   }
 
   const { ids, force } = req.body;
   if (!Array.isArray(ids) || ids.length === 0) {
-    return res.status(400).json({ error: 'No IDs provided' });
+    res.status(400).json({ error: 'No IDs provided' });
+    return;
   }
 
   // 1. Check for related campaigns
@@ -17,12 +19,14 @@ export default async function handler(req: Request, res: Response) {
     .select('id, title, job_id')
     .in('job_id', ids);
   if (campaignsError) {
-    return res.status(500).json({ error: campaignsError.message });
+    res.status(500).json({ error: campaignsError.message });
+    return;
   }
 
   if (campaigns.length > 0 && !force) {
     // Warn the user, do not delete yet
-    return res.status(200).json({ warning: true, campaigns });
+    res.status(200).json({ warning: true, campaigns });
+    return;
   }
 
   try {

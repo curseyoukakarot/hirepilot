@@ -60,16 +60,19 @@ export class BillingController {
       const { planId, interval } = req.body;
 
       if (!planId || !interval || !PRICING_CONFIG[planId]) {
-        return res.status(400).json({ error: 'Invalid plan or interval' });
+        res.status(400).json({ error: 'Invalid plan or interval' });
+        return;
       }
 
       if (interval !== 'monthly' && interval !== 'annual') {
-        return res.status(400).json({ error: 'Invalid interval. Must be monthly or annual.' });
+        res.status(400).json({ error: 'Invalid interval. Must be monthly or annual.' });
+        return;
       }
 
       const priceId = PRICING_CONFIG[planId].priceIds[interval as BillingInterval];
       if (!priceId) {
-        return res.status(400).json({ error: 'Price ID not configured' });
+        res.status(400).json({ error: 'Price ID not configured' });
+        return;
       }
 
       const session = await BillingService.createCheckoutSession(userId, priceId, planId);

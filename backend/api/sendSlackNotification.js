@@ -2,7 +2,8 @@
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method Not Allowed' });
+    res.status(405).json({ message: 'Method Not Allowed' });
+    return;
   }
 
   const {
@@ -16,7 +17,8 @@ export default async function handler(req, res) {
   const slackWebhookUrl = 'https://hooks.slack.com/services/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';
 
   if (!slackWebhookUrl) {
-    return res.status(500).json({ message: 'Slack webhook URL is not configured.' });
+    res.status(500).json({ message: 'Slack webhook URL is not configured.' });
+    return;
   }
 
   let message = {};
@@ -125,12 +127,13 @@ export default async function handler(req, res) {
 
     if (!slackResponse.ok) {
       const errorText = await slackResponse.text();
-      return res.status(500).json({ message: 'Slack error', error: errorText });
+      res.status(500).json({ message: 'Slack error', error: errorText });
+      return;
     }
 
-    return res.status(200).json({ message: 'Slack notification sent successfully!' });
+    res.status(200).json({ message: 'Slack notification sent successfully!' });
   } catch (error) {
     console.error('Slack notification failed:', error);
-    return res.status(500).json({ message: 'Internal Server Error', error: error.message });
+    res.status(500).json({ message: 'Internal Server Error', error: error.message });
   }
 }

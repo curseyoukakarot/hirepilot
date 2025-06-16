@@ -25,7 +25,8 @@ export const authenticateUser = async (
     const authHeader = req.headers.authorization;
 
     if (!authHeader) {
-      return res.status(401).json({ error: 'No authorization header' });
+      res.status(401).json({ error: 'No authorization header' });
+      return;
     }
 
     const token = authHeader.replace('Bearer ', '');
@@ -34,7 +35,8 @@ export const authenticateUser = async (
     const { data: { user }, error } = await supabase.auth.getUser(token);
 
     if (error || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
+      res.status(401).json({ error: 'Invalid token' });
+      return;
     }
 
     // Get additional user data from the database
@@ -46,7 +48,8 @@ export const authenticateUser = async (
 
     if (userError) {
       console.error('Error fetching user data:', userError);
-      return res.status(500).json({ error: 'Error fetching user data' });
+      res.status(500).json({ error: 'Error fetching user data' });
+      return;
     }
 
     // Attach user data to request

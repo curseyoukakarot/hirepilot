@@ -43,13 +43,15 @@ router.get('/test-connection', async (req: Request, res: Response) => {
       
     if (error) {
       console.error('Supabase connection test failed:', error);
-      return res.status(500).json({ message: 'Failed to connect to Supabase', error });
+      res.status(500).json({ message: 'Failed to connect to Supabase', error });
+      return;
     }
     
     return res.json({ message: 'Supabase connection successful', data });
   } catch (error) {
     console.error('Test connection error:', error);
-    return res.status(500).json({ message: 'Connection test failed', error });
+    res.status(500).json({ message: 'Connection test failed', error });
+    return;
   }
 });
 
@@ -67,7 +69,8 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
     });
 
     if (!req.auth?.user) {
-      return res.status(401).json({ message: 'Unauthorized' });
+      res.status(401).json({ message: 'Unauthorized' });
+      return;
     }
 
     const { firstName, lastName, email, company, role } = req.body as TeamInviteRequest;
@@ -82,7 +85,8 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
 
     if (inviterError) {
       console.error('Error fetching inviter details:', inviterError);
-      return res.status(500).json({ message: 'Error fetching inviter details', error: inviterError });
+      res.status(500).json({ message: 'Error fetching inviter details', error: inviterError });
+      return;
     }
 
     // Generate a unique token for the invite
@@ -98,7 +102,8 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
 
     if (authCheckError) {
       console.error('Error checking auth system:', authCheckError);
-      return res.status(500).json({ message: 'Error checking auth system', error: authCheckError });
+      res.status(500).json({ message: 'Error checking auth system', error: authCheckError });
+      return;
     }
 
     // Create team invite record first
@@ -122,7 +127,8 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
 
     if (inviteError) {
       console.error('Error creating team invite:', inviteError);
-      return res.status(500).json({ message: 'Failed to create team invite', error: inviteError });
+      res.status(500).json({ message: 'Failed to create team invite', error: inviteError });
+      return;
     }
 
     console.log('Team invite created successfully:', invite);
@@ -155,10 +161,11 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
           .from('team_invites')
           .update({ status: 'failed' })
           .eq('id', inviteToken);
-        return res.status(503).json({ 
+        res.status(503).json({ 
           message: 'Failed to create user account', 
           error: createError
         });
+        return;
       }
 
       // Create a record in the public.users table
@@ -181,10 +188,11 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
         console.error('Error creating public user record:', publicUserError);
         // Clean up the auth user since we couldn't create the public record
         await supabase.auth.admin.deleteUser(userData.user.id);
-        return res.status(503).json({ 
+        res.status(503).json({ 
           message: 'Failed to create user record', 
           error: publicUserError
         });
+        return;
       }
     }
 
@@ -207,10 +215,11 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
       });
     } catch (emailError) {
       console.error('Error sending invite email:', emailError);
-      return res.status(503).json({ 
+      res.status(503).json({ 
         message: 'Failed to send invite email', 
         error: emailError
       });
+      return;
     }
 
     // Send notification
@@ -240,7 +249,8 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
     const currentUser = req.auth?.user;
 
     if (!currentUser) {
-      return res.status(401).json({ message: 'Unauthorized' });
+      res.status(401).json({ message: 'Unauthorized' });
+      return;
     }
 
     // Get the invite details
@@ -252,7 +262,8 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
 
     if (inviteError || !invite) {
       console.error('Error fetching invite:', inviteError);
-      return res.status(404).json({ message: 'Invite not found' });
+      res.status(404).json({ message: 'Invite not found' });
+      return;
     }
 
     // Get current user's details for the invite
@@ -264,7 +275,8 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
 
     if (inviterError) {
       console.error('Error fetching inviter details:', inviterError);
-      return res.status(500).json({ message: 'Error fetching inviter details', error: inviterError });
+      res.status(500).json({ message: 'Error fetching inviter details', error: inviterError });
+      return;
     }
 
     console.log('Found invite:', { email: invite.email, id: invite.id });
@@ -276,7 +288,8 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
 
     if (authError) {
       console.error('Error checking auth user:', authError);
-      return res.status(500).json({ message: 'Error checking user existence', error: authError });
+      res.status(500).json({ message: 'Error checking user existence', error: authError });
+      return;
     }
 
     // Generate invite URL
@@ -306,10 +319,11 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
 
       if (createError) {
         console.error('Error creating user:', createError);
-        return res.status(503).json({ 
+        res.status(503).json({ 
           message: 'Failed to create user account', 
           error: createError
         });
+        return;
       }
 
       // Create a record in the public.users table
@@ -330,10 +344,11 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
         console.error('Error creating public user record:', publicUserError);
         // Clean up the auth user since we couldn't create the public record
         await supabase.auth.admin.deleteUser(userData.user.id);
-        return res.status(503).json({ 
+        res.status(503).json({ 
           message: 'Failed to create user record', 
           error: publicUserError
         });
+        return;
       }
     }
 
@@ -356,10 +371,11 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
       });
     } catch (emailError) {
       console.error('Error sending invite email:', emailError);
-      return res.status(503).json({ 
+      res.status(503).json({ 
         message: 'Failed to send invite email', 
         error: emailError
       });
+      return;
     }
 
     // Update invite status and timestamp
@@ -405,11 +421,13 @@ router.delete('/invite/:id', async (req: Request, res: Response) => {
 
     if (inviteError) {
       console.error('Error fetching invite:', inviteError);
-      return res.status(500).json({ message: 'Error fetching invite', error: inviteError });
+      res.status(500).json({ message: 'Error fetching invite', error: inviteError });
+      return;
     }
 
     if (!invite) {
-      return res.status(404).json({ message: 'Invite not found' });
+      res.status(404).json({ message: 'Invite not found' });
+      return;
     }
 
     // Find the user in auth system by email
@@ -419,7 +437,8 @@ router.delete('/invite/:id', async (req: Request, res: Response) => {
 
     if (authCheckError) {
       console.error('Error checking auth system:', authCheckError);
-      return res.status(500).json({ message: 'Error checking auth system', error: authCheckError });
+      res.status(500).json({ message: 'Error checking auth system', error: authCheckError });
+      return;
     }
 
     // Delete from public.users first if exists
@@ -432,7 +451,8 @@ router.delete('/invite/:id', async (req: Request, res: Response) => {
 
       if (publicDeleteError) {
         console.error('Error deleting public user:', publicDeleteError);
-        return res.status(500).json({ message: 'Error deleting public user', error: publicDeleteError });
+        res.status(500).json({ message: 'Error deleting public user', error: publicDeleteError });
+        return;
       }
 
       // Delete from auth.users
@@ -440,7 +460,8 @@ router.delete('/invite/:id', async (req: Request, res: Response) => {
       const { error: authDeleteError } = await supabase.auth.admin.deleteUser(userToDelete.id);
       if (authDeleteError) {
         console.error('Error deleting auth user:', authDeleteError);
-        return res.status(500).json({ message: 'Error deleting auth user', error: authDeleteError });
+        res.status(500).json({ message: 'Error deleting auth user', error: authDeleteError });
+        return;
       }
     }
 
@@ -453,7 +474,8 @@ router.delete('/invite/:id', async (req: Request, res: Response) => {
 
     if (deleteError) {
       console.error('Error deleting invite:', deleteError);
-      return res.status(500).json({ message: 'Error deleting invite', error: deleteError });
+      res.status(500).json({ message: 'Error deleting invite', error: deleteError });
+      return;
     }
 
     // Send notification

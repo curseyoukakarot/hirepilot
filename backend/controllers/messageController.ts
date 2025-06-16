@@ -30,13 +30,15 @@ export const sendMessage = async (req: Request, res: Response) => {
     const { to, subject, html, provider, attachments, template_id, template_data } = req.body;
     
     if (!to || !subject || !html || !provider) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      res.status(400).json({ error: 'Missing required fields' });
+      return;
     }
 
     // Use req.user (set by middleware)
     const user = req.user;
     if (!user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     // If template_id is provided, fetch and populate the template
@@ -49,7 +51,8 @@ export const sendMessage = async (req: Request, res: Response) => {
         .single();
 
       if (templateError || !template) {
-        return res.status(400).json({ error: 'Template not found' });
+        res.status(400).json({ error: 'Template not found' });
+        return;
       }
 
       // Replace template variables with actual data
@@ -69,7 +72,8 @@ export const sendMessage = async (req: Request, res: Response) => {
     console.log('DEBUG: integration object:', integration);
 
     if (integrationError || !integration) {
-      return res.status(400).json({ error: `Integration for ${provider} not found` });
+      res.status(400).json({ error: `Integration for ${provider} not found` });
+      return;
     }
 
     // Route the send request to the correct integration
@@ -85,11 +89,13 @@ export const sendMessage = async (req: Request, res: Response) => {
         sendResult = await sendViaSendGrid(integration, { to, subject, html: finalHtml, attachments });
         break;
       default:
-        return res.status(400).json({ error: 'Unsupported provider' });
+        res.status(400).json({ error: 'Unsupported provider' });
+        return;
     }
 
     if (sendResult.error) {
-      return res.status(500).json({ error: sendResult.error });
+      res.status(500).json({ error: sendResult.error });
+      return;
     }
 
     // Store the message in the database
@@ -110,10 +116,10 @@ export const sendMessage = async (req: Request, res: Response) => {
       console.error('Error storing message:', messageError);
     }
 
-    return res.status(200).json({ success: true });
+    res.status(200).json({ success: true });
   } catch (error: any) {
     console.error('Error sending message:', error);
-    return res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message });
   }
 };
 
@@ -316,7 +322,8 @@ export const getAllMessages = async (req: Request, res: Response) => {
   try {
     const user = req.user;
     if (!user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
     const { data, error } = await supabase
       .from('messages')
@@ -324,10 +331,10 @@ export const getAllMessages = async (req: Request, res: Response) => {
       .eq('user_id', user.id)
       .order('sent_at', { ascending: false });
     if (error) throw error;
-    return res.status(200).json({ messages: data });
+    res.status(200).json({ messages: data });
   } catch (error) {
     console.error('Error fetching messages:', error);
-    return res.status(500).json({ error: 'Failed to fetch messages' });
+    res.status(500).json({ error: 'Failed to fetch messages' });
   }
 };
 
@@ -335,7 +342,8 @@ export const getUnreadCount = async (req: Request, res: Response) => {
   try {
     const user = req.user;
     if (!user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
     const { count, error } = await supabase
       .from('messages')
@@ -343,9 +351,9 @@ export const getUnreadCount = async (req: Request, res: Response) => {
       .eq('user_id', user.id)
       .eq('read', false);
     if (error) throw error;
-    return res.status(200).json({ unread: count || 0 });
+    res.status(200).json({ unread: count || 0 });
   } catch (error) {
     console.error('Error fetching unread count:', error);
-    return res.status(500).json({ error: 'Failed to fetch unread count' });
+    res.status(500).json({ error: 'Failed to fetch unread count' });
   }
 }; 

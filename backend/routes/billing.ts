@@ -24,7 +24,8 @@ router.get('/overview', async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       console.log('No auth token found in headers:', req.headers);
-      return res.status(401).json({ error: 'Not authenticated' });
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
     }
 
     const token = authHeader.split(' ')[1];
@@ -41,7 +42,8 @@ router.get('/overview', async (req, res) => {
 
     if (userError || !user) {
       console.log('User error:', userError);
-      return res.status(401).json({ error: 'Invalid session' });
+      res.status(401).json({ error: 'Invalid session' });
+      return;
     }
 
     console.log('Found user:', user.id);
@@ -55,7 +57,8 @@ router.get('/overview', async (req, res) => {
 
     if (subscriptionError && subscriptionError.code !== 'PGRST116') {
       console.error('Error fetching subscription:', subscriptionError);
-      return res.status(500).json({ error: 'Failed to fetch subscription' });
+      res.status(500).json({ error: 'Failed to fetch subscription' });
+      return;
     }
 
     // Get user's credits
@@ -67,7 +70,8 @@ router.get('/overview', async (req, res) => {
 
     if (creditsError && creditsError.code !== 'PGRST116') {
       console.error('Error fetching credits:', creditsError);
-      return res.status(500).json({ error: 'Failed to fetch credits' });
+      res.status(500).json({ error: 'Failed to fetch credits' });
+      return;
     }
 
     // Get recent credit usage
@@ -80,7 +84,8 @@ router.get('/overview', async (req, res) => {
 
     if (usageError) {
       console.error('Error fetching usage:', usageError);
-      return res.status(500).json({ error: 'Failed to fetch usage history' });
+      res.status(500).json({ error: 'Failed to fetch usage history' });
+      return;
     }
 
     // Get recent invoices if there's a subscription

@@ -9,7 +9,8 @@ const router = express.Router();
 // Mock admin check middleware (TODO: replace with real auth check)
 function requireAdmin(req: Request, res: Response, next: NextFunction) {
   if (!req.headers['x-admin']) {
-    return res.status(403).json({ error: 'Admin access required' });
+    res.status(403).json({ error: 'Admin access required' });
+    return;
   }
   next();
 }
@@ -18,7 +19,8 @@ function requireAdmin(req: Request, res: Response, next: NextFunction) {
 router.post('/bulk-update', async (req: Request, res: Response) => {
   const { payload } = req.body;
   if (!payload || !Array.isArray(payload)) {
-    return res.status(400).json({ error: 'Invalid payload' });
+    res.status(400).json({ error: 'Invalid payload' });
+    return;
   }
   try {
     const { data, error } = await supabase.from('linkedin_accounts').upsert(payload);
@@ -42,7 +44,8 @@ router.post('/bulk-update', async (req: Request, res: Response) => {
 router.post('/csv-upload', async (req: Request, res: Response) => {
   const { csv } = req.body;
   if (!csv || !Array.isArray(csv)) {
-    return res.status(400).json({ error: 'Invalid CSV data' });
+    res.status(400).json({ error: 'Invalid CSV data' });
+    return;
   }
   try {
     const payload = csv.slice(1).map(row => ({
@@ -116,7 +119,8 @@ router.post('/test-mode', requireAdmin, async (req, res) => {
   try {
     const { accountId, phantomType, inputMode, targetUrl, proxyOverride } = req.body;
     if (!accountId || !phantomType || !inputMode || !targetUrl) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      res.status(400).json({ error: 'Missing required fields' });
+      return;
     }
 
     // 1. Fetch LinkedIn account
@@ -126,7 +130,8 @@ router.post('/test-mode', requireAdmin, async (req, res) => {
       .eq('id', accountId)
       .single();
     if (accountError || !account) {
-      return res.status(404).json({ error: 'LinkedIn account not found' });
+      res.status(404).json({ error: 'LinkedIn account not found' });
+      return;
     }
 
     // 2. Fetch proxy (override or account's default)
@@ -138,7 +143,8 @@ router.post('/test-mode', requireAdmin, async (req, res) => {
         .eq('proxy_id', proxyOverride)
         .single();
       if (proxyError || !proxyData) {
-        return res.status(404).json({ error: 'Proxy not found' });
+        res.status(404).json({ error: 'Proxy not found' });
+        return;
       }
       proxy = proxyData;
     } else if (account.proxy_id) {
@@ -187,78 +193,85 @@ router.post('/test-mode', requireAdmin, async (req, res) => {
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
     console.error('[Test Mode Error]', error);
-    return res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to run PhantomBuster test mode' });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to run PhantomBuster test mode' });
   }
 });
 
 export const enrichProfileHandler = async (req: ApiRequest, res: Response) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const { profileUrl } = req.body;
     if (!profileUrl) {
-      return res.status(400).json({ error: 'Profile URL is required' });
+      res.status(400).json({ error: 'Profile URL is required' });
+      return;
     }
 
     const enrichedData = await enrichProfile(profileUrl, req.user.id);
     return res.json(enrichedData);
   } catch (error) {
     console.error('Error enriching profile:', error);
-    return res.status(500).json({ error: 'Failed to enrich profile' });
+    res.status(500).json({ error: 'Failed to enrich profile' });
   }
 };
 
 export const getEnrichmentStatus = async (req: ApiRequest, res: Response) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const { profileUrl } = req.query;
     if (!profileUrl || typeof profileUrl !== 'string') {
-      return res.status(400).json({ error: 'Valid profile URL is required' });
+      res.status(400).json({ error: 'Valid profile URL is required' });
+      return;
     }
 
     const status = await enrichProfile(profileUrl, req.user.id, true);
     return res.json(status);
   } catch (error) {
     console.error('Error getting enrichment status:', error);
-    return res.status(500).json({ error: 'Failed to get enrichment status' });
+    res.status(500).json({ error: 'Failed to get enrichment status' });
   }
 };
 
 export const checkCredits = async (req: ApiRequest, res: Response) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const credits = await deductCredits(req.user.id, 0, true);
     return res.json({ credits });
   } catch (error) {
     console.error('Error checking credits:', error);
-    return res.status(500).json({ error: 'Failed to check credits' });
+    res.status(500).json({ error: 'Failed to check credits' });
   }
 };
 
 export const deductCreditsHandler = async (req: ApiRequest, res: Response) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const { amount } = req.body;
     if (typeof amount !== 'number' || amount <= 0) {
-      return res.status(400).json({ error: 'Valid credit amount is required' });
+      res.status(400).json({ error: 'Valid credit amount is required' });
+      return;
     }
 
     const remainingCredits = await deductCredits(req.user.id, amount);
     return res.json({ credits: remainingCredits });
   } catch (error) {
     console.error('Error deducting credits:', error);
-    return res.status(500).json({ error: 'Failed to deduct credits' });
+    res.status(500).json({ error: 'Failed to deduct credits' });
   }
 };
 

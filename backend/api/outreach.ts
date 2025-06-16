@@ -10,7 +10,8 @@ router.post('/send', async (req: Request, res: Response) => {
     const { id, message, user } = req.body;
 
     if (!id || !message || !user) {
-      return res.status(400).json({ error: 'Lead ID, message, and user are required' });
+      res.status(400).json({ error: 'Lead ID, message, and user are required' });
+      return;
     }
     
   try {
@@ -25,7 +26,8 @@ router.post('/send', async (req: Request, res: Response) => {
 
     if (error) {
       console.error('❌ Supabase update error:', error);
-      return res.status(500).json({ error: 'Failed to update lead status' });
+      res.status(500).json({ error: 'Failed to update lead status' });
+      return;
     }
 
     // ✅ Send Slack notification

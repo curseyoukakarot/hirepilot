@@ -27,7 +27,8 @@ router.post('/run', async (req: Request, res: Response) => {
       .single();
     if (error) throw error;
     if (!data) {
-      return res.status(404).json({ error: 'PhantomBuster configuration not found' });
+      res.status(404).json({ error: 'PhantomBuster configuration not found' });
+      return;
     }
     // Launch the Phantom using the user's API key
     const response = await axios.post('https://api.phantombuster.com/api/v2/agents/launch', {

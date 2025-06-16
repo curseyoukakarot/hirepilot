@@ -19,12 +19,14 @@ interface CreateLeadRequest {
 const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
   try {
     if (!req.user?.id) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const leadData: CreateLeadRequest = req.body;
     if (!leadData.name || !leadData.email) {
-      return res.status(400).json({ error: 'Name and email are required' });
+      res.status(400).json({ error: 'Name and email are required' });
+      return;
     }
 
     const { data, error } = await supabaseDb
@@ -39,14 +41,16 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
 
     if (error) throw error;
 
-    return res.status(201).json({ lead: data as Lead });
+    res.status(201).json({ lead: data as Lead });
+    return;
   } catch (error) {
     console.error('Error creating lead:', error);
     const errorResponse: ErrorResponse = {
       error: 'Failed to create lead',
       details: error instanceof Error ? error.message : 'Unknown error'
     };
-    return res.status(500).json(errorResponse);
+    res.status(500).json(errorResponse);
+    return;
   }
 };
 

@@ -18,7 +18,8 @@ router.get('/candidates', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = (req as ApiRequest).user?.id;
     if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const { data: candidates, error } = await supabase
@@ -28,13 +29,14 @@ router.get('/candidates', requireAuth, async (req: Request, res: Response) => {
       .order('created_at', { ascending: false });
 
     if (error) {
-      return res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message });
+      return;
     }
 
-    return res.json(candidates);
+    res.json(candidates);
   } catch (error) {
     console.error('Error fetching candidates:', error);
-    return res.status(500).json({ error: 'Failed to fetch candidates' });
+    res.status(500).json({ error: 'Failed to fetch candidates' });
   }
 });
 
@@ -43,7 +45,8 @@ router.post('/apollo/search', requireAuth, async (req: Request, res: Response) =
   try {
     const userId = (req as ApiRequest).user?.id;
     if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const { jobTitle, keywords, location } = req.body;
@@ -86,7 +89,7 @@ router.post('/apollo/search', requireAuth, async (req: Request, res: Response) =
 
         const data = await response.json() as { people?: any[]; contacts?: any[] };
         const leads = data.people || data.contacts || [];
-        return res.json({ leads });
+        res.json({ leads });
       }
     }
 
@@ -108,15 +111,15 @@ router.post('/apollo/search', requireAuth, async (req: Request, res: Response) =
       };
 
       const { leads } = await searchAndEnrichPeople(searchParams);
-      return res.json({ leads });
+      res.json({ leads });
     }
 
-    return res.status(400).json({ 
+    res.status(400).json({ 
       error: 'No Apollo integration or API key found. Please connect your Apollo account or add an API key in the settings.' 
     });
   } catch (error) {
     console.error('Error searching Apollo:', error);
-    return res.status(500).json({ error: 'Failed to search Apollo' });
+    res.status(500).json({ error: 'Failed to search Apollo' });
   }
 });
 
@@ -125,12 +128,14 @@ router.post('/import', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = (req as ApiRequest).user?.id;
     if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const { campaignId, leads } = req.body;
     if (!campaignId || !Array.isArray(leads)) {
-      return res.status(400).json({ error: 'Missing campaignId or leads' });
+      res.status(400).json({ error: 'Missing campaignId or leads' });
+      return;
     }
 
     const normalizedLeads = leads.map((lead: any) => {
@@ -154,13 +159,14 @@ router.post('/import', requireAuth, async (req: Request, res: Response) => {
       .select('*');
 
     if (error) {
-      return res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message });
+      return;
     }
 
-    return res.json({ success: true, data });
+    res.json({ success: true, data });
   } catch (error) {
     console.error('Error importing leads:', error);
-    return res.status(500).json({ error: 'Failed to import leads' });
+    res.status(500).json({ error: 'Failed to import leads' });
   }
 });
 
@@ -180,7 +186,8 @@ router.post('/:id/enrich', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = (req as ApiRequest).user?.id;
     if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const { id } = req.params;
@@ -192,11 +199,13 @@ router.post('/:id/enrich', requireAuth, async (req: Request, res: Response) => {
       .single();
 
     if (leadError) {
-      return res.status(500).json({ error: leadError.message });
+      res.status(500).json({ error: leadError.message });
+      return;
     }
 
     if (!lead) {
-      return res.status(404).json({ error: 'Lead not found' });
+      res.status(404).json({ error: 'Lead not found' });
+      return;
     }
 
     // Enrich with Apollo
@@ -229,13 +238,14 @@ router.post('/:id/enrich', requireAuth, async (req: Request, res: Response) => {
       .single();
 
     if (updateError) {
-      return res.status(500).json({ error: updateError.message });
+      res.status(500).json({ error: updateError.message });
+      return;
     }
 
-    return res.json(updatedLead);
+    res.json(updatedLead);
   } catch (error) {
     console.error('Error enriching lead:', error);
-    return res.status(500).json({ error: 'Failed to enrich lead' });
+    res.status(500).json({ error: 'Failed to enrich lead' });
   }
 });
 
@@ -249,7 +259,8 @@ router.get('/:id', async (req: Request, res: Response) => {
       .eq('id', id)
       .single();
     if (error || !lead) {
-      return res.status(404).json({ error: 'Lead not found' });
+      res.status(404).json({ error: 'Lead not found' });
+      return;
     }
     res.json(lead);
   } catch (err) {
@@ -271,25 +282,31 @@ router.post('/:id/convert', async (req: Request, res: Response) => {
     user = result.data.user;
     userError = result.error;
   } catch (err) {
-    return res.status(401).json({ error: 'JWT verification failed' });
+    res.status(401).json({ error: 'JWT verification failed' });
+    return;
   }
   // Decode JWT for iss/exp checks
   try {
     const { iss, exp } = JSON.parse(Buffer.from(jwt.split('.')[1], 'base64').toString());
     if (!iss.startsWith(process.env.SUPABASE_URL)) {
-      return res.status(401).json({ error: 'token for wrong project' });
+      res.status(401).json({ error: 'token for wrong project' });
+      return;
     }
     if (exp < Math.floor(Date.now()/1000)) {
-      return res.status(401).json({ error: 'token expired' });
+      res.status(401).json({ error: 'token expired' });
+      return;
     }
   } catch (err) {
-    return res.status(401).json({ error: 'invalid JWT' });
+    res.status(401).json({ error: 'invalid JWT' });
+    return;
   }
   if (!user) {
-    return res.status(401).json({ error: 'invalid or expired JWT' });
+    res.status(401).json({ error: 'invalid or expired JWT' });
+    return;
   }
   if (!user_id || user.id !== user_id) {
-    return res.status(401).json({ error: 'User ID mismatch or missing' });
+    res.status(401).json({ error: 'User ID mismatch or missing' });
+    return;
   }
   // --- END PATCH ---
 
@@ -303,7 +320,8 @@ router.post('/:id/convert', async (req: Request, res: Response) => {
 
     if (leadError || !lead) {
       console.error('Lead fetch error:', leadError);
-      return res.status(404).json({ error: 'Lead not found' });
+      res.status(404).json({ error: 'Lead not found' });
+      return;
     }
 
     // 2. Create candidate record
@@ -339,7 +357,8 @@ router.post('/:id/convert', async (req: Request, res: Response) => {
 
     if (candidateError) {
       console.error('Candidate insert error:', candidateError);
-      return res.status(500).json({ error: 'db error', details: candidateError });
+      res.status(500).json({ error: 'db error', details: candidateError });
+      return;
     }
 
     // 3. Delete the lead
@@ -350,7 +369,8 @@ router.post('/:id/convert', async (req: Request, res: Response) => {
 
     if (deleteError) {
       console.error('Lead delete error:', deleteError);
-      return res.status(500).json({ error: 'Failed to delete lead', details: deleteError });
+      res.status(500).json({ error: 'Failed to delete lead', details: deleteError });
+      return;
     }
 
     res.status(200).json({
@@ -373,7 +393,8 @@ export default router;
 export const getLeads = async (req: ApiRequest, res: Response) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const { data, error } = await supabase
@@ -382,20 +403,22 @@ export const getLeads = async (req: ApiRequest, res: Response) => {
       .eq('user_id', req.user.id);
 
     if (error) {
-      return res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message });
+      return;
     }
 
-    return res.json(data);
+    res.json(data);
   } catch (error) {
     console.error('Error fetching leads:', error);
-    return res.status(500).json({ error: 'Failed to fetch leads' });
+    res.status(500).json({ error: 'Failed to fetch leads' });
   }
 };
 
 export const createLead = async (req: ApiRequest, res: Response) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const { data, error } = await supabase
@@ -405,20 +428,22 @@ export const createLead = async (req: ApiRequest, res: Response) => {
       .single();
 
     if (error) {
-      return res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message });
+      return;
     }
 
-    return res.status(201).json(data);
+    res.status(201).json(data);
   } catch (error) {
     console.error('Error creating lead:', error);
-    return res.status(500).json({ error: 'Failed to create lead' });
+    res.status(500).json({ error: 'Failed to create lead' });
   }
 };
 
 export const updateLead = async (req: ApiRequest, res: Response) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const { id } = req.params;
@@ -431,24 +456,27 @@ export const updateLead = async (req: ApiRequest, res: Response) => {
       .single();
 
     if (error) {
-      return res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message });
+      return;
     }
 
     if (!data) {
-      return res.status(404).json({ error: 'Lead not found' });
+      res.status(404).json({ error: 'Lead not found' });
+      return;
     }
 
-    return res.json(data);
+    res.json(data);
   } catch (error) {
     console.error('Error updating lead:', error);
-    return res.status(500).json({ error: 'Failed to update lead' });
+    res.status(500).json({ error: 'Failed to update lead' });
   }
 };
 
 export const deleteLead = async (req: ApiRequest, res: Response) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const { id } = req.params;
@@ -459,20 +487,22 @@ export const deleteLead = async (req: ApiRequest, res: Response) => {
       .eq('user_id', req.user.id);
 
     if (error) {
-      return res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message });
+      return;
     }
 
-    return res.status(204).send();
+    res.status(204).send();
   } catch (error) {
     console.error('Error deleting lead:', error);
-    return res.status(500).json({ error: 'Failed to delete lead' });
+    res.status(500).json({ error: 'Failed to delete lead' });
   }
 };
 
 export const getLeadById = async (req: ApiRequest, res: Response) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const { id } = req.params;
@@ -484,16 +514,18 @@ export const getLeadById = async (req: ApiRequest, res: Response) => {
       .single();
 
     if (error) {
-      return res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message });
+      return;
     }
 
     if (!data) {
-      return res.status(404).json({ error: 'Lead not found' });
+      res.status(404).json({ error: 'Lead not found' });
+      return;
     }
 
-    return res.json(data);
+    res.json(data);
   } catch (error) {
     console.error('Error fetching lead:', error);
-    return res.status(500).json({ error: 'Failed to fetch lead' });
+    res.status(500).json({ error: 'Failed to fetch lead' });
   }
 }; 

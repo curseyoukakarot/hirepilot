@@ -8,7 +8,8 @@ const supabase = createClient(
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
   }
 
   try {
@@ -23,7 +24,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const userId = req.headers['x-user-id'];
     if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     let query = supabase
@@ -78,7 +80,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       throw error;
     }
 
-    return res.status(200).json({
+    res.status(200).json({
       candidates,
       pagination: {
         total: count,
@@ -87,8 +89,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         pages: Math.ceil(count / Number(limit)),
       },
     });
+    return;
   } catch (error) {
     console.error('Error fetching candidates:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error' });
+    return;
   }
 } 

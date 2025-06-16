@@ -8,7 +8,8 @@ const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SE
 router.get('/templates', async (req, res) => {
   const userId = req.user?.id;
   if (!userId) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
   }
 
   try {
@@ -31,12 +32,14 @@ router.get('/templates', async (req, res) => {
 router.post('/templates', async (req, res) => {
   const userId = req.user?.id;
   if (!userId) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
   }
 
   const { name, subject, content } = req.body;
   if (!name || !subject || !content) {
-    return res.status(400).json({ error: 'Missing required fields' });
+    res.status(400).json({ error: 'Missing required fields' });
+    return;
   }
 
   try {
@@ -65,13 +68,15 @@ router.post('/templates', async (req, res) => {
 router.put('/templates/:id', async (req, res) => {
   const userId = req.user?.id;
   if (!userId) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
   }
 
   const { id } = req.params;
   const { name, subject, content } = req.body;
   if (!name || !subject || !content) {
-    return res.status(400).json({ error: 'Missing required fields' });
+    res.status(400).json({ error: 'Missing required fields' });
+    return;
   }
 
   try {
@@ -101,7 +106,8 @@ router.put('/templates/:id', async (req, res) => {
 router.delete('/templates/:id', async (req, res) => {
   const userId = req.user?.id;
   if (!userId) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
   }
 
   const { id } = req.params;

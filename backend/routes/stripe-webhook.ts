@@ -16,7 +16,8 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
   const sig = req.headers['stripe-signature'];
 
   if (!sig) {
-    return res.status(400).send('Missing stripe-signature header');
+    res.status(400).send('Missing stripe-signature header');
+    return;
   }
 
   let event: Stripe.Event;
@@ -25,7 +26,8 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
     event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
   } catch (err: any) {
     console.error('Webhook signature verification failed:', err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+    res.status(400).send(`Webhook Error: ${err.message}`);
+    return;
   }
 
   try {

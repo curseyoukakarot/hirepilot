@@ -38,7 +38,8 @@ router.get('/auth/slack/init', async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) {
       console.log('No authorization header present');
-      return res.status(401).json({ error: 'No authorization header' });
+      res.status(401).json({ error: 'No authorization header' });
+      return;
     }
 
     const token = authHeader.split(' ')[1];
@@ -47,11 +48,13 @@ router.get('/auth/slack/init', async (req, res) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     if (userError) {
       console.error('Error getting user:', userError);
-      return res.status(401).json({ error: 'Failed to get user' });
+      res.status(401).json({ error: 'Failed to get user' });
+      return;
     }
     if (!user) {
       console.log('No user found');
-      return res.status(401).json({ error: 'No user found' });
+      res.status(401).json({ error: 'No user found' });
+      return;
     }
 
     console.log('Got user:', user.id);
@@ -65,7 +68,8 @@ router.get('/auth/slack/init', async (req, res) => {
     const clientId = process.env.SLACK_CLIENT_ID;
     if (!clientId) {
       console.error('Missing Slack client ID in environment');
-      return res.status(500).json({ error: 'Missing Slack client ID' });
+      res.status(500).json({ error: 'Missing Slack client ID' });
+      return;
     }
 
     const redirectUri = `${process.env.BACKEND_URL}/api/auth/slack/callback`;
@@ -77,10 +81,11 @@ router.get('/auth/slack/init', async (req, res) => {
     
     // Ensure proper JSON response
     res.setHeader('Content-Type', 'application/json');
-    return res.status(200).json({ url, success: true });
+    res.status(200).json({ url, success: true });
   } catch (error) {
     console.error('Error in Slack init route:', error);
-    return res.status(500).json({ error: 'Failed to initiate Slack OAuth', success: false });
+    res.status(500).json({ error: 'Failed to initiate Slack OAuth', success: false });
+    return;
   }
 });
 
@@ -137,13 +142,15 @@ router.post('/auth/slack/test', async (req, res) => {
     // Get user from auth header
     const authHeader = req.headers.authorization;
     if (!authHeader) {
-      return res.status(401).json({ error: 'No authorization header' });
+      res.status(401).json({ error: 'No authorization header' });
+      return;
     }
 
     const token = authHeader.split(' ')[1];
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     if (userError || !user) {
-      return res.status(401).json({ error: 'Failed to get user' });
+      res.status(401).json({ error: 'Failed to get user' });
+      return;
     }
 
     // Get user's Slack webhook URL
@@ -154,7 +161,8 @@ router.post('/auth/slack/test', async (req, res) => {
       .single();
 
     if (settingsError || !settings?.slack_webhook_url) {
-      return res.status(400).json({ error: 'Slack webhook URL not found' });
+      res.status(400).json({ error: 'Slack webhook URL not found' });
+      return;
     }
 
     // Send test message

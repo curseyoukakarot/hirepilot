@@ -190,7 +190,8 @@ app.get('/api/auth/apollo/init', async (req, res) => {
   const { user_id } = req.query;
   
   if (!user_id) {
-    return res.status(400).json({ error: 'Missing user_id' });
+    res.status(400).json({ error: 'Missing user_id' });
+    return;
   }
 
   const redirectUri = `${process.env.BACKEND_URL}/api/auth/apollo/callback`;
@@ -208,10 +209,11 @@ app.get('/api/auth/apollo/init', async (req, res) => {
 app.get('/api/auth/apollo/callback', async (req, res) => {
   // Handle explicit Apollo OAuth errors
   if (req.query.error) {
-    return res.status(400).json({
+    res.status(400).json({
       error: req.query.error,
       description: req.query.error_message || 'Apollo returned an OAuth error'
     });
+    return;
   }
 
   console.log('⚡ Apollo callback query params:', req.query);
@@ -220,10 +222,11 @@ app.get('/api/auth/apollo/callback', async (req, res) => {
 
   if (!code || !user_id) {
     console.log('❌ Missing code or state:', { code, user_id });
-    return res.status(400).json({ 
+    res.status(400).json({
       error: 'Missing code or state',
       details: { code: !!code, state: !!user_id }
     });
+    return;
   }
 
   try {
@@ -287,6 +290,7 @@ app.get('/api/auth/apollo/callback', async (req, res) => {
       error: 'Apollo OAuth failed',
       details: error.response?.data || error.message
     });
+    return;
   }
 });
 
@@ -295,7 +299,8 @@ app.post('/api/auth/apollo/refresh', async (req, res) => {
   const { user_id } = req.body;
 
   if (!user_id) {
-    return res.status(400).json({ error: 'Missing user_id' });
+    res.status(400).json({ error: 'Missing user_id' });
+    return;
   }
 
   try {
@@ -345,7 +350,8 @@ app.get('/api/auth/outlook/callback', async (req, res) => {
 
   if (!code || !user_id) {
     console.log('DEBUG: Missing code or user_id', { code, user_id });
-    return res.status(400).json({ error: 'Missing code or user_id' });
+    res.status(400).json({ error: 'Missing code or user_id' });
+    return;
   }
 
   try {
@@ -418,7 +424,8 @@ app.post('/api/sendgrid/get-senders', async (req, res) => {
     // Get user from request body
     const { user_id } = req.body;
     if (!user_id) {
-      return res.status(401).json({ error: 'Not authenticated' });
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
     }
 
     // Get user's SendGrid API key from user_sendgrid_keys table
@@ -429,7 +436,8 @@ app.post('/api/sendgrid/get-senders', async (req, res) => {
       .single();
 
     if (sendgridError || !sendgridData?.api_key) {
-      return res.status(400).json({ error: 'SendGrid API key not found' });
+      res.status(400).json({ error: 'SendGrid API key not found' });
+      return;
     }
 
     // Call SendGrid API to get verified senders

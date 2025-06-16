@@ -23,12 +23,14 @@ router.post('/lead-source', async (req: Request, res: Response) => {
       .throwOnError();
     console.log('[DEBUG] Update result:', { data });
     if (!data || data.length === 0) {
-      return res.status(404).json({ error: 'Campaign not found' });
+      res.status(404).json({ error: 'Campaign not found' });
+      return;
     }
     res.status(200).json({ campaign: data[0] });
   } catch (err: any) {
     console.error('[ERROR] Save Lead Source:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Failed to save lead source' });
+    return;
   }
 });
 

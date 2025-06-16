@@ -64,21 +64,34 @@ export async function launchCampaign(req: Request, res: Response) {
     .eq('id', id)
     .maybeSingle();
 
-  if (error)  return res.status(500).json({ error: error.message });
-  if (!camp)  return res.status(404).json({ error: 'Campaign not found' });
-  if (camp.user_id !== uid) return res.status(403).json({ error: 'Not yours' });
-  if (camp.status !== 'ready') return res.status(400).json({ error: 'Not ready' });
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+  if (!camp) {
+    res.status(404).json({ error: 'Campaign not found' });
+    return;
+  }
+  if (camp.user_id !== uid) {
+    res.status(403).json({ error: 'Not yours' });
+    return;
+  }
+  if (camp.status !== 'ready') {
+    res.status(400).json({ error: 'Not ready' });
+    return;
+  }
 
   // enqueue job
   const job = await launchQueue.add('launch', { campaignId: id, userId: uid });
 
-  return res.status(202).json({ 
+  res.status(202).json({ 
     jobId: job.id,
     run: {
       status: 'queued',
       jobId: job.id
     }
   });
+  return;
 }
 
 export default async function handler(req: Request, res: Response) {
@@ -96,7 +109,10 @@ export default async function handler(req: Request, res: Response) {
 
   console.log('🛠  select result:', row, readErr);
 
-  if (!row) return res.status(404).json({ error: 'Campaign not found (read)' });
+  if (!row) {
+    res.status(404).json({ error: 'Campaign not found (read)' });
+    return;
+  }
 
   /* STEP 2: UPDATE the row the same way your real code does */
   const { data: upd, error: updErr, status } = await supabaseAdmin
@@ -109,8 +125,15 @@ export default async function handler(req: Request, res: Response) {
 
   console.log('🛠  update result:', upd, updErr, 'statusCode', status);
 
-  if (updErr)  return res.status(500).json({ error: updErr.message });
-  if (!upd)    return res.status(404).json({ error: 'Campaign not found (update)' });
+  if (updErr) {
+    res.status(500).json({ error: updErr.message });
+    return;
+  }
+  if (!upd) {
+    res.status(404).json({ error: 'Campaign not found (update)' });
+    return;
+  }
 
-  return res.status(200).json({ launched: upd.id });
+  res.status(200).json({ launched: upd.id });
+  return;
 } 

@@ -9,7 +9,8 @@ router.post('/sendgrid/webhook', async (req, res) => {
   const events = req.body;
   
   if (!Array.isArray(events)) {
-    return res.status(400).json({ error: 'Invalid webhook payload' });
+    res.status(400).json({ error: 'Invalid webhook payload' });
+    return;
   }
 
   try {

@@ -11,7 +11,10 @@ const router = express.Router();
 router.get('/settings', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).auth?.user?.id;
-    if (!userId) return res.status(401).json({ error: 'Not authenticated' });
+    if (!userId) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
 
     // Get user settings first
     const { data: settings, error: settingsError } = await supabase
@@ -48,9 +51,15 @@ router.get('/settings', requireAuth, async (req: Request, res: Response) => {
 router.post('/settings', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).auth?.user?.id;
-    if (!userId) return res.status(401).json({ error: 'Not authenticated' });
+    if (!userId) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
     const { apollo_api_key } = req.body;
-    if (!apollo_api_key) return res.status(400).json({ error: 'Missing apollo_api_key' });
+    if (!apollo_api_key) {
+      res.status(400).json({ error: 'Missing apollo_api_key' });
+      return;
+    }
     const { data, error } = await supabase
       .from('user_settings')
       .upsert([{ user_id: userId, apollo_api_key }], { onConflict: 'user_id' })
@@ -67,7 +76,8 @@ router.post('/settings', requireAuth, async (req: Request, res: Response) => {
 export const getCurrentUser = async (req: ApiRequest, res: Response) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const { data, error } = await supabase
@@ -77,20 +87,22 @@ export const getCurrentUser = async (req: ApiRequest, res: Response) => {
       .single();
 
     if (error) {
-      return res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message });
+      return;
     }
 
     return res.json(data);
   } catch (error) {
     console.error('Error fetching current user:', error);
-    return res.status(500).json({ error: 'Failed to fetch current user' });
+    res.status(500).json({ error: 'Failed to fetch current user' });
   }
 };
 
 export const updateUser = async (req: ApiRequest, res: Response) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const { data, error } = await supabase
@@ -101,13 +113,14 @@ export const updateUser = async (req: ApiRequest, res: Response) => {
       .single();
 
     if (error) {
-      return res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message });
+      return;
     }
 
     return res.json(data);
   } catch (error) {
     console.error('Error updating user:', error);
-    return res.status(500).json({ error: 'Failed to update user' });
+    res.status(500).json({ error: 'Failed to update user' });
   }
 };
 

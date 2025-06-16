@@ -32,7 +32,10 @@ router.post('/validate', async (req: Request, res: Response) => {
 
 router.post('/phantombuster/validate', async (req, res) => {
   const { api_key, user_id } = req.body;
-  if (!api_key || !user_id) return res.status(400).json({ error: 'API key and user_id required' });
+  if (!api_key || !user_id) {
+    res.status(400).json({ error: 'API key and user_id required' });
+    return;
+  }
 
   try {
     // 1. Validate the key by making a test API call

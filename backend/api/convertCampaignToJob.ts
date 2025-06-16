@@ -3,13 +3,15 @@ import { supabase } from '../lib/supabase';
 
 export default async function convertCampaignToJob(req: Request, res: Response) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
   }
 
   const { campaign_id } = req.body;
 
   if (!campaign_id) {
-    return res.status(400).json({ error: 'Missing campaign_id' });
+    res.status(400).json({ error: 'Missing campaign_id' });
+    return;
   }
 
   try {
@@ -22,7 +24,8 @@ export default async function convertCampaignToJob(req: Request, res: Response) 
 
     if (campaignError) {
       console.error('[convertCampaignToJob] Campaign fetch error:', campaignError);
-      return res.status(500).json({ error: campaignError.message });
+      res.status(500).json({ error: campaignError.message });
+      return;
     }
 
     // Create a job requisition
@@ -44,7 +47,8 @@ export default async function convertCampaignToJob(req: Request, res: Response) 
 
     if (jobError) {
       console.error('[convertCampaignToJob] Job creation error:', jobError);
-      return res.status(500).json({ error: jobError.message });
+      res.status(500).json({ error: jobError.message });
+      return;
     }
 
     // Update the campaign status
@@ -58,15 +62,17 @@ export default async function convertCampaignToJob(req: Request, res: Response) 
 
     if (updateError) {
       console.error('[convertCampaignToJob] Campaign update error:', updateError);
-      return res.status(500).json({ error: updateError.message });
+      res.status(500).json({ error: updateError.message });
+      return;
     }
 
-    return res.status(200).json({ 
+    res.status(200).json({ 
       message: 'Campaign converted to job successfully',
       job: jobData
     });
   } catch (err: any) {
     console.error('[convertCampaignToJob] Server Error:', err);
-    return res.status(500).json({ error: err.message || 'Internal Server Error' });
+    res.status(500).json({ error: err.message || 'Internal Server Error' });
+    return;
   }
 } 
