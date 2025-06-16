@@ -1,16 +1,19 @@
-import { ApiRequest, ApiResponse, ApiHandler, ErrorResponse } from '../types/api';
+import { ApiRequest, ApiHandler, ErrorResponse } from '../types/api';
 import { supabaseDb } from '../lib/supabase';
 import { enrichLead } from '../services/enrichment';
+import { Response } from 'express';
 
-const handler: ApiHandler = async (req: ApiRequest, res: ApiResponse) => {
+const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
   try {
     if (!req.user?.id) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const { leadId } = req.params;
     if (!leadId) {
-      return res.status(400).json({ error: 'Missing lead ID' });
+      res.status(400).json({ error: 'Missing lead ID' });
+      return;
     }
 
     // Get lead data
@@ -23,7 +26,8 @@ const handler: ApiHandler = async (req: ApiRequest, res: ApiResponse) => {
 
     if (leadError) throw leadError;
     if (!lead) {
-      return res.status(404).json({ error: 'Lead not found' });
+      res.status(404).json({ error: 'Lead not found' });
+      return;
     }
 
     // Get enrichment data
@@ -51,12 +55,14 @@ const handler: ApiHandler = async (req: ApiRequest, res: ApiResponse) => {
 
       if (insertError) throw insertError;
 
-      return res.status(200).json({ data: enrichedData });
+      res.status(200).json({ data: enrichedData });
+      return;
     }
 
-    const result = res as any;
-    if (result.status === 200) {
-      return res.status(200).json({ data: enrichment.data });
+    const { status, data: responseData } = res as any;
+    if (status === 200) {
+      res.status(200).json({ data: responseData });
+      return;
     }
   } catch (error) {
     console.error('Error getting enrichment:', error);
@@ -64,7 +70,7 @@ const handler: ApiHandler = async (req: ApiRequest, res: ApiResponse) => {
       error: 'Failed to get enrichment data',
       details: error instanceof Error ? error.message : 'Unknown error'
     };
-    return res.status(500).json(errorResponse);
+    res.status(500).json(errorResponse);
   }
 };
 

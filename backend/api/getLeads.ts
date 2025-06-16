@@ -1,8 +1,9 @@
-import { ApiRequest, ApiResponse, ApiHandler, ErrorResponse } from '../types/api';
+import { ApiRequest, ApiHandler, ErrorResponse } from '../types/api';
+import { Response } from 'express';
 import { supabaseDb } from '../lib/supabase';
 import { Lead } from '../types/lead';
 
-const handler: ApiHandler = async (req: ApiRequest, res: ApiResponse) => {
+const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
   try {
     if (!req.user?.id) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -16,9 +17,10 @@ const handler: ApiHandler = async (req: ApiRequest, res: ApiResponse) => {
 
     if (error) throw error;
 
-    const result = res as any;
-    if (result.status === 200) {
-      return res.status(200).json({ leads: data as Lead[] });
+    const { status, data: responseData } = res as any;
+    if (status === 200) {
+      res.status(200).json({ leads: responseData as Lead[] });
+      return;
     }
   } catch (error) {
     console.error('Error fetching leads:', error);
@@ -26,7 +28,8 @@ const handler: ApiHandler = async (req: ApiRequest, res: ApiResponse) => {
       error: 'Failed to fetch leads',
       details: error instanceof Error ? error.message : 'Unknown error'
     };
-    return res.status(500).json(errorResponse);
+    res.status(500).json(errorResponse);
+    return;
   }
 };
 

@@ -1,4 +1,4 @@
-import { Request } from 'express';
+import { Request, Response } from 'express';
 
 export interface CustomUser {
   id: string;
@@ -12,13 +12,7 @@ export interface ApiRequest extends Request {
   user?: CustomUser;
 }
 
-export interface ApiResponse {
-  success: boolean;
-  data?: any;
-  error?: string;
-}
-
-export type ApiHandler = (req: ApiRequest, res: ApiResponse) => Promise<ApiResponse | void>;
+export type ApiHandler = (req: ApiRequest, res: Response) => Promise<void>;
 
 export interface ErrorResponse {
   error: string;

@@ -1,4 +1,5 @@
-import { ApiRequest, ApiResponse, ApiHandler, ErrorResponse } from '../types/api';
+import { ApiRequest, ApiHandler, ErrorResponse } from '../types/api';
+import { Response } from 'express';
 import { supabaseDb } from '../lib/supabase';
 import { Lead } from '../types/lead';
 
@@ -15,20 +16,23 @@ interface UpdateLeadRequest {
   notes?: string;
 }
 
-const handler: ApiHandler = async (req: ApiRequest, res: ApiResponse) => {
+const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
   try {
     if (!req.user?.id) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const { leadId } = req.params;
     if (!leadId) {
-      return res.status(400).json({ error: 'Missing lead ID' });
+      res.status(400).json({ error: 'Missing lead ID' });
+      return;
     }
 
     const updateData: UpdateLeadRequest = req.body;
     if (Object.keys(updateData).length === 0) {
-      return res.status(400).json({ error: 'No update data provided' });
+      res.status(400).json({ error: 'No update data provided' });
+      return;
     }
 
     // Verify ownership
@@ -41,7 +45,8 @@ const handler: ApiHandler = async (req: ApiRequest, res: ApiResponse) => {
 
     if (fetchError) throw fetchError;
     if (!lead) {
-      return res.status(404).json({ error: 'Lead not found' });
+      res.status(404).json({ error: 'Lead not found' });
+      return;
     }
 
     const { data, error: updateError } = await supabaseDb
@@ -54,9 +59,10 @@ const handler: ApiHandler = async (req: ApiRequest, res: ApiResponse) => {
 
     if (updateError) throw updateError;
 
-    const result = data as any;
-    if (result.status === 200) {
-      return res.status(200).json({ lead: data as Lead });
+    const { status, data: responseData } = res as any;
+    if (status === 200) {
+      res.status(200).json({ lead: responseData as Lead });
+      return;
     }
   } catch (error) {
     console.error('Error updating lead:', error);
@@ -64,7 +70,7 @@ const handler: ApiHandler = async (req: ApiRequest, res: ApiResponse) => {
       error: 'Failed to update lead',
       details: error instanceof Error ? error.message : 'Unknown error'
     };
-    return res.status(500).json(errorResponse);
+    res.status(500).json(errorResponse);
   }
 };
 

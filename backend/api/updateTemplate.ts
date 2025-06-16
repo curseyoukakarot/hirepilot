@@ -1,5 +1,6 @@
-import { ApiRequest, ApiResponse, ApiHandler, ErrorResponse } from '../types/api';
+import { ApiRequest, ApiHandler, ErrorResponse } from '../types/api';
 import { supabaseDb } from '../lib/supabase';
+import { Response } from 'express';
 
 interface TemplateUpdate {
   name?: string;
@@ -8,20 +9,23 @@ interface TemplateUpdate {
   is_active?: boolean;
 }
 
-const handler: ApiHandler = async (req: ApiRequest, res: ApiResponse) => {
+const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
   try {
     if (!req.user?.id) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const { templateId } = req.params;
     if (!templateId) {
-      return res.status(400).json({ error: 'Missing template ID' });
+      res.status(400).json({ error: 'Missing template ID' });
+      return;
     }
 
     const updates: TemplateUpdate = req.body;
     if (!updates || Object.keys(updates).length === 0) {
-      return res.status(400).json({ error: 'No updates provided' });
+      res.status(400).json({ error: 'No updates provided' });
+      return;
     }
 
     // First verify the template belongs to the user
@@ -33,7 +37,8 @@ const handler: ApiHandler = async (req: ApiRequest, res: ApiResponse) => {
 
     if (fetchError) throw fetchError;
     if (!template || template.user_id !== req.user.id) {
-      return res.status(404).json({ error: 'Template not found' });
+      res.status(404).json({ error: 'Template not found' });
+      return;
     }
 
     // Update the template
@@ -49,9 +54,10 @@ const handler: ApiHandler = async (req: ApiRequest, res: ApiResponse) => {
 
     if (updateError) throw updateError;
 
-    const result = res as any;
-    if (result.status === 200) {
-      return res.status(200).json({ template: data });
+    const { status, data: responseData } = res as any;
+    if (status === 200) {
+      res.status(200).json({ template: responseData });
+      return;
     }
   } catch (error) {
     console.error('Error updating template:', error);
@@ -59,7 +65,7 @@ const handler: ApiHandler = async (req: ApiRequest, res: ApiResponse) => {
       error: 'Failed to update template',
       details: error instanceof Error ? error.message : 'Unknown error'
     };
-    return res.status(500).json(errorResponse);
+    res.status(500).json(errorResponse);
   }
 };
 
