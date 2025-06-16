@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useWizard } from '../../context/WizardContext';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { toast } from 'react-hot-toast';
 import ApolloApiKeyModal from '../ApolloApiKeyModal';
 import debounce from 'lodash/debounce';
