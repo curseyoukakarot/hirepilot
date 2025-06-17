@@ -64,37 +64,17 @@ declare module 'express-list-endpoints';
 const app = express();
 const PORT = process.env.PORT || 5001;
 
-// Debug endpoint to list all routes
-app.get('/api/debug/routes', (req, res) => {
-  const routes: any[] = [];
-  app._router.stack.forEach((middleware: any) => {
-    if (middleware.route) {
-      // Routes registered directly on the app
-      routes.push({
-        path: middleware.route.path,
-        methods: Object.keys(middleware.route.methods)
-      });
-    } else if (middleware.name === 'router') {
-      // Router middleware
-      middleware.handle.stack.forEach((handler: any) => {
-        if (handler.route) {
-          routes.push({
-            path: handler.route.path,
-            methods: Object.keys(handler.route.methods)
-          });
-        }
-      });
-    }
-  });
-  res.json(routes);
-});
+// Health check route (before CORS)
+app.get('/health', (_, res) => res.json({ ok: true }));
 
 // Configure CORS before routes
+const allowed = [
+  'https://thehirepilot.com',
+  'https://www.thehirepilot.com',
+  'https://hirepilot.vercel.app'
+];
 app.use(cors({
-  origin: [
-    'https://thehirepilot.com',
-    'https://hirepilot.vercel.app'
-  ],
+  origin: (origin, cb) => cb(null, allowed.includes(origin)),
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
@@ -110,6 +90,9 @@ app.use(cors({
   ],
   exposedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// Pre-flight for all routes
+app.options('*', cors());
 
 // Parse cookies
 app.use(cookieParser());
@@ -191,7 +174,7 @@ console.table(
 );
 
 // 404 handler must be last
-app.use('*', (_req, res) => res.status(404).json({ error: 'Not Found' }));
+app.use('*', (_req, res) => res.status(404).json({ error: 'not_found' }));
 
 // Apollo OAuth endpoints
 app.get('/api/auth/apollo/init', async (req, res) => {
@@ -408,11 +391,6 @@ app.get('/api/auth/outlook/callback', async (req, res) => {
     console.error('❌ Outlook OAuth error:', error.response?.data || error.message);
     res.status(400).json({ error: 'Outlook OAuth failed', details: error.response?.data || error.message });
   }
-});
-
-// Health check route
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
 });
 
 // Add health check endpoint
