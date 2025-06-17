@@ -52,7 +52,7 @@ const HomePage = () => {
             <div className="relative">
               <div className="absolute inset-0 bg-white/10 rounded-2xl transform rotate-6"></div>
               <div className="relative rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/20 bg-white">
-                <img className="w-full h-auto" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/c8749078a8-3f77f6bc8d078f77c9eb.png" alt="modern dashboard UI with recruitment analytics, charts and candidate profiles in blue theme, professional layout" />
+                <img className="w-full h-auto" src="/hp-hero-v2.png" alt="modern dashboard UI with recruitment analytics, charts and candidate profiles in blue theme, professional layout" />
               </div>
             </div>
           </div>
