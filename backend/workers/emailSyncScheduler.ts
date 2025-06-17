@@ -1,12 +1,25 @@
 import { Queue } from 'bullmq';
 
-// Create queue
-export const queue = new Queue('email-sync', {
-  connection: {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT || '6379')
+let queue: Queue | null = null;
+
+if (process.env.REDIS_URL || process.env.REDIS_HOST) {
+  // Prefer full URL but fall back to host/port combo
+  if (process.env.REDIS_URL) {
+    const IORedis = require('ioredis');
+    const connection = new IORedis(process.env.REDIS_URL);
+    queue = new Queue('email-sync', { connection });
+  } else {
+    queue = new Queue('email-sync', {
+      connection: {
+        host: process.env.REDIS_HOST,
+        port: parseInt(process.env.REDIS_PORT || '6379')
+      }
+    });
   }
-});
+} else {
+  console.warn('[emailSyncScheduler] Redis not configured – scheduler disabled');
+}
+export { queue };
 
 /**
  * Schedule Gmail watch refresh job
@@ -36,16 +49,13 @@ async function scheduleOutlookSubscriptionRefresh() {
  * Initialize scheduler
  */
 export async function initScheduler() {
+  if (!queue) return;
   try {
-    // Clear existing jobs
     await queue.obliterate({ force: true });
-
-    // Schedule new jobs
     await Promise.all([
       scheduleGmailWatchRefresh(),
       scheduleOutlookSubscriptionRefresh()
     ]);
-
     console.log('Email sync scheduler initialized');
   } catch (error) {
     console.error('Error initializing email sync scheduler:', error);

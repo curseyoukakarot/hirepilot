@@ -49,11 +49,14 @@ router.post('/gmail/webhook', async (req, res) => {
       return;
     }
 
-    // Add job to process notification
-    await queue.add('process-gmail-notification', {
-      userId,
-      messageId: message.id
-    });
+    if (queue) {
+      await queue.add('process-gmail-notification', {
+        userId,
+        messageId: message.id
+      });
+    } else {
+      console.warn('[tracking] Queue disabled – skipping Gmail notification job');
+    }
 
     res.status(200).end();
   } catch (error) {
@@ -75,10 +78,12 @@ router.post('/outlook/webhook', async (req, res) => {
 
     // Process each notification
     for (const notification of value) {
-      await queue.add('process-outlook-notification', {
-        userId: clientState,
-        messageId: notification.resourceData.id
-      });
+      if (queue) {
+        await queue.add('process-outlook-notification', {
+          userId: clientState,
+          messageId: notification.resourceData.id
+        });
+      }
     }
 
     res.status(202).end();

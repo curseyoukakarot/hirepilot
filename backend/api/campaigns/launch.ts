@@ -21,8 +21,17 @@ const supabaseAdmin = createClient(
 const ENCRYPTION_KEY = process.env.COOKIE_ENCRYPTION_KEY?.slice(0, 32) || 'default_key_32_bytes_long_123456'; // 32 bytes for AES-256
 const IV_LENGTH = 16;
 
-const connection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379');
-export const launchQueue = new Queue('launch-campaign', { connection });
+// ------------ Optional Redis queue -------------
+let launchQueue: Queue | null = null;
+if (process.env.REDIS_URL) {
+  const connection = new IORedis(process.env.REDIS_URL, {
+    maxRetriesPerRequest: null
+  });
+  launchQueue = new Queue('launch-campaign', { connection });
+} else {
+  console.warn('[launchCampaign] REDIS_URL not set – launch queue disabled');
+}
+export { launchQueue };
 
 function decrypt(text: string): string {
   const [ivHex, encryptedHex] = text.split(':');
@@ -81,16 +90,19 @@ export async function launchCampaign(req: Request, res: Response) {
     return;
   }
 
-  // enqueue job
-  const job = await launchQueue.add('launch', { campaignId: id, userId: uid });
-
-  res.status(202).json({ 
-    jobId: job.id,
-    run: {
-      status: 'queued',
-      jobId: job.id
-    }
-  });
+  // enqueue job if queue available
+  if (launchQueue) {
+    const job = await launchQueue.add('launch', { campaignId: id, userId: uid });
+    res.status(202).json({ 
+      jobId: job.id,
+      run: {
+        status: 'queued',
+        jobId: job.id
+      }
+    });
+  } else {
+    res.status(200).json({ notice: 'Launch queue disabled – REDIS_URL not configured' });
+  }
   return;
 }
 
