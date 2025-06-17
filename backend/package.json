@@ -36,7 +36,8 @@
         "openai": "^4.96.0",
         "stripe": "^12.18.0",
         "zod": "^3.25.3",
-        "pg": "^8.11.1"
+        "pg": "^8.11.1",
+        "express-list-endpoints": "^6.0.0"
     },
     "devDependencies": {
         "@types/cors": "^2.8.17",
