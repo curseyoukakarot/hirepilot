@@ -91,12 +91,20 @@ const HomePage = () => {
         <div className="max-w-6xl mx-auto px-6 space-y-20">
           <div id="feature-1" className="flex flex-col md:flex-row items-center gap-12">
             <div className="md:w-1/2">
-              <div className="inline-block text-blue-600 bg-blue-50 px-4 py-2 rounded-full text-sm font-medium mb-6">
-                <i className="fa-brands fa-linkedin mr-2"></i> LinkedIn Integration
+              <div className="flex gap-2">
+                <span className="inline-block text-blue-600 bg-blue-50 px-4 py-2 rounded-full text-sm font-medium mb-6">
+                  <i className="fa-brands fa-linkedin mr-2"></i> LinkedIn Integration
+                </span>
+                <span className="inline-block text-purple-700 bg-purple-100 px-4 py-2 rounded-full text-sm font-medium mb-6 flex items-center gap-2">
+                  <img src="/apollo-logo.png" alt="Apollo" className="h-5 w-5" /> Apollo Integration
+                </span>
+                <span className="inline-block text-green-700 bg-green-100 px-4 py-2 rounded-full text-sm font-medium mb-6 flex items-center gap-2">
+                  <i className="fa-solid fa-envelope"></i> Add Outreach Integrations
+                </span>
               </div>
-              <h3 className="text-3xl font-semibold mb-6">Auto-sourcing from LinkedIn</h3>
+              <h3 className="text-3xl font-semibold mb-6">Source with Accuracy</h3>
               <p className="text-gray-600 mb-6">
-                Automatically find and engage with qualified candidates across LinkedIn's vast network.
+                Find and engage with qualified candidates across platforms that bring you the best talent.
               </p>
               <ul className="space-y-4">
                 <li className="flex items-center gap-3 text-gray-700">
@@ -111,7 +119,7 @@ const HomePage = () => {
             </div>
             <div className="md:w-1/2">
               <div className="rounded-xl overflow-hidden shadow-xl">
-                <img className="w-full h-auto" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/8e492f06a6-ccd3caefd61b5595b288.png" alt="professional LinkedIn recruitment dashboard interface with candidate profiles and analytics" />
+                <img className="w-full h-auto" src="/linkedin-sn.png" alt="LinkedIn Sales Navigator dashboard" />
               </div>
             </div>
           </div>
@@ -138,7 +146,7 @@ const HomePage = () => {
             </div>
             <div className="md:w-1/2">
               <div className="rounded-xl overflow-hidden shadow-xl">
-                <img className="w-full h-auto" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/1390adef6d-29bed87549ffec7ede83.png" alt="AI messaging interface with candidate conversation and response analytics" />
+                <img className="w-full h-auto" src="/ai-outreach.png" alt="AI messaging interface with candidate conversation and response analytics" />
               </div>
             </div>
           </div>
@@ -156,10 +164,10 @@ const HomePage = () => {
                 <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg" alt="Sarah Johnson" className="w-12 h-12 rounded-full" />
                 <div>
                   <div className="font-medium">Sarah Johnson</div>
-                  <div className="text-sm text-gray-500">HR Director, TechCorp</div>
+                  <div className="text-sm text-gray-500">Freelance Tech Recruiter</div>
                 </div>
               </div>
-              <p className="text-gray-700 italic">"HirePilot has transformed our recruiting process. We've cut our time-to-hire by 60% and improved candidate quality."</p>
+              <p className="text-gray-700 italic">"I landed my first client in 3 weeks with RecruitPro. The community support was incredible!"</p>
               <div className="mt-6 text-yellow-400 flex gap-1">
                 <i className="fa-solid fa-star"></i>
                 <i className="fa-solid fa-star"></i>
@@ -171,13 +179,13 @@ const HomePage = () => {
 
             <div id="testimonial-2" className="bg-white p-8 rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-200">
               <div className="flex items-center gap-4 mb-6">
-                <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" alt="Mike Chen" className="w-12 h-12 rounded-full" />
+                <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" alt="Dejanira (Dej) L." className="w-12 h-12 rounded-full" />
                 <div>
-                  <div className="font-medium">Mike Chen</div>
-                  <div className="text-sm text-gray-500">CEO, StartlynX</div>
+                  <div className="font-medium">Dejanira (Dej) L.</div>
+                  <div className="text-sm text-gray-500">Freelance Tech Recruiter</div>
                 </div>
               </div>
-              <p className="text-gray-700 italic">"The AI-powered sourcing is incredible. It's like having a full recruiting team at a fraction of the cost."</p>
+              <p className="text-gray-700 italic">"I made 8k in my first 6 weeks of entering the program as a Freelance Tech Recruiter!!"</p>
               <div className="mt-6 text-yellow-400 flex gap-1">
                 <i className="fa-solid fa-star"></i>
                 <i className="fa-solid fa-star"></i>
