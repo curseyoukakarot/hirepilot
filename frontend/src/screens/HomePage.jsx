@@ -74,8 +74,8 @@ const HomePage = () => {
             </div>
             <div id="step-2" className="bg-white p-8 rounded-xl shadow-sm text-center group hover:shadow-lg transition-shadow duration-200">
               <div className="w-16 h-16 mx-auto mb-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-2xl group-hover:scale-110 transition-transform duration-200">2</div>
-              <h3 className="font-semibold text-xl mb-3">AI Sources Candidates</h3>
-              <p className="text-gray-600">Our AI finds and engages with the perfect candidates for your role.</p>
+              <h3 className="font-semibold text-xl mb-3">Source Candidates</h3>
+              <p className="text-gray-600">Finds and engage quickly with candidates that are the right fit for your role.</p>
             </div>
             <div id="step-3" className="bg-white p-8 rounded-xl shadow-sm text-center group hover:shadow-lg transition-shadow duration-200">
               <div className="w-16 h-16 mx-auto mb-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-2xl group-hover:scale-110 transition-transform duration-200">3</div>
