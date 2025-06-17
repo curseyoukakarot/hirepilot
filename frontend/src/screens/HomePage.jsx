@@ -3,41 +3,56 @@ import { Link } from 'react-router-dom';
 
 const HomePage = () => {
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-white text-gray-900">
       {/* Header */}
-      <header className="bg-white shadow-sm">
-        <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center">
-            <img src="/logo.png" alt="HirePilot" className="h-8 w-auto" />
+      <header id="header" className="fixed w-full top-0 z-50 bg-white/90 backdrop-blur-sm border-b border-gray-100">
+        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <i className="fa-solid fa-rocket text-blue-600 text-2xl"></i>
+            <span className="text-xl font-bold">HirePilot</span>
           </div>
-          <div className="flex items-center space-x-4">
-            <Link to="/login" className="text-gray-600 hover:text-gray-900">Login</Link>
-            <Link to="/signup" className="bg-hpBlue text-white px-4 py-2 rounded-lg hover:bg-blue-600">Get Started</Link>
+          <nav className="hidden md:flex items-center gap-8">
+            <span className="text-gray-600 hover:text-gray-900 cursor-pointer">Recruiting Co-Pilot</span>
+            <span className="text-gray-600 hover:text-gray-900 cursor-pointer">Hands Free Hiring</span>
+            <span className="text-gray-600 hover:text-gray-900 cursor-pointer">Pricing</span>
+          </nav>
+          <div className="flex items-center gap-4">
+            <span className="hidden md:block text-gray-600 hover:text-gray-900 cursor-pointer">Sign in</span>
+            <a href="#" className="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 py-2.5 rounded-lg hover:shadow-lg transition-all duration-200">
+              Start for Free
+            </a>
           </div>
-        </nav>
+          <button className="md:hidden text-gray-600">
+            <i className="fa-solid fa-bars text-2xl"></i>
+          </button>
+        </div>
       </header>
 
       {/* Hero Section */}
-      <section className="bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-          <div className="text-center">
-            <h1 className="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl">
-              <span className="block">Hire Better,</span>
-              <span className="block text-hpBlue">Faster with AI</span>
+      <section id="hero" className="bg-gradient-to-b from-blue-500 via-blue-200 to-white pt-32 pb-20">
+        <div className="max-w-7xl mx-auto px-6 md:px-10 flex flex-col-reverse md:flex-row items-center justify-between gap-12">
+          <div className="w-full md:w-1/2 text-center md:text-left">
+            <h1 className="text-4xl md:text-5xl font-bold leading-tight text-gray-900">
+              Hire Better, Faster — <br className="hidden md:block" />
+              <span className="text-blue-900">On Autopilot.</span>
             </h1>
-            <p className="mt-3 max-w-md mx-auto text-base text-gray-500 sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
-              Automate your recruiting process with AI-powered candidate screening, interview scheduling, and more.
+            <p className="mt-6 text-lg text-gray-800">
+              AI-powered recruiting that saves you 100+ hours per hire.
             </p>
-            <div className="mt-5 max-w-md mx-auto sm:flex sm:justify-center md:mt-8">
-              <div className="rounded-md shadow">
-                <Link to="/signup" className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-hpBlue hover:bg-blue-600 md:py-4 md:text-lg md:px-10">
-                  Get Started
-                </Link>
-              </div>
-              <div className="mt-3 rounded-md shadow sm:mt-0 sm:ml-3">
-                <Link to="/pricing" className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-hpBlue bg-white hover:bg-gray-50 md:py-4 md:text-lg md:px-10">
-                  View Pricing
-                </Link>
+            <div className="mt-8 flex flex-col sm:flex-row gap-4 sm:justify-start justify-center">
+              <a href="#" className="group bg-white text-blue-600 font-semibold py-3 px-6 rounded-lg shadow-lg hover:shadow-white/25 transition-all duration-200">
+                Start for Free <i className="fa-solid fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
+              </a>
+              <a href="#" className="bg-blue-900 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:bg-blue-800 transition-all duration-200">
+                <i className="fa-regular fa-calendar mr-2"></i> Book Demo
+              </a>
+            </div>
+          </div>
+          <div className="w-full md:w-1/2">
+            <div className="relative">
+              <div className="absolute inset-0 bg-white/10 rounded-2xl transform rotate-6"></div>
+              <div className="relative rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/20 bg-white">
+                <img className="w-full h-auto" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/c8749078a8-3f77f6bc8d078f77c9eb.png" alt="modern dashboard UI with recruitment analytics, charts and candidate profiles in blue theme, professional layout" />
               </div>
             </div>
           </div>
@@ -45,270 +60,230 @@ const HomePage = () => {
       </section>
 
       {/* Trusted By Section */}
-      <section className="bg-gray-50 py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h2 className="text-base font-semibold text-gray-500 tracking-wide uppercase">Trusted By</h2>
-            <div className="mt-6 grid grid-cols-2 gap-8 md:grid-cols-6 lg:grid-cols-5">
-              <div className="col-span-1 flex justify-center md:col-span-2 lg:col-span-1">
-                <img className="h-12" src="/logos/company1.png" alt="Company 1" />
+      <section id="trusted-by" className="py-12 bg-white border-y border-gray-100">
+        <div className="max-w-6xl mx-auto px-6 text-center">
+          <p className="text-sm text-gray-500 uppercase tracking-wider mb-8">Trusted by innovative companies worldwide</p>
+          <div className="flex justify-center flex-wrap gap-12 opacity-70">
+            <i className="fa-brands fa-google text-gray-400 text-4xl"></i>
+            <i className="fa-brands fa-microsoft text-gray-400 text-4xl"></i>
+            <i className="fa-brands fa-apple text-gray-400 text-4xl"></i>
+            <i className="fa-brands fa-amazon text-gray-400 text-4xl"></i>
+            <i className="fa-brands fa-meta text-gray-400 text-4xl"></i>
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works */}
+      <section id="how-it-works" className="py-20 bg-gray-50">
+        <div className="max-w-6xl mx-auto px-6">
+          <h2 className="text-3xl font-semibold text-center mb-4">How It Works</h2>
+          <p className="text-gray-600 text-center mb-12 max-w-2xl mx-auto">Our AI-powered platform streamlines your hiring process in three simple steps</p>
+          <div className="grid md:grid-cols-3 gap-8">
+            <div id="step-1" className="bg-white p-8 rounded-xl shadow-sm text-center group hover:shadow-lg transition-shadow duration-200">
+              <div className="w-16 h-16 mx-auto mb-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-2xl group-hover:scale-110 transition-transform duration-200">1</div>
+              <h3 className="font-semibold text-xl mb-3">Submit your job</h3>
+              <p className="text-gray-600">Describe your ideal candidate and let our AI do the heavy lifting.</p>
+            </div>
+            <div id="step-2" className="bg-white p-8 rounded-xl shadow-sm text-center group hover:shadow-lg transition-shadow duration-200">
+              <div className="w-16 h-16 mx-auto mb-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-2xl group-hover:scale-110 transition-transform duration-200">2</div>
+              <h3 className="font-semibold text-xl mb-3">AI Sources Candidates</h3>
+              <p className="text-gray-600">Our AI finds and engages with the perfect candidates for your role.</p>
+            </div>
+            <div id="step-3" className="bg-white p-8 rounded-xl shadow-sm text-center group hover:shadow-lg transition-shadow duration-200">
+              <div className="w-16 h-16 mx-auto mb-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-2xl group-hover:scale-110 transition-transform duration-200">3</div>
+              <h3 className="font-semibold text-xl mb-3">Interviews Scheduled</h3>
+              <p className="text-gray-600">Qualified candidates are automatically scheduled for interviews.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Features */}
+      <section id="features" className="py-20 bg-white">
+        <div className="max-w-6xl mx-auto px-6 space-y-20">
+          <div id="feature-1" className="flex flex-col md:flex-row items-center gap-12">
+            <div className="md:w-1/2">
+              <div className="inline-block text-blue-600 bg-blue-50 px-4 py-2 rounded-full text-sm font-medium mb-6">
+                <i className="fa-brands fa-linkedin mr-2"></i> LinkedIn Integration
               </div>
-              <div className="col-span-1 flex justify-center md:col-span-2 lg:col-span-1">
-                <img className="h-12" src="/logos/company2.png" alt="Company 2" />
+              <h3 className="text-3xl font-semibold mb-6">Auto-sourcing from LinkedIn</h3>
+              <p className="text-gray-600 mb-6">
+                Automatically find and engage with qualified candidates across LinkedIn's vast network.
+              </p>
+              <ul className="space-y-4">
+                <li className="flex items-center gap-3 text-gray-700">
+                  <i className="fa-solid fa-check text-green-500"></i>
+                  Smart candidate matching
+                </li>
+                <li className="flex items-center gap-3 text-gray-700">
+                  <i className="fa-solid fa-check text-green-500"></i>
+                  Automated outreach
+                </li>
+              </ul>
+            </div>
+            <div className="md:w-1/2">
+              <div className="rounded-xl overflow-hidden shadow-xl">
+                <img className="w-full h-auto" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/8e492f06a6-ccd3caefd61b5595b288.png" alt="professional LinkedIn recruitment dashboard interface with candidate profiles and analytics" />
               </div>
-              <div className="col-span-1 flex justify-center md:col-span-2 lg:col-span-1">
-                <img className="h-12" src="/logos/company3.png" alt="Company 3" />
+            </div>
+          </div>
+
+          <div id="feature-2" className="flex flex-col md:flex-row-reverse items-center gap-12">
+            <div className="md:w-1/2">
+              <div className="inline-block text-blue-600 bg-blue-50 px-4 py-2 rounded-full text-sm font-medium mb-6">
+                <i className="fa-solid fa-robot mr-2"></i> AI-Powered
               </div>
-              <div className="col-span-1 flex justify-center md:col-span-2 lg:col-span-1">
-                <img className="h-12" src="/logos/company4.png" alt="Company 4" />
-              </div>
-              <div className="col-span-1 flex justify-center md:col-span-2 lg:col-span-1">
-                <img className="h-12" src="/logos/company5.png" alt="Company 5" />
+              <h3 className="text-3xl font-semibold mb-6">Personalized GPT Outreach</h3>
+              <p className="text-gray-600 mb-6">
+                AI-powered messaging that speaks to candidates in a personal, engaging way.
+              </p>
+              <ul className="space-y-4">
+                <li className="flex items-center gap-3 text-gray-700">
+                  <i className="fa-solid fa-check text-green-500"></i>
+                  Custom message templates
+                </li>
+                <li className="flex items-center gap-3 text-gray-700">
+                  <i className="fa-solid fa-check text-green-500"></i>
+                  Response analysis
+                </li>
+              </ul>
+            </div>
+            <div className="md:w-1/2">
+              <div className="rounded-xl overflow-hidden shadow-xl">
+                <img className="w-full h-auto" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/1390adef6d-29bed87549ffec7ede83.png" alt="AI messaging interface with candidate conversation and response analytics" />
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* How It Works Section */}
-      <section className="py-12 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h2 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
-              How It Works
-            </h2>
-            <p className="mt-4 text-lg text-gray-500">
-              Our AI-powered platform streamlines your entire recruiting process
-            </p>
-          </div>
-
-          <div className="mt-10">
-            <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-3">
-              {/* Step 1 */}
-              <div className="text-center">
-                <div className="flex items-center justify-center h-12 w-12 rounded-md bg-hpBlue text-white mx-auto">
-                  <i className="fas fa-robot text-xl"></i>
+      {/* Testimonials */}
+      <section id="testimonials" className="py-20 bg-gray-50">
+        <div className="max-w-6xl mx-auto px-6">
+          <h2 className="text-3xl font-semibold text-center mb-4">What Our Customers Say</h2>
+          <p className="text-gray-600 text-center mb-12 max-w-2xl mx-auto">Join thousands of satisfied customers who have transformed their hiring process</p>
+          <div className="grid md:grid-cols-3 gap-8">
+            <div id="testimonial-1" className="bg-white p-8 rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-200">
+              <div className="flex items-center gap-4 mb-6">
+                <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg" alt="Sarah Johnson" className="w-12 h-12 rounded-full" />
+                <div>
+                  <div className="font-medium">Sarah Johnson</div>
+                  <div className="text-sm text-gray-500">HR Director, TechCorp</div>
                 </div>
-                <h3 className="mt-6 text-xl font-medium text-gray-900">AI Screening</h3>
-                <p className="mt-2 text-base text-gray-500">
-                  Our AI analyzes resumes and profiles to identify the best candidates
-                </p>
               </div>
-
-              {/* Step 2 */}
-              <div className="text-center">
-                <div className="flex items-center justify-center h-12 w-12 rounded-md bg-hpBlue text-white mx-auto">
-                  <i className="fas fa-calendar-alt text-xl"></i>
-                </div>
-                <h3 className="mt-6 text-xl font-medium text-gray-900">Smart Scheduling</h3>
-                <p className="mt-2 text-base text-gray-500">
-                  Automatically schedule interviews and follow-ups with candidates
-                </p>
+              <p className="text-gray-700 italic">"HirePilot has transformed our recruiting process. We've cut our time-to-hire by 60% and improved candidate quality."</p>
+              <div className="mt-6 text-yellow-400 flex gap-1">
+                <i className="fa-solid fa-star"></i>
+                <i className="fa-solid fa-star"></i>
+                <i className="fa-solid fa-star"></i>
+                <i className="fa-solid fa-star"></i>
+                <i className="fa-solid fa-star"></i>
               </div>
+            </div>
 
-              {/* Step 3 */}
-              <div className="text-center">
-                <div className="flex items-center justify-center h-12 w-12 rounded-md bg-hpBlue text-white mx-auto">
-                  <i className="fas fa-chart-line text-xl"></i>
+            <div id="testimonial-2" className="bg-white p-8 rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-200">
+              <div className="flex items-center gap-4 mb-6">
+                <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" alt="Mike Chen" className="w-12 h-12 rounded-full" />
+                <div>
+                  <div className="font-medium">Mike Chen</div>
+                  <div className="text-sm text-gray-500">CEO, StartlynX</div>
                 </div>
-                <h3 className="mt-6 text-xl font-medium text-gray-900">Analytics</h3>
-                <p className="mt-2 text-base text-gray-500">
-                  Track your hiring metrics and optimize your process
-                </p>
+              </div>
+              <p className="text-gray-700 italic">"The AI-powered sourcing is incredible. It's like having a full recruiting team at a fraction of the cost."</p>
+              <div className="mt-6 text-yellow-400 flex gap-1">
+                <i className="fa-solid fa-star"></i>
+                <i className="fa-solid fa-star"></i>
+                <i className="fa-solid fa-star"></i>
+                <i className="fa-solid fa-star"></i>
+                <i className="fa-solid fa-star"></i>
+              </div>
+            </div>
+
+            <div id="testimonial-3" className="bg-white p-8 rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-200">
+              <div className="flex items-center gap-4 mb-6">
+                <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-5.jpg" alt="Emily Rodriguez" className="w-12 h-12 rounded-full" />
+                <div>
+                  <div className="font-medium">Emily Rodriguez</div>
+                  <div className="text-sm text-gray-500">Talent Lead, CommTech</div>
+                </div>
+              </div>
+              <p className="text-gray-700 italic">"The automated scheduling and engagement features have saved countless hours of manual work."</p>
+              <div className="mt-6 text-yellow-400 flex gap-1">
+                <i className="fa-solid fa-star"></i>
+                <i className="fa-solid fa-star"></i>
+                <i className="fa-solid fa-star"></i>
+                <i className="fa-solid fa-star"></i>
+                <i className="fa-solid fa-star"></i>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="py-12 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h2 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
-              Features
-            </h2>
-            <p className="mt-4 text-lg text-gray-500">
-              Everything you need to streamline your hiring process
-            </p>
-          </div>
-
-          <div className="mt-10">
-            <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
-              {/* Feature 1 */}
-              <div className="bg-white overflow-hidden shadow rounded-lg">
-                <div className="px-4 py-5 sm:p-6">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0 bg-hpBlue rounded-md p-3">
-                      <i className="fas fa-search text-white text-xl"></i>
-                    </div>
-                    <div className="ml-5 w-0 flex-1">
-                      <h3 className="text-lg font-medium text-gray-900">Smart Candidate Search</h3>
-                      <p className="mt-1 text-sm text-gray-500">
-                        Find the perfect candidates with our AI-powered search
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Feature 2 */}
-              <div className="bg-white overflow-hidden shadow rounded-lg">
-                <div className="px-4 py-5 sm:p-6">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0 bg-hpBlue rounded-md p-3">
-                      <i className="fas fa-comments text-white text-xl"></i>
-                    </div>
-                    <div className="ml-5 w-0 flex-1">
-                      <h3 className="text-lg font-medium text-gray-900">Automated Messaging</h3>
-                      <p className="mt-1 text-sm text-gray-500">
-                        Keep candidates engaged with personalized messages
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Feature 3 */}
-              <div className="bg-white overflow-hidden shadow rounded-lg">
-                <div className="px-4 py-5 sm:p-6">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0 bg-hpBlue rounded-md p-3">
-                      <i className="fas fa-tasks text-white text-xl"></i>
-                    </div>
-                    <div className="ml-5 w-0 flex-1">
-                      <h3 className="text-lg font-medium text-gray-900">Pipeline Management</h3>
-                      <p className="mt-1 text-sm text-gray-500">
-                        Track candidates through your hiring pipeline
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials Section */}
-      <section className="py-12 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h2 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
-              What Our Customers Say
-            </h2>
-          </div>
-
-          <div className="mt-10">
-            <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
-              {/* Testimonial 1 */}
-              <div className="bg-gray-50 rounded-lg p-6">
-                <div className="flex items-center">
-                  <img className="h-12 w-12 rounded-full" src="/testimonials/person1.jpg" alt="Person 1" />
-                  <div className="ml-4">
-                    <h4 className="text-lg font-medium text-gray-900">John Doe</h4>
-                    <p className="text-sm text-gray-500">HR Director, Tech Corp</p>
-                  </div>
-                </div>
-                <p className="mt-4 text-gray-500">
-                  "HirePilot has revolutionized our hiring process. We've reduced our time-to-hire by 50%."
-                </p>
-              </div>
-
-              {/* Testimonial 2 */}
-              <div className="bg-gray-50 rounded-lg p-6">
-                <div className="flex items-center">
-                  <img className="h-12 w-12 rounded-full" src="/testimonials/person2.jpg" alt="Person 2" />
-                  <div className="ml-4">
-                    <h4 className="text-lg font-medium text-gray-900">Jane Smith</h4>
-                    <p className="text-sm text-gray-500">Talent Acquisition, StartupX</p>
-                  </div>
-                </div>
-                <p className="mt-4 text-gray-500">
-                  "The AI screening feature has helped us find better candidates faster than ever before."
-                </p>
-              </div>
-
-              {/* Testimonial 3 */}
-              <div className="bg-gray-50 rounded-lg p-6">
-                <div className="flex items-center">
-                  <img className="h-12 w-12 rounded-full" src="/testimonials/person3.jpg" alt="Person 3" />
-                  <div className="ml-4">
-                    <h4 className="text-lg font-medium text-gray-900">Mike Johnson</h4>
-                    <p className="text-sm text-gray-500">CEO, GrowthCo</p>
-                  </div>
-                </div>
-                <p className="mt-4 text-gray-500">
-                  "HirePilot has been a game-changer for our growing team. Highly recommended!"
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="bg-hpBlue">
-        <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:py-16 lg:px-8 lg:flex lg:items-center lg:justify-between">
-          <h2 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
-            <span className="block">Ready to get started?</span>
-            <span className="block text-blue-200">Start your free trial today.</span>
-          </h2>
-          <div className="mt-8 flex lg:mt-0 lg:flex-shrink-0">
-            <div className="inline-flex rounded-md shadow">
-              <Link to="/signup" className="inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-hpBlue bg-white hover:bg-blue-50">
-                Get started
-              </Link>
-            </div>
-            <div className="ml-3 inline-flex rounded-md shadow">
-              <Link to="/contact" className="inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
-                Contact sales
-              </Link>
-            </div>
+      {/* CTA */}
+      <section id="cta" className="py-20 bg-gradient-to-r from-blue-600 to-blue-500 text-white">
+        <div className="max-w-4xl mx-auto px-6 text-center">
+          <h2 className="text-4xl font-bold mb-6">Build your recruiting engine in minutes</h2>
+          <p className="text-xl mb-10 opacity-90">Join thousands of companies hiring better with AI.</p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <a href="#" className="bg-white text-blue-600 font-semibold py-4 px-8 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-200">
+              Get Started Free <i className="fa-solid fa-arrow-right ml-2"></i>
+            </a>
+            <a href="#" className="border-2 border-white text-white font-semibold py-4 px-8 rounded-lg hover:bg-white/10 transition-colors duration-200">
+              <i className="fa-regular fa-calendar mr-2"></i> Schedule Demo
+            </a>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-800">
-        <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
+      <footer id="footer" className="bg-gray-900 text-white py-16">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="grid md:grid-cols-4 gap-12 mb-12">
             <div>
-              <h3 className="text-sm font-semibold text-gray-400 tracking-wider uppercase">Product</h3>
-              <ul className="mt-4 space-y-4">
-                <li><Link to="/features" className="text-base text-gray-300 hover:text-white">Features</Link></li>
-                <li><Link to="/pricing" className="text-base text-gray-300 hover:text-white">Pricing</Link></li>
-                <li><Link to="/integrations" className="text-base text-gray-300 hover:text-white">Integrations</Link></li>
+              <div className="flex items-center gap-2 mb-6">
+                <i className="fa-solid fa-rocket text-blue-500 text-2xl"></i>
+                <span className="text-xl font-bold">HirePilot</span>
+              </div>
+              <p className="text-gray-400">
+                AI-powered recruiting platform that helps you hire better, faster.
+              </p>
+              <div className="mt-6 flex gap-4">
+                <span className="text-gray-400 hover:text-white cursor-pointer"><i className="fa-brands fa-twitter text-xl"></i></span>
+                <span className="text-gray-400 hover:text-white cursor-pointer"><i className="fa-brands fa-linkedin text-xl"></i></span>
+                <span className="text-gray-400 hover:text-white cursor-pointer"><i className="fa-brands fa-facebook text-xl"></i></span>
+              </div>
+            </div>
+            <div>
+              <h4 className="font-semibold text-lg mb-4">Product</h4>
+              <ul className="space-y-3 text-gray-400">
+                <li><span className="hover:text-white cursor-pointer">Features</span></li>
+                <li><span className="hover:text-white cursor-pointer">Pricing</span></li>
+                <li><span className="hover:text-white cursor-pointer">Enterprise</span></li>
+                <li><span className="hover:text-white cursor-pointer">Case Studies</span></li>
               </ul>
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-gray-400 tracking-wider uppercase">Company</h3>
-              <ul className="mt-4 space-y-4">
-                <li><Link to="/about" className="text-base text-gray-300 hover:text-white">About</Link></li>
-                <li><Link to="/blog" className="text-base text-gray-300 hover:text-white">Blog</Link></li>
-                <li><Link to="/careers" className="text-base text-gray-300 hover:text-white">Careers</Link></li>
+              <h4 className="font-semibold text-lg mb-4">Company</h4>
+              <ul className="space-y-3 text-gray-400">
+                <li><span className="hover:text-white cursor-pointer">About</span></li>
+                <li><span className="hover:text-white cursor-pointer">Blog</span></li>
+                <li><span className="hover:text-white cursor-pointer">Careers</span></li>
+                <li><span className="hover:text-white cursor-pointer">Contact</span></li>
               </ul>
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-gray-400 tracking-wider uppercase">Resources</h3>
-              <ul className="mt-4 space-y-4">
-                <li><Link to="/documentation" className="text-base text-gray-300 hover:text-white">Documentation</Link></li>
-                <li><Link to="/guides" className="text-base text-gray-300 hover:text-white">Guides</Link></li>
-                <li><Link to="/api" className="text-base text-gray-300 hover:text-white">API</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-gray-400 tracking-wider uppercase">Legal</h3>
-              <ul className="mt-4 space-y-4">
-                <li><Link to="/privacy" className="text-base text-gray-300 hover:text-white">Privacy</Link></li>
-                <li><Link to="/terms" className="text-base text-gray-300 hover:text-white">Terms</Link></li>
+              <h4 className="font-semibold text-lg mb-4">Support</h4>
+              <ul className="space-y-3 text-gray-400">
+                <li><span className="hover:text-white cursor-pointer">Help Center</span></li>
+                <li><span className="hover:text-white cursor-pointer">Documentation</span></li>
+                <li><span className="hover:text-white cursor-pointer">API Reference</span></li>
+                <li><span className="hover:text-white cursor-pointer">Privacy Policy</span></li>
               </ul>
             </div>
           </div>
-          <div className="mt-8 border-t border-gray-700 pt-8">
-            <p className="text-base text-gray-400 text-center">
-              © 2024 HirePilot. All rights reserved.
-            </p>
+          <div className="pt-8 border-t border-gray-800 text-center text-gray-400 text-sm">
+            © 2025 HirePilot. All rights reserved.
           </div>
         </div>
       </footer>
