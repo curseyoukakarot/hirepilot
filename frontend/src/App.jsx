@@ -20,6 +20,7 @@ import AdminUserManagement from './screens/AdminUserManagement';
 import LeadSyncFailures from './screens/LeadSyncFailures';
 import PhantomConfig from './screens/PhantomConfig';
 import WebhookLogs from './screens/WebhookLogs';
+import HomePage from './screens/HomePage';
 
 // Lazy load screens
 const SigninScreen = lazy(() => import("./screens/SigninScreen"));
@@ -185,7 +186,7 @@ export default function App() {
 
 function InnerApp() {
   const location = useLocation();
-  const isAuthPage = location.pathname === "/signup" || location.pathname === "/login";
+  const isAuthPage = location.pathname === "/signup" || location.pathname === "/login" || location.pathname === "/";
   const navigate = useNavigate();
   const [userLoaded, setUserLoaded] = useState(false);
   const [dbRole, setDbRole] = useState(null);
@@ -248,7 +249,7 @@ function InnerApp() {
         <main className={`flex-1 ${!isAuthPage ? 'ml-64 p-6 min-h-0 overflow-y-auto' : ''}`}>
           <Suspense fallback={<div className="text-center p-6">Loading...</div>}>
             <Routes>
-              <Route path="/" element={<Navigate to="/login" />} />
+              <Route path="/" element={<HomePage />} />
               <Route path="/signup" element={<SignupScreen />} />
               <Route path="/login" element={<SigninScreen />} />
               <Route path="/onboarding" element={<OnboardingWizard />} />
