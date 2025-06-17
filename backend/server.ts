@@ -178,7 +178,7 @@ app.use('/api', slackRouter);
 app.use('/api/billing', billingRouter);
 app.use('/api/admin', adminUsersRouter);
 app.get('/api/campaigns/all/performance', (req, res) => {
-  req.params.id = 'all';
+  (req.params as any).id = 'all';
   return campaignPerformance(req, res);
 });
 
