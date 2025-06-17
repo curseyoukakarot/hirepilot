@@ -90,7 +90,10 @@ app.get('/api/debug/routes', (req, res) => {
 
 // Configure CORS before routes
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'https://thehirepilot.com',
+  origin: [
+    'https://thehirepilot.com',
+    'https://hirepilot.vercel.app'
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
