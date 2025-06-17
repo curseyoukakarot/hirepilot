@@ -123,8 +123,13 @@ const HomePage = () => {
               </div>
             </div>
           </div>
+        </div>
+      </section>
 
-          <div id="feature-2" className="flex flex-col md:flex-row-reverse items-center gap-12 bg-gradient-to-t from-blue-500 via-blue-200 to-white rounded-2xl py-12">
+      {/* Full-width reverse blue gradient background for feature-2 */}
+      <div className="w-full bg-gradient-to-t from-blue-500 via-blue-200 to-white py-20">
+        <section className="max-w-6xl mx-auto px-6">
+          <div id="feature-2" className="flex flex-col md:flex-row-reverse items-center gap-12">
             <div className="md:w-1/2">
               <div className="inline-block text-blue-600 bg-blue-50 px-4 py-2 rounded-full text-sm font-medium mb-6">
                 <i className="fa-solid fa-robot mr-2"></i> AI-Powered
@@ -150,8 +155,8 @@ const HomePage = () => {
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
 
       {/* Testimonials */}
       <section id="testimonials" className="py-20 bg-gray-50">
