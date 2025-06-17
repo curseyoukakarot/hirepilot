@@ -248,7 +248,7 @@ function InnerApp() {
         <main className={`flex-1 ${!isAuthPage ? 'ml-64 p-6 min-h-0 overflow-y-auto' : ''}`}>
           <Suspense fallback={<div className="text-center p-6">Loading...</div>}>
             <Routes>
-              <Route path="/" element={<Navigate to="/dashboard" />} />
+              <Route path="/" element={<Navigate to="/login" />} />
               <Route path="/signup" element={<SignupScreen />} />
               <Route path="/login" element={<SigninScreen />} />
               <Route path="/onboarding" element={<OnboardingWizard />} />
@@ -275,7 +275,7 @@ function InnerApp() {
               <Route path="/phantom/webhook-logs" element={<WebhookLogs />} />
               <Route path="/super-admin" element={<SuperAdminDashboard />} />
               <Route path="/admin/users" element={<AdminUserManagement />} />
-              <Route path="*" element={<div className="text-center text-red-500">404 - Page Not Found</div>} />
+              <Route path="*" element={<Navigate to="/login" />} />
             </Routes>
           </Suspense>
         </main>
