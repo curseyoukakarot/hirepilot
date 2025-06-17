@@ -8,7 +8,7 @@ const HomePage = () => {
       <header id="header" className="fixed w-full top-0 z-50 bg-white/90 backdrop-blur-sm border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <i className="fa-solid fa-rocket text-blue-600 text-2xl"></i>
+            <img src="/logo.png" alt="HirePilot Logo" className="h-8 w-8" />
             <span className="text-xl font-bold">HirePilot</span>
           </div>
           <nav className="hidden md:flex items-center gap-8">
@@ -243,7 +243,7 @@ const HomePage = () => {
           <div className="grid md:grid-cols-4 gap-12 mb-12">
             <div>
               <div className="flex items-center gap-2 mb-6">
-                <i className="fa-solid fa-rocket text-blue-500 text-2xl"></i>
+                <img src="/logo.png" alt="HirePilot Logo" className="h-8 w-8" />
                 <span className="text-xl font-bold">HirePilot</span>
               </div>
               <p className="text-gray-400">
