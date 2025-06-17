@@ -91,15 +91,15 @@ const HomePage = () => {
         <div className="max-w-6xl mx-auto px-6 space-y-20">
           <div id="feature-1" className="flex flex-col md:flex-row items-center gap-12">
             <div className="md:w-1/2">
-              <div className="flex gap-2">
-                <span className="inline-block text-blue-600 bg-blue-50 px-4 py-2 rounded-full text-sm font-medium mb-6">
+              <div className="flex gap-4">
+                <span className="inline-block text-blue-600 bg-blue-50 px-8 py-2 rounded-full text-sm font-medium mb-6 whitespace-nowrap">
                   <i className="fa-brands fa-linkedin mr-2"></i> LinkedIn Integration
                 </span>
-                <span className="inline-block text-purple-700 bg-purple-100 px-4 py-2 rounded-full text-sm font-medium mb-6 flex items-center gap-2">
+                <span className="inline-block text-purple-700 bg-purple-100 px-8 py-2 rounded-full text-sm font-medium mb-6 flex items-center gap-2 whitespace-nowrap">
                   <img src="/apollo-logo.png" alt="Apollo" className="h-5 w-5" /> Apollo Integration
                 </span>
-                <span className="inline-block text-green-700 bg-green-100 px-4 py-2 rounded-full text-sm font-medium mb-6 flex items-center gap-2">
-                  <i className="fa-solid fa-envelope"></i> Add Outreach Integrations
+                <span className="inline-block text-green-700 bg-green-100 px-8 py-2 rounded-full text-sm font-medium mb-6 flex items-center gap-2 whitespace-nowrap">
+                  <i className="fa-solid fa-envelope"></i> Outreach Integrations
                 </span>
               </div>
               <h3 className="text-3xl font-semibold mb-6">Source with Accuracy</h3>
