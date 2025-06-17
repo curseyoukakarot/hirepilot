@@ -179,6 +179,25 @@ router.delete('/users/:id', requireAuth, requireSuperAdmin, async (req: Request,
   res.json({ success: true });
 });
 
+// GET /api/admin/latest-users - List the most recently created users
+router.get('/latest-users', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
+  try {
+    const { data, error } = await dbClient
+      .from('users')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
 export const getAdminUsers = async (req: ApiRequest, res: Response) => {
   try {
     if (!req.user) {
