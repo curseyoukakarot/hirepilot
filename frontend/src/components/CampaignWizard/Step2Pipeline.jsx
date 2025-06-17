@@ -4,15 +4,10 @@ import { supabase } from '../../lib/supabase';
 import WizardStepHeader from './WizardStepHeader';
 import { useWizard } from '../../context/WizardContext';
 
-console.log('VITE_BACKEND_URL:', import.meta.env.VITE_BACKEND_URL);
-
 export default function Step2Pipeline({ onBack, onNext }) {
   const { wizard, setWizard } = useWizard();
   const pipeline = wizard.pipeline;
   const campaign = wizard.campaign;
-
-  // Debug logging
-  console.log('Step2Pipeline render:', { pipeline, campaign });
 
   // Tab state
   const [tab, setTab] = useState('existing');

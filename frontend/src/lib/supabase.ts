@@ -18,8 +18,6 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables');
 }
 
-console.log("SUPABASE_KEY (runtime):", import.meta.env.VITE_SUPABASE_ANON_KEY);
-
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,

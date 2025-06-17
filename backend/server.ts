@@ -57,6 +57,7 @@ import billingRouter from './routes/billing';
 import cookieParser from 'cookie-parser';
 import listEndpoints from 'express-list-endpoints';
 import adminUsersRouter from './src/routes/adminUsers';
+import campaignPerformance from './api/campaignPerformance';
 
 declare module 'express-list-endpoints';
 
@@ -176,6 +177,10 @@ app.use('/api/team', teamRouter);
 app.use('/api', slackRouter);
 app.use('/api/billing', billingRouter);
 app.use('/api/admin', adminUsersRouter);
+app.get('/api/campaigns/all/performance', (req, res) => {
+  req.params.id = 'all';
+  return campaignPerformance(req, res);
+});
 
 // Log all endpoints before starting the server
 console.table(
