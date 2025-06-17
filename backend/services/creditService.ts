@@ -5,8 +5,10 @@ import { getCreditsForPlan } from '../config/pricing';
 // Load environment variables first
 dotenv.config();
 
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-  throw new Error('NEXT_PUBLIC_SUPABASE_URL is required');
+// Allow either SUPABASE_URL (backend) or NEXT_PUBLIC_SUPABASE_URL (frontend) for flexibility
+const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+if (!supabaseUrl) {
+  throw new Error('SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL is required');
 }
 
 if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -15,7 +17,7 @@ if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
 
 // Initialize Supabase client
 const supabase = createClient(
-  process.env.SUPABASE_URL!,
+  supabaseUrl,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
