@@ -2,7 +2,7 @@ import { resetStuckPhantoms } from './resetStuckPhantoms';
 import { supabaseDb } from '../lib/supabase';
 
 // Import queue/launch helpers
-const { launchPhantom, getPhantomCooldown, getPhantomHealth, getPhantomJobHistory, logPhantomHealth, checkPhantomHealth } = require('../lib/phantom');
+const { launchPhantom, getPhantomCooldown, getPhantomHealth, getPhantomJobHistory, logPhantomHealth, checkPhantomHealth } = require('../src/lib/phantom');
 
 function randomIntervalMs(minMinutes = 5, maxMinutes = 15) {
   return (Math.floor(Math.random() * (maxMinutes - minMinutes + 1)) + minMinutes) * 60 * 1000;
