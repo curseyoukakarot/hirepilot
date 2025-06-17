@@ -96,7 +96,7 @@ const HomePage = () => {
                   <i className="fa-brands fa-linkedin mr-2"></i> LinkedIn Integration
                 </span>
                 <span className="inline-block text-purple-700 bg-purple-100 px-8 py-2 rounded-full text-sm font-medium mb-6 flex items-center gap-2 whitespace-nowrap">
-                  <img src="/apollo-logo.png" alt="Apollo" className="h-5 w-5" /> Apollo Integration
+                  <img src="/apollo-logo-v2.png" alt="Apollo" className="h-5 w-5" /> Apollo Integration
                 </span>
                 <span className="inline-block text-green-700 bg-green-100 px-8 py-2 rounded-full text-sm font-medium mb-6 flex items-center gap-2 whitespace-nowrap">
                   <i className="fa-solid fa-envelope"></i> Outreach Integrations
@@ -124,7 +124,7 @@ const HomePage = () => {
             </div>
           </div>
 
-          <div id="feature-2" className="flex flex-col md:flex-row-reverse items-center gap-12">
+          <div id="feature-2" className="flex flex-col md:flex-row-reverse items-center gap-12 bg-gradient-to-t from-blue-500 via-blue-200 to-white rounded-2xl py-12">
             <div className="md:w-1/2">
               <div className="inline-block text-blue-600 bg-blue-50 px-4 py-2 rounded-full text-sm font-medium mb-6">
                 <i className="fa-solid fa-robot mr-2"></i> AI-Powered
