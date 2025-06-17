@@ -49,26 +49,14 @@ const HomePage = () => {
             </div>
           </div>
           <div className="w-full md:w-1/2">
-            <div className="relative">
-              <div className="absolute inset-0 bg-white/10 rounded-2xl transform rotate-6"></div>
-              <div className="relative rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/20 bg-white">
-                <img className="w-full h-auto" src="/hp-hero-v2.png" alt="modern dashboard UI with recruitment analytics, charts and candidate profiles in blue theme, professional layout" />
+            <div className="w-full md:w-full flex justify-center">
+              <div className="relative max-w-3xl w-full">
+                <div className="absolute inset-0 bg-white/10 rounded-2xl transform rotate-6"></div>
+                <div className="relative rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/20 bg-white">
+                  <img className="w-full h-auto" src="/hp-hero-v2.png" alt="modern dashboard UI with recruitment analytics, charts and candidate profiles in blue theme, professional layout" />
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Trusted By Section */}
-      <section id="trusted-by" className="py-12 bg-white border-y border-gray-100">
-        <div className="max-w-6xl mx-auto px-6 text-center">
-          <p className="text-sm text-gray-500 uppercase tracking-wider mb-8">Trusted by innovative companies worldwide</p>
-          <div className="flex justify-center flex-wrap gap-12 opacity-70">
-            <i className="fa-brands fa-google text-gray-400 text-4xl"></i>
-            <i className="fa-brands fa-microsoft text-gray-400 text-4xl"></i>
-            <i className="fa-brands fa-apple text-gray-400 text-4xl"></i>
-            <i className="fa-brands fa-amazon text-gray-400 text-4xl"></i>
-            <i className="fa-brands fa-meta text-gray-400 text-4xl"></i>
           </div>
         </div>
       </section>
@@ -249,36 +237,25 @@ const HomePage = () => {
                 AI-powered recruiting platform that helps you hire better, faster.
               </p>
               <div className="mt-6 flex gap-4">
-                <span className="text-gray-400 hover:text-white cursor-pointer"><i className="fa-brands fa-twitter text-xl"></i></span>
                 <span className="text-gray-400 hover:text-white cursor-pointer"><i className="fa-brands fa-linkedin text-xl"></i></span>
-                <span className="text-gray-400 hover:text-white cursor-pointer"><i className="fa-brands fa-facebook text-xl"></i></span>
               </div>
             </div>
             <div>
               <h4 className="font-semibold text-lg mb-4">Product</h4>
               <ul className="space-y-3 text-gray-400">
-                <li><span className="hover:text-white cursor-pointer">Features</span></li>
                 <li><span className="hover:text-white cursor-pointer">Pricing</span></li>
-                <li><span className="hover:text-white cursor-pointer">Enterprise</span></li>
-                <li><span className="hover:text-white cursor-pointer">Case Studies</span></li>
               </ul>
             </div>
             <div>
               <h4 className="font-semibold text-lg mb-4">Company</h4>
               <ul className="space-y-3 text-gray-400">
-                <li><span className="hover:text-white cursor-pointer">About</span></li>
                 <li><span className="hover:text-white cursor-pointer">Blog</span></li>
-                <li><span className="hover:text-white cursor-pointer">Careers</span></li>
-                <li><span className="hover:text-white cursor-pointer">Contact</span></li>
               </ul>
             </div>
             <div>
               <h4 className="font-semibold text-lg mb-4">Support</h4>
               <ul className="space-y-3 text-gray-400">
-                <li><span className="hover:text-white cursor-pointer">Help Center</span></li>
-                <li><span className="hover:text-white cursor-pointer">Documentation</span></li>
-                <li><span className="hover:text-white cursor-pointer">API Reference</span></li>
-                <li><span className="hover:text-white cursor-pointer">Privacy Policy</span></li>
+                <li><span className="hover:text-white cursor-pointer">Terms of Use</span></li>
               </ul>
             </div>
           </div>
