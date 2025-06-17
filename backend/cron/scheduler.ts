@@ -1,8 +1,36 @@
 import { resetStuckPhantoms } from './resetStuckPhantoms';
 import { supabaseDb } from '../lib/supabase';
 
-// Import queue/launch helpers
-const { launchPhantom, getPhantomCooldown, getPhantomHealth, getPhantomJobHistory, logPhantomHealth, checkPhantomHealth } = require('../lib/phantom');
+// Import queue/launch helpers – gracefully handle missing helper to keep server alive
+let launchPhantom: any,
+  getPhantomCooldown: any,
+  getPhantomHealth: any,
+  getPhantomJobHistory: any,
+  logPhantomHealth: any,
+  checkPhantomHealth: any;
+
+try {
+  ({
+    launchPhantom,
+    getPhantomCooldown,
+    getPhantomHealth,
+    getPhantomJobHistory,
+    logPhantomHealth,
+    checkPhantomHealth
+  } = require('../lib/phantom'));
+} catch (e) {
+  console.error('[cron] Phantom helper missing – cron jobs will be disabled until the helper is restored.', e);
+  // Provide safe fall-backs so the rest of the API can boot without crashing
+  launchPhantom = async () => {
+    console.warn('[cron] launchPhantom called but helper is unavailable.');
+    return null;
+  };
+  getPhantomCooldown = async () => null;
+  getPhantomHealth = async () => null;
+  getPhantomJobHistory = async () => [];
+  logPhantomHealth = async () => undefined;
+  checkPhantomHealth = async () => undefined;
+}
 
 function randomIntervalMs(minMinutes = 5, maxMinutes = 15) {
   return (Math.floor(Math.random() * (maxMinutes - minMinutes + 1)) + minMinutes) * 60 * 1000;

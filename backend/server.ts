@@ -74,7 +74,7 @@ const allowed = [
   'https://hirepilot.vercel.app'
 ];
 app.use(cors({
-  origin: (origin, cb) => cb(null, allowed.includes(origin)),
+  origin: (origin, cb) => cb(null, !origin || allowed.includes(origin)),
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
@@ -172,6 +172,12 @@ console.table(
     path: r.path
   }))
 );
+
+// Insert a global error handler BEFORE the 404 catch-all (should be near the end of the file)
+app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error(err);
+  res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
+});
 
 // 404 handler must be last
 app.use('*', (_req, res) => res.status(404).json({ error: 'not_found' }));
