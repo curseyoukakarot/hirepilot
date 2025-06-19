@@ -91,10 +91,12 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
         },
         updated_at: new Date().toISOString()
       })
-      .eq('id', leadId);
+      .eq('id', leadId)
+      .eq('user_id', userId);
 
     if (updateError) {
-      throw new Error('Failed to update lead with enrichment data');
+      console.error('Supabase update error:', updateError);
+      throw new Error(updateError.message || 'Failed to update lead with enrichment data');
     }
 
     return {
