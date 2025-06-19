@@ -240,6 +240,7 @@ router.post('/:id/enrich', requireAuth, async (req: Request, res: Response) => {
     }
 
     // Update lead with enriched data
+    console.log('[enrich route] writing enriched_data for', id);
     const { data: updatedLead, error: updateError } = await supabase
       .from('leads')
       .update({
@@ -255,8 +256,7 @@ router.post('/:id/enrich', requireAuth, async (req: Request, res: Response) => {
       .single();
 
     if (updateError) {
-      res.status(500).json({ error: updateError.message });
-      return;
+      console.error('[enrich route] Supabase error', updateError);
     }
 
     res.json(updatedLead);
