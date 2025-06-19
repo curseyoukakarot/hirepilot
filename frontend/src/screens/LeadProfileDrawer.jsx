@@ -124,18 +124,9 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     return [];
   };
 
-  // Helper to determine if lead is enriched (now checks proxycurl)
+  // Helper to determine if lead is enriched – any non-empty enrichment_data counts
   const isEnriched = Boolean(
-    (localLead.enrichment_data && (
-      (Array.isArray(localLead.enrichment_data.workHistory) && localLead.enrichment_data.workHistory.length > 0) ||
-      localLead.enrichment_data.gptNotes ||
-      (localLead.enrichment_data.proxycurl && (
-        (Array.isArray(localLead.enrichment_data.proxycurl.experiences) && localLead.enrichment_data.proxycurl.experiences.length > 0) ||
-        localLead.enrichment_data.proxycurl.summary
-      ))
-    )) ||
-    (localLead.workHistory && localLead.workHistory.length > 0) ||
-    (localLead.gptNotes && localLead.gptNotes.length > 0)
+    localLead.enrichment_data && Object.keys(localLead.enrichment_data).length > 0
   );
 
   // Add a function to fetch the latest lead data
