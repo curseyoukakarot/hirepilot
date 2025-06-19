@@ -41,8 +41,14 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
       return;
     }
 
-    // Attach user to request object
-    (req as any).auth = { user };
+    // Attach user to request object in a common property
+    (req as any).user = {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      first_name: (user.user_metadata as any)?.first_name,
+      last_name: (user.user_metadata as any)?.last_name,
+    };
     next();
   } catch (error) {
     console.error('Auth middleware error:', error);
