@@ -219,10 +219,15 @@ router.post('/:id/enrich', requireAuth, async (req: Request, res: Response) => {
       linkedinUrl: lead.linkedin_url
     });
     
-    // Enrich with Proxycurl
-    const proxycurlData = await enrichWithProxycurl({
-      linkedinUrl: lead.linkedin_url
-    });
+    // Enrich with Proxycurl (non-fatal)
+    let proxycurlData = null;
+    try {
+      if (lead.linkedin_url) {
+        proxycurlData = await enrichWithProxycurl({ linkedinUrl: lead.linkedin_url });
+      }
+    } catch (err) {
+      console.error('Proxycurl enrichment failed:', err);
+    }
 
     // Analyze with GPT
     let gptAnalysis = null;
