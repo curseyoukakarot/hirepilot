@@ -776,7 +776,13 @@ export default function SettingsIntegrations() {
                       <button
                         onClick={() => {
                           if (integration.id === 'apollo') {
-                            handleApolloDisconnect();
+                            if (integration.isConnected) {
+                              // Already connected -> manage API key
+                              setShowApolloModal(true);
+                            } else {
+                              // Not connected -> start OAuth flow
+                              handleConnect('apollo');
+                            }
                           } else {
                             handleDisconnect(integration.id);
                           }
@@ -790,7 +796,13 @@ export default function SettingsIntegrations() {
                     <button 
                       onClick={() => {
                         if (integration.id === 'apollo') {
-                          setShowApolloModal(true);
+                          if (integration.isConnected) {
+                            // Already connected -> manage API key
+                            setShowApolloModal(true);
+                          } else {
+                            // Not connected -> start OAuth flow
+                            handleConnect('apollo');
+                          }
                         } else {
                           handleConnect(integration.id);
                         }
