@@ -53,7 +53,7 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
 
     // Update lead with enrichment data
     const { error: updateError } = await supabase
-      .from('campaign_leads')
+      .from('leads')
       .update({
         first_name: person.first_name,
         last_name: person.last_name,

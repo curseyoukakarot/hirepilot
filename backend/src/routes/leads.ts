@@ -210,7 +210,14 @@ router.post('/:id/enrich', requireAuth, async (req: Request, res: Response) => {
     }
 
     // Enrich with Apollo
-    const apolloData = await enrichWithApollo(lead);
+    const apolloData = await enrichWithApollo({
+      leadId: lead.id,
+      userId: lead.user_id,
+      firstName: lead.first_name,
+      lastName: lead.last_name,
+      company: lead.company,
+      linkedinUrl: lead.linkedin_url
+    });
     
     // Enrich with Proxycurl
     const proxycurlData = await enrichWithProxycurl(lead);
