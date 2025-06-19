@@ -330,7 +330,12 @@ export default function SettingsIntegrations() {
       });
       const data = await response.json();
       if (response.ok) {
-        setAllowedSenders(data.senders || []);
+        const normalized = (data.senders || []).map(s => ({
+          id: s.id,
+          email: s.email || s.from_email || '',
+          name: s.name || s.from_name || s.nickname || ''
+        }));
+        setAllowedSenders(normalized);
         if (data.senders && data.senders.length > 0) {
           setSelectedSender(data.senders[0].from_email || data.senders[0].email);
           setSendGridStep('chooseSender');
@@ -465,7 +470,12 @@ export default function SettingsIntegrations() {
       if (!data.senders || !Array.isArray(data.senders)) {
         throw new Error('Invalid response format');
       }
-      setChangeSenderOptions(data.senders);
+      const normalized = (data.senders || []).map(s => ({
+        id: s.id,
+        email: s.email || s.from_email || '',
+        name: s.name || s.from_name || s.nickname || ''
+      }));
+      setChangeSenderOptions(normalized);
       setChangeSenderSelected(data.current_sender ?? '');
     } catch (error) {
       console.error('Error loading senders:', error);
