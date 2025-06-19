@@ -23,7 +23,7 @@ async function isSuperAdmin(userId: string) {
 
 // Middleware: Restrict to super admins
 async function requireSuperAdmin(req: Request, res: Response, next: Function) {
-  const userId = (req as any).auth?.user?.id;
+  const userId = (req as any).user?.id;
   if (!userId) {
     res.status(401).json({ error: 'Not authenticated' });
     return;
