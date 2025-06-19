@@ -295,15 +295,16 @@ export default function SettingsIntegrations() {
       if (!user) return;
       try {
         const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/auth/apollo/init?user_id=${user.id}`);
-        const { url } = await response.json();
-        window.location.href = url;
+        const data = await response.json();
+        if (response.ok && data.url) {
+          window.location.href = data.url;
+        } else {
+          console.error('Apollo connect error:', data);
+          toast.error(data.error || 'Failed to start Apollo OAuth');
+        }
       } catch (error) {
         console.error('Apollo OAuth error:', error);
-        toast({
-          title: 'Connection Failed',
-          description: 'Failed to connect Apollo. Please try again.',
-          variant: 'destructive'
-        });
+        toast.error('Failed to connect Apollo. Please try again.');
       }
     } else if (id === 'sendgrid') {
       setShowSendGridModal(true);
