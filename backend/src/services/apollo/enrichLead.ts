@@ -54,7 +54,7 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
     const person = response.data.people[0];
 
     // Update lead with enrichment data
-    const { error: updateError } = await supabase
+    let { error: updateError } = await supabase
       .from('leads')
       .update({
         first_name: person.first_name,
@@ -96,7 +96,55 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
 
     if (updateError) {
       console.error('Supabase update error:', updateError);
-      throw new Error(updateError.message || 'Failed to update lead with enrichment data');
+      // Handle duplicate linkedin URL within campaign gracefully
+      if (updateError.code === '23505') {
+        console.warn('Duplicate linkedin_url within campaign; retrying update without linkedin_url');
+        const { error: secondError } = await supabase
+          .from('leads')
+          .update({
+            first_name: person.first_name,
+            last_name: person.last_name,
+            title: person.title,
+            company: person.organization?.name,
+            email: person.email,
+            phone: person.phone,
+            enrichment_data: {
+              apollo: {
+                person_id: person.id,
+                organization: person.organization,
+                location: person.location,
+                seniority: person.seniority,
+                department: person.department,
+                subdepartments: person.subdepartments,
+                skills: person.skills,
+                languages: person.languages,
+                interests: person.interests,
+                organization_titles: person.organization_titles,
+                social_profiles: {
+                  twitter: person.twitter_url,
+                  facebook: person.facebook_url,
+                  github: person.github_url
+                },
+                contact_info: {
+                  personal_email: person.personal_email,
+                  mobile_phone: person.mobile_phone,
+                  work_email: person.work_email,
+                  work_phone: person.work_phone
+                }
+              }
+            },
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', leadId)
+          .eq('user_id', userId);
+
+        if (secondError) {
+          console.error('Second update error:', secondError);
+          throw new Error(secondError.message || 'Failed to update lead after duplicate');
+        }
+      } else {
+        throw new Error(updateError.message || 'Failed to update lead with enrichment data');
+      }
     }
 
     return {
