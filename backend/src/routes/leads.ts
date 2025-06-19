@@ -245,8 +245,8 @@ router.post('/:id/enrich', requireAuth, async (req: Request, res: Response) => {
       .from('leads')
       .update({
         enrichment_data: {
-          apollo: apolloData,
-          proxycurl: proxycurlData,
+          apollo: apolloData?.data || apolloData,
+          proxycurl: proxycurlData?.data || proxycurlData,
           gpt: gptAnalysis
         },
         enriched_at: new Date().toISOString()
