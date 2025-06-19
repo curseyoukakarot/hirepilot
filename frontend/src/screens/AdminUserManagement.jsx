@@ -18,6 +18,11 @@ export default function AdminUserManagement() {
   const [creditLoading, setCreditLoading] = useState(false);
   const navigate = useNavigate();
 
+  /* ----------------------------------------------
+   * Config
+   * --------------------------------------------*/
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+
   // Fetch all users
   useEffect(() => {
     const fetchUsers = async () => {
@@ -25,7 +30,7 @@ export default function AdminUserManagement() {
       setError('');
       try {
         const token = (await supabase.auth.getSession()).data.session?.access_token;
-        const res = await fetch('/api/admin/users', {
+        const res = await fetch(`${BACKEND_URL}/api/admin/users`, {
           headers: { 'Authorization': `Bearer ${token}` },
         });
         if (!res.ok) throw new Error('Failed to fetch users');
@@ -47,7 +52,7 @@ export default function AdminUserManagement() {
     setSuccess('');
     try {
       const token = (await supabase.auth.getSession()).data.session?.access_token;
-      const res = await fetch('/api/admin/users', {
+      const res = await fetch(`${BACKEND_URL}/api/admin/users`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(inviteForm),
@@ -69,7 +74,7 @@ export default function AdminUserManagement() {
     setSuccess('');
     try {
       const token = (await supabase.auth.getSession()).data.session?.access_token;
-      const res = await fetch(`/api/admin/users/${editUser.id}`, {
+      const res = await fetch(`${BACKEND_URL}/api/admin/users/${editUser.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(editForm),
@@ -90,7 +95,7 @@ export default function AdminUserManagement() {
     setSuccess('');
     try {
       const token = (await supabase.auth.getSession()).data.session?.access_token;
-      const res = await fetch(`/api/admin/users/${creditUser.id}/credits`, {
+      const res = await fetch(`${BACKEND_URL}/api/admin/users/${creditUser.id}/credits`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ total_credits: creditAmount }),
@@ -111,7 +116,7 @@ export default function AdminUserManagement() {
     setSuccess('');
     try {
       const token = (await supabase.auth.getSession()).data.session?.access_token;
-      const res = await fetch(`/api/admin/users/${userId}`, {
+      const res = await fetch(`${BACKEND_URL}/api/admin/users/${userId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
       });
