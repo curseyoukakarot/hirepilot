@@ -29,6 +29,8 @@ export default function BillingScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const BACKEND = import.meta.env.VITE_BACKEND_URL;
+
   useEffect(() => {
     fetchBillingOverview();
   }, []);
@@ -43,7 +45,7 @@ export default function BillingScreen() {
         throw new Error('No active session');
       }
 
-      const response = await fetch('/api/billing/overview', {
+      const response = await fetch(`${BACKEND}/api/billing/overview`, {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
@@ -85,7 +87,7 @@ export default function BillingScreen() {
         throw new Error('No active session');
       }
 
-      const response = await fetch('/api/billing/checkout', {
+      const response = await fetch(`${BACKEND}/api/billing/checkout`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -123,7 +125,7 @@ export default function BillingScreen() {
         throw new Error('No active session');
       }
 
-      const response = await fetch('/api/billing/portal', {
+      const response = await fetch(`${BACKEND}/api/billing/portal`, {
         method: 'POST',
         headers: {
           'Accept': 'application/json',
@@ -150,7 +152,7 @@ export default function BillingScreen() {
     if (!window.confirm('Are you sure you want to cancel your subscription?')) return;
 
     try {
-      const response = await fetch('/api/billing/cancel', {
+      const response = await fetch(`${BACKEND}/api/billing/cancel`, {
         method: 'POST',
         headers: {
           'Accept': 'application/json',
@@ -316,7 +318,7 @@ export default function BillingScreen() {
                   </td>
                   <td className="py-3 px-4">
                     <a
-                      href={`/api/billing/invoice/${invoice.stripe_invoice_id}`}
+                      href={`${BACKEND}/api/billing/invoice/${invoice.stripe_invoice_id}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-blue-600 hover:text-blue-700"
