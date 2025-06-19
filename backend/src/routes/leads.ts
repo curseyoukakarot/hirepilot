@@ -410,6 +410,41 @@ router.post('/apollo/validate-key', requireAuth, async (req: Request, res: Respo
   }
 });
 
+// POST /api/leads/apollo/save-key - persist API key in user_settings
+router.post('/apollo/save-key', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { user_id, api_key } = req.body;
+    if (!user_id || !api_key) {
+      res.status(400).json({ error: 'Missing user_id or api_key' });
+      return;
+    }
+
+    // Upsert into user_settings
+    const { error } = await supabase
+      .from('user_settings')
+      .upsert({ user_id, apollo_api_key: api_key }, { onConflict: 'user_id' });
+
+    if (error) {
+      console.error('Save key DB error:', error);
+      res.status(500).json({ error: error.message });
+      return;
+    }
+
+    // Ensure integrations table marks Apollo as connected
+    await supabase.from('integrations').upsert({
+      user_id,
+      provider: 'apollo',
+      status: 'connected',
+      connected_at: new Date().toISOString()
+    }, { onConflict: 'user_id,provider' });
+
+    res.json({ success: true });
+  } catch (e: any) {
+    console.error('Save key error:', e);
+    res.status(500).json({ error: e.message || 'Failed to save key' });
+  }
+});
+
 // Now, define any generic /:id routes below this line
 
 console.log('Leads routes registered');
