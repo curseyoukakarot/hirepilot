@@ -225,12 +225,14 @@ router.post('/:id/enrich', requireAuth, async (req: Request, res: Response) => {
     });
 
     // Analyze with GPT
-    const gptAnalysis = await analyzeProfile({
-      full_name: lead.first_name + ' ' + lead.last_name,
-      headline: lead.title,
-      summary: lead.summary || '',
-      experiences: lead.experiences || []
-    });
+    let gptAnalysis = null;
+    try {
+      if (lead.linkedin_url) {
+        gptAnalysis = await analyzeProfile(lead.linkedin_url);
+      }
+    } catch (err) {
+      console.error('GPT analysis failed:', err);
+    }
 
     // Update lead with enriched data
     const { data: updatedLead, error: updateError } = await supabase
