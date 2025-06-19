@@ -62,7 +62,9 @@ export async function enrichLead({ leadId, userId, firstName, lastName, company,
     }
 
     // Prepare search parameters
-    const searchParams: any = {};
+    const searchParams: any = {
+      api_key: settings.apollo_api_key // Apollo requires api_key as query param
+    };
     if (firstName && lastName) {
       searchParams.first_name = firstName;
       searchParams.last_name = lastName;
@@ -78,7 +80,6 @@ export async function enrichLead({ leadId, userId, firstName, lastName, company,
     const response = await axios.get(`${APOLLO_API_URL}/people/search`, {
       params: searchParams,
       headers: {
-        'Api-Key': settings.apollo_api_key,
         'Content-Type': 'application/json'
       }
     });

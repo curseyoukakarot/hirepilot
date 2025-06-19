@@ -36,11 +36,13 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
       searchParams.linkedin_url = linkedinUrl;
     }
 
+    // Add API key to params (Apollo expects it as query param)
+    searchParams.api_key = settings.apollo_api_key;
+
     // Search for person in Apollo
     const response = await axios.get('https://api.apollo.io/v1/people/search', {
       params: searchParams,
       headers: {
-        'Api-Key': settings.apollo_api_key,
         'Content-Type': 'application/json'
       }
     });
