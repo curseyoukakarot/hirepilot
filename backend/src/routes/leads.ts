@@ -240,11 +240,11 @@ router.post('/:id/enrich', requireAuth, async (req: Request, res: Response) => {
     }
 
     // Update lead with enriched data
-    console.log('[enrich route] writing enriched_data for', id);
+    console.log('[enrich route] writing enrichment_data for', id);
     const { data: updatedLead, error: updateError } = await supabase
       .from('leads')
       .update({
-        enriched_data: {
+        enrichment_data: {
           apollo: apolloData,
           proxycurl: proxycurlData,
           gpt: gptAnalysis
