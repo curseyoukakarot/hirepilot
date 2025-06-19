@@ -6,12 +6,13 @@ export default function SuperAdminDashboard() {
   const navigate = useNavigate();
   const [latestUser, setLatestUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
   useEffect(() => {
     const fetchLatestUser = async () => {
       try {
         const token = (await supabase.auth.getSession()).data.session?.access_token;
-        const res = await fetch('/api/admin/users', {
+        const res = await fetch(`${BACKEND_URL}/api/admin/users`, {
           headers: { 'Authorization': `Bearer ${token}` },
         });
         if (!res.ok) throw new Error('Failed to fetch users');
