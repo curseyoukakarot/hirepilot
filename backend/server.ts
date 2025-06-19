@@ -179,8 +179,7 @@ app.use((err: any, req: express.Request, res: express.Response, _next: express.N
   res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
 });
 
-// 404 handler must be last
-app.use('*', (_req, res) => res.status(404).json({ error: 'not_found' }));
+// (temporarily removed, will re-add after all routes)
 
 // Apollo OAuth endpoints
 app.get('/api/auth/apollo/init', async (req, res) => {
@@ -479,5 +478,8 @@ app.listen(Number(PORT), '0.0.0.0', () => {
   // Run the enrichment worker every 2 minutes
   setInterval(enrichLeads, 2 * 60 * 1000);
 });
+
+// 404 handler must be last
+app.use('*', (_req, res) => res.status(404).json({ error: 'not_found' }));
 
 
