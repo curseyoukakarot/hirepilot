@@ -21,6 +21,8 @@ export async function enrichLead(params: EnrichmentParams | string) {
     let cleanUrl = linkedinUrl.trim()
       .replace(/^http:/, 'https:')  // Convert http to https
       .replace(/^https:\/\/(?!www\.)/, 'https://www.'); // Ensure www. prefix
+    // Remove trailing slash or semicolon
+    cleanUrl = cleanUrl.replace(/[;\/]$/, '');
     
     console.log('[Proxycurl] Cleaned URL:', cleanUrl);
     

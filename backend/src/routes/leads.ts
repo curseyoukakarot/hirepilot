@@ -220,7 +220,9 @@ router.post('/:id/enrich', requireAuth, async (req: Request, res: Response) => {
     });
     
     // Enrich with Proxycurl
-    const proxycurlData = await enrichWithProxycurl(lead);
+    const proxycurlData = await enrichWithProxycurl({
+      linkedinUrl: lead.linkedin_url
+    });
 
     // Analyze with GPT
     const gptAnalysis = await analyzeProfile({
