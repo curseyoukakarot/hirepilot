@@ -24,7 +24,12 @@ router.post('/validate', async (req: Request, res: Response) => {
     
     const { data } = await sg.get('/verified_senders');
     console.log('✅ API key validated successfully');
-    res.json({ senders: data.results });
+    const senders = data.results.map((s: any) => ({
+      id: s.id,
+      email: s.from_email || s.email || '',
+      name: s.from_name || s.nickname || s.name || ''
+    }));
+    res.json({ senders });
   } catch (error: any) {
     console.error('❌ SendGrid validation error:', error.response?.data ?? error);
     res.status(400).json({ error: error.message || 'Failed to validate SendGrid API key' });
