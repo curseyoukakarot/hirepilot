@@ -7,6 +7,7 @@ import { enrichLead as enrichWithProxycurl } from '../../services/proxycurl/enri
 import { requireAuth } from '../../middleware/authMiddleware';
 import { searchAndEnrichPeople } from '../../utils/apolloApi';
 import { ApiRequest } from '../../types/api';
+import axios from 'axios';
 
 const router = express.Router();
 
@@ -381,6 +382,31 @@ router.post('/:id/convert', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Convert endpoint error:', error);
     res.status(500).json({ error: 'Failed to convert lead', details: error });
+  }
+});
+
+// POST /api/leads/apollo/validate-key - simple key validation
+router.post('/apollo/validate-key', requireAuth, async (req: Request, res: Response) => {
+  const { api_key } = req.body;
+  if (!api_key) {
+    res.status(400).json({ error: 'Missing api_key' });
+    return;
+  }
+  try {
+    // minimal payload to check validity
+    const resp = await axios.post('https://api.apollo.io/v1/mixed_people/search', {
+      api_key,
+      page: 1,
+      per_page: 1
+    });
+    if (resp.status === 200) {
+      res.status(200).json({ valid: true });
+    } else {
+      res.status(400).json({ error: 'invalid_key' });
+    }
+  } catch (e: any) {
+    const msg = e.response?.data?.error || e.message || 'Validation failed';
+    res.status(400).json({ error: msg });
   }
 });
 
