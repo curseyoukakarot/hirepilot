@@ -793,7 +793,7 @@ export default function SettingsIntegrations() {
                       </button>
                     </>
                   ) : (
-                    <button 
+                    <button type="button"
                       onClick={() => {
                         if (integration.id === 'apollo') {
                           if (integration.isConnected) {
