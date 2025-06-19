@@ -61,7 +61,7 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
         last_name: person.last_name,
         title: person.title,
         company: person.organization?.name,
-        email: person.email,
+        ...(person.email && !person.email.startsWith('email_not_unlocked') && { email: person.email }),
         phone: person.phone,
         linkedin_url: person.linkedin_url,
         enrichment_data: {
@@ -106,7 +106,7 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
             last_name: person.last_name,
             title: person.title,
             company: person.organization?.name,
-            email: person.email,
+            ...(person.email && !person.email.startsWith('email_not_unlocked') && { email: person.email }),
             phone: person.phone,
             enrichment_data: {
               apollo: {
