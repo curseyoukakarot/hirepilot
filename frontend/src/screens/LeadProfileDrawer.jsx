@@ -26,7 +26,12 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       }
     }
     setLocalLead(parsed);
-  }, [lead]);
+
+    // When drawer opens, pull the freshest lead data from backend
+    if (isOpen && lead?.id) {
+      fetchLatestLead(lead.id);
+    }
+  }, [lead, isOpen]);
 
   // Toast helper (replace with your own toast if needed)
   const showToast = (msg, type = 'success') => {
