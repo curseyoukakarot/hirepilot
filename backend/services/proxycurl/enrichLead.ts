@@ -32,6 +32,7 @@ export async function enrichLead(params: EnrichmentParams | string) {
 
     // Get API key from environment
     const apiKey = process.env.PROXYCURL_API_KEY;
+    console.log('[Proxycurl] key prefix:', (apiKey || '').substring(0, 10));
     if (!apiKey) {
       throw new Error('Proxycurl API key not found');
     }
