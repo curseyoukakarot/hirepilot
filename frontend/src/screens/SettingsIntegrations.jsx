@@ -774,6 +774,14 @@ export default function SettingsIntegrations() {
                           <FaGear className="text-lg" />
                         </button>
                       )}
+                      {integration.id === 'apollo' && (
+                        <button
+                          onClick={() => setShowApolloModal(true)}
+                          className="p-2 text-gray-600 hover:text-gray-900"
+                        >
+                          <FaGear className="text-lg" />
+                        </button>
+                      )}
                       <button
                         onClick={() => {
                           if (integration.id === 'apollo') {
