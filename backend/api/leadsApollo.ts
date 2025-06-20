@@ -27,32 +27,9 @@ router.post('/search', requireAuth, async (req, res) => {
       .single();
 
     let apiKey = settings?.apollo_api_key;
+    if (settingsError) console.error('[Apollo Search] settings fetch error:', settingsError);
 
-    if (settingsError) {
-      console.error('[Apollo Search] settings fetch error:', settingsError);
-    }
-
-    if (!apiKey) {
-      // RecruitPro fallback
-      const { data: userRecord } = await supabase
-        .from('users')
-        .select('account_type')
-        .eq('id', userId)
-        .single();
-
-      let isRecruitPro = userRecord?.account_type === 'RecruitPro';
-      if (!isRecruitPro) {
-        try {
-          const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-          const decoded: any = require('jsonwebtoken').decode(token);
-          isRecruitPro = decoded?.user_metadata?.role === 'RecruitPro' || decoded?.user_metadata?.account_type === 'RecruitPro';
-        } catch {}
-      }
-
-      if (isRecruitPro) {
-        apiKey = process.env.SUPER_ADMIN_APOLLO_API_KEY;
-      }
-    }
+    if (!apiKey) apiKey = process.env.SUPER_ADMIN_APOLLO_API_KEY;
 
     if (!apiKey) {
       res.status(401).json({ error: 'No valid Apollo API key found' });
@@ -163,31 +140,8 @@ router.get('/locations', requireAuth, async (req, res) => {
       .single();
 
     let apiKey = settings?.apollo_api_key;
-
-    if (settingsError) {
-      console.error('[Apollo Locations] settings fetch error:', settingsError);
-    }
-
-    if (!apiKey) {
-      const { data: userRecord } = await supabase
-        .from('users')
-        .select('account_type')
-        .eq('id', userId)
-        .single();
-
-      let isRecruitPro = userRecord?.account_type === 'RecruitPro';
-      if (!isRecruitPro) {
-        try {
-          const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-          const decoded: any = require('jsonwebtoken').decode(token);
-          isRecruitPro = decoded?.user_metadata?.role === 'RecruitPro' || decoded?.user_metadata?.account_type === 'RecruitPro';
-        } catch {}
-      }
-
-      if (isRecruitPro) {
-        apiKey = process.env.SUPER_ADMIN_APOLLO_API_KEY;
-      }
-    }
+    if (settingsError) console.error('[Apollo Locations] settings fetch error:', settingsError);
+    if (!apiKey) apiKey = process.env.SUPER_ADMIN_APOLLO_API_KEY;
 
     if (!apiKey) {
       res.status(401).json({ error: 'No valid Apollo API key found' });
