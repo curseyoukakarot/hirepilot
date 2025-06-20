@@ -120,6 +120,9 @@ const supabase = createClient(
 // At the top, after other env vars
 const APOLLO_AUTH_URL = process.env.APOLLO_AUTH_URL || 'https://developer.apollo.io/oauth/authorize';
 
+// DEBUG: confirm env var presence at startup
+console.log('ENV SUPER_ADMIN_APOLLO_API_KEY present?', Boolean(process.env.SUPER_ADMIN_APOLLO_API_KEY));
+
 // Debug logging for route mounting
 console.log('Mounting routes...');
 
