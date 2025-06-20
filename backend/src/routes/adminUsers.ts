@@ -1,7 +1,7 @@
 console.log('=== ADMIN USERS ROUTE LOADED ===');
 import express, { Request, Response } from 'express';
-import * as supabaseLib from '../lib/supabase';
-console.log('[DEBUG] supabaseLib:', supabaseLib);
+import { supabase as dbClient, supabaseDb } from '../../lib/supabase';
+console.log('[DEBUG] supabaseLib:', dbClient);
 import { requireAuth } from '../../middleware/authMiddleware';
 import { sendTeamInviteEmail } from '../../services/emailService';
 import { randomUUID } from 'crypto';
@@ -9,11 +9,11 @@ import { ApiRequest } from '../../types/api';
 
 const router = express.Router();
 
-const dbClient = supabaseLib.supabase;
+const supabase = dbClient;
 
 // Helper: Check if user is super admin
 async function isSuperAdmin(userId: string) {
-  const { data, error } = await dbClient
+  const { data, error } = await supabase
     .from('users')
     .select('role')
     .eq('id', userId)
@@ -38,7 +38,7 @@ async function requireSuperAdmin(req: Request, res: Response, next: Function) {
 // GET /api/admin/users - List all users
 router.get('/users', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
   console.log('[ADMIN USERS] Fetching all users from Supabase...');
-  const { data, error } = await dbClient.from('users').select('*');
+  const { data, error } = await supabase.from('users').select('*');
   if (error) {
     console.error('[ADMIN USERS] Error fetching users:', error);
     res.status(500).json({ error: error.message });
@@ -57,7 +57,7 @@ router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: 
       return;
     }
     // 1. Create user in Supabase Auth (invite)
-    const { data: authUser, error: authError } = await dbClient.auth.admin.createUser({
+    const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
       email,
       email_confirm: true,
       user_metadata: { first_name: firstName, last_name: lastName, role },
@@ -69,7 +69,7 @@ router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: 
     if (authError) {
       if ((authError as any).code === 'email_exists') {
         // fetch existing user id
-        const { data: existingDbUser } = await dbClient.from('users').select('*').eq('email', email).single();
+        const { data: existingDbUser } = await supabase.from('users').select('*').eq('email', email).single();
         if (existingDbUser?.id) {
           // Already onboarded in DB – return that record
           res.status(200).json({ success: true, user: existingDbUser, message: 'User already exists' });
@@ -98,7 +98,7 @@ router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: 
       role,
       onboardingComplete: false,
     });
-    const { data: dbUser, error: dbError } = await dbClient.from('users').upsert({
+    const { data: dbUser, error: dbError } = await supabase.from('users').upsert({
       id: userId,
       email,
       firstName,
@@ -114,7 +114,7 @@ router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: 
     }
     // 3. If RecruitPro, initialize credits
     if (role === 'RecruitPro') {
-      await dbClient.from('user_credits').insert({
+      await supabase.from('user_credits').insert({
         user_id: userId,
         total_credits: 1000,
         used_credits: 0,
@@ -124,7 +124,7 @@ router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: 
     // 4. Send invite email using the same template as team invite
     // Get inviter info
     const inviterId = (req as any).user?.id;
-    const { data: inviter, error: inviterError } = await dbClient.from('users').select('*').eq('id', inviterId).single();
+    const { data: inviter, error: inviterError } = await supabase.from('users').select('*').eq('id', inviterId).single();
     const inviterInfo = inviter || { firstName: 'Super', lastName: 'Admin', email: 'admin@hirepilot.com' };
     // Generate invite link (use user id as token)
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.FRONTEND_URL || 'https://hirepilot.com';
@@ -161,8 +161,7 @@ router.patch('/users/:id/credits', requireAuth, requireSuperAdmin, async (req: R
     res.status(400).json({ error: 'Missing total_credits' });
     return;
   }
-  const dbSrv = (supabaseLib as any).supabaseDb || dbClient;
-  const { data, error } = await dbSrv.from('user_credits').upsert({
+  const { data, error } = await supabaseDb.from('user_credits').upsert({
     user_id: userId,
     total_credits,
     used_credits: 0,
@@ -179,7 +178,7 @@ router.patch('/users/:id/credits', requireAuth, requireSuperAdmin, async (req: R
 router.patch('/users/:id', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
   const userId = req.params.id;
   const { firstName, lastName, role } = req.body;
-  const { data, error } = await dbClient.from('users').update({ firstName, lastName, role }).eq('id', userId).select('*').single();
+  const { data, error } = await supabase.from('users').update({ firstName, lastName, role }).eq('id', userId).select('*').single();
   if (error) {
     res.status(500).json({ error: error.message });
     return;
@@ -190,7 +189,7 @@ router.patch('/users/:id', requireAuth, requireSuperAdmin, async (req: Request, 
 // DELETE /api/admin/users/:id - Delete user
 router.delete('/users/:id', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
   const userId = req.params.id;
-  const { error } = await dbClient.from('users').delete().eq('id', userId);
+  const { error } = await supabase.from('users').delete().eq('id', userId);
   if (error) {
     res.status(500).json({ error: error.message });
     return;
@@ -202,7 +201,7 @@ router.delete('/users/:id', requireAuth, requireSuperAdmin, async (req: Request,
 // GET /api/admin/latest-users - List the most recently created users
 router.get('/latest-users', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
   try {
-    const { data, error } = await dbClient
+    const { data, error } = await supabase
       .from('users')
       .select('*')
       .order('created_at', { ascending: false })
@@ -230,7 +229,7 @@ router.patch('/users/:id/password', requireAuth, requireSuperAdmin, async (req: 
 
   try {
     // Update password in Supabase Auth
-    const { data, error } = await dbClient.auth.admin.updateUserById(userId, {
+    const { data, error } = await supabase.auth.admin.updateUserById(userId, {
       password
     });
 
@@ -254,7 +253,7 @@ export const getAdminUsers = async (req: ApiRequest, res: Response) => {
       return;
     }
 
-    const { data, error } = await supabaseLib.supabase
+    const { data, error } = await supabase
       .from('users')
       .select('*')
       .eq('role', 'admin');
@@ -281,7 +280,7 @@ export const createAdminUser = async (req: ApiRequest, res: Response) => {
 
     const { email, password, firstName, lastName } = req.body;
 
-    const { data: userData, error: userError } = await supabaseLib.supabase.auth.signUp({
+    const { data: userData, error: userError } = await supabase.auth.signUp({
       email,
       password,
       options: {
