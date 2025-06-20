@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import SettingsProfileInfo from './SettingsProfileInfo';
 import SettingsIntegrations from './SettingsIntegrations';
 import SettingsTeamMembers from './SettingsTeamMembers';
 import SettingsNotifications from './SettingsNotifications';
 import SettingsApiKeys from './SettingsApiKeys';
+import { supabase } from '../lib/supabase';
 
 export default function Settings() {
   const location = useLocation();
@@ -15,13 +16,26 @@ export default function Settings() {
     return path || 'profile';
   });
 
-  const tabs = [
+  const baseTabs = [
     { id: 'profile', label: 'Profile Info', path: '/settings/profile' },
     { id: 'integrations', label: 'Integrations', path: '/settings/integrations' },
     { id: 'team', label: 'Team Settings', path: '/settings/team' },
     { id: 'notifications', label: 'Notifications', path: '/settings/notifications' },
     { id: 'api', label: 'API Keys', path: '/settings/api' }
   ];
+
+  const [tabs, setTabs] = useState(baseTabs);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const role = user?.user_metadata?.role || user?.user_metadata?.account_type;
+      if (role === 'RecruitPro') {
+        setTabs(baseTabs.filter(t => t.id !== 'team' && t.id !== 'api'));
+        if (activeTab === 'team' || activeTab === 'api') setActiveTab('profile');
+      }
+    })();
+  }, []);
 
   const handleTabChange = (tabId) => {
     setActiveTab(tabId);
