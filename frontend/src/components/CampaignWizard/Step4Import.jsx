@@ -33,6 +33,11 @@ const USER_HAS_APOLLO = false; // TODO: Replace with real check from settings
 
 const LEAD_AMOUNTS = [10, 25, 50, 100];
 
+const defaultSources = [
+  { key: 'apollo', label: 'Apollo.io', icon: <ApolloLogo /> },
+  { key: 'linkedin', label: 'Sales Navigator', icon: <LinkedInLogo /> },
+];
+
 // We'll decide Apollo label based on account type
 let dynamicApolloLabel = 'Apollo.io';
 try {
@@ -111,6 +116,8 @@ export default function Step4Import({ onBack, onNext }) {
   const [apolloKeyStatus, setApolloKeyStatus] = useState(''); // '', 'connected', 'error'
   const [apolloKeyError, setApolloKeyError] = useState('');
   const apolloKeyFetched = useRef(false);
+
+  const [sources, setSources] = useState(defaultSources);
 
   // Debug: log wizard state only when campaign changes
   useEffect(() => {
@@ -500,6 +507,16 @@ export default function Step4Import({ onBack, onNext }) {
     }
   };
 
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const isRecruitPro = user?.user_metadata?.account_type === 'RecruitPro' || user?.user_metadata?.role === 'RecruitPro';
+      if (isRecruitPro) {
+        setSources(prev => prev.map(src => src.key === 'apollo' ? { ...src, label: 'Candidate Keyword Search' } : src));
+      }
+    })();
+  }, []);
+
   return (
     <div className="min-h-[800px] bg-gray-50">
       <WizardStepHeader currentStep={4} />
@@ -531,7 +548,7 @@ export default function Step4Import({ onBack, onNext }) {
           <div className="grid grid-cols-12 gap-6">
             {/* Left Column - Source Selection */}
             <div className="col-span-12 md:col-span-4 space-y-4">
-              {SOURCES.map(src => (
+              {sources.map(src => (
                 <button
                   key={src.key}
                   className={`w-full flex items-center justify-between p-4 rounded-lg border bg-white hover:bg-gray-50 transition-all ${selectedSource === src.key ? 'ring-2 ring-blue-500 border-blue-500' : ''}`}

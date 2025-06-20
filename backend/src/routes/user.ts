@@ -10,7 +10,7 @@ const router = express.Router();
 // GET /api/user/settings
 router.get('/settings', requireAuth, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).auth?.user?.id;
+    const userId = (req as any).user?.id;
     if (!userId) {
       res.status(401).json({ error: 'Not authenticated' });
       return;
@@ -50,7 +50,7 @@ router.get('/settings', requireAuth, async (req: Request, res: Response) => {
 // POST /api/user/settings
 router.post('/settings', requireAuth, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).auth?.user?.id;
+    const userId = (req as any).user?.id;
     if (!userId) {
       res.status(401).json({ error: 'Not authenticated' });
       return;

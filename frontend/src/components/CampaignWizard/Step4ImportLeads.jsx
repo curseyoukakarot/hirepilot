@@ -10,16 +10,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
-let dynamicApolloLabel = 'Apollo.io';
-try {
-  const storedUser = JSON.parse(localStorage.getItem('supabase.auth.user') || 'null');
-  if (storedUser?.user_metadata?.account_type === 'RecruitPro' || storedUser?.user_metadata?.role === 'RecruitPro') {
-    dynamicApolloLabel = 'Candidate Keyword Search';
-  }
-} catch {}
-
-const sources = [
-  { key: 'apollo', label: dynamicApolloLabel, icon: <Database className="text-blue-600 w-6 h-6" />, leads: 12 },
+const defaultSources = [
+  { key: 'apollo', label: 'Apollo.io', icon: <Database className="text-blue-600 w-6 h-6" />, leads: 12 },
   { key: 'linkedin', label: 'Sales Navigator', icon: <Linkedin className="text-blue-600 w-6 h-6" /> },
   { key: 'csv', label: 'CSV Upload', icon: <FileSpreadsheet className="text-blue-600 w-6 h-6" /> },
 ];
@@ -45,6 +37,7 @@ export default function Step4ImportLeads({ leads, setLeads, onBack, onNext }) {
   const [linkedinAccountType, setLinkedinAccountType] = useState('session');
   const [userCredits, setUserCredits] = useState(0);
   const [userHasLinkedin, setUserHasLinkedin] = useState(true);
+  const [sources, setSources] = useState(defaultSources);
 
   // Select/deselect all leads
   const allSelected = selectedLeads.length === mockLeads.length;
@@ -116,6 +109,16 @@ export default function Step4ImportLeads({ leads, setLeads, onBack, onNext }) {
       setUserHasLinkedin(response.ok && data.exists);
     }
     checkLinkedinCookie();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const isRecruitPro = user?.user_metadata?.account_type === 'RecruitPro' || user?.user_metadata?.role === 'RecruitPro';
+      if (isRecruitPro) {
+        setSources(prev => prev.map(src => src.key === 'apollo' ? { ...src, label: 'Candidate Keyword Search' } : src));
+      }
+    })();
   }, []);
 
   return (
