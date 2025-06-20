@@ -10,8 +10,16 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
+let dynamicApolloLabel = 'Apollo.io';
+try {
+  const storedUser = JSON.parse(localStorage.getItem('supabase.auth.user') || 'null');
+  if (storedUser?.user_metadata?.account_type === 'RecruitPro') {
+    dynamicApolloLabel = 'Candidate Keyword Search';
+  }
+} catch {}
+
 const sources = [
-  { key: 'apollo', label: 'Apollo.io', icon: <Database className="text-blue-600 w-6 h-6" />, leads: 12 },
+  { key: 'apollo', label: dynamicApolloLabel, icon: <Database className="text-blue-600 w-6 h-6" />, leads: 12 },
   { key: 'linkedin', label: 'Sales Navigator', icon: <Linkedin className="text-blue-600 w-6 h-6" /> },
   { key: 'csv', label: 'CSV Upload', icon: <FileSpreadsheet className="text-blue-600 w-6 h-6" /> },
 ];
