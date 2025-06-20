@@ -123,12 +123,9 @@ router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: 
     }
     // 4. Send invite email using the same template as team invite
     // Get inviter info
-    const inviterId = (req as any).auth?.user?.id;
+    const inviterId = (req as any).user?.id;
     const { data: inviter, error: inviterError } = await dbClient.from('users').select('*').eq('id', inviterId).single();
-    if (inviterError || !inviter) {
-      res.status(500).json({ error: 'Failed to fetch inviter info' });
-      return;
-    }
+    const inviterInfo = inviter || { firstName: 'Super', lastName: 'Admin', email: 'admin@hirepilot.com' };
     // Generate invite link (use user id as token)
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.FRONTEND_URL || 'https://hirepilot.com';
     const inviteLink = `${appUrl}/join?token=${userId}`;
@@ -140,9 +137,9 @@ router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: 
         inviteLink,
         tempPassword: '',
         invitedBy: {
-          firstName: inviter.firstName || 'Super Admin',
-          lastName: inviter.lastName || '',
-          email: inviter.email
+          firstName: inviterInfo.firstName || 'Super Admin',
+          lastName: inviterInfo.lastName || '',
+          email: inviterInfo.email
         },
         role
       });
