@@ -42,10 +42,11 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
     }
 
     // Attach user to request object in a common property
+    const appRole = (user.user_metadata as any)?.role || (user.user_metadata as any)?.account_type || user.role;
     (req as any).user = {
       id: user.id,
       email: user.email,
-      role: user.role,
+      role: appRole,
       first_name: (user.user_metadata as any)?.first_name,
       last_name: (user.user_metadata as any)?.last_name,
     };
