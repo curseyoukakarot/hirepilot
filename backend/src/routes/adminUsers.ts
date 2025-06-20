@@ -63,27 +63,42 @@ router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: 
       user_metadata: { first_name: firstName, last_name: lastName, role },
     });
     console.log('[ADMIN USERS] Auth user creation result:', { authUser, authError });
+
+    let userId = authUser?.user?.id;
+
     if (authError) {
-      res.status(500).json({ error: authError.message });
+      if ((authError as any).code === 'email_exists') {
+        // fetch existing user id
+        const { data: existingDbUser } = await dbClient.from('users').select('id').eq('email', email).single();
+        if (existingDbUser?.id) userId = existingDbUser.id;
+      } else {
+        res.status(500).json({ error: authError.message });
+        return;
+      }
+    }
+
+    if (!userId) {
+      res.status(500).json({ error: 'Failed to determine user id' });
       return;
     }
+
     // 2. Insert into users table
     console.log('[ADMIN USERS] Attempting to insert user into users table:', {
-      id: authUser.user.id,
+      id: userId,
       email,
       firstName,
       lastName,
       role,
       onboardingComplete: false,
     });
-    const { data: dbUser, error: dbError } = await dbClient.from('users').insert({
-      id: authUser.user.id,
+    const { data: dbUser, error: dbError } = await dbClient.from('users').upsert({
+      id: userId,
       email,
       firstName,
       lastName,
       role,
       onboardingComplete: false,
-    }).select('*').single();
+    }, { onConflict: 'id' }).select('*').single();
     console.log('[ADMIN USERS] Insert result:', { dbUser, dbError });
     if (dbError) {
       console.error('[ADMIN USERS] DB insert error (full object):', dbError);
@@ -93,7 +108,7 @@ router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: 
     // 3. If RecruitPro, initialize credits
     if (role === 'RecruitPro') {
       await dbClient.from('user_credits').insert({
-        user_id: authUser.user.id,
+        user_id: userId,
         total_credits: 1000,
         used_credits: 0,
         remaining_credits: 1000,
@@ -109,7 +124,7 @@ router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: 
     }
     // Generate invite link (use user id as token)
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.FRONTEND_URL || 'https://hirepilot.com';
-    const inviteLink = `${appUrl}/join?token=${authUser.user.id}`;
+    const inviteLink = `${appUrl}/join?token=${userId}`;
     try {
       await sendTeamInviteEmail({
         to: email,
