@@ -162,6 +162,7 @@ router.post('/import', requireAuth, async (req: Request, res: Response) => {
       const parts = (lead.name || '').trim().split(' ');
       return {
         campaign_id: campaignId,
+        user_id: userId,
         first_name: parts[0] || lead.first_name || '',
         last_name: parts.slice(1).join(' ') || lead.last_name || '',
         title: lead.title || '',
@@ -493,10 +494,15 @@ export const getLeads = async (req: ApiRequest, res: Response) => {
       return;
     }
 
-    const { data, error } = await supabase
+    const query = supabase
       .from('leads')
-      .select('*')
-      .eq('user_id', req.user.id);
+      .select('*');
+
+    if ((req.user as any).role !== 'super_admin') {
+      query.eq('user_id', req.user.id);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       res.status(500).json({ error: error.message });

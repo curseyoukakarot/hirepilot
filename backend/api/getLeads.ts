@@ -10,11 +10,16 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
       return;
     }
 
-    const { data, error } = await supabaseDb
+    let leadsQuery = supabaseDb
       .from('leads')
       .select('*')
-      .eq('user_id', req.user.id)
       .order('created_at', { ascending: false });
+
+    if (req.user.role !== 'super_admin') {
+      leadsQuery = leadsQuery.eq('user_id', req.user.id);
+    }
+
+    const { data, error } = await leadsQuery;
 
     if (error) throw error;
 
