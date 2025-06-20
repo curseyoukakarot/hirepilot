@@ -161,17 +161,19 @@ router.patch('/users/:id/credits', requireAuth, requireSuperAdmin, async (req: R
     res.status(400).json({ error: 'Missing total_credits' });
     return;
   }
-  const { data, error } = await supabaseDb.from('user_credits').upsert({
+  const { error } = await supabaseDb.from('user_credits').upsert({
     user_id: userId,
     total_credits,
     used_credits: 0,
     remaining_credits: total_credits,
-  }, { onConflict: 'user_id' }).select('*').single();
+  }, { onConflict: 'user_id' });
+
   if (error) {
     res.status(500).json({ error: error.message });
     return;
   }
-  res.json(data);
+
+  res.json({ success: true, user_id: userId, total_credits });
 });
 
 // PATCH /api/admin/users/:id - Edit user
