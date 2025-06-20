@@ -76,7 +76,7 @@ const allowed = [
 app.use(cors({
   origin: (origin, cb) => cb(null, !origin || allowed.includes(origin)),
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
     'Authorization',
     'Content-Type',
