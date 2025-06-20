@@ -118,7 +118,6 @@ router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: 
         user_id: userId,
         total_credits: 1000,
         used_credits: 0,
-        remaining_credits: 1000,
       });
     }
     // 4. Send invite email using the same template as team invite
@@ -165,7 +164,6 @@ router.patch('/users/:id/credits', requireAuth, requireSuperAdmin, async (req: R
     user_id: userId,
     total_credits,
     used_credits: 0,
-    remaining_credits: total_credits,
   }, { onConflict: 'user_id' });
 
   if (error) {
