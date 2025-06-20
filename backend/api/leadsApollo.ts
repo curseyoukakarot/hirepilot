@@ -36,11 +36,19 @@ router.post('/search', requireAuth, async (req, res) => {
       // RecruitPro fallback
       const { data: userRecord } = await supabase
         .from('users')
-        .select('role, account_type')
+        .select('account_type')
         .eq('id', userId)
         .single();
 
-      const isRecruitPro = (userRecord?.role === 'RecruitPro') || (userRecord?.account_type === 'RecruitPro');
+      let isRecruitPro = userRecord?.account_type === 'RecruitPro';
+      if (!isRecruitPro) {
+        try {
+          const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+          const decoded: any = require('jsonwebtoken').decode(token);
+          isRecruitPro = decoded?.user_metadata?.role === 'RecruitPro' || decoded?.user_metadata?.account_type === 'RecruitPro';
+        } catch {}
+      }
+
       if (isRecruitPro) {
         apiKey = process.env.SUPER_ADMIN_APOLLO_API_KEY;
       }
@@ -163,11 +171,19 @@ router.get('/locations', requireAuth, async (req, res) => {
     if (!apiKey) {
       const { data: userRecord } = await supabase
         .from('users')
-        .select('role, account_type')
+        .select('account_type')
         .eq('id', userId)
         .single();
 
-      const isRecruitPro = (userRecord?.role === 'RecruitPro') || (userRecord?.account_type === 'RecruitPro');
+      let isRecruitPro = userRecord?.account_type === 'RecruitPro';
+      if (!isRecruitPro) {
+        try {
+          const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+          const decoded: any = require('jsonwebtoken').decode(token);
+          isRecruitPro = decoded?.user_metadata?.role === 'RecruitPro' || decoded?.user_metadata?.account_type === 'RecruitPro';
+        } catch {}
+      }
+
       if (isRecruitPro) {
         apiKey = process.env.SUPER_ADMIN_APOLLO_API_KEY;
       }

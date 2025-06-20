@@ -58,6 +58,7 @@ import cookieParser from 'cookie-parser';
 import listEndpoints from 'express-list-endpoints';
 import adminUsersRouter from './src/routes/adminUsers';
 import campaignPerformance from './api/campaignPerformance';
+import leadsApolloRouter from './api/leadsApollo';
 
 declare module 'express-list-endpoints';
 
@@ -131,6 +132,7 @@ app.post('/api/generate-message', generateMessage);
 app.post('/api/createUser', createUser);
 app.post('/api/saveMessage', saveMessage);
 app.use('/api/leads', leadsRouter);
+app.use('/api/leads/apollo', leadsApolloRouter);
 console.table(listEndpoints(app).filter((r: any) => r.path.startsWith('/api/leads')));
 app.use('/api/outreach', outreachRouter);
 app.get('/api/getCampaigns', getCampaigns);

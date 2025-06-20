@@ -37,7 +37,7 @@ const LEAD_AMOUNTS = [10, 25, 50, 100];
 let dynamicApolloLabel = 'Apollo.io';
 try {
   const storedUser = JSON.parse(localStorage.getItem('supabase.auth.user') || 'null');
-  if (storedUser?.user_metadata?.account_type === 'RecruitPro') {
+  if (storedUser?.user_metadata?.account_type === 'RecruitPro' || storedUser?.user_metadata?.role === 'RecruitPro') {
     dynamicApolloLabel = 'Candidate Keyword Search';
   }
 } catch {}

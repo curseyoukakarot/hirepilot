@@ -116,13 +116,23 @@ router.post('/apollo/search', requireAuth, async (req: Request, res: Response) =
     }
 
     // 4. RecruitPro fallback – use shared super admin key
-    const { data: userRecord, error: userErr } = await supabase
+    const { data: userRecord } = await supabase
       .from('users')
-      .select('role, account_type')
+      .select('account_type')
       .eq('id', userId)
       .single();
 
-    const isRecruitPro = (userRecord?.role === 'RecruitPro') || (userRecord?.account_type === 'RecruitPro');
+    let isRecruitPro = userRecord?.account_type === 'RecruitPro';
+
+    if (!isRecruitPro) {
+      // Inspect JWT metadata
+      try {
+        const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+        const decoded: any = require('jsonwebtoken').decode(token);
+        isRecruitPro = decoded?.user_metadata?.role === 'RecruitPro' || decoded?.user_metadata?.account_type === 'RecruitPro';
+      } catch {}
+    }
+
     const superKey = process.env.SUPER_ADMIN_APOLLO_API_KEY;
 
     if (isRecruitPro && superKey) {
