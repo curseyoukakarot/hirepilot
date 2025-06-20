@@ -26,17 +26,26 @@ const LinkedInLogo = () => (
   </svg>
 );
 
-const SOURCES = [
-  { key: 'apollo', label: 'Apollo.io', icon: <ApolloLogo /> },
-  { key: 'linkedin', label: 'Sales Navigator', icon: <LinkedInLogo /> },
-];
-
 // Mock user state for credits and integrations
 const USER_CREDITS = 50; // TODO: Replace with real user credits from backend
 const USER_HAS_LINKEDIN = false; // TODO: Replace with real check from settings
 const USER_HAS_APOLLO = false; // TODO: Replace with real check from settings
 
 const LEAD_AMOUNTS = [10, 25, 50, 100];
+
+// We'll decide Apollo label based on account type
+let dynamicApolloLabel = 'Apollo.io';
+try {
+  const storedUser = JSON.parse(localStorage.getItem('supabase.auth.user') || 'null');
+  if (storedUser?.user_metadata?.account_type === 'RecruitPro') {
+    dynamicApolloLabel = 'Candidate Keyword Search';
+  }
+} catch {}
+
+const SOURCES = [
+  { key: 'apollo', label: dynamicApolloLabel, icon: <ApolloLogo /> },
+  { key: 'linkedin', label: 'Sales Navigator', icon: <LinkedInLogo /> },
+];
 
 export default function Step4Import({ onBack, onNext }) {
   const navigate = useNavigate();

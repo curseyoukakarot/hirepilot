@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { FaUserPlus, FaEdit, FaTrash, FaCoins } from 'react-icons/fa';
+import { FaUserPlus, FaEdit, FaTrash, FaCoins, FaKey } from 'react-icons/fa';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 
@@ -16,6 +16,9 @@ export default function AdminUserManagement() {
   const [creditUser, setCreditUser] = useState(null);
   const [creditAmount, setCreditAmount] = useState(1000);
   const [creditLoading, setCreditLoading] = useState(false);
+  const [passwordUser, setPasswordUser] = useState(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
   const navigate = useNavigate();
 
   /* ----------------------------------------------
@@ -133,6 +136,33 @@ export default function AdminUserManagement() {
     }
   };
 
+  // Reset password
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    if (!passwordUser) return;
+    setPasswordLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const res = await fetch(`${BACKEND_URL}/api/admin/users/${passwordUser.id}/password`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ password: newPassword })
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(txt || 'Failed to reset password');
+      }
+      setSuccess('Password updated!');
+      setPasswordUser(null);
+      setNewPassword('');
+    } catch (err) {
+      setError('Failed to reset password');
+    }
+    setPasswordLoading(false);
+  };
+
   // Access control: Only super admins
   useEffect(() => {
     const checkRole = async () => {
@@ -189,6 +219,7 @@ export default function AdminUserManagement() {
                 <td className="px-4 py-2 flex gap-2">
                   <button className="p-2 bg-yellow-100 hover:bg-yellow-200 rounded" onClick={() => { setEditUser(user); setEditForm({ firstName: user.firstName, lastName: user.lastName, role: user.role }); }}><FaEdit /></button>
                   <button className="p-2 bg-blue-100 hover:bg-blue-200 rounded" onClick={() => { setCreditUser(user); setCreditAmount(1000); }}><FaCoins /></button>
+                  <button className="p-2 bg-purple-100 hover:bg-purple-200 rounded" onClick={() => { setPasswordUser(user); setNewPassword(''); }}><FaKey /></button>
                   <button className="p-2 bg-red-100 hover:bg-red-200 rounded" onClick={() => handleDelete(user.id)}><FaTrash /></button>
                 </td>
               </tr>
@@ -256,6 +287,22 @@ export default function AdminUserManagement() {
               <div className="flex gap-2 justify-end">
                 <button type="button" className="px-4 py-2 rounded bg-gray-200 text-gray-700" onClick={() => setCreditUser(null)}>Cancel</button>
                 <button type="submit" className="px-4 py-2 rounded bg-blue-600 text-white" disabled={creditLoading}>{creditLoading ? 'Assigning...' : 'Assign'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Password Modal */}
+      {passwordUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 w-full max-w-md shadow-lg border border-gray-200">
+            <h2 className="text-xl font-bold mb-4 text-gray-800">Set New Password</h2>
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              <input type="password" required placeholder="New Password" className="w-full border border-gray-300 px-3 py-2 rounded text-gray-800 bg-gray-50" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+              <div className="flex gap-2 justify-end">
+                <button type="button" className="px-4 py-2 rounded bg-gray-200 text-gray-700" onClick={() => setPasswordUser(null)}>Cancel</button>
+                <button type="submit" className="px-4 py-2 rounded bg-blue-600 text-white" disabled={passwordLoading}>{passwordLoading ? 'Saving...' : 'Save'}</button>
               </div>
             </form>
           </div>

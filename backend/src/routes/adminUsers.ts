@@ -217,6 +217,35 @@ router.get('/latest-users', requireAuth, requireSuperAdmin, async (req: Request,
   }
 });
 
+// PATCH /api/admin/users/:id/password - Set password (Super Admin)
+router.patch('/users/:id/password', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
+  const userId = req.params.id;
+  const { password } = req.body;
+
+  if (!password || password.length < 8) {
+    res.status(400).json({ error: 'Password must be at least 8 characters' });
+    return;
+  }
+
+  try {
+    // Update password in Supabase Auth
+    const { data, error } = await dbClient.auth.admin.updateUserById(userId, {
+      password
+    });
+
+    if (error) {
+      console.error('[ADMIN USERS] Password update error:', error);
+      res.status(500).json({ error: error.message || 'Failed to update password' });
+      return;
+    }
+
+    res.json({ success: true, user: data?.user });
+  } catch (err) {
+    console.error('[ADMIN USERS] Unexpected error updating password:', err);
+    res.status(500).json({ error: (err as Error).message || 'Internal server error' });
+  }
+});
+
 export const getAdminUsers = async (req: ApiRequest, res: Response) => {
   try {
     if (!req.user) {
