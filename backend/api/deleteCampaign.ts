@@ -30,16 +30,20 @@ export default async function deleteCampaign(req: Request, res: Response) {
       return;
     }
 
-    // Delete the campaign
-    const { error } = await supabase
+    // Delete the campaign (no user_id filter – we already verified ownership)
+    const { error, count } = await supabase
       .from('campaigns')
-      .delete()
-      .eq('id', campaign_id)
-      .eq('user_id', userId);
+      .delete({ count: 'exact' })
+      .eq('id', campaign_id);
 
     if (error) {
       console.error('[Delete Campaign Error]', error);
       res.status(500).json({ error: 'Failed to delete campaign' });
+      return;
+    }
+
+    if ((count ?? 0) === 0) {
+      res.status(404).json({ error: 'Campaign not found or already deleted' });
       return;
     }
 
