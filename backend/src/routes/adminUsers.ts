@@ -38,7 +38,7 @@ async function requireSuperAdmin(req: Request, res: Response, next: Function) {
 // GET /api/admin/users - List all users
 router.get('/users', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
   console.log('[ADMIN USERS] Fetching all users from Supabase...');
-  const { data, error } = await supabase.from('users').select('*');
+  const { data, error } = await supabaseDb.from('users').select('*');
   if (error) {
     console.error('[ADMIN USERS] Error fetching users:', error);
     res.status(500).json({ error: error.message });
