@@ -69,8 +69,15 @@ router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: 
     if (authError) {
       if ((authError as any).code === 'email_exists') {
         // fetch existing user id
-        const { data: existingDbUser } = await dbClient.from('users').select('id').eq('email', email).single();
-        if (existingDbUser?.id) userId = existingDbUser.id;
+        const { data: existingDbUser } = await dbClient.from('users').select('*').eq('email', email).single();
+        if (existingDbUser?.id) {
+          // Already onboarded in DB – return that record
+          res.status(200).json({ success: true, user: existingDbUser, message: 'User already exists' });
+          return;
+        }
+        // if not in DB, bubble duplicate
+        res.status(409).json({ error: 'User already registered' });
+        return;
       } else {
         res.status(500).json({ error: authError.message });
         return;
