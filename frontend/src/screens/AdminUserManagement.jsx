@@ -57,8 +57,14 @@ export default function AdminUserManagement() {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(inviteForm),
       });
-      if (!res.ok) throw new Error('Failed to invite user');
-      setSuccess('User invited successfully!');
+      if (res.status === 409) {
+        const data = await res.json();
+        setSuccess(data.message || 'User already exists');
+      } else if (!res.ok) {
+        throw new Error('Failed to invite user');
+      } else {
+        setSuccess('User invited successfully!');
+      }
       setShowInvite(false);
       setInviteForm({ email: '', firstName: '', lastName: '', role: 'member' });
     } catch (err) {
