@@ -161,7 +161,8 @@ router.patch('/users/:id/credits', requireAuth, requireSuperAdmin, async (req: R
     res.status(400).json({ error: 'Missing total_credits' });
     return;
   }
-  const { data, error } = await dbClient.from('user_credits').upsert({
+  const dbSrv = (supabaseLib as any).supabaseDb || dbClient;
+  const { data, error } = await dbSrv.from('user_credits').upsert({
     user_id: userId,
     total_credits,
     used_credits: 0,
