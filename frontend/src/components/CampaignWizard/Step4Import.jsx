@@ -12,6 +12,7 @@ import WizardStepHeader from './WizardStepHeader';
 import { useWizard } from '../../context/WizardContext';
 import ApolloStep from './ApolloStep';
 import CsvStep from './CsvStep';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 const ApolloLogo = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -51,6 +52,23 @@ const SOURCES = [
   { key: 'apollo', label: dynamicApolloLabel, icon: <ApolloLogo /> },
   { key: 'linkedin', label: 'Sales Navigator', icon: <LinkedInLogo /> },
 ];
+
+// Auth-aware fetch
+const fetchWithAuth = async (supabaseClient, url, options = {}) => {
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  const token = session?.access_token;
+  const doFetch = async (jwt) => fetch(url, {
+    ...options,
+    headers: { ...(options.headers || {}), ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}) },
+    credentials: 'include'
+  });
+  let res = await doFetch(token);
+  if (res.status === 401) {
+    const { data, error } = await supabaseClient.auth.refreshSession();
+    if (!error && data.session) res = await doFetch(data.session.access_token);
+  }
+  return res;
+};
 
 export default function Step4Import({ onBack, onNext }) {
   const navigate = useNavigate();
@@ -440,7 +458,7 @@ export default function Step4Import({ onBack, onNext }) {
         (async () => {
             const { data: { session } } = await supabase.auth.getSession();
             const accessToken = session?.access_token;
-            fetch("/api/user/settings", {
+            fetchWithAuth(supabase, "/api/user/settings", {
                 headers: {
                     ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
                 },

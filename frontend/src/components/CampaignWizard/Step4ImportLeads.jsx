@@ -9,6 +9,7 @@ import {
   Check,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 const defaultSources = [
   { key: 'apollo', label: 'Apollo.io', icon: <Database className="text-blue-600 w-6 h-6" />, leads: 12 },
@@ -25,6 +26,18 @@ const mockLeads = [
     status: 'Ready',
   },
 ];
+
+const fetchWithAuth = async (supabaseClient, url, options = {}) => {
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  const token = session?.access_token;
+  const doFetch = async (jwt) => fetch(url, { ...options, headers: { ...(options.headers||{}), ...(jwt?{Authorization:`Bearer ${jwt}`}:{}) }, credentials:'include'});
+  let res = await doFetch(token);
+  if (res.status === 401) {
+    const { data, error } = await supabaseClient.auth.refreshSession();
+    if (!error && data.session) res = await doFetch(data.session.access_token);
+  }
+  return res;
+};
 
 export default function Step4ImportLeads({ leads, setLeads, onBack, onNext }) {
   const [selectedSource, setSelectedSource] = useState('apollo');
