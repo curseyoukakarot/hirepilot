@@ -13,7 +13,7 @@ const supabase = dbClient;
 
 // Helper: Check if user is super admin
 async function isSuperAdmin(userId: string) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseDb
     .from('users')
     .select('role')
     .eq('id', userId)
