@@ -115,6 +115,32 @@ router.post('/apollo/search', requireAuth, async (req: Request, res: Response) =
       res.json({ leads });
     }
 
+    // 4. RecruitPro fallback – use shared super admin key
+    const { data: userRecord, error: userErr } = await supabase
+      .from('users')
+      .select('role, account_type')
+      .eq('id', userId)
+      .single();
+
+    const isRecruitPro = (userRecord?.role === 'RecruitPro') || (userRecord?.account_type === 'RecruitPro');
+    const superKey = process.env.SUPER_ADMIN_APOLLO_API_KEY;
+
+    if (isRecruitPro && superKey) {
+      console.log('[Apollo Search] Using SUPER_ADMIN_APOLLO_API_KEY for RecruitPro user');
+      const searchParams = {
+        api_key: superKey,
+        page: 1,
+        per_page: 100,
+        ...(jobTitle && { person_titles: [jobTitle] }),
+        ...(keywords && { q_keywords: keywords }),
+        ...(location && location !== 'Any' && { person_locations: [location] })
+      } as any;
+
+      const { leads } = await searchAndEnrichPeople(searchParams);
+      res.json({ leads });
+      return;
+    }
+
     res.status(400).json({ 
       error: 'No Apollo integration or API key found. Please connect your Apollo account or add an API key in the settings.' 
     });

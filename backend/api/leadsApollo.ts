@@ -26,8 +26,27 @@ router.post('/search', requireAuth, async (req, res) => {
       .eq('user_id', userId)
       .single();
 
-    if (settingsError || !settings?.apollo_api_key) {
-      console.error('[Apollo Search] API key error:', settingsError);
+    let apiKey = settings?.apollo_api_key;
+
+    if (settingsError) {
+      console.error('[Apollo Search] settings fetch error:', settingsError);
+    }
+
+    if (!apiKey) {
+      // RecruitPro fallback
+      const { data: userRecord } = await supabase
+        .from('users')
+        .select('role, account_type')
+        .eq('id', userId)
+        .single();
+
+      const isRecruitPro = (userRecord?.role === 'RecruitPro') || (userRecord?.account_type === 'RecruitPro');
+      if (isRecruitPro) {
+        apiKey = process.env.SUPER_ADMIN_APOLLO_API_KEY;
+      }
+    }
+
+    if (!apiKey) {
       res.status(401).json({ error: 'No valid Apollo API key found' });
       return;
     }
@@ -40,7 +59,7 @@ router.post('/search', requireAuth, async (req, res) => {
 
     // Construct search params
     const searchParams: ApolloSearchParams = {
-      api_key: settings.apollo_api_key,
+      api_key: apiKey,
       page: 1,
       per_page: 100
     };
@@ -128,18 +147,33 @@ router.get('/locations', requireAuth, async (req, res) => {
   }
 
   try {
-    // Get API key from settings
+    // Get API key from settings or RecruitPro fallback
     const { data: settings, error: settingsError } = await supabase
       .from('user_settings')
       .select('apollo_api_key')
       .eq('user_id', userId)
       .single();
 
-    console.log('[Apollo Locations] Settings:', settings);
-    console.log('[Apollo Locations] Settings error:', settingsError);
+    let apiKey = settings?.apollo_api_key;
 
-    if (settingsError || !settings?.apollo_api_key) {
-      console.error('[Apollo Locations] API key error:', settingsError);
+    if (settingsError) {
+      console.error('[Apollo Locations] settings fetch error:', settingsError);
+    }
+
+    if (!apiKey) {
+      const { data: userRecord } = await supabase
+        .from('users')
+        .select('role, account_type')
+        .eq('id', userId)
+        .single();
+
+      const isRecruitPro = (userRecord?.role === 'RecruitPro') || (userRecord?.account_type === 'RecruitPro');
+      if (isRecruitPro) {
+        apiKey = process.env.SUPER_ADMIN_APOLLO_API_KEY;
+      }
+    }
+
+    if (!apiKey) {
       res.status(401).json({ error: 'No valid Apollo API key found' });
       return;
     }
@@ -152,7 +186,7 @@ router.get('/locations', requireAuth, async (req, res) => {
         'Cache-Control': 'no-cache'
       },
       params: {
-        api_key: settings.apollo_api_key,
+        api_key: apiKey,
         q_organization_locations: q,
         page: 1,
         per_page: 10
