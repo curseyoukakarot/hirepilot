@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseDb } from '../lib/supabase';
 import { Request, Response } from 'express';
 
 export default async function handler(req: Request, res: Response) {
@@ -34,21 +34,24 @@ export default async function handler(req: Request, res: Response) {
     if (campaigns.length > 0 && force) {
       const campaignIds = campaigns.map(c => c.id);
       // Delete campaign_runs for these campaigns
-      const { error: delRunsError } = await supabase
+      const { error: delRunsError } = await supabaseDb
         .from('campaign_runs')
         .delete()
         .in('campaign_id', campaignIds);
       if (delRunsError) throw delRunsError;
       // Delete campaigns
-      const { error: delCampError } = await supabase
+      const { error: delCampError } = await supabaseDb
         .from('campaigns')
         .delete()
         .in('id', campaignIds);
       if (delCampError) throw delCampError;
     }
     // 3. Delete the job requisitions
-    const { error } = await supabase.from('job_requisitions').delete().in('id', ids);
-    if (error) throw error;
+    const { error, count } = await supabaseDb.from('job_requisitions').delete({ count: 'exact' }).in('id', ids);
+    if ((count ?? 0) === 0) {
+      res.status(404).json({ error: 'Jobs not found or already deleted' });
+      return;
+    }
     res.status(200).json({ success: true });
   } catch (error) {
     if (error instanceof Error) {
