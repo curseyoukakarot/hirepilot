@@ -13,6 +13,17 @@ export default async function searchApolloLeads(req: Request, res: Response) {
   }
 
   try {
+    // Get account type for the user
+    const { data: userRecord, error: userErr } = await supabase
+      .from('users') // adjust if account_type lives elsewhere
+      .select('account_type')
+      .eq('id', user_id)
+      .single();
+
+    if (userErr) throw userErr;
+
+    const isRecruitPro = userRecord?.account_type === 'RecruitPro';
+
     // Get user settings to check Apollo API key
     const { data: settings, error: settingsError } = await supabase
       .from('user_settings')
@@ -22,9 +33,16 @@ export default async function searchApolloLeads(req: Request, res: Response) {
 
     if (settingsError) throw settingsError;
 
-    // Check if user has their own Apollo API key
-    const hasOwnApolloKey = !!settings?.apollo_api_key;
-    const apolloApiKey = hasOwnApolloKey ? settings.apollo_api_key : process.env.HIREPILOT_APOLLO_API_KEY;
+    // Determine which API key to use
+    let apolloApiKey: string | undefined;
+
+    if (isRecruitPro) {
+      apolloApiKey = process.env.SUPER_ADMIN_APOLLO_API_KEY;
+    } else if (settings?.apollo_api_key) {
+      apolloApiKey = settings.apollo_api_key;
+    } else {
+      apolloApiKey = process.env.HIREPILOT_APOLLO_API_KEY;
+    }
 
     if (!apolloApiKey) {
       res.status(400).json({ error: 'No Apollo API key found' });
