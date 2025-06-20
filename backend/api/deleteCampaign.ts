@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseDb } from '../lib/supabase';
 
 export default async function deleteCampaign(req: Request, res: Response) {
   try {
@@ -31,7 +31,7 @@ export default async function deleteCampaign(req: Request, res: Response) {
     }
 
     // Delete the campaign (no user_id filter – we already verified ownership)
-    const { error, count } = await supabase
+    const { error, count } = await supabaseDb
       .from('campaigns')
       .delete({ count: 'exact' })
       .eq('id', campaign_id);
