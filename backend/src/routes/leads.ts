@@ -198,6 +198,7 @@ router.post('/import', requireAuth, async (req: Request, res: Response) => {
         location: lead.location || '',
         source_meta: lead.sourceMeta ? JSON.stringify(lead.sourceMeta) : null,
         created_at: new Date().toISOString(),
+        status: 'new',
       };
     });
 
