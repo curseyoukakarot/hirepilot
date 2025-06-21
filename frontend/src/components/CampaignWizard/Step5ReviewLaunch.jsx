@@ -20,6 +20,8 @@ const LEAD_SOURCE_LABELS = {
   csv: 'CSV',
 };
 
+const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
+
 export default function Step5ReviewLaunch({ onBack, onEdit }) {
   const { wizard } = useWizard();
   const { campaignId } = wizard;
@@ -60,7 +62,7 @@ export default function Step5ReviewLaunch({ onBack, onEdit }) {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      // Insert selected leads into the leads table
+      // Build payload to send to backend service (uses service-role key)
       const leadsToInsert = selectedLeads.map(lead => {
         const { id, emailStatus, firstName, lastName, isGdprLocked, linkedinUrl, status, ...rest } = lead;
         const obj = {
@@ -88,12 +90,23 @@ export default function Step5ReviewLaunch({ onBack, onEdit }) {
         obj.status = 'New';
         return obj;
       });
-      console.log('Statuses being sent:', leadsToInsert.map(l => l.status));
-      console.log('Leads to insert:', leadsToInsert);
-      const { error: leadsError } = await supabase
-        .from('leads')
-        .insert(leadsToInsert);
-      if (leadsError) throw leadsError;
+
+      console.log('[Launch] sending leads to backend import endpoint', { leads: leadsToInsert.length });
+
+      const importRes = await fetch(`${API_BASE_URL}/leads/import`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        credentials: 'include',
+        body: JSON.stringify({ campaignId: campaign.id, leads: leadsToInsert })
+      });
+
+      if (!importRes.ok) {
+        const { error } = await importRes.json().catch(() => ({}));
+        throw new Error(error || 'Failed to import leads');
+      }
 
       // Update campaign status
       await supabase
