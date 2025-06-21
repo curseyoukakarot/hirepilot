@@ -494,15 +494,10 @@ export const getLeads = async (req: ApiRequest, res: Response) => {
       return;
     }
 
-    const query = supabase
+    const { data, error } = await supabase
       .from('leads')
-      .select('*');
-
-    if ((req.user as any).role !== 'super_admin') {
-      query.eq('user_id', req.user.id);
-    }
-
-    const { data, error } = await query;
+      .select('*')
+      .eq('user_id', req.user.id);
 
     if (error) {
       res.status(500).json({ error: error.message });
