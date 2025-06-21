@@ -162,8 +162,7 @@ router.patch('/users/:id/credits', requireAuth, requireSuperAdmin, async (req: R
   }
   const { error } = await supabaseDb.from('user_credits').upsert({
     user_id: userId,
-    total_credits,
-    used_credits: 0,
+    balance: total_credits,
   }, { onConflict: 'user_id' });
 
   if (error) {
