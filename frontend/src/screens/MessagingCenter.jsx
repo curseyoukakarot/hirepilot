@@ -317,38 +317,7 @@ export default function MessagingCenter() {
           .replace(/{{Candidate\.Company}}/g, selectedLead.company || '');
       }
 
-      // First save to Supabase
-      const { data: messageData, error: saveError } = await supabase
-        .from('messages')
-        .insert({
-          user_id: session.user.id,
-          recipient: toField,
-          from_address: session.user.email || 'you@example.com',
-          subject: subjectField || '(No Subject)',
-          content: personalizedBody,
-          status: 'sent',
-          provider: selectedProvider,
-          attachments: processedAttachments,
-          lead_id: selectedLead?.id || null,
-          read: true,
-          sender: 'You',
-          avatar: getAvatarUrl('You'),
-          preview: personalizedBody.replace(/<[^>]+>/g, '').slice(0, 100),
-          time: new Date().toLocaleTimeString(),
-          unread: false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          to_email: selectedLead?.email || (typeof toField === 'string' && toField.includes('@') ? toField.match(/<(.+?)>/)?.[1] || toField : 'unknown@example.com')
-        })
-        .select()
-        .single();
-
-      if (saveError) {
-        console.error('Supabase save error:', saveError);
-        throw saveError;
-      }
-
-      // Then send via API
+      // Send via backend API (will also store the message)
       const response = await fetch('/api/message/send', {
         method: 'POST',
         headers: { 
@@ -361,6 +330,7 @@ export default function MessagingCenter() {
           html: personalizedBody,
           provider: selectedProvider,
           attachments: attachments, // Send full attachments to API
+          template_id: selectedTemplate?.id,
           template_data: {
             Candidate: {
               FirstName: selectedLead?.name ? selectedLead.name.split(' ')[0] : '',
@@ -373,12 +343,8 @@ export default function MessagingCenter() {
       });
 
       if (!response.ok) {
-        // If API call fails, update message status to 'failed'
-        await supabase
-          .from('messages')
-          .update({ status: 'failed' })
-          .eq('id', messageData.id);
-        throw new Error('Failed to send message');
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to send message');
       }
 
       toast.success('Message sent successfully!');
