@@ -62,9 +62,9 @@ router.get('/overview', async (req, res) => {
     }
 
     // Get user's credits
-    const { data: creditsData, error: creditsError } = await supabase
+    const { data: creditsRow, error: creditsError } = await supabase
       .from('user_credits')
-      .select('balance')
+      .select('total_credits, used_credits')
       .eq('user_id', user.id)
       .single();
 
@@ -73,6 +73,8 @@ router.get('/overview', async (req, res) => {
       res.status(500).json({ error: 'Failed to fetch credits' });
       return;
     }
+
+    const remainingCredits = creditsRow ? (creditsRow.total_credits || 0) - (creditsRow.used_credits || 0) : 0;
 
     // Get recent credit usage
     const { data: recentUsage, error: usageError } = await supabase
@@ -100,7 +102,7 @@ router.get('/overview', async (req, res) => {
 
     res.json({
       subscription: subscriptionData || null,
-      credits: creditsData?.balance || 0,
+      credits: remainingCredits,
       recentUsage: recentUsage || [],
       recentInvoices
     });
