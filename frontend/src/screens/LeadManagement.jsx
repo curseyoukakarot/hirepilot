@@ -474,7 +474,7 @@ function LeadManagement() {
 
       // Example: send to /api/sendMassMessage
       const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch(`${API_BASE_URL.replace('/api','')}/api/sendMassMessage`, {
+      const response = await fetch(`${API_BASE_URL}/sendMassMessage`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
