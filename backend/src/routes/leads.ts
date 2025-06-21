@@ -508,6 +508,45 @@ router.post('/apollo/save-key', requireAuth, async (req: Request, res: Response)
   }
 });
 
+// ---------------------------------------------------------------------------
+// DELETE /api/leads - bulk delete (ids[] in body) for the authenticated user
+// ---------------------------------------------------------------------------
+router.delete('/', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as ApiRequest).user?.id;
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const ids: string[] = Array.isArray(req.body?.ids) ? req.body.ids : [];
+    if (!ids.length) {
+      res.status(400).json({ error: 'No ids provided' });
+      return;
+    }
+
+    const { data: deletedRows, error } = await supabase
+      .from('leads')
+      .delete()
+      .in('id', ids)
+      .eq('user_id', userId)
+      .select('id');
+
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+
+    const deleted = (deletedRows || []).map((r: any) => r.id);
+    const notFound = ids.filter(id => !deleted.includes(id));
+
+    res.status(200).json({ deleted, notFound });
+  } catch (error) {
+    console.error('Error deleting leads:', error);
+    res.status(500).json({ error: 'Failed to delete leads' });
+  }
+});
+
 // Now, define any generic /:id routes below this line
 
 console.log('Leads routes registered');
