@@ -640,9 +640,10 @@ function LeadManagement() {
       if (!session) throw new Error('User not authenticated');
       const token = session.access_token;
 
-      const res = await fetch(`${API_BASE_URL}/leads`, {
+      const res = await fetch(`${API_BASE_URL}/api/leads`, {
         method: 'DELETE',
         headers: {
+          'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {})
         },
         body: JSON.stringify({ ids: selectedLeadIds })
