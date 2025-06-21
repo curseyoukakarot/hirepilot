@@ -329,7 +329,6 @@ export default function MessagingCenter() {
           status: 'sent',
           provider: selectedProvider,
           attachments: processedAttachments,
-          template_id: selectedTemplate?.id || null,
           lead_id: selectedLead?.id || null,
           read: true,
           sender: 'You',
@@ -362,7 +361,6 @@ export default function MessagingCenter() {
           html: personalizedBody,
           provider: selectedProvider,
           attachments: attachments, // Send full attachments to API
-          template_id: selectedTemplate?.id,
           template_data: {
             Candidate: {
               FirstName: selectedLead?.name ? selectedLead.name.split(' ')[0] : '',
@@ -423,7 +421,6 @@ export default function MessagingCenter() {
         status: 'draft',
         provider: selectedProvider,
         attachments: processedAttachments,
-        template_id: selectedTemplate?.id || null,
         lead_id: selectedLead?.id || null,
         read: true,
         sender: 'You',
