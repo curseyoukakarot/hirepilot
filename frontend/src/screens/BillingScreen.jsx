@@ -28,11 +28,17 @@ export default function BillingScreen() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isRecruitPro, setIsRecruitPro] = useState(false);
 
   const BACKEND = import.meta.env.VITE_BACKEND_URL;
 
   useEffect(() => {
     fetchBillingOverview();
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const role = user?.user_metadata?.role || user?.user_metadata?.account_type;
+      if (role === 'RecruitPro') setIsRecruitPro(true);
+    })();
   }, []);
 
   const fetchBillingOverview = async () => {
@@ -209,22 +215,24 @@ export default function BillingScreen() {
                 </p>
               )}
             </div>
-            <div className="space-x-4">
-              <button
-                onClick={handleManageSubscription}
-                className="bg-white border border-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-50"
-              >
-                Manage Subscription
-              </button>
-              {!currentPlan && (
+            {!isRecruitPro && (
+              <div className="space-x-4">
                 <button
-                  onClick={() => handleUpgrade('pro', 'monthly')}
-                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+                  onClick={handleManageSubscription}
+                  className="bg-white border border-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-50"
                 >
-                  Upgrade Plan
+                  Manage Subscription
                 </button>
-              )}
-            </div>
+                {!currentPlan && (
+                  <button
+                    onClick={() => handleUpgrade('pro', 'monthly')}
+                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+                  >
+                    Upgrade Plan
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Credit Usage */}
