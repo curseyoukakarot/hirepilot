@@ -202,7 +202,7 @@ router.post('/import', requireAuth, async (req: Request, res: Response) => {
     });
 
     const { data, error } = await supabase
-      .from('campaign_leads')
+      .from('leads')
       .insert(normalizedLeads)
       .select('*');
 
