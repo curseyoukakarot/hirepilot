@@ -26,6 +26,8 @@ const tokenOptions = [
   { label: 'Company', value: '{{company}}' },
 ];
 
+const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
+
 export default function Step3Message({ onBack, onNext }) {
   const { wizard, setWizard } = useWizard();
   const message = wizard.message || '';
@@ -85,7 +87,7 @@ export default function Step3Message({ onBack, onNext }) {
 
     setIsGenerating(true);
     try {
-      const response = await fetch('/api/generate-message', {
+      const response = await fetch(`${API_BASE_URL}/generate-message`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json'
@@ -197,7 +199,7 @@ Would you be open to a quick 5-minute call this week to discuss if there's mutua
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      const response = await fetch('/api/saveMessage', {
+      const response = await fetch(`${API_BASE_URL}/saveMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
