@@ -196,6 +196,7 @@ router.post('/import', requireAuth, async (req: Request, res: Response) => {
         company: lead.company || '',
         email: lead.email || '',
         location: lead.location || '',
+        status: 'new',
         source_meta: lead.sourceMeta ? JSON.stringify(lead.sourceMeta) : null,
         created_at: new Date().toISOString(),
       };
