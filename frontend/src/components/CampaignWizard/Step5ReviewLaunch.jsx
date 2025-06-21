@@ -84,8 +84,7 @@ export default function Step5ReviewLaunch({ onBack, onEdit }) {
           state: lead.state || '',
           country: lead.country || '',
           campaign_location: campaign.location || 'Unknown',
-          location: [lead.city, lead.state, lead.country].filter(Boolean).join(', ') || campaign.location || 'Unknown',
-          status: 'new'
+          location: [lead.city, lead.state, lead.country].filter(Boolean).join(', ') || campaign.location || 'Unknown'
         };
         return obj;
       });
