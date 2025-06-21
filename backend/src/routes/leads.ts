@@ -41,6 +41,33 @@ router.get('/candidates', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/leads - list leads for the authenticated user (mirrors candidate logic)
+router.get('/', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as ApiRequest).user?.id;
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const { data: leads, error } = await supabase
+      .from('leads')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+
+    res.json(leads || []);
+  } catch (error) {
+    console.error('Error fetching leads:', error);
+    res.status(500).json({ error: 'Failed to fetch leads' });
+  }
+});
+
 // POST /api/leads/apollo/search
 router.post('/apollo/search', requireAuth, async (req: Request, res: Response) => {
   try {
