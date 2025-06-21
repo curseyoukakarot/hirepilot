@@ -87,7 +87,7 @@ export default function Step5ReviewLaunch({ onBack, onEdit }) {
           location: [lead.city, lead.state, lead.country].filter(Boolean).join(', ') || campaign.location || 'Unknown'
         };
         // Overwrite status as the very last step
-        obj.status = 'New';
+        obj.status = 'new';
         return obj;
       });
 
