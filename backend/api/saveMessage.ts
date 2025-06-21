@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { supabase } from '../lib/supabase';
+import { supabaseDb } from '../lib/supabase';
 
 export default async function saveMessage(req: Request, res: Response) {
   const { user_id, name, subject, message, tone, is_default } = req.body;
@@ -11,7 +11,7 @@ export default async function saveMessage(req: Request, res: Response) {
 
   try {
     // Create the message template
-    const { data: template, error: templateError } = await supabase
+    const { data: template, error: templateError } = await supabaseDb
       .from('message_templates')
       .insert([
         {
@@ -34,7 +34,7 @@ export default async function saveMessage(req: Request, res: Response) {
 
     // If this is set as default, update other templates to not be default
     if (is_default) {
-      const { error: updateError } = await supabase
+      const { error: updateError } = await supabaseDb
         .from('message_templates')
         .update({ is_default: false })
         .eq('user_id', user_id)
