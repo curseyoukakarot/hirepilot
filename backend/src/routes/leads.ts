@@ -186,17 +186,28 @@ router.post('/import', requireAuth, async (req: Request, res: Response) => {
     }
 
     const normalizedLeads = leads.map((lead: any) => {
-      const parts = (lead.name || '').trim().split(' ');
+      const first = lead.first_name || (lead.name ? lead.name.split(' ')[0] : '') || '';
+      const last = lead.last_name || (lead.name ? lead.name.split(' ').slice(1).join(' ') : '') || '';
+      const locationStr = lead.location || [lead.city, lead.state, lead.country].filter(Boolean).join(', ');
+
       return {
-        campaign_id: campaignId,
         user_id: userId,
-        first_name: parts[0] || lead.first_name || '',
-        last_name: parts.slice(1).join(' ') || lead.last_name || '',
+        campaign_id: campaignId,
+        first_name: first,
+        last_name: last,
+        name: lead.name || `${first} ${last}`.trim(),
+        email: lead.email || '',
         title: lead.title || '',
         company: lead.company || '',
-        email: lead.email || '',
-        location: lead.location || '',
+        linkedin_url: lead.linkedin_url || null,
+        city: lead.city || null,
+        state: lead.state || null,
+        country: lead.country || null,
+        location: locationStr || null,
+        enrichment_data: lead.enrichment_data ? JSON.stringify(lead.enrichment_data) : null,
+        enrichment_source: lead.enrichment_source || null,
         source_meta: lead.sourceMeta ? JSON.stringify(lead.sourceMeta) : null,
+        status: 'New',
         created_at: new Date().toISOString(),
       };
     });
