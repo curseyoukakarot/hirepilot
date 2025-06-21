@@ -8,6 +8,9 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../lib/supabase';
 
+// Backend base URL (same env var used elsewhere)
+const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
+
 // Helper function to generate avatar URL
 const getAvatarUrl = (name) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
 
@@ -318,7 +321,7 @@ export default function MessagingCenter() {
       }
 
       // Send via backend API (will also store the message)
-      const response = await fetch('/api/message/send', {
+      const response = await fetch(`${API_BASE_URL}/message/send`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
