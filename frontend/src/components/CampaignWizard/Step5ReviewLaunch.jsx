@@ -56,11 +56,16 @@ export default function Step5ReviewLaunch({ onBack, onEdit }) {
     if (!campaign) return;
     setIsLaunching(true);
     try {
+      // Get user session for user_id
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
       // Insert selected leads into the leads table
       const leadsToInsert = selectedLeads.map(lead => {
         const { id, emailStatus, firstName, lastName, isGdprLocked, linkedinUrl, status, ...rest } = lead;
         const obj = {
           ...rest,
+          user_id: session.user.id,
           first_name: lead.first_name || lead.firstName || '',
           last_name: lead.last_name || lead.lastName || '',
           name: ((lead.first_name || lead.firstName || '') + ' ' + (lead.last_name || lead.lastName || '')).trim(),

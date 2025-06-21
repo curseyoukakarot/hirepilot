@@ -547,22 +547,6 @@ export default function Step4Import({ onBack, onNext }) {
             <p className="text-gray-600 mt-2">Choose a source to import candidate leads for this campaign.</p>
           </div>
 
-          {/* Lead Amount Dropdown (centered below sources) */}
-          <div className="flex justify-center mb-6">
-            <div className="flex flex-col items-center">
-              <label className="text-base font-semibold text-gray-700 mb-2">How many leads do you want to import?</label>
-              <select
-                className="rounded-lg border-2 border-blue-500 px-6 py-2 text-lg font-semibold focus:border-blue-700 focus:ring-blue-500"
-                value={leadAmount}
-                onChange={e => setLeadAmount(Number(e.target.value))}
-              >
-                {LEAD_AMOUNTS.map(amount => (
-                  <option key={amount} value={amount}>{amount} leads</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
           <div className="grid grid-cols-12 gap-6">
             {/* Left Column - Source Selection */}
             <div className="col-span-12 md:col-span-4 space-y-4">
