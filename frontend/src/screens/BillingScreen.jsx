@@ -187,20 +187,6 @@ export default function BillingScreen() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center">
-              <span className="text-blue-600 text-2xl font-bold">⚡ HirePilot</span>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="fa-regular fa-bell text-gray-600" />
-              <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" className="w-8 h-8 rounded-full" alt="user avatar" />
-            </div>
-          </div>
-        </div>
-      </nav>
-
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Current Plan */}
         <section className="bg-white rounded-xl shadow-sm p-6 mb-8">
