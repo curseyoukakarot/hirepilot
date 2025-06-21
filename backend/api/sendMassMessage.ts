@@ -9,6 +9,59 @@ export default async function handler(req: Request, res: Response) {
     return;
   }
 
+  // Two payload shapes are supported:
+  // 1) Legacy: { lead_ids, template_id, custom_content, channel, user_id }
+  // 2) New: { messages: [{ lead_id, user_id, content, template_id, channel }] }
+
+  const { messages } = req.body as any;
+
+  if (Array.isArray(messages) && messages.length) {
+    // NEW PAYLOAD ----------------------------------------------
+    const results: any[] = [];
+
+    for (const msg of messages) {
+      const { lead_id, user_id: uid, content, template_id: tId, channel: ch } = msg;
+      if (!lead_id || !uid || !content) {
+        results.push({ lead_id, status: 'failed', error: 'missing_fields' });
+        continue;
+      }
+
+      // Fetch lead restricted to owner
+      const { data: lead, error: leadError } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('id', lead_id)
+        .eq('user_id', uid)
+        .single();
+
+      if (leadError || !lead) {
+        results.push({ lead_id, status: 'failed', error: 'lead_not_found' });
+        continue;
+      }
+
+      const sent = await sendEmail(lead, content, uid);
+
+      await supabase.from('messages').insert({
+        lead_id,
+        user_id: uid,
+        template_id: tId,
+        channel: ch || null,
+        content,
+        status: sent ? 'sent' : 'failed',
+      });
+
+      results.push({ lead_id, status: sent ? 'sent' : 'failed' });
+    }
+
+    res.json({
+      sent: results.filter(r => r.status === 'sent').length,
+      failed: results.filter(r => r.status === 'failed').length,
+      details: results,
+    });
+    return;
+  }
+
+  // LEGACY PAYLOAD ----------------------------------------------
   const { lead_ids, template_id, custom_content, channel, user_id } = req.body;
 
   if (!lead_ids || !template_id || !custom_content || !channel || !user_id) {

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import LeadProfileDrawer from './LeadProfileDrawer';
 import { getLeads } from '../services/leadsService';
 import { FaPlus, FaFileExport, FaEllipsisV, FaSearch, FaEdit, FaEnvelope, FaUserPlus, FaTrash, FaTimes, FaCheck, FaExclamationTriangle } from 'react-icons/fa';
-import { FaWandMagicSparkles } from 'react-icons/fa6';
+import { FaWandMagicSparkles, FaGoogle, FaMicrosoft, FaCircle } from 'react-icons/fa6';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import CsvImportButton from '../components/leads/CsvImportButton';
@@ -67,6 +67,15 @@ function LeadManagement() {
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const LEADS_PER_PAGE = 50;
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Provider selection for bulk messaging
+  const [selectedProvider, setSelectedProvider] = useState(null);
+  const [providerStatus, setProviderStatus] = useState({
+    google: false,
+    outlook: false,
+    sendgrid: false,
+    apollo: false
+  });
 
   useEffect(() => {
     async function loadLeads() {
@@ -453,15 +462,24 @@ function LeadManagement() {
       // Send messages to backend (implement your API endpoint as needed)
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
+      if (!selectedProvider) throw new Error('Select a provider first');
+
       const payload = selectedLeadIds.map(leadId => ({
         lead_id: leadId,
         user_id: user.id,
         content: bulkMessages[leadId],
-        template_id: bulkSelectedTemplate?.id || null
+        template_id: bulkSelectedTemplate?.id || null,
+        channel: selectedProvider
       }));
+
       // Example: send to /api/sendMassMessage
-      const response = await fetch('/api/sendMassMessage', {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(`${API_BASE_URL.replace('/api','')}/api/sendMassMessage`, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+        },
         body: JSON.stringify({ messages: payload })
       });
       if (!response.ok) throw new Error('Failed to send messages');
@@ -668,6 +686,56 @@ function LeadManagement() {
 
   const paginatedLeads = filteredLeads.slice((currentPage - 1) * LEADS_PER_PAGE, currentPage * LEADS_PER_PAGE);
   const totalPages = Math.ceil(filteredLeads.length / LEADS_PER_PAGE);
+
+  // -------------------------------------------------------
+  // Provider status helpers (copied from MessagingCenter)
+  // -------------------------------------------------------
+  const fetchProviderStatus = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Google connection
+      const { data: googleData } = await supabase
+        .from('google_accounts')
+        .select('status')
+        .eq('user_id', user.id)
+        .single();
+
+      // Other providers
+      const { data: otherData } = await supabase
+        .from('integrations')
+        .select('provider, status')
+        .eq('user_id', user.id);
+
+      const status = {
+        google: googleData?.status === 'connected',
+        outlook: false,
+        sendgrid: false,
+        apollo: false
+      };
+
+      (otherData || []).forEach(row => {
+        if (row.status === 'connected') status[row.provider] = true;
+      });
+
+      setProviderStatus(status);
+
+      // Auto-select first connected provider if none selected
+      if (!selectedProvider) {
+        const first = Object.keys(status).find(p => status[p]);
+        if (first) setSelectedProvider(first);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  // Reload providers whenever the bulk modal is opened
+  useEffect(() => {
+    if (showBulkMessageModal) fetchProviderStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showBulkMessageModal]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -1368,6 +1436,38 @@ function LeadManagement() {
               <h3 className="text-lg font-semibold">Bulk Message to {selectedLeadIds.length} Leads</h3>
               <button className="text-gray-400 hover:text-gray-600" onClick={() => setShowBulkMessageModal(false)}><FaTimes /></button>
             </div>
+            {/* Provider Selection */}
+            <div className="mb-4 flex items-center gap-3">
+              <span className="font-medium text-gray-700">Send with:</span>
+              <button
+                type="button"
+                className={`flex items-center gap-1 px-3 py-2 rounded-lg border ${selectedProvider === 'google' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 bg-white'} text-sm`}
+                onClick={() => setSelectedProvider('google')}
+                disabled={!providerStatus.google}
+              >
+                <FaGoogle className="text-red-600" /> Google
+                <FaCircle className={`text-xs ml-1 ${providerStatus.google ? 'text-green-500' : 'text-gray-300'}`} />
+              </button>
+              <button
+                type="button"
+                className={`flex items-center gap-1 px-3 py-2 rounded-lg border ${selectedProvider === 'outlook' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 bg-white'} text-sm`}
+                onClick={() => setSelectedProvider('outlook')}
+                disabled={!providerStatus.outlook}
+              >
+                <FaMicrosoft className="text-blue-600" /> Outlook
+                <FaCircle className={`text-xs ml-1 ${providerStatus.outlook ? 'text-green-500' : 'text-gray-300'}`} />
+              </button>
+              <button
+                type="button"
+                className={`flex items-center gap-1 px-3 py-2 rounded-lg border ${selectedProvider === 'sendgrid' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 bg-white'} text-sm`}
+                onClick={() => setSelectedProvider('sendgrid')}
+                disabled={!providerStatus.sendgrid}
+              >
+                <FaEnvelope className="text-green-600" /> SendGrid
+                <FaCircle className={`text-xs ml-1 ${providerStatus.sendgrid ? 'text-green-500' : 'text-gray-300'}`} />
+              </button>
+            </div>
+
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">Select Template</label>
               <select
