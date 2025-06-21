@@ -16,6 +16,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { toast } from 'react-hot-toast';
 import WizardStepHeader from './WizardStepHeader';
 import { useWizard } from '../../context/WizardContext';
 
@@ -199,23 +200,20 @@ Would you be open to a quick 5-minute call this week to discuss if there's mutua
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      const response = await fetch(`${API_BASE_URL}/saveMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      // Insert into email_templates so it shows up in Messaging Center
+      const { error } = await supabase
+        .from('email_templates')
+        .insert({
           user_id: user.id,
           name: templateName,
           subject,
-          message,
-          tone,
-          is_default: setDefault
-        }),
-      });
+          content: message,
+          created_at: new Date().toISOString()
+        });
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to save template');
-      }
+      if (error) throw error;
+
+      toast.success('Template saved!');
 
       // Close modal and reset form
       setShowTemplateModal(false);
