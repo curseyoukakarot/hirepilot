@@ -8,7 +8,7 @@ export default function Handsfree() {
         <header id="header" className="fixed w-full top-0 bg-white/90 backdrop-blur-sm z-50 border-b border-gray-100">
           <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <i className="fa-solid fa-bolt text-blue-600 text-2xl"></i>
+              <img src="/logo.png" alt="HirePilot Logo" className="h-8 w-8" />
               <span className="font-bold text-xl">HirePilot</span>
             </div>
             <nav className="hidden md:flex items-center gap-8">
@@ -263,7 +263,7 @@ export default function Handsfree() {
           <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-4 gap-8">
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <i className="fa-solid fa-bolt text-blue-500 text-2xl"></i>
+                <img src="/logo.png" alt="HirePilot Logo" className="h-8 w-8" />
                 <span className="text-white font-bold text-xl">HirePilot</span>
               </div>
               <p className="text-sm">Making hiring effortless for growing teams.</p>

@@ -3,9 +3,33 @@ import React from 'react';
 export default function Pricing() {
   return (
     <div className="h-full text-base-content">
+      {/* Navbar */}
+      <header id="navbar" className="fixed w-full top-0 z-50 bg-white/90 backdrop-blur-sm border-b border-gray-100">
+        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <img src="/logo.png" alt="HirePilot Logo" className="h-8 w-8" />
+            <span className="text-xl font-bold">HirePilot</span>
+          </div>
+          <nav className="hidden md:flex items-center gap-8">
+            <span className="text-gray-600 hover:text-gray-900 cursor-pointer">Recruiting Co-Pilot</span>
+            <span className="text-gray-600 hover:text-gray-900 cursor-pointer">Hands Free Hiring</span>
+            <span className="text-blue-600 font-medium cursor-pointer">Pricing</span>
+          </nav>
+          <div className="flex items-center gap-4">
+            <span className="hidden md:block text-gray-600 hover:text-gray-900 cursor-pointer">Sign in</span>
+            <a href="#" className="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 py-2.5 rounded-lg hover:shadow-lg transition-all duration-200">
+              Start for Free
+            </a>
+          </div>
+          <button className="md:hidden text-gray-600">
+            <i className="fa-solid fa-bars text-2xl"></i>
+          </button>
+        </div>
+      </header>
+
       <div id="pricing-page" className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
-        {/* Header */}
-        <div id="header" className="py-20 px-6 text-center">
+        {/* Page Header (hero) */}
+        <div id="hero-header" className="pt-32 pb-20 px-6 text-center">
           <span className="inline-block text-blue-600 bg-blue-50 rounded-full px-4 py-1 text-sm mb-4">Pricing</span>
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Choose Your Perfect Plan</h1>
           <p className="text-gray-600 max-w-2xl mx-auto">Select the plan that best fits your needs. All plans include a 7-day free trial with full access to all features.</p>
