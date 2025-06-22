@@ -21,6 +21,9 @@ import LeadSyncFailures from './screens/LeadSyncFailures';
 import PhantomConfig from './screens/PhantomConfig';
 import WebhookLogs from './screens/WebhookLogs';
 import HomePage from './screens/HomePage';
+import Copilot from './screens/Copilot';
+import Handsfree from './screens/Handsfree';
+import Pricing from './screens/Pricing';
 
 // Lazy load screens
 const SigninScreen = lazy(() => import("./screens/SigninScreen"));
@@ -39,7 +42,6 @@ const SettingsNotifications = lazy(() => import("./screens/SettingsNotifications
 const SettingsIntegrations = lazy(() => import("./screens/SettingsIntegrations"));
 const LeadManagement = lazy(() => import("./screens/LeadManagement"));
 const LeadProfileDrawer = lazy(() => import("./screens/LeadProfileDrawer"));
-const PricingScreen = lazy(() => import("./screens/PricingScreen"));
 const CandidateList = lazy(() => import("./screens/CandidateList"));
 const JobRequisitions = lazy(() => import("./screens/JobRequisitions"));
 const JobPipeline = lazy(() => import("./screens/JobPipeline"));
@@ -261,7 +263,9 @@ function InnerApp() {
               <Route path="/billing" element={<BillingScreen />} />
               <Route path="/leads" element={<LeadManagement />} />
               <Route path="/leads/profile" element={<LeadProfileDrawer />} />
-              <Route path="/pricing" element={<PricingScreen />} />
+              <Route path="/pricing" element={<Pricing />} />
+              <Route path="/copilot" element={<Copilot />} />
+              <Route path="/handsfree" element={<Handsfree />} />
               <Route path="/templates" element={<TemplateManager userId="mock-user-id" />} />
               <Route path="/candidates" element={<CandidateList />} />
               <Route path="/jobs" element={<JobRequisitions />} />
