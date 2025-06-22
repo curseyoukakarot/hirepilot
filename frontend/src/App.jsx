@@ -188,7 +188,8 @@ export default function App() {
 
 function InnerApp() {
   const location = useLocation();
-  const isAuthPage = location.pathname === "/signup" || location.pathname === "/login" || location.pathname === "/";
+  const landingPages = ["/", "/signup", "/login", "/copilot", "/handsfree", "/pricing"];
+  const isAuthPage = landingPages.includes(location.pathname);
   const navigate = useNavigate();
   const [userLoaded, setUserLoaded] = useState(false);
   const [dbRole, setDbRole] = useState(null);
