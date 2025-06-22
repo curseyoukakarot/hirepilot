@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 export default function SuperAdminDashboard() {
   const navigate = useNavigate();
   const [latestUser, setLatestUser] = useState(null);
+  const [activeUsers, setActiveUsers] = useState(0);
   const [loading, setLoading] = useState(true);
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -20,6 +21,7 @@ export default function SuperAdminDashboard() {
         // Get the most recent user
         const sortedUsers = users.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         setLatestUser(sortedUsers[0]);
+        setActiveUsers(users.length);
       } catch (err) {
         console.error('Failed to fetch latest user:', err);
       } finally {
@@ -50,7 +52,7 @@ export default function SuperAdminDashboard() {
                   </span>
                 </div>
                 <div className="mt-2">
-                  <span className="text-2xl font-bold text-gray-100">247</span>
+                  <span className="text-2xl font-bold text-gray-100">{activeUsers}</span>
                   <span className="text-green-600 text-xs ml-2">+5%</span>
                 </div>
               </div>
