@@ -13,7 +13,7 @@ export default function Copilot() {
             </div>
             <nav className="hidden md:flex items-center gap-8">
               <span className="text-blue-600 font-medium border-b-2 border-blue-600 pb-1 cursor-pointer">Recruiting Co-Pilot</span>
-              <span className="text-gray-600 hover:text-gray-900 cursor-pointer">Hands Free Hiring</span>
+              <span className="text-gray-600 hover:text-gray-900 cursor-pointer">Done For You Hiring</span>
               <span className="text-gray-600 hover:text-gray-900 cursor-pointer">Pricing</span>
             </nav>
             <div className="flex items-center gap-4">

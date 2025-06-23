@@ -13,7 +13,7 @@ export default function Handsfree() {
             </div>
             <nav className="hidden md:flex items-center gap-8">
               <a href="#recruiting-copilot" className="text-gray-600 hover:text-gray-900">Recruiting Co-Pilot</a>
-              <a href="#hands-free" className="text-blue-600 font-medium">Hands Free Hiring</a>
+              <a href="#hands-free" className="text-blue-600 font-medium">Done For You Hiring</a>
               <a href="#pricing" className="text-gray-600 hover:text-gray-900">Pricing</a>
             </nav>
             <div className="flex items-center gap-4">
@@ -194,7 +194,7 @@ export default function Handsfree() {
                   <tr className="bg-gray-50">
                     <th className="p-4 text-left">Feature</th>
                     <th className="p-4 text-center">Core HirePilot Service</th>
-                    <th className="p-4 text-center bg-blue-50">Hands Free Hiring</th>
+                    <th className="p-4 text-center bg-blue-50">Done For You Hiring</th>
                   </tr>
                 </thead>
                 <tbody>
