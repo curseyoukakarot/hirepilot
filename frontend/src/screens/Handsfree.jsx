@@ -171,7 +171,7 @@ export default function Handsfree() {
 
               <div id="testimonial-2" className="bg-gray-50 p-8 rounded-xl">
                 <div className="flex items-center gap-4 mb-6">
-                  <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-5.jpg" alt="Client" className="w-16 h-16 rounded-full" />
+                  <img src="/sarah-williams.png" alt="Sarah Williams" className="w-16 h-16 rounded-full" />
                   <div>
                     <h4 className="font-semibold">Sarah Williams</h4>
                     <p className="text-gray-600">Head of Talent</p>
