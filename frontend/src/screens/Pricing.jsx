@@ -52,10 +52,10 @@ export default function Pricing() {
                 <span className="text-gray-500">/month</span>
               </div>
               <ul className="space-y-4 mb-8">
-                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>500 credits/month</span></li>
+                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>350 credits/month</span></li>
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>$50 per 1,000 extra credits</span></li>
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>1 user</span></li>
-                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>1 job request</span></li>
+                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Unlimited Job Reqs</span></li>
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Credit rollover</span></li>
               </ul>
               <button className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold hover:bg-blue-700 transition-colors">Get Started for Free</button>
@@ -75,10 +75,10 @@ export default function Pricing() {
                 <span className="text-gray-500">/month</span>
               </div>
               <ul className="space-y-4 mb-8">
-                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>2,000 credits/month</span></li>
+                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>1,000 credits/month</span></li>
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>$45 per 1,000 extra credits</span></li>
-                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>2 users</span></li>
-                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>3 job requests</span></li>
+                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Access to live customer chat support</span></li>
+                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Schedule and Automate Outreach Campaigns</span></li>
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Credit rollover</span></li>
               </ul>
               <button className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold hover:bg-blue-700 transition-colors">Get Started for Free</button>
@@ -94,15 +94,16 @@ export default function Pricing() {
                 <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm">Enterprise</span>
               </div>
               <div className="mb-6">
-                <span className="text-5xl font-bold text-gray-900">$449</span>
-                <span className="text-gray-500">/month</span>
+                <span className="text-5xl font-bold text-gray-900">$99</span>
+                <span className="text-gray-500">/month per user</span>
               </div>
               <ul className="space-y-4 mb-8">
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>5,000 credits/month</span></li>
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>$40 per 1,000 extra credits</span></li>
-                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>3 users</span></li>
-                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>5 job requests</span></li>
-                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Credit rollover</span></li>
+                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>5 users</span></li>
+                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Hiring Scaling Support</span></li>
+                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Access to REX - your Recruiting AI assistant</span></li>
+                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>API Access</span></li>
               </ul>
               <button className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold hover:bg-blue-700 transition-colors">Get Started for Free</button>
             </div>
@@ -128,8 +129,8 @@ export default function Pricing() {
             </div>
 
             <div id="dfy-standard" className="bg-gray-800 rounded-2xl p-8 border border-gray-700">
-              <h3 className="text-xl font-bold text-white mb-4">Done-For-You – 2 Roles</h3>
-              <p className="text-gray-400 mb-6">Ideal for multiple position hiring</p>
+              <h3 className="text-xl font-bold text-white mb-4">Done-For-You – 3 Roles</h3>
+              <p className="text-gray-400 mb-6">Ideal for multiple position monthly hiring</p>
               <div className="flex items-center justify-center mb-8">
                 <i className="fa-solid fa-users text-4xl text-blue-400"></i>
               </div>
@@ -137,8 +138,9 @@ export default function Pricing() {
             </div>
 
             <div id="dfy-premium" className="bg-gray-800 rounded-2xl p-8 border border-gray-700">
-              <h3 className="text-xl font-bold text-white mb-4">Done-For-You – 3 Roles</h3>
+              <h3 className="text-xl font-bold text-white mb-4">Done-For-You – 5 Roles</h3>
               <p className="text-gray-400 mb-6">Best for department-wide hiring</p>
+              <p className="text-gray-400 mb-6">More than 5? Happy to support - Let us know what your needs are!</p>
               <div className="flex items-center justify-center mb-8">
                 <i className="fa-solid fa-building-user text-4xl text-blue-400"></i>
               </div>
