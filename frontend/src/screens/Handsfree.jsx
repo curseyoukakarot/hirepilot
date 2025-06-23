@@ -160,10 +160,10 @@ export default function Handsfree() {
             <div className="grid md:grid-cols-2 gap-8">
               <div id="testimonial-1" className="bg-gray-50 p-8 rounded-xl">
                 <div className="flex items-center gap-4 mb-6">
-                  <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" alt="Client" className="w-16 h-16 rounded-full" />
+                  <img src="/michael-chen.png" alt="Michael Chen" className="w-16 h-16 rounded-full" />
                   <div>
                     <h4 className="font-semibold">Michael Chen</h4>
-                    <p className="text-gray-600">CTO at TechFlow</p>
+                    <p className="text-gray-600">CTO</p>
                   </div>
                 </div>
                 <p className="text-lg text-gray-700">"In 30 days, we filled 3 roles — all scheduled on my calendar. Easiest hires I've ever made."</p>
@@ -174,7 +174,7 @@ export default function Handsfree() {
                   <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-5.jpg" alt="Client" className="w-16 h-16 rounded-full" />
                   <div>
                     <h4 className="font-semibold">Sarah Williams</h4>
-                    <p className="text-gray-600">Head of Talent, Modius</p>
+                    <p className="text-gray-600">Head of Talent</p>
                   </div>
                 </div>
                 <p className="text-lg text-gray-700">"Their team became an extension of ours. The quality of candidates and speed of hiring exceeded our expectations."</p>
