@@ -184,7 +184,7 @@ const HomePage = () => {
 
             <div id="testimonial-2" className="bg-white p-8 rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-200">
               <div className="flex items-center gap-4 mb-6">
-                <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" alt="Dejanira (Dej) L." className="w-12 h-12 rounded-full" />
+                <img src="/dejanira.jpeg" alt="Dejanira (Dej) L." className="w-12 h-12 rounded-full" />
                 <div>
                   <div className="font-medium">Dejanira (Dej) L.</div>
                   <div className="text-sm text-gray-500">Freelance Tech Recruiter</div>
@@ -205,7 +205,7 @@ const HomePage = () => {
                 <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-5.jpg" alt="Emily Rodriguez" className="w-12 h-12 rounded-full" />
                 <div>
                   <div className="font-medium">Emily Rodriguez</div>
-                  <div className="text-sm text-gray-500">Talent Lead, CommTech</div>
+                  <div className="text-sm text-gray-500">Talent Lead</div>
                 </div>
               </div>
               <p className="text-gray-700 italic">"The automated scheduling and engagement features have saved countless hours of manual work."</p>
