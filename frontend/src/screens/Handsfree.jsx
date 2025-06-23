@@ -259,42 +259,39 @@ export default function Handsfree() {
         </section>
 
         {/* Footer */}
-        <footer id="footer" className="bg-gray-900 text-gray-400 py-12">
-          <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-4 gap-8">
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <img src="/logo.png" alt="HirePilot Logo" className="h-8 w-8" />
-                <span className="text-white font-bold text-xl">HirePilot</span>
+        <footer id="footer" className="bg-gray-900 text-white py-16">
+          <div className="max-w-6xl mx-auto px-6">
+            <div className="grid md:grid-cols-4 gap-12 mb-12">
+              <div>
+                <div className="flex items-center gap-2 mb-6">
+                  <img src="/logo.png" alt="HirePilot Logo" className="h-8 w-8" />
+                  <span className="text-xl font-bold">HirePilot</span>
+                </div>
+                <p className="text-gray-400">AI-powered recruiting platform that helps you hire better, faster.</p>
+                <div className="mt-6 flex gap-4">
+                  <span className="text-gray-400 hover:text-white cursor-pointer"><i className="fa-brands fa-linkedin text-xl"></i></span>
+                </div>
               </div>
-              <p className="text-sm">Making hiring effortless for growing teams.</p>
-            </div>
-
-            <div>
-              <h4 className="text-white font-semibold mb-4">Product</h4>
-              <ul className="space-y-2">
-                <li><span className="hover:text-white cursor-pointer">Features</span></li>
-                <li><span className="hover:text-white cursor-pointer">Pricing</span></li>
-                <li><span className="hover:text-white cursor-pointer">Case Studies</span></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="text-white font-semibold mb-4">Company</h4>
-              <ul className="space-y-2">
-                <li><span className="hover:text-white cursor-pointer">About</span></li>
-                <li><span className="hover:text-white cursor-pointer">Blog</span></li>
-                <li><span className="hover:text-white cursor-pointer">Careers</span></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="text-white font-semibold mb-4">Connect</h4>
-              <div className="flex gap-4">
-                <span className="hover:text-white cursor-pointer"><i className="fa-brands fa-twitter text-xl"></i></span>
-                <span className="hover:text-white cursor-pointer"><i className="fa-brands fa-linkedin text-xl"></i></span>
-                <span className="hover:text-white cursor-pointer"><i className="fa-brands fa-github text-xl"></i></span>
+              <div>
+                <h4 className="font-semibold text-lg mb-4">Product</h4>
+                <ul className="space-y-3 text-gray-400">
+                  <li><span className="hover:text-white cursor-pointer">Pricing</span></li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="font-semibold text-lg mb-4">Company</h4>
+                <ul className="space-y-3 text-gray-400">
+                  <li><span className="hover:text-white cursor-pointer">Blog</span></li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="font-semibold text-lg mb-4">Support</h4>
+                <ul className="space-y-3 text-gray-400">
+                  <li><span className="hover:text-white cursor-pointer">Terms of Use</span></li>
+                </ul>
               </div>
             </div>
+            <div className="pt-8 border-t border-gray-800 text-center text-gray-400 text-sm">© 2025 HirePilot. All rights reserved.</div>
           </div>
         </footer>
       </div>
