@@ -31,16 +31,15 @@ export default function Handsfree() {
                 We Find.<br />You Interview.
               </h1>
               <p className="mt-6 text-xl text-gray-800">
-                Let us handle the heavy lifting — you just show up to interviews with top candidates.
+                With our Done For You service, we handle all the heavy lifting — sourcing, outreach, and scheduling — so you can just show up to interviews with top-tier candidates, ready to hire.
               </p>
               <div className="mt-8 flex flex-col sm:flex-row gap-4 sm:justify-start justify-center">
                 <a href="/consultation" className="bg-white text-blue-600 font-semibold py-3 px-6 rounded-lg shadow-lg hover:shadow-white/25 transition-all duration-200">
                   <i className="fa-regular fa-calendar-check mr-2"></i>
                   Schedule Free Consultation
                 </a>
-                <a href="/samples" className="bg-blue-900 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:bg-blue-800 transition-all duration-200">
-                  <i className="fa-regular fa-file-lines mr-2"></i>
-                  View Sample Candidates
+                <a href="/start" className="bg-blue-900 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:bg-blue-800 transition-all duration-200">
+                  Get Started Free
                 </a>
               </div>
             </div>
@@ -250,9 +249,8 @@ export default function Handsfree() {
                 <i className="fa-regular fa-calendar mr-2"></i>
                 Book Consultation
               </a>
-              <a href="/samples" className="border-2 border-white text-white font-semibold py-4 px-8 rounded-lg hover:bg-white/10 transition-colors duration-200">
-                <i className="fa-regular fa-file-lines mr-2"></i>
-                See Sample Profiles
+              <a href="/start" className="border-2 border-white text-white font-semibold py-4 px-8 rounded-lg hover:bg-white/10 transition-colors duration-200">
+                Get Started Free
               </a>
             </div>
           </div>
