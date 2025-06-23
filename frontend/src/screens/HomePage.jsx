@@ -172,7 +172,7 @@ const HomePage = () => {
                   <div className="text-sm text-gray-500">Freelance Tech Recruiter</div>
                 </div>
               </div>
-              <p className="text-gray-700 italic">"I landed my first client in 3 weeks with RecruitPro. The community support was incredible!"</p>
+              <p className="text-gray-700 italic">"I landed my first client in 3 weeks with HirePilot!"</p>
               <div className="mt-6 text-yellow-400 flex gap-1">
                 <i className="fa-solid fa-star"></i>
                 <i className="fa-solid fa-star"></i>
@@ -190,7 +190,7 @@ const HomePage = () => {
                   <div className="text-sm text-gray-500">Freelance Tech Recruiter</div>
                 </div>
               </div>
-              <p className="text-gray-700 italic">"I made 8k in my first 6 weeks of entering the program as a Freelance Tech Recruiter!!"</p>
+              <p className="text-gray-700 italic">"I made 8k in my first 6 weeks"</p>
               <div className="mt-6 text-yellow-400 flex gap-1">
                 <i className="fa-solid fa-star"></i>
                 <i className="fa-solid fa-star"></i>
