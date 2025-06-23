@@ -12,7 +12,7 @@ export default function Copilot() {
               <span className="text-xl font-bold">HirePilot</span>
             </div>
             <nav className="hidden md:flex items-center gap-8">
-              <span className="text-blue-600 font-medium border-b-2 border-blue-600 pb-1 cursor-pointer">Recruiting Co-Pilot</span>
+              <span className="text-blue-600 font-medium border-b-2 border-blue-600 pb-1 cursor-pointer">Your Recruiting Co-Pilot</span>
               <span className="text-gray-600 hover:text-gray-900 cursor-pointer">Done For You Hiring</span>
               <span className="text-gray-600 hover:text-gray-900 cursor-pointer">Pricing</span>
             </nav>
@@ -39,10 +39,10 @@ export default function Copilot() {
                 Save BIG on hiring costs - cut down on sourcing time. Create your own pipeline in minutes, not months. Build a team.
               </p>
               <div className="mt-8 flex flex-col sm:flex-row gap-4 sm:justify-start justify-center">
-                <a href="#" className="group bg-white text-blue-600 font-semibold py-3 px-8 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200">
+                <a href="#" className="group bg-white text-blue-600 font-semibold py-3 px-10 whitespace-nowrap rounded-lg shadow-lg hover:shadow-xl transition-all duration-200">
                   Start for Free <i className="fa-solid fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
                 </a>
-                <a href="#" className="bg-blue-900 text-white font-semibold py-3 px-8 rounded-lg shadow-lg hover:bg-blue-800 transition-all duration-200">
+                <a href="#" className="bg-blue-900 text-white font-semibold py-3 px-10 whitespace-nowrap rounded-lg shadow-lg hover:bg-blue-800 transition-all duration-200">
                   <i className="fa-regular fa-calendar mr-2"></i> Book Demo
                 </a>
               </div>
