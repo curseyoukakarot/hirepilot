@@ -63,6 +63,10 @@ export default function Copilot() {
           <div className="max-w-6xl mx-auto px-6 text-center">
             <h2 className="text-3xl font-semibold mb-4">See HirePilot in action</h2>
             <p className="text-gray-600 mb-12 max-w-2xl mx-auto">Experience how HirePilot transforms your hiring workflow—from the first search to the final interview. Watch our platform in real-time as it automatically sources top talent, sends high-converting outreach, and books interviews without the back-and-forth—so you can spend more time hiring and less time managing.</p>
+            {/* Demo GIF */}
+            <div className="mb-12">
+              <img src="/Hp-pipeline.gif" alt="HirePilot pipeline demo" className="w-full rounded-xl shadow-2xl" />
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <div id="feature-1" className="bg-white p-6 rounded-xl shadow-lg">
                 <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
