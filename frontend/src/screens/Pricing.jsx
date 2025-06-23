@@ -13,9 +13,9 @@ export default function Pricing() {
             </a>
           </div>
           <nav className="hidden md:flex items-center gap-8">
-            <span className="text-gray-600 hover:text-gray-900 cursor-pointer">Your Recruiting Co-Pilot</span>
-            <span className="text-gray-600 hover:text-gray-900 cursor-pointer">Done For You Hiring</span>
-            <span className="text-blue-600 font-medium cursor-pointer">Pricing</span>
+            <a href="/copilot" className="text-gray-600 hover:text-gray-900">Your Recruiting Co-Pilot</a>
+            <a href="/handsfree" className="text-gray-600 hover:text-gray-900">Done For You Hiring</a>
+            <a href="/pricing" className="text-blue-600 font-medium">Pricing</a>
           </nav>
           <div className="flex items-center gap-4">
             <a href="/login" className="hidden md:block text-gray-600 hover:text-gray-900">Sign in</a>

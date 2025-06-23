@@ -17,7 +17,7 @@ export default function Handsfree() {
               <a href="/pricing" className="text-gray-600 hover:text-gray-900">Pricing</a>
             </nav>
             <div className="flex items-center gap-4">
-              <a href="/signin" className="text-gray-600 hover:text-gray-900">Sign in</a>
+              <a href="/login" className="text-gray-600 hover:text-gray-900">Sign in</a>
               <a href="/start" className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">Start for Free</a>
             </div>
           </div>
