@@ -193,7 +193,7 @@ export default function Handsfree() {
                 <thead>
                   <tr className="bg-gray-50">
                     <th className="p-4 text-left">Feature</th>
-                    <th className="p-4 text-center">Recruiting Co-Pilot</th>
+                    <th className="p-4 text-center">Core HirePilot Service</th>
                     <th className="p-4 text-center bg-blue-50">Hands Free Hiring</th>
                   </tr>
                 </thead>
