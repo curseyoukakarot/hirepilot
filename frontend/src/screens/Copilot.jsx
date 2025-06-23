@@ -36,7 +36,7 @@ export default function Copilot() {
                 Sourcing Made Simple.
               </h1>
               <p className="mt-6 text-xl text-gray-800">
-                Build your own pipeline in minutes, not months.
+                Save BIG on hiring costs - cut down on sourcing time. Create your own pipeline in minutes, not months. Build a team.
               </p>
               <div className="mt-8 flex flex-col sm:flex-row gap-4 sm:justify-start justify-center">
                 <a href="#" className="group bg-white text-blue-600 font-semibold py-3 px-8 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200">
@@ -62,28 +62,28 @@ export default function Copilot() {
         <section id="features" className="py-24 bg-gray-50">
           <div className="max-w-6xl mx-auto px-6 text-center">
             <h2 className="text-3xl font-semibold mb-4">See HirePilot in action</h2>
-            <p className="text-gray-600 mb-12 max-w-2xl mx-auto">Watch how our platform streamlines sourcing, messaging, and scheduling so you can hire faster.</p>
+            <p className="text-gray-600 mb-12 max-w-2xl mx-auto">Experience how HirePilot transforms your hiring workflow—from the first search to the final interview. Watch our platform in real-time as it automatically sources top talent, sends high-converting outreach, and books interviews without the back-and-forth—so you can spend more time hiring and less time managing.</p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <div id="feature-1" className="bg-white p-6 rounded-xl shadow-lg">
                 <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <i className="fa-solid fa-magnifying-glass text-blue-600 text-xl"></i>
                 </div>
                 <h3 className="text-xl font-semibold mb-3">Smart Sourcing</h3>
-                <p className="text-gray-600">AI-powered candidate matching and automated outreach campaigns</p>
+                <p className="text-gray-600">Unlock a pipeline of qualified candidates in minutes—not days. Launch automated sourcing campaigns that run while you sleep, and watch your top-of-funnel fill itself.</p>
               </div>
               <div id="feature-2" className="bg-white p-6 rounded-xl shadow-lg">
                 <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <i className="fa-solid fa-comments text-blue-600 text-xl"></i>
                 </div>
                 <h3 className="text-xl font-semibold mb-3">Intelligent Messaging</h3>
-                <p className="text-gray-600">Personalized communication with candidates at scale</p>
+                <p className="text-gray-600">Say goodbye to generic templates. Say hello to real conversations. HirePilot crafts personalized messages at scale that actually get responses. Whether you're reaching out to one candidate or one thousand, every message is tailored to the individual—powered by AI that understands role context, tone, and timing.</p>
               </div>
               <div id="feature-3" className="bg-white p-6 rounded-xl shadow-lg">
                 <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <i className="fa-solid fa-calendar-check text-blue-600 text-xl"></i>
                 </div>
-                <h3 className="text-xl font-semibold mb-3">Easy Scheduling</h3>
-                <p className="text-gray-600">Automated interview scheduling and calendar management</p>
+                <h3 className="text-xl font-semibold mb-3">Real-Time Pipeline Insights</h3>
+                <p className="text-gray-600">No more guessing where candidates stand. HirePilot gives you a clear, visual pipeline of every role in progress—who's been sourced, messaged, replied, interviewed, or dropped off. Get actionable insights on outreach performance, reply rates, and time-to-hire so you can optimize what works and fix what doesn't—all from one unified dashboard.</p>
               </div>
             </div>
           </div>
