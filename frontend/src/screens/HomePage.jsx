@@ -168,7 +168,7 @@ const HomePage = () => {
               <div className="flex items-center gap-4 mb-6">
                 <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg" alt="Sarah Johnson" className="w-12 h-12 rounded-full" />
                 <div>
-                  <div className="font-medium">Sarah Johnson</div>
+                  <div className="font-medium">Sarah J.</div>
                   <div className="text-sm text-gray-500">Freelance Tech Recruiter</div>
                 </div>
               </div>
@@ -204,7 +204,7 @@ const HomePage = () => {
               <div className="flex items-center gap-4 mb-6">
                 <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-5.jpg" alt="Emily Rodriguez" className="w-12 h-12 rounded-full" />
                 <div>
-                  <div className="font-medium">Emily Rodriguez</div>
+                  <div className="font-medium">Emily R.</div>
                   <div className="text-sm text-gray-500">Talent Lead</div>
                 </div>
               </div>

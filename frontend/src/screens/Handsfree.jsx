@@ -162,7 +162,7 @@ export default function Handsfree() {
                 <div className="flex items-center gap-4 mb-6">
                   <img src="/michael-chen.png" alt="Michael Chen" className="w-16 h-16 rounded-full" />
                   <div>
-                    <h4 className="font-semibold">Michael Chen</h4>
+                    <h4 className="font-semibold">Michael C.</h4>
                     <p className="text-gray-600">CTO</p>
                   </div>
                 </div>
@@ -173,7 +173,7 @@ export default function Handsfree() {
                 <div className="flex items-center gap-4 mb-6">
                   <img src="/sarah-williams.png" alt="Sarah Williams" className="w-16 h-16 rounded-full" />
                   <div>
-                    <h4 className="font-semibold">Sarah Williams</h4>
+                    <h4 className="font-semibold">Sarah W.</h4>
                     <p className="text-gray-600">Head of Talent</p>
                   </div>
                 </div>
