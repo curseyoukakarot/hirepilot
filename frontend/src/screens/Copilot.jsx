@@ -7,17 +7,17 @@ export default function Copilot() {
         {/* Header */}
         <header id="header" className="fixed w-full top-0 z-50 bg-white/90 backdrop-blur-sm border-b border-gray-100">
           <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            <a href="/" className="flex items-center gap-2">
               <img src="/logo.png" alt="HirePilot Logo" className="h-8 w-8" />
               <span className="text-xl font-bold">HirePilot</span>
-            </div>
+            </a>
             <nav className="hidden md:flex items-center gap-8">
-              <span className="text-blue-600 font-medium border-b-2 border-blue-600 pb-1 cursor-pointer">Your Recruiting Co-Pilot</span>
-              <span className="text-gray-600 hover:text-gray-900 cursor-pointer">Done For You Hiring</span>
-              <span className="text-gray-600 hover:text-gray-900 cursor-pointer">Pricing</span>
+              <a href="/copilot" className="text-blue-600 font-medium border-b-2 border-blue-600 pb-1">Your Recruiting Co-Pilot</a>
+              <a href="/handsfree" className="text-gray-600 hover:text-gray-900">Done For You Hiring</a>
+              <a href="/pricing" className="text-gray-600 hover:text-gray-900">Pricing</a>
             </nav>
             <div className="flex items-center gap-4">
-              <span className="hidden md:block text-gray-600 hover:text-gray-900 cursor-pointer">Sign in</span>
+              <a href="/login" className="hidden md:block text-gray-600 hover:text-gray-900">Sign in</a>
               <a href="#" className="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 py-2.5 rounded-lg hover:shadow-lg transition-all duration-200">
                 Start for Free
               </a>
@@ -122,7 +122,9 @@ export default function Copilot() {
               <div>
                 <h4 className="font-semibold text-lg mb-4">Product</h4>
                 <ul className="space-y-3 text-gray-400">
-                  <li><span className="hover:text-white cursor-pointer">Pricing</span></li>
+                  <li><a href="/copilot" className="hover:text-white">Your Recruiting Co-Pilot</a></li>
+                  <li><a href="/handsfree" className="hover:text-white">Done For You Hiring</a></li>
+                  <li><a href="/pricing" className="hover:text-white">Pricing</a></li>
                 </ul>
               </div>
               <div>

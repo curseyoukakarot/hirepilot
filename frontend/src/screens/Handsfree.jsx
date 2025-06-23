@@ -12,7 +12,7 @@ export default function Handsfree() {
               <span className="font-bold text-xl">HirePilot</span>
             </div>
             <nav className="hidden md:flex items-center gap-8">
-              <a href="#recruiting-copilot" className="text-gray-600 hover:text-gray-900">Recruiting Co-Pilot</a>
+              <a href="#recruiting-copilot" className="text-gray-600 hover:text-gray-900">Your Recruiting Co-Pilot</a>
               <a href="#hands-free" className="text-blue-600 font-medium">Done For You Hiring</a>
               <a href="#pricing" className="text-gray-600 hover:text-gray-900">Pricing</a>
             </nav>
