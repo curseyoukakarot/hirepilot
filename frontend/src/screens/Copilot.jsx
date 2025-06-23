@@ -51,7 +51,7 @@ export default function Copilot() {
               <div className="relative">
                 <div className="absolute inset-0 bg-white/10 rounded-2xl transform rotate-6"></div>
                 <div className="relative rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/20 bg-white">
-                  <img className="w-full h-auto" src="/HP - copilot.png" alt="HirePilot Copilot dashboard" />
+                  <img className="w-full h-auto" src="/hp-copilot.png" alt="HirePilot Copilot dashboard" />
                 </div>
               </div>
             </div>
