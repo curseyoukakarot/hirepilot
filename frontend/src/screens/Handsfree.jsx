@@ -46,7 +46,7 @@ export default function Handsfree() {
             </div>
             <div className="w-full md:w-1/2">
               <div className="rounded-xl overflow-hidden shadow-2xl">
-                <img className="w-full h-auto" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/baea3e44dd-f4985ebe29bc37300195.png" alt="modern calendar interface with scheduled interviews and recruiting events, clean UI design, professional" />
+                <img className="w-full h-auto" src="/handsfree-hp.png" alt="HirePilot handsfree hiring dashboard" />
               </div>
             </div>
           </div>
