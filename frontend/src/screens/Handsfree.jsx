@@ -103,7 +103,7 @@ export default function Handsfree() {
 
               <div className="relative">
                 <div className="sticky top-32">
-                  <img className="rounded-xl shadow-2xl" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/7fa7e2be4a-8ac07734c0043a8823d3.png" alt="slack interface showing candidate reviews and feedback, modern professional UI" />
+                  <img className="rounded-xl shadow-2xl" src="/hp-copilot.png" alt="HirePilot platform pipeline view" />
                   <div className="absolute -bottom-6 right-6 bg-white p-4 rounded-xl shadow-lg">
                     <div className="flex items-center gap-3">
                       <i className="fa-solid fa-check-circle text-green-500 text-xl"></i>
