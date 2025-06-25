@@ -24,6 +24,7 @@ import HomePage from './screens/HomePage';
 import Copilot from './screens/Copilot';
 import Handsfree from './screens/Handsfree';
 import Pricing from './screens/Pricing';
+import RexChatBox from './components/RexChatBox';
 
 // Lazy load screens
 const SigninScreen = lazy(() => import("./screens/SigninScreen"));
@@ -262,6 +263,7 @@ function InnerApp() {
               <Route path="/messages" element={<MessagingCenter />} />
               <Route path="/settings/*" element={<Settings />} />
               <Route path="/billing" element={<BillingScreen />} />
+              <Route path="/rex-chat" element={<RexChatBox />} />
               <Route path="/leads" element={<LeadManagement />} />
               <Route path="/leads/profile" element={<LeadProfileDrawer />} />
               <Route path="/pricing" element={<Pricing />} />

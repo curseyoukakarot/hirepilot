@@ -8,9 +8,13 @@
       "skipLibCheck": true,
       "strict": false,
       "noUnusedLocals": false,
-      "noUnusedParameters": false
+      "noUnusedParameters": false,
+      "moduleResolution": "node",
+      "paths": {
+        "@modelcontextprotocol/sdk": ["./src/modelcontextprotocol-sdk.d.ts"]
+      }
     },
-    "include": ["./**/*.ts"],
+    "include": ["./**/*.ts", "./**/*.d.ts"],
     "exclude": ["node_modules", "dist"]
   }
   

@@ -59,11 +59,21 @@ import listEndpoints from 'express-list-endpoints';
 import adminUsersRouter from './src/routes/adminUsers';
 import campaignPerformance from './api/campaignPerformance';
 import leadsApolloRouter from './api/leadsApollo';
+import rexChat from './src/api/rexChat';
+import slackToggle from './src/api/slackToggle';
+import slackConnect from './src/api/slack/connect';
+import slackCallback from './src/api/slack/callback';
+import slackDisconnect from './src/api/slack/disconnect';
+import slackTestPost from './src/api/slack/testPost';
+import bodyParser from 'body-parser';
+import slackSlash from './src/api/slack/slash';
+// Boot REX MCP server immediately so it's ready in Railway prod
+import './src/rex/server';
 
 declare module 'express-list-endpoints';
 
 const app = express();
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 8080;
 
 // Health check route (before CORS)
 app.get('/health', (_, res) => res.json({ ok: true }));
@@ -100,6 +110,9 @@ app.use(cookieParser());
 
 // Parse JSON bodies
 app.use(express.json());
+
+// Parse URL-encoded bodies
+app.use(bodyParser.urlencoded({ extended: true }));
 
 // Debug middleware
 app.use((req, res, next) => {
@@ -169,6 +182,13 @@ app.get('/api/campaigns/all/performance', (req, res) => {
   (req.params as any).id = 'all';
   return campaignPerformance(req, res);
 });
+app.post('/api/rex/chat', rexChat);
+app.post('/api/integrations/slack/enabled', slackToggle);
+app.get('/api/slack/connect', slackConnect);
+app.get('/api/slack/callback', slackCallback);
+app.delete('/api/slack/disconnect', slackDisconnect);
+app.post('/api/slack/test-post', slackTestPost);
+app.post('/api/slack/slash', slackSlash);
 
 // Log all endpoints before starting the server
 console.table(

@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { toast } from 'react-hot-toast';
 import ApolloApiKeyModal from '../ApolloApiKeyModal';
 import debounce from 'lodash/debounce';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 interface Lead {
   id: string;
@@ -49,6 +50,30 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
   const numLeads = wizard?.numLeads || 100;
   const BACKEND = import.meta.env.VITE_BACKEND_URL;
   const [isSearching, setIsSearching] = useState(false);
+
+  // add fetch helper
+  const fetchWithAuth = async (supabaseClient: SupabaseClient, url: string, options: RequestInit = {}) => {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const token = session?.access_token;
+    const doFetch = async (jwt?: string) => {
+      return fetch(url, {
+        ...options,
+        headers: {
+          ...(options.headers || {}),
+          ...(jwt ? { Authorization: `Bearer ${jwt}` } : {})
+        },
+        credentials: 'include'
+      });
+    };
+    let res = await doFetch(token);
+    if (res.status === 401) {
+      const { data, error } = await supabaseClient.auth.refreshSession();
+      if (!error && data.session) {
+        res = await doFetch(data.session.access_token);
+      }
+    }
+    return res;
+  };
 
   // Select/Deselect all leads
   const handleSelectAll = (checked: boolean) => {

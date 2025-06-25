@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import ApolloApiKeyModal from '../components/ApolloApiKeyModal';
+import RexSlackIntegrationCard from '../components/settings/integrations/RexSlackIntegrationCard';
 
 export default function SettingsIntegrations() {
   const [integrations, setIntegrations] = useState([
@@ -74,8 +75,9 @@ export default function SettingsIntegrations() {
   const [apolloApiKey, setApolloApiKey] = useState('');
   const BACKEND = import.meta.env.VITE_BACKEND_URL;
 
-  // Add new state for Apollo key status
+  // Add new state for Apollo key
   const [apolloKeyStatus, setApolloKeyStatus] = useState(null); // 'valid' | 'invalid' | null
+  const [currentUser, setCurrentUser] = useState(null);
 
   // Fetch integration status from Supabase on mount
   useEffect(() => {
@@ -704,6 +706,26 @@ export default function SettingsIntegrations() {
     }
   };
 
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setCurrentUser(null); return; }
+
+      // Fetch role from users table for integration cards
+      const { data: roleRow } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      setCurrentUser({
+        ...user,
+        role: roleRow?.role ?? user.user_metadata?.role ?? null,
+        user_type: user.user_metadata?.user_type ?? null,
+      });
+    })();
+  }, []);
+
   if (loading) return <div className="p-6">Loading integrations...</div>;
 
   return (
@@ -1052,6 +1074,10 @@ export default function SettingsIntegrations() {
         onSuccess={handleApolloSuccess}
         currentApiKey={apolloApiKey}
       />
+      {/* REX Slack Integration Card */}
+      <div className="mt-8">
+        <RexSlackIntegrationCard user={currentUser} />
+      </div>
     </div>
   );
 }

@@ -1,0 +1,39 @@
+{
+  "mcpServers": {
+    "rex": {
+      "command": "npx",
+      "args": ["ts-node", "./backend/src/rex/server.ts"],
+      "env": {
+        "OPENAI_API_KEY": "REDACTED",
+        "SUPABASE_URL": "https://lqcsassinqfruvpgcooo.supabase.co",
+        "SUPABASE_SERVICE_KEY": "REDACTED",
+        "PROXYCURL_API_KEY": "REDACTED",
+        "SENDGRID_API_KEY": "REDACTED"
+      }
+    },
+    "slack": {
+      "command": "npx",
+      "args": ["@modelcontextprotocol/slack@latest"],
+      "env": {
+
+        "SLACK_BOT_TOKEN": "REDACTED",
+
+        "SLACK_BOT_TOKEN": "xoxb-REDACTED",
+
+        "SLACK_CHANNEL": "hiring-updates"
+      }
+    },
+    "supabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--read-only",
+        "--project-ref=lqcsas"
+      ],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "REDACTED"
+      }
+    }
+  }
+} 

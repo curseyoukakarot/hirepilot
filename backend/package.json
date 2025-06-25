@@ -13,6 +13,7 @@
     },
     "dependencies": {
         "@microsoft/microsoft-graph-client": "^3.0.7",
+        "@modelcontextprotocol/sdk": "^1.13.1",
         "@sendgrid/eventwebhook": "^8.0.0",
         "@sendgrid/mail": "^8.1.5",
         "@slack/web-api": "^7.9.2",
