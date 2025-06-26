@@ -101,6 +101,7 @@ export default async function rexChat(req: Request, res: Response) {
         assistantMessage as any,
         {
           role: 'tool',
+          tool_call_id: call.id,
           name: toolName,
           content: JSON.stringify(toolResult)
         } as any
