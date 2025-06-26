@@ -70,9 +70,9 @@ server.connect(new StdioServerTransport());
 console.log('✅ REX MCP server running on stdio');
 
 async function assertPremium(userId: string) {
-  const { data, error } = await supabase.from('users').select('user_type').eq('id', userId).single();
+  const { data, error } = await supabase.from('users').select('role').eq('id', userId).single();
   if (error) throw error;
-  const role = data?.user_type ?? '';
+  const role = data?.role ?? '';
   if (!['RecruitPro','TeamAdmin','SuperAdmin'].includes(role)) {
     throw new Error('REX access restricted to premium plans.');
   }
