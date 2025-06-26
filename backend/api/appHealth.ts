@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { supabase } from '../lib/supabase';
+import { getMetrics } from '../metrics/appMetrics';
 
 export default async function appHealth(req: Request, res: Response) {
   const result: any = {};
@@ -44,6 +45,11 @@ export default async function appHealth(req: Request, res: Response) {
   } catch {
     result.slack = { status: 'unknown' };
   }
+
+  // app metrics
+  const m = getMetrics();
+  result.failed = { today: m.failedCalls };
+  result.api = { today: m.apiCalls };
 
   res.json(result);
 } 

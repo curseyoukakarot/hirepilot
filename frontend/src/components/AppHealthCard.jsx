@@ -8,7 +8,9 @@ export default function AppHealthCard() {
     { key: 'supabase', label: 'Supabase DB' },
     { key: 'edge', label: 'Edge Functions' },
     { key: 'phantom', label: 'PhantomBuster Queue' },
-    { key: 'slack', label: 'Slack Integration' }
+    { key: 'slack', label: 'Slack Integration' },
+    { key: 'failed', label: 'Failed Tasks' },
+    { key: 'api', label: 'API Calls' }
   ];
 
   const color = (status) => {
@@ -30,14 +32,16 @@ export default function AppHealthCard() {
       </div>
       <div className="space-y-3">
         {items.map(({ key, label }) => {
-          const status = data?.[key]?.status;
+          const isNumeric = key === 'failed' || key === 'api';
+          const status = isNumeric ? undefined : data?.[key]?.status;
+          const value = isNumeric ? data?.[key]?.today ?? '—' : (loading ? 'Checking…' : (status || 'unknown'));
           return (
             <div key={key} className="flex items-center justify-between p-2 bg-gray-700 rounded-md">
               <div className="flex items-center">
                 <div className={`w-2 h-2 rounded-full mr-2 ${color(status).split(' ')[0]}`}></div>
                 <span className={`${color(status).split(' ')[1]} text-xs`}>{label}</span>
               </div>
-              <span className={`${color(status).split(' ')[1]} text-xs`}>{loading ? 'Checking…' : (status || 'unknown')}</span>
+              <span className={`${isNumeric ? 'text-gray-200' : color(status).split(' ')[1]} text-xs`}>{value}</span>
             </div>
           );
         })}

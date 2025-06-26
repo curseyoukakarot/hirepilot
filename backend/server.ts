@@ -69,6 +69,7 @@ import bodyParser from 'body-parser';
 import slackSlash from './src/api/slack/slash';
 import getAdvancedInfo from './api/getAdvancedInfo';
 import appHealth from './api/appHealth';
+import { incrementApiCalls, incrementFailedCalls } from './metrics/appMetrics';
 // Boot REX MCP server immediately so it's ready in Railway prod
 import './src/rex/server';
 
@@ -123,6 +124,7 @@ app.use((req, res, next) => {
     query: req.query,
     body: req.body
   });
+  if (req.path.startsWith('/api')) incrementApiCalls();
   next();
 });
 
@@ -205,6 +207,7 @@ console.table(
 // Insert a global error handler BEFORE the 404 catch-all (should be near the end of the file)
 app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err);
+  incrementFailedCalls();
   res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
 });
 
