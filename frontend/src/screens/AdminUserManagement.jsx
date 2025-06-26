@@ -199,6 +199,7 @@ export default function AdminUserManagement() {
               <th className="px-4 py-2 text-left bg-gray-100 border-b border-gray-200 text-gray-700">Name</th>
               <th className="px-4 py-2 text-left bg-gray-100 border-b border-gray-200 text-gray-700">Email</th>
               <th className="px-4 py-2 text-left bg-gray-100 border-b border-gray-200 text-gray-700">Role</th>
+              <th className="px-4 py-2 text-left bg-gray-100 border-b border-gray-200 text-gray-700">Credits</th>
               <th className="px-4 py-2 text-left bg-gray-100 border-b border-gray-200 text-gray-700">Actions</th>
             </tr>
           </thead>
@@ -216,6 +217,7 @@ export default function AdminUserManagement() {
                     {user.role}
                   </span>
                 </td>
+                <td className="px-4 py-2 text-gray-800">{user.user_credits?.balance ?? 0}</td>
                 <td className="px-4 py-2 flex gap-2">
                   <button className="p-2 bg-yellow-100 hover:bg-yellow-200 rounded" onClick={() => { setEditUser(user); setEditForm({ firstName: user.firstName, lastName: user.lastName, role: user.role }); }}><FaEdit /></button>
                   <button className="p-2 bg-blue-100 hover:bg-blue-200 rounded" onClick={() => { setCreditUser(user); setCreditAmount(1000); }}><FaCoins /></button>
