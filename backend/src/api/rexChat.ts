@@ -51,7 +51,7 @@ export default async function rexChat(req: Request, res: Response) {
     }
 
     // Tool definitions (sync with server capabilities)
-    const tools = [
+    const tools: any = [
       {
         type: 'function',
         function: {
@@ -73,14 +73,17 @@ export default async function rexChat(req: Request, res: Response) {
     let assistantMessage = completion.choices[0].message;
 
     // If tool call requested
-    if (completion.choices[0].finish_reason === 'tool_call') {
-      const { name, arguments: args } = completion.choices[0].message.tool_call;
-      // Dynamically import server tools
-      const { default: rexServer } = await import('../rex/server');
-      const toolResult = await rexServer.getCapabilities().tools[name].handler(args);
-      messages.push(assistantMessage, { role: 'tool', content: JSON.stringify(toolResult) });
-      completion = await openai.chat.completions.create({ model:'gpt-4o-mini', messages });
-      assistantMessage = completion.choices[0].message;
+    if (completion.choices[0].finish_reason === 'tool_calls') {
+      const call = completion.choices[0].message.tool_calls?.[0];
+      if (call) {
+        const { name, arguments: args } = call as any;
+        const rexServer = await import('../rex/server');
+        // @ts-ignore loose typing
+        const toolResult = await (rexServer as any).default.getCapabilities().tools[name].handler(args);
+        messages.push(assistantMessage as any, { role: 'assistant', content: JSON.stringify(toolResult) } as any);
+        completion = await openai.chat.completions.create({ model:'gpt-4o-mini', messages });
+        assistantMessage = completion.choices[0].message;
+      }
     }
 
     return res.status(200).json({ reply: assistantMessage });
