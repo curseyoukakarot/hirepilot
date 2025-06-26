@@ -68,6 +68,7 @@ import slackTestPost from './src/api/slack/testPost';
 import bodyParser from 'body-parser';
 import slackSlash from './src/api/slack/slash';
 import getAdvancedInfo from './api/getAdvancedInfo';
+import appHealth from './api/appHealth';
 // Boot REX MCP server immediately so it's ready in Railway prod
 import './src/rex/server';
 
@@ -172,6 +173,7 @@ app.use('/api/pipelines', pipelinesRouter);
 app.use('/api', apiRouter);
 app.use('/api/admin', linkedinSessionAdminRouter);
 app.get('/api/advanced-info', getAdvancedInfo);
+app.get('/api/health/overview', appHealth);
 app.use('/api/user', userRouter);
 app.use('/api/phantombuster', runPhantomRouter);
 app.use('/api/phantombuster', phantombusterWebhookRouter);
