@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import AppHealthCard from '../components/AppHealthCard';
 
 export default function SuperAdminDashboard() {
   const navigate = useNavigate();
@@ -95,51 +96,7 @@ export default function SuperAdminDashboard() {
             </div>
           </div>
           {/* App Health Monitor */}
-          <div id="app-health-monitor" className="bg-gray-800 p-4 rounded-lg shadow-md">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold text-gray-100">App Health Monitor</h2>
-              <button className="text-xs text-blue-600 hover:text-blue-800">
-                <i className="fa-solid fa-sync mr-1"></i> Refresh
-              </button>
-            </div>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-2 bg-gray-700 rounded-md">
-                <div className="flex items-center">
-                  <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
-                  <span className="text-xs text-green-500">Supabase DB</span>
-                </div>
-                <span className="text-xs text-green-500">Operational</span>
-              </div>
-              <div className="flex items-center justify-between p-2 bg-gray-700 rounded-md">
-                <div className="flex items-center">
-                  <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
-                  <span className="text-xs text-green-500">Edge Functions</span>
-                </div>
-                <span className="text-xs text-green-500">Operational</span>
-              </div>
-              <div className="flex items-center justify-between p-2 bg-gray-700 rounded-md">
-                <div className="flex items-center">
-                  <div className="w-2 h-2 rounded-full bg-yellow-500 mr-2"></div>
-                  <span className="text-xs text-yellow-500">PhantomBuster Queue</span>
-                </div>
-                <span className="text-xs text-yellow-500">Degraded</span>
-              </div>
-              <div className="flex items-center justify-between p-2 bg-gray-700 rounded-md">
-                <div className="flex items-center">
-                  <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
-                  <span className="text-xs text-green-500">Slack Integration</span>
-                </div>
-                <span className="text-xs text-green-500">Operational</span>
-              </div>
-              <div className="flex items-center justify-between p-2 bg-gray-700 rounded-md">
-                <div className="flex items-center">
-                  <div className="w-2 h-2 rounded-full bg-red-500 mr-2"></div>
-                  <span className="text-xs text-red-500">Zapier Integration</span>
-                </div>
-                <span className="text-xs text-red-500">Outage</span>
-              </div>
-            </div>
-          </div>
+          <AppHealthCard />
           {/* Quick Actions */}
           <div id="quick-actions" className="bg-gray-800 p-4 rounded-lg shadow-md">
             <h2 className="text-lg font-semibold mb-4 text-gray-100">Quick Actions</h2>
