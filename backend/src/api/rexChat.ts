@@ -74,20 +74,40 @@ export default async function rexChat(req: Request, res: Response) {
     let assistantMessage = completion.choices[0].message;
 
     // If tool call requested
-    if (completion.choices[0].finish_reason === 'tool_calls') {
-      const call = completion.choices[0].message.tool_calls?.[0];
-      if (call) {
-        const { name, arguments: args } = call as any;
-        const { server: rexServer } = await import('../rex/server');
-        const capabilities = rexServer.getCapabilities?.();
-        if (!capabilities?.tools?.[name]?.handler) {
-          throw new Error(`Tool handler not found for ${name}`);
-        }
-        const toolResult = await capabilities.tools[name].handler(args);
-        messages.push(assistantMessage as any, { role: 'assistant', content: JSON.stringify(toolResult) } as any);
-        completion = await openai.chat.completions.create({ model:'gpt-4o-mini', messages });
-        assistantMessage = completion.choices[0].message;
+    const call = completion.choices[0].message.tool_calls?.[0] as any;
+    if (call) {
+      // OpenAI returns { id, function: { name, arguments } }
+      const toolName: string | undefined = call.function?.name || call.name;
+      if (!toolName) throw new Error('Tool name missing in tool_call');
+
+      let args: any = {};
+      try {
+        args = call.function?.arguments ? JSON.parse(call.function.arguments) : call.arguments;
+      } catch (_) {
+        // If arguments not valid JSON, keep raw string
+        args = call.function?.arguments || call.arguments;
       }
+
+      const { server: rexServer } = await import('../rex/server');
+      const capabilities = rexServer.getCapabilities?.();
+      if (!capabilities?.tools?.[toolName]?.handler) {
+        throw new Error(`Tool handler not found for ${toolName}`);
+      }
+
+      const toolResult = await capabilities.tools[toolName].handler(args);
+
+      // Feed the tool result back into the conversation
+      messages.push(
+        assistantMessage as any,
+        {
+          role: 'tool',
+          name: toolName,
+          content: JSON.stringify(toolResult)
+        } as any
+      );
+
+      completion = await openai.chat.completions.create({ model: 'gpt-4o-mini', messages });
+      assistantMessage = completion.choices[0].message;
     }
 
     return res.status(200).json({ reply: assistantMessage });
