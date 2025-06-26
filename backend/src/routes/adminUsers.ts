@@ -124,6 +124,7 @@ router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: 
     if (role === 'RecruitPro') {
       await supabase.from('user_credits').insert({
         user_id: userId,
+        balance: 1000,
         total_credits: 1000,
         used_credits: 0,
       });
