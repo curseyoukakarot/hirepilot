@@ -9,9 +9,10 @@ export default async function rexChat(req: Request, res: Response) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { userId, messages } = req.body as {
+  const { userId, messages, campaign_id } = req.body as {
     userId?: string;
     messages?: { role: 'user' | 'assistant'; content: string }[];
+    campaign_id?: string;
   };
 
   if (!userId || !messages || !Array.isArray(messages)) {
@@ -65,9 +66,14 @@ export default async function rexChat(req: Request, res: Response) {
       { type:'function',function:{name:'get_campaign_metrics',parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'}}, required:['userId','campaign_id']}}}
     ];
 
+    const contextMessage = {
+      role: 'system',
+      content: `CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` : ''}`
+    } as any;
+
     let completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
-      messages,
+      messages: [contextMessage, ...messages],
       tools,
     });
 
