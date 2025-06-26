@@ -10,7 +10,8 @@ export default function AdvancedInfoCard() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         const userId = session?.user?.id;
-        const res = await fetch('/api/advanced-info', {
+        const base = import.meta.env.VITE_BACKEND_URL || (import.meta.env.MODE === 'development' ? 'http://localhost:8080' : '');
+        const res = await fetch(`${base}/api/advanced-info`, {
           headers: userId ? { 'x-user-id': userId } : {}
         });
         if (!res.ok) throw new Error('Failed to load');
