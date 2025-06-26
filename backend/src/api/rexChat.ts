@@ -45,7 +45,8 @@ export default async function rexChat(req: Request, res: Response) {
     }
 
     console.log('rexChat role check', { userType });
-    const allowed = !userType || ['RecruitPro','TeamAdmin','SuperAdmin','super_admin'].includes(userType);
+    const allowedRoles = ['RecruitPro','Recruiter','User','TeamAdmin','SuperAdmin','super_admin'];
+    const allowed = !userType || allowedRoles.includes(userType);
     if (!allowed) {
       return res.status(403).json({ error: 'REX access forbidden for this user' });
     }
