@@ -203,6 +203,28 @@ router.patch('/users', requireAuth, requireSuperAdmin, async (req: Request, res:
   return res.json(data);
 });
 
+// ---------------------------------------------
+// PATCH /api/admin/users/:id  – edit user by URL param (original front-end call)
+// ---------------------------------------------
+router.patch('/users/:id', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { firstName, lastName, role } = req.body;
+
+  const updatePayload: any = { role };
+  if (firstName !== undefined) updatePayload.firstName = firstName;
+  if (lastName !== undefined) updatePayload.lastName = lastName;
+
+  const { data, error } = await supabase
+    .from('users')
+    .update(updatePayload)
+    .eq('id', id)
+    .select('*')
+    .maybeSingle();
+
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json(data);
+});
+
 // DELETE /api/admin/users/:id - Delete user
 router.delete('/users/:id', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
   const userId = req.params.id;
