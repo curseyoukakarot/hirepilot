@@ -8,13 +8,20 @@ export default async function getAdvancedInfo(req: Request, res: Response) {
   }
 
   try {
-    const { data: campaigns, error } = await supabase
+    const { data: rows, error } = await supabase
       .from('campaigns')
       .select('id, title, created_at, status')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(3);
     if (error) throw error;
+
+    const campaigns = (rows || []).map(r => ({
+      id: r.id,
+      name: r.title,
+      created_at: r.created_at,
+      status: r.status
+    }));
 
     return res.json({ user_id: userId, campaigns });
   } catch (e: any) {

@@ -171,6 +171,7 @@ app.use('/api/campaigns', launchDataRouter);
 app.use('/api/pipelines', pipelinesRouter);
 app.use('/api', apiRouter);
 app.use('/api/admin', linkedinSessionAdminRouter);
+app.get('/api/user/advanced-info', getAdvancedInfo);
 app.use('/api/user', userRouter);
 app.use('/api/phantombuster', runPhantomRouter);
 app.use('/api/phantombuster', phantombusterWebhookRouter);
@@ -190,7 +191,6 @@ app.get('/api/slack/callback', slackCallback);
 app.delete('/api/slack/disconnect', slackDisconnect);
 app.post('/api/slack/test-post', slackTestPost);
 app.post('/api/slack/slash', slackSlash);
-app.get('/api/user/advanced-info', getAdvancedInfo);
 
 // Log all endpoints before starting the server
 console.table(
