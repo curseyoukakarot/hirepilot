@@ -78,9 +78,12 @@ export default async function rexChat(req: Request, res: Response) {
       const call = completion.choices[0].message.tool_calls?.[0];
       if (call) {
         const { name, arguments: args } = call as any;
-        const rexServer = await import('../rex/server');
-        // @ts-ignore loose typing
-        const toolResult = await (rexServer as any).default.getCapabilities().tools[name].handler(args);
+        const { server: rexServer } = await import('../rex/server');
+        const capabilities = rexServer.getCapabilities?.();
+        if (!capabilities?.tools?.[name]?.handler) {
+          throw new Error(`Tool handler not found for ${name}`);
+        }
+        const toolResult = await capabilities.tools[name].handler(args);
         messages.push(assistantMessage as any, { role: 'assistant', content: JSON.stringify(toolResult) } as any);
         completion = await openai.chat.completions.create({ model:'gpt-4o-mini', messages });
         assistantMessage = completion.choices[0].message;
