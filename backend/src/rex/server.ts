@@ -81,19 +81,36 @@ server.registerCapabilities({
       parameters: { userId:{type:'string'}, campaign_id:{type:'string'} },
       handler: async ({ userId, campaign_id }) => {
         await assertPremium(userId);
+
+        let targetId = campaign_id;
+
+        // Resolve special sentinel or non-UUID
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(targetId);
+        if (!isUUID) {
+          // Treat 'latest' or any non-uuid as request for most recent campaign for user
+          const { data: ctxRow } = await supabase
+            .from('rex_user_context')
+            .select('latest_campaign_id')
+            .eq('supabase_user_id', userId)
+            .maybeSingle();
+          if (!ctxRow?.latest_campaign_id) {
+            throw new Error('No recent campaign found for user');
+          }
+          targetId = ctxRow.latest_campaign_id;
+        }
+
         // Prefer materialized table if exists; fall back to debug view
         let { data, error } = await supabase
           .from('campaign_metrics')
           .select('*')
-          .eq('campaign_id', campaign_id)
+          .eq('campaign_id', targetId)
           .maybeSingle();
 
         if (error && error.code === '42P01') {
-          // relation does not exist – use view instead
           ({ data, error } = await supabase
             .from('vw_campaign_metrics_debug')
             .select('*')
-            .eq('campaign_id', campaign_id)
+            .eq('campaign_id', targetId)
             .maybeSingle());
         }
 
