@@ -67,6 +67,7 @@ import slackDisconnect from './src/api/slack/disconnect';
 import slackTestPost from './src/api/slack/testPost';
 import bodyParser from 'body-parser';
 import slackSlash from './src/api/slack/slash';
+import getAdvancedInfo from './api/getAdvancedInfo';
 // Boot REX MCP server immediately so it's ready in Railway prod
 import './src/rex/server';
 
@@ -189,6 +190,7 @@ app.get('/api/slack/callback', slackCallback);
 app.delete('/api/slack/disconnect', slackDisconnect);
 app.post('/api/slack/test-post', slackTestPost);
 app.post('/api/slack/slash', slackSlash);
+app.get('/api/user/advanced-info', getAdvancedInfo);
 
 // Log all endpoints before starting the server
 console.table(

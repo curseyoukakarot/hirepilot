@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
+import AdvancedInfoCard from '../components/settings/AdvancedInfoCard';
 
 export default function SettingsProfileInfo() {
   const [formData, setFormData] = useState({
@@ -267,6 +268,8 @@ export default function SettingsProfileInfo() {
           </div>
         </div>
       )}
+      {/* Advanced Info Card */}
+      <AdvancedInfoCard />
     </div>
   );
 }
