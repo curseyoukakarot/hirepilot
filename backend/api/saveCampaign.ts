@@ -88,6 +88,19 @@ export default async function saveCampaign(req: Request, res: Response) {
 
     console.log('[saveCampaign] Campaign saved:', campaignData);
 
+    // --------------------------------------------------
+    // Update REX context so chat knows the latest campaign
+    // --------------------------------------------------
+    try {
+      const { updateREXContext } = await import('../src/api/hooks/updateUserContext');
+      await updateREXContext({
+        supabase_user_id: user_id,
+        latest_campaign_id: campaignData.id
+      });
+    } catch (ctxErr) {
+      console.warn('[saveCampaign] Failed to update REX context', ctxErr);
+    }
+
     res.status(200).json({ 
       campaign: campaignData,
       job: jobData,
