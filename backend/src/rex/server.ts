@@ -47,18 +47,27 @@ server.registerCapabilities({
       }
     },
     enrich_lead: {
-      parameters: { userId:{type:'string'}, linkedin_identifier:{type:'string'} },
-      handler: async ({ userId, linkedin_identifier }) => {
+      parameters: { userId:{type:'string'}, identifier:{type:'string'} },
+      handler: async (rawArgs: any) => {
+        const { userId } = rawArgs;
+        // Accept multiple possible keys for identifier
+        const identifier: string | undefined = rawArgs.identifier || rawArgs.linkedin_identifier || rawArgs.linkedin_url || rawArgs.lead_id;
+
         await assertPremium(userId);
 
-        let url = linkedin_identifier;
+        if (!identifier) throw new Error('Missing LinkedIn identifier');
 
-        // If the identifier doesn't look like a linkedin.com URL, treat as lead ID
-        if (!/linkedin\.com\/in\//i.test(linkedin_identifier)) {
+        let url = identifier.trim();
+
+        // Helper to check UUID v4
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(url);
+
+        // If UUID or clearly not a LinkedIn URL, look up lead by id/slug
+        if (isUUID || !/linkedin\.com\//i.test(url)) {
           const { data, error } = await supabase
             .from('leads')
             .select('linkedin_url')
-            .eq('id', linkedin_identifier)
+            .eq('id', url)
             .single();
           if (error) throw error;
           if (!data?.linkedin_url) throw new Error('Lead does not have a LinkedIn URL');
