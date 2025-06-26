@@ -171,7 +171,7 @@ app.use('/api/campaigns', launchDataRouter);
 app.use('/api/pipelines', pipelinesRouter);
 app.use('/api', apiRouter);
 app.use('/api/admin', linkedinSessionAdminRouter);
-app.get('/api/user/advanced-info', getAdvancedInfo);
+app.get('/api/advanced-info', getAdvancedInfo);
 app.use('/api/user', userRouter);
 app.use('/api/phantombuster', runPhantomRouter);
 app.use('/api/phantombuster', phantombusterWebhookRouter);
