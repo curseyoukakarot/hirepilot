@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import AppHealthCard from '../components/AppHealthCard';
+import useAppHealth from '../hooks/useAppHealth';
 
 export default function SuperAdminDashboard() {
   const navigate = useNavigate();
   const [latestUser, setLatestUser] = useState(null);
   const [activeUsers, setActiveUsers] = useState(0);
   const [loading, setLoading] = useState(true);
+  const { data: health } = useAppHealth();
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
   useEffect(() => {
@@ -65,8 +67,8 @@ export default function SuperAdminDashboard() {
                   </span>
                 </div>
                 <div className="mt-2">
-                  <span className="text-2xl font-bold text-gray-100">32</span>
-                  <span className="text-xs text-gray-400 ml-2">Running</span>
+                  <span className="text-2xl font-bold text-gray-100">{health?.phantom?.queued ?? '-'}</span>
+                  <span className="text-gray-400 text-xs ml-2">Queued</span>
                 </div>
               </div>
               <div className="bg-gray-700 p-3 rounded-md">
@@ -77,8 +79,8 @@ export default function SuperAdminDashboard() {
                   </span>
                 </div>
                 <div className="mt-2">
-                  <span className="text-2xl font-bold text-gray-100">3</span>
-                  <span className="text-red-500 text-xs ml-2">Action needed</span>
+                  <span className="text-2xl font-bold text-gray-100">{health?.failed?.today ?? 0}</span>
+                  <span className="text-red-500 text-xs ml-2">Today</span>
                 </div>
               </div>
               <div className="bg-gray-700 p-3 rounded-md">
@@ -89,7 +91,7 @@ export default function SuperAdminDashboard() {
                   </span>
                 </div>
                 <div className="mt-2">
-                  <span className="text-2xl font-bold text-gray-100">5.2k</span>
+                  <span className="text-2xl font-bold text-gray-100">{health?.api?.today ?? 0}</span>
                   <span className="text-gray-400 text-xs ml-2">Today</span>
                 </div>
               </div>
