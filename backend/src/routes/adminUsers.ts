@@ -38,14 +38,20 @@ async function requireSuperAdmin(req: Request, res: Response, next: Function) {
 // GET /api/admin/users - List all users
 router.get('/users', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
   console.log('[ADMIN USERS] Fetching all users from Supabase...');
-  const { data, error } = await supabaseDb.from('users').select('*, user_credits(balance)');
-  if (error) {
-    console.error('[ADMIN USERS] Error fetching users:', error);
-    res.status(500).json({ error: error.message });
-    return;
+  const { data: users, error: userErr } = await supabaseDb.from('users').select('*');
+  if (userErr) {
+    console.error('[ADMIN USERS] Error fetching users:', userErr);
+    return res.status(500).json({ error: userErr.message });
   }
-  console.log('[ADMIN USERS] Users fetched:', data);
-  res.json(data);
+
+  // fetch credits for these users
+  const ids = users.map(u => u.id);
+  const { data: credits } = await supabaseDb.from('user_credits').select('user_id,balance').in('user_id', ids);
+  const creditMap: Record<string, number> = {};
+  (credits || []).forEach(c => { creditMap[c.user_id] = c.balance; });
+
+  const enriched = users.map(u => ({ ...u, balance: creditMap[u.id] || 0 }));
+  res.json(enriched);
 });
 
 // GET /api/admin/users/:id  – fetch a single user record
