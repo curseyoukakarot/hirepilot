@@ -47,10 +47,25 @@ server.registerCapabilities({
       }
     },
     enrich_lead: {
-      parameters: { userId:{type:'string'}, linkedin_url:{type:'string'} },
-      handler: async ({ userId, linkedin_url }) => {
+      parameters: { userId:{type:'string'}, linkedin_identifier:{type:'string'} },
+      handler: async ({ userId, linkedin_identifier }) => {
         await assertPremium(userId);
-        return await proxycurlEnrichLead(linkedin_url);
+
+        let url = linkedin_identifier;
+
+        // If the identifier doesn't look like a linkedin.com URL, treat as lead ID
+        if (!/linkedin\.com\/in\//i.test(linkedin_identifier)) {
+          const { data, error } = await supabase
+            .from('leads')
+            .select('linkedin_url')
+            .eq('id', linkedin_identifier)
+            .single();
+          if (error) throw error;
+          if (!data?.linkedin_url) throw new Error('Lead does not have a LinkedIn URL');
+          url = data.linkedin_url as string;
+        }
+
+        return await proxycurlEnrichLead(url);
       }
     },
     get_campaign_metrics: {
