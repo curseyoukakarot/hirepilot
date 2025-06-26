@@ -48,6 +48,14 @@ router.get('/users', requireAuth, requireSuperAdmin, async (req: Request, res: R
   res.json(data);
 });
 
+// GET /api/admin/users/:id  – fetch a single user record
+router.get('/users/:id', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { data, error } = await supabaseDb.from('users').select('*').eq('id', id).single();
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json(data);
+});
+
 // POST /api/admin/users - Create/invite a user
 router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
   try {
@@ -173,10 +181,13 @@ router.patch('/users/:id/credits', requireAuth, requireSuperAdmin, async (req: R
   res.json({ success: true, user_id: userId, total_credits });
 });
 
-// PATCH /api/admin/users/:id - Edit user
-router.patch('/users/:id', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
-  const userId = req.params.id;
-  const { firstName, lastName, role } = req.body;
+// PATCH /api/admin/users  – update user when body contains id (fallback for UI)
+router.patch('/users', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
+  const { id, firstName, lastName, role } = req.body;
+  if (!id) {
+    return res.status(400).json({ error: 'id required' });
+  }
+
   const updatePayload: any = { role };
   if (firstName !== undefined) updatePayload.firstName = firstName;
   if (lastName !== undefined) updatePayload.lastName = lastName;
@@ -184,14 +195,12 @@ router.patch('/users/:id', requireAuth, requireSuperAdmin, async (req: Request, 
   const { data, error } = await supabase
     .from('users')
     .update(updatePayload)
-    .eq('id', userId)
+    .eq('id', id)
     .select('*')
     .maybeSingle();
-  if (error) {
-    res.status(500).json({ error: error.message });
-    return;
-  }
-  res.json(data);
+
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json(data);
 });
 
 // DELETE /api/admin/users/:id - Delete user
