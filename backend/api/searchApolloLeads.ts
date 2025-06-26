@@ -123,6 +123,16 @@ export default async function searchApolloLeads(req: Request, res: Response) {
       }
     }));
 
+    // Deduct credits for RecruitPro users
+    try {
+      if (isRecruitPro && leads.length) {
+        const { CreditService } = await import('../services/creditService');
+        await CreditService.deductCredits(user_id, leads.length, 'api_usage', `Apollo search pulled ${leads.length} leads`);
+      }
+    } catch (deductErr) {
+      console.warn('Credit deduction failed:', deductErr);
+    }
+
     res.status(200).json({ leads });
     return;
   } catch (err: any) {
