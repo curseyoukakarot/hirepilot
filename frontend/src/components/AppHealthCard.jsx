@@ -8,9 +8,7 @@ export default function AppHealthCard() {
     { key: 'supabase', label: 'Supabase DB' },
     { key: 'edge', label: 'Edge Functions' },
     { key: 'phantom', label: 'PhantomBuster Queue' },
-    { key: 'slack', label: 'Slack Integration' },
-    { key: 'failed', label: 'Failed Tasks' },
-    { key: 'api', label: 'API Calls' }
+    { key: 'slack', label: 'Slack Integration' }
   ];
 
   const color = (status) => {
