@@ -192,7 +192,7 @@ router.patch('/users', requireAuth, requireSuperAdmin, async (req: Request, res:
   if (firstName !== undefined) updatePayload.firstName = firstName;
   if (lastName !== undefined) updatePayload.lastName = lastName;
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseDb
     .from('users')
     .update(updatePayload)
     .eq('id', id)
@@ -214,7 +214,7 @@ router.patch('/users/:id', requireAuth, requireSuperAdmin, async (req: Request, 
   if (firstName !== undefined) updatePayload.firstName = firstName;
   if (lastName !== undefined) updatePayload.lastName = lastName;
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseDb
     .from('users')
     .update(updatePayload)
     .eq('id', id)
