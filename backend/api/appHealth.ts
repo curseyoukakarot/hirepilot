@@ -6,7 +6,11 @@ export default async function appHealth(req: Request, res: Response) {
   try {
     // Supabase ping
     const t0 = Date.now();
-    const { error: dbErr } = await supabase.rpc('heartbeat'); // assume func exists else fallback
+    // lightweight query: head count on users table
+    const { error: dbErr } = await supabase
+      .from('users')
+      .select('id', { head: true, count: 'exact' })
+      .limit(1);
     const latency = Date.now() - t0;
     result.supabase = { status: dbErr ? 'down' : 'ok', latencyMs: latency };
   } catch {
