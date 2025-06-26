@@ -73,7 +73,7 @@ async function assertPremium(userId: string) {
   const { data, error } = await supabase.from('users').select('role').eq('id', userId).single();
   if (error) throw error;
   const role = data?.role ?? '';
-  if (!['RecruitPro','TeamAdmin','SuperAdmin'].includes(role)) {
+  if (!['RecruitPro','TeamAdmin','SuperAdmin','super_admin'].includes(role)) {
     throw new Error('REX access restricted to premium plans.');
   }
 }
