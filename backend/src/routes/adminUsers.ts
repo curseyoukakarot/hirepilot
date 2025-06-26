@@ -236,8 +236,10 @@ router.patch('/users/:id/password', requireAuth, requireSuperAdmin, async (req: 
   }
 
   try {
-    // Update password in Supabase Auth
-    const { data, error } = await supabase.auth.admin.updateUserById(userId, {
+    // Use service role client for admin operations
+    const adminClient = supabaseDb;
+
+    const { data, error } = await adminClient.auth.admin.updateUserById(userId, {
       password
     });
 
