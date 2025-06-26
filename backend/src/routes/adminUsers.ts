@@ -60,7 +60,7 @@ router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: 
     const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
       email,
       email_confirm: true,
-      user_metadata: { first_name: firstName, last_name: lastName, role },
+      user_metadata: { firstName, lastName, role },
     });
     console.log('[ADMIN USERS] Auth user creation result:', { authUser, authError });
 
@@ -178,8 +178,8 @@ router.patch('/users/:id', requireAuth, requireSuperAdmin, async (req: Request, 
   const userId = req.params.id;
   const { firstName, lastName, role } = req.body;
   const updatePayload: any = { role };
-  if (firstName !== undefined) updatePayload.first_name = firstName;
-  if (lastName !== undefined) updatePayload.last_name = lastName;
+  if (firstName !== undefined) updatePayload.firstName = firstName;
+  if (lastName !== undefined) updatePayload.lastName = lastName;
 
   const { data, error } = await supabase
     .from('users')
@@ -293,8 +293,8 @@ export const createAdminUser = async (req: ApiRequest, res: Response) => {
       password,
       options: {
         data: {
-          first_name: firstName,
-          last_name: lastName,
+          firstName,
+          lastName,
           role: 'admin'
         }
       }
