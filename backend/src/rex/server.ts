@@ -57,8 +57,24 @@ server.registerCapabilities({
       parameters: { userId:{type:'string'}, campaign_id:{type:'string'} },
       handler: async ({ userId, campaign_id }) => {
         await assertPremium(userId);
-        const { data, error } = await supabase.from('campaign_metrics').select('*').eq('campaign_id', campaign_id).single();
-        if (error) throw error; return data;
+        // Prefer materialized table if exists; fall back to debug view
+        let { data, error } = await supabase
+          .from('campaign_metrics')
+          .select('*')
+          .eq('campaign_id', campaign_id)
+          .maybeSingle();
+
+        if (error && error.code === '42P01') {
+          // relation does not exist – use view instead
+          ({ data, error } = await supabase
+            .from('vw_campaign_metrics_debug')
+            .select('*')
+            .eq('campaign_id', campaign_id)
+            .maybeSingle());
+        }
+
+        if (error) throw error;
+        return data;
       }
     }
   }
