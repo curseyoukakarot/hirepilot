@@ -177,9 +177,13 @@ router.patch('/users/:id/credits', requireAuth, requireSuperAdmin, async (req: R
 router.patch('/users/:id', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
   const userId = req.params.id;
   const { firstName, lastName, role } = req.body;
+  const updatePayload: any = { role };
+  if (firstName !== undefined) updatePayload.first_name = firstName;
+  if (lastName !== undefined) updatePayload.last_name = lastName;
+
   const { data, error } = await supabase
     .from('users')
-    .update({ firstName, lastName, role })
+    .update(updatePayload)
     .eq('id', userId)
     .select('*')
     .maybeSingle();
