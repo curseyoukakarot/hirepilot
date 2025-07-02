@@ -81,19 +81,20 @@ export default function SettingsTeamMembers() {
       const { data: { user } } = await supabase.auth.getUser();
       setCurrentUser(user);
 
-      // Fetch team members (users)
+      // Fetch current user only (team owner until team concept implemented)
       const { data: users, error: usersError } = await supabase
         .from('users')
         .select('*')
-        .order('created_at', { ascending: false });
+        .eq('id', user.id);
 
       if (usersError) throw usersError;
 
-      // Fetch pending invites
+      // Fetch invites created BY the current user or sent TO current user
       const { data: invites, error: invitesError } = await supabase
         .from('team_invites')
         .select('*')
         .eq('status', 'pending')
+        .or(`invited_by.eq.${user.id},email.eq.${user.email}`)
         .order('created_at', { ascending: false });
 
       if (invitesError) throw invitesError;
