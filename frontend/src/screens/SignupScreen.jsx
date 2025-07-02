@@ -57,6 +57,17 @@ export default function SignupScreen() {
       console.error('Slack notification error:', err);
     }
 
+    // Step 3: start 7-day Starter trial
+    try {
+      await fetch('/api/startTrial', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, email }),
+      });
+    } catch (err) {
+      console.error('Trial setup error:', err);
+    }
+
     setSuccess(true);
   };
 
