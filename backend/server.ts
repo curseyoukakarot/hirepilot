@@ -70,6 +70,7 @@ import slackSlash from './src/api/slack/slash';
 import getAdvancedInfo from './api/getAdvancedInfo';
 import appHealth from './api/appHealth';
 import { incrementApiCalls, incrementFailedCalls } from './metrics/appMetrics';
+import userCreatedWebhook from './api/webhooks/userCreated';
 // Boot REX MCP server immediately so it's ready in Railway prod
 import './src/rex/server';
 
@@ -195,6 +196,7 @@ app.get('/api/slack/callback', slackCallback);
 app.delete('/api/slack/disconnect', slackDisconnect);
 app.post('/api/slack/test-post', slackTestPost);
 app.post('/api/slack/slash', slackSlash);
+app.post('/webhooks/user-created', userCreatedWebhook);
 
 // Log all endpoints before starting the server
 console.table(
