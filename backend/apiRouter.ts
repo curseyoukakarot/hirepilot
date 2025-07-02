@@ -15,6 +15,8 @@ import { launchCampaign } from './api/campaigns/launch';
 import campaignPerformance from './api/campaignPerformance';
 import userPerformance from './api/userPerformance';
 import teamRouter from './routes/team';
+import sendSlackNotification from './api/sendSlackNotification';
+import startTrial from './api/startTrial';
 
 const router = Router();
 
@@ -60,5 +62,11 @@ router.get('/users/:id/performance', userPerformance);
 router.delete('/delete/:id', (req, res) => {
   res.redirect(307, `/api/campaigns/${req.params.id}`);
 });
+
+// Start 7-day Starter trial
+router.post('/startTrial', startTrial);
+
+// Slack notification endpoint (internal)
+router.post('/sendSlackNotification', sendSlackNotification);
 
 export default router;
