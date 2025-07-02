@@ -50,7 +50,7 @@ const HomePage = () => {
           </div>
           <div className="w-full md:w-1/2">
             <div className="w-full md:w-full flex justify-center">
-              <div className="relative max-w-3xl w-full">
+              <div className="relative max-w-6xl w-full">
                 <div className="absolute inset-0 bg-white/10 rounded-2xl transform rotate-6"></div>
                 <div className="relative rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/20 bg-white">
                   <img className="w-full h-auto" src="/REX.png" alt="REX – AI recruiting assistant illustration" />
