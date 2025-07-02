@@ -16,6 +16,8 @@ export default async function startTrial(req: Request, res: Response) {
     return res.status(400).json({ error: 'Missing user_id or email' });
   }
   try {
+    console.log('[startTrial] invoked for', user_id, email);
+
     // Ensure we have a customer
     let customerId: string | null = null;
     const { data: userRow } = await supabaseDb
@@ -32,6 +34,8 @@ export default async function startTrial(req: Request, res: Response) {
       // save
       await supabaseDb.from('users').update({ stripe_customer_id: customerId }).eq('id', user_id);
     }
+
+    console.log('[startTrial] customer id', customerId, 'price', process.env.STRIPE_PRICE_ID_STARTER_MONTHLY!);
 
     // Create subscription with 7-day trial on Starter monthly price
     const price = process.env.STRIPE_PRICE_ID_STARTER_MONTHLY!;

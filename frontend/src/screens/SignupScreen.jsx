@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { FaBriefcase, FaGoogle, FaLinkedin, FaCircleCheck, FaCircleExclamation, FaMicrosoft } from 'react-icons/fa6';
 import { supabase } from '../lib/supabase';
+import { toast } from 'react-hot-toast';
 
 export default function SignupScreen() {
   const [error, setError] = useState('');
@@ -66,6 +67,7 @@ export default function SignupScreen() {
       });
     } catch (err) {
       console.error('Trial setup error:', err);
+      toast.error('Unable to start free trial, please contact support');
     }
 
     setSuccess(true);
