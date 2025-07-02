@@ -88,6 +88,16 @@ export default async function saveCampaign(req: Request, res: Response) {
 
     console.log('[saveCampaign] Campaign saved:', campaignData);
 
+    // Notify Slack (site-wide)
+    try {
+      const { notifySlack } = await import('../lib/slack');
+      // Fetch user email
+      const { data: userRow } = await supabaseDb.from('users').select('email').eq('id', user_id).single();
+      await notifySlack(`🚀 New campaign *${campaignName}* created by ${userRow?.email || user_id}`);
+    } catch (slackErr) {
+      console.warn('[saveCampaign] Slack notify failed', slackErr);
+    }
+
     // --------------------------------------------------
     // Update REX context so chat knows the latest campaign
     // --------------------------------------------------
