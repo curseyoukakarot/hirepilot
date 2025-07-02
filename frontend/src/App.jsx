@@ -207,9 +207,18 @@ function InnerApp() {
           .single();
         if (data && data.role) {
           setDbRole(data.role);
-        } else if (user.user_metadata?.role) {
-          setDbRole(user.user_metadata.role);
         } else {
+          // Attempt to create user row server-side if missing
+          try {
+            await fetch('/api/createUser', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: user.id, email: user.email })
+            });
+          } catch (e) {
+            console.error('ensure user creation failed', e);
+          }
+          // No role yet; will remain null until refresh
           setDbRole(null);
         }
       } else {

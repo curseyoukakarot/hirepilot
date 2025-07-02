@@ -5,7 +5,6 @@ import { supabase } from '../lib/supabase';
 export default function SignupScreen() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  const [role, setRole] = useState('recruiter');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -25,7 +24,6 @@ export default function SignupScreen() {
         data: {
           first_name: firstName,
           last_name: lastName,
-          role: role,  // ✅ inject role into user_metadata
           onboarding_complete: false,
         },
       },
@@ -45,7 +43,7 @@ export default function SignupScreen() {
 
     // User row will now be created automatically via a database trigger
 
-    // Step 3: Send Slack notification (non-blocking)
+    // Step 2: Send Slack notification (non-blocking)
     try {
       await fetch('/api/sendSlackNotification', {
         method: 'POST',
@@ -53,7 +51,6 @@ export default function SignupScreen() {
         body: JSON.stringify({
           event_type: 'user_signed_up',
           user_email: email,
-          role: role,   // ✅ include role in Slack alert
         }),
       });
     } catch (err) {
@@ -130,33 +127,6 @@ export default function SignupScreen() {
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">Password</label>
               <input id="password" name="password" type="password" required placeholder="••••••••" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition text-sm bg-gray-50" />
-            </div>
-
-            {/* ✅ Role Selector */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Account Type</label>
-              <div className="flex space-x-4 mt-2">
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="recruiter"
-                    checked={role === 'recruiter'}
-                    onChange={() => setRole('recruiter')}
-                    className="h-4 w-4 text-indigo-600"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">Recruiter</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="jobseeker"
-                    checked={role === 'jobseeker'}
-                    onChange={() => setRole('jobseeker')}
-                    className="h-4 w-4 text-indigo-600"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">Job Seeker</span>
-                </label>
-              </div>
             </div>
 
             <div className="flex items-center">

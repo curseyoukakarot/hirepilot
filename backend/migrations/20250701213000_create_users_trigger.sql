@@ -18,7 +18,7 @@ BEGIN
   -- Extract commonly provided metadata keys with sensible fallbacks
   first_name := COALESCE(meta->>'first_name', meta->>'firstName', '');
   last_name  := COALESCE(meta->>'last_name',  meta->>'lastName',  '');
-  role       := COALESCE(meta->>'role', 'User');
+  role       := COALESCE(meta->>'role', 'member');
 
   -- Call helper to insert into users table
   PERFORM create_public_user(
