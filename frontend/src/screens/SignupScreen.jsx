@@ -43,19 +43,7 @@ export default function SignupScreen() {
       return;
     }
 
-    // Step 2: Insert into your users table
-    const { error: insertError } = await supabase.from('users').insert({
-      id: userId,
-      email: email,
-      role: role,               // ✅ store role in your table
-      onboarding_complete: false,
-    });
-
-    if (insertError) {
-      console.error('Insert user error:', insertError);
-      setError('Signup succeeded but failed to insert user.');
-      return;
-    }
+    // User row will now be created automatically via a database trigger
 
     // Step 3: Send Slack notification (non-blocking)
     try {
@@ -77,10 +65,16 @@ export default function SignupScreen() {
 
   // OAuth signup handlers
   const handleGoogleSignup = async () => {
-    await supabase.auth.signInWithOAuth({ provider: 'google' });
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/dashboard` }
+    });
   };
   const handleMicrosoftSignup = async () => {
-    await supabase.auth.signInWithOAuth({ provider: 'azure' });
+    await supabase.auth.signInWithOAuth({
+      provider: 'azure',
+      options: { redirectTo: `${window.location.origin}/dashboard` }
+    });
   };
 
   return (

@@ -222,6 +222,11 @@ function InnerApp() {
 
   useEffect(() => {
     if (!userLoaded) return;
+    // If user is authenticated and on a public landing page, send them to dashboard
+    if (dbRole && landingPages.includes(location.pathname) && !['/login','/signup'].includes(location.pathname)) {
+      navigate('/dashboard', { replace: true });
+      return;
+    }
     // Use dbRole for redirect
     if (dbRole === 'super_admin') {
       if (location.pathname === '/' || location.pathname === '/dashboard') {
