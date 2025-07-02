@@ -191,8 +191,10 @@ export default function SettingsTeamMembers() {
         return <FaCrown className="text-yellow-500" />;
       case 'member':
         return <FaUser className="text-blue-500" />;
+      case 'team_admin':
+        return <FaUser className="text-purple-500" />;
       case 'viewer':
-        return <FaEye className="text-gray-500" />;
+        return <FaUser className="text-gray-400" />;
       default:
         return <FaUser className="text-gray-400" />;
     }
@@ -204,6 +206,8 @@ export default function SettingsTeamMembers() {
         return 'bg-yellow-100 text-yellow-800';
       case 'member':
         return 'bg-blue-100 text-blue-800';
+      case 'team_admin':
+        return 'bg-purple-100 text-purple-800';
       case 'viewer':
         return 'bg-gray-100 text-gray-800';
       default:
@@ -247,10 +251,10 @@ export default function SettingsTeamMembers() {
             </div>
             <div className="p-3 bg-white rounded border">
               <div className="flex items-center space-x-2 mb-2">
-                <FaEye className="text-gray-500" />
-                <span className="font-medium">Viewer</span>
+                <FaUser className="text-purple-500" />
+                <span className="font-medium">Team Admin</span>
               </div>
-              <p className="text-gray-500">Can only view data and reports</p>
+              <p className="text-gray-500">Manage team seats & billing</p>
             </div>
           </div>
         </div>

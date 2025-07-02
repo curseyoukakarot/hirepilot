@@ -14,7 +14,7 @@ interface TeamInviteRequest {
   lastName: string;
   email: string;
   company?: string;
-  role: 'admin' | 'member' | 'viewer';
+  role: 'admin' | 'member' | 'team_admin' | 'RecruitPro';
 }
 
 interface AuthenticatedRequest extends Request {
