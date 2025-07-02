@@ -11,8 +11,8 @@ declare global {
 
 import { supabase } from './supabase';
 
-// Ensure base URL ends with /api
-const API_BASE_URL = (import.meta.env.VITE_BACKEND_URL || '').replace(/\/?$/, '/api');
+// Ensure base URL has no trailing slash
+const API_BASE_URL = (import.meta.env.VITE_BACKEND_URL || '').replace(/\/$/, '');
 
 interface ApiOptions extends RequestInit {
   requireAuth?: boolean;
