@@ -8,6 +8,9 @@ export default function SignupScreen() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
+  const urlParams = new URLSearchParams(window.location.search);
+  const checkoutSessionId = urlParams.get('session_id');
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -55,12 +58,16 @@ export default function SignupScreen() {
       console.error('Slack notification error:', err);
     }
 
-    // Step 3: start 7-day Starter trial
-    try {
-      await apiPost('/api/startTrial', { user_id: userId, email }, { requireAuth: false });
-    } catch (err) {
-      console.error('Trial setup error:', err);
-      toast.error('Unable to start free trial, please contact support');
+    // If signup originated from Stripe Checkout, link the session to this user
+    if (checkoutSessionId) {
+      try {
+        await apiPost('/api/stripe/link-session', {
+          sessionId: checkoutSessionId,
+          userId: userId
+        });
+      } catch (err) {
+        console.error('link session error', err);
+      }
     }
 
     setSuccess(true);
