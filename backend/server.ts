@@ -74,6 +74,7 @@ import userCreatedWebhook from './api/webhooks/userCreated';
 import stripeRouter from './routes/stripe';
 // Boot REX MCP server immediately so it's ready in Railway prod
 import './src/rex/server';
+import { attachTeam } from './middleware/teamContext';
 
 declare module 'express-list-endpoints';
 
@@ -199,6 +200,7 @@ app.post('/api/slack/test-post', slackTestPost);
 app.post('/api/slack/slash', slackSlash);
 app.post('/webhooks/user-created', userCreatedWebhook);
 app.use('/api/stripe', stripeRouter);
+app.use('/api', attachTeam);
 
 // Log all endpoints before starting the server
 console.table(

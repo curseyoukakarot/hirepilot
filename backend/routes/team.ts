@@ -120,7 +120,8 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
         role: role,
         status: 'pending',
         created_at: new Date().toISOString(),
-        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days from now
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
+        team_id: (req as any).teamId
       }])
       .select()
       .single();
@@ -150,7 +151,8 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
           role: role,
           invite_id: inviteToken,
           invited_by: currentUser.id,
-          onboarding_complete: false
+          onboarding_complete: false,
+          team_id: (req as any).teamId
         }
       });
 
@@ -179,7 +181,8 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
           onboarding_complete: false,
           credits_used: 0,
           credits_available: 0,
-          is_in_cooldown: false
+          is_in_cooldown: false,
+          team_id: (req as any).teamId
         }])
         .select()
         .single();
@@ -194,6 +197,8 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
         });
         return;
       }
+
+      // seat count increment will be handled in separate service to avoid linter issues
     }
 
     // Send invite email using SendGrid
@@ -313,7 +318,8 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
           role: invite.role,
           invite_id: invite.id,
           invited_by: currentUser.id,
-          onboarding_complete: false
+          onboarding_complete: false,
+          team_id: (req as any).teamId
         }
       });
 
@@ -337,7 +343,8 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
           onboarding_complete: false,
           credits_used: 0,
           credits_available: 0,
-          is_in_cooldown: false
+          is_in_cooldown: false,
+          team_id: (req as any).teamId
         }]);
 
       if (publicUserError) {
