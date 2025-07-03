@@ -8,6 +8,8 @@ import 'react-toastify/dist/ReactToastify.css';
 import CsvImportButton from '../components/leads/CsvImportButton';
 import { supabase } from '../lib/supabase';
 import { downloadCSV } from '../utils/csvExport';
+import { FaInbox, FaPaperPlane, FaFile, FaStar, FaTrash as FaTrashAlt, FaPenToSquare, FaFileLines, FaFilter, FaSort, FaAddressBook, FaBold, FaItalic, FaUnderline, FaListUl, FaListOl, FaLink, FaPaperclip, FaPuzzlePiece, FaChevronDown, FaClock, FaRegStar, FaRegBell } from 'react-icons/fa6';
+import { replaceTokens } from '../utils/tokenReplace';
 
 const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
 
@@ -431,12 +433,23 @@ function LeadManagement() {
   // Replace tokens in template for a lead
   const personalizeTemplate = (templateContent, lead) => {
     if (!templateContent) return '';
-    return templateContent
-      .replace(/{{Candidate\.FirstName}}/g, lead.name ? lead.name.split(' ')[0] : '')
-      .replace(/{{Candidate\.Job}}/g, lead.title || '')
-      .replace(/{{Candidate\.Company}}/g, lead.company || '')
-      .replace(/{{Candidate\.Email}}/g, lead.email || '')
-      .replace(/{{Candidate\.LinkedIn}}/g, lead.linkedin_url || '');
+    const data = {
+      Candidate: {
+        FirstName: lead.name ? lead.name.split(' ')[0] : '',
+        LastName: lead.name ? lead.name.split(' ').slice(1).join(' ') : '',
+        Company: lead.company || '',
+        Job: lead.title || '',
+        Email: lead.email || '',
+        LinkedIn: lead.linkedin_url || ''
+      },
+      first_name: lead.first_name || (lead.name ? lead.name.split(' ')[0] : ''),
+      last_name: lead.last_name || (lead.name ? lead.name.split(' ').slice(1).join(' ') : ''),
+      full_name: lead.name || '',
+      company: lead.company || '',
+      title: lead.title || '',
+      email: lead.email || ''
+    };
+    return replaceTokens(templateContent, data);
   };
 
   // Handle template selection in bulk modal
@@ -864,7 +877,7 @@ function LeadManagement() {
             disabled={selectedLeadIds.length < 2}
             onClick={() => setShowBulkDeleteDialog(true)}
           >
-            <FaTrash /> Delete
+            <FaTrashAlt /> Delete
           </button>
         </div>
 
@@ -1057,7 +1070,7 @@ function LeadManagement() {
                               className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
                               onClick={(e) => handleAction('delete', lead, e)}
                             >
-                              <FaTrash className="mr-3" /> Delete
+                              <FaTrashAlt className="mr-3" /> Delete
                             </button>
                           </div>
                         </div>

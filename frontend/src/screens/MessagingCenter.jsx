@@ -7,6 +7,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../lib/supabase';
+import { replaceTokens } from '../utils/tokenReplace';
 
 // Backend base URL (same env var used elsewhere)
 const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
@@ -287,7 +288,23 @@ export default function MessagingCenter() {
   const handleTemplateSelect = (template) => {
     setSelectedTemplate(template);
     setSubjectField(template.subject);
-    setMessageBody(template.content);
+    const data = selectedLead ? {
+      Candidate: {
+        FirstName: selectedLead.name ? selectedLead.name.split(' ')[0] : '',
+        LastName: selectedLead.name ? selectedLead.name.split(' ').slice(1).join(' ') : '',
+        Company: selectedLead.company || '',
+        Job: selectedLead.title || '',
+        Email: selectedLead.email || '',
+        LinkedIn: selectedLead.linkedin_url || ''
+      },
+      first_name: selectedLead.name ? selectedLead.name.split(' ')[0] : '',
+      last_name: selectedLead.name ? selectedLead.name.split(' ').slice(1).join(' ') : '',
+      full_name: selectedLead.name || '',
+      company: selectedLead.company || '',
+      title: selectedLead.title || '',
+      email: selectedLead.email || ''
+    } : {};
+    setMessageBody(replaceTokens(template.content, data));
     setShowTemplateModal(false);
   };
 
@@ -312,13 +329,23 @@ export default function MessagingCenter() {
       ) : [];
 
       // Replace tokens in message body with selected lead data
-      let personalizedBody = messageBody;
-      if (selectedLead) {
-        personalizedBody = personalizedBody
-          .replace(/{{Candidate\.FirstName}}/g, selectedLead.name ? selectedLead.name.split(' ')[0] : '')
-          .replace(/{{Candidate\.Job}}/g, selectedLead.title || '')
-          .replace(/{{Candidate\.Company}}/g, selectedLead.company || '');
-      }
+      const data = selectedLead ? {
+        Candidate: {
+          FirstName: selectedLead.name ? selectedLead.name.split(' ')[0] : '',
+          LastName: selectedLead.name ? selectedLead.name.split(' ').slice(1).join(' ') : '',
+          Company: selectedLead.company || '',
+          Job: selectedLead.title || '',
+          Email: selectedLead.email || ''
+        },
+        first_name: selectedLead.name ? selectedLead.name.split(' ')[0] : '',
+        last_name: selectedLead.name ? selectedLead.name.split(' ').slice(1).join(' ') : '',
+        full_name: selectedLead.name || '',
+        company: selectedLead.company || '',
+        title: selectedLead.title || '',
+        email: selectedLead.email || ''
+      } : {};
+
+      const personalizedBody = replaceTokens(messageBody, data);
 
       // Send via backend API (will also store the message)
       const response = await fetch(`${API_BASE_URL}/message/send`, {
