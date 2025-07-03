@@ -26,5 +26,11 @@ export function personalizeMessage(template: string, lead: Lead): string {
     message = message.replace(new RegExp(key, 'g'), value);
   });
 
+  // Replace any remaining {{path.to.value}} style variables using lead object keys
+  message = message.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_match, path) => {
+    const value = path.split('.').reduce((acc: any, part: string) => (acc ? acc[part] : undefined), lead);
+    return (value !== undefined && value !== null) ? String(value) : _match;
+  });
+
   return message;
 } 

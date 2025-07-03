@@ -41,8 +41,20 @@ export const sendMessage = async (req: Request, res: Response) => {
       return;
     }
 
-    // If template_id is provided, fetch and populate the template
     let finalHtml = html;
+
+    // Helper to resolve nested values (e.g., Candidate.FirstName)
+    const resolvePath = (obj: Record<string, any> | undefined, path: string): string | undefined => {
+      if (!obj) return undefined;
+      return path.split('.').reduce((acc: any, part: string) => {
+        if (acc && Object.prototype.hasOwnProperty.call(acc, part)) {
+          return acc[part];
+        }
+        return undefined;
+      }, obj);
+    };
+
+    // If template_id is provided, fetch and populate the template. Otherwise, just run replacement on provided html.
     if (template_id) {
       const { data: template, error: templateError } = await supabase
         .from('email_templates')
@@ -55,9 +67,16 @@ export const sendMessage = async (req: Request, res: Response) => {
         return;
       }
 
-      // Replace template variables with actual data
-      finalHtml = template.content.replace(/\{\{(\w+)\}\}/g, (_match: string, key: string) => {
-        return template_data?.[key] || _match;
+      // Replace template variables with actual data, supporting dot notation
+      finalHtml = template.content.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_match: string, path: string) => {
+        const value = resolvePath(template_data, path);
+        return (value !== undefined && value !== null) ? String(value) : _match;
+      });
+    } else if (template_data) {
+      // No template file; run replacement on provided HTML/body
+      finalHtml = html.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_match: string, path: string) => {
+        const value = resolvePath(template_data, path);
+        return (value !== undefined && value !== null) ? String(value) : _match;
       });
     }
 
