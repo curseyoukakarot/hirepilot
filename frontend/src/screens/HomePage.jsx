@@ -53,7 +53,7 @@ const HomePage = () => {
               <div className="relative max-w-6xl w-full">
                 <div className="absolute inset-0 bg-white/10 rounded-2xl transform rotate-6"></div>
                 <div className="relative rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/20 bg-white">
-                  <img className="w-full h-auto" src="/REX-1.png" alt="REX – AI recruiting assistant illustration" />
+                  <img className="w-full h-auto" src="/hero1.png" alt="HirePilot – AI recruiting assistant illustration" />
                 </div>
               </div>
             </div>
