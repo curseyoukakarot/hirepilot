@@ -39,6 +39,7 @@ export default async function userCreatedWebhook(req: Request, res: Response) {
     const { data: subExisting } = await supabaseDb.from('subscriptions').select('id').eq('user_id', user_id).single();
     if (!subExisting) {
       const price = process.env.STRIPE_PRICE_ID_STARTER_MONTHLY!;
+      console.log('[userCreatedWebhook] Using price', price);
       const subscription = await stripe.subscriptions.create({
         customer: customerId,
         items: [{ price }],
@@ -56,6 +57,8 @@ export default async function userCreatedWebhook(req: Request, res: Response) {
         current_period_start: new Date(subscription.current_period_start * 1000),
         current_period_end: new Date(subscription.current_period_end * 1000)
       });
+
+      console.log('[userCreatedWebhook] Subscription created', subscription.id);
     }
 
     // Insert credits row if not exists
