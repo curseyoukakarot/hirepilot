@@ -43,6 +43,22 @@ export const sendMessage = async (req: Request, res: Response) => {
 
     let finalHtml = html;
 
+    // Build alias map for backward compatibility (e.g., {{first_name}})
+    const aliasData: Record<string, any> = { ...template_data };
+    if (template_data?.Candidate) {
+      const c = template_data.Candidate;
+      if (c.FirstName) aliasData.first_name = c.FirstName;
+      if (c.LastName) aliasData.last_name = c.LastName;
+      if (c.FirstName || c.LastName) {
+        aliasData.full_name = `${c.FirstName || ''} ${c.LastName || ''}`.trim();
+      }
+      if (c.Company) aliasData.company = c.Company;
+      if (c.Job) aliasData.title = c.Job;
+    }
+
+    // Use aliasData for replacement going forward
+    const dataForTemplate = aliasData;
+
     // Helper to resolve nested values (e.g., Candidate.FirstName)
     const resolvePath = (obj: Record<string, any> | undefined, path: string): string | undefined => {
       if (!obj) return undefined;
@@ -69,13 +85,13 @@ export const sendMessage = async (req: Request, res: Response) => {
 
       // Replace template variables with actual data, supporting dot notation
       finalHtml = template.content.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_match: string, path: string) => {
-        const value = resolvePath(template_data, path);
+        const value = resolvePath(dataForTemplate, path);
         return (value !== undefined && value !== null) ? String(value) : _match;
       });
     } else if (template_data) {
       // No template file; run replacement on provided HTML/body
       finalHtml = html.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_match: string, path: string) => {
-        const value = resolvePath(template_data, path);
+        const value = resolvePath(dataForTemplate, path);
         return (value !== undefined && value !== null) ? String(value) : _match;
       });
     }

@@ -1,6 +1,7 @@
 import { supabaseDb } from '../lib/supabase';
 import { getGoogleAccessToken } from './googleTokenHelper';
 import { google } from 'googleapis';
+import { personalizeMessage } from '../utils/messageUtils';
 
 interface Lead {
   id: string;
@@ -11,6 +12,8 @@ interface Lead {
 }
 
 export async function sendEmail(lead: Lead, message: string, userId: string): Promise<boolean> {
+  // Ensure placeholders are replaced regardless of upstream processing.
+  const processedMessage = personalizeMessage(message, lead);
   try {
     // Get user's email provider preference
     const { data: userData, error: userError } = await supabaseDb
@@ -31,10 +34,10 @@ export async function sendEmail(lead: Lead, message: string, userId: string): Pr
 
       const raw = Buffer.from(
         `To: ${lead.email}\r\n` +
-        `Subject: ${message.split('\n')[0]}\r\n` + // Use first line as subject
+        `Subject: ${processedMessage.split('\n')[0]}\r\n` + // Use first line as subject
         'Content-Type: text/html; charset=utf-8\r\n' +
         '\r\n' +
-        message
+        processedMessage
       ).toString('base64url');
 
       await gmail.users.messages.send({
