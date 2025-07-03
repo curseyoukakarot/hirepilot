@@ -55,6 +55,23 @@ router.get('/overview', async (req, res) => {
       .eq('user_id', user.id)
       .single();
 
+    // Convert subscription to camelCase + derive additional fields
+    let subscription: any = null;
+    if (subscriptionData) {
+      subscription = {
+        id: subscriptionData.id,
+        planTier: subscriptionData.plan_tier,
+        interval: subscriptionData.interval,
+        status: subscriptionData.status,
+        currentPeriodStart: subscriptionData.current_period_start,
+        currentPeriodEnd: subscriptionData.current_period_end,
+        includedSeats: subscriptionData.included_seats,
+        seatCount: subscriptionData.seat_count,
+        stripeCustomerId: subscriptionData.stripe_customer_id,
+        stripeSubscriptionId: subscriptionData.stripe_subscription_id
+      };
+    }
+
     if (subscriptionError && subscriptionError.code !== 'PGRST116') {
       console.error('Error fetching subscription:', subscriptionError);
       res.status(500).json({ error: 'Failed to fetch subscription' });
@@ -92,17 +109,29 @@ router.get('/overview', async (req, res) => {
 
     // Get recent invoices if there's a subscription
     let recentInvoices: Stripe.Invoice[] = [];
-    if (subscriptionData?.stripe_subscription_id) {
+    let nextInvoiceDate: string | null = null;
+    if (subscription?.stripeSubscriptionId) {
       const invoices = await stripe.invoices.list({
-        subscription: subscriptionData.stripe_subscription_id,
+        subscription: subscription.stripeSubscriptionId,
         limit: 5,
       });
       recentInvoices = invoices.data;
+
+      // The soonest upcoming invoice can also be determined via stripe.invoices.retrieveUpcoming
+      try {
+        const upcoming = await stripe.invoices.retrieveUpcoming({ subscription: subscription.stripeSubscriptionId });
+        nextInvoiceDate = upcoming?.next_payment_attempt ? new Date(upcoming.next_payment_attempt * 1000).toISOString() : null;
+      } catch (e) {
+        // Fallback to current period end if no upcoming invoice (trial etc.)
+        nextInvoiceDate = subscription.currentPeriodEnd;
+      }
     }
 
     res.json({
-      subscription: subscriptionData || null,
+      subscription: subscription || null,
       credits: remainingCredits,
+      seatUsage: subscription ? { used: subscription.seatCount, included: subscription.includedSeats } : null,
+      nextInvoice: nextInvoiceDate,
       recentUsage: recentUsage || [],
       recentInvoices
     });

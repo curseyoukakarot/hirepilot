@@ -24,7 +24,9 @@ export default function BillingScreen() {
     subscription: null,
     credits: 0,
     recentUsage: [],
-    recentInvoices: []
+    recentInvoices: [],
+    nextInvoice: null,
+    seatUsage: null
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -182,7 +184,7 @@ export default function BillingScreen() {
   if (loading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading...</div>;
   if (error) return <div className="min-h-screen bg-gray-50 flex items-center justify-center text-red-600">{error}</div>;
 
-  const { subscription, credits, recentUsage, recentInvoices } = billingOverview;
+  const { subscription, credits, recentUsage, recentInvoices, nextInvoice, seatUsage } = billingOverview;
   const currentPlan = subscription?.planTier ? PRICING_CONFIG[subscription.planTier] : null;
 
   return (
@@ -197,7 +199,7 @@ export default function BillingScreen() {
               </h2>
               {subscription && (
                 <p className="text-gray-600">
-                  Next billing date: {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+                  Next billing date: {nextInvoice ? new Date(nextInvoice).toLocaleDateString() : '–'}
                 </p>
               )}
             </div>
@@ -227,12 +229,27 @@ export default function BillingScreen() {
               <span>Credits Available</span>
               <span>{credits.toLocaleString()} credits</span>
             </div>
-            <div className="h-4 bg-gray-200 rounded-full overflow-hidden">
+            <div className="h-4 bg-gray-200 rounded-full overflow-hidden mb-4">
               <div
                 className="h-full bg-blue-600 rounded-full"
-                style={{ width: `${currentPlan ? (credits / currentPlan.credits) * 100 : 0}%` }}
+                style={{ width: `${currentPlan ? Math.min((credits / currentPlan.credits) * 100, 100) : 0}%` }}
               ></div>
             </div>
+            {/* Seat Usage */}
+            {seatUsage && (
+              <div className="mt-4">
+                <div className="flex justify-between mb-2 font-medium">
+                  <span>Seats Used</span>
+                  <span>{seatUsage.used} / {seatUsage.included} seats</span>
+                </div>
+                <div className="h-4 bg-gray-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-green-600 rounded-full"
+                    style={{ width: `${seatUsage.included ? Math.min((seatUsage.used / seatUsage.included) * 100, 100) : 0}%` }}
+                  ></div>
+                </div>
+              </div>
+            )}
           </div>
         </section>
 
