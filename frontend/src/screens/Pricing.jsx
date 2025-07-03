@@ -68,6 +68,15 @@ export default function Pricing() {
           <span className="inline-block text-blue-600 bg-blue-50 rounded-full px-4 py-1 text-sm mb-4">Pricing</span>
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Choose Your Perfect Plan</h1>
           <p className="text-gray-600 max-w-2xl mx-auto">Select the plan that best fits your needs. All plans include a 7-day free trial with full access to all features.</p>
+          {/* Billing cycle toggle */}
+          <div className="mt-8 flex items-center justify-center gap-4">
+            <span className={annual ? 'text-gray-500 cursor-pointer' : 'font-semibold'} onClick={() => setAnnual(false)}>Monthly</span>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" value="annual" className="sr-only peer" checked={annual} onChange={() => setAnnual(!annual)} />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
+            <span className={annual ? 'font-semibold' : 'text-gray-500 cursor-pointer'} onClick={() => setAnnual(true)}>Annual</span>
+          </div>
         </div>
 
         {/* Pricing Plans */}
@@ -82,10 +91,15 @@ export default function Pricing() {
                 </div>
                 <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm">Popular</span>
               </div>
-              <div className="mb-6">
-                <span className="text-5xl font-bold text-gray-900">$99</span>
-                <span className="text-gray-500">/month</span>
-              </div>
+              {(() => {
+                const price = annual ? 79 : 99;
+                return (
+                  <div className="mb-6">
+                    <span className="text-5xl font-bold text-gray-900">${price}</span>
+                    <span className="text-gray-500">/month</span>
+                  </div>
+                );
+              })()}
               <ul className="space-y-4 mb-8">
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>350 credits/month</span></li>
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>$50 per 1,000 extra credits</span></li>
@@ -105,10 +119,15 @@ export default function Pricing() {
                 </div>
                 <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm">Best Value</span>
               </div>
-              <div className="mb-6">
-                <span className="text-5xl font-bold text-gray-900">$249</span>
-                <span className="text-gray-500">/month</span>
-              </div>
+              {(() => {
+                const price = annual ? 199 : 249;
+                return (
+                  <div className="mb-6">
+                    <span className="text-5xl font-bold text-gray-900">${price}</span>
+                    <span className="text-gray-500">/month</span>
+                  </div>
+                );
+              })()}
               <ul className="space-y-4 mb-8">
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>1,000 credits/month</span></li>
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>$45 per 1,000 extra credits</span></li>
@@ -128,10 +147,15 @@ export default function Pricing() {
                 </div>
                 <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm">Enterprise</span>
               </div>
-              <div className="mb-6">
-                <span className="text-5xl font-bold text-gray-900">$99</span>
-                <span className="text-gray-500">/month per user</span>
-              </div>
+              {(() => {
+                const price = annual ? 349 : 99;
+                return (
+                  <div className="mb-6">
+                    <span className="text-5xl font-bold text-gray-900">${price}</span>
+                    <span className="text-gray-500">/month per user</span>
+                  </div>
+                );
+              })()}
               <ul className="space-y-4 mb-8">
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>5,000 credits/month</span></li>
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>$40 per 1,000 extra credits</span></li>
