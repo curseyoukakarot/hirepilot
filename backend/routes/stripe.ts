@@ -195,8 +195,8 @@ router.post('/create-checkout-session', async (req, res) => {
         price: priceId,
         quantity: 1
       }],
-      success_url: `${process.env.FRONTEND_URL}/settings/billing?success=true`,
-      cancel_url: `${process.env.FRONTEND_URL}/settings/billing?canceled=true`,
+      success_url: `${process.env.FRONTEND_URL}/signup?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.FRONTEND_URL}/pricing`,
       subscription_data: {
         trial_period_days: trialDays,
         metadata: {
@@ -227,6 +227,61 @@ router.post('/create-portal-session', async (req, res) => {
   } catch (error) {
     console.error('Error creating portal session:', error);
     res.status(400).json({ error: 'Could not create portal session' });
+  }
+});
+
+// Link a checkout session to a newly created user
+router.post('/link-session', async (req, res) => {
+  try {
+    const { sessionId, userId } = req.body;
+    if (!sessionId || !userId) return res.status(400).json({ error: 'Missing parameters' });
+
+    const session = await stripe.checkout.sessions.retrieve(sessionId, { expand: ['subscription'] });
+    const subscription = session.subscription as Stripe.Subscription;
+    const customerId = session.customer as string;
+
+    // Update subscription metadata with user_id if not set
+    if (!subscription.metadata.user_id) {
+      await stripe.subscriptions.update(subscription.id, {
+        metadata: { ...subscription.metadata, user_id: userId }
+      });
+    }
+
+    // Ensure users table has stripe_customer_id
+    await supabase
+      .from('users')
+      .update({ stripe_customer_id: customerId })
+      .eq('id', userId);
+
+    // Upsert subscription row if missing
+    const { data: existing } = await supabase
+      .from('subscriptions')
+      .select('id')
+      .eq('stripe_subscription_id', subscription.id)
+      .single();
+
+    const planTier = subscription.metadata.plan_tier || 'starter';
+    const interval = subscription.items.data[0].price.recurring?.interval === 'year' ? 'annual' : 'monthly';
+
+    if (!existing) {
+      await supabase.from('subscriptions').insert({
+        user_id: userId,
+        stripe_subscription_id: subscription.id,
+        stripe_customer_id: customerId,
+        plan_tier: planTier,
+        interval,
+        status: subscription.status,
+        current_period_start: new Date(subscription.current_period_start * 1000),
+        current_period_end: new Date(subscription.current_period_end * 1000)
+      });
+    } else {
+      await supabase.from('subscriptions').update({ user_id: userId }).eq('stripe_subscription_id', subscription.id);
+    }
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('link-session error', err);
+    return res.status(500).json({ error: 'Failed to link session' });
   }
 });
 
