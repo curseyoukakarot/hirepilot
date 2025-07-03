@@ -1,6 +1,39 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { apiPost } from '../lib/api';
+import { supabase } from '../lib/supabase';
 
 export default function Pricing() {
+  const [annual, setAnnual] = useState(false);
+
+  const priceMap = {
+    monthly: {
+      starter: import.meta.env.VITE_STRIPE_PRICE_ID_STARTER_MONTHLY,
+      pro: import.meta.env.VITE_STRIPE_PRICE_ID_PRO_MONTHLY,
+      team: import.meta.env.VITE_STRIPE_PRICE_ID_TEAM_MONTHLY,
+    },
+    annual: {
+      starter: import.meta.env.VITE_STRIPE_PRICE_ID_STARTER_ANNUAL,
+      pro: import.meta.env.VITE_STRIPE_PRICE_ID_PRO_ANNUAL,
+      team: import.meta.env.VITE_STRIPE_PRICE_ID_TEAM_ANNUAL,
+    }
+  };
+
+  const handleCheckout = async (planTier) => {
+    try {
+      const priceId = priceMap[annual ? 'annual' : 'monthly'][planTier];
+      const { data: { user } } = await supabase.auth.getUser();
+      const res = await apiPost('/api/stripe/create-checkout-session', {
+        priceId,
+        planTier,
+        userId: user?.id || null
+      }, { requireAuth: false });
+      window.location = res.url || `https://checkout.stripe.com/pay/${res.sessionId}`;
+    } catch (err) {
+      console.error('checkout error', err);
+      alert('Unable to start checkout');
+    }
+  };
+
   return (
     <div className="h-full text-base-content">
       {/* Navbar */}
@@ -60,7 +93,7 @@ export default function Pricing() {
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Unlimited Job Reqs</span></li>
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Credit rollover</span></li>
               </ul>
-              <button className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold hover:bg-blue-700 transition-colors">Get Started for Free</button>
+              <button className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold hover:bg-blue-700 transition-colors" onClick={() => handleCheckout('starter')}>Get Started for Free</button>
             </div>
 
             {/* Pro Plan */}
@@ -83,7 +116,7 @@ export default function Pricing() {
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Schedule and Automate Outreach Campaigns</span></li>
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Credit rollover</span></li>
               </ul>
-              <button className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold hover:bg-blue-700 transition-colors">Get Started for Free</button>
+              <button className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold hover:bg-blue-700 transition-colors" onClick={() => handleCheckout('pro')}>Get Started for Free</button>
             </div>
 
             {/* Team Plan */}
@@ -107,7 +140,7 @@ export default function Pricing() {
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Access to REX - your Recruiting AI assistant</span></li>
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>API Access</span></li>
               </ul>
-              <button className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold hover:bg-blue-700 transition-colors">Get Started for Free</button>
+              <button className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold hover:bg-blue-700 transition-colors" onClick={() => handleCheckout('team')}>Get Started for Free</button>
             </div>
           </div>
         </div>
