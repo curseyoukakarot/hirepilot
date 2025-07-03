@@ -346,6 +346,7 @@ export default function MessagingCenter() {
       } : {};
 
       const personalizedBody = replaceTokens(messageBody, data);
+      const htmlBody = personalizedBody.replace(/\n/g, '<br/>');
 
       // Send via backend API (will also store the message)
       const response = await fetch(`${API_BASE_URL}/message/send`, {
@@ -357,7 +358,7 @@ export default function MessagingCenter() {
         body: JSON.stringify({
           to: toField,
           subject: subjectField,
-          html: personalizedBody,
+          html: htmlBody,
           provider: selectedProvider,
           attachments: attachments, // Send full attachments to API
           template_id: selectedTemplate?.id,

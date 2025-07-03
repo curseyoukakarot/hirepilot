@@ -96,6 +96,9 @@ export const sendMessage = async (req: Request, res: Response) => {
       });
     }
 
+    // Convert plain text newlines to <br/> to preserve spacing in HTML emails
+    finalHtml = finalHtml.replace(/\n/g, '<br/>');
+
     // Fetch the user's integration details for the selected provider
     const { data: integration, error: integrationError } = await supabase
       .from('integrations')
