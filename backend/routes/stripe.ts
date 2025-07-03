@@ -186,6 +186,7 @@ router.post('/webhook', validateStripeWebhook, async (req, res) => {
 router.post('/create-checkout-session', async (req, res) => {
   try {
     const { priceId, userId, planTier } = req.body;
+    const trialDays = 7;
 
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
@@ -196,9 +197,12 @@ router.post('/create-checkout-session', async (req, res) => {
       }],
       success_url: `${process.env.FRONTEND_URL}/settings/billing?success=true`,
       cancel_url: `${process.env.FRONTEND_URL}/settings/billing?canceled=true`,
-      metadata: {
-        user_id: userId,
-        plan_tier: planTier
+      subscription_data: {
+        trial_period_days: trialDays,
+        metadata: {
+          user_id: userId,
+          plan_tier: planTier
+        }
       }
     });
 
