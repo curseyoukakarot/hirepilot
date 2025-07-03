@@ -70,7 +70,11 @@ export default async function userCreatedWebhook(req: Request, res: Response) {
     }, { onConflict: 'user_id' });
 
     // Slack notify
-    await notifySlack(`🆓 Starter trial started for ${email}`);
+    try {
+      await notifySlack(`🆓 Starter trial started for ${email}`);
+    } catch (err) {
+      console.error('[userCreatedWebhook] Slack notify failed', err);
+    }
 
     return res.json({ ok: true });
   } catch (err:any) {
