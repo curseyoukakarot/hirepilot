@@ -13,7 +13,9 @@ interface Lead {
 
 export async function sendEmail(lead: Lead, message: string, userId: string): Promise<boolean> {
   // Ensure placeholders are replaced regardless of upstream processing.
-  const processedMessage = personalizeMessage(message, lead);
+  let processedMessage = personalizeMessage(message, lead);
+  // Convert plain newlines to <br/> for HTML content
+  processedMessage = processedMessage.replace(/\n/g, '<br/>');
   try {
     // Get user's email provider preference
     const { data: userData, error: userError } = await supabaseDb

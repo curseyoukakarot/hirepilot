@@ -1515,8 +1515,12 @@ function LeadManagement() {
                         </button>
                       </div>
                       {bulkPreviewModes[lead.id] ? (
-                        <div className="w-full border rounded px-3 py-2 mt-1 text-sm bg-gray-50" style={{ minHeight: '72px' }}
-                          dangerouslySetInnerHTML={{ __html: bulkMessages[lead.id] || '' }}
+                        <div
+                          className="w-full border rounded px-3 py-2 mt-1 text-sm bg-gray-50 whitespace-pre-wrap"
+                          style={{ minHeight: '72px' }}
+                          dangerouslySetInnerHTML={{
+                            __html: (bulkMessages[lead.id] || '').replace(/\n/g, '<br/>'),
+                          }}
                         />
                       ) : (
                         <textarea
