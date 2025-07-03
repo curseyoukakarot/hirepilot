@@ -76,6 +76,9 @@ export default async function userCreatedWebhook(req: Request, res: Response) {
       console.error('[userCreatedWebhook] Slack notify failed', err);
     }
 
+    // seed trial_emails row
+    await supabaseDb.from('trial_emails').upsert({ user_id }, { onConflict: 'user_id' });
+
     return res.json({ ok: true });
   } catch (err:any) {
     console.error('[userCreatedWebhook] error', err);
