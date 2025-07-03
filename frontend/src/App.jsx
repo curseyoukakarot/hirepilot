@@ -25,6 +25,7 @@ import Copilot from './screens/Copilot';
 import Handsfree from './screens/Handsfree';
 import Pricing from './screens/Pricing';
 import RexChatBox from './components/RexChatBox';
+import { apiPost } from './lib/api';
 
 // Lazy load screens
 const SigninScreen = lazy(() => import("./screens/SigninScreen"));
@@ -194,6 +195,8 @@ function InnerApp() {
   const navigate = useNavigate();
   const [userLoaded, setUserLoaded] = useState(false);
   const [dbRole, setDbRole] = useState(null);
+  const [paymentWarning, setPaymentWarning] = useState(false);
+  const [isSuspended, setIsSuspended] = useState(false);
 
   useEffect(() => {
     const fetchRole = async () => {
@@ -210,6 +213,8 @@ function InnerApp() {
         } else {
           setDbRole(null);
         }
+        setPaymentWarning(user.payment_warning || false);
+        setIsSuspended(user.is_suspended || false);
       } else {
         setDbRole(null);
       }
@@ -232,7 +237,11 @@ function InnerApp() {
         navigate('/super-admin', { replace: true });
       }
     }
-  }, [userLoaded, dbRole, location.pathname, navigate]);
+    if (isSuspended) {
+      navigate('/pricing?payment_required=1', { replace: true });
+      return;
+    }
+  }, [userLoaded, dbRole, location.pathname, navigate, isSuspended]);
 
   if (!userLoaded && !isAuthPage) {
     return <div className="flex items-center justify-center h-screen text-lg">Loading...</div>;
@@ -240,6 +249,15 @@ function InnerApp() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      {paymentWarning && !isSuspended && (
+        <div className="w-full bg-red-600 text-white text-center py-2 text-sm flex items-center justify-center gap-3">
+          <span>Payment failed – update your card to avoid account suspension.</span>
+          <button className="underline" onClick={async()=>{
+            const { data } = await apiPost('/api/stripe/create-portal-session', {}, { requireAuth:true });
+            window.location = data.url;
+          }}>Update payment</button>
+        </div>
+      )}
       {!isAuthPage && <div className="fixed top-0 left-0 right-0 z-50"><Navbar /></div>}
       <Toaster
         position="top-right"

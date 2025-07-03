@@ -132,6 +132,19 @@ router.post('/webhook', validateStripeWebhook, async (req, res) => {
         if (invoice.billing_reason === 'subscription_cycle') {
           await updateUserCredits(userId, subscription.metadata.plan_tier);
         }
+
+        // Clear payment warning if existed
+        await supabase.from('users').update({ payment_warning:false, is_suspended:false }).eq('id', userId);
+        break;
+      }
+
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object as Stripe.Invoice;
+        const subscription = await stripe.subscriptions.retrieve(invoice.subscription as string);
+        const userId = subscription.metadata.user_id;
+        if (userId) {
+          await supabase.from('users').update({ payment_warning:true }).eq('id', userId);
+        }
         break;
       }
 
@@ -154,6 +167,12 @@ router.post('/webhook', validateStripeWebhook, async (req, res) => {
         // Handle plan change
         if (subscription.status === 'active') {
           await updateUserCredits(userId, planTier);
+        }
+
+        if (['past_due','canceled','incomplete_expired','unpaid'].includes(subscription.status)) {
+          await supabase.from('users').update({ is_suspended:true, payment_warning:false }).eq('id', userId);
+        } else if (subscription.status === 'active') {
+          await supabase.from('users').update({ is_suspended:false, payment_warning:false }).eq('id', userId);
         }
         break;
       }
@@ -277,6 +296,13 @@ router.post('/link-session', async (req, res) => {
     } else {
       await supabase.from('subscriptions').update({ user_id: userId }).eq('stripe_subscription_id', subscription.id);
     }
+
+    const credits = { starter:350, pro:1000, team:5000 }[planTier] || 350;
+    const included = { starter:1, pro:1, team:5 }[planTier] || 1;
+    // update subscription row fields
+    await supabase.from('subscriptions').update({ included_seats: included, seat_count: 1, credits_granted: credits }).eq('stripe_subscription_id', subscription.id);
+    // upsert credits
+    await supabase.from('user_credits').upsert({ user_id:userId,total_credits:credits, remaining_credits:credits, used_credits:0 },{onConflict:'user_id'});
 
     return res.json({ ok: true });
   } catch (err) {
