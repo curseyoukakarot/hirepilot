@@ -1,6 +1,119 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 export default function BlogLandingPage() {
+  // ----- NEW STATE FOR SEARCH / PAGINATION -----
+  const [search, setSearch] = useState('');
+  const [visible, setVisible] = useState(6);
+  const [activeTag, setActiveTag] = useState('All');
+
+  const articles = [
+    {
+      id: 1,
+      href: '/blog/flow-of-hirepilot',
+      title: 'The Flow of HirePilot – From Campaigns to Candidates',
+      summary: 'Understand how data moves through HirePilot and set up your workflow for success.',
+      tag: 'Automation',
+      gradient: 'from-blue-500 to-violet-600',
+      icon: 'fa-robot',
+      date: 'Jul 4, 2025',
+    },
+    {
+      id: 2,
+      href: '/blog/message-center-setup',
+      title: 'Message Center Setup – Connecting Gmail, Outlook, and SendGrid',
+      summary: 'Learn how to power your outreach by linking your own email providers.',
+      tag: 'Email',
+      gradient: 'from-emerald-500 to-blue-600',
+      icon: 'fa-envelope',
+      date: 'Jul 4, 2025',
+    },
+    {
+      id: 3,
+      href: '/blog/apollo-integration',
+      title: 'How to Use Apollo with HirePilot – Setup & Keyword Tips',
+      summary: 'Connect Apollo and source qualified leads in seconds.',
+      tag: 'Integrations',
+      gradient: 'from-purple-500 to-pink-600',
+      icon: 'fa-chart-line',
+      date: 'Jul 4, 2025',
+    },
+    {
+      id: 4,
+      href: '/blog/linkedin-sales-navigator',
+      title: 'Using LinkedIn Sales Navigator – Chrome Extension vs Manual Cookie',
+      summary: 'Import leads from Sales Navigator into HirePilot easily.',
+      tag: 'Leads',
+      gradient: 'from-orange-500 to-red-600',
+      icon: 'fa-users',
+      date: 'Jul 4, 2025',
+    },
+    {
+      id: 5,
+      href: '/blog/meet-rex',
+      title: 'Meet REX – Your AI Recruiting Copilot & Support Assistant',
+      summary: 'Automate outreach, enrichment, and support with REX.',
+      tag: 'AI Copilot',
+      gradient: 'from-teal-500 to-cyan-600',
+      icon: 'fa-puzzle-piece',
+      date: 'Jul 4, 2025',
+    },
+    {
+      id: 6,
+      href: '/blog/import-csv',
+      title: 'Importing Leads via CSV — Field Mapping, Enrichment Tips, and Fixes',
+      summary: 'Upload spreadsheets and enrich lead data in minutes.',
+      tag: 'Lead Import',
+      gradient: 'from-indigo-500 to-purple-600',
+      icon: 'fa-file-csv',
+      date: 'Jul 4, 2025',
+    },
+    {
+      id: 7,
+      href: '/blog/campaign-wizard',
+      title: 'Using the Campaign Wizard – Apollo, LinkedIn, and Manual Sourcing',
+      summary: 'Source high-quality leads with HirePilot\'s wizard.',
+      tag: 'Sourcing',
+      gradient: 'from-green-500 to-emerald-600',
+      icon: 'fa-magic',
+      date: 'Jul 4, 2025',
+    },
+    {
+      id: 8,
+      href: '/blog/PipelineBestPractices',
+      title: 'Managing Candidates in the Pipeline – Workflow Best Practices',
+      summary: 'Keep your hiring funnel organized and collaborative.',
+      tag: 'Pipeline',
+      gradient: 'from-blue-800 to-gray-700',
+      icon: 'fa-layer-group',
+      date: 'Jul 4, 2025',
+    },
+    {
+      id: 9,
+      href: '/blog/email-troubleshooting',
+      title: 'Troubleshooting Email Sending — Gmail, Outlook & SendGrid',
+      summary: 'Diagnose and fix common email issues quickly.',
+      tag: 'Email',
+      gradient: 'from-red-500 to-pink-600',
+      icon: 'fa-triangle-exclamation',
+      date: 'Jul 4, 2025',
+    },
+    {
+      id: 10,
+      href: '/blog/CreditsGuide',
+      title: 'How Credits Work in HirePilot: Enrichment, Messaging & REX Tasks',
+      summary: 'Understand credit costs and track usage effectively.',
+      tag: 'Billing',
+      gradient: 'from-indigo-600 to-blue-600',
+      icon: 'fa-credit-card',
+      date: 'Jul 4, 2025',
+    },
+  ];
+
+  const tagFiltered = activeTag === 'All' ? articles : articles.filter(a=>a.tag===activeTag);
+  const filtered = tagFiltered.filter(a => a.title.toLowerCase().includes(search.toLowerCase()));
+
+  const tags = ['All', ...Array.from(new Set(articles.map(a=>a.tag)))];
+
   return (
     <>
       {/* Component-scoped helper styles to preserve original effects */}
@@ -57,21 +170,23 @@ export default function BlogLandingPage() {
                 <input
                   type="text"
                   placeholder="Search articles..."
+                  value={search}
+                  onChange={e=>{setSearch(e.target.value);setVisible(6);}}
                   className="w-full px-6 py-4 bg-white border-2 border-violet-200 rounded-2xl text-gray-900 placeholder-gray-500 focus:outline-none focus:border-violet-500 search-glow text-lg shadow-sm"
                 />
                 <i className="fa-solid fa-search absolute right-6 top-1/2 -translate-y-1/2 text-violet-500 text-xl" />
               </div>
             </div>
 
-            {/* Filter pills */}
+            {/* Dynamic Filter pills */}
             <div id="filter-pills" className="flex flex-wrap justify-center gap-3">
-              <button className="px-6 py-2 bg-violet-600 text-white rounded-xl font-medium shadow-sm">All</button>
-              <button className="px-6 py-2 bg-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-300 transition">Getting Started</button>
-              <button className="px-6 py-2 bg-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-300 transition">Campaigns</button>
-              <button className="px-6 py-2 bg-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-300 transition">Leads</button>
-              <button className="px-6 py-2 bg-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-300 transition">Automation</button>
-              <button className="px-6 py-2 bg-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-300 transition">Integrations</button>
-              <button className="px-6 py-2 bg-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-300 transition">Growth Tips</button>
+              {tags.map(t=> (
+                <button
+                  key={t}
+                  onClick={()=>{setActiveTag(t);setVisible(6);}}
+                  className={`px-6 py-2 rounded-xl font-medium transition ${activeTag===t? 'bg-violet-600 text-white':'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                >{t}</button>
+              ))}
             </div>
           </div>
         </section>
@@ -80,119 +195,25 @@ export default function BlogLandingPage() {
         <section id="articles-grid" className="py-16 bg-gray-50">
           <div className="max-w-6xl mx-auto px-6">
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {/* Article 1 */}
-              <a href="/blog/flow-of-hirepilot" id="article-1" className="bg-white rounded-2xl overflow-hidden card-hover shadow-lg block">
-                <div className="h-48 bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center">
-                  <i className="fa-solid fa-robot text-white text-4xl" />
-                </div>
-                <div className="p-6">
-                  <span className="px-3 py-1 bg-violet-100 text-violet-700 rounded-lg text-sm font-medium">Automation</span>
-                  <h3 className="text-xl font-bold mt-4 mb-3 line-clamp-2 text-gray-900">The Flow of HirePilot – From Campaigns to Candidates</h3>
-                  <p className="text-gray-600 mb-4 line-clamp-2">Understand how data moves through HirePilot and set up your workflow for success.</p>
-                  <div className="flex items-center space-x-3">
-                    <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-5.jpg" alt="Author avatar" className="w-8 h-8 rounded-full" />
-                    <div className="text-sm">
-                      <p className="text-gray-900 font-medium">HirePilot Team</p>
-                      <p className="text-gray-500">Jul 4, 2025</p>
+              {filtered.slice(0,visible).map(a=> (
+                <a key={a.id} href={a.href} className="bg-white rounded-2xl overflow-hidden card-hover shadow-lg block">
+                  <div className={`h-48 bg-gradient-to-br ${a.gradient} flex items-center justify-center`}>
+                    <i className={`fa-solid ${a.icon} text-white text-4xl`} />
+                  </div>
+                  <div className="p-6">
+                    <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium">{a.tag}</span>
+                    <h3 className="text-xl font-bold mt-4 mb-3 line-clamp-2 text-gray-900">{a.title}</h3>
+                    <p className="text-gray-600 mb-4 line-clamp-2">{a.summary}</p>
+                    <div className="flex items-center space-x-3">
+                      <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-5.jpg" alt="Author avatar" className="w-8 h-8 rounded-full" />
+                      <div className="text-sm">
+                        <p className="text-gray-900 font-medium">HirePilot Team</p>
+                        <p className="text-gray-500">{a.date}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </a>
-
-              {/* Article 2 */}
-              <a href="/blog/message-center-setup" id="article-2" className="bg-white rounded-2xl overflow-hidden card-hover shadow-lg block">
-                <div className="h-48 bg-gradient-to-br from-emerald-500 to-blue-600 flex items-center justify-center">
-                  <i className="fa-solid fa-chart-line text-white text-4xl" />
-                </div>
-                <div className="p-6">
-                  <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium">Growth Tips</span>
-                  <h3 className="text-xl font-bold mt-4 mb-3 line-clamp-2 text-gray-900">Message Center Setup – Connecting Gmail, Outlook, and SendGrid</h3>
-                  <p className="text-gray-600 mb-4 line-clamp-2">Learn how to power your outreach by linking your own email providers.</p>
-                  <div className="flex items-center space-x-3">
-                    <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-3.jpg" alt="Author avatar" className="w-8 h-8 rounded-full" />
-                    <div className="text-sm">
-                      <p className="text-gray-900 font-medium">HirePilot Team</p>
-                      <p className="text-gray-500">Jul 4, 2025</p>
-                    </div>
-                  </div>
-                </div>
-              </a>
-
-              {/* Article 3 */}
-              <a href="/blog/apollo-integration" id="article-3" className="bg-white rounded-2xl overflow-hidden card-hover shadow-lg block">
-                <div className="h-48 bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
-                  <i className="fa-solid fa-envelope text-white text-4xl" />
-                </div>
-                <div className="p-6">
-                  <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium">Campaigns</span>
-                  <h3 className="text-xl font-bold mt-4 mb-3 line-clamp-2 text-gray-900">How to Use Apollo with HirePilot – Setup & Keyword Tips</h3>
-                  <p className="text-gray-600 mb-4 line-clamp-2">Connect Apollo and source qualified leads in seconds.</p>
-                  <div className="flex items-center space-x-3">
-                    <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-7.jpg" alt="Author avatar" className="w-8 h-8 rounded-full" />
-                    <div className="text-sm">
-                      <p className="text-gray-900 font-medium">HirePilot Team</p>
-                      <p className="text-gray-500">Jul 4, 2025</p>
-                    </div>
-                  </div>
-                </div>
-              </a>
-
-              {/* Article 4 */}
-              <a href="/blog/linkedin-sales-navigator" id="article-4" className="bg-white rounded-2xl overflow-hidden card-hover shadow-lg block">
-                <div className="h-48 bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center">
-                  <i className="fa-solid fa-users text-white text-4xl" />
-                </div>
-                <div className="p-6">
-                  <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-lg text-sm font-medium">Leads</span>
-                  <h3 className="text-xl font-bold mt-4 mb-3 line-clamp-2 text-gray-900">Using LinkedIn Sales Navigator – Chrome Extension vs Manual Cookie</h3>
-                  <p className="text-gray-600 mb-4 line-clamp-2">Import Leads from Sales Navigator into HirePilot.</p>
-                  <div className="flex items-center space-x-3">
-                    <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-9.jpg" alt="Author avatar" className="w-8 h-8 rounded-full" />
-                    <div className="text-sm">
-                      <p className="text-gray-900 font-medium">HirePilot Team</p>
-                      <p className="text-gray-500">Jul 4, 2025</p>
-                    </div>
-                  </div>
-                </div>
-              </a>
-
-              {/* Article 5 */}
-              <a href="/blog/meet-rex" id="article-5" className="bg-white rounded-2xl overflow-hidden card-hover shadow-lg block">
-                <div className="h-48 bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center">
-                  <i className="fa-solid fa-puzzle-piece text-white text-4xl" />
-                </div>
-                <div className="p-6">
-                  <span className="px-3 py-1 bg-teal-100 text-teal-700 rounded-lg text-sm font-medium">Integrations</span>
-                  <h3 className="text-xl font-bold mt-4 mb-3 line-clamp-2 text-gray-900">Meet REX – Your AI Recruiting Copilot & Support Assistant</h3>
-                  <p className="text-gray-600 mb-4 line-clamp-2">Automate outreach, enrichment, and support with REX.</p>
-                  <div className="flex items-center space-x-3">
-                    <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-6.jpg" alt="Author avatar" className="w-8 h-8 rounded-full" />
-                    <div className="text-sm">
-                      <p className="text-gray-900 font-medium">HirePilot Team</p>
-                      <p className="text-gray-500">Jul 4, 2025</p>
-                    </div>
-                  </div>
-                </div>
-              </a>
-
-              {/* Article 6 */}
-              <a href="/blog/import-csv" id="article-6" className="bg-white rounded-2xl overflow-hidden card-hover shadow-lg block">
-                <div className="h-48 bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-                  <i className="fa-solid fa-rocket text-white text-4xl" />
-                </div>
-                <div className="p-6">
-                  <span className="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-sm font-medium">Getting Started</span>
-                  <h3 className="text-xl font-bold mt-4 mb-3 line-clamp-2 text-gray-900">Importing Leads via CSV — Field Mapping, Enrichment Tips, and Fixes</h3>
-                  <p className="text-gray-600 mb-4 line-clamp-2">Learn to upload spreadsheets and enrich lead data in minutes.</p>
-                  <div className="flex items-center space-x-3">
-                    <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" alt="Author avatar" className="w-8 h-8 rounded-full" />
-                    <div className="text-sm">
-                      <p className="text-gray-900 font-medium">HirePilot Team</p>
-                      <p className="text-gray-500">Jul 4, 2025</p>
-                    </div>
-                  </div>
-                </div>
-              </a>
+                </a>
+              ))}
             </div>
           </div>
         </section>
@@ -200,9 +221,11 @@ export default function BlogLandingPage() {
         {/* Pagination */}
         <section id="pagination" className="py-12 bg-gray-50">
           <div className="max-w-6xl mx-auto px-6 text-center">
-            <button className="bg-gradient-to-r from-blue-500 to-violet-600 px-8 py-3 rounded-xl font-medium hover:from-blue-600 hover:to-violet-700 transition text-lg text-white">
-              Load More Articles
-            </button>
+            {visible < filtered.length && (
+              <button onClick={()=>setVisible(v=>v+3)} className="bg-gradient-to-r from-blue-500 to-violet-600 px-8 py-3 rounded-xl font-medium hover:from-blue-600 hover:to-violet-700 transition text-lg text-white">
+                Load More Articles
+              </button>
+            )}
           </div>
         </section>
       </main>
