@@ -205,7 +205,7 @@ export default function BlogLandingPage() {
                     <h3 className="text-xl font-bold mt-4 mb-3 line-clamp-2 text-gray-900">{a.title}</h3>
                     <p className="text-gray-600 mb-4 line-clamp-2">{a.summary}</p>
                     <div className="flex items-center space-x-3">
-                      <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-5.jpg" alt="Author avatar" className="w-8 h-8 rounded-full" />
+                      <img src="/blog-icon.png" alt="Blog icon" className="w-8 h-8 rounded-full" />
                       <div className="text-sm">
                         <p className="text-gray-900 font-medium">HirePilot Team</p>
                         <p className="text-gray-500">{a.date}</p>

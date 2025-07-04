@@ -42,7 +42,7 @@ export default function CreditsGuide() {
             <h1 className="text-4xl md:text-5xl font-bold mb-4 text-white">💳 How Credits Work in HirePilot: Enrichment, Messaging & REX Tasks</h1>
             <p className="text-xl text-gray-200 mb-6">Understand what actions cost credits and how to track usage.</p>
             <div className="flex items-center space-x-4">
-              <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-5.jpg" alt="Author" className="w-12 h-12 rounded-full" />
+              <img src="/blog-icon.png" alt="Author" className="w-12 h-12 rounded-full" />
               <div>
                 <p className="font-semibold text-white">HirePilot Billing Team</p>
                 <p className="text-gray-300 text-sm">Published on July 4, 2025</p>

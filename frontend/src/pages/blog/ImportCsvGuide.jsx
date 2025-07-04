@@ -42,7 +42,7 @@ export default function ImportCsvGuide() {
             <h1 className="text-4xl md:text-5xl font-bold mb-4 text-white">Importing Leads via CSV — Field Mapping, Enrichment Tips, and Common Fixes</h1>
             <p className="text-xl text-gray-200 mb-6">Turn spreadsheets into leads inside HirePilot in just a few clicks.</p>
             <div className="flex items-center space-x-4">
-              <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-5.jpg" alt="Author" className="w-12 h-12 rounded-full" />
+              <img src="/blog-icon.png" alt="Author" className="w-12 h-12 rounded-full" />
               <div>
                 <p className="font-semibold text-white">HirePilot Team</p>
                 <p className="text-gray-300 text-sm">Published on July 4, 2025</p>

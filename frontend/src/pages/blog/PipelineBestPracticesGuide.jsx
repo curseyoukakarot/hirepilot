@@ -41,7 +41,7 @@ export default function PipelineBestPracticesGuide() {
             <h1 className="text-4xl md:text-5xl font-bold mb-4 text-white">Managing Candidates in the Pipeline – Workflow Best Practices</h1>
             <p className="text-xl text-gray-200 mb-6">Keep your hiring funnel organized and collaborative with HirePilot's Pipeline.</p>
             <div className="flex items-center space-x-4">
-              <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" alt="Author" className="w-12 h-12 rounded-full" />
+              <img src="/blog-icon.png" alt="Author" className="w-12 h-12 rounded-full" />
               <div>
                 <p className="font-semibold text-white">HirePilot Team</p>
                 <p className="text-gray-300 text-sm">Published on July 4, 2025</p>
