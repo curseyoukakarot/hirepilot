@@ -171,7 +171,7 @@ export default function MeetRex() {
       {/* Chat Preview */}
       <section id="chat-preview" className="py-20 bg-slate-100">
         <div className="max-w-4xl mx-auto px-6 text-center">
-          <h2 className="text-4xl font-bold text-slate-900 mb-8">Try Chatting with REX</h2>
+          <h2 className="text-4xl font-bold text-slate-900 mb-8">Try Chatting with REX on Slack</h2>
           <div className="bg-white rounded-2xl p-8 border border-slate-200 max-w-2xl mx-auto">
             <div className="mb-6 flex justify-center">
               <img src="/REX-slack.gif" alt="REX Slack Preview" className="rounded-xl max-w-full" />
