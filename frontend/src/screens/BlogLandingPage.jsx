@@ -15,24 +15,27 @@ export default function BlogLandingPage() {
         .card-hover:hover { transform: translateY(-8px); box-shadow: 0 25px 50px -12px rgba(139, 92, 246, 0.3); }
       `}</style>
 
-      {/* Header */}
-      <header id="header" className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-6xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <i className="fa-solid fa-rocket text-violet-600 text-2xl" />
-              <span className="text-xl font-bold text-gray-900">HirePilot</span>
-            </div>
-            <nav className="hidden md:flex items-center space-x-8">
-              <span className="text-gray-600 hover:text-gray-900 transition cursor-pointer">Home</span>
-              <span className="text-violet-600 font-medium cursor-pointer">Blog</span>
-              <span className="text-gray-600 hover:text-gray-900 transition cursor-pointer">Features</span>
-              <span className="text-gray-600 hover:text-gray-900 transition cursor-pointer">Pricing</span>
-              <button className="bg-gradient-to-r from-blue-500 to-violet-600 px-6 py-2 rounded-xl font-medium hover:from-blue-600 hover:to-violet-700 transition text-white">
-                Get Started
-              </button>
-            </nav>
+      {/* Marketing Header (same as HomePage) */}
+      <header id="header" className="fixed w-full top-0 z-50 bg-white/90 backdrop-blur-sm border-b border-gray-100">
+        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+          <a href="/" className="flex items-center gap-2">
+            <img src="/logo.png" alt="HirePilot Logo" className="h-8 w-8" />
+            <span className="text-xl font-bold">HirePilot</span>
+          </a>
+          <nav className="hidden md:flex items-center gap-8">
+            <a href="/copilot" className="text-gray-600 hover:text-gray-900">Your Recruiting Co-Pilot</a>
+            <a href="/handsfree" className="text-gray-600 hover:text-gray-900">Done For You Hiring</a>
+            <a href="/pricing" className="text-gray-600 hover:text-gray-900">Pricing</a>
+          </nav>
+          <div className="flex items-center gap-4">
+            <a href="/login" className="hidden md:block text-gray-600 hover:text-gray-900">Sign in</a>
+            <a href="#" className="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 py-2.5 rounded-lg hover:shadow-lg transition-all duration-200">
+              Start for Free
+            </a>
           </div>
+          <button className="md:hidden text-gray-600">
+            <i className="fa-solid fa-bars text-2xl"></i>
+          </button>
         </div>
       </header>
 
@@ -204,44 +207,43 @@ export default function BlogLandingPage() {
         </section>
       </main>
 
-      {/* Footer */}
-      <footer id="footer" className="bg-gray-800 border-t border-gray-700 py-12">
+      {/* Marketing Footer (same as HomePage) */}
+      <footer id="footer" className="bg-gray-900 text-white py-16 mt-20">
         <div className="max-w-6xl mx-auto px-6">
-          <div className="grid md:grid-cols-4 gap-8">
+          <div className="grid md:grid-cols-4 gap-12 mb-12">
             <div>
-              <div className="flex items-center space-x-3 mb-4">
-                <i className="fa-solid fa-rocket text-violet-400 text-xl" />
-                <span className="text-lg font-bold">HirePilot</span>
+              <div className="flex items-center gap-2 mb-6">
+                <img src="/logo.png" alt="HirePilot Logo" className="h-8 w-8" />
+                <span className="text-xl font-bold">HirePilot</span>
               </div>
-              <p className="text-gray-400">Automate your recruiting process and find better candidates faster.</p>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-4">Product</h4>
-              <div className="space-y-2">
-                <span className="block text-gray-400 hover:text-white transition cursor-pointer">Features</span>
-                <span className="block text-gray-400 hover:text-white transition cursor-pointer">Pricing</span>
-                <span className="block text-gray-400 hover:text-white transition cursor-pointer">Integrations</span>
+              <p className="text-gray-400">AI-powered recruiting platform that helps you hire better, faster.</p>
+              <div className="mt-6 flex gap-4">
+                <span className="text-gray-400 hover:text-white cursor-pointer"><i className="fa-brands fa-linkedin text-xl" /></span>
               </div>
             </div>
             <div>
-              <h4 className="font-semibold mb-4">Resources</h4>
-              <div className="space-y-2">
-                <span className="block text-gray-400 hover:text-white transition cursor-pointer">Blog</span>
-                <span className="block text-gray-400 hover:text-white transition cursor-pointer">Help Center</span>
-                <span className="block text-gray-400 hover:text-white transition cursor-pointer">API Docs</span>
-              </div>
+              <h4 className="font-semibold text-lg mb-4">Product</h4>
+              <ul className="space-y-3 text-gray-400">
+                <li><a href="/copilot" className="hover:text-white">Your Recruiting Co-Pilot</a></li>
+                <li><a href="/handsfree" className="hover:text-white">Done For You Hiring</a></li>
+                <li><a href="/pricing" className="hover:text-white">Pricing</a></li>
+              </ul>
             </div>
             <div>
-              <h4 className="font-semibold mb-4">Company</h4>
-              <div className="space-y-2">
-                <span className="block text-gray-400 hover:text-white transition cursor-pointer">About</span>
-                <span className="block text-gray-400 hover:text-white transition cursor-pointer">Contact</span>
-                <span className="block text-gray-400 hover:text-white transition cursor-pointer">Privacy</span>
-              </div>
+              <h4 className="font-semibold text-lg mb-4">Company</h4>
+              <ul className="space-y-3 text-gray-400">
+                <li><span className="hover:text-white cursor-pointer">Blog</span></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold text-lg mb-4">Support</h4>
+              <ul className="space-y-3 text-gray-400">
+                <li><span className="hover:text-white cursor-pointer">Terms of Use</span></li>
+              </ul>
             </div>
           </div>
-          <div className="border-t border-gray-700 mt-8 pt-8 text-center text-gray-400">
-            <p>© 2024 HirePilot. All rights reserved.</p>
+          <div className="pt-8 border-t border-gray-800 text-center text-gray-400 text-sm">
+            © 2025 HirePilot. All rights reserved.
           </div>
         </div>
       </footer>
