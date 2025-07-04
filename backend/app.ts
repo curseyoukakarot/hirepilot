@@ -4,6 +4,7 @@ import bodyParser from 'body-parser';
 import billingRoutes from './routes/billing';
 import stripeWebhookRoutes from './routes/stripe-webhook';
 import creditsRouter from './routes/credits';
+import teamRouter from './routes/team';
 
 const app = express();
 
@@ -30,6 +31,7 @@ app.use(bodyParser.json());
 app.use('/api/billing', billingRoutes);
 app.use('/api/stripe/webhook', stripeWebhookRoutes);
 app.use('/api/credits', creditsRouter);
+app.use('/api/team', teamRouter);
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
