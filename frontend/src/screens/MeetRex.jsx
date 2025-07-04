@@ -104,15 +104,15 @@ export default function MeetRex() {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
               ['fa-magnifying-glass','Candidate Discovery','AI-powered sourcing across multiple platforms'],
-              ['fa-brain','AI Messaging','Personalized outreach at scale'],
+              ['fa-robot','AI Messaging','Personalized outreach at scale'],
               ['fa-slack','Slack & Calendar Integration','Seamless workflow integration'],
-              ['fa-bolt','Zapier & Make Triggers','Connect with 1000+ apps'],
+              ['fa-plug','Zapier & Make Triggers','Connect with 1000+ apps'],
               ['fa-phone','Phone & Email Lookup','Complete contact enrichment'],
-              ['fa-cog','Custom Workflows','Tailored automation rules']
+              ['fa-gears','Custom Workflows','Tailored automation rules']
             ].map(([icon,title,desc])=> (
               <div key={title} className="bg-white p-8 rounded-xl border border-slate-200 hover-lift">
-                <div className="w-12 h-12 gradient-bg rounded-lg flex items-center justify-center mb-4">
-                  <i className={`fa-solid ${icon} text-white`} />
+                <div className="w-12 h-12 rounded-lg flex items-center justify-center mb-4">
+                  <i className={`fa-solid ${icon} text-slate-800 text-3xl`} />
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 mb-2">{title}</h3>
                 <p className="text-slate-600">{desc}</p>
@@ -173,10 +173,8 @@ export default function MeetRex() {
         <div className="max-w-4xl mx-auto px-6 text-center">
           <h2 className="text-4xl font-bold text-slate-900 mb-8">Try Chatting with REX</h2>
           <div className="bg-white rounded-2xl p-8 border border-slate-200 max-w-2xl mx-auto">
-            <div className="space-y-4 mb-6">
-              <div className="bg-blue-500 text-white p-4 rounded-lg rounded-bl-none max-w-sm">Hi! Want me to find top leads for your new campaign?</div>
-              <div className="bg-slate-100 p-4 rounded-lg rounded-br-none max-w-sm ml-auto">Show me React developers in SF</div>
-              <div className="bg-blue-500 text-white p-4 rounded-lg rounded-bl-none max-w-sm">Found 25 qualified React developers! I can start personalized outreach in 30 seconds.</div>
+            <div className="mb-6 flex justify-center">
+              <img src="/REX-slack.gif" alt="REX Slack Preview" className="rounded-xl max-w-full" />
             </div>
             <a href="/login" className="gradient-bg text-white px-8 py-4 rounded-lg font-semibold">Ask REX a Question</a>
           </div>
@@ -186,7 +184,7 @@ export default function MeetRex() {
       {/* Pricing CTA */}
       <section id="pricing-cta" className="py-20 bg-white">
         <div className="max-w-4xl mx-auto px-6 text-center">
-          <div className="bg-gradient-to-r from-purple-400 to-blue-500 rounded-2xl p-12 border border-purple-600/30">
+          <div className="bg-gradient-to-r from-purple-200 to-blue-300 rounded-2xl p-12 border border-purple-300/30">
             <h2 className="text-4xl font-bold text-slate-900 mb-6">Ready to Meet REX?</h2>
             <p className="text-xl text-slate-600 mb-8">REX is included with all Team plans. Start your 7-day free trial today.</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
@@ -207,7 +205,7 @@ export default function MeetRex() {
             <i className="fa-brands fa-linkedin text-4xl text-slate-400" />
             <i className="fa-brands fa-slack text-4xl text-slate-400" />
             <i className="fa-brands fa-zap text-4xl text-slate-400" />
-            <img src="/make-logo-v1.png" alt="Make.com" className="h-8 w-auto" />
+            <img src="/make-logo-v1.png" alt="Make" className="h-8 w-auto" />
           </div>
         </div>
       </section>
