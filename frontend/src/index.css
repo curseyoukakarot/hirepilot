@@ -19,5 +19,6 @@ html, body, #root {
 #toc-sidebar a, #toc-sidebar span { color: #4B5563 !important; transition:color .2s; }
 #toc-sidebar a:hover, #toc-sidebar span:hover { color:#111827 !important; }
 
-/* Breadcrumb link */
-#breadcrumb a { @apply text-gray-600 hover:text-gray-900; }
+/* Breadcrumb link always white */
+#breadcrumb a { color:#FFFFFF !important; }
+#breadcrumb a:hover { color:#FFFFFF !important; }
