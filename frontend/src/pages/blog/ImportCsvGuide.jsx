@@ -14,6 +14,7 @@ export default function ImportCsvGuide() {
         .prose li { margin-bottom: 0.5rem; }
         .prose blockquote { border-left: 4px solid #3b82f6; padding-left: 1rem; margin: 2rem 0; font-style: italic; color: #9ca3af; }
         table { width: 100%; }
+        .dark-table th, .dark-table td { color:#ffffff !important; }
       `}</style>
 
       {/* Breadcrumb */}
@@ -76,7 +77,7 @@ export default function ImportCsvGuide() {
             <h2>🧩 Step 1: Prepare Your CSV</h2>
             <p>Before uploading, make sure your spreadsheet has clear column headers. At a minimum, include:</p>
             <div className="overflow-x-auto rounded-lg shadow border border-gray-700 my-6">
-              <table className="text-white text-sm">
+              <table className="dark-table text-sm">
                 <thead className="bg-gray-800 text-white uppercase text-xs">
                   <tr>
                     <th className="px-4 py-3">Column</th>
@@ -127,7 +128,7 @@ export default function ImportCsvGuide() {
           <div id="issues">
             <h2>⚠️ Common Issues &amp; Fixes</h2>
             <div className="overflow-x-auto rounded-lg shadow border border-gray-700 my-6">
-              <table className="text-gray-200 text-sm">
+              <table className="dark-table text-sm">
                 <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
                   <tr>
                     <th className="px-4 py-3">Problem</th>

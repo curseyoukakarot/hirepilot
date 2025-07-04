@@ -14,6 +14,7 @@ export default function EmailTroubleshootingGuide() {
         .prose li { margin-bottom: 0.5rem; }
         .prose blockquote { border-left: 4px solid #3b82f6; padding-left: 1rem; margin: 2rem 0; font-style: italic; color: #9ca3af; }
         table { width:100%; }
+        .dark-table th, .dark-table td { color:#ffffff !important; }
       `}</style>
 
       {/* Breadcrumb */}
@@ -76,7 +77,7 @@ export default function EmailTroubleshootingGuide() {
             <h2>🧩 First: Understand How Email Sending Works in HirePilot</h2>
             <p>When you send messages via the Message Center, HirePilot uses one of three connected methods:</p>
             <div className="overflow-x-auto rounded-lg shadow border border-gray-700 my-6">
-              <table className="text-white text-sm">
+              <table className="dark-table text-sm">
                 <thead className="bg-gray-800 text-white uppercase text-xs">
                   <tr><th className="px-4 py-3">Method</th><th className="px-4 py-3">Used For</th></tr>
                 </thead>
