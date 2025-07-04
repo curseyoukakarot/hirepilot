@@ -169,7 +169,7 @@ export default function MeetRex() {
       </section>
 
       {/* Chat Preview */}
-      <section id="chat-preview" className="py-20 bg-slate-50">
+      <section id="chat-preview" className="py-20 bg-slate-100">
         <div className="max-w-4xl mx-auto px-6 text-center">
           <h2 className="text-4xl font-bold text-slate-900 mb-8">Try Chatting with REX</h2>
           <div className="bg-white rounded-2xl p-8 border border-slate-200 max-w-2xl mx-auto">
@@ -186,7 +186,7 @@ export default function MeetRex() {
       {/* Pricing CTA */}
       <section id="pricing-cta" className="py-20 bg-white">
         <div className="max-w-4xl mx-auto px-6 text-center">
-          <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl p-12 border border-purple-100">
+          <div className="bg-gradient-to-r from-purple-400 to-blue-500 rounded-2xl p-12 border border-purple-600/30">
             <h2 className="text-4xl font-bold text-slate-900 mb-6">Ready to Meet REX?</h2>
             <p className="text-xl text-slate-600 mb-8">REX is included with all Team plans. Start your 7-day free trial today.</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
@@ -207,7 +207,7 @@ export default function MeetRex() {
             <i className="fa-brands fa-linkedin text-4xl text-slate-400" />
             <i className="fa-brands fa-slack text-4xl text-slate-400" />
             <i className="fa-brands fa-zap text-4xl text-slate-400" />
-            <img src="/make-logo.png" alt="Make.com" className="h-8 w-auto" />
+            <img src="/make-logo-v1.png" alt="Make.com" className="h-8 w-auto" />
           </div>
         </div>
       </section>
