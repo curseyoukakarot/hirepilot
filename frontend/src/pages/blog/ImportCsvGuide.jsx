@@ -19,10 +19,10 @@ export default function ImportCsvGuide() {
       {/* Breadcrumb */}
       <div className="bg-gray-800 py-4" id="breadcrumb">
         <div className="max-w-6xl mx-auto px-6">
-          <span className="text-gray-300 hover:text-white transition-colors flex items-center cursor-pointer">
+          <a href="/blog" className="flex items-center transition-colors">
             <i className="fa-solid fa-arrow-left mr-2" />
             Back to Blog
-          </span>
+          </a>
         </div>
       </div>
 
