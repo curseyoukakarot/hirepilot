@@ -192,7 +192,8 @@ export default function App() {
 function InnerApp() {
   const location = useLocation();
   const landingPages = ["/", "/signup", "/login", "/copilot", "/handsfree", "/pricing"];
-  const isAuthPage = landingPages.includes(location.pathname);
+  // Treat blog landing and article pages as public landing pages (no dashboard UI)
+  const isAuthPage = landingPages.includes(location.pathname) || location.pathname.startsWith('/blog');
   const navigate = useNavigate();
   const [userLoaded, setUserLoaded] = useState(false);
   const [dbRole, setDbRole] = useState(null);
