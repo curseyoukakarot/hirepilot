@@ -11,3 +11,6 @@ html, body, #root {
   height: 100%;
   width: 100%;
 }
+
+/* Blog article base text color */
+.prose p, .prose li { @apply text-gray-900; }
