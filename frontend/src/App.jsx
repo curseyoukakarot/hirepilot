@@ -27,6 +27,7 @@ import Pricing from './screens/Pricing';
 import RexChatBox from './components/RexChatBox';
 import { apiPost } from './lib/api';
 import BlogLandingPage from './screens/BlogLandingPage';
+import MeetRex from './screens/MeetRex';
 // Blog article pages
 const FlowOfHirePilot = lazy(() => import("./pages/blog/FlowOfHirePilot"));
 const MessageCenterSetup = lazy(() => import("./pages/blog/MessageCenterSetup"));
@@ -301,6 +302,7 @@ function InnerApp() {
               <Route path="/leads" element={<LeadManagement />} />
               <Route path="/leads/profile" element={<LeadProfileDrawer />} />
               <Route path="/pricing" element={<Pricing />} />
+              <Route path="/rex" element={<MeetRex />} />
               <Route path="/copilot" element={<Copilot />} />
               <Route path="/handsfree" element={<Handsfree />} />
               <Route path="/templates" element={<TemplateManager userId="mock-user-id" />} />
