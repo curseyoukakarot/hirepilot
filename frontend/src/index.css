@@ -14,3 +14,10 @@ html, body, #root {
 
 /* Blog article base text color */
 .prose * { color: #111827 !important; }
+
+/* Table of Contents link styling */
+#toc-sidebar a, #toc-sidebar span { color: #4B5563 !important; transition:color .2s; }
+#toc-sidebar a:hover, #toc-sidebar span:hover { color:#111827 !important; }
+
+/* Breadcrumb link */
+#breadcrumb a { @apply text-gray-600 hover:text-gray-900; }
