@@ -26,6 +26,7 @@ import Handsfree from './screens/Handsfree';
 import Pricing from './screens/Pricing';
 import RexChatBox from './components/RexChatBox';
 import { apiPost } from './lib/api';
+import BlogLandingPage from './screens/BlogLandingPage';
 
 // Lazy load screens
 const SigninScreen = lazy(() => import("./screens/SigninScreen"));
@@ -304,6 +305,7 @@ function InnerApp() {
               <Route path="/phantom/webhook-logs" element={<WebhookLogs />} />
               <Route path="/super-admin" element={<SuperAdminDashboard />} />
               <Route path="/admin/users" element={<AdminUserManagement />} />
+              <Route path="/blog" element={<BlogLandingPage />} />
               <Route path="*" element={<Navigate to="/login" />} />
             </Routes>
           </Suspense>
