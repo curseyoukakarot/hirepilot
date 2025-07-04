@@ -95,7 +95,7 @@ export default function MeetRex() {
       </section>
 
       {/* Features Grid */}
-      <section id="features" className="py-20 bg-slate-50">
+      <section id="features" className="py-20 bg-gradient-to-t from-blue-500 via-blue-200 to-white">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-slate-900 mb-4">What Can REX Do?</h2>
@@ -123,29 +123,22 @@ export default function MeetRex() {
       </section>
 
       {/* Use Cases */}
-      <section id="use-cases" className="py-20 bg-white">
+      <section id="use-cases" className="py-20 bg-gradient-to-b from-white via-blue-200 to-blue-500">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-slate-900 mb-4">Built for Busy Recruiters</h2>
           </div>
           <div className="grid lg:grid-cols-3 gap-8">
             {[
-              {icon:'fa-building',title:'Agency Recruiters',quote:'"REX helped us 3x our placements"',by:'Sarah, Agency Owner',img:'/avatars/avatar-1.jpg',desc:'Scale outreach without extra headcount'},
-              {icon:'fa-users',title:'In-House Teams',quote:'"Perfect for our tech stack"',by:'Mike, Talent Lead',img:'/avatars/avatar-2.jpg',desc:'Sync with ATS, Slack, and calendar'},
-              {icon:'fa-user',title:'Solopreneurs',quote:'"Like having a full team"',by:'Lisa, Independent',img:'/avatars/avatar-5.jpg',desc:'Full automation, no extra tools needed'}
+              {icon:'fa-building',title:'Agency Recruiters',desc:'Scale outreach without extra headcount'},
+              {icon:'fa-users',title:'In-House Teams',desc:'Sync with ATS, Slack, and calendar'},
+              {icon:'fa-user',title:'Solopreneurs',desc:'Full automation, no extra tools needed'}
             ].map(c=>(
               <div key={c.title} className="text-center">
-                <div className="bg-slate-50 p-8 rounded-xl mb-6">
+                <div className="bg-white/30 backdrop-blur-sm p-8 rounded-xl mb-6">
                   <i className={`fa-solid ${c.icon} text-4xl text-purple-600 mb-4`} />
                   <h3 className="text-2xl font-bold text-slate-900 mb-4">{c.title}</h3>
                   <p className="text-slate-600">{c.desc}</p>
-                </div>
-                <div className="flex items-center space-x-3 justify-center">
-                  <img src={c.img} alt={c.by} className="w-10 h-10 rounded-full" />
-                  <div className="text-left">
-                    <p className="text-sm text-slate-600">{c.quote}</p>
-                    <p className="text-xs text-slate-500">{c.by}</p>
-                  </div>
                 </div>
               </div>
             ))}
@@ -191,16 +184,16 @@ export default function MeetRex() {
       </section>
 
       {/* Pricing CTA */}
-      <section id="pricing-cta" className="py-20 bg-white">
+      <section id="pricing-cta" className="py-20 bg-slate-900 text-white">
         <div className="max-w-4xl mx-auto px-6 text-center">
           <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl p-12 border border-purple-100">
-            <h2 className="text-4xl font-bold text-slate-900 mb-6">Ready to Meet REX?</h2>
-            <p className="text-xl text-slate-600 mb-8">REX is included with all RecruitPro plans. Start your 7-day free trial today.</p>
+            <h2 className="text-4xl font-bold mb-6">Ready to Meet REX?</h2>
+            <p className="text-xl text-slate-200 mb-8">REX is included with all Team plans. Start your 7-day free trial today.</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
               <a href="/pricing" className="gradient-bg text-white px-8 py-4 rounded-lg font-semibold text-lg">Start for Free →</a>
               <a href="/pricing" className="border-2 border-purple-200 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-purple-50">View Pricing</a>
             </div>
-            <p className="text-sm text-slate-500">No credit card required • Credits used for enrichment</p>
+            <p className="text-sm text-slate-400">Credits used for enrichment</p>
           </div>
         </div>
       </section>
@@ -208,11 +201,13 @@ export default function MeetRex() {
       {/* Trust Section */}
       <section id="trust" className="py-16 bg-slate-50">
         <div className="max-w-6xl mx-auto px-6 text-center">
-          <p className="text-slate-600 mb-8">Trusted by 1,000+ recruiters and hiring teams</p>
+          <p className="text-slate-600 mb-8">Sync your HirePilot recruiting flows with tools you already have</p>
           <div className="flex justify-center items-center space-x-12 opacity-60">
-            {['Apollo','LinkedIn','Slack','Zapier','Make'].map(b=> (
-              <div key={b} className="text-2xl font-bold text-slate-400">{b}</div>
-            ))}
+            <img src="/apollo-logo-v2.png" alt="Apollo" className="h-8" />
+            <i className="fa-brands fa-linkedin text-4xl text-slate-400" />
+            <i className="fa-brands fa-slack text-4xl text-slate-400" />
+            <i className="fa-brands fa-zap text-4xl text-slate-400" />
+            <img src="/make-logo.png" alt="Make.com" className="h-8" />
           </div>
         </div>
       </section>
