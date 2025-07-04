@@ -4,6 +4,19 @@ import { supabase } from '../lib/supabase';
 import { launchQueue } from '../../api/campaigns/launch';
 import sgMail from '@sendgrid/mail';
 import { enrichLead as proxycurlEnrichLead } from '../../services/proxycurl/enrichLead';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const {
+  sourceLeads,
+  enrichLead: enrichLeadTool,
+  sendMessage,
+  getPipelineStats,
+  moveCandidate,
+  triggerZapier,
+  triggerMakeWorkflow,
+  fetchCredits: fetchCreditsTool,
+  openHelpArticle,
+  getEmailStatus
+} = require('../../tools/rexToolFunctions');
 
 // Resolve SDK root then require specific compiled files to sidestep export mapping quirks
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -116,6 +129,91 @@ server.registerCapabilities({
 
         if (error) throw error;
         return data;
+      }
+    },
+    get_email_status: {
+      parameters: { userId:{type:'string'}, emailId:{type:'string'} },
+      handler: async ({ userId, emailId }) => {
+        await assertPremium(userId);
+        return await getEmailStatus({ emailId });
+      }
+    },
+    // ----------------- Newly added dynamic REX tools -----------------
+    source_leads: {
+      parameters: {
+        userId: { type:'string' },
+        campaignId:{ type:'string' },
+        source:{ type:'string' },
+        filters:{ type:'object' }
+      },
+      handler: async ({ userId, campaignId, source, filters }) => {
+        await assertPremium(userId);
+        const creditInfo = await fetchCreditsTool({ userId });
+        if (creditInfo.creditsRemaining <= 0) throw new Error('Insufficient credits to source leads.');
+        return await sourceLeads({ userId, campaignId, source, filters });
+      }
+    },
+    enrich_lead_advanced: {
+      parameters: { userId:{type:'string'}, leadId:{type:'string'}, fields:{type:'array'} },
+      handler: async ({ userId, leadId, fields }) => {
+        await assertPremium(userId);
+        const creditInfo = await fetchCreditsTool({ userId });
+        if (creditInfo.creditsRemaining <= 0) throw new Error('Insufficient credits to enrich lead.');
+        return await enrichLeadTool({ userId, leadId, fields });
+      }
+    },
+    send_message: {
+      parameters: {
+        userId:{type:'string'},
+        leadId:{type:'string'},
+        messageType:{type:'string'},
+        tone:{type:'string'},
+        jobDetails:{type:'object'}
+      },
+      handler: async ({ userId, leadId, messageType, tone, jobDetails }) => {
+        await assertPremium(userId);
+        return await sendMessage({ userId, leadId, messageType, tone, jobDetails });
+      }
+    },
+    get_pipeline_stats: {
+      parameters: { userId:{type:'string'}, campaignId:{type:'string'}, stage:{type:'string'} },
+      handler: async ({ userId, campaignId, stage }) => {
+        await assertPremium(userId);
+        return await getPipelineStats({ campaignId, stage });
+      }
+    },
+    move_candidate: {
+      parameters: { userId:{type:'string'}, candidateId:{type:'string'}, newStage:{type:'string'} },
+      handler: async ({ userId, candidateId, newStage }) => {
+        await assertPremium(userId);
+        return await moveCandidate({ candidateId, newStage });
+      }
+    },
+    trigger_zapier: {
+      parameters: { userId:{type:'string'}, webhookName:{type:'string'}, payload:{type:'object'} },
+      handler: async ({ userId, webhookName, payload }) => {
+        await assertPremium(userId);
+        return await triggerZapier({ webhookName, payload });
+      }
+    },
+    trigger_make_workflow: {
+      parameters: { userId:{type:'string'}, workflowId:{type:'string'}, payload:{type:'object'} },
+      handler: async ({ userId, workflowId, payload }) => {
+        await assertPremium(userId);
+        return await triggerMakeWorkflow({ workflowId, payload });
+      }
+    },
+    fetch_credits: {
+      parameters: { userId:{type:'string'} },
+      handler: async ({ userId }) => {
+        return await fetchCreditsTool({ userId });
+      }
+    },
+    open_help_article: {
+      parameters: { userId:{type:'string'}, topic:{type:'string'} },
+      handler: async ({ userId, topic }) => {
+        await assertPremium(userId);
+        return await openHelpArticle({ topic });
       }
     }
   }

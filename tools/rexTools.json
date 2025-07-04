@@ -1,0 +1,118 @@
+[
+  {
+    "name": "sourceLeads",
+    "description": "Source leads from Apollo or LinkedIn into a specific campaign.",
+    "parameters": {
+      "campaignId": "string",
+      "source": "string",
+      "filters": "object"
+    },
+    "examples": [
+      "REX, source 10 product managers for this role.",
+      "REX, pull 20 Apollo leads for my SDR campaign.",
+      "REX, find top leads in my campaign who opened but didn't reply."
+    ]
+  },
+  {
+    "name": "enrichLead",
+    "description": "Enrich a lead using Apollo or Proxycurl to find email, phone, and other data.",
+    "parameters": {
+      "leadId": "string",
+      "fields": "array"
+    },
+    "examples": [
+      "REX, enrich this lead with a personal email.",
+      "REX, enrich this batch of leads with emails.",
+      "REX, enrich this lead with a verified email."
+    ]
+  },
+  {
+    "name": "sendMessage",
+    "description": "Send or draft a personalized outreach message for a candidate.",
+    "parameters": {
+      "leadId": "string",
+      "messageType": "string",
+      "tone": "string",
+      "jobDetails": "object"
+    },
+    "examples": [
+      "REX, write a 3-step cold email sequence for this candidate.",
+      "REX, create a follow-up message for someone who opened but didn't reply."
+    ]
+  },
+  {
+    "name": "getPipelineStats",
+    "description": "Fetch candidates by campaign stage.",
+    "parameters": {
+      "campaignId": "string",
+      "stage": "string"
+    },
+    "examples": [
+      "REX, show me all candidates in the Phone Screen stage.",
+      "REX, who hasn't moved stages in 7 days?"
+    ]
+  },
+  {
+    "name": "moveCandidate",
+    "description": "Move a candidate to a new stage in the hiring pipeline.",
+    "parameters": {
+      "candidateId": "string",
+      "newStage": "string"
+    },
+    "examples": [
+      "REX, move Jane Smith to Final Interview."
+    ]
+  },
+  {
+    "name": "triggerZapier",
+    "description": "Trigger a Zapier webhook automation.",
+    "parameters": {
+      "webhookName": "string",
+      "payload": "object"
+    },
+    "examples": [
+      "REX, trigger the Zapier webhook for SDR follow-up."
+    ]
+  },
+  {
+    "name": "triggerMakeWorkflow",
+    "description": "Trigger a Make.com workflow.",
+    "parameters": {
+      "workflowId": "string",
+      "payload": "object"
+    },
+    "examples": [
+      "REX, trigger the Make.com SDR follow-up workflow."
+    ]
+  },
+  {
+    "name": "fetchCredits",
+    "description": "Return the current user's available and used credit balance.",
+    "parameters": {},
+    "examples": [
+      "REX, how many credits do I have left?",
+      "REX, explain what's using the most credits this week."
+    ]
+  },
+  {
+    "name": "openHelpArticle",
+    "description": "Open or summarize a help center article inside the REX UI.",
+    "parameters": {
+      "topic": "string"
+    },
+    "examples": [
+      "REX, open the support article on LinkedIn cookies."
+    ]
+  },
+  {
+    "name": "getEmailStatus",
+    "description": "Check the delivery or open status of a previously sent email.",
+    "parameters": {
+      "emailId": "string"
+    },
+    "examples": [
+      "REX, did my message to Jordan get delivered?",
+      "REX, test my SendGrid API key."
+    ]
+  }
+] 
