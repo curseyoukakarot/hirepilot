@@ -81,118 +81,118 @@ export default function BlogLandingPage() {
           <div className="max-w-6xl mx-auto px-6">
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
               {/* Article 1 */}
-              <article id="article-1" className="bg-white rounded-2xl overflow-hidden card-hover shadow-lg">
+              <a href="/blog/flow-of-hirepilot" id="article-1" className="bg-white rounded-2xl overflow-hidden card-hover shadow-lg block">
                 <div className="h-48 bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center">
                   <i className="fa-solid fa-robot text-white text-4xl" />
                 </div>
                 <div className="p-6">
                   <span className="px-3 py-1 bg-violet-100 text-violet-700 rounded-lg text-sm font-medium">Automation</span>
-                  <h3 className="text-xl font-bold mt-4 mb-3 line-clamp-2 text-gray-900">10 AI-Powered Recruiting Strategies That Actually Work</h3>
-                  <p className="text-gray-600 mb-4 line-clamp-2">Discover how leading recruiters are using artificial intelligence to streamline their hiring process and find better candidates faster.</p>
+                  <h3 className="text-xl font-bold mt-4 mb-3 line-clamp-2 text-gray-900">The Flow of HirePilot – From Campaigns to Candidates</h3>
+                  <p className="text-gray-600 mb-4 line-clamp-2">Understand how data moves through HirePilot and set up your workflow for success.</p>
                   <div className="flex items-center space-x-3">
                     <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-5.jpg" alt="Author avatar" className="w-8 h-8 rounded-full" />
                     <div className="text-sm">
-                      <p className="text-gray-900 font-medium">Sarah Chen</p>
-                      <p className="text-gray-500">Dec 15, 2024</p>
+                      <p className="text-gray-900 font-medium">HirePilot Team</p>
+                      <p className="text-gray-500">Jul 4, 2025</p>
                     </div>
                   </div>
                 </div>
-              </article>
+              </a>
 
               {/* Article 2 */}
-              <article id="article-2" className="bg-white rounded-2xl overflow-hidden card-hover shadow-lg">
+              <a href="/blog/message-center-setup" id="article-2" className="bg-white rounded-2xl overflow-hidden card-hover shadow-lg block">
                 <div className="h-48 bg-gradient-to-br from-emerald-500 to-blue-600 flex items-center justify-center">
                   <i className="fa-solid fa-chart-line text-white text-4xl" />
                 </div>
                 <div className="p-6">
                   <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium">Growth Tips</span>
-                  <h3 className="text-xl font-bold mt-4 mb-3 line-clamp-2 text-gray-900">How to Scale Your Recruiting Agency from 10 to 100 Placements</h3>
-                  <p className="text-gray-600 mb-4 line-clamp-2">A comprehensive guide to building systems, processes, and teams that can handle exponential growth in your recruiting business.</p>
+                  <h3 className="text-xl font-bold mt-4 mb-3 line-clamp-2 text-gray-900">Message Center Setup – Connecting Gmail, Outlook, and SendGrid</h3>
+                  <p className="text-gray-600 mb-4 line-clamp-2">Learn how to power your outreach by linking your own email providers.</p>
                   <div className="flex items-center space-x-3">
                     <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-3.jpg" alt="Author avatar" className="w-8 h-8 rounded-full" />
                     <div className="text-sm">
-                      <p className="text-gray-900 font-medium">Marcus Johnson</p>
-                      <p className="text-gray-500">Dec 12, 2024</p>
+                      <p className="text-gray-900 font-medium">HirePilot Team</p>
+                      <p className="text-gray-500">Jul 4, 2025</p>
                     </div>
                   </div>
                 </div>
-              </article>
+              </a>
 
               {/* Article 3 */}
-              <article id="article-3" className="bg-white rounded-2xl overflow-hidden card-hover shadow-lg">
+              <a href="/blog/apollo-integration" id="article-3" className="bg-white rounded-2xl overflow-hidden card-hover shadow-lg block">
                 <div className="h-48 bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
                   <i className="fa-solid fa-envelope text-white text-4xl" />
                 </div>
                 <div className="p-6">
                   <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium">Campaigns</span>
-                  <h3 className="text-xl font-bold mt-4 mb-3 line-clamp-2 text-gray-900">Email Templates That Get 80% Response Rates</h3>
-                  <p className="text-gray-600 mb-4 line-clamp-2">Copy-paste email templates and outreach strategies that top recruiters use to connect with passive candidates.</p>
+                  <h3 className="text-xl font-bold mt-4 mb-3 line-clamp-2 text-gray-900">How to Use Apollo with HirePilot – Setup & Keyword Tips</h3>
+                  <p className="text-gray-600 mb-4 line-clamp-2">Connect Apollo and source qualified leads in seconds.</p>
                   <div className="flex items-center space-x-3">
                     <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-7.jpg" alt="Author avatar" className="w-8 h-8 rounded-full" />
                     <div className="text-sm">
-                      <p className="text-gray-900 font-medium">Emily Rodriguez</p>
-                      <p className="text-gray-500">Dec 10, 2024</p>
+                      <p className="text-gray-900 font-medium">HirePilot Team</p>
+                      <p className="text-gray-500">Jul 4, 2025</p>
                     </div>
                   </div>
                 </div>
-              </article>
+              </a>
 
               {/* Article 4 */}
-              <article id="article-4" className="bg-white rounded-2xl overflow-hidden card-hover shadow-lg">
+              <a href="/blog/linkedin-sales-navigator" id="article-4" className="bg-white rounded-2xl overflow-hidden card-hover shadow-lg block">
                 <div className="h-48 bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center">
                   <i className="fa-solid fa-users text-white text-4xl" />
                 </div>
                 <div className="p-6">
                   <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-lg text-sm font-medium">Leads</span>
-                  <h3 className="text-xl font-bold mt-4 mb-3 line-clamp-2 text-gray-900">The Ultimate Guide to LinkedIn Lead Generation</h3>
-                  <p className="text-gray-600 mb-4 line-clamp-2">Master LinkedIn's algorithm and turn your profile into a lead generation machine with these proven strategies.</p>
+                  <h3 className="text-xl font-bold mt-4 mb-3 line-clamp-2 text-gray-900">Using LinkedIn Sales Navigator – Chrome Extension vs Manual Cookie</h3>
+                  <p className="text-gray-600 mb-4 line-clamp-2">Import Leads from Sales Navigator into HirePilot.</p>
                   <div className="flex items-center space-x-3">
                     <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-9.jpg" alt="Author avatar" className="w-8 h-8 rounded-full" />
                     <div className="text-sm">
-                      <p className="text-gray-900 font-medium">David Kim</p>
-                      <p className="text-gray-500">Dec 8, 2024</p>
+                      <p className="text-gray-900 font-medium">HirePilot Team</p>
+                      <p className="text-gray-500">Jul 4, 2025</p>
                     </div>
                   </div>
                 </div>
-              </article>
+              </a>
 
               {/* Article 5 */}
-              <article id="article-5" className="bg-white rounded-2xl overflow-hidden card-hover shadow-lg">
+              <a href="/blog/meet-rex" id="article-5" className="bg-white rounded-2xl overflow-hidden card-hover shadow-lg block">
                 <div className="h-48 bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center">
                   <i className="fa-solid fa-puzzle-piece text-white text-4xl" />
                 </div>
                 <div className="p-6">
                   <span className="px-3 py-1 bg-teal-100 text-teal-700 rounded-lg text-sm font-medium">Integrations</span>
-                  <h3 className="text-xl font-bold mt-4 mb-3 line-clamp-2 text-gray-900">Connect Your ATS with HirePilot in 5 Minutes</h3>
-                  <p className="text-gray-600 mb-4 line-clamp-2">Step-by-step integration guide for popular ATS platforms including Greenhouse, Lever, and BambooHR.</p>
+                  <h3 className="text-xl font-bold mt-4 mb-3 line-clamp-2 text-gray-900">Meet REX – Your AI Recruiting Copilot & Support Assistant</h3>
+                  <p className="text-gray-600 mb-4 line-clamp-2">Automate outreach, enrichment, and support with REX.</p>
                   <div className="flex items-center space-x-3">
                     <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-6.jpg" alt="Author avatar" className="w-8 h-8 rounded-full" />
                     <div className="text-sm">
-                      <p className="text-gray-900 font-medium">Lisa Park</p>
-                      <p className="text-gray-500">Dec 5, 2024</p>
+                      <p className="text-gray-900 font-medium">HirePilot Team</p>
+                      <p className="text-gray-500">Jul 4, 2025</p>
                     </div>
                   </div>
                 </div>
-              </article>
+              </a>
 
               {/* Article 6 */}
-              <article id="article-6" className="bg-white rounded-2xl overflow-hidden card-hover shadow-lg">
+              <a href="/blog/import-csv" id="article-6" className="bg-white rounded-2xl overflow-hidden card-hover shadow-lg block">
                 <div className="h-48 bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
                   <i className="fa-solid fa-rocket text-white text-4xl" />
                 </div>
                 <div className="p-6">
                   <span className="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-sm font-medium">Getting Started</span>
-                  <h3 className="text-xl font-bold mt-4 mb-3 line-clamp-2 text-gray-900">Your First Week with HirePilot: A Complete Setup Guide</h3>
-                  <p className="text-gray-600 mb-4 line-clamp-2">Everything you need to know to get started with automated recruiting and see results in your first week.</p>
+                  <h3 className="text-xl font-bold mt-4 mb-3 line-clamp-2 text-gray-900">Importing Leads via CSV — Field Mapping, Enrichment Tips, and Fixes</h3>
+                  <p className="text-gray-600 mb-4 line-clamp-2">Learn to upload spreadsheets and enrich lead data in minutes.</p>
                   <div className="flex items-center space-x-3">
                     <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" alt="Author avatar" className="w-8 h-8 rounded-full" />
                     <div className="text-sm">
-                      <p className="text-gray-900 font-medium">Alex Thompson</p>
-                      <p className="text-gray-500">Dec 3, 2024</p>
+                      <p className="text-gray-900 font-medium">HirePilot Team</p>
+                      <p className="text-gray-500">Jul 4, 2025</p>
                     </div>
                   </div>
                 </div>
-              </article>
+              </a>
             </div>
           </div>
         </section>
