@@ -142,7 +142,7 @@ export default function BlogLandingPage() {
           </nav>
           <div className="flex items-center gap-4">
             <a href="/login" className="hidden md:block text-gray-600 hover:text-gray-900">Sign in</a>
-            <a href="#" className="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 py-2.5 rounded-lg hover:shadow-lg transition-all duration-200">
+            <a href="/pricing" className="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 py-2.5 rounded-lg hover:shadow-lg transition-all duration-200">
               Start for Free
             </a>
           </div>

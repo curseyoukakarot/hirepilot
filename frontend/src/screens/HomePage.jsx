@@ -18,7 +18,7 @@ const HomePage = () => {
           </nav>
           <div className="flex items-center gap-4">
             <a href="/login" className="hidden md:block text-gray-600 hover:text-gray-900">Sign in</a>
-            <a href="#" className="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 py-2.5 rounded-lg hover:shadow-lg transition-all duration-200">
+            <a href="/pricing" className="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 py-2.5 rounded-lg hover:shadow-lg transition-all duration-200">
               Start for Free
             </a>
           </div>
@@ -40,10 +40,10 @@ const HomePage = () => {
               AI-powered recruiting that saves you 100+ hours per hire.
             </p>
             <div className="mt-8 flex flex-col sm:flex-row gap-4 sm:justify-start justify-center">
-              <a href="#" className="group bg-white text-blue-600 font-semibold py-3 px-6 rounded-lg shadow-lg hover:shadow-white/25 transition-all duration-200">
+              <a href="/pricing" className="group bg-white text-blue-600 font-semibold py-3 px-6 rounded-lg shadow-lg hover:shadow-white/25 transition-all duration-200">
                 Start for Free <i className="fa-solid fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
               </a>
-              <a href="#" className="bg-blue-900 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:bg-blue-800 transition-all duration-200">
+              <a href="https://form.typeform.com/to/cnUZ9PgW" target="_blank" rel="noopener" className="bg-blue-900 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:bg-blue-800 transition-all duration-200">
                 <i className="fa-regular fa-calendar mr-2"></i> Book Demo
               </a>
             </div>
@@ -227,10 +227,10 @@ const HomePage = () => {
           <h2 className="text-4xl font-bold mb-6">Build your recruiting engine in minutes</h2>
           <p className="text-xl mb-10 opacity-90">Join thousands of companies hiring better with AI.</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a href="#" className="bg-white text-blue-600 font-semibold py-4 px-8 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-200">
+            <a href="/pricing" className="bg-white text-blue-600 font-semibold py-4 px-8 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-200">
               Get Started Free <i className="fa-solid fa-arrow-right ml-2"></i>
             </a>
-            <a href="#" className="border-2 border-white text-white font-semibold py-4 px-8 rounded-lg hover:bg-white/10 transition-colors duration-200">
+            <a href="https://form.typeform.com/to/cnUZ9PgW" target="_blank" rel="noopener" className="border-2 border-white text-white font-semibold py-4 px-8 rounded-lg hover:bg-white/10 transition-colors duration-200">
               <i className="fa-regular fa-calendar mr-2"></i> Schedule Demo
             </a>
           </div>

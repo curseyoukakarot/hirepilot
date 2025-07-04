@@ -184,7 +184,7 @@ export default function Pricing() {
               <div className="flex items-center justify-center mb-8">
                 <i className="fa-solid fa-user-tie text-4xl text-blue-400"></i>
               </div>
-              <button className="w-full bg-blue-500 text-white py-3 rounded-xl font-semibold hover:bg-blue-600 transition-colors">Contact Us</button>
+              <a href="https://form.typeform.com/to/UubjS8Rh" target="_blank" rel="noopener" className="block text-center w-full bg-blue-500 text-white py-3 rounded-xl font-semibold hover:bg-blue-600 transition-colors">Contact Us</a>
             </div>
 
             <div id="dfy-standard" className="bg-gray-800 rounded-2xl p-8 border border-gray-700">
@@ -193,7 +193,7 @@ export default function Pricing() {
               <div className="flex items-center justify-center mb-8">
                 <i className="fa-solid fa-users text-4xl text-blue-400"></i>
               </div>
-              <button className="w-full bg-blue-500 text-white py-3 rounded-xl font-semibold hover:bg-blue-600 transition-colors">Contact Us</button>
+              <a href="https://form.typeform.com/to/UubjS8Rh" target="_blank" rel="noopener" className="block text-center w-full bg-blue-500 text-white py-3 rounded-xl font-semibold hover:bg-blue-600 transition-colors">Contact Us</a>
             </div>
 
             <div id="dfy-premium" className="bg-gray-800 rounded-2xl p-8 border border-gray-700">
@@ -203,7 +203,7 @@ export default function Pricing() {
               <div className="flex items-center justify-center mb-8">
                 <i className="fa-solid fa-building-user text-4xl text-blue-400"></i>
               </div>
-              <button className="w-full bg-blue-500 text-white py-3 rounded-xl font-semibold hover:bg-blue-600 transition-colors">Contact Us</button>
+              <a href="https://form.typeform.com/to/UubjS8Rh" target="_blank" rel="noopener" className="block text-center w-full bg-blue-500 text-white py-3 rounded-xl font-semibold hover:bg-blue-600 transition-colors">Contact Us</a>
             </div>
           </div>
         </div>
