@@ -190,7 +190,7 @@ export default function MeetRex() {
             <h2 className="text-4xl font-bold text-slate-900 mb-6">Ready to Meet REX?</h2>
             <p className="text-xl text-slate-600 mb-8">REX is included with all Team plans. Start your 7-day free trial today.</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
-              <a href="/pricing" className="gradient-bg text-white px-8 py-4 rounded-lg font-semibold text-lg">Start for Free →</a>
+              <a href="/pricing" className="bg-white text-blue-600 border-2 border-blue-600 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-blue-50">Start for Free →</a>
               <a href="/pricing" className="border-2 border-purple-200 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-purple-50">View Pricing</a>
             </div>
             <p className="text-sm text-slate-500">Start for free. Credits used for enrichment</p>
@@ -207,7 +207,7 @@ export default function MeetRex() {
             <i className="fa-brands fa-linkedin text-4xl text-slate-400" />
             <i className="fa-brands fa-slack text-4xl text-slate-400" />
             <i className="fa-brands fa-zap text-4xl text-slate-400" />
-            <img src="/make-logo.png" alt="Make.com" className="h-8" />
+            <img src="/make-logo.png" alt="Make.com" className="h-8 w-auto" />
           </div>
         </div>
       </section>
