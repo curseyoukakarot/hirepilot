@@ -95,7 +95,7 @@ export default function MeetRex() {
       </section>
 
       {/* Features Grid */}
-      <section id="features" className="py-20 bg-gradient-to-t from-blue-500 via-blue-200 to-white">
+      <section id="features" className="py-20 bg-gradient-to-b from-white via-blue-200 via-blue-500 to-white">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-slate-900 mb-4">What Can REX Do?</h2>
@@ -184,16 +184,16 @@ export default function MeetRex() {
       </section>
 
       {/* Pricing CTA */}
-      <section id="pricing-cta" className="py-20 bg-slate-900 text-white">
+      <section id="pricing-cta" className="py-20 bg-white">
         <div className="max-w-4xl mx-auto px-6 text-center">
           <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl p-12 border border-purple-100">
-            <h2 className="text-4xl font-bold mb-6">Ready to Meet REX?</h2>
-            <p className="text-xl text-slate-200 mb-8">REX is included with all Team plans. Start your 7-day free trial today.</p>
+            <h2 className="text-4xl font-bold text-slate-900 mb-6">Ready to Meet REX?</h2>
+            <p className="text-xl text-slate-600 mb-8">REX is included with all Team plans. Start your 7-day free trial today.</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
               <a href="/pricing" className="gradient-bg text-white px-8 py-4 rounded-lg font-semibold text-lg">Start for Free →</a>
               <a href="/pricing" className="border-2 border-purple-200 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-purple-50">View Pricing</a>
             </div>
-            <p className="text-sm text-slate-400">Credits used for enrichment</p>
+            <p className="text-sm text-slate-500">Start for free. Credits used for enrichment</p>
           </div>
         </div>
       </section>
