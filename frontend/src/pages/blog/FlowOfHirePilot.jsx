@@ -151,8 +151,9 @@ export default function FlowOfHirePilot() {
           {/* Summary table */}
           <div id="summary">
             <h2>✅ Summary</h2>
-            <div className="overflow-x-auto rounded-lg shadow border border-gray-700 my-6">
-              <table className="min-w-full text-left text-sm text-gray-200">
+            <style>{`.dark-table *{color:#F9FAFB!important}`}</style>
+            <div className="overflow-x-auto rounded-lg shadow border border-gray-700 my-6 dark-table">
+              <table className="min-w-full text-left text-sm">
                 <thead className="bg-gray-800 uppercase text-xs text-gray-400">
                   <tr>
                     <th className="px-4 py-3">Step</th>
