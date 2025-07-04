@@ -76,8 +76,8 @@ export default function ImportCsvGuide() {
             <h2>🧩 Step 1: Prepare Your CSV</h2>
             <p>Before uploading, make sure your spreadsheet has clear column headers. At a minimum, include:</p>
             <div className="overflow-x-auto rounded-lg shadow border border-gray-700 my-6">
-              <table className="text-gray-200 text-sm">
-                <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
+              <table className="text-white text-sm">
+                <thead className="bg-gray-800 text-white uppercase text-xs">
                   <tr>
                     <th className="px-4 py-3">Column</th>
                     <th className="px-4 py-3">Example</th>

@@ -117,8 +117,8 @@ export default function LinkedInSalesNavigatorGuide() {
           <div id="comparison">
             <h2>🤔 When to Use Which Method?</h2>
             <div className="overflow-x-auto rounded-lg shadow border border-gray-700 my-6">
-              <table className="text-gray-200 text-sm">
-                <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
+              <table className="text-white text-sm">
+                <thead className="bg-gray-800 text-white uppercase text-xs">
                   <tr>
                     <th className="px-4 py-3">Method</th>
                     <th className="px-4 py-3">Best For</th>

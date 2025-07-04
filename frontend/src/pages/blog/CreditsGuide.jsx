@@ -30,7 +30,7 @@ export default function CreditsGuide() {
       <div id="hero-section" className="relative">
         <img
           className="w-full h-[400px] object-cover"
-          src="https://storage.googleapis.com/uxpilot-auth.appspot.com/copilot-hero.gif"
+          src="/ai-outreach.png"
           alt="Credits system illustration"
         />
         <div className="absolute inset-0 bg-black bg-opacity-50" />
@@ -75,8 +75,8 @@ export default function CreditsGuide() {
             <h2>⚖️ What Are Credits Used For?</h2>
             <p>Here's a full breakdown of what actions consume credits in HirePilot:</p>
             <div className="overflow-x-auto rounded-lg shadow border border-gray-700 my-6">
-              <table className="text-gray-200 text-sm">
-                <thead className="bg-gray-800 text-gray-400 uppercase text-xs"><tr><th className="px-4 py-3">Action</th><th className="px-4 py-3">Cost</th><th className="px-4 py-3">Notes</th></tr></thead>
+              <table className="text-white text-sm">
+                <thead className="bg-gray-800 text-white uppercase text-xs"><tr><th className="px-4 py-3">Action</th><th className="px-4 py-3">Cost</th><th className="px-4 py-3">Notes</th></tr></thead>
                 <tbody>
                   <tr className="bg-gray-900"><td className="px-4 py-3">Sourcing a lead from Apollo (HirePilot key)</td><td className="px-4 py-3">1 credit</td><td className="px-4 py-3">Free if using your own Apollo API key</td></tr>
                   <tr className="bg-gray-800"><td className="px-4 py-3">Sourcing a lead from LinkedIn Sales Navigator</td><td className="px-4 py-3">1 credit</td><td className="px-4 py-3">Via Chrome Extension or cookie</td></tr>
