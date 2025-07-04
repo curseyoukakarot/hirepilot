@@ -13,4 +13,4 @@ html, body, #root {
 }
 
 /* Blog article base text color */
-.prose p, .prose li { @apply text-gray-900; }
+.prose :where(p, li, h1, h2, h3, h4, h5, h6, span, strong, em, blockquote, th, td) {@apply text-gray-900; }
