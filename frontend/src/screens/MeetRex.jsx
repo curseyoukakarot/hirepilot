@@ -236,7 +236,7 @@ export default function MeetRex() {
             <div>
               <h4 className="font-semibold text-lg mb-4">Company</h4>
               <ul className="space-y-3 text-gray-400">
-                <li><span className="hover:text-white cursor-pointer">Blog</span></li>
+                <li><a href="/blog" className="hover:text-white">Blog</a></li>
               </ul>
             </div>
             <div>
