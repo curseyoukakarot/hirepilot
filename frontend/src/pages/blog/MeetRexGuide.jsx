@@ -29,7 +29,7 @@ export default function MeetRexGuide() {
       <div id="hero-section" className="relative">
         <img
           className="w-full h-[400px] object-cover"
-          src="https://storage.googleapis.com/uxpilot-auth.appspot.com/copilot-hero.gif"
+          src="/REX.png"
           alt="REX AI recruiting copilot illustration"
         />
         <div className="absolute inset-0 bg-black bg-opacity-50" />
