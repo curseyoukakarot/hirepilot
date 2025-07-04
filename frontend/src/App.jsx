@@ -27,6 +27,17 @@ import Pricing from './screens/Pricing';
 import RexChatBox from './components/RexChatBox';
 import { apiPost } from './lib/api';
 import BlogLandingPage from './screens/BlogLandingPage';
+// Blog article pages
+const FlowOfHirePilot = lazy(() => import("./pages/blog/FlowOfHirePilot"));
+const MessageCenterSetup = lazy(() => import("./pages/blog/MessageCenterSetup"));
+const ApolloIntegrationGuide = lazy(() => import("./pages/blog/ApolloIntegrationGuide"));
+const LinkedInSalesNavigatorGuide = lazy(() => import("./pages/blog/LinkedInSalesNavigatorGuide"));
+const MeetRexGuide = lazy(() => import("./pages/blog/MeetRexGuide"));
+const ImportCsvGuide = lazy(() => import("./pages/blog/ImportCsvGuide"));
+const CampaignWizardGuide = lazy(() => import("./pages/blog/CampaignWizardGuide"));
+const PipelineBestPracticesGuide = lazy(() => import("./pages/blog/PipelineBestPracticesGuide"));
+const EmailTroubleshootingGuide = lazy(() => import("./pages/blog/EmailTroubleshootingGuide"));
+const CreditsGuide = lazy(() => import("./pages/blog/CreditsGuide"));
 
 // Lazy load screens
 const SigninScreen = lazy(() => import("./screens/SigninScreen"));
@@ -307,6 +318,17 @@ function InnerApp() {
               <Route path="/super-admin" element={<SuperAdminDashboard />} />
               <Route path="/admin/users" element={<AdminUserManagement />} />
               <Route path="/blog" element={<BlogLandingPage />} />
+              {/* Blog articles */}
+              <Route path="/blog/flow-of-hirepilot" element={<FlowOfHirePilot />} />
+              <Route path="/blog/message-center-setup" element={<MessageCenterSetup />} />
+              <Route path="/blog/apollo-integration" element={<ApolloIntegrationGuide />} />
+              <Route path="/blog/linkedin-sales-navigator" element={<LinkedInSalesNavigatorGuide />} />
+              <Route path="/blog/meet-rex" element={<MeetRexGuide />} />
+              <Route path="/blog/import-csv" element={<ImportCsvGuide />} />
+              <Route path="/blog/campaign-wizard" element={<CampaignWizardGuide />} />
+              <Route path="/blog/PipelineBestPractices" element={<PipelineBestPracticesGuide />} />
+              <Route path="/blog/email-troubleshooting" element={<EmailTroubleshootingGuide />} />
+              <Route path="/blog/CreditsGuide" element={<CreditsGuide />} />
               <Route path="*" element={<Navigate to="/login" />} />
             </Routes>
           </Suspense>
