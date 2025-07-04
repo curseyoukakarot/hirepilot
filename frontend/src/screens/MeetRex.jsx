@@ -84,7 +84,7 @@ export default function MeetRex() {
             ].map(c => (
               <div key={c.title} className="text-center hover-lift">
                 <div className="w-20 h-20 gradient-bg rounded-full flex items-center justify-center mx-auto mb-6">
-                  <i className={`fa-solid ${c.icon} text-white text-2xl`} />
+                  <i className={`fa-solid ${c.icon} text-slate-900 text-2xl`} />
                 </div>
                 <h3 className="text-2xl font-bold text-slate-900 mb-4">{c.title}</h3>
                 <p className="text-slate-600 leading-relaxed">{c.desc}</p>
