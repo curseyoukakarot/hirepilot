@@ -144,9 +144,8 @@ export default function MeetRexGuide() {
             <h2>🔒 Who Has Access to REX?</h2>
             <p>REX is available to:</p>
             <ul>
-              <li>Super Admins</li>
-              <li>RecruitPro accounts</li>
-              <li>Team Admins</li>
+              <li>✅ Team Admins</li>
+              <li>✅ Pro users can gain access through an a la carte add on</li>
             </ul>
             <p>If you're eligible, you'll see a REX button in the top nav bar or side drawer.</p>
             <p>Want access? Reach out to <a className="text-blue-400 underline" href="mailto:support@thehirepilot.com">support@thehirepilot.com</a>.</p>
