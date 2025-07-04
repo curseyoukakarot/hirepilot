@@ -138,6 +138,7 @@ export default function BlogLandingPage() {
           <nav className="hidden md:flex items-center gap-8">
             <a href="/copilot" className="text-gray-600 hover:text-gray-900">Your Recruiting Co-Pilot</a>
             <a href="/handsfree" className="text-gray-600 hover:text-gray-900">Done For You Hiring</a>
+            <a href="/rex" className="text-gray-600 hover:text-gray-900">Meet REX</a>
             <a href="/pricing" className="text-gray-600 hover:text-gray-900">Pricing</a>
           </nav>
           <div className="flex items-center gap-4">
@@ -249,6 +250,7 @@ export default function BlogLandingPage() {
               <ul className="space-y-3 text-gray-400">
                 <li><a href="/copilot" className="hover:text-white">Your Recruiting Co-Pilot</a></li>
                 <li><a href="/handsfree" className="hover:text-white">Done For You Hiring</a></li>
+                <li><a href="/rex" className="hover:text-white">Meet REX</a></li>
                 <li><a href="/pricing" className="hover:text-white">Pricing</a></li>
               </ul>
             </div>
