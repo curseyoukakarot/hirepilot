@@ -22,7 +22,8 @@ export default async function searchApolloLeads(req: Request, res: Response) {
 
     if (userErr) throw userErr;
 
-    const isRecruitPro = userRecord?.account_type === 'RecruitPro';
+    const privilegedTypes = ['RecruitPro', 'TeamAdmin', 'admin', 'member'];
+    const isRecruitPro = privilegedTypes.includes(userRecord?.account_type);
 
     // Get user settings to check Apollo API key
     const { data: settings, error: settingsError } = await supabase
