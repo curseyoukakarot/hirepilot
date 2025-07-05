@@ -28,6 +28,7 @@ import RexChatBox from './components/RexChatBox';
 import { apiPost } from './lib/api';
 import BlogLandingPage from './screens/BlogLandingPage';
 import MeetRex from './screens/MeetRex';
+import useGAPageViews from "./hooks/useGAPageViews";
 // Blog article pages
 const FlowOfHirePilot = lazy(() => import("./pages/blog/FlowOfHirePilot"));
 const MessageCenterSetup = lazy(() => import("./pages/blog/MessageCenterSetup"));
@@ -211,6 +212,7 @@ function InnerApp() {
   const [dbRole, setDbRole] = useState(null);
   const [paymentWarning, setPaymentWarning] = useState(false);
   const [isSuspended, setIsSuspended] = useState(false);
+  useGAPageViews();
 
   useEffect(() => {
     const fetchRole = async () => {
