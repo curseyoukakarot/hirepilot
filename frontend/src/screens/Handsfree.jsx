@@ -1,28 +1,12 @@
 import React from 'react';
+import PublicNavbar from '../components/PublicNavbar';
 
 export default function Handsfree() {
   return (
     <div className="h-full text-base-content">
       <div id="main" className="min-h-screen bg-white text-gray-900">
         {/* Header */}
-        <header id="header" className="fixed w-full top-0 bg-white/90 backdrop-blur-sm z-50 border-b border-gray-100">
-          <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <img src="/logo.png" alt="HirePilot Logo" className="h-8 w-8" />
-              <span className="font-bold text-xl">HirePilot</span>
-            </div>
-            <nav className="hidden md:flex items-center gap-8">
-              <a href="/copilot" className="text-gray-600 hover:text-gray-900">Your Recruiting Co-Pilot</a>
-              <a href="/handsfree" className="text-blue-600 font-medium">Done For You Hiring</a>
-              <a href="/rex" className="text-gray-600 hover:text-gray-900">Meet REX</a>
-              <a href="/pricing" className="text-gray-600 hover:text-gray-900">Pricing</a>
-            </nav>
-            <div className="flex items-center gap-4">
-              <a href="/login" className="text-gray-600 hover:text-gray-900">Sign in</a>
-              <a href="/pricing" className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">Start for Free</a>
-            </div>
-          </div>
-        </header>
+        <PublicNavbar />
 
         {/* Hero Section */}
         <section id="hero" className="pt-32 pb-20 bg-gradient-to-b from-blue-500 via-blue-200 to-white">

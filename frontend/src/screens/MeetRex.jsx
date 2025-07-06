@@ -1,28 +1,11 @@
 import React from 'react';
+import PublicNavbar from '../components/PublicNavbar';
 
 export default function MeetRex() {
   return (
     <div className="bg-slate-50 font-sans">
-      {/* Header copied from HomePage */}
-      <header id="header" className="fixed w-full top-0 z-50 bg-white/90 backdrop-blur-sm border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <a href="/" className="flex items-center gap-2">
-            <img src="/logo.png" alt="HirePilot Logo" className="h-8 w-8" />
-            <span className="text-xl font-bold">HirePilot</span>
-          </a>
-          <nav className="hidden md:flex items-center gap-8">
-            <a href="/copilot" className="text-gray-600 hover:text-gray-900">Your Recruiting Co-Pilot</a>
-            <a href="/handsfree" className="text-gray-600 hover:text-gray-900">Done For You Hiring</a>
-            <a href="/rex" className="text-blue-600 font-medium">Meet REX</a>
-            <a href="/pricing" className="text-gray-600 hover:text-gray-900">Pricing</a>
-          </nav>
-          <div className="flex items-center gap-4">
-            <a href="/login" className="hidden md:block text-gray-600 hover:text-gray-900">Sign in</a>
-            <a href="/pricing" className="gradient-bg text-white px-6 py-2.5 rounded-lg hover:shadow-lg transition-all duration-200">Start for Free</a>
-          </div>
-          <button className="md:hidden text-gray-600"><i className="fa-solid fa-bars text-2xl" /></button>
-        </div>
-      </header>
+      {/* Header */}
+      <PublicNavbar />
 
       {/* Hero */}
       <section id="hero" className="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white h-[700px] flex items-center">

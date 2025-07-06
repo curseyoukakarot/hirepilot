@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { apiPost } from '../lib/api';
 import { supabase } from '../lib/supabase';
+import PublicNavbar from '../components/PublicNavbar';
 
 export default function Pricing() {
   const [annual, setAnnual] = useState(false);
@@ -37,31 +38,7 @@ export default function Pricing() {
   return (
     <div className="h-full text-base-content">
       {/* Navbar */}
-      <header id="navbar" className="fixed w-full top-0 z-50 bg-white/90 backdrop-blur-sm border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <a href="/" className="flex items-center gap-2">
-              <img src="/logo.png" alt="HirePilot Logo" className="h-8 w-8" />
-              <span className="text-xl font-bold">HirePilot</span>
-            </a>
-          </div>
-          <nav className="hidden md:flex items-center gap-8">
-            <a href="/copilot" className="text-gray-600 hover:text-gray-900">Your Recruiting Co-Pilot</a>
-            <a href="/handsfree" className="text-gray-600 hover:text-gray-900">Done For You Hiring</a>
-            <a href="/rex" className="text-gray-600 hover:text-gray-900">Meet REX</a>
-            <a href="/pricing" className="text-blue-600 font-medium">Pricing</a>
-          </nav>
-          <div className="flex items-center gap-4">
-            <a href="/login" className="hidden md:block text-gray-600 hover:text-gray-900">Sign in</a>
-            <a href="#" className="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 py-2.5 rounded-lg hover:shadow-lg transition-all duration-200">
-              Start for Free
-            </a>
-          </div>
-          <button className="md:hidden text-gray-600">
-            <i className="fa-solid fa-bars text-2xl"></i>
-          </button>
-        </div>
-      </header>
+      <PublicNavbar />
 
       <div id="pricing-page" className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
         {/* Page Header (hero) */}
