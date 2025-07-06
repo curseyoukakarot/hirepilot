@@ -3,22 +3,27 @@ import React from 'react';
 export default function ChromeExtension() {
   return (
     <div className="bg-gray-950 text-white font-sans">
-      {/* Header */}
-      <header id="header" className="fixed top-0 left-0 right-0 bg-gray-950/80 backdrop-blur-md border-b border-gray-800 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-              <i className="fas fa-rocket text-white text-lg" />
-            </div>
-            <span className="text-xl font-bold">HirePilot Extension</span>
-          </div>
-          <nav className="hidden md:flex space-x-8">
-            <a href="#features" className="text-gray-300 hover:text-white transition cursor-pointer">Features</a>
-            <a href="#security" className="text-gray-300 hover:text-white transition cursor-pointer">Security</a>
-            <a href="#support" className="text-gray-300 hover:text-white transition cursor-pointer">Support</a>
+      {/* Header (same as HomePage) */}
+      <header id="header" className="fixed w-full top-0 z-50 bg-white/90 backdrop-blur-sm border-b border-gray-100">
+        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+          <a href="/" className="flex items-center gap-2">
+            <img src="/logo.png" alt="HirePilot Logo" className="h-8 w-8" />
+            <span className="text-xl font-bold text-gray-900">HirePilot</span>
+          </a>
+          <nav className="hidden md:flex items-center gap-8">
+            <a href="/copilot" className="text-gray-600 hover:text-gray-900">Your Recruiting Co-Pilot</a>
+            <a href="/handsfree" className="text-gray-600 hover:text-gray-900">Done For You Hiring</a>
+            <a href="/rex" className="text-gray-600 hover:text-gray-900">Meet REX</a>
+            <a href="/pricing" className="text-gray-600 hover:text-gray-900">Pricing</a>
           </nav>
-          <button className="md:hidden text-gray-300 hover:text-white">
-            <i className="fas fa-bars text-xl" />
+          <div className="flex items-center gap-4">
+            <a href="/login" className="hidden md:block text-gray-600 hover:text-gray-900">Sign in</a>
+            <a href="/pricing" className="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 py-2.5 rounded-lg hover:shadow-lg transition-all duration-200">
+              Start for Free
+            </a>
+          </div>
+          <button className="md:hidden text-gray-600">
+            <i className="fa-solid fa-bars text-2xl" />
           </button>
         </div>
       </header>
@@ -186,62 +191,43 @@ export default function ChromeExtension() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer id="footer" className="bg-gray-900 py-12 px-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid md:grid-cols-4 gap-8 mb-8">
+      {/* Footer (same as HomePage) */}
+      <footer id="footer" className="bg-gray-900 text-white py-16">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="grid md:grid-cols-4 gap-12 mb-12">
             <div>
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                  <i className="fas fa-rocket text-white text-sm" />
-                </div>
-                <span className="text-lg font-bold">HirePilot</span>
+              <div className="flex items-center gap-2 mb-6">
+                <img src="/logo.png" alt="HirePilot Logo" className="h-8 w-8" />
+                <span className="text-xl font-bold">HirePilot</span>
               </div>
-              <p className="text-gray-400 text-sm">Accelerating recruitment with AI-powered sourcing and outreach.</p>
+              <p className="text-gray-400">AI-powered recruiting platform that helps you hire better, faster.</p>
+              <div className="mt-6 flex gap-4">
+                <span className="text-gray-400 hover:text-white cursor-pointer"><i className="fa-brands fa-linkedin text-xl" /></span>
+              </div>
             </div>
-
             <div>
-              <h4 className="font-semibold mb-4 text-white">Product</h4>
-              <ul className="space-y-2 text-sm">
-                <li><a href="/copilot" className="text-gray-400 hover:text-white transition">Features</a></li>
-                <li><a href="/pricing" className="text-gray-400 hover:text-white transition">Pricing</a></li>
-                <li><a href="/integrations" className="text-gray-400 hover:text-white transition">Integrations</a></li>
+              <h4 className="font-semibold text-lg mb-4">Product</h4>
+              <ul className="space-y-3 text-gray-400">
+                <li><a href="/copilot" className="hover:text-white">Your Recruiting Co-Pilot</a></li>
+                <li><a href="/handsfree" className="hover:text-white">Done For You Hiring</a></li>
+                <li><a href="/rex" className="hover:text-white">Meet REX</a></li>
+                <li><a href="/pricing" className="hover:text-white">Pricing</a></li>
               </ul>
             </div>
-
             <div>
-              <h4 className="font-semibold mb-4 text-white">Support</h4>
-              <ul className="space-y-2 text-sm">
-                <li><a href="/docs" className="text-gray-400 hover:text-white transition">Documentation</a></li>
-                <li><a href="/help" className="text-gray-400 hover:text-white transition">Help Center</a></li>
-                <li><a href="/contact" className="text-gray-400 hover:text-white transition">Contact</a></li>
+              <h4 className="font-semibold text-lg mb-4">Company</h4>
+              <ul className="space-y-3 text-gray-400">
+                <li><a href="/blog" className="hover:text-white">Blog</a></li>
               </ul>
             </div>
-
             <div>
-              <h4 className="font-semibold mb-4 text-white">Legal</h4>
-              <ul className="space-y-2 text-sm">
-                <li><a href="/terms" className="text-gray-400 hover:text-white transition">Terms of Service</a></li>
-                <li><a href="/privacy" className="text-gray-400 hover:text-white transition">Privacy Policy</a></li>
-                <li><a href="/security" className="text-gray-400 hover:text-white transition">Security</a></li>
+              <h4 className="font-semibold text-lg mb-4">Support</h4>
+              <ul className="space-y-3 text-gray-400">
+                <li><span className="hover:text-white cursor-pointer">Terms of Use</span></li>
               </ul>
             </div>
           </div>
-
-          <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center">
-            <p className="text-gray-400 text-sm">© 2025 HirePilot, Inc. All rights reserved.</p>
-            <div className="flex space-x-6 mt-4 md:mt-0">
-              <span className="text-gray-400 hover:text-white transition cursor-pointer">
-                <i className="fab fa-twitter" />
-              </span>
-              <span className="text-gray-400 hover:text-white transition cursor-pointer">
-                <i className="fab fa-linkedin" />
-              </span>
-              <span className="text-gray-400 hover:text-white transition cursor-pointer">
-                <i className="fab fa-github" />
-              </span>
-            </div>
-          </div>
+          <div className="pt-8 border-t border-gray-800 text-center text-gray-400 text-sm">© 2025 HirePilot. All rights reserved.</div>
         </div>
       </footer>
 
