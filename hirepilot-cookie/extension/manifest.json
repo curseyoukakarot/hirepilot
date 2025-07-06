@@ -1,9 +1,11 @@
 {
   "manifest_version": 3,
   "name": "HirePilot Cookie Helper",
-  "version": "0.1.0",
+  "short_name": "HirePilot Cookie",
+  "version": "1.0.0",
   "description": "1-click copy & upload of your li_at session cookie.",
   "action": {
+    "default_title": "Upload LinkedIn Cookie",
     "default_popup": "popup.html",
     "default_icon": {
       "16":  "img/icon16.png",
@@ -21,7 +23,7 @@
   "permissions": [ "cookies", "storage" ],
   "host_permissions": [
     "https://api.thehirepilot.com/*",
-    "https://www.linkedin.com/*"
+    "https://*.linkedin.com/*"
   ],
   "background": {
     "service_worker": "background.js"
