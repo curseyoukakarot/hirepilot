@@ -29,6 +29,7 @@ import { apiPost } from './lib/api';
 import BlogLandingPage from './screens/BlogLandingPage';
 import MeetRex from './screens/MeetRex';
 import useGAPageViews from "./hooks/useGAPageViews";
+import ChromeExtension from './screens/ChromeExtension';
 // Blog article pages
 const FlowOfHirePilot = lazy(() => import("./pages/blog/FlowOfHirePilot"));
 const MessageCenterSetup = lazy(() => import("./pages/blog/MessageCenterSetup"));
@@ -204,7 +205,7 @@ export default function App() {
 
 function InnerApp() {
   const location = useLocation();
-  const landingPages = ["/", "/signup", "/login", "/copilot", "/handsfree", "/pricing", "/rex"];
+  const landingPages = ["/", "/signup", "/login", "/copilot", "/handsfree", "/pricing", "/rex", "/chromeextension"];
   // Treat blog landing and article pages as public landing pages (no dashboard UI)
   const isAuthPage = landingPages.includes(location.pathname) || location.pathname.startsWith('/blog') || location.pathname.startsWith('/rex');
   const navigate = useNavigate();
@@ -322,6 +323,7 @@ function InnerApp() {
               <Route path="/super-admin" element={<SuperAdminDashboard />} />
               <Route path="/admin/users" element={<AdminUserManagement />} />
               <Route path="/blog" element={<BlogLandingPage />} />
+              <Route path="/chromeextension" element={<ChromeExtension />} />
               {/* Blog articles */}
               <Route path="/blog/flow-of-hirepilot" element={<FlowOfHirePilot />} />
               <Route path="/blog/message-center-setup" element={<MessageCenterSetup />} />

@@ -6969,7 +6969,7 @@
             }
             await this._saveSession(Object.assign({ expires_at: Math.round(Date.now() / 1e3) + data.expires_in }, data));
             await this._notifyAllSubscribers("MFA_CHALLENGE_VERIFIED", data);
-            return { data, error };
+            return { data, error: null };
           });
         } catch (error) {
           if (isAuthError(error)) {
@@ -7417,7 +7417,7 @@
   var loginBtn = q("loginBtn");
   var uploadBtn = q("uploadBtn");
   var logoutBtn = q("logoutBtn");
-  var API = "https://94cc-24-153-213-178.ngrok-free.app/api/linkedin/save-cookie";
+  var API = "https://api.thehirepilot.com/api/linkedin/save-cookie";
   var emailInput = q("email");
   var pwInput = q("password");
   var userEmail = q("userEmail");
