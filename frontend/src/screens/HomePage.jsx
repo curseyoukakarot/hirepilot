@@ -139,6 +139,20 @@ const HomePage = () => {
         </section>
       </div>
 
+      {/* Trust Section */}
+      <section id="trust" className="py-16 bg-white">
+        <div className="max-w-6xl mx-auto px-6 text-center">
+          <p className="text-gray-600 mb-8">Sync your HirePilot recruiting flows with tools you already have</p>
+          <div className="flex justify-center items-center space-x-12 opacity-60">
+            <img src="/apollo-logo-v2.png" alt="Apollo" className="h-8" />
+            <i className="fa-brands fa-linkedin text-4xl text-gray-400" />
+            <i className="fa-brands fa-slack text-4xl text-gray-400" />
+            <img src="/zapier-icon.png" alt="Zapier" className="h-8 filter grayscale brightness-75" />
+            <img src="/make-logo-v1.png" alt="Make" className="h-8 w-auto filter grayscale brightness-75" />
+          </div>
+        </div>
+      </section>
+
       {/* Testimonials */}
       <section id="testimonials" className="py-20 bg-gray-50">
         <div className="max-w-6xl mx-auto px-6">
