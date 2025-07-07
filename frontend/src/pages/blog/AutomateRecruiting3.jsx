@@ -22,6 +22,22 @@ export default function AutomateRecruiting3() {
         .prose th, .prose td { border: 1px solid #374151; padding: 0.75rem; text-align: left; }
         .prose th { background: #1f2937; font-weight: 600; }
         .prose tr:nth-child(even) { background: #1f2937; }
+        
+        /* Force white text overrides for dark rows only */
+        .prose table th { color: #ffffff !important; }
+        .prose table tr:nth-child(even) td { color: #ffffff !important; }
+        .prose table tr:nth-child(odd) td { color: #000000 !important; }
+        #related-articles h2 { color: #ffffff !important; }
+        #related-articles .bg-gray-900 h3 { color: #ffffff !important; }
+        #related-articles .bg-gray-900 .text-xl { color: #ffffff !important; }
+        #related-articles .bg-gray-900 .font-semibold { color: #ffffff !important; }
+        #related-articles article h3 { color: #ffffff !important; }
+        #related-articles article .text-xl { color: #ffffff !important; }
+        #inline-cta-2 h3 { color: #ffffff !important; }
+        #inline-cta-2 p { color: #ffffff !important; }
+        .text-white { color: #ffffff !important; }
+        .bg-gray-800 h3 { color: #ffffff !important; }
+        .bg-gray-800 p { color: #ffffff !important; }
       `}</style>
 
       {/* Breadcrumb */}
@@ -289,7 +305,7 @@ export default function AutomateRecruiting3() {
         <div className="max-w-6xl mx-auto px-6">
           <h2 className="text-3xl font-bold text-center mb-12">Continue the Series</h2>
           <div className="grid md:grid-cols-3 gap-8">
-            <article className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300">
+            <a href="/blog/AutomateRecruiting1" className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block">
               <img
                 className="w-full h-48 object-cover"
                 src="https://storage.googleapis.com/uxpilot-auth.appspot.com/22f7736434-ea460dbdda56f2c78643.png"
@@ -307,9 +323,9 @@ export default function AutomateRecruiting3() {
                   <span>6 min read</span>
                 </div>
               </div>
-            </article>
+            </a>
 
-            <article className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300">
+            <a href="/blog/AutomateRecruiting2" className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block">
               <img
                 className="w-full h-48 object-cover"
                 src="https://storage.googleapis.com/uxpilot-auth.appspot.com/a38d6691dc-92163dbe18bd3d5afa0e.png"
@@ -327,9 +343,9 @@ export default function AutomateRecruiting3() {
                   <span>8 min read</span>
                 </div>
               </div>
-            </article>
+            </a>
 
-            <article className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300">
+            <a href="/blog/AutomateRecruiting4" className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block">
               <img
                 className="w-full h-48 object-cover"
                 src="https://storage.googleapis.com/uxpilot-auth.appspot.com/75caae2492-c87687c0aa429fc7491c.png"
@@ -342,12 +358,12 @@ export default function AutomateRecruiting3() {
                   Automate candidate pipeline management and trigger workflows across Slack, Clay, Notion, and more.
                 </p>
                 <div className="flex items-center text-sm text-gray-500">
-                  <span>Coming Soon</span>
+                  <span>Published</span>
                   <span className="mx-2">•</span>
                   <span>9 min read</span>
                 </div>
               </div>
-            </article>
+            </a>
           </div>
         </div>
       </div>
