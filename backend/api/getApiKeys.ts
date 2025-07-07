@@ -19,11 +19,8 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
 
     if (error) throw error;
 
-    const { status, data: responseData } = res as any;
-    if (status === 200) {
-      res.status(200).json({ keys: responseData });
-      return;
-    }
+    res.status(200).json({ keys: data });
+    return;
   } catch (error) {
     console.error('Error fetching API keys:', error);
     const errorResponse: ErrorResponse = {
