@@ -45,6 +45,12 @@ const CampaignWizardGuide = lazy(() => import("./pages/blog/CampaignWizardGuide"
 const PipelineBestPracticesGuide = lazy(() => import("./pages/blog/PipelineBestPracticesGuide"));
 const EmailTroubleshootingGuide = lazy(() => import("./pages/blog/EmailTroubleshootingGuide"));
 const CreditsGuide = lazy(() => import("./pages/blog/CreditsGuide"));
+// AutomateRecruiting Series
+const AutomateRecruiting1 = lazy(() => import("./pages/blog/AutomateRecruiting1"));
+const AutomateRecruiting2 = lazy(() => import("./pages/blog/AutomateRecruiting2"));
+const AutomateRecruiting3 = lazy(() => import("./pages/blog/AutomateRecruiting3"));
+const AutomateRecruiting4 = lazy(() => import("./pages/blog/AutomateRecruiting4"));
+const AutomateRecruiting5 = lazy(() => import("./pages/blog/AutomateRecruiting5"));
 
 // Lazy load screens
 const SigninScreen = lazy(() => import("./screens/SigninScreen"));
@@ -343,6 +349,12 @@ function InnerApp() {
               <Route path="/blog/PipelineBestPractices" element={<PipelineBestPracticesGuide />} />
               <Route path="/blog/email-troubleshooting" element={<EmailTroubleshootingGuide />} />
               <Route path="/blog/CreditsGuide" element={<CreditsGuide />} />
+              {/* AutomateRecruiting Series */}
+              <Route path="/blog/AutomateRecruiting1" element={<AutomateRecruiting1 />} />
+              <Route path="/blog/AutomateRecruiting2" element={<AutomateRecruiting2 />} />
+              <Route path="/blog/AutomateRecruiting3" element={<AutomateRecruiting3 />} />
+              <Route path="/blog/AutomateRecruiting4" element={<AutomateRecruiting4 />} />
+              <Route path="/blog/AutomateRecruiting5" element={<AutomateRecruiting5 />} />
               <Route path="*" element={<Navigate to="/login" />} />
             </Routes>
           </Suspense>
