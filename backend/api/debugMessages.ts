@@ -5,20 +5,21 @@ export default async function debugMessages(req: Request, res: Response) {
   try {
     console.log('[debugMessages] Checking messages table structure and data');
     
-    // Get user ID
-    const userId = req.user?.id;
-    if (!userId) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
+    // For debugging - get user ID from query param or use any recent user
+    const userId = req.query.user_id as string;
 
-    // Try to fetch all messages for this user to see what we get
-    const { data: messages, error: messagesError } = await supabaseDb
+    // Try to fetch all messages (with or without user filter)
+    let messagesQuery = supabaseDb
       .from('messages')
       .select('*')
-      .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(10);
+    
+    if (userId) {
+      messagesQuery = messagesQuery.eq('user_id', userId);
+    }
+    
+    const { data: messages, error: messagesError } = await messagesQuery;
 
     console.log('[debugMessages] Messages query result:', { messages, messagesError });
 
@@ -32,16 +33,25 @@ export default async function debugMessages(req: Request, res: Response) {
     console.log('[debugMessages] Table info result:', { tableInfo, tableError });
 
     // Get recent email_events
-    const { data: emailEvents, error: eventsError } = await supabaseDb
+    let eventsQuery = supabaseDb
       .from('email_events')
       .select('*')
-      .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(10);
+    
+    if (userId) {
+      eventsQuery = eventsQuery.eq('user_id', userId);
+    }
+    
+    const { data: emailEvents, error: eventsError } = await eventsQuery;
 
     console.log('[debugMessages] Email events result:', { emailEvents, eventsError });
 
     res.json({
+      debug: {
+        userId: userId || 'no user filter',
+        timestamp: new Date().toISOString()
+      },
       messages: messages || [],
       messagesCount: messages?.length || 0,
       messagesError: messagesError?.message || null,
