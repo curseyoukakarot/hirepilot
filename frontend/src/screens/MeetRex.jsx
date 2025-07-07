@@ -188,8 +188,8 @@ export default function MeetRex() {
             <img src="/apollo-logo-v2.png" alt="Apollo" className="h-8" />
             <i className="fa-brands fa-linkedin text-4xl text-slate-400" />
             <i className="fa-brands fa-slack text-4xl text-slate-400" />
-            <i className="fa-brands fa-zap text-4xl text-slate-400" />
-            <img src="/make-logo-v1.png" alt="Make" className="h-8 w-auto" />
+            <img src="/zapier-icon.png" alt="Zapier" className="h-8 filter grayscale brightness-75" />
+            <img src="/make-logo-v1.png" alt="Make" className="h-8 w-auto filter grayscale brightness-75" />
           </div>
         </div>
       </section>
