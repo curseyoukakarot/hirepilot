@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { supabase } from '../lib/supabase';
+import { supabaseDb } from '../lib/supabase';
 import { sendEmail } from '../services/emailProviderService';
 import { personalizeMessage } from '../utils/messageUtils';
 import sgMail from '@sendgrid/mail';
@@ -46,7 +46,7 @@ async function sendViaSendGrid(lead: any, content: string, userId: string): Prom
     body = body.replace(/\n/g, '<br/>');
 
     // Get user's SendGrid API key and default sender
-    const { data, error } = await supabase
+    const { data, error } = await supabaseDb
       .from('user_sendgrid_keys')
       .select('api_key, default_sender')
       .eq('user_id', userId)
@@ -81,7 +81,7 @@ async function sendViaSendGrid(lead: any, content: string, userId: string): Prom
     const [response] = await sgMail.send(msg);
     
     // Store the message in our database
-    await supabase.from('messages').insert({
+    await supabaseDb.from('messages').insert({
       user_id: userId,
       lead_id: lead.id,
       to_email: lead.email,
@@ -135,7 +135,7 @@ async function sendViaGoogle(lead: any, content: string, userId: string): Promis
     });
 
     // Store the message in our database
-    await supabase.from('messages').insert({
+    await supabaseDb.from('messages').insert({
       user_id: userId,
       lead_id: lead.id,
       to_email: lead.email,
@@ -183,7 +183,7 @@ export default async function handler(req: Request, res: Response) {
       }
 
       // Fetch lead restricted to owner
-      const { data: lead, error: leadError } = await supabase
+      const { data: lead, error: leadError } = await supabaseDb
         .from('leads')
         .select('*')
         .eq('id', lead_id)
@@ -207,7 +207,7 @@ export default async function handler(req: Request, res: Response) {
 
       // Only insert into messages table if provider-specific sending didn't already do it
       if (!sent && (!ch || !['sendgrid', 'google', 'gmail'].includes(ch))) {
-        await supabase.from('messages').insert({
+        await supabaseDb.from('messages').insert({
           lead_id,
           user_id: uid,
           template_id: tId,
@@ -247,7 +247,7 @@ export default async function handler(req: Request, res: Response) {
 
   try {
     // Fetch leads
-    const { data: leads, error: leadsError } = await supabase
+    const { data: leads, error: leadsError } = await supabaseDb
       .from('leads')
       .select('*')
       .in('id', lead_ids);
@@ -258,7 +258,7 @@ export default async function handler(req: Request, res: Response) {
     let templateContent = custom_content;
 
     if (template_id) {
-      const { data: template, error: templateError } = await supabase
+      const { data: template, error: templateError } = await supabaseDb
         .from('templates')
         .select('content')
         .eq('id', template_id)
@@ -283,7 +283,7 @@ export default async function handler(req: Request, res: Response) {
 
       // Only insert into messages table if provider-specific sending didn't already do it
       if (!sent && (!channel || !['sendgrid', 'google', 'gmail'].includes(channel))) {
-        await supabase.from('messages').insert({
+        await supabaseDb.from('messages').insert({
           lead_id: lead.id,
           user_id,
           template_id,
