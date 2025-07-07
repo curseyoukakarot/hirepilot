@@ -22,6 +22,7 @@ import createApikey from './api/createApikey';
 import getApiKeys from './api/getApiKeys';
 import deleteApiKey from './api/deleteApiKey';
 import webhooksRouter from './api/webhooksRouter';
+import bulkScheduleMessages from './api/bulkScheduleMessages';
 
 const router = Router();
 
@@ -81,5 +82,7 @@ router.get('/apiKeys', requireAuth, getApiKeys);
 router.delete('/apiKeys/:id', requireAuth, deleteApiKey);
 
 router.use('/webhooks', webhooksRouter);
+
+router.post('/messages/bulk-schedule', requireAuth, bulkScheduleMessages);
 
 export default router;

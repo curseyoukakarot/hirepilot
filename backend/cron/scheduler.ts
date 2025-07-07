@@ -136,6 +136,30 @@ export async function processPhantomJobQueue() {
   }
 }
 
+export async function processScheduledMessages(){
+  const now=new Date().toISOString();
+  const { data: msgs } = await supabaseDb
+    .from('messages')
+    .select('*')
+    .eq('status','scheduled')
+    .lte('scheduled_at',now);
+  for(const msg of msgs||[]){
+    try{
+      const leadRes=await supabaseDb.from('leads').select('*').eq('id',msg.lead_id).single();
+      if(leadRes.error||!leadRes.data){
+        await supabaseDb.from('messages').update({ status:'failed'}).eq('id',msg.id);
+        continue;
+      }
+      const sendProvider=require('../services/emailProviderService');
+      const sent=await sendProvider.sendEmail(leadRes.data,msg.content,msg.user_id,msg.sender_meta);
+      await supabaseDb.from('messages').update({ status: sent?'sent':'failed', sent_at:new Date().toISOString() }).eq('id',msg.id);
+    }catch(e){
+      console.error('[processScheduledMessages]',e);
+      await supabaseDb.from('messages').update({ status:'failed'}).eq('id',msg.id);
+    }
+  }
+}
+
 export function startCronJobs() {
   console.log('[cron] Starting cron jobs...');
 
@@ -143,6 +167,7 @@ export function startCronJobs() {
     await resetStuckPhantoms();
     await generateDailyPhantomJobs();
     await processPhantomJobQueue();
+    await processScheduledMessages();
     const nextInterval = randomIntervalMs();
     console.log(`[cron] Next run in ${nextInterval / 60000} minutes`);
     setTimeout(runAndReschedule, nextInterval);

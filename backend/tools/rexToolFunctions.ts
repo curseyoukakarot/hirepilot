@@ -9,6 +9,7 @@ import { enrichLead as apolloEnrichLead } from '../services/apollo/enrichLead';
 import { enrichLead as proxycurlEnrichLead } from '../services/proxycurl/enrichLead';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
+import { personalizeMessage } from '../utils/messageUtils';
 
 export async function sourceLeads({
   userId,
@@ -530,4 +531,48 @@ export function listZapierEndpoints() {
     },
     events: ['lead.created', 'lead.updated', 'lead.stage_changed']
   };
+}
+
+/** Return list of available senders for a user */
+export async function listSenders({ userId }: { userId: string }) {
+  const options:any[]=[];
+  // SendGrid
+  const { data: sg } = await supabaseDb.from('user_sendgrid_keys').select('default_sender').eq('user_id',userId).maybeSingle();
+  if(sg?.default_sender){ options.push({ provider:'sendgrid', from: sg.default_sender }); }
+  // Outlook / Gmail tokens in integrations table
+  const { data: integrations } = await supabaseDb.from('integrations').select('provider, email').eq('user_id',userId);
+  for(const row of integrations||[]){
+    if(['google','outlook'].includes(row.provider) && row.email){
+      options.push({ provider: row.provider, from: row.email });
+    }
+  }
+  return options;
+}
+
+export async function scheduleBulkMessages({
+  userId,
+  leadIds,
+  templateId,
+  scheduledAt,
+  sender
+}: {
+  userId:string; leadIds:string[]; templateId:string; scheduledAt:string; sender:any;
+}){
+  const { data: tmpl, error: tmplErr } = await supabaseDb.from('templates').select('content').eq('id',templateId).eq('user_id',userId).single();
+  if(tmplErr||!tmpl) throw new Error('Template not found');
+  const { data: leads } = await supabaseDb.from('leads').select('*').in('id',leadIds).eq('user_id',userId);
+  const rows= (leads||[]).map((l:any)=>({
+    lead_id:l.id,
+    user_id:userId,
+    template_id:templateId,
+    channel: sender.provider,
+    sender_meta: sender,
+    content: personalizeMessage(tmpl.content,l),
+    status:'scheduled',
+    scheduled_at: scheduledAt,
+    created_at:new Date().toISOString()
+  }));
+  const { error } = await supabaseDb.from('messages').insert(rows);
+  if(error) throw error;
+  return { scheduled: rows.length, scheduledAt };
 } 
