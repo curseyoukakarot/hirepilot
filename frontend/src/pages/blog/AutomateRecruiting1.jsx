@@ -179,8 +179,8 @@ export default function AutomateRecruiting1() {
 
           {/* Inline CTA 2 */}
           <div id="inline-cta-2" className="bg-gray-800 border border-gray-700 rounded-lg p-6 my-8 text-center">
-            <h3 className="text-xl font-semibold mb-2">Want to Chat with REX Now?</h3>
-            <p className="mb-4">Try REX inside the HirePilot app and see automation in action.</p>
+            <h3 className="text-xl font-semibold mb-2 text-white">Want to Chat with REX Now?</h3>
+            <p className="mb-4 text-white">Try REX inside the HirePilot app and see automation in action.</p>
             <button className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors">Chat with REX</button>
           </div>
 
@@ -207,9 +207,9 @@ export default function AutomateRecruiting1() {
       {/* Related articles */}
       <div id="related-articles" className="bg-gray-800 py-16">
         <div className="max-w-6xl mx-auto px-6">
-          <h2 className="text-3xl font-bold text-center mb-12">Continue the Series</h2>
+          <h2 className="text-3xl font-bold text-center mb-12 text-white">Continue the Series</h2>
           <div className="grid md:grid-cols-3 gap-8">
-            <article className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300">
+            <a href="/blog/AutomateRecruiting2" className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block">
               <img
                 className="w-full h-48 object-cover"
                 src="https://storage.googleapis.com/uxpilot-auth.appspot.com/a38d6691dc-92163dbe18bd3d5afa0e.png"
@@ -222,14 +222,14 @@ export default function AutomateRecruiting1() {
                   Turn job descriptions into ready-to-run campaigns with automated lead sourcing from Apollo and LinkedIn.
                 </p>
                 <div className="flex items-center text-sm text-gray-500">
-                  <span>Coming Soon</span>
+                  <span>Published</span>
                   <span className="mx-2">•</span>
                   <span>8 min read</span>
                 </div>
               </div>
-            </article>
+            </a>
 
-            <article className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300">
+            <a href="/blog/AutomateRecruiting3" className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block">
               <img
                 className="w-full h-48 object-cover"
                 src="https://storage.googleapis.com/uxpilot-auth.appspot.com/ae9ba539d4-75ea5d607595907901a7.png"
@@ -242,14 +242,14 @@ export default function AutomateRecruiting1() {
                   Generate personalized cold emails and automated follow-up sequences delivered through your preferred platform.
                 </p>
                 <div className="flex items-center text-sm text-gray-500">
-                  <span>Coming Soon</span>
+                  <span>Published</span>
                   <span className="mx-2">•</span>
-                  <span>6 min read</span>
+                  <span>7 min read</span>
                 </div>
               </div>
-            </article>
+            </a>
 
-            <article className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300">
+            <a href="/blog/AutomateRecruiting4" className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block">
               <img
                 className="w-full h-48 object-cover"
                 src="https://storage.googleapis.com/uxpilot-auth.appspot.com/75caae2492-c87687c0aa429fc7491c.png"
@@ -262,12 +262,12 @@ export default function AutomateRecruiting1() {
                   Automate candidate pipeline management and trigger workflows across Slack, Clay, Notion, and more.
                 </p>
                 <div className="flex items-center text-sm text-gray-500">
-                  <span>Coming Soon</span>
+                  <span>Published</span>
                   <span className="mx-2">•</span>
-                  <span>7 min read</span>
+                  <span>9 min read</span>
                 </div>
               </div>
-            </article>
+            </a>
           </div>
         </div>
       </div>
