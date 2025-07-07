@@ -6,6 +6,7 @@ import { toast } from 'react-hot-toast';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import ApolloApiKeyModal from '../components/ApolloApiKeyModal';
 import RexSlackIntegrationCard from '../components/settings/integrations/RexSlackIntegrationCard';
+import ZapierIntegrationCard from '../components/settings/integrations/ZapierIntegrationCard';
 
 export default function SettingsIntegrations() {
   const [integrations, setIntegrations] = useState([
@@ -1074,6 +1075,10 @@ export default function SettingsIntegrations() {
         onSuccess={handleApolloSuccess}
         currentApiKey={apolloApiKey}
       />
+      {/* Zapier Integration Card */}
+      <div className="mt-8">
+        <ZapierIntegrationCard user={currentUser} />
+      </div>
       {/* REX Slack Integration Card */}
       <div className="mt-8">
         <RexSlackIntegrationCard user={currentUser} />

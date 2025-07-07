@@ -17,6 +17,10 @@ import userPerformance from './api/userPerformance';
 import teamRouter from './routes/team';
 import sendSlackNotification from './api/sendSlackNotification';
 import startTrial from './api/startTrial';
+import zapierRouter from './api/zapierRouter';
+import createApikey from './api/createApikey';
+import getApiKeys from './api/getApiKeys';
+import deleteApiKey from './api/deleteApiKey';
 
 const router = Router();
 
@@ -68,5 +72,11 @@ router.post('/startTrial', startTrial);
 
 // Slack notification endpoint (internal)
 router.post('/sendSlackNotification', sendSlackNotification);
+
+router.use('/zapier', zapierRouter);
+
+router.post('/apiKeys', requireAuth, createApikey);
+router.get('/apiKeys', requireAuth, getApiKeys);
+router.delete('/apiKeys/:id', requireAuth, deleteApiKey);
 
 export default router;
