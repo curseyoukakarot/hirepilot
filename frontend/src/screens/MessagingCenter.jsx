@@ -19,6 +19,7 @@ const folders = [
   { name: 'Inbox', icon: <FaInbox /> },
   { name: 'Sent', icon: <FaPaperPlane /> },
   { name: 'Drafts', icon: <FaFile /> },
+  { name: 'Templates', icon: <FaFileLines /> },
   { name: 'Trash', icon: <FaTrash /> },
 ];
 
@@ -55,6 +56,13 @@ export default function MessagingCenter() {
   const [templates, setTemplates] = useState([]);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [selectedLead, setSelectedLead] = useState(null);
+  
+  // Template management state
+  const [editingTemplate, setEditingTemplate] = useState(null);
+  const [showTemplateEditor, setShowTemplateEditor] = useState(false);
+  const [templateName, setTemplateName] = useState('');
+  const [templateSubject, setTemplateSubject] = useState('');
+  const [templateContent, setTemplateContent] = useState('');
 
   // Helper to map folder to status
   const folderToStatus = {
@@ -161,19 +169,22 @@ export default function MessagingCenter() {
     return () => window.removeEventListener('storage', handleLeadSelected);
   }, []);
 
+  // Fetch templates function
+  const fetchTemplates = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('email_templates')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+    if (!error && data) {
+      setTemplates(data);
+    }
+  };
+
   // Fetch templates on mount
   useEffect(() => {
-    const fetchTemplates = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data, error } = await supabase
-        .from('email_templates')
-        .select('*')
-        .eq('user_id', user.id);
-      if (!error && data) {
-        setTemplates(data);
-      }
-    };
     fetchTemplates();
   }, []);
 
@@ -307,6 +318,112 @@ export default function MessagingCenter() {
     setMessageBody(replaceTokens(template.content, data));
     setShowTemplateModal(false);
   };
+
+  // Template management functions
+  const handleCreateTemplate = () => {
+    setEditingTemplate(null);
+    setTemplateName('');
+    setTemplateSubject('');
+    setTemplateContent('');
+    setShowTemplateEditor(true);
+  };
+
+  const handleEditTemplate = (template) => {
+    setEditingTemplate(template);
+    setTemplateName(template.name);
+    setTemplateSubject(template.subject);
+    setTemplateContent(template.content);
+    setShowTemplateEditor(true);
+  };
+
+  const handleSaveTemplate = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const templateData = {
+        user_id: user.id,
+        name: templateName,
+        subject: templateSubject,
+        content: templateContent,
+        updated_at: new Date().toISOString()
+      };
+
+      if (editingTemplate) {
+        // Update existing template
+        const { error } = await supabase
+          .from('email_templates')
+          .update(templateData)
+          .eq('id', editingTemplate.id)
+          .eq('user_id', user.id);
+        if (error) throw error;
+        toast.success('Template updated!');
+      } else {
+        // Create new template
+        templateData.created_at = new Date().toISOString();
+        const { error } = await supabase
+          .from('email_templates')
+          .insert(templateData);
+        if (error) throw error;
+        toast.success('Template created!');
+      }
+
+      // Refresh templates
+      await fetchTemplates();
+      setShowTemplateEditor(false);
+    } catch (err) {
+      console.error('Error saving template:', err);
+      toast.error(err.message || 'Failed to save template');
+    }
+  };
+
+  const handleDeleteTemplate = async (templateId) => {
+    if (!window.confirm('Are you sure you want to delete this template?')) return;
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+      
+      const { error } = await supabase
+        .from('email_templates')
+        .delete()
+        .eq('id', templateId)
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
+      toast.success('Template deleted!');
+      await fetchTemplates();
+    } catch (err) {
+      console.error('Error deleting template:', err);
+      toast.error(err.message || 'Failed to delete template');
+    }
+  };
+
+  const handleDuplicateTemplate = async (template) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+      
+      const { error } = await supabase
+        .from('email_templates')
+        .insert({
+          user_id: user.id,
+          name: `${template.name} (Copy)`,
+          subject: template.subject,
+          content: template.content,
+          created_at: new Date().toISOString()
+        });
+      
+      if (error) throw error;
+      toast.success('Template duplicated!');
+      await fetchTemplates();
+    } catch (err) {
+      console.error('Error duplicating template:', err);
+      toast.error(err.message || 'Failed to duplicate template');
+    }
+  };
+
+
 
   const handleSend = async () => {
     try {
@@ -569,6 +686,111 @@ export default function MessagingCenter() {
           </div>
         </div>
       )}
+      {/* Template Editor Modal */}
+      {showTemplateEditor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-lg">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-semibold">
+                {editingTemplate ? 'Edit Template' : 'Create New Template'}
+              </h3>
+              <button
+                className="text-gray-400 hover:text-gray-600"
+                onClick={() => setShowTemplateEditor(false)}
+              >
+                <FaTimes />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              {/* Template Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Template Name</label>
+                <input
+                  type="text"
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2 px-3 border"
+                  value={templateName}
+                  onChange={e => setTemplateName(e.target.value)}
+                  placeholder="Enter template name..."
+                />
+              </div>
+              
+              {/* Template Subject */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+                <input
+                  type="text"
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2 px-3 border"
+                  value={templateSubject}
+                  onChange={e => setTemplateSubject(e.target.value)}
+                  placeholder="Enter subject line..."
+                />
+              </div>
+              
+              {/* Insert Field dropdown */}
+              <div className="mb-2">
+                <div className="relative inline-block">
+                  <button
+                    type="button"
+                    className="flex items-center gap-1 px-3 py-2 rounded bg-blue-50 border border-blue-200 text-blue-600 hover:bg-blue-100"
+                    onClick={() => setShowTokenDropdown(v => !v)}
+                  >
+                    ⚙️ Insert Field
+                  </button>
+                  {showTokenDropdown && (
+                    <div className="absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded shadow-lg z-20">
+                      {tokens.map(token => (
+                        <button
+                          key={token.value}
+                          type="button"
+                          className="w-full text-left px-4 py-2 text-sm hover:bg-blue-50"
+                          onClick={() => {
+                            // Insert token into template content
+                            setTemplateContent(prev => prev + token.value);
+                            setShowTokenDropdown(false);
+                          }}
+                        >
+                          {token.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Template Content */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Content</label>
+                <div className="border border-gray-300 rounded-md shadow-sm">
+                  <ReactQuill
+                    theme="snow"
+                    value={templateContent}
+                    onChange={setTemplateContent}
+                    className="min-h-[300px]"
+                    modules={quillModules}
+                  />
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md"
+                onClick={() => setShowTemplateEditor(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                onClick={handleSaveTemplate}
+                disabled={!templateName.trim() || !templateContent.trim()}
+              >
+                {editingTemplate ? 'Update Template' : 'Create Template'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Template Modal */}
       {showTemplateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
@@ -700,14 +922,98 @@ export default function MessagingCenter() {
       <section className="flex-1 bg-white flex flex-col shadow-md">
         {/* Composer Header */}
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-800">{showComposer ? 'New Message' : selectedMessage ? 'Message' : 'No Message Selected'}</h2>
-          <div className="flex items-center space-x-3">
-            <button className="text-gray-500 hover:text-blue-600" onClick={handleSaveDraft}><FaSave /></button>
-            <button className="text-gray-500 hover:text-blue-600" onClick={() => setShowComposer(true)}><FaTimes /></button>
-          </div>
+          <h2 className="text-lg font-semibold text-gray-800">
+            {activeFolder === 'Templates' 
+              ? 'Templates' 
+              : showComposer 
+                ? 'New Message' 
+                : selectedMessage 
+                  ? 'Message' 
+                  : 'No Message Selected'
+            }
+          </h2>
+          {activeFolder !== 'Templates' && (
+            <div className="flex items-center space-x-3">
+              <button className="text-gray-500 hover:text-blue-600" onClick={handleSaveDraft}><FaSave /></button>
+              <button className="text-gray-500 hover:text-blue-600" onClick={() => setShowComposer(true)}><FaTimes /></button>
+            </div>
+          )}
         </div>
         <div className="flex-1 overflow-y-auto p-6">
-          {showComposer && !selectedMessage ? (
+          {activeFolder === 'Templates' ? (
+            // Templates View
+            <div>
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-semibold text-gray-800">Email Templates</h3>
+                <button
+                  onClick={handleCreateTemplate}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+                >
+                  <FaPlus className="mr-2" />
+                  New Template
+                </button>
+              </div>
+              <div className="grid gap-4">
+                {templates.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <FaFileLines className="mx-auto text-4xl mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No templates yet</h3>
+                    <p className="mb-4">Create your first email template to get started</p>
+                    <button
+                      onClick={handleCreateTemplate}
+                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+                    >
+                      <FaPlus className="mr-2" />
+                      Create Template
+                    </button>
+                  </div>
+                ) : (
+                  templates.map(template => (
+                    <div key={template.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-lg font-medium text-gray-900 truncate">{template.name}</h4>
+                          <p className="text-sm text-gray-600 mt-1">{template.subject}</p>
+                          <div 
+                            className="text-sm text-gray-500 mt-2 line-clamp-2" 
+                            dangerouslySetInnerHTML={{ 
+                              __html: (template.content || '').replace(/<[^>]+>/g, '').slice(0, 150) + '...' 
+                            }} 
+                          />
+                          <p className="text-xs text-gray-400 mt-2">
+                            Created {new Date(template.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="flex items-center space-x-2 ml-4">
+                          <button
+                            onClick={() => handleEditTemplate(template)}
+                            className="text-blue-600 hover:text-blue-800 p-2"
+                            title="Edit template"
+                          >
+                            <FaPenToSquare />
+                          </button>
+                          <button
+                            onClick={() => handleDuplicateTemplate(template)}
+                            className="text-green-600 hover:text-green-800 p-2"
+                            title="Duplicate template"
+                          >
+                            <FaPlus />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteTemplate(template.id)}
+                            className="text-red-600 hover:text-red-800 p-2"
+                            title="Delete template"
+                          >
+                            <FaTrash />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          ) : showComposer && !selectedMessage ? (
             <form key="compose-form">
               {/* Provider Selection */}
               <div className="mb-4 flex items-center gap-4">
