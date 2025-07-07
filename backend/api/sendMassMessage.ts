@@ -9,6 +9,8 @@ export default async function handler(req: Request, res: Response) {
     return;
   }
 
+  console.log('[sendMassMessage] Processing request with body:', JSON.stringify(req.body, null, 2));
+
   // Two payload shapes are supported:
   // 1) Legacy: { lead_ids, template_id, custom_content, channel, user_id }
   // 2) New: { messages: [{ lead_id, user_id, content, template_id, channel }] }
@@ -41,23 +43,35 @@ export default async function handler(req: Request, res: Response) {
 
       const sent = await sendEmail(lead, content, uid);
 
-      await supabase.from('messages').insert({
-        lead_id,
-        user_id: uid,
-        template_id: tId,
-        channel: ch || null,
-        content,
-        status: sent ? 'sent' : 'failed',
-      });
+      // Only insert into messages table if sendEmail didn't already do it
+      // (the new sendEmail function inserts successful sends into messages table)
+      if (!sent) {
+        await supabase.from('messages').insert({
+          lead_id,
+          user_id: uid,
+          template_id: tId,
+          channel: ch || null,
+          content,
+          status: 'failed',
+        });
+      }
 
-      results.push({ lead_id, status: sent ? 'sent' : 'failed' });
+      results.push({ 
+        lead_id, 
+        status: sent ? 'sent' : 'failed',
+        email: lead.email,
+        error: sent ? null : 'Failed to send email - check email provider configuration'
+      });
     }
 
-    res.json({
+    const response = {
       sent: results.filter(r => r.status === 'sent').length,
       failed: results.filter(r => r.status === 'failed').length,
       details: results,
-    });
+    };
+    
+    console.log('[sendMassMessage] Sending response:', response);
+    res.json(response);
     return;
   }
 
@@ -99,23 +113,34 @@ export default async function handler(req: Request, res: Response) {
 
       const sent = await sendEmail(lead, personalizedMessage, user_id);
 
-      await supabase.from('messages').insert({
-        lead_id: lead.id,
-        user_id,
-        template_id,
-        channel,
-        content: personalizedMessage,
-        status: sent ? 'sent' : 'failed',
-      });
+      // Only insert into messages table if sendEmail didn't already do it
+      if (!sent) {
+        await supabase.from('messages').insert({
+          lead_id: lead.id,
+          user_id,
+          template_id,
+          channel,
+          content: personalizedMessage,
+          status: 'failed',
+        });
+      }
 
-      results.push({ lead_id: lead.id, status: sent ? 'sent' : 'failed' });
+      results.push({ 
+        lead_id: lead.id, 
+        status: sent ? 'sent' : 'failed',
+        email: lead.email,
+        error: sent ? null : 'Failed to send email - check email provider configuration'
+      });
     }
 
-    res.json({
+    const response = {
       sent: results.filter(r => r.status === 'sent').length,
       failed: results.filter(r => r.status === 'failed').length,
       details: results,
-    });
+    };
+    
+    console.log('[sendMassMessage] Legacy payload - Sending response:', response);
+    res.json(response);
   } catch (error: any) {
     console.error('Error in sendMassMessage:', error);
     res.status(500).json({ error: 'Failed to send mass message' });
