@@ -16,6 +16,21 @@ export default function AutomateRecruiting1() {
         .prose code { background: #374151; color: #f9fafb; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.875rem; }
         .prose pre { background: #1f2937; padding: 1.5rem; border-radius: 0.5rem; overflow-x: auto; margin: 2rem 0; }
         .toc-active { color: #3b82f6; }
+        
+        /* Force white text overrides */
+        #related-articles h2 { color: #ffffff !important; }
+        #inline-cta-2 h3 { color: #ffffff !important; }
+        #inline-cta-2 p { color: #ffffff !important; }
+        .text-white { color: #ffffff !important; }
+        .bg-gray-800 h3 { color: #ffffff !important; }
+        .bg-gray-800 p { color: #ffffff !important; }
+        
+        /* Force article card titles to white */
+        #related-articles .bg-white h3 { color: #ffffff !important; }
+        #related-articles .bg-white .text-xl { color: #ffffff !important; }
+        #related-articles .bg-white .font-semibold { color: #ffffff !important; }
+        #related-articles article h3 { color: #ffffff !important; }
+        #related-articles article .text-xl { color: #ffffff !important; }
       `}</style>
 
       {/* Breadcrumb */}
