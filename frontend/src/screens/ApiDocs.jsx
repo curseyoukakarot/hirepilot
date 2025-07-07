@@ -4,22 +4,6 @@ import PublicFooter from '../components/PublicFooter';
 
 export default function ApiDocs() {
   const html = String.raw`
-    <header id="header" class="border-b border-gray-800 bg-gray-900/50 backdrop-blur-sm sticky top-0 z-50">
-        <div class="max-w-6xl mx-auto px-6 py-4">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-3">
-                    <i class="fas fa-rocket text-blue-400 text-2xl"></i>
-                    <h1 class="text-xl font-bold text-white">HirePilot API</h1>
-                </div>
-                <div class="flex items-center space-x-4">
-                    <button class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium transition-colors">
-                        <i class="fas fa-key mr-2"></i>Get API Key
-                    </button>
-                </div>
-            </div>
-        </div>
-    </header>
-
     <main class="max-w-6xl mx-auto px-6 py-10">
         <section id="hero" class="mb-12">
             <div class="text-center mb-8">
@@ -37,24 +21,24 @@ export default function ApiDocs() {
                 <nav class="sticky top-24 bg-gray-900/50 rounded-xl p-6 border border-gray-800">
                     <h3 class="text-lg font-semibold mb-4 text-blue-300">Quick Navigation</h3>
                     <ul class="space-y-2">
-                        <li><span class="text-gray-400 hover:text-white transition-colors flex items-center py-2 cursor-pointer">
+                        <li><a href="#authentication" class="text-gray-400 hover:text-white transition-colors flex items-center py-2 cursor-pointer">
                             <i class="fas fa-lock mr-2"></i>Authentication
-                        </span></li>
-                        <li><span class="text-gray-400 hover:text-white transition-colors flex items-center py-2 cursor-pointer">
+                        </a></li>
+                        <li><a href="#create-lead" class="text-gray-400 hover:text-white transition-colors flex items-center py-2 cursor-pointer">
                             <i class="fas fa-plus mr-2"></i>Create Lead
-                        </span></li>
-                        <li><span class="text-gray-400 hover:text-white transition-colors flex items-center py-2 cursor-pointer">
+                        </a></li>
+                        <li><a href="#enrich-lead" class="text-gray-400 hover:text-white transition-colors flex items-center py-2 cursor-pointer">
                             <i class="fas fa-magic mr-2"></i>Enrich Lead
-                        </span></li>
-                        <li><span class="text-gray-400 hover:text-white transition-colors flex items-center py-2 cursor-pointer">
+                        </a></li>
+                        <li><a href="#get-leads" class="text-gray-400 hover:text-white transition-colors flex items-center py-2 cursor-pointer">
                             <i class="fas fa-download mr-2"></i>Get Leads
-                        </span></li>
-                        <li><span class="text-gray-400 hover:text-white transition-colors flex items-center py-2 cursor-pointer">
+                        </a></li>
+                        <li><a href="#webhooks" class="text-gray-400 hover:text-white transition-colors flex items-center py-2 cursor-pointer">
                             <i class="fas fa-broadcast-tower mr-2"></i>Webhooks
-                        </span></li>
-                        <li><span class="text-gray-400 hover:text-white transition-colors flex items-center py-2 cursor-pointer">
+                        </a></li>
+                        <li><a href="#rate-limits" class="text-gray-400 hover:text-white transition-colors flex items-center py-2 cursor-pointer">
                             <i class="fas fa-tachometer-alt mr-2"></i>Rate Limits
-                        </span></li>
+                        </a></li>
                     </ul>
                 </nav>
             </aside>
