@@ -114,5 +114,61 @@
       "REX, did my message to Jordan get delivered?",
       "REX, test my SendGrid API key."
     ]
+  },
+  {
+    "name": "generateApiKey",
+    "description": "Create (or retrieve) the user's API key for Zapier/Make integrations.",
+    "parameters": {
+      "userId": "string"
+    },
+    "examples": [
+      "REX, create my API key for integrations.",
+      "REX, do I have an API key already?"
+    ]
+  },
+  {
+    "name": "registerWebhook",
+    "description": "Store a Zapier/Make Catch-Hook URL for a specific event and return the signing secret.",
+    "parameters": {
+      "userId": "string",
+      "url": "string",
+      "event": "string"
+    },
+    "examples": [
+      "REX, save this Zapier hook for lead.created events.",
+      "REX, use my Make URL for pipeline stage changes."
+    ]
+  },
+  {
+    "name": "listZapierEndpoints",
+    "description": "Return fully-qualified endpoint URLs for actions and triggers.",
+    "parameters": {},
+    "examples": [
+      "REX, show me the API endpoints for Zapier."
+    ]
+  },
+  {
+    "name": "listSenders",
+    "description": "List available sender addresses (SendGrid, Google, Outlook) the user can choose from.",
+    "parameters": {
+      "userId": "string"
+    },
+    "examples": [
+      "REX, which email senders can I use?"
+    ]
+  },
+  {
+    "name": "scheduleBulkMessages",
+    "description": "Schedule a templated email to multiple leads at a specific date/time.",
+    "parameters": {
+      "userId": "string",
+      "leadIds": "array",
+      "templateId": "string",
+      "scheduledAt": "string",
+      "sender": "object"
+    },
+    "examples": [
+      "REX, schedule the SDR follow-up template for these 50 leads tomorrow at 9 AM using jobs@acme.co."
+    ]
   }
 ] 
