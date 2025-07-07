@@ -1,0 +1,143 @@
+import React, { useState } from 'react';
+import PublicNavbar from '../components/PublicNavbar';
+
+export default function TermsPage() {
+  const [tab, setTab] = useState('privacy');
+  const btnClass = (t) => tab === t ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200';
+
+  return (
+    <div className="bg-gray-50 min-h-screen font-sans text-gray-900">
+      <PublicNavbar />
+      <main className="max-w-4xl mx-auto px-6 pt-32 pb-12">
+        <div className="text-center mb-16">
+          <h1 className="text-4xl font-bold mb-4">Privacy Policy & Terms of Service</h1>
+          <p className="text-xl text-gray-600">Your privacy and trust are important to us</p>
+        </div>
+
+        {/* nav buttons */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <button className={`flex-1 px-6 py-3 rounded-lg font-medium text-center ${btnClass('privacy')}`} onClick={() => setTab('privacy')}>
+              <i className="fa-solid fa-shield-halved mr-2" />Privacy Policy
+            </button>
+            <button className={`flex-1 px-6 py-3 rounded-lg font-medium text-center ${btnClass('terms')}`} onClick={() => setTab('terms')}>
+              <i className="fa-solid fa-file-contract mr-2" />Terms of Service
+            </button>
+          </div>
+        </div>
+
+        {tab === 'privacy' && (
+          <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 space-y-8">
+            <h2 className="text-3xl font-bold mb-3">HirePilot Privacy Policy</h2>
+            <p className="text-gray-600">Effective Date: July 6, 2025</p>
+            <div className="space-y-8">
+              <div>
+                <h3 className="text-xl font-semibold mb-3">Introduction</h3>
+                <p className="text-gray-700">This Privacy Policy explains how HirePilot ("we", "our", or "us") collects, uses, and protects information when you use our platform, including our website, app, Chrome extension, and any connected services.</p>
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold mb-3">Information We Collect</h3>
+                <p className="text-gray-700 mb-3">We may collect the following types of information:</p>
+                <ul className="list-disc ml-6 space-y-2 text-gray-700">
+                  <li>Account Information: Name, email address, company, and other signup details.</li>
+                  <li>Billing Details via Stripe.</li>
+                  <li>Usage Data: feature usage, page visits, etc.</li>
+                  <li>Lead & Communication Data you upload or create.</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold mb-3">Google API & Gmail Data</h3>
+                <p className="text-gray-700 mb-3">If you connect Gmail, we access metadata to enable follow-ups. We comply with Google API Services User Data Policy (Limited Use). You can revoke anytime at your Google account permissions page.</p>
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold mb-3">Security & Retention</h3>
+                <p className="text-gray-700">We use encryption and best practices to safeguard data. We retain data while your account is active or as required to provide the Service. You can request deletion at any time.</p>
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold mb-3">Contact</h3>
+                <p className="text-gray-700">For privacy questions, contact <a href="mailto:support@thehirepilot.com" className="text-blue-600 hover:underline">support@thehirepilot.com</a>.</p>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {tab === 'terms' && (
+          <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 space-y-8">
+            <h2 className="text-3xl font-bold mb-3">HirePilot Terms of Service</h2>
+            <p className="text-gray-600">Effective Date: July 6, 2025</p>
+            <div className="space-y-8">
+              <div>
+                <h3 className="text-xl font-semibold mb-3">1. Overview</h3>
+                <p className="text-gray-700">These Terms govern your access to and use of the HirePilot platform ("Service"). By using the Service, you agree to be bound by them.</p>
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold mb-3">2. Eligibility</h3>
+                <p className="text-gray-700">You must be at least 18 years old and able to form a binding contract to use HirePilot.</p>
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold mb-3">3. Subscription & Billing</h3>
+                <p className="text-gray-700">Paid plans are billed in advance. Fees are non-refundable. You may cancel anytime in account settings.</p>
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold mb-3">4. Acceptable Use</h3>
+                <ul className="list-disc ml-6 space-y-2 text-gray-700">
+                  <li>No unlawful or fraudulent use.</li>
+                  <li>No scraping or reselling of data.</li>
+                  <li>No spam or unauthorized communications.</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold mb-3">5. Limitation of Liability</h3>
+                <p className="text-gray-700">We are not liable for indirect or consequential damages. Our total liability is limited to fees paid in the last 12 months.</p>
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold mb-3">6. Contact</h3>
+                <p className="text-gray-700">Questions about these Terms? Email <a href="mailto:support@thehirepilot.com" className="text-blue-600 hover:underline">support@thehirepilot.com</a>.</p>
+              </div>
+            </div>
+          </section>
+        )}
+      </main>
+
+      {/* Footer */}
+      <footer className="bg-gray-900 text-white py-16">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="grid md:grid-cols-4 gap-12 mb-12">
+            <div>
+              <div className="flex items-center gap-2 mb-6">
+                <img src="/logo.png" alt="HirePilot Logo" className="h-8 w-8" />
+                <span className="text-xl font-bold">HirePilot</span>
+              </div>
+              <p className="text-gray-400">AI-powered recruiting platform that helps you hire better, faster.</p>
+              <div className="mt-6 flex gap-4">
+                <span className="text-gray-400 hover:text-white cursor-pointer"><i className="fa-brands fa-linkedin text-xl" /></span>
+              </div>
+            </div>
+            <div>
+              <h4 className="font-semibold text-lg mb-4">Product</h4>
+              <ul className="space-y-3 text-gray-400">
+                <li><a href="/copilot" className="hover:text-white">Your Recruiting Co-Pilot</a></li>
+                <li><a href="/handsfree" className="hover:text-white">Done For You Hiring</a></li>
+                <li><a href="/rex" className="hover:text-white">Meet REX</a></li>
+                <li><a href="/pricing" className="hover:text-white">Pricing</a></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold text-lg mb-4">Company</h4>
+              <ul className="space-y-3 text-gray-400">
+                <li><a href="/blog" className="hover:text-white">Blog</a></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold text-lg mb-4">Support</h4>
+              <ul className="space-y-3 text-gray-400">
+                <li><span className="hover:text-white cursor-pointer">Terms of Use</span></li>
+              </ul>
+            </div>
+          </div>
+          <div className="pt-8 border-t border-gray-800 text-center text-gray-400 text-sm">© 2025 HirePilot. All rights reserved.</div>
+        </div>
+      </footer>
+    </div>
+  );
+} 
