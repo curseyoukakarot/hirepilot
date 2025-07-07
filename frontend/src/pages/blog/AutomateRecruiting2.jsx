@@ -20,6 +20,19 @@ export default function AutomateRecruiting2() {
         .prose th, .prose td { border: 1px solid #374151; padding: 0.75rem; text-align: left; }
         .prose th { background: #1f2937; font-weight: 600; }
         .prose tr:nth-child(even) { background: #1f2937; }
+        
+        /* Force white text overrides */
+        .prose table th { color: #ffffff !important; }
+        .prose table td { color: #ffffff !important; }
+        #related-articles h2 { color: #ffffff !important; }
+        #related-articles .bg-gray-900 h3 { color: #ffffff !important; }
+        #related-articles .bg-gray-900 .text-xl { color: #ffffff !important; }
+        #related-articles .bg-gray-900 .font-semibold { color: #ffffff !important; }
+        #related-articles article h3 { color: #ffffff !important; }
+        #related-articles article .text-xl { color: #ffffff !important; }
+        #inline-cta-2 h3 { color: #ffffff !important; }
+        #inline-cta-2 p { color: #ffffff !important; }
+        .text-white { color: #ffffff !important; }
       `}</style>
 
       {/* Breadcrumb */}
@@ -249,7 +262,7 @@ export default function AutomateRecruiting2() {
         <div className="max-w-6xl mx-auto px-6">
           <h2 className="text-3xl font-bold text-center mb-12">Continue the Series</h2>
           <div className="grid md:grid-cols-3 gap-8">
-            <article className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300">
+            <a href="/blog/AutomateRecruiting1" className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block">
               <img
                 className="w-full h-48 object-cover"
                 src="https://storage.googleapis.com/uxpilot-auth.appspot.com/22f7736434-ea460dbdda56f2c78643.png"
@@ -267,9 +280,9 @@ export default function AutomateRecruiting2() {
                   <span>6 min read</span>
                 </div>
               </div>
-            </article>
+            </a>
 
-            <article className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300">
+            <a href="/blog/AutomateRecruiting3" className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block">
               <img
                 className="w-full h-48 object-cover"
                 src="https://storage.googleapis.com/uxpilot-auth.appspot.com/ae9ba539d4-75ea5d607595907901a7.png"
@@ -282,14 +295,14 @@ export default function AutomateRecruiting2() {
                   Generate personalized cold emails and automated follow-up sequences delivered at scale.
                 </p>
                 <div className="flex items-center text-sm text-gray-500">
-                  <span>Coming Soon</span>
+                  <span>Published</span>
                   <span className="mx-2">•</span>
                   <span>7 min read</span>
                 </div>
               </div>
-            </article>
+            </a>
 
-            <article className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300">
+            <a href="/blog/AutomateRecruiting4" className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block">
               <img
                 className="w-full h-48 object-cover"
                 src="https://storage.googleapis.com/uxpilot-auth.appspot.com/75caae2492-c87687c0aa429fc7491c.png"
@@ -302,12 +315,12 @@ export default function AutomateRecruiting2() {
                   Automate candidate pipeline management and trigger workflows across Slack, Clay, Notion, and more.
                 </p>
                 <div className="flex items-center text-sm text-gray-500">
-                  <span>Coming Soon</span>
+                  <span>Published</span>
                   <span className="mx-2">•</span>
                   <span>8 min read</span>
                 </div>
               </div>
-            </article>
+            </a>
           </div>
         </div>
       </div>
