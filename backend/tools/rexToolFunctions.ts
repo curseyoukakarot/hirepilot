@@ -8,6 +8,7 @@ import { searchAndEnrichPeople } from '../utils/apolloApi';
 import { enrichLead as apolloEnrichLead } from '../services/apollo/enrichLead';
 import { enrichLead as proxycurlEnrichLead } from '../services/proxycurl/enrichLead';
 import axios from 'axios';
+import { v4 as uuidv4 } from 'uuid';
 
 export async function sourceLeads({
   userId,
@@ -464,4 +465,69 @@ export async function getEmailStatus({ emailId }: { emailId: string }) {
     // Fallback to DB values
     return { emailId: msgId, status: msgRow.status, opened: msgRow.opened, clicked: msgRow.clicked };
   }
+}
+
+// -----------------------------------------------------------------------------
+// Zapier / Make setup helpers
+// -----------------------------------------------------------------------------
+
+/**
+ * Ensure the user has an API key (creates one if absent) and return it.
+ */
+export async function generateApiKey({ userId }: { userId: string }) {
+  // Check existing
+  const { data: existing } = await supabaseDb
+    .from('api_keys')
+    .select('key')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (existing?.key) return { apiKey: existing.key };
+
+  const apiKey = uuidv4();
+  const environment = process.env.NODE_ENV === 'production' ? 'production' : 'development';
+  const { error } = await supabaseDb
+    .from('api_keys')
+    .insert({ user_id: userId, key: apiKey, environment });
+
+  if (error) throw new Error('Failed to create API key');
+  return { apiKey };
+}
+
+/**
+ * Save a webhook URL + event for the user and return the generated secret.
+ */
+export async function registerWebhook({
+  userId,
+  url,
+  event
+}: {
+  userId: string;
+  url: string;
+  event: string;
+}) {
+  const secret = uuidv4();
+  const { data, error } = await supabaseDb
+    .from('webhooks')
+    .insert({ user_id: userId, url, event, secret })
+    .select('id, secret')
+    .single();
+
+  if (error) throw new Error('Failed to save webhook');
+  return { webhookId: data.id, secret: data.secret };
+}
+
+export function listZapierEndpoints() {
+  const base = process.env.BACKEND_URL || 'https://api.thehirepilot.com';
+  return {
+    actions: {
+      createOrUpdateLead: `${base}/api/zapier/leads`,
+      enrichLead: `${base}/api/zapier/enrich`
+    },
+    triggers: {
+      newLead: `${base}/api/zapier/triggers/new-leads`,
+      pipelineStageChanged: `${base}/api/zapier/triggers/pipeline-stage-changes`
+    },
+    events: ['lead.created', 'lead.updated', 'lead.stage_changed']
+  };
 } 
