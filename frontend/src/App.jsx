@@ -32,6 +32,7 @@ import useGAPageViews from "./hooks/useGAPageViews";
 import ChromeExtension from './screens/ChromeExtension';
 import ChromeExtensionPrivacy from './screens/ChromeExtensionPrivacy';
 import TermsPage from './screens/TermsPage';
+import RexSupport from './screens/RexSupport';
 // Blog article pages
 const FlowOfHirePilot = lazy(() => import("./pages/blog/FlowOfHirePilot"));
 const MessageCenterSetup = lazy(() => import("./pages/blog/MessageCenterSetup"));
@@ -328,6 +329,7 @@ function InnerApp() {
               <Route path="/chromeextension" element={<ChromeExtension />} />
               <Route path="/chromeextension/privacy" element={<ChromeExtensionPrivacy />} />
               <Route path="/terms" element={<TermsPage />} />
+              <Route path="/rexsupport" element={<RexSupport />} />
               {/* Blog articles */}
               <Route path="/blog/flow-of-hirepilot" element={<FlowOfHirePilot />} />
               <Route path="/blog/message-center-setup" element={<MessageCenterSetup />} />
