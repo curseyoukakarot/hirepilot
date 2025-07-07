@@ -21,9 +21,10 @@ export default function AutomateRecruiting2() {
         .prose th { background: #1f2937; font-weight: 600; }
         .prose tr:nth-child(even) { background: #1f2937; }
         
-        /* Force white text overrides */
+        /* Force white text overrides for dark rows only */
         .prose table th { color: #ffffff !important; }
-        .prose table td { color: #ffffff !important; }
+        .prose table tr:nth-child(even) td { color: #ffffff !important; }
+        .prose table tr:nth-child(odd) td { color: #000000 !important; }
         #related-articles h2 { color: #ffffff !important; }
         #related-articles .bg-gray-900 h3 { color: #ffffff !important; }
         #related-articles .bg-gray-900 .text-xl { color: #ffffff !important; }
