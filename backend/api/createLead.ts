@@ -41,6 +41,11 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
 
     if (error) throw error;
 
+    // Emit webhook
+    await import('../lib/webhookEmitter').then(({ emitWebhook }) =>
+      emitWebhook(req.user!.id, 'lead.created', data)
+    );
+
     res.status(201).json({ lead: data as Lead });
     return;
   } catch (error) {

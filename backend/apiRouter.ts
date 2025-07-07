@@ -21,6 +21,7 @@ import zapierRouter from './api/zapierRouter';
 import createApikey from './api/createApikey';
 import getApiKeys from './api/getApiKeys';
 import deleteApiKey from './api/deleteApiKey';
+import webhooksRouter from './api/webhooksRouter';
 
 const router = Router();
 
@@ -78,5 +79,7 @@ router.use('/zapier', zapierRouter);
 router.post('/apiKeys', requireAuth, createApikey);
 router.get('/apiKeys', requireAuth, getApiKeys);
 router.delete('/apiKeys/:id', requireAuth, deleteApiKey);
+
+router.use('/webhooks', webhooksRouter);
 
 export default router;

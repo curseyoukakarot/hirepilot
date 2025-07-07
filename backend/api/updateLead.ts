@@ -59,6 +59,18 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
 
     if (updateError) throw updateError;
 
+    // Emit webhooks
+    await import('../lib/webhookEmitter').then(async ({ emitWebhook }) => {
+      emitWebhook(req.user!.id, 'lead.updated', data);
+      if (updateData.status && updateData.status !== lead.status) {
+        emitWebhook(req.user!.id, 'lead.stage_changed', {
+          id: lead.id,
+          old_status: lead.status,
+          new_status: updateData.status,
+        });
+      }
+    });
+
     const { status, data: responseData } = res as any;
     if (status === 200) {
       res.status(200).json({ lead: responseData as Lead });

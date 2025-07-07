@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { FaBolt, FaKey, FaCopy, FaCheckCircle } from 'react-icons/fa';
 import { supabase } from '../../../lib/supabase';
+import ZapierWizardModal from './ZapierWizardModal.jsx';
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL;
 
@@ -8,6 +9,7 @@ export default function ZapierIntegrationCard({ user }) {
   const [apiKey, setApiKey] = useState('');
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showWizard, setShowWizard] = useState(false);
 
   const metaRole = user?.user_metadata?.role || user?.user_metadata?.account_type;
   const roleValue = user?.user_type || user?.role || metaRole;
@@ -76,6 +78,11 @@ export default function ZapierIntegrationCard({ user }) {
     setTimeout(() => setCopied(false), 1500);
   };
 
+  const handleGenerateWrapper = async () => {
+    if (apiKey) return; // already
+    await handleGenerate();
+  };
+
   return (
     <div className="rounded-xl bg-white shadow border px-6 py-5 dark:bg-gray-800 dark:border-gray-700 mt-8">
       {/* Header */}
@@ -134,7 +141,7 @@ export default function ZapierIntegrationCard({ user }) {
       </div>
 
       {/* Quick Links */}
-      <div className="mt-4">
+      <div className="mt-4 flex items-center gap-4">
         <a
           href="https://zapier.com/app/editor/template?url=hirepilot"
           target="_blank"
@@ -143,7 +150,16 @@ export default function ZapierIntegrationCard({ user }) {
         >
           View Zapier Template →
         </a>
+        <button onClick={()=>setShowWizard(true)} className="text-sm text-blue-600 hover:text-blue-800">Guided Setup →</button>
       </div>
+
+      <ZapierWizardModal
+        isOpen={showWizard}
+        onClose={()=>setShowWizard(false)}
+        apiKey={apiKey}
+        onApiKeyGenerated={handleGenerateWrapper}
+        onWebhookSaved={()=>{}}
+      />
     </div>
   );
 } 

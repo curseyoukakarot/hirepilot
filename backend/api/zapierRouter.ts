@@ -33,6 +33,11 @@ router.post('/leads', apiKeyAuth, async (req: ApiRequest, res: Response) => {
 
     if (error) throw error;
 
+    await import('../lib/webhookEmitter').then(({ emitWebhook }) => {
+      const evt = data.created_at === data.updated_at ? 'lead.created' : 'lead.updated';
+      emitWebhook(userId, evt, data);
+    });
+
     return res.status(200).json({ lead: data });
   } catch (err: any) {
     console.error('[Zapier] /leads error:', err);
