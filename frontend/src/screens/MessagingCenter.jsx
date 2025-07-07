@@ -117,7 +117,7 @@ export default function MessagingCenter() {
       .from('messages')
       .select('*')
       .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
+      .order('sent_at', { ascending: false });
     if (status !== 'inbox') {
       query = query.eq('status', status);
     } else {

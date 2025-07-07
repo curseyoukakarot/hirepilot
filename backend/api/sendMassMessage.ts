@@ -80,17 +80,49 @@ async function sendViaSendGrid(lead: any, content: string, userId: string): Prom
     console.log(`[sendViaSendGrid] Sending email to ${lead.email} from ${data.default_sender}`);
     const [response] = await sgMail.send(msg);
     
-    // Store the message in our database
+    // Helper function to generate avatar URL
+    const getAvatarUrl = (name: string) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
+
+    // Store the message in our database with UI-friendly fields
+    const currentTime = new Date();
     await supabaseDb.from('messages').insert({
       user_id: userId,
       lead_id: lead.id,
       to_email: lead.email,
+      recipient: lead.email,
+      from_address: data.default_sender,
       subject,
       content: body,
       sg_message_id: response.headers['x-message-id'],
       provider: 'sendgrid',
       status: 'sent',
-      sent_at: new Date().toISOString()
+      sent_at: currentTime.toISOString(),
+      created_at: currentTime.toISOString(),
+      updated_at: currentTime.toISOString(),
+      // UI-friendly fields
+      sender: 'You',
+      avatar: getAvatarUrl('You'),
+      preview: body.replace(/<[^>]+>/g, '').slice(0, 100),
+      time: currentTime.toLocaleTimeString(),
+      unread: false,
+      read: true
+    });
+
+    // Add analytics tracking - store sent event
+    const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    await supabaseDb.from('email_events').insert({
+      user_id: userId,
+      lead_id: lead.id,
+      message_id: messageId,
+      event_type: 'sent',
+      provider: 'sendgrid',
+      to_email: lead.email,
+      timestamp: currentTime.toISOString(),
+      metadata: {
+        subject,
+        sg_message_id: response.headers['x-message-id'],
+        source: 'bulk_messaging'
+      }
     });
 
     console.log(`[sendViaSendGrid] Successfully sent to ${lead.email}`);
@@ -134,17 +166,49 @@ async function sendViaGoogle(lead: any, content: string, userId: string): Promis
       requestBody: { raw },
     });
 
-    // Store the message in our database
+    // Helper function to generate avatar URL
+    const getAvatarUrl = (name: string) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
+
+    // Store the message in our database with UI-friendly fields
+    const currentTime = new Date();
     await supabaseDb.from('messages').insert({
       user_id: userId,
       lead_id: lead.id,
       to_email: lead.email,
+      recipient: lead.email,
+      from_address: 'you@gmail.com', // Could get actual from user profile
       subject,
       content: body,
       gmail_message_id: response.data.id,
       provider: 'gmail',
       status: 'sent',
-      sent_at: new Date().toISOString()
+      sent_at: currentTime.toISOString(),
+      created_at: currentTime.toISOString(),
+      updated_at: currentTime.toISOString(),
+      // UI-friendly fields
+      sender: 'You',
+      avatar: getAvatarUrl('You'),
+      preview: body.replace(/<[^>]+>/g, '').slice(0, 100),
+      time: currentTime.toLocaleTimeString(),
+      unread: false,
+      read: true
+    });
+
+    // Add analytics tracking - store sent event
+    const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    await supabaseDb.from('email_events').insert({
+      user_id: userId,
+      lead_id: lead.id,
+      message_id: messageId,
+      event_type: 'sent',
+      provider: 'gmail',
+      to_email: lead.email,
+      timestamp: currentTime.toISOString(),
+      metadata: {
+        subject,
+        gmail_message_id: response.data.id,
+        source: 'bulk_messaging'
+      }
     });
 
     console.log(`[sendViaGoogle] Successfully sent to ${lead.email}`);

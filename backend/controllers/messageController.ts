@@ -136,22 +136,59 @@ export const sendMessage = async (req: Request, res: Response) => {
       return;
     }
 
-    // Store the message in the database
+    // Helper function to generate avatar URL
+    const getAvatarUrl = (name: string) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
+
+    // Store the message in the database with UI-friendly fields
+    const currentTime = new Date();
     const { error: messageError } = await supabase
       .from('messages')
       .insert({
         user_id: user.id,
         to_email: to,
+        recipient: to,
+        from_address: user.email || 'you@example.com',
         subject,
         content: finalHtml,
         provider,
         template_id,
         status: 'sent',
-        sent_at: new Date().toISOString()
+        sent_at: currentTime.toISOString(),
+        created_at: currentTime.toISOString(),
+        updated_at: currentTime.toISOString(),
+        // UI-friendly fields
+        sender: 'You',
+        avatar: getAvatarUrl('You'),
+        preview: finalHtml.replace(/<[^>]+>/g, '').slice(0, 100),
+        time: currentTime.toLocaleTimeString(),
+        unread: false,
+        read: true
       });
 
     if (messageError) {
       console.error('Error storing message:', messageError);
+    }
+
+    // Add analytics tracking - store sent event
+    const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const { error: analyticsError } = await supabase
+      .from('email_events')
+      .insert({
+        user_id: user.id,
+        message_id: messageId,
+        event_type: 'sent',
+        provider,
+        to_email: to,
+        timestamp: new Date().toISOString(),
+        metadata: {
+          subject,
+          template_id,
+          source: 'message_center'
+        }
+      });
+
+    if (analyticsError) {
+      console.error('Error storing analytics event:', analyticsError);
     }
 
     res.status(200).json({ success: true });
