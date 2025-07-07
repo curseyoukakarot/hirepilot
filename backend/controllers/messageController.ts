@@ -4,6 +4,9 @@ import { Client } from '@microsoft/microsoft-graph-client';
 import sgMail from '@sendgrid/mail';
 import { createClient } from '@supabase/supabase-js';
 
+// Helper function to generate avatar URL
+const getAvatarUrl = (name: string) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
+
 const supabase = createClient(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -136,9 +139,6 @@ export const sendMessage = async (req: Request, res: Response) => {
       return;
     }
 
-    // Helper function to generate avatar URL
-    const getAvatarUrl = (name: string) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
-
     // Store the message in the database with UI-friendly fields
     const currentTime = new Date();
     const { error: messageError } = await supabase
@@ -166,7 +166,7 @@ export const sendMessage = async (req: Request, res: Response) => {
       });
 
     if (messageError) {
-      console.error('Error storing message:', messageError);
+      console.error('[sendMessage] Message insert error:', messageError);
     }
 
     // Add analytics tracking - store sent event

@@ -6,6 +6,9 @@ import sgMail from '@sendgrid/mail';
 import { google } from 'googleapis';
 import { getGoogleAccessToken } from '../services/googleTokenHelper';
 
+// Helper function to generate avatar URL
+const getAvatarUrl = (name: string) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
+
 // Provider-specific sending functions
 async function sendViaProvider(lead: any, content: string, userId: string, provider: string): Promise<boolean> {
   try {
@@ -80,12 +83,9 @@ async function sendViaSendGrid(lead: any, content: string, userId: string): Prom
     console.log(`[sendViaSendGrid] Sending email to ${lead.email} from ${data.default_sender}`);
     const [response] = await sgMail.send(msg);
     
-    // Helper function to generate avatar URL
-    const getAvatarUrl = (name: string) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
-
     // Store the message in our database with UI-friendly fields
     const currentTime = new Date();
-    await supabaseDb.from('messages').insert({
+    const { error: insertError } = await supabaseDb.from('messages').insert({
       user_id: userId,
       lead_id: lead.id,
       to_email: lead.email,
@@ -107,6 +107,10 @@ async function sendViaSendGrid(lead: any, content: string, userId: string): Prom
       unread: false,
       read: true
     });
+
+    if (insertError) {
+      console.error('[sendViaSendGrid] Message insert error:', insertError);
+    }
 
     // Add analytics tracking - store sent event
     const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -166,12 +170,9 @@ async function sendViaGoogle(lead: any, content: string, userId: string): Promis
       requestBody: { raw },
     });
 
-    // Helper function to generate avatar URL
-    const getAvatarUrl = (name: string) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
-
     // Store the message in our database with UI-friendly fields
     const currentTime = new Date();
-    await supabaseDb.from('messages').insert({
+    const { error: insertError } = await supabaseDb.from('messages').insert({
       user_id: userId,
       lead_id: lead.id,
       to_email: lead.email,
@@ -193,6 +194,10 @@ async function sendViaGoogle(lead: any, content: string, userId: string): Promis
       unread: false,
       read: true
     });
+
+    if (insertError) {
+      console.error('[sendViaGoogle] Message insert error:', insertError);
+    }
 
     // Add analytics tracking - store sent event
     const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
