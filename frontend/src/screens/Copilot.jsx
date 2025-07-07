@@ -1,6 +1,6 @@
 import React from 'react';
 import PublicNavbar from '../components/PublicNavbar';
-import PublicFooter from '../components/PublicFooter';
+import PublicFooter from '../components/PublicFooter.jsx';
 
 export default function Copilot() {
   return (

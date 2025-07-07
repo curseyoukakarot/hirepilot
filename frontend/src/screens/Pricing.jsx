@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { apiPost } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import PublicNavbar from '../components/PublicNavbar';
-import PublicFooter from '../components/PublicFooter';
+import PublicFooter from '../components/PublicFooter.jsx';
 
 export default function Pricing() {
   const [annual, setAnnual] = useState(false);

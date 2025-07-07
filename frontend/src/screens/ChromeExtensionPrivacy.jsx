@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import PublicNavbar from '../components/PublicNavbar';
-import PublicFooter from '../components/PublicFooter';
+import PublicFooter from '../components/PublicFooter.jsx';
 
 export default function ChromeExtensionPrivacy() {
   const [tab, setTab] = useState('privacy');
