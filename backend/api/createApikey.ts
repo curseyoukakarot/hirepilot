@@ -13,11 +13,13 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
     }
 
     const apiKey = uuidv4();
+    const environment = process.env.NODE_ENV === 'production' ? 'production' : 'development';
     const { error } = await supabaseDb
       .from('api_keys')
       .insert({
         user_id: req.user.id,
         key: apiKey,
+        environment,
         created_at: new Date().toISOString()
       });
 
