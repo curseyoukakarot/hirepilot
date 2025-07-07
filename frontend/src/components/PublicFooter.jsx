@@ -35,6 +35,7 @@ export default function PublicFooter() {
             <ul className="space-y-3 text-gray-400">
               <li><a href="/terms" className="hover:text-white cursor-pointer">Terms of Use</a></li>
               <li><a href="/rexsupport" className="hover:text-white cursor-pointer">REX Support</a></li>
+              <li><a href="/apidoc" className="hover:text-white cursor-pointer">API Documentation</a></li>
             </ul>
           </div>
         </div>

@@ -33,6 +33,7 @@ import ChromeExtension from './screens/ChromeExtension';
 import ChromeExtensionPrivacy from './screens/ChromeExtensionPrivacy';
 import TermsPage from './screens/TermsPage';
 import RexSupport from './screens/RexSupport';
+import ApiDocs from './screens/ApiDocs';
 // Blog article pages
 const FlowOfHirePilot = lazy(() => import("./pages/blog/FlowOfHirePilot"));
 const MessageCenterSetup = lazy(() => import("./pages/blog/MessageCenterSetup"));
@@ -208,7 +209,7 @@ export default function App() {
 
 function InnerApp() {
   const location = useLocation();
-  const landingPages = ["/", "/signup", "/login", "/copilot", "/handsfree", "/pricing", "/rex", "/chromeextension", "/chromeextension/privacy", "/terms"];
+  const landingPages = ["/", "/signup", "/login", "/copilot", "/handsfree", "/pricing", "/rex", "/chromeextension", "/chromeextension/privacy", "/terms", "/apidoc"];
   // Treat blog landing and article pages as public landing pages (no dashboard UI)
   const isAuthPage = landingPages.includes(location.pathname) || location.pathname.startsWith('/blog') || location.pathname.startsWith('/rex');
   const navigate = useNavigate();
@@ -330,6 +331,7 @@ function InnerApp() {
               <Route path="/chromeextension/privacy" element={<ChromeExtensionPrivacy />} />
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/rexsupport" element={<RexSupport />} />
+              <Route path="/apidoc" element={<ApiDocs />} />
               {/* Blog articles */}
               <Route path="/blog/flow-of-hirepilot" element={<FlowOfHirePilot />} />
               <Route path="/blog/message-center-setup" element={<MessageCenterSetup />} />
