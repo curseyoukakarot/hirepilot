@@ -2,6 +2,158 @@ import { Request, Response } from 'express';
 import { supabase } from '../lib/supabase';
 import { sendEmail } from '../services/emailProviderService';
 import { personalizeMessage } from '../utils/messageUtils';
+import sgMail from '@sendgrid/mail';
+import { google } from 'googleapis';
+import { getGoogleAccessToken } from '../services/googleTokenHelper';
+
+// Provider-specific sending functions
+async function sendViaProvider(lead: any, content: string, userId: string, provider: string): Promise<boolean> {
+  try {
+    console.log(`[sendViaProvider] Attempting to send via ${provider} to ${lead.email}`);
+    
+    switch (provider) {
+      case 'sendgrid':
+        return await sendViaSendGrid(lead, content, userId);
+      case 'google':
+      case 'gmail':
+        return await sendViaGoogle(lead, content, userId);
+      case 'outlook':
+        // TODO: Implement Outlook sending
+        console.log('[sendViaProvider] Outlook not implemented yet, falling back to emailProviderService');
+        return await sendEmail(lead, content, userId);
+      default:
+        console.log(`[sendViaProvider] Unknown provider ${provider}, falling back to emailProviderService`);
+        return await sendEmail(lead, content, userId);
+    }
+  } catch (error) {
+    console.error(`[sendViaProvider] Error with ${provider}:`, error);
+    return false;
+  }
+}
+
+async function sendViaSendGrid(lead: any, content: string, userId: string): Promise<boolean> {
+  try {
+    // Parse subject and body from content
+    const lines = content.split('\n');
+    let subject = 'Message from HirePilot';
+    let body = content;
+    
+    if (lines.length > 1 && lines[0].length < 100 && !lines[0].includes('<')) {
+      subject = lines[0].trim();
+      body = lines.slice(1).join('\n').trim();
+    }
+    
+    body = body.replace(/\n/g, '<br/>');
+
+    // Get user's SendGrid API key and default sender
+    const { data, error } = await supabase
+      .from('user_sendgrid_keys')
+      .select('api_key, default_sender')
+      .eq('user_id', userId)
+      .single();
+
+    if (error || !data?.api_key) {
+      console.error('[sendViaSendGrid] No SendGrid API key found:', error);
+      return false;
+    }
+
+    if (!data.default_sender) {
+      console.error('[sendViaSendGrid] No default sender configured');
+      return false;
+    }
+
+    // Configure SendGrid with user's API key
+    sgMail.setApiKey(data.api_key);
+
+    // Prepare the email
+    const msg = {
+      to: lead.email,
+      from: data.default_sender,
+      subject,
+      html: body,
+      trackingSettings: {
+        clickTracking: { enable: true },
+        openTracking: { enable: true }
+      }
+    };
+
+    console.log(`[sendViaSendGrid] Sending email to ${lead.email} from ${data.default_sender}`);
+    const [response] = await sgMail.send(msg);
+    
+    // Store the message in our database
+    await supabase.from('messages').insert({
+      user_id: userId,
+      lead_id: lead.id,
+      to_email: lead.email,
+      subject,
+      content: body,
+      sg_message_id: response.headers['x-message-id'],
+      provider: 'sendgrid',
+      status: 'sent',
+      sent_at: new Date().toISOString()
+    });
+
+    console.log(`[sendViaSendGrid] Successfully sent to ${lead.email}`);
+    return true;
+  } catch (error: any) {
+    console.error('[sendViaSendGrid] Error:', error.response?.body || error);
+    return false;
+  }
+}
+
+async function sendViaGoogle(lead: any, content: string, userId: string): Promise<boolean> {
+  try {
+    // Parse subject and body from content
+    const lines = content.split('\n');
+    let subject = 'Message from HirePilot';
+    let body = content;
+    
+    if (lines.length > 1 && lines[0].length < 100 && !lines[0].includes('<')) {
+      subject = lines[0].trim();
+      body = lines.slice(1).join('\n').trim();
+    }
+    
+    body = body.replace(/\n/g, '<br/>');
+
+    const accessToken = await getGoogleAccessToken(userId);
+    const oauth2client = new google.auth.OAuth2();
+    oauth2client.setCredentials({ access_token: accessToken });
+    const gmail = google.gmail({ version: 'v1', auth: oauth2client });
+
+    const raw = Buffer.from(
+      `To: ${lead.email}\r\n` +
+      `Subject: ${subject}\r\n` +
+      'Content-Type: text/html; charset=utf-8\r\n' +
+      '\r\n' +
+      body
+    ).toString('base64url');
+
+    console.log(`[sendViaGoogle] Sending email to ${lead.email}`);
+    const response = await gmail.users.messages.send({
+      userId: 'me',
+      requestBody: { raw },
+    });
+
+    // Store the message in our database
+    await supabase.from('messages').insert({
+      user_id: userId,
+      lead_id: lead.id,
+      to_email: lead.email,
+      subject,
+      content: body,
+      gmail_message_id: response.data.id,
+      provider: 'gmail',
+      status: 'sent',
+      sent_at: new Date().toISOString()
+    });
+
+    console.log(`[sendViaGoogle] Successfully sent to ${lead.email}`);
+    return true;
+  } catch (error: any) {
+    console.error('[sendViaGoogle] Error:', error);
+    return false;
+  }
+}
 
 export default async function handler(req: Request, res: Response) {
   if (req.method !== 'POST') {
@@ -23,6 +175,8 @@ export default async function handler(req: Request, res: Response) {
 
     for (const msg of messages) {
       const { lead_id, user_id: uid, content, template_id: tId, channel: ch } = msg;
+      console.log(`[sendMassMessage] Processing message for lead ${lead_id} with provider ${ch}`);
+      
       if (!lead_id || !uid || !content) {
         results.push({ lead_id, status: 'failed', error: 'missing_fields' });
         continue;
@@ -37,15 +191,22 @@ export default async function handler(req: Request, res: Response) {
         .single();
 
       if (leadError || !lead) {
+        console.error(`[sendMassMessage] Lead not found: ${lead_id}`, leadError);
         results.push({ lead_id, status: 'failed', error: 'lead_not_found' });
         continue;
       }
 
-      const sent = await sendEmail(lead, content, uid);
+      // Use provider-specific sending if channel is specified, otherwise fall back to emailProviderService
+      let sent = false;
+      if (ch && ['sendgrid', 'google', 'gmail', 'outlook'].includes(ch)) {
+        sent = await sendViaProvider(lead, content, uid, ch);
+      } else {
+        console.log(`[sendMassMessage] No valid provider specified (${ch}), using emailProviderService`);
+        sent = await sendEmail(lead, content, uid);
+      }
 
-      // Only insert into messages table if sendEmail didn't already do it
-      // (the new sendEmail function inserts successful sends into messages table)
-      if (!sent) {
+      // Only insert into messages table if provider-specific sending didn't already do it
+      if (!sent && (!ch || !['sendgrid', 'google', 'gmail'].includes(ch))) {
         await supabase.from('messages').insert({
           lead_id,
           user_id: uid,
@@ -60,6 +221,7 @@ export default async function handler(req: Request, res: Response) {
         lead_id, 
         status: sent ? 'sent' : 'failed',
         email: lead.email,
+        provider: ch || 'default',
         error: sent ? null : 'Failed to send email - check email provider configuration'
       });
     }
@@ -111,10 +273,16 @@ export default async function handler(req: Request, res: Response) {
     for (const lead of leads) {
       const personalizedMessage = personalizeMessage(templateContent, lead);
 
-      const sent = await sendEmail(lead, personalizedMessage, user_id);
+      // Use provider-specific sending if channel is specified
+      let sent = false;
+      if (channel && ['sendgrid', 'google', 'gmail', 'outlook'].includes(channel)) {
+        sent = await sendViaProvider(lead, personalizedMessage, user_id, channel);
+      } else {
+        sent = await sendEmail(lead, personalizedMessage, user_id);
+      }
 
-      // Only insert into messages table if sendEmail didn't already do it
-      if (!sent) {
+      // Only insert into messages table if provider-specific sending didn't already do it
+      if (!sent && (!channel || !['sendgrid', 'google', 'gmail'].includes(channel))) {
         await supabase.from('messages').insert({
           lead_id: lead.id,
           user_id,
@@ -129,6 +297,7 @@ export default async function handler(req: Request, res: Response) {
         lead_id: lead.id, 
         status: sent ? 'sent' : 'failed',
         email: lead.email,
+        provider: channel || 'default',
         error: sent ? null : 'Failed to send email - check email provider configuration'
       });
     }
