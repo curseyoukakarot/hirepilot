@@ -181,7 +181,7 @@ export default function AutomateRecruiting3() {
             <p>Every message includes:</p>
 
             <ul>
-              <li>Smart tokens like <code>{first_name}</code>, <code>{company}</code>, <code>{title}</code></li>
+              <li>Smart tokens like <code>{"{{first_name}}"}</code>, <code>{"{{company}}"}</code>, <code>{"{{title}}"}</code></li>
               <li>Role-specific phrasing</li>
               <li>Optional value prop inserts</li>
             </ul>
