@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import PublicNavbar from '../components/PublicNavbar';
-import PublicFooter from '../components/PublicFooter.jsx';
+import PublicFooter from '../components/PublicFooter';
 
 export default function TermsPage() {
   const [tab, setTab] = useState('privacy');

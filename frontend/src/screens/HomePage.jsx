@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import PublicNavbar from '../components/PublicNavbar';
-import PublicFooter from '../components/PublicFooter.jsx';
+import PublicFooter from '../components/PublicFooter';
 
 const HomePage = () => {
   return (
