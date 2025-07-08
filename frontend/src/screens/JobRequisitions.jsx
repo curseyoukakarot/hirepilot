@@ -131,7 +131,7 @@ export default function JobRequisitions() {
 
   const handleBulkDelete = async () => {
     try {
-      const response = await apiDelete('/deleteJobRequisitions', {
+      const response = await apiDelete('/api/deleteJobRequisitions', {
         body: JSON.stringify({ ids: selectedJobs }),
         headers: { 'Content-Type': 'application/json' }
       });
@@ -144,7 +144,7 @@ export default function JobRequisitions() {
           )
         ) {
           // User confirmed, send with force: true
-          await apiDelete('/deleteJobRequisitions', {
+          await apiDelete('/api/deleteJobRequisitions', {
             body: JSON.stringify({ ids: selectedJobs, force: true }),
             headers: { 'Content-Type': 'application/json' }
           });
@@ -171,7 +171,7 @@ export default function JobRequisitions() {
   const handleConfirmDeleteJob = async () => {
     if (!jobToDelete) return;
     try {
-      const response = await apiDelete('/deleteJobRequisitions', {
+      const response = await apiDelete('/api/deleteJobRequisitions', {
         body: JSON.stringify({ ids: [jobToDelete.id] }),
         headers: { 'Content-Type': 'application/json' }
       });
@@ -182,7 +182,7 @@ export default function JobRequisitions() {
             `This job is linked to campaigns (${campaignTitles}). Deleting will also remove those campaigns. Continue?`
           )
         ) {
-          await apiDelete('/deleteJobRequisitions', {
+          await apiDelete('/api/deleteJobRequisitions', {
             body: JSON.stringify({ ids: [jobToDelete.id], force: true }),
             headers: { 'Content-Type': 'application/json' }
           });
