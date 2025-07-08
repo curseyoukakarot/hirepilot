@@ -84,7 +84,7 @@ export default function LinkedInSalesNavigatorGuide() {
             </ul>
             <p><strong>👉 To get started:</strong></p>
             <ol>
-              <li>Install the <strong>HirePilot Chrome Extension</strong><br />(You'll find the link inside the app under <em>Integrations → LinkedIn</em>)</li>
+              <li>Install the <strong><a href="/chromeextension" className="text-blue-400 hover:text-blue-300 underline">HirePilot Chrome Extension</a></strong><br />(You'll find the link inside the app under <em>Integrations → LinkedIn</em>)</li>
               <li>Open LinkedIn Sales Navigator</li>
               <li>Perform your search (e.g., "VP of Marketing, SaaS, Austin")</li>
               <li>Click the HirePilot extension</li>
