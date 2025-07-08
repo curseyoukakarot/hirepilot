@@ -1075,10 +1075,12 @@ export default function SettingsIntegrations() {
         onSuccess={handleApolloSuccess}
         currentApiKey={apolloApiKey}
       />
-      {/* Zapier Integration Card */}
-      <div className="mt-8">
-        <ZapierIntegrationCard user={currentUser} />
-      </div>
+      {/* Zapier Integration Card - Hidden for member accounts */}
+      {currentUser?.role && currentUser.role !== 'member' && (
+        <div className="mt-8">
+          <ZapierIntegrationCard user={currentUser} />
+        </div>
+      )}
       {/* REX Slack Integration Card */}
       <div className="mt-8">
         <RexSlackIntegrationCard user={currentUser} />
