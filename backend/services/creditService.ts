@@ -504,16 +504,44 @@ export class CreditService {
         team_member_id,
         created_at,
         users!team_credit_sharing_team_member_id_fkey(
-          id, email, firstName, lastName, role
+          id,
+          email,
+          first_name,
+          last_name
         )
       `)
       .eq('team_admin_id', teamAdminId);
 
     if (error) {
-      console.error('Error fetching team members:', error);
-      return [];
+      console.error('Error getting team members for admin:', error);
+      throw error;
     }
 
     return data || [];
+  }
+
+  /**
+   * Log credit usage with custom description
+   */
+  static async logCreditUsage(
+    userId: string, 
+    amount: number, 
+    usageType: CreditUsageType, 
+    description: string
+  ): Promise<void> {
+    const { error } = await supabase
+      .from('credit_usage_log')
+      .insert({
+        user_id: userId,
+        amount: -Math.abs(amount), // Negative for debit
+        type: 'debit',
+        usage_type: usageType,
+        description: description
+      });
+
+    if (error) {
+      console.error('Error logging credit usage:', error);
+      throw error;
+    }
   }
 } 

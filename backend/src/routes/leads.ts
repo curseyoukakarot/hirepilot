@@ -185,6 +185,20 @@ router.post('/import', requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
+    // Import the CreditService
+    const { CreditService } = await import('../../services/creditService');
+
+    // Check if user has enough credits
+    const hasCredits = await CreditService.hasSufficientCredits(userId, leads.length);
+    if (!hasCredits) {
+      res.status(402).json({ 
+        error: 'Insufficient credits', 
+        required: leads.length,
+        message: `You need ${leads.length} credits to import these leads.`
+      });
+      return;
+    }
+
     const normalizedLeads = leads.map((lead: any) => {
       const first = lead.first_name || (lead.name ? lead.name.split(' ')[0] : '') || '';
       const last = lead.last_name || (lead.name ? lead.name.split(' ').slice(1).join(' ') : '') || '';
@@ -212,6 +226,7 @@ router.post('/import', requireAuth, async (req: Request, res: Response) => {
       };
     });
 
+    // Insert leads into the database
     const { data, error } = await supabase
       .from('leads')
       .insert(normalizedLeads)
@@ -222,7 +237,61 @@ router.post('/import', requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
-    res.json({ success: true, data });
+    // Deduct credits for the imported leads
+    try {
+      await CreditService.useCreditsEffective(userId, leads.length);
+      
+      // Log the specific usage for campaign lead import
+      await CreditService.logCreditUsage(
+        userId, 
+        leads.length, 
+        'api_usage', 
+        `Campaign lead import: ${leads.length} leads added to campaign ${campaignId}`
+      );
+    } catch (creditError) {
+      console.error('Error deducting credits:', creditError);
+      // Note: leads were already inserted, so we log this but don't fail the request
+    }
+
+    // Update campaign totals
+    try {
+      // Get total and enriched lead counts for this campaign
+      const { count: totalLeads } = await supabase
+        .from('leads')
+        .select('id', { count: 'exact' })
+        .eq('campaign_id', campaignId);
+
+      const { count: enrichedLeads } = await supabase
+        .from('leads')
+        .select('id', { count: 'exact' })
+        .eq('campaign_id', campaignId)
+        .not('email', 'is', null)
+        .neq('email', '');
+
+      // Update campaign with new counts
+      const { error: campaignError } = await supabase
+        .from('campaigns')
+        .update({ 
+          total_leads: totalLeads || 0,
+          enriched_leads: enrichedLeads || 0,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', campaignId);
+
+      if (campaignError) {
+        console.error('Error updating campaign counts:', campaignError);
+      }
+    } catch (countError) {
+      console.error('Error updating campaign counts:', countError);
+      // Don't fail the request for count update errors
+    }
+
+    res.json({ 
+      success: true, 
+      data,
+      imported: data?.length || 0,
+      creditsUsed: leads.length
+    });
   } catch (error) {
     console.error('Error importing leads:', error);
     res.status(500).json({ error: 'Failed to import leads' });
