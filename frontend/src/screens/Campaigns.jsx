@@ -218,10 +218,10 @@ function Campaigns() {
                     <p className="text-gray-500 mb-3 line-clamp-2 min-h-[40px]">{campaign.role || campaign.description || ''}</p>
                     <div className="flex gap-4 items-center text-sm text-gray-400 mt-auto pt-2">
                       <span className="flex items-center gap-1">
-                        <FaUsers /> {campaign.sent || 0} leads
+                        <FaUsers /> {campaign.total_leads || 0} leads
                       </span>
                       <span className="flex items-center gap-1">
-                        <FaChartBar /> {campaign.replies || 0} outreach
+                        <FaChartBar /> {campaign.enriched_leads || 0} outreach
                       </span>
                     </div>
                   </>
