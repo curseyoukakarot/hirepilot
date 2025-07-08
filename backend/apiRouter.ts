@@ -24,6 +24,7 @@ import deleteApiKey from './api/deleteApiKey';
 import webhooksRouter from './api/webhooksRouter';
 import bulkScheduleMessages from './api/bulkScheduleMessages';
 import testBackfill from './api/testBackfill';
+import debugMessageCenter from './api/debugMessageCenter';
 
 const router = Router();
 
@@ -88,5 +89,8 @@ router.post('/messages/bulk-schedule', requireAuth, bulkScheduleMessages);
 
 // Temporary test endpoint for debugging backfill
 router.get('/test/backfill', testBackfill);
+
+// Debug endpoint for Message Center queries
+router.get('/test/message-center', debugMessageCenter);
 
 export default router;

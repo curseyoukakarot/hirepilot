@@ -3,6 +3,15 @@ import { supabaseDb } from '../lib/supabase';
 
 export default async function testBackfill(req: Request, res: Response) {
   try {
+    // Check ALL recent messages first
+    const { data: allMessages, error: allError } = await supabaseDb
+      .from('messages')
+      .select('id, sender, avatar, time, preview, status, sent_at, created_at, content, subject, to_email, recipient, user_id')
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    console.log('[testBackfill] All recent messages:', allMessages);
+
     // Check messages that should be updated
     const { data: messagesToUpdate, error: checkError } = await supabaseDb
       .from('messages')
@@ -15,7 +24,12 @@ export default async function testBackfill(req: Request, res: Response) {
 
     if (checkError) {
       console.error('[testBackfill] Check error:', checkError);
-      return res.json({ error: checkError.message, messagesToUpdate: [] });
+      return res.json({ 
+        allMessages: allMessages || [],
+        allMessagesError: allError?.message || null,
+        error: checkError.message, 
+        messagesToUpdate: [] 
+      });
     }
 
     // Try updating one message manually to test
@@ -64,6 +78,8 @@ export default async function testBackfill(req: Request, res: Response) {
         .select();
 
       return res.json({
+        allMessages: allMessages || [],
+        allMessagesError: allError?.message || null,
         messagesToUpdate: messagesToUpdate,
         testUpdate: {
           result: updateResult,
@@ -78,6 +94,8 @@ export default async function testBackfill(req: Request, res: Response) {
     }
 
     res.json({
+      allMessages: allMessages || [],
+      allMessagesError: allError?.message || null,
       messagesToUpdate: messagesToUpdate || [],
       message: 'No messages found to update'
     });
