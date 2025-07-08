@@ -25,6 +25,7 @@ import webhooksRouter from './api/webhooksRouter';
 import bulkScheduleMessages from './api/bulkScheduleMessages';
 import testBackfill from './api/testBackfill';
 import debugMessageCenter from './api/debugMessageCenter';
+import testAnalytics from './api/testAnalytics';
 
 const router = Router();
 
@@ -92,5 +93,7 @@ router.get('/test/backfill', testBackfill);
 
 // Debug endpoint for Message Center queries
 router.get('/test/message-center', debugMessageCenter);
+// Test analytics tracking
+router.get('/test/analytics', testAnalytics);
 
 export default router;

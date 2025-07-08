@@ -150,7 +150,7 @@ export const sendMessage = async (req: Request, res: Response) => {
     // Store the message in the database with UI-friendly fields
     const currentTime = new Date();
     console.log('[sendMessage] Storing message in database...');
-    const { error: messageError } = await supabase
+    const { data: messageRecord, error: messageError } = await supabase
       .from('messages')
       .insert({
         user_id: user.id,
@@ -172,7 +172,9 @@ export const sendMessage = async (req: Request, res: Response) => {
         time: currentTime.toLocaleTimeString(),
         unread: false,
         read: true
-      });
+      })
+      .select()
+      .single();
 
     if (messageError) {
       console.error('[sendMessage] Message insert error:', messageError);
@@ -190,12 +192,13 @@ export const sendMessage = async (req: Request, res: Response) => {
         message_id: messageId,
         event_type: 'sent',
         provider,
-        to_email: to,
-        timestamp: new Date().toISOString(),
+        event_timestamp: new Date().toISOString(),
         metadata: {
           subject,
           template_id,
-          source: 'message_center'
+          source: 'message_center',
+          to_email: to,
+          database_message_id: messageRecord?.id
         }
       });
 

@@ -85,7 +85,7 @@ async function sendViaSendGrid(lead: any, content: string, userId: string): Prom
     
     // Store the message in our database with UI-friendly fields
     const currentTime = new Date();
-    const { error: insertError } = await supabaseDb.from('messages').insert({
+    const { data: messageRecord, error: insertError } = await supabaseDb.from('messages').insert({
       user_id: userId,
       lead_id: lead.id,
       to_email: lead.email,
@@ -106,7 +106,9 @@ async function sendViaSendGrid(lead: any, content: string, userId: string): Prom
       time: currentTime.toLocaleTimeString(),
       unread: false,
       read: true
-    });
+    })
+    .select()
+    .single();
 
     if (insertError) {
       console.error('[sendViaSendGrid] Message insert error:', insertError);
@@ -114,20 +116,27 @@ async function sendViaSendGrid(lead: any, content: string, userId: string): Prom
 
     // Add analytics tracking - store sent event
     const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    await supabaseDb.from('email_events').insert({
+    const { error: analyticsError } = await supabaseDb.from('email_events').insert({
       user_id: userId,
       lead_id: lead.id,
       message_id: messageId,
       event_type: 'sent',
       provider: 'sendgrid',
-      to_email: lead.email,
-      timestamp: currentTime.toISOString(),
+      event_timestamp: currentTime.toISOString(),
       metadata: {
         subject,
         sg_message_id: response.headers['x-message-id'],
-        source: 'bulk_messaging'
+        source: 'bulk_messaging',
+        to_email: lead.email,
+        database_message_id: messageRecord?.id
       }
     });
+
+    if (analyticsError) {
+      console.error('[sendViaSendGrid] Analytics insert error:', analyticsError);
+    } else {
+      console.log('[sendViaSendGrid] Analytics event stored successfully');
+    }
 
     console.log(`[sendViaSendGrid] Successfully sent to ${lead.email}`);
     return true;
@@ -172,7 +181,7 @@ async function sendViaGoogle(lead: any, content: string, userId: string): Promis
 
     // Store the message in our database with UI-friendly fields
     const currentTime = new Date();
-    const { error: insertError } = await supabaseDb.from('messages').insert({
+    const { data: messageRecord, error: insertError } = await supabaseDb.from('messages').insert({
       user_id: userId,
       lead_id: lead.id,
       to_email: lead.email,
@@ -193,7 +202,9 @@ async function sendViaGoogle(lead: any, content: string, userId: string): Promis
       time: currentTime.toLocaleTimeString(),
       unread: false,
       read: true
-    });
+    })
+    .select()
+    .single();
 
     if (insertError) {
       console.error('[sendViaGoogle] Message insert error:', insertError);
@@ -201,20 +212,27 @@ async function sendViaGoogle(lead: any, content: string, userId: string): Promis
 
     // Add analytics tracking - store sent event
     const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    await supabaseDb.from('email_events').insert({
+    const { error: analyticsError } = await supabaseDb.from('email_events').insert({
       user_id: userId,
       lead_id: lead.id,
       message_id: messageId,
       event_type: 'sent',
       provider: 'gmail',
-      to_email: lead.email,
-      timestamp: currentTime.toISOString(),
+      event_timestamp: currentTime.toISOString(),
       metadata: {
         subject,
         gmail_message_id: response.data.id,
-        source: 'bulk_messaging'
+        source: 'bulk_messaging',
+        to_email: lead.email,
+        database_message_id: messageRecord?.id
       }
     });
+
+    if (analyticsError) {
+      console.error('[sendViaGoogle] Analytics insert error:', analyticsError);
+    } else {
+      console.log('[sendViaGoogle] Analytics event stored successfully');
+    }
 
     console.log(`[sendViaGoogle] Successfully sent to ${lead.email}`);
     return true;
