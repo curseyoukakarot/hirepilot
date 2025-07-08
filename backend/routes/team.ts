@@ -1,18 +1,14 @@
-import express from 'express';
-import { Response } from 'express';
+import { Router, Request, Response } from 'express';
 import { supabase } from '../lib/supabase';
 import { User } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
-import crypto from 'crypto';
 import { sendTeamInviteEmail } from '../services/emailService';
 import { sendTeamNotify } from '../lib/notifications';
 import Stripe from 'stripe';
-import { AuthenticatedRequest } from '../types/api';
-import bcrypt from 'bcrypt';
 import { CreditService } from '../services/creditService';
 
-const router = express.Router();
+const router = Router();
 
 interface TeamInviteRequest {
   firstName: string;
