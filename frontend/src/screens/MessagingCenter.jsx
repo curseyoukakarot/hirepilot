@@ -111,23 +111,40 @@ export default function MessagingCenter() {
   const fetchMessages = async (folder) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    let status = folderToStatus[folder];
-    if (!status) status = 'sent'; // fallback
+    
     let query = supabase
       .from('messages')
       .select('*')
       .eq('user_id', user.id)
       .order('sent_at', { ascending: false });
-    if (status !== 'inbox') {
-      query = query.eq('status', status);
-    } else {
-      // For Inbox, you may want to filter messages received by the user
-      // For now, show sent messages as Inbox is not implemented
-      query = query.eq('status', 'sent');
+    
+    // Handle different folder types
+    if (folder === 'Trash') {
+      // Trash folder shows all messages with status 'trash'
+      query = query.eq('status', 'trash');
+    } else if (folder === 'Sent') {
+      // Sent folder shows all messages that were sent (including trashed ones)
+      query = query.in('status', ['sent', 'trash']).neq('status', 'draft');
+    } else if (folder === 'Drafts') {
+      // Drafts folder shows only draft messages (not trashed)
+      query = query.eq('status', 'draft');
+    } else if (folder === 'Inbox') {
+      // For Inbox, show sent messages (you may want to implement actual inbox later)
+      query = query.in('status', ['sent', 'trash']).neq('status', 'draft');
     }
+    
     const { data, error } = await query;
     if (!error && data) {
-      setMessageList(data);
+      // Filter out trashed messages from non-trash folders, but keep them in Sent for reference
+      if (folder === 'Trash') {
+        setMessageList(data);
+      } else {
+        // For other folders, show all messages but indicate if they're trashed
+        setMessageList(data.map(msg => ({
+          ...msg,
+          isTrashed: msg.status === 'trash'
+        })));
+      }
     } else {
       setMessageList([]);
     }
@@ -587,6 +604,27 @@ export default function MessagingCenter() {
     }
   };
 
+  // Add restore function for trashed messages
+  const handleRestore = async (messageId) => {
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .update({ 
+          status: 'sent', // Restore to sent status
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', messageId);
+
+      if (error) throw error;
+
+      toast.success('Message restored from trash');
+      await fetchMessages(activeFolder);
+    } catch (error) {
+      console.error('Error restoring message:', error);
+      toast.error('Failed to restore message');
+    }
+  };
+
   // Update the message view to include a trash button
   const MessageView = ({ message }) => (
     <div>
@@ -599,13 +637,26 @@ export default function MessagingCenter() {
               <div className="text-xs text-gray-500">{message.time}</div>
             </div>
           </div>
-          <button
-            onClick={() => handleTrash(message.id)}
-            className="text-gray-500 hover:text-red-600"
-            title="Move to trash"
-          >
-            <FaTrash />
-          </button>
+          <div className="flex items-center gap-2">
+            {message.status === 'trash' || message.isTrashed ? (
+              <button
+                onClick={() => handleRestore(message.id)}
+                className="flex items-center gap-1 px-3 py-1 text-sm text-green-600 hover:text-green-700 hover:bg-green-50 rounded"
+                title="Restore from trash"
+              >
+                <FaRegStar />
+                Restore
+              </button>
+            ) : (
+              <button
+                onClick={() => handleTrash(message.id)}
+                className="text-gray-500 hover:text-red-600"
+                title="Move to trash"
+              >
+                <FaTrash />
+              </button>
+            )}
+          </div>
         </div>
         <div className="font-bold text-lg mb-1">{message.subject}</div>
         <div 
@@ -893,19 +944,36 @@ export default function MessagingCenter() {
             messageList.map(msg => (
               <div
                 key={msg.id}
-                className={`p-4 hover:bg-blue-50 cursor-pointer transition-colors ${selectedMessage && selectedMessage.id === msg.id && !showComposer ? 'bg-blue-100 border-l-4 border-blue-500 shadow' : ''}`}
+                className={`p-4 hover:bg-blue-50 cursor-pointer transition-colors ${
+                  selectedMessage && selectedMessage.id === msg.id && !showComposer 
+                    ? 'bg-blue-100 border-l-4 border-blue-500 shadow' 
+                    : ''
+                } ${msg.isTrashed ? 'opacity-60 bg-gray-50' : ''}`}
                 onClick={() => handleInboxClick(msg)}
               >
                 <div className="flex items-start space-x-3">
                   <img src={msg.avatar} alt="Sender" className="w-10 h-10 rounded-full flex-shrink-0 shadow" />
                   <div className="flex-1 min-w-0">
-                    <div className="flex justify-between">
-                      <h3 className="text-sm font-bold text-gray-900 truncate">{msg.sender}</h3>
-                      <span className="text-xs text-gray-400 font-medium">{msg.time}</span>
+                    <div className="flex justify-between items-center">
+                      <h3 className={`text-sm font-bold truncate ${msg.isTrashed ? 'text-gray-500' : 'text-gray-900'}`}>
+                        {msg.sender}
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs font-medium ${msg.isTrashed ? 'text-gray-400' : 'text-gray-400'}`}>
+                          {msg.time}
+                        </span>
+                        {msg.isTrashed && (
+                          <FaTrash className="text-xs text-gray-400" title="Moved to trash" />
+                        )}
+                      </div>
                     </div>
-                    <p className="text-sm font-semibold text-gray-900 mt-1">{msg.subject}</p>
-                    <p className="text-sm text-gray-600 mt-1 truncate">{msg.preview}</p>
-                    {msg.unread && (
+                    <p className={`text-sm font-semibold mt-1 ${msg.isTrashed ? 'text-gray-500' : 'text-gray-900'}`}>
+                      {msg.subject}
+                    </p>
+                    <p className={`text-sm mt-1 truncate ${msg.isTrashed ? 'text-gray-400' : 'text-gray-600'}`}>
+                      {msg.preview}
+                    </p>
+                    {msg.unread && !msg.isTrashed && (
                       <div className="mt-2 flex items-center text-xs text-gray-500">
                         <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs">Unread</span>
                       </div>
