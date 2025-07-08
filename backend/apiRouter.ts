@@ -23,6 +23,7 @@ import getApiKeys from './api/getApiKeys';
 import deleteApiKey from './api/deleteApiKey';
 import webhooksRouter from './api/webhooksRouter';
 import bulkScheduleMessages from './api/bulkScheduleMessages';
+import testBackfill from './api/testBackfill';
 
 const router = Router();
 
@@ -84,5 +85,8 @@ router.delete('/apiKeys/:id', requireAuth, deleteApiKey);
 router.use('/webhooks', webhooksRouter);
 
 router.post('/messages/bulk-schedule', requireAuth, bulkScheduleMessages);
+
+// Temporary test endpoint for debugging backfill
+router.get('/test/backfill', testBackfill);
 
 export default router;

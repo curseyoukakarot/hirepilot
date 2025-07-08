@@ -15,15 +15,20 @@ export default async function campaignPerformance(req: Request, res: Response) {
   }
 
   try {
-    // If id is 'all', aggregate for all messages to leads for this user
+    // For 'all' campaigns, count ALL sent messages (including non-campaign messages)
+    // For specific campaigns, only count that campaign's messages
     let filter = supabaseDb
       .from('email_events')
       .select('message_id, lead_id', { count: 'exact', head: true })
       .eq('user_id', userId)
       .eq('event_type', 'sent');
+    
     if (id !== 'all') {
+      // For specific campaign, only count messages with that campaign_id
       filter = filter.eq('campaign_id', id);
     }
+    // For 'all', we don't filter by campaign_id - this includes ALL user messages
+    
     const { count: sent, error: sentError } = await filter;
     if (sentError) {
       console.error('[campaignPerformance] Sent count error:', sentError);
@@ -40,6 +45,7 @@ export default async function campaignPerformance(req: Request, res: Response) {
     if (id !== 'all') {
       openFilter = openFilter.eq('campaign_id', id);
     }
+    // For 'all', count opens from ALL messages, not just campaign messages
     const { count: opens, error: openError } = await openFilter;
     if (openError) {
       console.error('[campaignPerformance] Opens count error:', openError);
@@ -56,6 +62,7 @@ export default async function campaignPerformance(req: Request, res: Response) {
     if (id !== 'all') {
       replyFilter = replyFilter.eq('campaign_id', id);
     }
+    // For 'all', count replies from ALL messages, not just campaign messages
     const { count: replies, error: replyError } = await replyFilter;
     if (replyError) {
       console.error('[campaignPerformance] Replies count error:', replyError);
