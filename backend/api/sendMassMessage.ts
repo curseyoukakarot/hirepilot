@@ -10,16 +10,16 @@ import { getGoogleAccessToken } from '../services/googleTokenHelper';
 const getAvatarUrl = (name: string) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
 
 // Provider-specific sending functions
-async function sendViaProvider(lead: any, content: string, userId: string, provider: string): Promise<boolean> {
+async function sendViaProvider(lead: any, content: string, userId: string, provider: string, templateId?: string): Promise<boolean> {
   try {
     console.log(`[sendViaProvider] Attempting to send via ${provider} to ${lead.email}`);
     
     switch (provider) {
       case 'sendgrid':
-        return await sendViaSendGrid(lead, content, userId);
+        return await sendViaSendGrid(lead, content, userId, templateId);
       case 'google':
       case 'gmail':
-        return await sendViaGoogle(lead, content, userId);
+        return await sendViaGoogle(lead, content, userId, templateId);
       case 'outlook':
         // TODO: Implement Outlook sending
         console.log('[sendViaProvider] Outlook not implemented yet, falling back to emailProviderService');
@@ -34,16 +34,38 @@ async function sendViaProvider(lead: any, content: string, userId: string, provi
   }
 }
 
-async function sendViaSendGrid(lead: any, content: string, userId: string): Promise<boolean> {
+async function sendViaSendGrid(lead: any, content: string, userId: string, templateId?: string): Promise<boolean> {
   try {
-    // Parse subject and body from content
-    const lines = content.split('\n');
+    // Get subject from template if templateId is provided
     let subject = 'Message from HirePilot';
     let body = content;
     
-    if (lines.length > 1 && lines[0].length < 100 && !lines[0].includes('<')) {
-      subject = lines[0].trim();
-      body = lines.slice(1).join('\n').trim();
+    if (templateId) {
+      const { data: template, error: templateError } = await supabaseDb
+        .from('email_templates')
+        .select('subject')
+        .eq('id', templateId)
+        .eq('user_id', userId)
+        .single();
+      
+      if (!templateError && template?.subject) {
+        subject = template.subject;
+      } else {
+        console.log(`[sendViaSendGrid] Could not fetch template subject for ${templateId}, using fallback parsing`);
+        // Fallback to parsing from content
+        const lines = content.split('\n');
+        if (lines.length > 1 && lines[0].length < 100 && !lines[0].includes('<')) {
+          subject = lines[0].trim();
+          body = lines.slice(1).join('\n').trim();
+        }
+      }
+    } else {
+      // Parse subject and body from content (legacy behavior)
+      const lines = content.split('\n');
+      if (lines.length > 1 && lines[0].length < 100 && !lines[0].includes('<')) {
+        subject = lines[0].trim();
+        body = lines.slice(1).join('\n').trim();
+      }
     }
     
     body = body.replace(/\n/g, '<br/>');
@@ -80,7 +102,7 @@ async function sendViaSendGrid(lead: any, content: string, userId: string): Prom
       }
     };
 
-    console.log(`[sendViaSendGrid] Sending email to ${lead.email} from ${data.default_sender}`);
+    console.log(`[sendViaSendGrid] Sending email to ${lead.email} from ${data.default_sender} with subject: ${subject}`);
     const [response] = await sgMail.send(msg);
     
     // Store the message in our database with UI-friendly fields
@@ -146,16 +168,38 @@ async function sendViaSendGrid(lead: any, content: string, userId: string): Prom
   }
 }
 
-async function sendViaGoogle(lead: any, content: string, userId: string): Promise<boolean> {
+async function sendViaGoogle(lead: any, content: string, userId: string, templateId?: string): Promise<boolean> {
   try {
-    // Parse subject and body from content
-    const lines = content.split('\n');
+    // Get subject from template if templateId is provided
     let subject = 'Message from HirePilot';
     let body = content;
     
-    if (lines.length > 1 && lines[0].length < 100 && !lines[0].includes('<')) {
-      subject = lines[0].trim();
-      body = lines.slice(1).join('\n').trim();
+    if (templateId) {
+      const { data: template, error: templateError } = await supabaseDb
+        .from('email_templates')
+        .select('subject')
+        .eq('id', templateId)
+        .eq('user_id', userId)
+        .single();
+      
+      if (!templateError && template?.subject) {
+        subject = template.subject;
+      } else {
+        console.log(`[sendViaGoogle] Could not fetch template subject for ${templateId}, using fallback parsing`);
+        // Fallback to parsing from content
+        const lines = content.split('\n');
+        if (lines.length > 1 && lines[0].length < 100 && !lines[0].includes('<')) {
+          subject = lines[0].trim();
+          body = lines.slice(1).join('\n').trim();
+        }
+      }
+    } else {
+      // Parse subject and body from content (legacy behavior)
+      const lines = content.split('\n');
+      if (lines.length > 1 && lines[0].length < 100 && !lines[0].includes('<')) {
+        subject = lines[0].trim();
+        body = lines.slice(1).join('\n').trim();
+      }
     }
     
     body = body.replace(/\n/g, '<br/>');
@@ -173,7 +217,7 @@ async function sendViaGoogle(lead: any, content: string, userId: string): Promis
       body
     ).toString('base64url');
 
-    console.log(`[sendViaGoogle] Sending email to ${lead.email}`);
+    console.log(`[sendViaGoogle] Sending email to ${lead.email} with subject: ${subject}`);
     const response = await gmail.users.messages.send({
       userId: 'me',
       requestBody: { raw },
@@ -286,7 +330,7 @@ export default async function handler(req: Request, res: Response) {
       // Use provider-specific sending if channel is specified, otherwise fall back to emailProviderService
       let sent = false;
       if (ch && ['sendgrid', 'google', 'gmail', 'outlook'].includes(ch)) {
-        sent = await sendViaProvider(lead, content, uid, ch);
+        sent = await sendViaProvider(lead, content, uid, ch, tId);
       } else {
         console.log(`[sendMassMessage] No valid provider specified (${ch}), using emailProviderService`);
         sent = await sendEmail(lead, content, uid);
@@ -363,7 +407,7 @@ export default async function handler(req: Request, res: Response) {
       // Use provider-specific sending if channel is specified
       let sent = false;
       if (channel && ['sendgrid', 'google', 'gmail', 'outlook'].includes(channel)) {
-        sent = await sendViaProvider(lead, personalizedMessage, user_id, channel);
+        sent = await sendViaProvider(lead, personalizedMessage, user_id, channel, template_id);
       } else {
         sent = await sendEmail(lead, personalizedMessage, user_id);
       }

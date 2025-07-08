@@ -16,6 +16,7 @@ export async function sendEmail(lead: Lead, message: string, userId: string): Pr
   let processedMessage = personalizeMessage(message, lead);
   // Convert plain newlines to <br/> for HTML content
   processedMessage = processedMessage.replace(/\n/g, '<br/>');
+  
   try {
     // Get user's email provider preference
     const { data: userData, error: userError } = await supabaseDb
@@ -34,12 +35,22 @@ export async function sendEmail(lead: Lead, message: string, userId: string): Pr
       oauth2client.setCredentials({ access_token: accessToken });
       const gmail = google.gmail({ version: 'v1', auth: oauth2client });
 
+      // Parse subject from first line if it looks like a subject (short and no HTML)
+      const lines = processedMessage.split('\n');
+      let subject = 'Message from HirePilot';
+      let body = processedMessage;
+      
+      if (lines.length > 1 && lines[0].length < 100 && !lines[0].includes('<')) {
+        subject = lines[0].trim();
+        body = lines.slice(1).join('\n').trim();
+      }
+
       const raw = Buffer.from(
         `To: ${lead.email}\r\n` +
-        `Subject: ${processedMessage.split('\n')[0]}\r\n` + // Use first line as subject
+        `Subject: ${subject}\r\n` +
         'Content-Type: text/html; charset=utf-8\r\n' +
         '\r\n' +
-        processedMessage
+        body
       ).toString('base64url');
 
       await gmail.users.messages.send({
