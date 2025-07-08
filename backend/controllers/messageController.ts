@@ -28,11 +28,13 @@ interface EmailParams {
 }
 
 export const sendMessage = async (req: Request, res: Response) => {
-  console.log('DEBUG: /api/message/send endpoint hit');
+  console.log('[sendMessage] Endpoint hit with body:', JSON.stringify(req.body, null, 2));
   try {
     const { to, subject, html, provider, attachments, template_id, template_data } = req.body;
+    console.log('[sendMessage] Extracted params:', { to, subject, provider, template_id });
     
     if (!to || !subject || !html || !provider) {
+      console.log('[sendMessage] Missing required fields:', { to: !!to, subject: !!subject, html: !!html, provider: !!provider });
       res.status(400).json({ error: 'Missing required fields' });
       return;
     }
@@ -40,9 +42,11 @@ export const sendMessage = async (req: Request, res: Response) => {
     // Use req.user (set by middleware)
     const user = req.user;
     if (!user) {
+      console.log('[sendMessage] No user found in request');
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
+    console.log('[sendMessage] User authenticated:', user.id);
 
     let finalHtml = html;
 
@@ -101,8 +105,10 @@ export const sendMessage = async (req: Request, res: Response) => {
 
     // Convert plain text newlines to <br/> to preserve spacing in HTML emails
     finalHtml = finalHtml.replace(/\n/g, '<br/>');
+    console.log('[sendMessage] Final HTML processed, length:', finalHtml.length);
 
     // Fetch the user's integration details for the selected provider
+    console.log('[sendMessage] Fetching integration for provider:', provider);
     const { data: integration, error: integrationError } = await supabase
       .from('integrations')
       .select('*')
@@ -110,7 +116,7 @@ export const sendMessage = async (req: Request, res: Response) => {
       .eq('provider', provider)
       .single();
 
-    console.log('DEBUG: integration object:', integration);
+    console.log('[sendMessage] Integration result:', { integration, integrationError });
 
     if (integrationError || !integration) {
       res.status(400).json({ error: `Integration for ${provider} not found` });
@@ -135,12 +141,15 @@ export const sendMessage = async (req: Request, res: Response) => {
     }
 
     if (sendResult.error) {
+      console.log('[sendMessage] Send failed:', sendResult.error);
       res.status(500).json({ error: sendResult.error });
       return;
     }
+    console.log('[sendMessage] Email sent successfully via', provider);
 
     // Store the message in the database with UI-friendly fields
     const currentTime = new Date();
+    console.log('[sendMessage] Storing message in database...');
     const { error: messageError } = await supabase
       .from('messages')
       .insert({
@@ -167,10 +176,13 @@ export const sendMessage = async (req: Request, res: Response) => {
 
     if (messageError) {
       console.error('[sendMessage] Message insert error:', messageError);
+    } else {
+      console.log('[sendMessage] Message stored successfully in database');
     }
 
     // Add analytics tracking - store sent event
     const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    console.log('[sendMessage] Adding analytics tracking with messageId:', messageId);
     const { error: analyticsError } = await supabase
       .from('email_events')
       .insert({
@@ -188,9 +200,12 @@ export const sendMessage = async (req: Request, res: Response) => {
       });
 
     if (analyticsError) {
-      console.error('Error storing analytics event:', analyticsError);
+      console.error('[sendMessage] Analytics insert error:', analyticsError);
+    } else {
+      console.log('[sendMessage] Analytics event stored successfully');
     }
 
+    console.log('[sendMessage] Request completed successfully');
     res.status(200).json({ success: true });
   } catch (error: any) {
     console.error('Error sending message:', error);
