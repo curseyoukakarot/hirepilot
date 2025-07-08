@@ -5,6 +5,7 @@ import { toast } from 'react-hot-toast';
 import ApolloApiKeyModal from '../ApolloApiKeyModal';
 import debounce from 'lodash/debounce';
 import { SupabaseClient } from '@supabase/supabase-js';
+import { Loader2, Search, CheckCircle } from 'lucide-react';
 
 interface Lead {
   id: string;
@@ -32,6 +33,91 @@ interface ApolloStepProps {
   defaultLocation?: string;
 }
 
+// Loading Modal Component
+const SearchLoadingModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
+  const [progress, setProgress] = useState(0);
+  const [currentStep, setCurrentStep] = useState('Connecting to Apollo...');
+
+  useEffect(() => {
+    if (!isOpen) {
+      setProgress(0);
+      setCurrentStep('Connecting to Apollo...');
+      return;
+    }
+
+    const steps = [
+      'Connecting to Apollo...',
+      'Processing search criteria...',
+      'Searching lead database...',
+      'Enriching lead data...',
+      'Finalizing results...'
+    ];
+
+    const interval = setInterval(() => {
+      setProgress((prev) => {
+        const newProgress = prev + Math.random() * 15 + 5;
+        if (newProgress >= 95) {
+          clearInterval(interval);
+          return 95;
+        }
+        
+        // Update step based on progress
+        const stepIndex = Math.floor((newProgress / 100) * steps.length);
+        setCurrentStep(steps[Math.min(stepIndex, steps.length - 1)]);
+        
+        return newProgress;
+      });
+    }, 400);
+
+    return () => clearInterval(interval);
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+      <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div className="text-center">
+          <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 mb-4">
+            <Search className="h-6 w-6 text-blue-600 animate-pulse" />
+          </div>
+          
+          <h3 className="text-lg font-medium text-gray-900 mb-4">
+            Searching Apollo Database
+          </h3>
+          
+          <div className="mb-4">
+            <div className="flex items-center justify-center mb-2">
+              <Loader2 className="h-5 w-5 text-blue-600 animate-spin mr-2" />
+              <span className="text-sm text-gray-600">{currentStep}</span>
+            </div>
+            
+            {/* Progress Bar */}
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
+                style={{ width: `${progress}%` }}
+              ></div>
+            </div>
+            <div className="text-xs text-gray-500 mt-1">{Math.round(progress)}% complete</div>
+          </div>
+          
+          <p className="text-sm text-gray-500 mb-4">
+            This usually takes 5-15 seconds depending on search criteria.
+          </p>
+          
+          <button
+            onClick={onClose}
+            className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            Cancel search
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKeywords, defaultLocation }: ApolloStepProps) {
   const { wizard, setWizard } = useWizard();
   const [jobTitleInput, setJobTitleInput] = useState(defaultJobTitle || '');
@@ -50,6 +136,7 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
   const numLeads = wizard?.numLeads || 100;
   const BACKEND = import.meta.env.VITE_BACKEND_URL;
   const [isSearching, setIsSearching] = useState(false);
+  const [searchCompleted, setSearchCompleted] = useState(false);
 
   // add fetch helper
   const fetchWithAuth = async (supabaseClient: SupabaseClient, url: string, options: RequestInit = {}) => {
@@ -132,6 +219,7 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
 
     console.log('Starting search...');
     setIsSearching(true);
+    setSearchCompleted(false);
     setLeads([]);
     setError('');
     
@@ -172,14 +260,19 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
       }
 
       setLeads(data.leads);
+      setSearchCompleted(true);
+      
       if (data.leads.length === 0) {
-        toast('No leads found matching your criteria');
+        toast('No leads found matching your criteria. Try adjusting your search terms.');
+      } else {
+        toast.success(`Found ${data.leads.length} leads! Select the ones you want to add to your campaign.`);
       }
       
       // Update wizard state
       setWizard(prev => ({
         ...prev,
         campaign: {
+          id: prev.campaign?.id || '',
           ...prev.campaign,
           title: jobTitleInput,
           keywords: keywordsInput,
@@ -292,6 +385,15 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
 
   return (
     <div className="space-y-6">
+      {/* Search Loading Modal */}
+      <SearchLoadingModal 
+        isOpen={isSearching} 
+        onClose={() => {
+          setIsSearching(false);
+          toast.error('Search cancelled');
+        }} 
+      />
+
       <div className="space-y-4">
         <div>
           <label htmlFor="jobTitle" className="block text-sm font-medium text-gray-700">
@@ -300,7 +402,10 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
           <input
             type="text"
             id="jobTitle"
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            disabled={isSearching}
+            className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm ${
+              isSearching ? 'bg-gray-100 cursor-not-allowed' : ''
+            }`}
             placeholder="e.g. Software Engineer"
             value={jobTitleInput}
             onChange={(e) => setJobTitleInput(e.target.value)}
@@ -314,7 +419,10 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
           <input
             type="text"
             id="keywords"
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            disabled={isSearching}
+            className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm ${
+              isSearching ? 'bg-gray-100 cursor-not-allowed' : ''
+            }`}
             placeholder="e.g. React, TypeScript"
             value={keywordsInput}
             onChange={(e) => setKeywordsInput(e.target.value)}
@@ -329,7 +437,10 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
             <input
               type="text"
               id="location"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              disabled={isSearching}
+              className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm ${
+                isSearching ? 'bg-gray-100 cursor-not-allowed' : ''
+              }`}
               placeholder="e.g. San Francisco, CA"
               value={locationInput}
               onChange={handleLocationInputChange}
@@ -344,7 +455,7 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
               </div>
             )}
-            {showSuggestions && locationSuggestions.length > 0 && (
+            {showSuggestions && locationSuggestions.length > 0 && !isSearching && (
               <div className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
                 {locationSuggestions.map((suggestion) => (
                   <div
@@ -366,10 +477,24 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
           <button
             type="button"
             onClick={handleSearch}
-            disabled={loading}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+            disabled={isSearching}
+            className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white transition-all ${
+              isSearching 
+                ? 'bg-gray-400 cursor-not-allowed' 
+                : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+            }`}
           >
-            {loading ? 'Searching...' : 'Search Leads'}
+            {isSearching ? (
+              <>
+                <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                Searching...
+              </>
+            ) : (
+              <>
+                <Search className="-ml-1 mr-2 h-4 w-4" />
+                Search Leads
+              </>
+            )}
           </button>
         </div>
 
@@ -380,6 +505,21 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
                 <h3 className="text-sm font-medium text-red-800">Error</h3>
                 <div className="mt-2 text-sm text-red-700">
                   <p>{error}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Search Success Message */}
+        {searchCompleted && leads.length > 0 && (
+          <div className="rounded-md bg-green-50 p-4">
+            <div className="flex">
+              <CheckCircle className="h-5 w-5 text-green-400" />
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-green-800">Search Completed!</h3>
+                <div className="mt-2 text-sm text-green-700">
+                  <p>Found {leads.length} leads matching your criteria. Select the ones you want to add to your campaign.</p>
                 </div>
               </div>
             </div>
@@ -418,7 +558,7 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
                       }
                     `}
                   >
-                    Save Selected Leads
+                    Save Selected Leads ({selectedLeads.length})
                   </button>
                 </div>
               </div>
