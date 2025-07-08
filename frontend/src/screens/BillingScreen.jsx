@@ -31,17 +31,92 @@ export default function BillingScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isRecruitPro, setIsRecruitPro] = useState(false);
+  const [userRole, setUserRole] = useState(null);
+  const [creditInfo, setCreditInfo] = useState({
+    totalCredits: 0,
+    usedCredits: 0,
+    remainingCredits: 0
+  });
 
   const BACKEND = import.meta.env.VITE_BACKEND_URL;
 
+  // Role-based plan mapping
+  const getRolePlanName = (role) => {
+    const planMap = {
+      'member': 'Starter Plan',
+      'admin': 'Pro Plan', 
+      'team_admin': 'Team Plan',
+      'RecruitPro': 'RecruitPro Plan',
+      'super_admin': 'Admin Plan'
+    };
+    return planMap[role] || 'Starter Plan';
+  };
+
+  // Get role-based credit limits
+  const getRoleCreditLimit = (role) => {
+    const creditLimits = {
+      'member': 350,
+      'admin': 1000,
+      'team_admin': 5000,
+      'RecruitPro': 1000,
+      'super_admin': 10000
+    };
+    return creditLimits[role] || 350;
+  };
+
   useEffect(() => {
     fetchBillingOverview();
-    (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      const role = user?.user_metadata?.role || user?.user_metadata?.account_type;
-      if (role === 'RecruitPro') setIsRecruitPro(true);
-    })();
+    fetchUserRoleAndCredits();
   }, []);
+
+  const fetchUserRoleAndCredits = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get user role from users table
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      if (userError) {
+        console.error('Error fetching user role:', userError);
+        return;
+      }
+
+      const role = userData?.role || user?.user_metadata?.role || user?.user_metadata?.account_type || 'member';
+      setUserRole(role);
+      setIsRecruitPro(role === 'RecruitPro');
+
+      // Get credit information
+      const { data: creditData, error: creditError } = await supabase
+        .from('user_credits')
+        .select('total_credits, used_credits, remaining_credits')
+        .eq('user_id', user.id)
+        .single();
+
+      if (creditError) {
+        console.error('Error fetching credits:', creditError);
+        // Fallback to role-based defaults
+        const defaultCredits = getRoleCreditLimit(role);
+        setCreditInfo({
+          totalCredits: defaultCredits,
+          usedCredits: 0,
+          remainingCredits: defaultCredits
+        });
+      } else if (creditData) {
+        setCreditInfo({
+          totalCredits: creditData.total_credits || getRoleCreditLimit(role),
+          usedCredits: creditData.used_credits || 0,
+          remainingCredits: creditData.remaining_credits || getRoleCreditLimit(role)
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching user data:', err);
+    }
+  };
 
   const fetchBillingOverview = async () => {
     setLoading(true);
@@ -187,6 +262,16 @@ export default function BillingScreen() {
 
   const { subscription, credits, recentUsage, recentInvoices, nextInvoice, seatUsage } = billingOverview;
   const currentPlan = subscription?.planTier ? PRICING_CONFIG[subscription.planTier] : null;
+  
+  // Calculate credit usage percentage for animation
+  const creditUsagePercentage = creditInfo.totalCredits > 0 
+    ? Math.min((creditInfo.usedCredits / creditInfo.totalCredits) * 100, 100)
+    : 0;
+
+  // Calculate remaining percentage for the "available" part of the bar
+  const creditRemainingPercentage = creditInfo.totalCredits > 0
+    ? Math.max(((creditInfo.totalCredits - creditInfo.usedCredits) / creditInfo.totalCredits) * 100, 0)
+    : 100;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -196,7 +281,7 @@ export default function BillingScreen() {
           <div className="flex justify-between items-start">
             <div>
               <h2 className="text-2xl font-semibold mb-2">
-                {currentPlan ? `${currentPlan.name} Plan` : 'No Active Plan'}
+                {currentPlan ? `${currentPlan.name} Plan` : getRolePlanName(userRole)}
               </h2>
               {subscription && (
                 <p className="text-gray-600">
@@ -224,29 +309,69 @@ export default function BillingScreen() {
             )}
           </div>
 
-          {/* Credit Usage */}
+          {/* Animated Credit Usage */}
           <div className="mt-8">
             <div className="flex justify-between mb-2 font-medium">
-              <span>Credits Available</span>
-              <span>{credits.toLocaleString()} credits</span>
+              <span>Credit Usage</span>
+              <span>{creditInfo.usedCredits.toLocaleString()} / {creditInfo.totalCredits.toLocaleString()} used</span>
             </div>
-            <div className="h-4 bg-gray-200 rounded-full overflow-hidden mb-4">
+            <div className="relative h-4 bg-gray-200 rounded-full overflow-hidden mb-2">
+              {/* Used credits bar (animated) */}
               <div
-                className="h-full bg-blue-600 rounded-full"
-                style={{ width: `${currentPlan ? Math.min((credits / currentPlan.credits) * 100, 100) : 0}%` }}
+                className="absolute top-0 left-0 h-full bg-gradient-to-r from-red-500 to-orange-500 rounded-full transition-all duration-1000 ease-out"
+                style={{ 
+                  width: `${creditUsagePercentage}%`,
+                  animation: 'slideIn 1.5s ease-out'
+                }}
+              ></div>
+              {/* Remaining credits bar (animated) */}
+              <div
+                className="absolute top-0 h-full bg-gradient-to-r from-blue-500 to-green-500 rounded-full transition-all duration-1000 ease-out"
+                style={{ 
+                  left: `${creditUsagePercentage}%`,
+                  width: `${creditRemainingPercentage}%`,
+                  animation: 'slideIn 1.8s ease-out'
+                }}
               ></div>
             </div>
+            
+            {/* Credit status indicators */}
+            <div className="flex justify-between items-center text-sm">
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center">
+                  <div className="w-3 h-3 bg-gradient-to-r from-red-500 to-orange-500 rounded-full mr-2"></div>
+                  <span className="text-gray-600">Used: {creditInfo.usedCredits.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="w-3 h-3 bg-gradient-to-r from-blue-500 to-green-500 rounded-full mr-2"></div>
+                  <span className="text-gray-600">Available: {creditInfo.remainingCredits.toLocaleString()}</span>
+                </div>
+              </div>
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                creditUsagePercentage > 90 
+                  ? 'bg-red-100 text-red-800' 
+                  : creditUsagePercentage > 75 
+                    ? 'bg-yellow-100 text-yellow-800'
+                    : 'bg-green-100 text-green-800'
+              }`}>
+                {creditUsagePercentage > 90 ? 'Critical' : creditUsagePercentage > 75 ? 'High Usage' : 'Healthy'}
+              </span>
+            </div>
+
             {/* Seat Usage */}
             {seatUsage && (
-              <div className="mt-4">
+              <div className="mt-6">
                 <div className="flex justify-between mb-2 font-medium">
                   <span>Seats Used</span>
                   <span>{seatUsage.used} / {seatUsage.included} seats</span>
                 </div>
                 <div className="h-4 bg-gray-200 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-green-600 rounded-full"
-                    style={{ width: `${seatUsage.included ? Math.min((seatUsage.used / seatUsage.included) * 100, 100) : 0}%` }}
+                    className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full transition-all duration-1000 ease-out"
+                    style={{ 
+                      width: `${seatUsage.included ? Math.min((seatUsage.used / seatUsage.included) * 100, 100) : 0}%`,
+                      animation: 'slideIn 2s ease-out'
+                    }}
                   ></div>
                 </div>
               </div>
@@ -363,6 +488,32 @@ export default function BillingScreen() {
           </section>
         )}
       </main>
+      
+      {/* Add CSS animation styles */}
+      <style jsx>{`
+        @keyframes slideIn {
+          from {
+            width: 0%;
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+        
+        @keyframes pulse {
+          0%, 100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.8;
+          }
+        }
+        
+        .animate-pulse-subtle {
+          animation: pulse 2s infinite;
+        }
+      `}</style>
     </div>
   );
 }
