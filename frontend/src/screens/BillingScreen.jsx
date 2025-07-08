@@ -44,10 +44,10 @@ export default function BillingScreen() {
   }, []);
 
   const fetchBillingOverview = async () => {
+    setLoading(true);
+    setError(null);
+
     try {
-      console.log('Fetching billing overview...');
-      
-      // Get the current session
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         throw new Error('No active session');
@@ -56,24 +56,25 @@ export default function BillingScreen() {
       const response = await fetch(`${BACKEND}/api/billing/overview`, {
         headers: {
           'Accept': 'application/json',
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`
         },
         credentials: 'include'
       });
 
-      console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-      
-      const responseText = await response.text();
-      console.log('Raw response:', responseText);
-
       if (!response.ok) {
-        throw new Error(`Failed to fetch billing overview: ${responseText}`);
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch billing overview: ${errorText}`);
       }
 
-      const data = JSON.parse(responseText);
-      setBillingOverview(data);
+      const data = await response.json();
+      setBillingOverview({
+        subscription: data.subscription,
+        credits: data.credits || 0,
+        recentUsage: data.recentUsage || [],
+        recentInvoices: data.recentInvoices || [],
+        nextInvoice: data.nextInvoice,
+        seatUsage: data.seatUsage
+      });
     } catch (err) {
       console.error('Error fetching billing overview:', err);
       setError(err.message);

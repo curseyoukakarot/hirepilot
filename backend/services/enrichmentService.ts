@@ -139,11 +139,11 @@ export class EnrichmentService {
 
     const { data: credits } = await supabaseDb
       .from('user_credits')
-      .select('balance')
+      .select('remaining_credits')
       .eq('user_id', userId)
       .single();
 
-    return (credits?.balance || 0) >= count;
+    return (credits?.remaining_credits || 0) >= count;
   }
 
   private async debitCredits(userId: string, count: number) {

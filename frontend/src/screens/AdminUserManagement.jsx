@@ -19,6 +19,7 @@ export default function AdminUserManagement() {
   const [passwordUser, setPasswordUser] = useState(null);
   const [newPassword, setNewPassword] = useState('');
   const [passwordLoading, setPasswordLoading] = useState(false);
+  const [backfillLoading, setBackfillLoading] = useState(false);
   const navigate = useNavigate();
 
   /* ----------------------------------------------
@@ -163,6 +164,32 @@ export default function AdminUserManagement() {
     setPasswordLoading(false);
   };
 
+  // Backfill credits for existing users
+  const handleBackfillCredits = async () => {
+    if (!window.confirm('This will assign credits to all users who don\'t currently have any credits based on their role. Continue?')) return;
+
+    setBackfillLoading(true);
+    setError('');
+    setSuccess('');
+    
+    try {
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const res = await fetch(`${BACKEND_URL}/api/admin/users/backfill-credits`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      
+      if (!res.ok) throw new Error('Failed to backfill credits');
+      
+      const result = await res.json();
+      setSuccess(`Backfill completed! Processed ${result.successful} users successfully. ${result.errors > 0 ? `${result.errors} errors occurred.` : ''}`);
+    } catch (err) {
+      setError('Failed to backfill credits');
+    }
+    
+    setBackfillLoading(false);
+  };
+
   // Access control: Only super admins
   useEffect(() => {
     const checkRole = async () => {
@@ -183,12 +210,21 @@ export default function AdminUserManagement() {
     <div className="max-w-6xl mx-auto py-10 px-4">
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-2xl font-bold">User Management</h1>
-        <button
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-          onClick={() => setShowInvite(true)}
-        >
-          <FaUserPlus /> Invite User
-        </button>
+        <div className="flex gap-2">
+          <button
+            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50"
+            onClick={handleBackfillCredits}
+            disabled={backfillLoading}
+          >
+            <FaCoins /> {backfillLoading ? 'Processing...' : 'Backfill Credits'}
+          </button>
+          <button
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            onClick={() => setShowInvite(true)}
+          >
+            <FaUserPlus /> Invite User
+          </button>
+        </div>
       </div>
       {error && <div className="mb-4 text-red-600">{error}</div>}
       {success && <div className="mb-4 text-green-600">{success}</div>}

@@ -75,12 +75,23 @@ CREATE TABLE IF NOT EXISTS billing_history (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Create team_credit_sharing table for team admin credit sharing
+CREATE TABLE IF NOT EXISTS team_credit_sharing (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    team_admin_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    team_member_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(team_admin_id, team_member_id)
+);
+
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions(user_id);
 CREATE INDEX IF NOT EXISTS idx_credit_usage_log_user_id ON credit_usage_log(user_id);
 CREATE INDEX IF NOT EXISTS idx_credit_usage_log_campaign_id ON credit_usage_log(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_billing_history_user_id ON billing_history(user_id);
 CREATE INDEX IF NOT EXISTS idx_webhook_logs_event_type ON webhook_logs(event_type);
+CREATE INDEX IF NOT EXISTS idx_team_credit_sharing_admin_id ON team_credit_sharing(team_admin_id);
+CREATE INDEX IF NOT EXISTS idx_team_credit_sharing_member_id ON team_credit_sharing(team_member_id);
 
 -- Create function to update timestamps
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -106,6 +117,7 @@ BEGIN
     ALTER TABLE user_credits ENABLE ROW LEVEL SECURITY;
     ALTER TABLE credit_usage_log ENABLE ROW LEVEL SECURITY;
     ALTER TABLE billing_history ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE team_credit_sharing ENABLE ROW LEVEL SECURITY;
 
     -- Drop existing policies if they exist
     DROP POLICY IF EXISTS "Users can view their own subscription" ON subscriptions;
@@ -115,6 +127,9 @@ BEGIN
     DROP POLICY IF EXISTS "Users can view their own credit usage" ON credit_usage_log;
     DROP POLICY IF EXISTS "Users can create credit usage logs" ON credit_usage_log;
     DROP POLICY IF EXISTS "Users can view their own billing history" ON billing_history;
+    DROP POLICY IF EXISTS "Team admins can view their own credit sharing" ON team_credit_sharing;
+    DROP POLICY IF EXISTS "Team members can view their own credit sharing" ON team_credit_sharing;
+    DROP POLICY IF EXISTS "Team admins can manage their own credit sharing" ON team_credit_sharing;
 
     -- Create new policies
     -- Policies for subscriptions
@@ -148,10 +163,27 @@ BEGIN
     CREATE POLICY "Users can view their own billing history"
         ON billing_history FOR SELECT
         USING (auth.uid() = user_id);
+
+    -- Policies for team_credit_sharing
+    CREATE POLICY "Team admins can view their own credit sharing"
+        ON team_credit_sharing FOR SELECT
+        USING (auth.uid() = team_admin_id);
+
+    CREATE POLICY "Team members can view their own credit sharing"
+        ON team_credit_sharing FOR SELECT
+        USING (auth.uid() = team_member_id);
+
+    CREATE POLICY "Team admins can manage their own credit sharing"
+        ON team_credit_sharing FOR ALL
+        USING (auth.uid() = team_admin_id);
 END$$;
 
 -- Grant access to authenticated users
 GRANT ALL ON subscriptions TO authenticated;
 GRANT ALL ON user_credits TO authenticated;
 GRANT ALL ON credit_usage_log TO authenticated;
-GRANT ALL ON billing_history TO authenticated; 
+GRANT ALL ON billing_history TO authenticated;
+GRANT ALL ON team_credit_sharing TO authenticated;
+
+-- Add comment explaining the table
+COMMENT ON TABLE team_credit_sharing IS 'Tracks which team members share credits with team_admin users. team_admin_id users share their credits with up to 4 team_member_id users.'; 

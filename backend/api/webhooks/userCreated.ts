@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import jwt from 'jsonwebtoken';
 import { supabaseDb } from '../../lib/supabase';
 import { notifySlack } from '../../lib/slack';
+import { CreditService } from '../../services/creditService';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2022-11-15' });
 
@@ -26,7 +27,7 @@ export default async function userCreatedWebhook(req: Request, res: Response) {
   try {
     // Ensure stripe customer
     let customerId: string | null = null;
-    const { data: userRow } = await supabaseDb.from('users').select('stripe_customer_id').eq('id', user_id).single();
+    const { data: userRow } = await supabaseDb.from('users').select('stripe_customer_id, role').eq('id', user_id).single();
     if (userRow?.stripe_customer_id) {
       customerId = userRow.stripe_customer_id;
     } else {
@@ -61,17 +62,19 @@ export default async function userCreatedWebhook(req: Request, res: Response) {
       console.log('[userCreatedWebhook] Subscription created', subscription.id);
     }
 
-    // Insert credits row if not exists
-    await supabaseDb.from('user_credits').upsert({
-      user_id,
-      total_credits: 350,
-      remaining_credits: 350,
-      used_credits: 0
-    }, { onConflict: 'user_id' });
+    // Initialize credits based on user role
+    const userRole = userRow?.role || 'member'; // Default to member if no role specified
+    try {
+      await CreditService.allocateCreditsBasedOnRole(user_id, userRole, 'subscription_renewal');
+      console.log(`[userCreatedWebhook] Credits allocated for ${userRole} role`);
+    } catch (creditError) {
+      console.error('[userCreatedWebhook] Error allocating credits:', creditError);
+      // Continue execution even if credit allocation fails
+    }
 
     // Slack notify
     try {
-      await notifySlack(`🆓 Starter trial started for ${email}`);
+      await notifySlack(`🆓 Starter trial started for ${email} (${userRole})`);
     } catch (err) {
       console.error('[userCreatedWebhook] Slack notify failed', err);
     }

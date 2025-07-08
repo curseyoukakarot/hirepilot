@@ -135,4 +135,74 @@ router.post('/use', async (req, res) => {
   }
 });
 
+// Team admin credit sharing endpoints
+
+// Get team members sharing credits with the current team admin
+router.get('/team-members', async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const teamMembers = await CreditService.getTeamMembersForAdmin(userId);
+    res.json(teamMembers);
+  } catch (error: any) {
+    console.error('Error fetching team members:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Add a team member to credit sharing
+router.post('/team-members', async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const { teamMemberId } = req.body;
+    if (!teamMemberId) {
+      res.status(400).json({ error: 'Team member ID is required' });
+      return;
+    }
+
+    const success = await CreditService.addTeamMemberToCreditSharing(userId, teamMemberId);
+    if (!success) {
+      res.status(400).json({ error: 'Failed to add team member to credit sharing' });
+      return;
+    }
+
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('Error adding team member to credit sharing:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Remove a team member from credit sharing
+router.delete('/team-members/:teamMemberId', async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const { teamMemberId } = req.params;
+    const success = await CreditService.removeTeamMemberFromCreditSharing(userId, teamMemberId);
+    if (!success) {
+      res.status(400).json({ error: 'Failed to remove team member from credit sharing' });
+      return;
+    }
+
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('Error removing team member from credit sharing:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router; 

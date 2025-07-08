@@ -81,7 +81,7 @@ router.get('/overview', async (req, res) => {
     // Get user's credits
     const { data: creditsRow, error: creditsError } = await supabase
       .from('user_credits')
-      .select('balance, total_credits, used_credits')
+      .select('remaining_credits, total_credits, used_credits')
       .eq('user_id', user.id)
       .single();
 
@@ -91,7 +91,7 @@ router.get('/overview', async (req, res) => {
       return;
     }
 
-    const remainingCredits = creditsRow?.balance ?? (creditsRow ? (creditsRow.total_credits || 0) - (creditsRow.used_credits || 0) : 0);
+    const remainingCredits = creditsRow?.remaining_credits || 0;
 
     // Get recent credit usage
     const { data: recentUsage, error: usageError } = await supabase

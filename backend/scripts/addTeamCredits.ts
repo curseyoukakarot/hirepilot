@@ -56,11 +56,15 @@ async function addTeamCredits() {
 
     if (existingCredits) {
       // Update existing record
+      const newTotal = existingCredits.total_credits + teamCredits;
+      const newRemaining = existingCredits.remaining_credits + teamCredits;
+      
       const { error: updateError } = await supabase
         .from('user_credits')
         .update({
-          balance: existingCredits.balance + teamCredits,
-          updated_at: new Date().toISOString()
+          total_credits: newTotal,
+          remaining_credits: newRemaining,
+          last_updated: new Date().toISOString()
         })
         .eq('user_id', user.id);
 
@@ -74,7 +78,9 @@ async function addTeamCredits() {
         .from('user_credits')
         .insert({
           user_id: user.id,
-          balance: teamCredits
+          total_credits: teamCredits,
+          used_credits: 0,
+          remaining_credits: teamCredits
         });
 
       if (insertError) {

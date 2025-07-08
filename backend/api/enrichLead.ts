@@ -45,11 +45,11 @@ export default async function enrichLead(req: Request, res: Response) {
     if (creditsError) throw creditsError;
 
     // If user doesn't have their own Apollo key, check credits
-    if (!hasOwnApolloKey && (!userCredits || userCredits.balance < 1)) {
+    if (!hasOwnApolloKey && (!userCredits || userCredits.remaining_credits < 1)) {
       res.status(402).json({ 
         error: 'Insufficient credits',
         requiredCredits: 1,
-        currentBalance: userCredits?.balance || 0
+        currentBalance: userCredits?.remaining_credits || 0
       });
       return;
     }
@@ -78,11 +78,15 @@ export default async function enrichLead(req: Request, res: Response) {
 
     // If user doesn't have their own Apollo key, deduct credits
     if (!hasOwnApolloKey) {
+      const newUsed = userCredits.used_credits + 1;
+      const newRemaining = userCredits.remaining_credits - 1;
+      
       const { error: updateError } = await supabase
         .from('user_credits')
         .update({ 
-          balance: userCredits.balance - 1,
-          updated_at: new Date().toISOString()
+          used_credits: newUsed,
+          remaining_credits: newRemaining,
+          last_updated: new Date().toISOString()
         })
         .eq('user_id', user_id);
 
@@ -103,7 +107,7 @@ export default async function enrichLead(req: Request, res: Response) {
     res.status(200).json({ 
       enrichment_data: enrichmentData,
       credits_used: hasOwnApolloKey ? 0 : 1,
-      remaining_credits: hasOwnApolloKey ? userCredits?.balance : userCredits.balance - 1
+      remaining_credits: hasOwnApolloKey ? userCredits?.remaining_credits : userCredits.remaining_credits - 1
     });
     return;
   } catch (err: any) {

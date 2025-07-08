@@ -6,6 +6,7 @@ import { requireAuth } from '../../middleware/authMiddleware';
 import { sendTeamInviteEmail } from '../../services/emailService';
 import { randomUUID } from 'crypto';
 import { ApiRequest } from '../../types/api';
+import { CreditService } from '../../services/creditService';
 
 const router = express.Router();
 
@@ -46,9 +47,9 @@ router.get('/users', requireAuth, requireSuperAdmin, async (req: Request, res: R
 
   // fetch credits for these users
   const ids = users.map(u => u.id);
-  const { data: credits } = await supabaseDb.from('user_credits').select('user_id,balance').in('user_id', ids);
+  const { data: credits } = await supabaseDb.from('user_credits').select('user_id,remaining_credits').in('user_id', ids);
   const creditMap: Record<string, number> = {};
-  (credits || []).forEach(c => { creditMap[c.user_id] = c.balance; });
+  (credits || []).forEach(c => { creditMap[c.user_id] = c.remaining_credits; });
 
   const enriched = users.map(u => ({ ...u, balance: creditMap[u.id] || 0 }));
   res.json(enriched);
@@ -126,14 +127,13 @@ router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: 
       res.status(500).json({ error: dbError.message || 'Database error creating new user' });
       return;
     }
-    // 3. If RecruitPro, initialize credits
-    if (role === 'RecruitPro') {
-      await supabase.from('user_credits').insert({
-        user_id: userId,
-        balance: 1000,
-        total_credits: 1000,
-        used_credits: 0,
-      });
+    // 3. Initialize credits based on role
+    try {
+      await CreditService.allocateCreditsBasedOnRole(userId, role, 'admin_grant');
+      console.log(`[ADMIN USERS] Credits allocated for ${role} role`);
+    } catch (creditError) {
+      console.error('[ADMIN USERS] Error allocating credits:', creditError);
+      // Continue execution even if credit allocation fails
     }
     // 4. Send invite email using the same template as team invite
     // Get inviter info
@@ -177,7 +177,9 @@ router.patch('/users/:id/credits', requireAuth, requireSuperAdmin, async (req: R
   }
   const { error } = await supabaseDb.from('user_credits').upsert({
     user_id: userId,
-    balance: total_credits,
+    total_credits: total_credits,
+    used_credits: 0,
+    remaining_credits: total_credits,
   }, { onConflict: 'user_id' });
 
   if (error) {
@@ -291,6 +293,95 @@ router.patch('/users/:id/password', requireAuth, requireSuperAdmin, async (req: 
   } catch (err) {
     console.error('[ADMIN USERS] Unexpected error updating password:', err);
     res.status(500).json({ error: (err as Error).message || 'Internal server error' });
+  }
+});
+
+// POST /api/admin/users/backfill-credits - Backfill credits for existing users
+router.post('/users/backfill-credits', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
+  try {
+    console.log('[ADMIN] Starting credit backfill...');
+    
+    // Get all users from the public.users table
+    const { data: users, error: usersError } = await supabaseDb
+      .from('users')
+      .select('id, email, role, firstName, lastName');
+
+    if (usersError) {
+      console.error('[ADMIN] Error fetching users:', usersError);
+      res.status(500).json({ error: usersError.message });
+      return;
+    }
+
+    if (!users || users.length === 0) {
+      res.json({ message: 'No users found in the database.', processed: 0, errors: 0 });
+      return;
+    }
+
+    // Get existing credit records to avoid duplicates
+    const { data: existingCredits, error: creditsError } = await supabaseDb
+      .from('user_credits')
+      .select('user_id');
+
+    if (creditsError) {
+      console.error('[ADMIN] Error fetching existing credits:', creditsError);
+      res.status(500).json({ error: creditsError.message });
+      return;
+    }
+
+    const existingCreditUserIds = new Set(
+      (existingCredits || []).map(c => c.user_id)
+    );
+
+    // Filter users who don't have credits yet
+    const usersWithoutCredits = users.filter(user => !existingCreditUserIds.has(user.id));
+
+    console.log(`[ADMIN] Found ${usersWithoutCredits.length} users without credits`);
+
+    if (usersWithoutCredits.length === 0) {
+      res.json({ 
+        message: 'All users already have credits assigned.', 
+        totalUsers: users.length,
+        processed: 0, 
+        errors: 0 
+      });
+      return;
+    }
+
+    // Process each user
+    let successCount = 0;
+    let errorCount = 0;
+    const errors: string[] = [];
+
+    for (const user of usersWithoutCredits) {
+      try {
+        const role = user.role || 'member'; // Default to member if no role
+        
+        await CreditService.allocateCreditsBasedOnRole(user.id, role, 'admin_grant');
+        
+        successCount++;
+        console.log(`[ADMIN] Assigned credits to ${user.email} (${role})`);
+        
+      } catch (error) {
+        errorCount++;
+        const errorMsg = `Failed to assign credits to ${user.email}: ${error}`;
+        console.error(`[ADMIN] ${errorMsg}`);
+        errors.push(errorMsg);
+      }
+    }
+
+    // Return results
+    res.json({
+      message: 'Credit backfill completed',
+      totalUsers: users.length,
+      usersProcessed: usersWithoutCredits.length,
+      successful: successCount,
+      errors: errorCount,
+      errorDetails: errors.length > 0 ? errors : undefined
+    });
+    
+  } catch (err) {
+    console.error('[ADMIN] Fatal error during backfill:', err);
+    res.status(500).json({ error: (err as Error).message });
   }
 });
 

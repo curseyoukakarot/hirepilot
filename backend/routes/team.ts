@@ -1,4 +1,5 @@
-import { Router, Request, Response } from 'express';
+import express from 'express';
+import { Response } from 'express';
 import { supabase } from '../lib/supabase';
 import { User } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
@@ -7,8 +8,11 @@ import crypto from 'crypto';
 import { sendTeamInviteEmail } from '../services/emailService';
 import { sendTeamNotify } from '../lib/notifications';
 import Stripe from 'stripe';
+import { AuthenticatedRequest } from '../types/api';
+import bcrypt from 'bcrypt';
+import { CreditService } from '../services/creditService';
 
-const router = Router();
+const router = express.Router();
 
 interface TeamInviteRequest {
   firstName: string;
@@ -266,6 +270,15 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
           error: publicUserError
         });
         return;
+      }
+
+      // Initialize credits based on role for new team member
+      try {
+        await CreditService.allocateCreditsBasedOnRole(userData.user.id, role, 'admin_grant');
+        console.log(`[TEAM INVITE] Credits allocated for ${role} role`);
+      } catch (creditError) {
+        console.error('[TEAM INVITE] Error allocating credits:', creditError);
+        // Continue execution even if credit allocation fails
       }
 
       // seat count increment will be handled in separate service to avoid linter issues
