@@ -29,10 +29,15 @@ export default function ChromeExtension() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white px-8 py-4 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-2xl">
+            <a 
+              href="https://chromewebstore.google.com/detail/hirepilot-cookie-helper/iiegpolacomfhkfcdgppbgkgkdbfemce?pli=1" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white px-8 py-4 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-2xl inline-block"
+            >
               <i className="fab fa-chrome mr-2" />
-              Coming Soon to Chrome Web Store
-            </button>
+              Add to Chrome
+            </a>
             <button className="border border-gray-600 hover:border-gray-500 text-gray-300 hover:text-white px-8 py-4 rounded-xl font-semibold transition-all duration-300">
               <i className="fas fa-play mr-2" />
               Watch Demo
@@ -158,15 +163,16 @@ export default function ChromeExtension() {
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-4xl font-bold mb-6">Ready to Streamline Your LinkedIn Sourcing?</h2>
           <p className="text-xl text-gray-300 mb-10">Join the many recruiters already using HirePilot to accelerate their hiring process.</p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white px-8 py-4 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105">
+          <div className="flex justify-center">
+            <a 
+              href="https://chromewebstore.google.com/detail/hirepilot-cookie-helper/iiegpolacomfhkfcdgppbgkgkdbfemce?pli=1" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white px-8 py-4 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 inline-block"
+            >
               <i className="fab fa-chrome mr-2" />
-              Add to Chrome (Coming Soon)
-            </button>
-            <button className="border border-gray-600 hover:border-gray-500 text-gray-300 hover:text-white px-8 py-4 rounded-xl font-semibold transition-all duration-300">
-              <i className="fas fa-envelope mr-2" />
-              Get Notified
-            </button>
+              Add to Chrome
+            </a>
           </div>
         </div>
       </section>
