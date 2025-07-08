@@ -178,20 +178,50 @@ export class BillingService {
       .eq('id', userId)
       .single();
 
-    let customerId = userData?.stripe_customer_id;
+    if (!userData) {
+      throw new Error('User not found');
+    }
 
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: userData?.email,
-        metadata: { userId }
+    let customerId = userData.stripe_customer_id;
+
+    // If no customer ID in our database, search Stripe by email first
+    if (!customerId && userData.email) {
+      console.log(`[BILLING] No customer ID found for user ${userId}, searching Stripe by email: ${userData.email}`);
+      
+      const existingCustomers = await stripe.customers.list({
+        email: userData.email,
+        limit: 1
       });
-      customerId = customer.id;
 
-      // Save customer ID
-      await supabase
-        .from('users')
-        .update({ stripe_customer_id: customerId })
-        .eq('id', userId);
+      if (existingCustomers.data.length > 0) {
+        // Found existing customer - link it to our user record
+        customerId = existingCustomers.data[0].id;
+        console.log(`[BILLING] Found existing Stripe customer ${customerId} for email ${userData.email}`);
+        
+        await supabase
+          .from('users')
+          .update({ stripe_customer_id: customerId })
+          .eq('id', userId);
+        
+        console.log(`[BILLING] Linked customer ${customerId} to user ${userId}`);
+      } else {
+        // No existing customer found - create a new one
+        console.log(`[BILLING] No existing Stripe customer found for ${userData.email}, creating new customer`);
+        
+        const customer = await stripe.customers.create({
+          email: userData.email,
+          metadata: { userId }
+        });
+        customerId = customer.id;
+
+        // Save customer ID
+        await supabase
+          .from('users')
+          .update({ stripe_customer_id: customerId })
+          .eq('id', userId);
+        
+        console.log(`[BILLING] Created new Stripe customer ${customerId} for user ${userId}`);
+      }
     }
 
     // Create checkout session
@@ -213,16 +243,62 @@ export class BillingService {
   static async createPortalSession(userId: string) {
     const { data: userData } = await supabase
       .from('users')
-      .select('stripe_customer_id')
+      .select('stripe_customer_id, email')
       .eq('id', userId)
       .single();
 
-    if (!userData?.stripe_customer_id) {
-      throw new Error('No Stripe customer found');
+    if (!userData) {
+      throw new Error('User not found');
+    }
+
+    let customerId = userData.stripe_customer_id;
+
+    // If no customer ID in our database, search Stripe by email
+    if (!customerId && userData.email) {
+      console.log(`[BILLING] No customer ID found for user ${userId}, searching Stripe by email: ${userData.email}`);
+      
+      const existingCustomers = await stripe.customers.list({
+        email: userData.email,
+        limit: 1
+      });
+
+      if (existingCustomers.data.length > 0) {
+        // Found existing customer - link it to our user record
+        customerId = existingCustomers.data[0].id;
+        console.log(`[BILLING] Found existing Stripe customer ${customerId} for email ${userData.email}`);
+        
+        await supabase
+          .from('users')
+          .update({ stripe_customer_id: customerId })
+          .eq('id', userId);
+        
+        console.log(`[BILLING] Linked customer ${customerId} to user ${userId}`);
+      } else {
+        // No existing customer found - create a new one
+        console.log(`[BILLING] No existing Stripe customer found for ${userData.email}, creating new customer`);
+        
+        const customer = await stripe.customers.create({
+          email: userData.email,
+          metadata: { userId }
+        });
+        customerId = customer.id;
+
+        // Save customer ID
+        await supabase
+          .from('users')
+          .update({ stripe_customer_id: customerId })
+          .eq('id', userId);
+        
+        console.log(`[BILLING] Created new Stripe customer ${customerId} for user ${userId}`);
+      }
+    }
+
+    if (!customerId) {
+      throw new Error('Unable to create or find Stripe customer');
     }
 
     const session = await stripe.billingPortal.sessions.create({
-      customer: userData.stripe_customer_id,
+      customer: customerId,
       return_url: `${process.env.FRONTEND_URL}/billing`
     });
 
