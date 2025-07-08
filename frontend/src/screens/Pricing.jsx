@@ -134,6 +134,7 @@ export default function Pricing() {
                   </div>
                 );
               })()}
+              <p className="text-gray-700 font-medium mb-4">Everything in Starter and Pro plus:</p>
               <ul className="space-y-4 mb-8">
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>5,000 credits/month</span></li>
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>5 users</span></li>
