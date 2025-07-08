@@ -254,19 +254,35 @@ router.post('/import', requireAuth, async (req: Request, res: Response) => {
     }
 
     // Update campaign totals
+    console.log('📊 Updating campaign totals for campaign:', campaignId);
     try {
       // Get total and enriched lead counts for this campaign
-      const { count: totalLeads } = await supabase
+      const { count: totalLeads, error: totalError } = await supabase
         .from('leads')
         .select('id', { count: 'exact' })
         .eq('campaign_id', campaignId);
 
-      const { count: enrichedLeads } = await supabase
+      const { count: enrichedLeads, error: enrichedError } = await supabase
         .from('leads')
         .select('id', { count: 'exact' })
         .eq('campaign_id', campaignId)
         .not('email', 'is', null)
         .neq('email', '');
+
+      console.log('📊 Campaign count results:', {
+        totalLeads,
+        enrichedLeads,
+        totalError,
+        enrichedError
+      });
+
+      if (totalError) {
+        console.error('Error getting total leads count:', totalError);
+      }
+
+      if (enrichedError) {
+        console.error('Error getting enriched leads count:', enrichedError);
+      }
 
       // Update campaign with new counts
       const { error: campaignError } = await supabase
@@ -279,10 +295,17 @@ router.post('/import', requireAuth, async (req: Request, res: Response) => {
         .eq('id', campaignId);
 
       if (campaignError) {
-        console.error('Error updating campaign counts:', campaignError);
+        console.error('❌ Error updating campaign counts:', campaignError);
+        // Don't fail the request but log it properly
+      } else {
+        console.log('✅ Campaign counts updated successfully:', {
+          campaignId,
+          totalLeads: totalLeads || 0,
+          enrichedLeads: enrichedLeads || 0
+        });
       }
     } catch (countError) {
-      console.error('Error updating campaign counts:', countError);
+      console.error('❌ Error updating campaign counts:', countError);
       // Don't fail the request for count update errors
     }
 
