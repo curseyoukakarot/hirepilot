@@ -1,5 +1,6 @@
 import express from 'express';
 import { BillingController } from '../controllers/billingController';
+import { requireAuth } from '../middleware/authMiddleware';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 import jwt from 'jsonwebtoken';
@@ -146,18 +147,18 @@ router.get('/overview', async (req, res) => {
 router.get('/plans', BillingController.getPlans);
 
 // Create a checkout session for new subscription
-router.post('/checkout', BillingController.createCheckoutSession);
+router.post('/checkout', requireAuth, BillingController.createCheckoutSession);
 
 // Create a portal session for managing subscription
-router.post('/portal', BillingController.createPortalSession);
+router.post('/portal', requireAuth, BillingController.createPortalSession);
 
 // Cancel subscription
-router.post('/cancel', BillingController.cancelSubscription);
+router.post('/cancel', requireAuth, BillingController.cancelSubscription);
 
 // Get detailed credit usage history
-router.get('/credits/history', BillingController.getCreditHistory);
+router.get('/credits/history', requireAuth, BillingController.getCreditHistory);
 
 // Get detailed billing history
-router.get('/history', BillingController.getBillingHistory);
+router.get('/history', requireAuth, BillingController.getBillingHistory);
 
 export default router; 
