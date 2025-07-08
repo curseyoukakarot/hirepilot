@@ -54,7 +54,7 @@ function Campaigns() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      await apiDelete('/deleteCampaign', {
+      await apiDelete('/api/deleteCampaign', {
         body: JSON.stringify({ campaign_id: campaignId }),
         headers: {
           'Content-Type': 'application/json',
