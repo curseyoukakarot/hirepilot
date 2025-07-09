@@ -14,6 +14,7 @@ import messageRouter from './routers/messageRouter';
 import { launchCampaign } from './api/campaigns/launch';
 import campaignPerformance from './api/campaignPerformance';
 import userPerformance from './api/userPerformance';
+import analyticsTimeSeries from './api/analyticsTimeSeries';
 import teamRouter from './routes/team';
 import sendSlackNotification from './api/sendSlackNotification';
 import startTrial from './api/startTrial';
@@ -66,6 +67,9 @@ router.get('/campaigns/:id/performance', campaignPerformance);
 
 // Add user performance endpoint
 router.get('/users/:id/performance', userPerformance);
+
+// Add analytics time series endpoint
+router.get('/analytics/time-series', analyticsTimeSeries);
 
 // Add alias route for DELETE endpoint
 router.delete('/delete/:id', (req, res) => {
