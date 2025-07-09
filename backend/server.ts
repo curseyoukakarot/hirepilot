@@ -72,6 +72,7 @@ import appHealth from './api/appHealth';
 import { incrementApiCalls, incrementFailedCalls } from './metrics/appMetrics';
 import userCreatedWebhook from './api/webhooks/userCreated';
 import stripeRouter from './routes/stripe';
+import trackingRouter from './api/tracking';
 // Boot REX MCP server immediately so it's ready in Railway prod
 import './src/rex/server';
 import { attachTeam } from './middleware/teamContext';
@@ -200,6 +201,7 @@ app.post('/api/slack/test-post', slackTestPost);
 app.post('/api/slack/slash', slackSlash);
 app.post('/webhooks/user-created', userCreatedWebhook);
 app.use('/api/stripe', stripeRouter);
+app.use('/api/tracking', trackingRouter);
 app.use('/api', attachTeam);
 
 // Log all endpoints before starting the server
@@ -427,6 +429,16 @@ app.get('/api/auth/outlook/callback', async (req, res) => {
     console.log('DEBUG: Upsert result:', integrationError);
 
     if (integrationError) throw integrationError;
+
+    // Set up Outlook tracking notifications for email analytics
+    try {
+      const { OutlookTrackingService } = await import('./services/outlookTrackingService');
+      await OutlookTrackingService.setupReplyNotifications(user_id as string);
+      console.log('[Outlook OAuth] Outlook tracking notifications set up successfully');
+    } catch (trackingError) {
+      console.error('[Outlook OAuth] Failed to set up Outlook tracking:', trackingError);
+      // Don't fail the OAuth flow if tracking setup fails
+    }
 
     // Redirect to frontend settings page after successful Outlook authentication
     res.redirect(`${process.env.FRONTEND_URL}/settings/integrations?outlook=connected`);

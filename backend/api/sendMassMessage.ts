@@ -1,10 +1,12 @@
 import { Request, Response } from 'express';
 import { supabaseDb } from '../lib/supabase';
-import { sendEmail } from '../services/emailProviderService';
 import { personalizeMessage } from '../utils/messageUtils';
-import sgMail from '@sendgrid/mail';
-import { google } from 'googleapis';
 import { getGoogleAccessToken } from '../services/googleTokenHelper';
+import { google } from 'googleapis';
+import sgMail from '@sendgrid/mail';
+import { sendEmail } from '../services/emailProviderService';
+import { GmailTrackingService } from '../services/gmailTrackingService';
+import { OutlookTrackingService } from '../services/outlookTrackingService';
 
 // Helper function to generate avatar URL
 const getAvatarUrl = (name: string) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
@@ -21,9 +23,7 @@ async function sendViaProvider(lead: any, content: string, userId: string, provi
       case 'gmail':
         return await sendViaGoogle(lead, content, userId, templateId);
       case 'outlook':
-        // TODO: Implement Outlook sending
-        console.log('[sendViaProvider] Outlook not implemented yet, falling back to emailProviderService');
-        return await sendEmail(lead, content, userId);
+        return await sendViaOutlook(lead, content, userId, templateId);
       default:
         console.log(`[sendViaProvider] Unknown provider ${provider}, falling back to emailProviderService`);
         return await sendEmail(lead, content, userId);
@@ -204,24 +204,17 @@ async function sendViaGoogle(lead: any, content: string, userId: string, templat
     
     body = body.replace(/\n/g, '<br/>');
 
-    const accessToken = await getGoogleAccessToken(userId);
-    const oauth2client = new google.auth.OAuth2();
-    oauth2client.setCredentials({ access_token: accessToken });
-    const gmail = google.gmail({ version: 'v1', auth: oauth2client });
-
-    const raw = Buffer.from(
-      `To: ${lead.email}\r\n` +
-      `Subject: ${subject}\r\n` +
-      'Content-Type: text/html; charset=utf-8\r\n' +
-      '\r\n' +
-      body
-    ).toString('base64url');
-
     console.log(`[sendViaGoogle] Sending email to ${lead.email} with subject: ${subject}`);
-    const response = await gmail.users.messages.send({
-      userId: 'me',
-      requestBody: { raw },
-    });
+    
+    // Use GmailTrackingService for proper tracking
+    const messageId = await GmailTrackingService.sendEmail(
+      userId,
+      lead.email,
+      subject,
+      body,
+      undefined, // campaignId - could be passed if available
+      lead.id    // leadId
+    );
 
     // Store the message in our database with UI-friendly fields
     const currentTime = new Date();
@@ -233,7 +226,7 @@ async function sendViaGoogle(lead: any, content: string, userId: string, templat
       from_address: 'you@gmail.com', // Could get actual from user profile
       subject,
       content: body,
-      gmail_message_id: response.data.id,
+      message_id: messageId,
       provider: 'gmail',
       status: 'sent',
       sent_at: currentTime.toISOString(),
@@ -252,36 +245,103 @@ async function sendViaGoogle(lead: any, content: string, userId: string, templat
 
     if (insertError) {
       console.error('[sendViaGoogle] Message insert error:', insertError);
-    }
-
-    // Add analytics tracking - store sent event
-    const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const { error: analyticsError } = await supabaseDb.from('email_events').insert({
-      user_id: userId,
-      lead_id: lead.id,
-      message_id: messageId,
-      event_type: 'sent',
-      provider: 'gmail',
-      event_timestamp: currentTime.toISOString(),
-      metadata: {
-        subject,
-        gmail_message_id: response.data.id,
-        source: 'bulk_messaging',
-        to_email: lead.email,
-        database_message_id: messageRecord?.id
-      }
-    });
-
-    if (analyticsError) {
-      console.error('[sendViaGoogle] Analytics insert error:', analyticsError);
     } else {
-      console.log('[sendViaGoogle] Analytics event stored successfully');
+      console.log('[sendViaGoogle] Message stored successfully with tracking ID:', messageId);
     }
 
     console.log(`[sendViaGoogle] Successfully sent to ${lead.email}`);
     return true;
   } catch (error: any) {
     console.error('[sendViaGoogle] Error:', error);
+    return false;
+  }
+}
+
+async function sendViaOutlook(lead: any, content: string, userId: string, templateId?: string): Promise<boolean> {
+  try {
+    // Get subject from template if templateId is provided
+    let subject = 'Message from HirePilot';
+    let body = content;
+    
+    if (templateId) {
+      const { data: template, error: templateError } = await supabaseDb
+        .from('email_templates')
+        .select('subject')
+        .eq('id', templateId)
+        .eq('user_id', userId)
+        .single();
+      
+      if (!templateError && template?.subject) {
+        subject = template.subject;
+      } else {
+        console.log(`[sendViaOutlook] Could not fetch template subject for ${templateId}, using fallback parsing`);
+        // Fallback to parsing from content
+        const lines = content.split('\n');
+        if (lines.length > 1 && lines[0].length < 100 && !lines[0].includes('<')) {
+          subject = lines[0].trim();
+          body = lines.slice(1).join('\n').trim();
+        }
+      }
+    } else {
+      // Parse subject and body from content (legacy behavior)
+      const lines = content.split('\n');
+      if (lines.length > 1 && lines[0].length < 100 && !lines[0].includes('<')) {
+        subject = lines[0].trim();
+        body = lines.slice(1).join('\n').trim();
+      }
+    }
+    
+    body = body.replace(/\n/g, '<br/>');
+
+    console.log(`[sendViaOutlook] Sending email to ${lead.email} with subject: ${subject}`);
+    
+    // Use OutlookTrackingService for proper tracking
+    const messageId = await OutlookTrackingService.sendEmail(
+      userId,
+      lead.email,
+      subject,
+      body,
+      undefined, // campaignId - could be passed if available
+      lead.id    // leadId
+    );
+
+    // Store the message in our database with UI-friendly fields
+    const currentTime = new Date();
+    const { data: messageRecord, error: insertError } = await supabaseDb.from('messages').insert({
+      user_id: userId,
+      lead_id: lead.id,
+      to_email: lead.email,
+      recipient: lead.email,
+      from_address: 'you@outlook.com', // Could get actual from user profile
+      subject,
+      content: body,
+      message_id: messageId,
+      provider: 'outlook',
+      status: 'sent',
+      sent_at: currentTime.toISOString(),
+      created_at: currentTime.toISOString(),
+      updated_at: currentTime.toISOString(),
+      // UI-friendly fields
+      sender: 'You',
+      avatar: getAvatarUrl('You'),
+      preview: body.replace(/<[^>]+>/g, '').slice(0, 100),
+      time: currentTime.toLocaleTimeString(),
+      unread: false,
+      read: true
+    })
+    .select()
+    .single();
+
+    if (insertError) {
+      console.error('[sendViaOutlook] Message insert error:', insertError);
+    } else {
+      console.log('[sendViaOutlook] Message stored successfully with tracking ID:', messageId);
+    }
+
+    console.log(`[sendViaOutlook] Successfully sent to ${lead.email}`);
+    return true;
+  } catch (error: any) {
+    console.error('[sendViaOutlook] Error:', error);
     return false;
   }
 }

@@ -109,6 +109,16 @@ router.get('/callback', async (req, res) => {
       upsertData
     });
 
+    // Set up Gmail tracking notifications for email analytics
+    try {
+      const { GmailTrackingService } = await import('../services/gmailTrackingService');
+      await GmailTrackingService.setupReplyNotifications(user_id);
+      console.log('[Google OAuth] Gmail tracking notifications set up successfully');
+    } catch (trackingError) {
+      console.error('[Google OAuth] Failed to set up Gmail tracking:', trackingError);
+      // Don't fail the OAuth flow if tracking setup fails
+    }
+
     res.redirect(`${process.env.APP_WEB_URL}/settings/integrations?google=success`);
   } catch (error) {
     console.error('Google callback error:', error);

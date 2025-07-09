@@ -3,6 +3,9 @@ import { google } from 'googleapis';
 import { Client } from '@microsoft/microsoft-graph-client';
 import sgMail from '@sendgrid/mail';
 import { createClient } from '@supabase/supabase-js';
+import { GmailTrackingService } from '../services/gmailTrackingService';
+import { OutlookTrackingService } from '../services/outlookTrackingService';
+import { EmailEventService } from '../services/emailEventService';
 
 // Helper function to generate avatar URL
 const getAvatarUrl = (name: string) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
@@ -342,15 +345,61 @@ async function sendViaGoogle(integration: any, { to, subject, html, attachments 
       '--boundary--'
     ].join('\n');
 
+    // Generate a unique message ID for tracking
+    const trackingMessageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Add tracking pixel to the HTML content
+    const htmlWithTracking = GmailTrackingService.addTrackingPixel(html, trackingMessageId);
+    
+    // Update the message with tracking pixel
+    const messageWithTracking = [
+      'Content-Type: multipart/mixed; boundary=boundary',
+      'MIME-Version: 1.0',
+      `To: ${to}`,
+      `Subject: ${subject}`,
+      '',
+      '--boundary',
+      'Content-Type: text/html; charset=utf-8',
+      '',
+      htmlWithTracking,
+      ...attachments?.map(attachment => [
+        '--boundary',
+        `Content-Type: ${attachment.contentType}`,
+        'Content-Transfer-Encoding: base64',
+        `Content-Disposition: attachment; filename="${attachment.filename}"`,
+        '',
+        attachment.content.toString('base64')
+      ]).flat() || [],
+      '--boundary--'
+    ].join('\n');
+
     // Send the email
-    const encodedMessage = Buffer.from(message).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-    await gmail.users.messages.send({
+    const encodedMessage = Buffer.from(messageWithTracking).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const response = await gmail.users.messages.send({
       userId: 'me',
       requestBody: {
         raw: encodedMessage
       }
     });
 
+    // Store tracking event for analytics
+    await EmailEventService.storeEvent({
+      user_id: integration.user_id,
+      campaign_id: undefined, // Could be passed from messageController if available
+      lead_id: undefined,     // Could be passed from messageController if available
+      provider: 'gmail',
+      message_id: trackingMessageId,
+      event_type: 'sent',
+      metadata: {
+        gmail_message_id: response.data.id,
+        thread_id: response.data.threadId,
+        subject,
+        to_email: to,
+        source: 'message_center'
+      }
+    });
+
+    console.log('[sendViaGoogle] Email sent with tracking ID:', trackingMessageId);
     return { success: true };
   } catch (error: unknown) {
     console.error('Google send error:', error);
@@ -370,11 +419,17 @@ async function sendViaOutlook(integration: any, { to, subject, html, attachments
     const parsedRecipient = parseEmailAddress(to);
     console.log('[sendViaOutlook] Parsed recipient:', parsedRecipient);
     
+    // Generate a unique message ID for tracking
+    const trackingMessageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Add tracking pixel to the HTML content
+    const htmlWithTracking = OutlookTrackingService.addTrackingPixel(html, trackingMessageId);
+    
     const message = {
       subject,
       body: {
         contentType: 'HTML',
-        content: html
+        content: htmlWithTracking
       },
       toRecipients: [{
         emailAddress: {
@@ -391,7 +446,26 @@ async function sendViaOutlook(integration: any, { to, subject, html, attachments
     };
 
     console.log('[sendViaOutlook] Sending message with recipient:', message.toRecipients[0]);
-    await client.api('/me/sendMail').post({ message });
+    const response = await client.api('/me/sendMail').post({ message });
+
+    // Store tracking event for analytics
+    await EmailEventService.storeEvent({
+      user_id: integration.user_id,
+      campaign_id: undefined, // Could be passed from messageController if available
+      lead_id: undefined,     // Could be passed from messageController if available
+      provider: 'outlook',
+      message_id: trackingMessageId,
+      event_type: 'sent',
+      metadata: {
+        outlook_message_id: response.id,
+        conversation_id: response.conversationId,
+        subject,
+        to_email: to,
+        source: 'message_center'
+      }
+    });
+
+    console.log('[sendViaOutlook] Email sent with tracking ID:', trackingMessageId);
     return { success: true };
   } catch (error: unknown) {
     console.error('Outlook send error:', error);
