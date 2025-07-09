@@ -70,16 +70,35 @@ export default async function campaignPerformance(req: Request, res: Response) {
       return;
     }
 
+    // Conversions
+    let conversionFilter = supabaseDb
+      .from('email_events')
+      .select('lead_id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('event_type', 'conversion');
+    if (id !== 'all') {
+      conversionFilter = conversionFilter.eq('campaign_id', id);
+    }
+    const { count: conversions, error: conversionError } = await conversionFilter;
+    if (conversionError) {
+      console.error('[campaignPerformance] Conversions count error:', conversionError);
+      res.status(500).json({ error: conversionError.message });
+      return;
+    }
+
     // Calculate rates
     const open_rate = sent ? ((opens || 0) / sent) * 100 : 0;
     const reply_rate = sent ? ((replies || 0) / sent) * 100 : 0;
+    const conversion_rate = sent ? ((conversions || 0) / sent) * 100 : 0;
 
     return res.json({
       sent: sent || 0,
       opens: opens || 0,
       open_rate,
       replies: replies || 0,
-      reply_rate
+      reply_rate,
+      conversions: conversions || 0,
+      conversion_rate
     });
   } catch (error: any) {
     console.error('[campaignPerformance] Error:', error);

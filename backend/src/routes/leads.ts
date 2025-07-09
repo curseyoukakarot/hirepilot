@@ -7,6 +7,7 @@ import { enrichLead as enrichWithProxycurl } from '../../services/proxycurl/enri
 import { requireAuth } from '../../middleware/authMiddleware';
 import { searchAndEnrichPeople } from '../../utils/apolloApi';
 import { ApiRequest } from '../../types/api';
+import { EmailEventService } from '../../services/emailEventService';
 import axios from 'axios';
 
 const router = express.Router();
@@ -528,7 +529,31 @@ router.post('/:id/convert', async (req: Request, res: Response) => {
       return;
     }
 
-    // 3. Delete the lead
+    // 3. Record conversion event for analytics
+    try {
+      await EmailEventService.storeEvent({
+        user_id: user.id,
+        campaign_id: lead.campaign_id,
+        lead_id: lead.id,
+        provider: 'system',
+        message_id: `conversion_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        event_type: 'conversion',
+        metadata: {
+          candidate_id: candidate.id,
+          lead_name: `${firstName} ${lastName}`.trim(),
+          lead_email: lead.email,
+          lead_title: lead.title,
+          lead_company: lead.company,
+          converted_at: new Date().toISOString()
+        }
+      });
+      console.log('✅ Conversion event recorded for analytics');
+    } catch (conversionError) {
+      console.error('❌ Failed to record conversion event:', conversionError);
+      // Don't fail the conversion for analytics errors
+    }
+
+    // 4. Delete the lead
     const { error: deleteError } = await supabase
       .from('leads')
       .delete()

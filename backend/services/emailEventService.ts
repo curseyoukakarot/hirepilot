@@ -1,7 +1,7 @@
 import { supabaseDb } from '../lib/supabase';
 
-export type EmailProvider = 'sendgrid' | 'gmail' | 'outlook';
-export type EmailEventType = 'sent' | 'delivered' | 'open' | 'click' | 'reply' | 'bounce';
+export type EmailProvider = 'sendgrid' | 'gmail' | 'outlook' | 'system';
+export type EmailEventType = 'sent' | 'delivered' | 'open' | 'click' | 'reply' | 'bounce' | 'conversion';
 
 interface EmailEvent {
   user_id: string;

@@ -45,7 +45,8 @@ export default async function analyticsTimeSeries(req: Request, res: Response) {
       .select(`
         event_type,
         event_timestamp,
-        message_id
+        message_id,
+        lead_id
       `)
       .eq('user_id', userId)
       .gte('event_timestamp', startDate.toISOString())
@@ -91,11 +92,14 @@ export default async function analyticsTimeSeries(req: Request, res: Response) {
           sent: new Set(),
           opens: new Set(),
           replies: new Set(),
+          conversions: new Set(),
           sentCount: 0,
           opensCount: 0,
           repliesCount: 0,
+          conversionsCount: 0,
           openRate: 0,
-          replyRate: 0
+          replyRate: 0,
+          conversionRate: 0
         });
       }
 
@@ -111,6 +115,15 @@ export default async function analyticsTimeSeries(req: Request, res: Response) {
         case 'reply':
           periodData.replies.add(event.message_id);
           break;
+        case 'conversion':
+          // For conversions, use lead_id as the unique identifier since message_id is generated
+          if (!periodData.conversions) {
+            periodData.conversions = new Set();
+          }
+          if (event.lead_id) {
+            periodData.conversions.add(event.lead_id);
+          }
+          break;
       }
     });
 
@@ -119,8 +132,10 @@ export default async function analyticsTimeSeries(req: Request, res: Response) {
       periodData.sentCount = periodData.sent.size;
       periodData.opensCount = periodData.opens.size;
       periodData.repliesCount = periodData.replies.size;
+      periodData.conversionsCount = periodData.conversions.size;
       periodData.openRate = periodData.sentCount > 0 ? (periodData.opensCount / periodData.sentCount) * 100 : 0;
       periodData.replyRate = periodData.sentCount > 0 ? (periodData.repliesCount / periodData.sentCount) * 100 : 0;
+      periodData.conversionRate = periodData.sentCount > 0 ? (periodData.conversionsCount / periodData.sentCount) * 100 : 0;
 
       // Format period for display
       let displayPeriod = periodData.period;
@@ -132,17 +147,19 @@ export default async function analyticsTimeSeries(req: Request, res: Response) {
         displayPeriod = new Date(periodData.period + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
       }
 
-             return {
-         period: displayPeriod,
-         rawPeriod: periodData.period,
-         sent: periodData.sentCount,
-         opens: periodData.opensCount,
-         replies: periodData.repliesCount,
-         openRate: Math.round(periodData.openRate * 10) / 10, // Round to 1 decimal
-         replyRate: Math.round(periodData.replyRate * 10) / 10,
-         interestedRate: 0, // Placeholder for now
-         growth: 0 // Will be calculated below
-       };
+                   return {
+        period: displayPeriod,
+        rawPeriod: periodData.period,
+        sent: periodData.sentCount,
+        opens: periodData.opensCount,
+        replies: periodData.repliesCount,
+        conversions: periodData.conversionsCount,
+        openRate: Math.round(periodData.openRate * 10) / 10, // Round to 1 decimal
+        replyRate: Math.round(periodData.replyRate * 10) / 10,
+        conversionRate: Math.round(periodData.conversionRate * 10) / 10,
+        interestedRate: 0, // Placeholder for now
+        growth: 0 // Will be calculated below
+      };
     }).sort((a, b) => a.rawPeriod.localeCompare(b.rawPeriod));
 
     // Calculate growth rates

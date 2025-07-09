@@ -141,7 +141,7 @@ export default function Analytics() {
   };
 
   // Filter metrics for selected campaign
-  const selectedMetrics = metrics.find(m => m.campaignId === selectedCampaignId) || { sent: 0, opens: 0, open_rate: 0, replies: 0, reply_rate: 0 };
+  const selectedMetrics = metrics.find(m => m.campaignId === selectedCampaignId) || { sent: 0, opens: 0, open_rate: 0, replies: 0, reply_rate: 0, conversions: 0, conversion_rate: 0 };
 
   useEffect(() => {
     fetchTimeSeriesData();
@@ -161,7 +161,7 @@ export default function Analytics() {
       const labels = timeSeriesData.map(item => item.period);
       const openRateData = timeSeriesData.map(item => item.openRate);
       const replyRateData = timeSeriesData.map(item => item.replyRate);
-      const interestedRateData = timeSeriesData.map(item => item.interestedRate);
+      const conversionRateData = timeSeriesData.map(item => item.conversionRate);
 
       // Create new chart instance with real data
       chartRef.current = new Chart(ctx, {
@@ -184,8 +184,8 @@ export default function Analytics() {
               fill: false
             },
             {
-              label: 'Interested Rate',
-              data: interestedRateData,
+              label: 'Conversion Rate',
+              data: conversionRateData,
               borderColor: 'rgb(168, 85, 247)',
               tension: 0.4,
               fill: false
@@ -203,7 +203,7 @@ export default function Analytics() {
           scales: {
             y: {
               beginAtZero: true,
-              max: Math.max(100, Math.max(...openRateData, ...replyRateData) + 10),
+              max: Math.max(100, Math.max(...openRateData, ...replyRateData, ...conversionRateData) + 10),
               ticks: {
                 callback: value => `${value}%`
               }
@@ -252,8 +252,8 @@ export default function Analytics() {
             <p className="mt-2 text-2xl font-semibold text-gray-900">{loading ? <span className="animate-pulse">...</span> : `${selectedMetrics.reply_rate?.toFixed(1) || 0}%`}</p>
           </div>
           <div className="p-4 bg-white rounded-lg shadow-sm">
-            <h3 className="text-sm font-medium text-gray-500">Interested Rate</h3>
-            <p className="mt-2 text-2xl font-semibold text-gray-900">—</p>
+            <h3 className="text-sm font-medium text-gray-500">Conversion Rate</h3>
+            <p className="mt-2 text-2xl font-semibold text-gray-900">{loading ? <span className="animate-pulse">...</span> : `${selectedMetrics.conversion_rate?.toFixed(1) || 0}%`}</p>
           </div>
           <div className="p-4 bg-white rounded-lg shadow-sm">
             <h3 className="text-sm font-medium text-gray-500">Converted Candidates</h3>
@@ -320,7 +320,7 @@ export default function Analytics() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Open Rate</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reply Rate</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Interested Rate</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Conversion Rate</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Growth</th>
                   </tr>
                 </thead>
@@ -335,7 +335,7 @@ export default function Analytics() {
                         <td className="px-6 py-4 text-gray-900">{item.period}</td>
                         <td className="px-6 py-4 text-gray-900">{item.openRate}%</td>
                         <td className="px-6 py-4 text-gray-900">{item.replyRate}%</td>
-                        <td className="px-6 py-4 text-gray-900">{item.interestedRate}%</td>
+                        <td className="px-6 py-4 text-gray-900">{item.conversionRate}%</td>
                         <td className={`px-6 py-4 ${item.growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                           {item.growth >= 0 ? '+' : ''}{item.growth}%
                         </td>
