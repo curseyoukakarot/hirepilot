@@ -15,6 +15,7 @@ import { launchCampaign } from './api/campaigns/launch';
 import campaignPerformance from './api/campaignPerformance';
 import userPerformance from './api/userPerformance';
 import analyticsTimeSeries from './api/analyticsTimeSeries';
+import debugOutlook from './api/debugOutlook';
 
 import teamRouter from './routes/team';
 import sendSlackNotification from './api/sendSlackNotification';
@@ -71,6 +72,9 @@ router.get('/users/:id/performance', userPerformance);
 
 // Add analytics time series endpoint
 router.get('/analytics/time-series', analyticsTimeSeries);
+
+// Add debug Outlook endpoint
+router.get('/debug-outlook', debugOutlook);
 
 
 
