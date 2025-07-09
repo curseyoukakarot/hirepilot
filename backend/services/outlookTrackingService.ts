@@ -1,5 +1,5 @@
 import { Client } from '@microsoft/microsoft-graph-client';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 import { EmailEventService } from './emailEventService';
 import { getOutlookAccessToken } from './outlookTokenHelper';
 

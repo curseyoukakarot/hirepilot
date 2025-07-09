@@ -1,5 +1,5 @@
 import { google } from 'googleapis';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 import { EmailEventService } from './emailEventService';
 import { getGoogleAccessToken } from './googleTokenHelper';
 
