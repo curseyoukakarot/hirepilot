@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { supabaseDb } from '../lib/supabase';
 import { EmailEventService } from '../services/emailEventService';
 
 export default async function simulateConversions(req: Request, res: Response) {
@@ -10,14 +11,27 @@ export default async function simulateConversions(req: Request, res: Response) {
   }
 
   try {
+    // Get real lead IDs from the campaign
+    const { data: leads, error: leadsError } = await supabaseDb
+      .from('leads')
+      .select('id')
+      .eq('user_id', user_id)
+      .eq('campaign_id', campaign_id)
+      .limit(10);
+
+    if (leadsError || !leads || leads.length === 0) {
+      res.status(400).json({ error: 'No leads found for this campaign' });
+      return;
+    }
+
     const results = [];
     const conversionCount = parseInt(count as string) || 3;
     
-    for (let i = 0; i < conversionCount; i++) {
+    for (let i = 0; i < conversionCount && i < leads.length; i++) {
       const conversionEvent = await EmailEventService.storeEvent({
         user_id: user_id as string,
         campaign_id: campaign_id as string,
-        lead_id: `simulated_lead_${Date.now()}_${i}`,
+        lead_id: leads[i].id, // Use real lead ID
         provider: 'system',
         message_id: `simulated_conversion_${Date.now()}_${i}`,
         event_type: 'conversion',
