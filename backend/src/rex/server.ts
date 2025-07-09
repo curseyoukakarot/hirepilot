@@ -15,7 +15,11 @@ const {
   triggerMakeWorkflow,
   fetchCredits: fetchCreditsTool,
   openHelpArticle,
-  getEmailStatus
+  getEmailStatus,
+  scheduleBulkMessages,
+  getScheduledMessages,
+  cancelScheduledMessage,
+  getSchedulerStatus
 } = require('../../tools/rexToolFunctions');
 
 // Resolve SDK root then require specific compiled files to sidestep export mapping quirks
@@ -214,6 +218,40 @@ server.registerCapabilities({
       handler: async ({ userId, topic }) => {
         await assertPremium(userId);
         return await openHelpArticle({ topic });
+      }
+    },
+    schedule_bulk_messages: {
+      parameters: { 
+        userId: {type:'string'}, 
+        leadIds: {type:'array'}, 
+        templateId: {type:'string'}, 
+        scheduledFor: {type:'string'}, 
+        channel: {type:'string'} 
+      },
+      handler: async ({ userId, leadIds, templateId, scheduledFor, channel }) => {
+        await assertPremium(userId);
+        return await scheduleBulkMessages({ userId, leadIds, templateId, scheduledFor, channel });
+      }
+    },
+    get_scheduled_messages: {
+      parameters: { userId: {type:'string'}, status: {type:'string'} },
+      handler: async ({ userId, status }) => {
+        await assertPremium(userId);
+        return await getScheduledMessages({ userId, status });
+      }
+    },
+    cancel_scheduled_message: {
+      parameters: { userId: {type:'string'}, messageId: {type:'string'} },
+      handler: async ({ userId, messageId }) => {
+        await assertPremium(userId);
+        return await cancelScheduledMessage({ userId, messageId });
+      }
+    },
+    get_scheduler_status: {
+      parameters: { userId: {type:'string'} },
+      handler: async ({ userId }) => {
+        await assertPremium(userId);
+        return await getSchedulerStatus({ userId });
       }
     }
   }

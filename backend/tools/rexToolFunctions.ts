@@ -549,30 +549,208 @@ export async function listSenders({ userId }: { userId: string }) {
   return options;
 }
 
+// -----------------------------------------------------------------------------
+// Message Scheduling Functions
+// -----------------------------------------------------------------------------
+
+/**
+ * Schedule bulk messages to multiple leads for future delivery
+ */
 export async function scheduleBulkMessages({
   userId,
   leadIds,
   templateId,
-  scheduledAt,
-  sender
+  scheduledFor,
+  channel
 }: {
-  userId:string; leadIds:string[]; templateId:string; scheduledAt:string; sender:any;
-}){
-  const { data: tmpl, error: tmplErr } = await supabaseDb.from('templates').select('content').eq('id',templateId).eq('user_id',userId).single();
-  if(tmplErr||!tmpl) throw new Error('Template not found');
-  const { data: leads } = await supabaseDb.from('leads').select('*').in('id',leadIds).eq('user_id',userId);
-  const rows= (leads||[]).map((l:any)=>({
-    lead_id:l.id,
-    user_id:userId,
-    template_id:templateId,
-    channel: sender.provider,
-    sender_meta: sender,
-    content: personalizeMessage(tmpl.content,l),
-    status:'scheduled',
-    scheduled_at: scheduledAt,
-    created_at:new Date().toISOString()
+  userId: string;
+  leadIds: string[];
+  templateId?: string;
+  scheduledFor: string;
+  channel: 'google' | 'outlook' | 'sendgrid';
+}) {
+  // Get template content if provided
+  let templateContent = '';
+  if (templateId) {
+    const { data: template, error: templateError } = await supabaseDb
+      .from('email_templates')
+      .select('content')
+      .eq('id', templateId)
+      .eq('user_id', userId)
+      .single();
+    
+    if (templateError || !template) {
+      throw new Error('Template not found');
+    }
+    templateContent = template.content;
+  }
+
+  // Get lead details
+  const { data: leads, error: leadsError } = await supabaseDb
+    .from('leads')
+    .select('*')
+    .in('id', leadIds)
+    .eq('user_id', userId);
+
+  if (leadsError || !leads || leads.length === 0) {
+    throw new Error('No valid leads found');
+  }
+
+  // Create scheduled message records
+  const scheduledMessages = leads.map((lead: any) => {
+    const personalizedContent = templateContent ? 
+      personalizeMessage(templateContent, lead) : 
+      `Hello ${lead.first_name || lead.name || 'there'},
+
+I wanted to reach out regarding an opportunity that might interest you.
+
+Best regards,
+Your Recruiting Team`;
+
+    return {
+      user_id: userId,
+      lead_id: lead.id,
+      content: personalizedContent,
+      template_id: templateId || null,
+      channel,
+      scheduled_for: scheduledFor,
+      status: 'scheduled',
+      created_at: new Date().toISOString()
+    };
+  });
+
+  const { data, error } = await supabaseDb
+    .from('scheduled_messages')
+    .insert(scheduledMessages)
+    .select();
+
+  if (error) {
+    console.error('[scheduleBulkMessages] Insert error:', error);
+    throw new Error('Failed to schedule messages');
+  }
+
+  await notifySlack(`📅 Scheduled ${data.length} messages for ${new Date(scheduledFor).toLocaleString()}`);
+
+  return {
+    scheduled: data.length,
+    scheduledFor,
+    channel,
+    messageIds: data.map((msg: any) => msg.id)
+  };
+}
+
+/**
+ * Get scheduled messages for a user
+ */
+export async function getScheduledMessages({
+  userId,
+  status = 'scheduled'
+}: {
+  userId: string;
+  status?: 'scheduled' | 'sent' | 'failed' | 'sending';
+}) {
+  const { data: messages, error } = await supabaseDb
+    .from('scheduled_messages')
+    .select(`
+      id,
+      lead_id,
+      content,
+      channel,
+      scheduled_for,
+      status,
+      created_at,
+      leads(first_name, last_name, email, company)
+    `)
+    .eq('user_id', userId)
+    .eq('status', status)
+    .order('scheduled_for', { ascending: true });
+
+  if (error) {
+    console.error('[getScheduledMessages] Error:', error);
+    throw new Error('Failed to fetch scheduled messages');
+  }
+
+  return (messages || []).map((msg: any) => ({
+    id: msg.id,
+    leadName: `${msg.leads?.first_name || ''} ${msg.leads?.last_name || ''}`.trim() || 'Unknown',
+    leadEmail: msg.leads?.email || 'No email',
+    leadCompany: msg.leads?.company || 'Unknown company',
+    channel: msg.channel,
+    scheduledFor: msg.scheduled_for,
+    status: msg.status,
+    preview: msg.content.substring(0, 100) + (msg.content.length > 100 ? '...' : '')
   }));
-  const { error } = await supabaseDb.from('messages').insert(rows);
-  if(error) throw error;
-  return { scheduled: rows.length, scheduledAt };
+}
+
+/**
+ * Cancel a scheduled message
+ */
+export async function cancelScheduledMessage({
+  userId,
+  messageId
+}: {
+  userId: string;
+  messageId: string;
+}) {
+  const { data, error } = await supabaseDb
+    .from('scheduled_messages')
+    .update({
+      status: 'cancelled',
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', messageId)
+    .eq('user_id', userId)
+    .eq('status', 'scheduled')
+    .select()
+    .single();
+
+  if (error || !data) {
+    throw new Error('Message not found or already processed');
+  }
+
+  await notifySlack(`❌ Cancelled scheduled message to lead ${data.lead_id}`);
+
+  return { messageId, status: 'cancelled', success: true };
+}
+
+/**
+ * Get scheduler status and stats
+ */
+export async function getSchedulerStatus({ userId }: { userId: string }) {
+  // Get counts by status
+  const { data: statusCounts, error } = await supabaseDb
+    .from('scheduled_messages')
+    .select('status')
+    .eq('user_id', userId);
+
+  if (error) {
+    throw new Error('Failed to fetch scheduler status');
+  }
+
+  const counts = (statusCounts || []).reduce((acc: any, row: any) => {
+    acc[row.status] = (acc[row.status] || 0) + 1;
+    return acc;
+  }, {});
+
+  // Get next scheduled message
+  const { data: nextMessage } = await supabaseDb
+    .from('scheduled_messages')
+    .select('scheduled_for, leads(first_name, last_name)')
+    .eq('user_id', userId)
+    .eq('status', 'scheduled')
+    .order('scheduled_for', { ascending: true })
+    .limit(1)
+    .single();
+
+  return {
+    schedulerRunning: true, // The scheduler is always running in our setup
+    totalScheduled: counts.scheduled || 0,
+    totalSent: counts.sent || 0,
+    totalFailed: counts.failed || 0,
+    totalCancelled: counts.cancelled || 0,
+    nextScheduledMessage: nextMessage ? {
+      scheduledFor: nextMessage.scheduled_for,
+      leadName: `${(nextMessage as any).leads?.first_name || ''} ${(nextMessage as any).leads?.last_name || ''}`.trim()
+    } : null
+  };
 } 
