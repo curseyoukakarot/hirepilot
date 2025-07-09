@@ -16,6 +16,11 @@ export default function Analytics() {
   const [leadsTotal, setLeadsTotal] = useState(0);
   const [leadPage, setLeadPage] = useState(0); // pagination state
   const LEADS_PER_PAGE = 2;
+  
+  // Time series data for chart and table
+  const [timeSeriesData, setTimeSeriesData] = useState([]);
+  const [timeSeriesLoading, setTimeSeriesLoading] = useState(true);
+  const [selectedTimeRange, setSelectedTimeRange] = useState('30d');
 
   useEffect(() => {
     const fetchUserAndCampaigns = async () => {
@@ -110,41 +115,77 @@ export default function Analytics() {
   // Add state for selected campaign
   const [selectedCampaignId, setSelectedCampaignId] = useState('all');
 
+  // Fetch time series data for chart and table
+  const fetchTimeSeriesData = async () => {
+    if (!user) return;
+    
+    setTimeSeriesLoading(true);
+    try {
+      const response = await fetch(
+        `${BACKEND_URL}/api/analytics/time-series?user_id=${user.id}&campaign_id=${selectedCampaignId}&time_range=${selectedTimeRange}`
+      );
+      const result = await response.json();
+      
+      if (response.ok) {
+        setTimeSeriesData(result.data || []);
+      } else {
+        console.error('[fetchTimeSeriesData] Error:', result.error);
+        setTimeSeriesData([]);
+      }
+    } catch (error) {
+      console.error('[fetchTimeSeriesData] Error:', error);
+      setTimeSeriesData([]);
+    } finally {
+      setTimeSeriesLoading(false);
+    }
+  };
+
   // Filter metrics for selected campaign
   const selectedMetrics = metrics.find(m => m.campaignId === selectedCampaignId) || { sent: 0, opens: 0, open_rate: 0, replies: 0, reply_rate: 0 };
 
+  useEffect(() => {
+    fetchTimeSeriesData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, selectedCampaignId, selectedTimeRange]);
+
   React.useEffect(() => {
-    // Initialize chart
+    // Initialize chart with real data
     const ctx = document.getElementById('performanceChart')?.getContext('2d');
-    if (ctx) {
+    if (ctx && !timeSeriesLoading) {
       // Destroy existing chart if it exists
       if (chartRef.current) {
         chartRef.current.destroy();
       }
 
-      // Create new chart instance
+      // Prepare data from timeSeriesData
+      const labels = timeSeriesData.map(item => item.period);
+      const openRateData = timeSeriesData.map(item => item.openRate);
+      const replyRateData = timeSeriesData.map(item => item.replyRate);
+      const interestedRateData = timeSeriesData.map(item => item.interestedRate);
+
+      // Create new chart instance with real data
       chartRef.current = new Chart(ctx, {
         type: 'line',
         data: {
-          labels: ['Jan', 'Feb', 'Mar'],
+          labels,
           datasets: [
             {
               label: 'Open Rate',
-              data: [68, 72, 75],
+              data: openRateData,
               borderColor: 'rgb(59, 130, 246)',
               tension: 0.4,
               fill: false
             },
             {
               label: 'Reply Rate',
-              data: [42, 45, 48],
+              data: replyRateData,
               borderColor: 'rgb(34, 197, 94)',
               tension: 0.4,
               fill: false
             },
             {
               label: 'Interested Rate',
-              data: [16, 18, 20],
+              data: interestedRateData,
               borderColor: 'rgb(168, 85, 247)',
               tension: 0.4,
               fill: false
@@ -156,13 +197,13 @@ export default function Analytics() {
           maintainAspectRatio: false,
           plugins: {
             legend: {
-              display: false
+              display: true
             }
           },
           scales: {
             y: {
               beginAtZero: true,
-              max: 100,
+              max: Math.max(100, Math.max(...openRateData, ...replyRateData) + 10),
               ticks: {
                 callback: value => `${value}%`
               }
@@ -178,7 +219,7 @@ export default function Analytics() {
         chartRef.current.destroy();
       }
     };
-  }, []);
+  }, [timeSeriesData, timeSeriesLoading]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -241,10 +282,14 @@ export default function Analytics() {
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold text-gray-900">Performance Overview</h2>
             <div className="flex items-center space-x-4">
-              <select className="px-3 py-2 border border-gray-300 rounded-lg">
-                <option>Last 30 days</option>
-                <option>Last 90 days</option>
-                <option>This year</option>
+              <select 
+                className="px-3 py-2 border border-gray-300 rounded-lg"
+                value={selectedTimeRange}
+                onChange={e => setSelectedTimeRange(e.target.value)}
+              >
+                <option value="30d">Last 30 days</option>
+                <option value="90d">Last 90 days</option>
+                <option value="1y">This year</option>
               </select>
               <div className="flex p-1 bg-gray-100 rounded-lg">
                 <button 
@@ -280,27 +325,23 @@ export default function Analytics() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  <tr>
-                    <td className="px-6 py-4 text-gray-900">Jan 2024</td>
-                    <td className="px-6 py-4 text-gray-900">68%</td>
-                    <td className="px-6 py-4 text-gray-900">42%</td>
-                    <td className="px-6 py-4 text-gray-900">16%</td>
-                    <td className="px-6 py-4 text-green-600">+5.2%</td>
-                  </tr>
-                  <tr>
-                    <td className="px-6 py-4 text-gray-900">Feb 2024</td>
-                    <td className="px-6 py-4 text-gray-900">72%</td>
-                    <td className="px-6 py-4 text-gray-900">45%</td>
-                    <td className="px-6 py-4 text-gray-900">18%</td>
-                    <td className="px-6 py-4 text-green-600">+3.8%</td>
-                  </tr>
-                  <tr>
-                    <td className="px-6 py-4 text-gray-900">Mar 2024</td>
-                    <td className="px-6 py-4 text-gray-900">75%</td>
-                    <td className="px-6 py-4 text-gray-900">48%</td>
-                    <td className="px-6 py-4 text-gray-900">20%</td>
-                    <td className="px-6 py-4 text-green-600">+4.1%</td>
-                  </tr>
+                  {timeSeriesLoading ? (
+                    <tr><td colSpan="5" className="text-center py-8 text-gray-400">Loading performance data...</td></tr>
+                  ) : timeSeriesData.length === 0 ? (
+                    <tr><td colSpan="5" className="text-center py-8 text-gray-400">No performance data found.</td></tr>
+                  ) : (
+                    timeSeriesData.map((item, index) => (
+                      <tr key={index}>
+                        <td className="px-6 py-4 text-gray-900">{item.period}</td>
+                        <td className="px-6 py-4 text-gray-900">{item.openRate}%</td>
+                        <td className="px-6 py-4 text-gray-900">{item.replyRate}%</td>
+                        <td className="px-6 py-4 text-gray-900">{item.interestedRate}%</td>
+                        <td className={`px-6 py-4 ${item.growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {item.growth >= 0 ? '+' : ''}{item.growth}%
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
