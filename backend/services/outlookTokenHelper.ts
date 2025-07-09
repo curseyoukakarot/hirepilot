@@ -12,32 +12,42 @@ interface OutlookTokens {
  */
 export async function getOutlookAccessToken(userId: string): Promise<string> {
   try {
-    // Get stored tokens
-    const { data: tokens, error } = await supabaseDb
-      .from('outlook_tokens')
-      .select('*')
+    // Get stored tokens from integrations table where they're actually stored
+    const { data: integration, error } = await supabaseDb
+      .from('integrations')
+      .select('tokens')
       .eq('user_id', userId)
+      .eq('provider', 'outlook')
+      .eq('status', 'connected')
       .single();
 
     if (error) throw error;
-    if (!tokens) throw new Error('No Outlook tokens found');
+    if (!integration || !integration.tokens) throw new Error('No Outlook tokens found');
+
+    const tokens = integration.tokens;
+    if (!tokens.access_token) throw new Error('No access token found');
 
     // Check if token needs refresh
     const expiresAt = new Date(tokens.expires_at);
     if (expiresAt.getTime() - Date.now() < 5 * 60 * 1000) { // Refresh if less than 5 minutes left
+      console.log('[OutlookTokenHelper] Token expired, refreshing...');
       const newTokens = await refreshOutlookToken(tokens.refresh_token);
       
-      // Update tokens in database
+      // Update tokens in integrations table
       await supabaseDb
-        .from('outlook_tokens')
+        .from('integrations')
         .update({
-          access_token: newTokens.access_token,
-          refresh_token: newTokens.refresh_token,
-          expires_at: newTokens.expires_at,
+          tokens: {
+            access_token: newTokens.access_token,
+            refresh_token: newTokens.refresh_token,
+            expires_at: newTokens.expires_at
+          },
           updated_at: new Date().toISOString()
         })
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .eq('provider', 'outlook');
 
+      console.log('[OutlookTokenHelper] Token refreshed successfully');
       return newTokens.access_token;
     }
 
