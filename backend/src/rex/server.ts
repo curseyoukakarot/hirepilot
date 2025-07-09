@@ -117,23 +117,50 @@ server.registerCapabilities({
           targetId = ctxRow.latest_campaign_id;
         }
 
-        // Prefer materialized table if exists; fall back to debug view
-        let { data, error } = await supabase
+        // Get both email metrics and actual lead counts
+        let emailMetrics = null;
+        let { data: emailData, error: emailError } = await supabase
           .from('campaign_metrics')
           .select('*')
           .eq('campaign_id', targetId)
           .maybeSingle();
 
-        if (error && error.code === '42P01') {
-          ({ data, error } = await supabase
+        if (emailError && emailError.code === '42P01') {
+          ({ data: emailData, error: emailError } = await supabase
             .from('vw_campaign_metrics_debug')
             .select('*')
             .eq('campaign_id', targetId)
             .maybeSingle());
         }
 
-        if (error) throw error;
-        return data;
+        emailMetrics = emailData;
+
+        // Get actual lead counts using the new function
+        let leadCounts = null;
+        try {
+          leadCounts = await getCampaignLeadCount({ userId, campaignId: targetId });
+        } catch (err) {
+          console.error('Error getting lead counts:', err);
+        }
+
+        // Combine the data
+        return {
+          campaign_id: targetId,
+          email_metrics: emailMetrics,
+          lead_data: leadCounts,
+          // Legacy fields for backwards compatibility
+          campaign_title: leadCounts?.campaign_title || emailMetrics?.campaign_title,
+          total_leads: leadCounts?.actual_total_leads || 0,
+          enriched_leads: leadCounts?.actual_enriched_leads || 0,
+          sent_emails: emailMetrics?.sent_emails || 0,
+          opens: emailMetrics?.opens || 0,
+          replies: emailMetrics?.replies || 0,
+          // New detailed fields
+          actual_total_leads: leadCounts?.actual_total_leads || 0,
+          actual_enriched_leads: leadCounts?.actual_enriched_leads || 0,
+          enrichment_rate: leadCounts?.enrichment_rate || 0,
+          campaign_status: leadCounts?.campaign_status || 'unknown'
+        };
       }
     },
     get_email_status: {
