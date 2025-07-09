@@ -25,6 +25,7 @@ import Copilot from './screens/Copilot';
 import Handsfree from './screens/Handsfree';
 import Pricing from './screens/Pricing';
 import RexChatBox from './components/RexChatBox';
+import RexChatPage from './screens/RexChatPage';
 import { apiPost } from './lib/api';
 import BlogLandingPage from './screens/BlogLandingPage';
 import MeetRex from './screens/MeetRex';
@@ -311,7 +312,7 @@ function InnerApp() {
               <Route path="/messages" element={<MessagingCenter />} />
               <Route path="/settings/*" element={<Settings />} />
               <Route path="/billing" element={<BillingScreen />} />
-              <Route path="/rex-chat" element={<RexChatBox />} />
+              <Route path="/rex-chat" element={<RexChatPage />} />
               <Route path="/leads" element={<LeadManagement />} />
               <Route path="/leads/profile" element={<LeadProfileDrawer />} />
               <Route path="/pricing" element={<Pricing />} />
