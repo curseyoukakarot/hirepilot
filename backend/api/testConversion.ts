@@ -39,10 +39,19 @@ export default async function testConversion(req: Request, res: Response) {
     // 3. Test recording a conversion event
     let testEventResult = null;
     try {
+      // Use a real campaign_id from recent leads if available
+      const testCampaignId = recentLeads && recentLeads.length > 0 
+        ? recentLeads[0].campaign_id 
+        : '0cc1f62b-3eb0-4c23-b4a8-da1dfd5af725'; // fallback to known campaign ID
+      
+      const testLeadId = recentLeads && recentLeads.length > 0 
+        ? recentLeads[0].id 
+        : '1943812a-35b1-4170-9d75-998bf94203bf'; // fallback to known lead ID
+      
       testEventResult = await EmailEventService.storeEvent({
         user_id: user_id as string,
-        campaign_id: 'test-campaign-123',
-        lead_id: 'test-lead-456',
+        campaign_id: testCampaignId,
+        lead_id: testLeadId,
         provider: 'system',
         message_id: `test_conversion_${Date.now()}`,
         event_type: 'conversion',
