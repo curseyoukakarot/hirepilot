@@ -7,6 +7,21 @@ import { createClient } from '@supabase/supabase-js';
 // Helper function to generate avatar URL
 const getAvatarUrl = (name: string) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
 
+// Helper function to parse email address from display name format
+const parseEmailAddress = (emailString: string): { email: string; name?: string } => {
+  // Handle format like "Brandon Omoregie <brandon@offrgroup.com>"
+  const displayNameMatch = emailString.match(/^(.+?)\s*<(.+?)>$/);
+  if (displayNameMatch) {
+    return {
+      name: displayNameMatch[1].trim(),
+      email: displayNameMatch[2].trim()
+    };
+  }
+  
+  // Handle just email address
+  return { email: emailString.trim() };
+};
+
 const supabase = createClient(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -351,13 +366,22 @@ async function sendViaOutlook(integration: any, { to, subject, html, attachments
   });
   
   try {
+    // Parse email address from display name format
+    const parsedRecipient = parseEmailAddress(to);
+    console.log('[sendViaOutlook] Parsed recipient:', parsedRecipient);
+    
     const message = {
       subject,
       body: {
         contentType: 'HTML',
         content: html
       },
-      toRecipients: [{ emailAddress: { address: to } }],
+      toRecipients: [{
+        emailAddress: {
+          address: parsedRecipient.email,
+          name: parsedRecipient.name || parsedRecipient.email
+        }
+      }],
       attachments: attachments?.map(attachment => ({
         '@odata.type': '#microsoft.graph.fileAttachment',
         name: attachment.filename,
@@ -366,6 +390,7 @@ async function sendViaOutlook(integration: any, { to, subject, html, attachments
       })) || []
     };
 
+    console.log('[sendViaOutlook] Sending message with recipient:', message.toRecipients[0]);
     await client.api('/me/sendMail').post({ message });
     return { success: true };
   } catch (error: unknown) {
