@@ -73,10 +73,17 @@ export default function Analytics() {
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
           .range(from, to);
-        if (error) throw error;
-        setLeads(data || []);
-        setLeadsTotal(count || (data ? data.length : 0));
+        if (error) {
+          console.error('RLS error on leads query:', error);
+          // Don't throw - just set empty data to prevent page from breaking
+          setLeads([]);
+          setLeadsTotal(0);
+        } else {
+          setLeads(data || []);
+          setLeadsTotal(count || (data ? data.length : 0));
+        }
       } catch (err) {
+        console.error('Error fetching leads:', err);
         setLeads([]);
         setLeadsTotal(0);
       } finally {
