@@ -16,6 +16,7 @@ import campaignPerformance from './api/campaignPerformance';
 import userPerformance from './api/userPerformance';
 import analyticsTimeSeries from './api/analyticsTimeSeries';
 import scheduleMassMessage from './api/scheduleMassMessage';
+import debugTrialEmails from './api/debugTrialEmails';
 
 import teamRouter from './routes/team';
 import sendSlackNotification from './api/sendSlackNotification';
@@ -75,6 +76,9 @@ router.get('/analytics/time-series', analyticsTimeSeries);
 
 // Add schedule mass message endpoint
 router.post('/scheduleMassMessage', scheduleMassMessage);
+
+// Add debug trial emails endpoint
+router.get('/debug-trial-emails', debugTrialEmails);
 
 
 

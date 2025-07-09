@@ -45,6 +45,7 @@ import { startCronJobs } from './cron/scheduler';
 import { resetStuckPhantoms } from './cron/resetStuckPhantoms';
 import { markExpiredCookies } from './cron/markExpiredCookies';
 import { enrichLeads } from './workers/enrichLeads';
+import { processTrialEmails } from './workers/emailDrip';
 import { launchCampaign } from './api/campaigns/launch';
 const linkedinSessionAdminRouter = require('./api/linkedinSessionAdmin');
 import userRouter from './src/routes/user';
@@ -528,6 +529,11 @@ app.listen(Number(PORT), '0.0.0.0', () => {
 
   // Run the enrichment worker every 2 minutes
   setInterval(enrichLeads, 2 * 60 * 1000);
+
+  // Run the trial email worker every hour
+  setInterval(processTrialEmails, 60 * 60 * 1000);
+  // Also run immediately on startup
+  processTrialEmails();
 
   // Start message scheduler
   messageScheduler.start();
