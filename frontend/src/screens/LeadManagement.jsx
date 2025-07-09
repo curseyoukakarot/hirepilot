@@ -10,6 +10,8 @@ import { supabase } from '../lib/supabase';
 import { downloadCSV } from '../utils/csvExport';
 import { FaInbox, FaPaperPlane, FaFile, FaStar, FaTrash as FaTrashAlt, FaPenToSquare, FaFileLines, FaFilter, FaSort, FaAddressBook, FaBold, FaItalic, FaUnderline, FaListUl, FaListOl, FaLink, FaPaperclip, FaPuzzlePiece, FaChevronDown, FaClock, FaRegStar, FaRegBell } from 'react-icons/fa6';
 import { replaceTokens } from '../utils/tokenReplace';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 
 const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
 
@@ -78,6 +80,10 @@ function LeadManagement() {
     sendgrid: false,
     apollo: false
   });
+
+  // Scheduling state for bulk messaging
+  const [showBulkSchedule, setShowBulkSchedule] = useState(false);
+  const [bulkScheduledDate, setBulkScheduledDate] = useState(null);
 
   useEffect(() => {
     async function loadLeads() {
@@ -502,6 +508,48 @@ function LeadManagement() {
       toast.error(err.message || 'Failed to send messages');
     } finally {
       setBulkIsSending(false);
+    }
+  };
+
+  // Handle schedule bulk messages
+  const handleBulkSchedule = async () => {
+    try {
+      if (!bulkScheduledDate) {
+        toast.error('Please select a date and time');
+        return;
+      }
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+      if (!selectedProvider) throw new Error('Select a provider first');
+
+      const payload = selectedLeadIds.map(leadId => ({
+        lead_id: leadId,
+        user_id: user.id,
+        content: bulkMessages[leadId],
+        template_id: bulkSelectedTemplate?.id || null,
+        channel: selectedProvider,
+        scheduled_for: bulkScheduledDate.toISOString()
+      }));
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(`${API_BASE_URL}/scheduleMassMessage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+        },
+        body: JSON.stringify({ messages: payload })
+      });
+      
+      if (!response.ok) throw new Error('Failed to schedule messages');
+      
+      toast.success(`Messages scheduled for ${bulkScheduledDate.toLocaleString()}`);
+      setShowBulkSchedule(false);
+      setShowBulkMessageModal(false);
+      setBulkScheduledDate(null);
+    } catch (err) {
+      toast.error(err.message || 'Failed to schedule messages');
     }
   };
 
@@ -1542,6 +1590,14 @@ function LeadManagement() {
                     {bulkIsSending ? 'Sending...' : 'Send to All'}
                   </button>
                   <button
+                    className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50 flex items-center gap-2"
+                    onClick={() => setShowBulkSchedule(true)}
+                    disabled={bulkIsSending}
+                  >
+                    <FaClock />
+                    Schedule
+                  </button>
+                  <button
                     className="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50"
                     onClick={handleBulkSaveTemplate}
                     disabled={bulkIsSavingTemplate}
@@ -1551,6 +1607,57 @@ function LeadManagement() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Schedule Modal */}
+      {showBulkSchedule && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-lg">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Schedule Bulk Messages</h3>
+              <button
+                className="text-gray-400 hover:text-gray-600"
+                onClick={() => setShowBulkSchedule(false)}
+              >
+                <FaTimes />
+              </button>
+            </div>
+            <p className="text-gray-600 mb-4">
+              Pick a date and time to send messages to {selectedLeadIds.length} leads.
+            </p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Schedule Date & Time
+              </label>
+              <DatePicker
+                selected={bulkScheduledDate}
+                onChange={date => setBulkScheduledDate(date)}
+                showTimeSelect
+                timeFormat="HH:mm"
+                timeIntervals={15}
+                dateFormat="MMMM d, yyyy h:mm aa"
+                className="border rounded px-3 py-2 w-full"
+                minDate={new Date()}
+                placeholderText="Select date and time"
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+                onClick={() => setShowBulkSchedule(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
+                onClick={handleBulkSchedule}
+                disabled={!bulkScheduledDate}
+              >
+                Schedule Messages
+              </button>
+            </div>
           </div>
         </div>
       )}

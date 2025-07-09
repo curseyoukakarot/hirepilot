@@ -76,6 +76,7 @@ import trackingRouter from './api/tracking';
 // Boot REX MCP server immediately so it's ready in Railway prod
 import './src/rex/server';
 import { attachTeam } from './middleware/teamContext';
+import { messageScheduler } from './workers/messageScheduler';
 
 declare module 'express-list-endpoints';
 
@@ -527,6 +528,9 @@ app.listen(Number(PORT), '0.0.0.0', () => {
 
   // Run the enrichment worker every 2 minutes
   setInterval(enrichLeads, 2 * 60 * 1000);
+
+  // Start message scheduler
+  messageScheduler.start();
 });
 
 // 404 handler must be last
