@@ -8,8 +8,10 @@ export class GmailTrackingService {
    * Generate a tracking pixel URL for Gmail
    */
   static generateTrackingPixel(messageId: string): string {
-    const baseUrl = process.env.BACKEND_URL || 'http://localhost:3000';
-    return `${baseUrl}/api/tracking/pixel/${messageId}`;
+    const baseUrl = process.env.BACKEND_URL || 'https://api.thehirepilot.com';
+    const pixelUrl = `${baseUrl}/api/tracking/pixel/${messageId}`;
+    console.log('[GmailTrackingService] Generated tracking pixel URL:', pixelUrl);
+    return pixelUrl;
   }
 
   /**

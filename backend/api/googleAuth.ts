@@ -39,6 +39,7 @@ router.get('/init', async (req, res) => {
   const url = oauth2.generateAuthUrl({
     scope: [
       'https://www.googleapis.com/auth/gmail.send',
+      'https://www.googleapis.com/auth/gmail.readonly',
       'email',
       'profile'
     ],
