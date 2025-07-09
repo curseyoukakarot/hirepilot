@@ -15,8 +15,7 @@ import { launchCampaign } from './api/campaigns/launch';
 import campaignPerformance from './api/campaignPerformance';
 import userPerformance from './api/userPerformance';
 import analyticsTimeSeries from './api/analyticsTimeSeries';
-import testConversion from './api/testConversion';
-import simulateConversions from './api/simulateConversions';
+
 import teamRouter from './routes/team';
 import sendSlackNotification from './api/sendSlackNotification';
 import startTrial from './api/startTrial';
@@ -73,11 +72,7 @@ router.get('/users/:id/performance', userPerformance);
 // Add analytics time series endpoint
 router.get('/analytics/time-series', analyticsTimeSeries);
 
-// Add test conversion endpoint
-router.get('/test-conversion', testConversion);
 
-// Add simulate conversions endpoint
-router.post('/simulate-conversions', simulateConversions);
 
 // Add alias route for DELETE endpoint
 router.delete('/delete/:id', (req, res) => {
