@@ -753,4 +753,83 @@ export async function getSchedulerStatus({ userId }: { userId: string }) {
       leadName: `${(nextMessage as any).leads?.first_name || ''} ${(nextMessage as any).leads?.last_name || ''}`.trim()
     } : null
   };
+}
+
+/**
+ * Get actual lead count for a campaign (not email metrics)
+ */
+export async function getCampaignLeadCount({
+  userId,
+  campaignId
+}: {
+  userId: string;
+  campaignId: string;
+}) {
+  // Resolve campaign if it's a special keyword like 'latest'
+  let targetCampaignId = campaignId;
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(campaignId);
+  
+  if (!isUUID) {
+    // Treat 'latest' or any non-uuid as request for most recent campaign for user
+    const { data: ctxRow } = await supabaseDb
+      .from('rex_user_context')
+      .select('latest_campaign_id')
+      .eq('supabase_user_id', userId)
+      .maybeSingle();
+    
+    if (!ctxRow?.latest_campaign_id) {
+      throw new Error('No recent campaign found for user');
+    }
+    targetCampaignId = ctxRow.latest_campaign_id;
+  }
+
+  // Get total lead count for the campaign
+  const { count: totalLeads, error: totalError } = await supabaseDb
+    .from('leads')
+    .select('id', { count: 'exact' })
+    .eq('campaign_id', targetCampaignId)
+    .eq('user_id', userId);
+
+  if (totalError) {
+    throw new Error(`Failed to get lead count: ${totalError.message}`);
+  }
+
+  // Get enriched lead count (leads with emails)
+  const { count: enrichedLeads, error: enrichedError } = await supabaseDb
+    .from('leads')
+    .select('id', { count: 'exact' })
+    .eq('campaign_id', targetCampaignId)
+    .eq('user_id', userId)
+    .not('email', 'is', null)
+    .neq('email', '');
+
+  if (enrichedError) {
+    throw new Error(`Failed to get enriched lead count: ${enrichedError.message}`);
+  }
+
+  // Get campaign details
+  const { data: campaign, error: campaignError } = await supabaseDb
+    .from('campaigns')
+    .select('title, status, created_at, updated_at, total_leads, enriched_leads')
+    .eq('id', targetCampaignId)
+    .eq('user_id', userId)
+    .single();
+
+  if (campaignError) {
+    throw new Error(`Failed to get campaign details: ${campaignError.message}`);
+  }
+
+  return {
+    campaign_id: targetCampaignId,
+    campaign_title: campaign.title,
+    campaign_status: campaign.status,
+    actual_total_leads: totalLeads || 0,
+    actual_enriched_leads: enrichedLeads || 0,
+    stored_total_leads: campaign.total_leads || 0,
+    stored_enriched_leads: campaign.enriched_leads || 0,
+    unenriched_leads: (totalLeads || 0) - (enrichedLeads || 0),
+    enrichment_rate: totalLeads > 0 ? Math.round((enrichedLeads || 0) / totalLeads * 100) : 0,
+    created_at: campaign.created_at,
+    updated_at: campaign.updated_at
+  };
 } 

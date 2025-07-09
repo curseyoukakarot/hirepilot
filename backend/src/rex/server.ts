@@ -19,7 +19,8 @@ const {
   scheduleBulkMessages,
   getScheduledMessages,
   cancelScheduledMessage,
-  getSchedulerStatus
+  getSchedulerStatus,
+  getCampaignLeadCount
 } = require('../../tools/rexToolFunctions');
 
 // Resolve SDK root then require specific compiled files to sidestep export mapping quirks
@@ -252,6 +253,13 @@ server.registerCapabilities({
       handler: async ({ userId }) => {
         await assertPremium(userId);
         return await getSchedulerStatus({ userId });
+      }
+    },
+    get_campaign_lead_count: {
+      parameters: { userId: {type:'string'}, campaignId: {type:'string'} },
+      handler: async ({ userId, campaignId }) => {
+        await assertPremium(userId);
+        return await getCampaignLeadCount({ userId, campaignId });
       }
     }
   }
