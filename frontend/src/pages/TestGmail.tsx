@@ -6,7 +6,10 @@ const TestGmail: React.FC = () => {
   const backendUrl = import.meta.env.VITE_BACKEND_URL || "https://thehirepilot.com";
   const redirectUri = `${backendUrl}/api/auth/google/callback`;
   const scope = encodeURIComponent("https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly email profile");
-  const oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&access_type=offline&prompt=consent&state=test-user`;
+  
+  // Generate unique state for each test session
+  const uniqueState = `test-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&access_type=offline&prompt=consent&state=${uniqueState}`;
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-gradient-to-br from-blue-50 to-indigo-100">
