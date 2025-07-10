@@ -23,7 +23,7 @@ export default async function debugEmailSending(req: Request, res: Response) {
     if (email && !userId) {
       const { data: user, error: userError } = await supabaseDb
         .from('users')
-        .select('id, email, first_name, email_notifications')
+        .select('id, email, firstName, email_notifications')
         .eq('email', email as string)
         .single();
       
@@ -33,7 +33,7 @@ export default async function debugEmailSending(req: Request, res: Response) {
         user: user ? {
           id: user.id,
           email: user.email,
-          first_name: user.first_name,
+          firstName: user.firstName,
           email_notifications: user.email_notifications
         } : null
       };
@@ -42,7 +42,7 @@ export default async function debugEmailSending(req: Request, res: Response) {
     } else if (userId) {
       const { data: user, error: userError } = await supabaseDb
         .from('users')
-        .select('id, email, first_name, email_notifications')
+        .select('id, email, firstName, email_notifications')
         .eq('id', userId as string)
         .single();
       
@@ -52,7 +52,7 @@ export default async function debugEmailSending(req: Request, res: Response) {
         user: user ? {
           id: user.id,
           email: user.email,
-          first_name: user.first_name,
+          firstName: user.firstName,
           email_notifications: user.email_notifications
         } : null
       };
@@ -88,7 +88,7 @@ export default async function debugEmailSending(req: Request, res: Response) {
           from: process.env.SENDGRID_FROM_EMAIL!,
           templateId: process.env.SENDGRID_TEMPLATE_WELCOME!,
           dynamic_template_data: {
-            first_name: user.first_name || '',
+            first_name: user.firstName || '',
             frontend_url: process.env.FRONTEND_URL
           }
         };

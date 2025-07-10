@@ -5,7 +5,7 @@ import { notifySlack } from './slack';
 sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
 
 export async function sendTemplateEmail(userId:string, templateId:string){
-  const { data:user } = await supabaseDb.from('users').select('email,first_name,email_notifications').eq('id', userId).single();
+  const { data:user } = await supabaseDb.from('users').select('email,firstName,email_notifications').eq('id', userId).single();
   if(!user?.email) return;
   if(user.email_notifications===false) return;
 
@@ -14,7 +14,7 @@ export async function sendTemplateEmail(userId:string, templateId:string){
     from: process.env.SENDGRID_FROM_EMAIL!,
     templateId,
     dynamic_template_data: {
-      first_name: user.first_name || '',
+      first_name: user.firstName || '',
       frontend_url: process.env.FRONTEND_URL
     }
   } as any;
