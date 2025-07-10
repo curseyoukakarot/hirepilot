@@ -60,7 +60,9 @@ server.registerCapabilities({
         const { data } = await supabase.from('user_sendgrid_keys').select('api_key, default_sender').eq('user_id', userId).single();
         if (!data?.api_key || !data?.default_sender) throw new Error('No SendGrid config');
         sgMail.setApiKey(data.api_key);
-        const [resp] = await sgMail.send({ to, from:data.default_sender, subject, html:body });
+        // Convert line breaks to HTML breaks for proper email formatting
+        const htmlBody = body.replace(/\n/g, '<br/>');
+        const [resp] = await sgMail.send({ to, from:data.default_sender, subject, html:htmlBody });
         return { messageId: resp.headers['x-message-id'] };
       }
     },
