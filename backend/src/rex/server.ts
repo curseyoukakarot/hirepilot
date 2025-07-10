@@ -53,17 +53,112 @@ server.registerCapabilities({
         return { queued:true, jobId:job.id };
       }
     },
-    send_email: {
-      parameters: { userId:{type:'string'}, to:{type:'string'}, subject:{type:'string'}, body:{type:'string'} },
-      handler: async ({ userId, to, subject, body }) => {
+    list_available_senders: {
+      parameters: { userId:{type:'string'} },
+      handler: async ({ userId }) => {
         await assertPremium(userId);
-        const { data } = await supabase.from('user_sendgrid_keys').select('api_key, default_sender').eq('user_id', userId).single();
-        if (!data?.api_key || !data?.default_sender) throw new Error('No SendGrid config');
-        sgMail.setApiKey(data.api_key);
+        const { listSenders } = require('../../tools/rexToolFunctions');
+        const senders = await listSenders({ userId });
+        return { 
+          available_senders: senders,
+          total_count: senders.length,
+          message: senders.length > 1 ? 'Multiple email accounts available. Please specify which one to use.' : 'Single email account found.'
+        };
+      }
+    },
+    send_email: {
+      parameters: { userId:{type:'string'}, to:{type:'string'}, subject:{type:'string'}, body:{type:'string'}, provider:{type:'string', optional:true} },
+      handler: async ({ userId, to, subject, body, provider }) => {
+        await assertPremium(userId);
+        const { listSenders } = require('../../tools/rexToolFunctions');
+        const availableSenders = await listSenders({ userId });
+        
+        if (availableSenders.length === 0) {
+          throw new Error('No email accounts configured. Please set up SendGrid, Google, or Outlook in Settings.');
+        }
+        
+        // If no provider specified but multiple available, ask user to choose
+        if (!provider && availableSenders.length > 1) {
+          const senderList = availableSenders.map(s => `${s.provider}: ${s.from}`).join(', ');
+          throw new Error(`Multiple email accounts available (${senderList}). Please specify which provider to use: sendgrid, google, or outlook.`);
+        }
+        
+        // If only one sender available, use it automatically
+        let selectedSender = availableSenders[0];
+        if (provider) {
+          selectedSender = availableSenders.find(s => s.provider === provider);
+          if (!selectedSender) {
+            const available = availableSenders.map(s => s.provider).join(', ');
+            throw new Error(`Provider '${provider}' not found. Available providers: ${available}`);
+          }
+        }
+        
         // Convert line breaks to HTML breaks for proper email formatting
         const htmlBody = body.replace(/\n/g, '<br/>');
-        const [resp] = await sgMail.send({ to, from:data.default_sender, subject, html:htmlBody });
-        return { messageId: resp.headers['x-message-id'] };
+        
+        // Send via the selected provider
+        if (selectedSender.provider === 'sendgrid') {
+          const { data } = await supabase.from('user_sendgrid_keys').select('api_key, default_sender').eq('user_id', userId).single();
+          if (!data?.api_key || !data?.default_sender) throw new Error('SendGrid configuration incomplete');
+          sgMail.setApiKey(data.api_key);
+          const [resp] = await sgMail.send({ to, from: data.default_sender, subject, html: htmlBody });
+          return { messageId: resp.headers['x-message-id'], provider: 'sendgrid', from: data.default_sender };
+                 } else if (selectedSender.provider === 'google') {
+           // Use Gmail API directly
+           const { google } = require('googleapis');
+           const { getGoogleAccessToken } = require('../../services/googleTokenHelper');
+           
+           const accessToken = await getGoogleAccessToken(userId);
+           const oauth2client = new google.auth.OAuth2();
+           oauth2client.setCredentials({ access_token: accessToken });
+           const gmail = google.gmail({ version: 'v1', auth: oauth2client });
+           
+           const raw = Buffer.from(
+             `To: ${to}\r\n` +
+             `Subject: ${subject}\r\n` +
+             'Content-Type: text/html; charset=utf-8\r\n' +
+             '\r\n' +
+             htmlBody
+           ).toString('base64url');
+           
+           const result = await gmail.users.messages.send({
+             userId: 'me',
+             requestBody: { raw },
+           });
+           
+           return { messageId: result.data.id, provider: 'google', from: selectedSender.from };
+         } else if (selectedSender.provider === 'outlook') {
+           // Use Outlook API directly
+           const { Client } = require('@azure/msal-node');
+           const { getOutlookAccessToken } = require('../../services/outlookTokenHelper');
+           
+           const accessToken = await getOutlookAccessToken(userId);
+           const client = require('@microsoft/microsoft-graph-client').Client.init({
+             authProvider: (done) => {
+               done(null, accessToken);
+             }
+           });
+           
+           const message = {
+             message: {
+               subject,
+               body: {
+                 contentType: 'HTML',
+                 content: htmlBody
+               },
+               toRecipients: [{
+                 emailAddress: {
+                   address: to
+                 }
+               }]
+             }
+           };
+           
+           const result = await client.api('/me/sendMail').post(message);
+           return { messageId: 'outlook_sent', provider: 'outlook', from: selectedSender.from };
+         } else {
+           throw new Error(`Unsupported provider: ${selectedSender.provider}`);
+         }
       }
     },
     enrich_lead: {
