@@ -52,6 +52,7 @@ const AutomateRecruiting2 = lazy(() => import("./pages/blog/AutomateRecruiting2"
 const AutomateRecruiting3 = lazy(() => import("./pages/blog/AutomateRecruiting3"));
 const AutomateRecruiting4 = lazy(() => import("./pages/blog/AutomateRecruiting4"));
 const AutomateRecruiting5 = lazy(() => import("./pages/blog/AutomateRecruiting5"));
+const TestGmail = lazy(() => import("./pages/TestGmail"));
 
 // Lazy load screens
 const SigninScreen = lazy(() => import("./screens/SigninScreen"));
@@ -216,7 +217,7 @@ export default function App() {
 
 function InnerApp() {
   const location = useLocation();
-  const landingPages = ["/", "/signup", "/login", "/copilot", "/handsfree", "/pricing", "/rex", "/chromeextension", "/chromeextension/privacy", "/terms", "/apidoc"];
+  const landingPages = ["/", "/signup", "/login", "/copilot", "/handsfree", "/pricing", "/rex", "/chromeextension", "/chromeextension/privacy", "/terms", "/apidoc", "/test-gmail"];
   // Treat blog landing and article pages as public landing pages (no dashboard UI)
   const isAuthPage = landingPages.includes(location.pathname) || location.pathname.startsWith('/blog') || location.pathname.startsWith('/rex');
   const navigate = useNavigate();
@@ -339,6 +340,7 @@ function InnerApp() {
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/rexsupport" element={<RexSupport />} />
               <Route path="/apidoc" element={<ApiDocs />} />
+              <Route path="/test-gmail" element={<TestGmail />} />
               {/* Blog articles */}
               <Route path="/blog/flow-of-hirepilot" element={<FlowOfHirePilot />} />
               <Route path="/blog/message-center-setup" element={<MessageCenterSetup />} />
