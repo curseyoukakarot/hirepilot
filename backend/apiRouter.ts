@@ -18,6 +18,7 @@ import analyticsTimeSeries from './api/analyticsTimeSeries';
 import scheduleMassMessage from './api/scheduleMassMessage';
 import debugTrialEmails from './api/debugTrialEmails';
 import triggerTrialEmails from './api/triggerTrialEmails';
+import testTrialEmail from './api/testTrialEmail';
 
 import teamRouter from './routes/team';
 import sendSlackNotification from './api/sendSlackNotification';
@@ -83,6 +84,9 @@ router.get('/debug-trial-emails', debugTrialEmails);
 
 // Add trigger trial emails endpoint
 router.post('/trigger-trial-emails', triggerTrialEmails);
+
+// Add test trial email endpoint
+router.post('/test-trial-email', testTrialEmail);
 
 
 
