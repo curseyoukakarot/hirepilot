@@ -10,7 +10,7 @@ import { CreditService } from '../../services/creditService';
 
 const router = express.Router();
 
-const supabase = dbClient;
+const supabase = supabaseDb; // Use service role client for admin operations
 
 // Helper: Check if user is super admin
 async function isSuperAdmin(userId: string) {
