@@ -1,4 +1,6 @@
--- Create a function to insert a user record
+-- Fix create_public_user function to use correct column names from actual users table
+-- This resolves the "Database error creating new user" issue when creating users through admin
+
 CREATE OR REPLACE FUNCTION create_public_user(
     user_id UUID,
     user_email VARCHAR,
@@ -16,9 +18,8 @@ BEGIN
         "firstName",
         "lastName",
         role,
-        "onboardingComplete",
-        "createdAt",
-        "updatedAt"
+        onboarding_complete,
+        created_at
     ) VALUES (
         user_id,
         user_email,
@@ -26,7 +27,6 @@ BEGIN
         user_last_name,
         user_role,
         user_onboarding_complete,
-        CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP
     )
     RETURNING json_build_object(
@@ -35,9 +35,8 @@ BEGIN
         'firstName', "firstName",
         'lastName', "lastName",
         'role', role,
-        'onboardingComplete', "onboardingComplete",
-        'createdAt', "createdAt",
-        'updatedAt', "updatedAt"
+        'onboarding_complete', onboarding_complete,
+        'created_at', created_at
     ) INTO result;
     
     RETURN result;
