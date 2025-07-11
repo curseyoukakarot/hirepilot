@@ -149,12 +149,13 @@ router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: 
         firstName,
         lastName,
         inviteLink,
-        tempPassword: '',
+        tempPassword: undefined, // No temp password for admin-created users
         invitedBy: {
           firstName: inviterInfo.firstName || 'Super Admin',
           lastName: inviterInfo.lastName || '',
           email: inviterInfo.email
         },
+        company: undefined, // No company specified for admin users
         role
       });
     } catch (emailError) {

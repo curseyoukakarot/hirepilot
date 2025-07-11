@@ -39,22 +39,34 @@ export const sendTeamInviteEmail = async (data: {
   role: string;
 }) => {
   try {
-    const msg: MailDataRequired = {
+    // Create a simple HTML email instead of using templates
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #333;">Welcome to HirePilot!</h2>
+        <p>Hi ${data.firstName},</p>
+        <p>You've been invited to join HirePilot as a <strong>${data.role}</strong> by ${data.invitedBy.firstName} ${data.invitedBy.lastName}.</p>
+        ${data.company ? `<p>Company: ${data.company}</p>` : ''}
+        <p>Click the link below to get started:</p>
+        <div style="margin: 20px 0;">
+          <a href="${data.inviteLink}" style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
+            Accept Invitation
+          </a>
+        </div>
+        ${data.tempPassword ? `<p><strong>Temporary Password:</strong> ${data.tempPassword}</p>` : ''}
+        <p>Best regards,<br>The HirePilot Team</p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+        <p style="font-size: 12px; color: #666;">
+          This invitation was sent by ${data.invitedBy.email}. If you didn't expect this invitation, you can ignore this email.
+        </p>
+      </div>
+    `;
+
+    const msg = {
       to: data.to,
       from: process.env.SENDGRID_FROM_EMAIL || 'noreply@hirepilot.com',
-      templateId: process.env.SENDGRID_TEMPLATE_ID || '',
-      dynamicTemplateData: {
-        first_name: data.firstName,
-        last_name: data.lastName,
-        invite_link: data.inviteLink,
-        temp_password: data.tempPassword,
-        invited_by_name: `${data.invitedBy.firstName} ${data.invitedBy.lastName}`,
-        invited_by_email: data.invitedBy.email,
-        company: data.company,
-        role: data.role,
-        is_new_user: !!data.tempPassword
-      },
-      content: [{ type: 'text/plain', value: 'Team Invitation' }]
+      subject: `You're invited to join HirePilot${data.company ? ` at ${data.company}` : ''}`,
+      text: `Hi ${data.firstName}, you've been invited to join HirePilot as a ${data.role} by ${data.invitedBy.firstName} ${data.invitedBy.lastName}. Click this link to get started: ${data.inviteLink}`,
+      html: htmlContent,
     };
 
     await sgMail.send(msg);
