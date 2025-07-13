@@ -867,3 +867,521 @@ export async function getCampaignLeadCount({
     updated_at: campaign.updated_at
   };
 } 
+
+/**
+ * Test a Zapier/Make integration by sending a sample event
+ */
+export async function testZapierIntegration({
+  userId,
+  eventType,
+  webhookUrl
+}: {
+  userId: string;
+  eventType: string;
+  webhookUrl?: string;
+}) {
+  const { ZAP_EVENT_TYPES, emitZapEvent } = await import('../lib/zapEventEmitter');
+  
+  // Validate event type
+  const validEventTypes = Object.values(ZAP_EVENT_TYPES);
+  if (!validEventTypes.includes(eventType as any)) {
+    throw new Error(`Invalid event type. Valid types: ${validEventTypes.join(', ')}`);
+  }
+
+  // If webhook URL provided, register it temporarily for testing
+  let webhookId;
+  if (webhookUrl) {
+    try {
+      const result = await registerWebhook({ userId, url: webhookUrl, event: eventType });
+      webhookId = result.webhookId;
+    } catch (error) {
+      throw new Error(`Failed to register webhook: ${error.message}`);
+    }
+  }
+
+  // Get sample data for the event type
+  const sampleData = {
+    _test: true,
+    _test_timestamp: new Date().toISOString(),
+    _test_user_id: userId,
+    ...getSampleEventData(eventType)
+  };
+
+  try {
+    // Emit the test event
+    await emitZapEvent({
+      userId,
+      eventType: eventType as any,
+      eventData: sampleData,
+      sourceTable: 'test',
+      sourceId: `test-${Date.now()}`
+    });
+
+    return {
+      success: true,
+      eventType,
+      message: `Test event '${eventType}' sent successfully!`,
+      sampleData,
+      webhookUrl: webhookUrl || 'Sent to all registered webhooks for this event type',
+      note: 'Check your Zapier/Make webhook to see if it received the test data'
+    };
+  } finally {
+    // Clean up temporary webhook if created
+    if (webhookId) {
+      try {
+        await supabaseDb.from('webhooks').delete().eq('id', webhookId);
+      } catch (e) {
+        console.warn('Failed to cleanup test webhook:', e);
+      }
+    }
+  }
+}
+
+/**
+ * Get sample data for different event types
+ */
+function getSampleEventData(eventType: string): Record<string, any> {
+  const sampleData: Record<string, any> = {
+    lead_created: {
+      id: 'test-lead-123',
+      email: 'jane.doe@example.com',
+      first_name: 'Jane',
+      last_name: 'Doe',
+      company: 'Acme Corp',
+      title: 'Software Engineer',
+      status: 'new',
+      linkedin_url: 'https://linkedin.com/in/janedoe'
+    },
+    candidate_hired: {
+      id: 'test-candidate-456',
+      first_name: 'John',
+      last_name: 'Smith',
+      email: 'john.smith@example.com',
+      status: 'hired',
+      previous_status: 'offered',
+      hired_at: new Date().toISOString()
+    },
+    message_sent: {
+      id: 'test-message-789',
+      lead_id: 'test-lead-123',
+      subject: 'Exciting Opportunity at Your Company',
+      provider: 'sendgrid',
+      status: 'sent'
+    },
+    email_opened: {
+      lead_id: 'test-lead-123',
+      message_id: 'test-message-789',
+      event_timestamp: new Date().toISOString(),
+      user_agent: 'Mozilla/5.0 (Mac)'
+    }
+  };
+
+  return sampleData[eventType] || {
+    message: `Sample data for ${eventType}`,
+    timestamp: new Date().toISOString()
+  };
+}
+
+/**
+ * Suggest automation workflows based on user's use case
+ */
+export async function suggestAutomationWorkflows({
+  userId,
+  useCase,
+  tools = []
+}: {
+  userId: string;
+  useCase: string;
+  tools?: string[];
+}) {
+  const workflows: Record<string, any> = {
+    'crm_sync': {
+      title: 'Sync Candidates to CRM',
+      description: 'Automatically add hired candidates to your CRM system',
+      trigger: 'candidate_hired',
+      actions: [
+        'Create contact in HubSpot/Salesforce',
+        'Add to "New Hires" pipeline',
+        'Send welcome email sequence'
+      ],
+      zapierSteps: [
+        '1. Trigger: HirePilot "Candidate Hired" event',
+        '2. Action: Create HubSpot contact with candidate details',
+        '3. Action: Send Slack notification to HR team',
+        '4. Action: Add to Google Sheets tracking'
+      ]
+    },
+    'interview_scheduling': {
+      title: 'Automated Interview Scheduling',
+      description: 'Schedule interviews when candidates move to interview stage',
+      trigger: 'candidate_moved_to_interview',
+      actions: [
+        'Create Calendly booking link',
+        'Send email with interview details',
+        'Notify hiring manager via Slack'
+      ],
+      zapierSteps: [
+        '1. Trigger: HirePilot "Candidate Moved to Interview" event',
+        '2. Action: Create Calendly event with candidate',
+        '3. Action: Send personalized email via Gmail',
+        '4. Action: Post in Slack #hiring channel'
+      ]
+    },
+    'lead_nurturing': {
+      title: 'Lead Nurturing Sequence',
+      description: 'Follow up with leads who opened emails but didn\'t reply',
+      trigger: 'email_opened',
+      actions: [
+        'Wait 3 days',
+        'Send follow-up email',
+        'Add to nurture campaign',
+        'Update lead score'
+      ],
+      zapierSteps: [
+        '1. Trigger: HirePilot "Email Opened" event',
+        '2. Filter: Only if no reply received',
+        '3. Delay: Wait 3 days',
+        '4. Action: Send follow-up via email provider'
+      ]
+    },
+    'offer_management': {
+      title: 'Automated Offer Process',
+      description: 'Generate and send offer letters when candidates reach offer stage',
+      trigger: 'candidate_offered',
+      actions: [
+        'Generate offer letter in DocuSign',
+        'Send to candidate for signature',
+        'Notify legal team',
+        'Create calendar reminder for follow-up'
+      ],
+      zapierSteps: [
+        '1. Trigger: HirePilot "Candidate Offered" event',
+        '2. Action: Create DocuSign envelope with offer details',
+        '3. Action: Send signature request to candidate',
+        '4. Action: Create Google Calendar reminder for 48hr follow-up'
+      ]
+    },
+    'team_notifications': {
+      title: 'Team Communication Hub',
+      description: 'Keep your team informed about hiring progress',
+      trigger: 'candidate_moved_to_stage',
+      actions: [
+        'Post updates in Slack',
+        'Update team dashboard',
+        'Send email digest to managers'
+      ],
+      zapierSteps: [
+        '1. Trigger: HirePilot "Candidate Moved to Stage" event',
+        '2. Action: Post formatted message in Slack',
+        '3. Action: Update Notion hiring dashboard',
+        '4. Filter + Action: Email manager if moved to final stages'
+      ]
+    }
+  };
+
+  // Find matching workflows
+  const matchingWorkflows = Object.entries(workflows).filter(([key, workflow]) => {
+    const searchTerms = useCase.toLowerCase();
+    return (
+      key.includes(searchTerms) ||
+      workflow.title.toLowerCase().includes(searchTerms) ||
+      workflow.description.toLowerCase().includes(searchTerms) ||
+      workflow.trigger.includes(searchTerms)
+    );
+  });
+
+  if (matchingWorkflows.length === 0) {
+    return {
+      suggestions: Object.values(workflows).slice(0, 3),
+      message: `No specific workflows found for "${useCase}". Here are some popular automation ideas:`,
+      customAdvice: `For "${useCase}", consider using these events: candidate_created, lead_enriched, message_reply`
+    };
+  }
+
+  return {
+    suggestions: matchingWorkflows.map(([_, workflow]) => workflow),
+    message: `Found ${matchingWorkflows.length} automation workflows for "${useCase}":`,
+    setupTip: 'Use the Zapier Integration Card in Settings to get your API key and webhook URLs'
+  };
+}
+
+/**
+ * Guide user through setting up a specific integration
+ */
+export async function setupIntegrationGuide({
+  userId,
+  platform,
+  eventType
+}: {
+  userId: string;
+  platform: 'zapier' | 'make';
+  eventType: string;
+}) {
+  // Get user's API key or help them create one
+  const { data: existingKey } = await supabaseDb
+    .from('api_keys')
+    .select('key')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  const apiKey = existingKey?.key || 'You need to generate an API key first';
+  const backendUrl = process.env.BACKEND_URL || 'https://api.thehirepilot.com';
+
+  const guides = {
+    zapier: {
+      title: `Setting up Zapier Integration for ${eventType}`,
+      steps: [
+        {
+          step: 1,
+          title: 'Get Your API Key',
+          action: existingKey?.key ? 
+            `✅ You already have an API key: ${apiKey}` :
+            '🔑 Go to Settings → Integrations → Zapier Integration and click "Generate API Key"'
+        },
+        {
+          step: 2,
+          title: 'Create New Zap in Zapier',
+          action: 'Go to zapier.com and click "Create Zap"'
+        },
+        {
+          step: 3,
+          title: 'Set Up Trigger',
+          action: `Choose "Webhooks by Zapier" as trigger → "Catch Hook" → Copy the webhook URL`
+        },
+        {
+          step: 4,
+          title: 'Register Webhook in HirePilot',
+          action: `In HirePilot Settings, use the Guided Setup to register your webhook URL for event: ${eventType}`
+        },
+        {
+          step: 5,
+          title: 'Test the Integration',
+          action: `Use the test button or ask me: "REX, test my ${eventType} integration"`
+        },
+        {
+          step: 6,
+          title: 'Add Actions',
+          action: 'In Zapier, add actions like "Create Google Sheets row", "Send Slack message", etc.'
+        }
+      ],
+      endpoints: {
+        polling: `${backendUrl}/api/zapier/triggers/events?event_type=${eventType}`,
+        webhook: 'Register via HirePilot UI for push notifications'
+      }
+    },
+    make: {
+      title: `Setting up Make.com Integration for ${eventType}`,
+      steps: [
+        {
+          step: 1,
+          title: 'Get Your API Key',
+          action: existingKey?.key ?
+            `✅ You already have an API key: ${apiKey}` :
+            '🔑 Go to Settings → Integrations → Zapier Integration and click "Generate API Key"'
+        },
+        {
+          step: 2,
+          title: 'Create New Scenario in Make',
+          action: 'Go to make.com and click "Create a new scenario"'
+        },
+        {
+          step: 3,
+          title: 'Add HTTP Module',
+          action: 'Add "HTTP" → "Make a request" as your trigger module'
+        },
+        {
+          step: 4,
+          title: 'Configure Polling',
+          action: `Set URL: ${backendUrl}/api/zapier/triggers/events?event_type=${eventType}&since={{now}}`
+        },
+        {
+          step: 5,
+          title: 'Add Authentication',
+          action: `Add header: X-API-Key with value: ${apiKey}`
+        },
+        {
+          step: 6,
+          title: 'Test & Add Actions',
+          action: 'Test the trigger, then add actions like Airtable, Slack, Gmail, etc.'
+        }
+      ],
+      endpoints: {
+        polling: `${backendUrl}/api/zapier/triggers/events?event_type=${eventType}`,
+        edgeFunction: `${process.env.SUPABASE_URL || 'https://your-project.supabase.co'}/functions/v1/zap-events`
+      }
+    }
+  };
+
+  return {
+    guide: guides[platform],
+    quickTest: `To test this integration, say: "REX, test my ${eventType} integration"`,
+    troubleshooting: {
+      noEvents: 'If no events show up, make sure you have recent activity in HirePilot that would trigger this event type',
+      authentication: 'If you get 401 errors, double-check your API key is correct',
+      eventFormat: 'Events come with metadata including _test: true for test events'
+    }
+  };
+}
+
+/**
+ * Troubleshoot integration issues
+ */
+export async function troubleshootIntegration({
+  userId,
+  platform,
+  issue
+}: {
+  userId: string;
+  platform: string;
+  issue: string;
+}) {
+  // Check user's setup
+  const { data: apiKeyData } = await supabaseDb
+    .from('api_keys')
+    .select('key, created_at')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  const { data: webhooks } = await supabaseDb
+    .from('webhooks')
+    .select('url, event, created_at')
+    .eq('user_id', userId);
+
+  const { data: recentEvents } = await supabaseDb
+    .from('zap_events')
+    .select('event_type, created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(5);
+
+  const solutions: Record<string, any> = {
+    'no_events': {
+      title: 'No Events Showing Up',
+      diagnosis: [
+        apiKeyData ? '✅ API key exists' : '❌ No API key found',
+        recentEvents?.length ? `✅ ${recentEvents.length} recent events found` : '❌ No recent events',
+        webhooks?.length ? `✅ ${webhooks.length} webhooks registered` : '❌ No webhooks registered'
+      ],
+      solutions: [
+        !apiKeyData && 'Generate an API key in Settings → Integrations',
+        !recentEvents?.length && 'Try performing actions in HirePilot (create leads, move candidates, etc.)',
+        !webhooks?.length && 'Register webhook URLs using the Guided Setup',
+        'Test with: "REX, test my lead_created integration"'
+      ].filter(Boolean)
+    },
+    'authentication_error': {
+      title: 'Authentication / 401 Errors',
+      diagnosis: [
+        apiKeyData ? '✅ API key exists' : '❌ No API key found',
+        `API key created: ${apiKeyData?.created_at || 'Never'}`
+      ],
+      solutions: [
+        'Verify your X-API-Key header is exactly: ' + (apiKeyData?.key || 'Generate an API key first'),
+        'Make sure there are no extra spaces or characters',
+        'For Make.com, add the header in the HTTP module settings',
+        'For Zapier, use Custom Request with the API key header'
+      ]
+    },
+    'missing_data': {
+      title: 'Events Missing Expected Data',
+      diagnosis: [
+        `Recent event types: ${recentEvents?.map(e => e.event_type).join(', ') || 'None'}`,
+        'Event data structure varies by event type'
+      ],
+      solutions: [
+        'Use the test endpoint to see exact event structure',
+        'Different events have different data fields (lead events vs candidate events)',
+        'Check the event_data field for the main payload',
+        'Look for _test: true in test events'
+      ]
+    }
+  };
+
+  const issueKey = issue.toLowerCase().replace(/\s+/g, '_');
+  const matchedSolution = solutions[issueKey] || solutions['no_events'];
+
+  return {
+    issue: issue,
+    platform: platform,
+    diagnosis: matchedSolution.diagnosis,
+    solutions: matchedSolution.solutions,
+    currentSetup: {
+      hasApiKey: !!apiKeyData,
+      webhookCount: webhooks?.length || 0,
+      recentEventCount: recentEvents?.length || 0,
+      lastEventType: recentEvents?.[0]?.event_type || 'None'
+    },
+    nextSteps: [
+      'Try testing: "REX, test my lead_created integration"',
+      'Check the integration card in Settings for detailed endpoints',
+      'Review recent events: "REX, show my recent automation events"'
+    ]
+  };
+}
+
+/**
+ * Show recent automation events for debugging
+ */
+export async function getRecentAutomationEvents({
+  userId,
+  eventType,
+  limit = 10
+}: {
+  userId: string;
+  eventType?: string;
+  limit?: number;
+}) {
+  let query = supabaseDb
+    .from('zap_events')
+    .select('event_type, event_data, source_table, created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (eventType) {
+    query = query.eq('event_type', eventType);
+  }
+
+  const { data: events, error } = await query;
+
+  if (error) {
+    throw new Error(`Failed to fetch events: ${error.message}`);
+  }
+
+  return {
+    events: (events || []).map(event => ({
+      eventType: event.event_type,
+      timestamp: event.created_at,
+      source: event.source_table,
+      isTest: event.event_data?._test || false,
+      summary: generateEventSummary(event.event_type, event.event_data)
+    })),
+    totalFound: events?.length || 0,
+    filter: eventType ? `Filtered by: ${eventType}` : 'All event types',
+    tip: 'Use these events to verify your automations are receiving the right data'
+  };
+}
+
+/**
+ * Generate human-readable summary of an event
+ */
+function generateEventSummary(eventType: string, eventData: any): string {
+  if (eventData?._test) {
+    return `🧪 Test event for ${eventType}`;
+  }
+
+  switch (eventType) {
+    case 'lead_created':
+      return `Lead created: ${eventData?.first_name} ${eventData?.last_name} at ${eventData?.company}`;
+    case 'candidate_hired':
+      return `${eventData?.first_name} ${eventData?.last_name} was hired!`;
+    case 'candidate_moved_to_stage':
+      return `${eventData?.candidate_name} moved to ${eventData?.stage_title}`;
+    case 'message_sent':
+      return `Message sent: "${eventData?.subject}" to ${eventData?.lead_id}`;
+    case 'email_opened':
+      return `Email opened by lead ${eventData?.lead_id}`;
+    default:
+      return `${eventType} event occurred`;
+  }
+} 

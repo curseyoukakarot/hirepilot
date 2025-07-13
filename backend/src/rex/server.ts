@@ -20,7 +20,12 @@ const {
   getScheduledMessages,
   cancelScheduledMessage,
   getSchedulerStatus,
-  getCampaignLeadCount
+  getCampaignLeadCount,
+  testZapierIntegration,
+  suggestAutomationWorkflows,
+  setupIntegrationGuide,
+  troubleshootIntegration,
+  getRecentAutomationEvents
 } = require('../../tools/rexToolFunctions');
 
 // Resolve SDK root then require specific compiled files to sidestep export mapping quirks
@@ -377,6 +382,62 @@ server.registerCapabilities({
       handler: async ({ userId }) => {
         await assertPremium(userId);
         return await getSchedulerStatus({ userId });
+      }
+    },
+    // ------------- NEW ZAPIER/MAKE INTEGRATION TOOLS -------------
+    test_zapier_integration: {
+      parameters: { 
+        userId: {type:'string'}, 
+        eventType: {type:'string'}, 
+        webhookUrl: {type:'string', optional: true} 
+      },
+      handler: async ({ userId, eventType, webhookUrl }) => {
+        await assertPremium(userId);
+        return await testZapierIntegration({ userId, eventType, webhookUrl });
+      }
+    },
+    suggest_automation_workflows: {
+      parameters: { 
+        userId: {type:'string'}, 
+        useCase: {type:'string'}, 
+        tools: {type:'array', optional: true} 
+      },
+      handler: async ({ userId, useCase, tools }) => {
+        await assertPremium(userId);
+        return await suggestAutomationWorkflows({ userId, useCase, tools });
+      }
+    },
+    setup_integration_guide: {
+      parameters: { 
+        userId: {type:'string'}, 
+        platform: {type:'string'}, 
+        eventType: {type:'string'} 
+      },
+      handler: async ({ userId, platform, eventType }) => {
+        await assertPremium(userId);
+        return await setupIntegrationGuide({ userId, platform, eventType });
+      }
+    },
+    troubleshoot_integration: {
+      parameters: { 
+        userId: {type:'string'}, 
+        platform: {type:'string'}, 
+        issue: {type:'string'} 
+      },
+      handler: async ({ userId, platform, issue }) => {
+        await assertPremium(userId);
+        return await troubleshootIntegration({ userId, platform, issue });
+      }
+    },
+    get_recent_automation_events: {
+      parameters: { 
+        userId: {type:'string'}, 
+        eventType: {type:'string', optional: true}, 
+        limit: {type:'number', optional: true} 
+      },
+      handler: async ({ userId, eventType, limit }) => {
+        await assertPremium(userId);
+        return await getRecentAutomationEvents({ userId, eventType, limit });
       }
     },
     get_campaign_lead_count: {

@@ -49,6 +49,46 @@ Example Prompts:
 Example Prompts:
 - "REX, trigger the Make.com SDR follow-up workflow."
 
+## 🛠 testZapierIntegration
+*Tool Description:* Test Zapier/Make integrations by sending sample events
+
+Example Prompts:
+- "REX, test my lead_created integration."
+- "REX, test my candidate_hired webhook."
+- "REX, send a test event for email_opened."
+
+## 🛠 suggestAutomationWorkflows
+*Tool Description:* Get automation workflow suggestions based on use case
+
+Example Prompts:
+- "REX, suggest automation workflows for CRM sync."
+- "REX, what automations can I set up for interview scheduling?"
+- "REX, show me automation ideas for lead nurturing."
+
+## 🛠 setupIntegrationGuide
+*Tool Description:* Get step-by-step setup guides for Zapier/Make integrations
+
+Example Prompts:
+- "REX, how do I set up Zapier for candidate_hired events?"
+- "REX, guide me through Make.com setup for lead_created."
+- "REX, show me the Zapier setup for email_opened events."
+
+## 🛠 troubleshootIntegration
+*Tool Description:* Diagnose and fix integration issues
+
+Example Prompts:
+- "REX, my Zapier integration isn't receiving events."
+- "REX, I'm getting authentication errors in Make.com."
+- "REX, troubleshoot my webhook integration."
+
+## 🛠 getRecentAutomationEvents
+*Tool Description:* View recent automation events for debugging
+
+Example Prompts:
+- "REX, show my recent automation events."
+- "REX, what lead_created events happened today?"
+- "REX, check my recent candidate_hired events."
+
 ## 🛠 fetchCredits
 *Tool Description:* Return credit balance and usage details
 
