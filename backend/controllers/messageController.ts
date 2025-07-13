@@ -165,6 +165,29 @@ export const sendMessage = async (req: Request, res: Response) => {
     }
     console.log('[sendMessage] Email sent successfully via', provider);
 
+    // Look up lead by email to get campaign context
+    let lead = null;
+    let campaignId = null;
+    let leadId = null;
+    
+    try {
+      const { data: leadData, error: leadError } = await supabase
+        .from('leads')
+        .select('id, campaign_id, name')
+        .eq('email', to)
+        .eq('user_id', user.id)
+        .single();
+      
+      if (!leadError && leadData) {
+        lead = leadData;
+        leadId = leadData.id;
+        campaignId = leadData.campaign_id;
+        console.log('[sendMessage] Found lead context:', { leadId, campaignId, leadName: leadData.name });
+      }
+    } catch (error) {
+      console.log('[sendMessage] No lead found for email:', to);
+    }
+
     // Store the message in the database with UI-friendly fields
     const currentTime = new Date();
     console.log('[sendMessage] Storing message in database...');
@@ -172,6 +195,8 @@ export const sendMessage = async (req: Request, res: Response) => {
       .from('messages')
       .insert({
         user_id: user.id,
+        lead_id: leadId,
+        campaign_id: campaignId,
         to_email: to,
         recipient: to,
         from_address: user.email || 'you@example.com',
@@ -207,6 +232,8 @@ export const sendMessage = async (req: Request, res: Response) => {
       .from('email_events')
       .insert({
         user_id: user.id,
+        campaign_id: campaignId,
+        lead_id: leadId,
         message_id: messageId,
         event_type: 'sent',
         provider,
@@ -216,7 +243,8 @@ export const sendMessage = async (req: Request, res: Response) => {
           template_id,
           source: 'message_center',
           to_email: to,
-          database_message_id: messageRecord?.id
+          database_message_id: messageRecord?.id,
+          lead_name: lead?.name
         }
       });
 

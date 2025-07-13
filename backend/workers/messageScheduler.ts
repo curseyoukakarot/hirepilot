@@ -128,7 +128,7 @@ export class MessageScheduler {
             lead.email,
             subject,
             message.content.replace(/\n/g, '<br/>'),
-            undefined, // campaignId
+            lead.campaign_id, // Include campaign attribution
             message.lead_id
           );
           break;
@@ -138,7 +138,7 @@ export class MessageScheduler {
             lead.email,
             subject,
             message.content.replace(/\n/g, '<br/>'),
-            undefined, // campaignId
+            lead.campaign_id, // Include campaign attribution
             message.lead_id
           );
           break;
@@ -151,6 +151,7 @@ export class MessageScheduler {
       await supabaseDb.from('messages').insert({
         user_id: message.user_id,
         lead_id: message.lead_id,
+        campaign_id: lead.campaign_id, // Include campaign attribution
         to_email: lead.email,
         recipient: lead.email,
         from_address: message.channel === 'google' ? 'you@gmail.com' : 'you@outlook.com',

@@ -110,6 +110,7 @@ async function sendViaSendGrid(lead: any, content: string, userId: string, templ
     const { data: messageRecord, error: insertError } = await supabaseDb.from('messages').insert({
       user_id: userId,
       lead_id: lead.id,
+      campaign_id: lead.campaign_id, // Include campaign attribution
       to_email: lead.email,
       recipient: lead.email,
       from_address: data.default_sender,
@@ -140,6 +141,7 @@ async function sendViaSendGrid(lead: any, content: string, userId: string, templ
     const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const { error: analyticsError } = await supabaseDb.from('email_events').insert({
       user_id: userId,
+      campaign_id: lead.campaign_id, // Include campaign attribution
       lead_id: lead.id,
       message_id: messageId,
       event_type: 'sent',
@@ -150,7 +152,8 @@ async function sendViaSendGrid(lead: any, content: string, userId: string, templ
         sg_message_id: response.headers['x-message-id'],
         source: 'bulk_messaging',
         to_email: lead.email,
-        database_message_id: messageRecord?.id
+        database_message_id: messageRecord?.id,
+        lead_name: `${lead.first_name || ''} ${lead.last_name || ''}`.trim() || lead.name
       }
     });
 
@@ -221,6 +224,7 @@ async function sendViaGoogle(lead: any, content: string, userId: string, templat
     const { data: messageRecord, error: insertError } = await supabaseDb.from('messages').insert({
       user_id: userId,
       lead_id: lead.id,
+      campaign_id: lead.campaign_id, // Include campaign attribution
       to_email: lead.email,
       recipient: lead.email,
       from_address: 'you@gmail.com', // Could get actual from user profile
@@ -310,6 +314,7 @@ async function sendViaOutlook(lead: any, content: string, userId: string, templa
     const { data: messageRecord, error: insertError } = await supabaseDb.from('messages').insert({
       user_id: userId,
       lead_id: lead.id,
+      campaign_id: lead.campaign_id, // Include campaign attribution
       to_email: lead.email,
       recipient: lead.email,
       from_address: 'you@outlook.com', // Could get actual from user profile

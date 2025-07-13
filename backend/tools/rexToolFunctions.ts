@@ -209,10 +209,18 @@ export async function sendMessage({
     html: body
   });
 
+  // Get lead's campaign context
+  const { data: leadData } = await supabaseDb
+    .from('leads')
+    .select('campaign_id')
+    .eq('id', leadId)
+    .single();
+
   // Log message
   await supabaseDb.from('messages').insert({
     user_id: userId,
     lead_id: leadId,
+    campaign_id: leadData?.campaign_id, // Include campaign attribution
     to_email: lead.email,
     subject,
     content: body,
