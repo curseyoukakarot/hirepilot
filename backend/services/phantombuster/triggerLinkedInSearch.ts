@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { supabaseDb } from '../../lib/supabase';
 import { z } from 'zod';
+import crypto from 'crypto';
 
 interface LinkedInSearchParams {
   searchUrl: string;
@@ -12,6 +13,19 @@ interface PhantomResponse {
   id: string;
   status: string;
   message?: string;
+}
+
+// Decryption function for LinkedIn cookies
+const ENCRYPTION_KEY = process.env.COOKIE_ENCRYPTION_KEY?.slice(0, 32) || 'default_key_32_bytes_long_123456';
+
+function decrypt(text: string): string {
+  const [ivHex, encryptedHex] = text.split(':');
+  const iv = Buffer.from(ivHex, 'hex');
+  const encryptedText = Buffer.from(encryptedHex, 'hex');
+  const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
+  let decrypted = decipher.update(encryptedText);
+  decrypted = Buffer.concat([decrypted, decipher.final()]);
+  return decrypted.toString();
 }
 
 // Schema for validating Zapier payload
@@ -36,25 +50,28 @@ export async function triggerLinkedInSearch({ searchUrl, userId, campaignId }: L
       throw new Error('PhantomBuster LinkedIn search phantom ID is not set in environment variables.');
     }
 
-    // Get user's LinkedIn cookie (PhantomBuster API key no longer needed for Zapier)
-    const { data: settings, error: settingsError } = await supabaseDb
-      .from('user_settings')
-      .select('linkedin_cookie')
+    // Get user's LinkedIn cookie from the linkedin_cookies table
+    const { data: cookieData, error: cookieError } = await supabaseDb
+      .from('linkedin_cookies')
+      .select('session_cookie')
       .eq('user_id', userId)
       .single();
 
-    if (settingsError) {
-      throw new Error('Failed to fetch user settings');
+    if (cookieError) {
+      throw new Error('Failed to fetch LinkedIn cookie');
     }
 
-    if (!settings?.linkedin_cookie) {
+    if (!cookieData?.session_cookie) {
       throw new Error('LinkedIn session cookie not found');
     }
+
+    // Decrypt the LinkedIn cookie
+    const sessionCookie = decrypt(cookieData.session_cookie);
 
     // Prepare Zapier payload
     const zapierPayload = {
       phantomId,
-      sessionCookie: settings.linkedin_cookie,
+      sessionCookie: sessionCookie,
       searchUrl,
       campaignId,
       userId
