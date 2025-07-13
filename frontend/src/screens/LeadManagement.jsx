@@ -596,10 +596,14 @@ function LeadManagement() {
     if (!newTag || (lead.tags || []).includes(newTag)) return;
     const newTags = [...(lead.tags || []), newTag];
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+      
       const response = await fetch(`${API_BASE_URL}/leads/${leadId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ tags: newTags }),
         credentials: 'include',
@@ -625,10 +629,14 @@ function LeadManagement() {
     if (!lead) return;
     const newTags = (lead.tags || []).filter(t => t !== tag);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+      
       const response = await fetch(`${API_BASE_URL}/leads/${leadId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ tags: newTags }),
         credentials: 'include',
@@ -791,10 +799,14 @@ function LeadManagement() {
 
         const newTags = [...(lead.tags || []), tagToAdd];
         
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error('Not authenticated');
+        
         const response = await fetch(`${API_BASE_URL}/leads/${leadId}`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({ tags: newTags }),
           credentials: 'include',

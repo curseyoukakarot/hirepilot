@@ -117,10 +117,14 @@ export default function Leads() {
 
         const newTags = [...currentTags, tagToAdd];
         
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error('Not authenticated');
+        
         const response = await fetch(`${API_BASE_URL}/leads/${leadId}`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({ tags: newTags }),
           credentials: 'include',
