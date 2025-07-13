@@ -132,16 +132,89 @@ export default function ZapierIntegrationCard({ user }) {
         )}
       </div>
 
-      {/* Docs */}
+      {/* Available Event Types */}
+      <div className="text-sm text-gray-700 dark:text-gray-200 space-y-3 mb-6">
+        <div className="font-medium">🎯 Available Event Types</div>
+        <div className="grid gap-3">
+          <div>
+            <div className="font-medium text-xs text-blue-600 dark:text-blue-400 mb-1">🧍 LEADS & CANDIDATES</div>
+            <div className="text-xs space-y-1">
+              <div><code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">lead_created</code> - New lead added</div>
+              <div><code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">lead_updated</code> - Lead details changed</div>
+              <div><code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">lead_converted</code> - Lead becomes candidate</div>
+              <div><code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">lead_enriched</code> - Apollo/Proxycurl enrichment</div>
+              <div><code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">candidate_created</code> - New candidate added</div>
+              <div><code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">candidate_hired</code> - Candidate hired!</div>
+              <div><code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">candidate_rejected</code> - Candidate rejected</div>
+            </div>
+          </div>
+          
+          <div>
+            <div className="font-medium text-xs text-purple-600 dark:text-purple-400 mb-1">📊 PIPELINE STAGES</div>
+            <div className="text-xs space-y-1">
+              <div><code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">candidate_moved_to_stage</code> - Generic stage change</div>
+              <div><code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">candidate_interviewed</code> - Marked as interviewed</div>
+              <div><code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">candidate_offered</code> - Offer stage reached</div>
+              <div><code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">candidate_moved_to_*</code> - Dynamic stage events</div>
+            </div>
+          </div>
+
+          <div>
+            <div className="font-medium text-xs text-green-600 dark:text-green-400 mb-1">🔔 MESSAGING</div>
+            <div className="text-xs space-y-1">
+              <div><code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">message_sent</code> - Outbound message sent</div>
+              <div><code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">message_reply</code> - Candidate replied</div>
+              <div><code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">email_opened</code> - Email opened</div>
+              <div><code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">email_clicked</code> - Email link clicked</div>
+              <div><code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">email_bounced</code> - Email failed</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Trigger Endpoints */}
       <div className="text-sm text-gray-700 dark:text-gray-200 space-y-2">
-        <div className="font-medium">Available Endpoints</div>
-        <ul className="list-disc list-inside space-y-1">
-          <li><code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">POST {BACKEND}/api/zapier/leads</code></li>
-          <li><code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">POST {BACKEND}/api/zapier/enrich</code></li>
-          <li><code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">GET {BACKEND}/api/zapier/triggers/new-leads</code></li>
-          <li><code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">GET {BACKEND}/api/zapier/triggers/pipeline-stage-changes</code></li>
+        <div className="font-medium">🔗 Trigger Endpoints</div>
+        <ul className="list-disc list-inside space-y-1 text-xs">
+          <li><code className="bg-blue-50 dark:bg-gray-600 px-1 rounded text-blue-700 dark:text-blue-300">GET {BACKEND}/api/zapier/triggers/events</code> - Universal events (recommended)</li>
+          <li><code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">GET https://your-project.supabase.co/functions/v1/zap-events</code> - Supabase Edge Function</li>
+          <li><code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">GET {BACKEND}/api/zapier/triggers/new-leads</code> - Legacy leads only</li>
+          <li><code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">GET {BACKEND}/api/zapier/triggers/pipeline-stage-changes</code> - Legacy stages only</li>
+        </ul>
+        <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+          💡 Use <code>?event_type=lead_created</code> to filter events, <code>?since=2024-01-15T10:00:00Z</code> for date filtering
+        </div>
+      </div>
+
+      {/* Action Endpoints */}
+      <div className="text-sm text-gray-700 dark:text-gray-200 space-y-2 mt-4">
+        <div className="font-medium">⚡ Action Endpoints</div>
+        <ul className="list-disc list-inside space-y-1 text-xs">
+          <li><code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">POST {BACKEND}/api/zapier/leads</code> - Create/update leads</li>
+          <li><code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">POST {BACKEND}/api/zapier/enrich</code> - Enrich lead data</li>
         </ul>
       </div>
+
+      {/* Testing Section */}
+      {apiKey && (
+        <div className="text-sm text-gray-700 dark:text-gray-200 space-y-2 mt-4 p-3 bg-blue-50 dark:bg-gray-700 rounded-lg">
+          <div className="font-medium">🧪 Test Your Integration</div>
+          <div className="text-xs space-y-2">
+            <p>Send test events to verify your webhooks are working:</p>
+            <div className="flex gap-2">
+              <code className="text-xs bg-white dark:bg-gray-600 px-2 py-1 rounded">
+                POST {BACKEND}/api/zapier/test-event
+              </code>
+              <code className="text-xs bg-white dark:bg-gray-600 px-2 py-1 rounded">
+                Body: {"{"}"event_type": "lead_created"{"}"}
+              </code>
+            </div>
+            <p className="text-gray-500 dark:text-gray-400">
+              💡 Use your API key in the X-API-Key header
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Quick Links */}
       <div className="mt-4 flex items-center gap-4">

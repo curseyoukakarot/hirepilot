@@ -88,6 +88,17 @@ export default async function saveCampaign(req: Request, res: Response) {
 
     console.log('[saveCampaign] Campaign saved:', campaignData);
 
+    // Emit campaign created event
+    await import('../lib/zapEventEmitter').then(({ emitZapEvent, ZAP_EVENT_TYPES, createCampaignEventData }) => {
+      emitZapEvent({
+        userId: user_id,
+        eventType: ZAP_EVENT_TYPES.CAMPAIGN_CREATED,
+        eventData: createCampaignEventData(campaignData, { job_id: jobData.id }),
+        sourceTable: 'campaigns',
+        sourceId: campaignData.id
+      });
+    });
+
     // Notify Slack (site-wide)
     try {
       const { notifySlack } = await import('../lib/slack');

@@ -59,14 +59,28 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
 
     if (updateError) throw updateError;
 
-    // Emit webhooks
-    await import('../lib/webhookEmitter').then(async ({ emitWebhook }) => {
-      emitWebhook(req.user!.id, 'lead.updated', data);
+    // Emit events to both new and legacy systems
+    await import('../lib/zapEventEmitter').then(async ({ emitZapEvent, ZAP_EVENT_TYPES, createLeadEventData }) => {
+      // Always emit lead updated event
+      emitZapEvent({
+        userId: req.user!.id,
+        eventType: ZAP_EVENT_TYPES.LEAD_UPDATED,
+        eventData: createLeadEventData(data, { previous_status: lead.status }),
+        sourceTable: 'leads',
+        sourceId: data.id
+      });
+
+      // If status changed, emit stage changed event
       if (updateData.status && updateData.status !== lead.status) {
-        emitWebhook(req.user!.id, 'lead.stage_changed', {
-          id: lead.id,
-          old_status: lead.status,
-          new_status: updateData.status,
+        emitZapEvent({
+          userId: req.user!.id,
+          eventType: ZAP_EVENT_TYPES.LEAD_STAGE_CHANGED,
+          eventData: createLeadEventData(data, {
+            old_status: lead.status,
+            new_status: updateData.status,
+          }),
+          sourceTable: 'leads',
+          sourceId: data.id
         });
       }
     });

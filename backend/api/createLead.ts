@@ -41,10 +41,16 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
 
     if (error) throw error;
 
-    // Emit webhook
-    await import('../lib/webhookEmitter').then(({ emitWebhook }) =>
-      emitWebhook(req.user!.id, 'lead.created', data)
-    );
+    // Emit events to both new and legacy systems
+    await import('../lib/zapEventEmitter').then(({ emitZapEvent, ZAP_EVENT_TYPES, createLeadEventData }) => {
+      emitZapEvent({
+        userId: req.user!.id,
+        eventType: ZAP_EVENT_TYPES.LEAD_CREATED,
+        eventData: createLeadEventData(data),
+        sourceTable: 'leads',
+        sourceId: data.id
+      });
+    });
 
     res.status(201).json({ lead: data as Lead });
     return;

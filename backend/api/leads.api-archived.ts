@@ -274,6 +274,27 @@ router.post('/:id/convert', async (req: Request, res: Response) => {
       return;
     }
 
+    // Emit events for lead conversion and candidate creation
+    await import('../lib/zapEventEmitter').then(({ emitZapEvent, ZAP_EVENT_TYPES, createLeadEventData, createCandidateEventData }) => {
+      // Emit lead converted event
+      emitZapEvent({
+        userId: user.id,
+        eventType: ZAP_EVENT_TYPES.LEAD_CONVERTED,
+        eventData: createLeadEventData(lead, { converted_to_candidate_id: candidate.id }),
+        sourceTable: 'leads',
+        sourceId: lead.id
+      });
+
+      // Emit candidate created event
+      emitZapEvent({
+        userId: user.id,
+        eventType: ZAP_EVENT_TYPES.CANDIDATE_CREATED,
+        eventData: createCandidateEventData(candidate, { converted_from_lead_id: lead.id }),
+        sourceTable: 'candidates',
+        sourceId: candidate.id
+      });
+    });
+
     // 3. Delete the lead
     const { error: deleteError } = await supabase
       .from('leads')

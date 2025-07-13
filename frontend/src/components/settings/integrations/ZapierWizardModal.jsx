@@ -9,7 +9,7 @@ export default function ZapierWizardModal({ isOpen, onClose, apiKey, onApiKeyGen
   const [generating, setGenerating] = useState(false);
   const [savingWebhook, setSavingWebhook] = useState(false);
   const [hookUrl, setHookUrl] = useState('');
-  const [hookEvent, setHookEvent] = useState('lead.created');
+  const [hookEvent, setHookEvent] = useState('lead_created');
   const [hookSecret, setHookSecret] = useState('');
   const close = () => { setStep(1); setHookUrl(''); setHookSecret(''); onClose(); };
 
@@ -64,11 +64,40 @@ export default function ZapierWizardModal({ isOpen, onClose, apiKey, onApiKeyGen
           <div>
             <p className="mb-2">Step 2: Paste the Zapier/Make Catch-Hook URL where you want HirePilot to send events.</p>
             <input value={hookUrl} onChange={e=>setHookUrl(e.target.value)} placeholder="https://hooks.zapier.com/..." className="w-full border rounded p-2 mb-4"/>
-            <label className="block mb-2 text-sm">Event</label>
+            <label className="block mb-2 text-sm">Event Type</label>
             <select value={hookEvent} onChange={e=>setHookEvent(e.target.value)} className="w-full border rounded p-2 mb-4">
-              <option value="lead.created">lead.created</option>
-              <option value="lead.updated">lead.updated</option>
-              <option value="lead.stage_changed">lead.stage_changed</option>
+              <optgroup label="🧍 Leads & Candidates">
+                <option value="lead_created">lead_created - New lead added</option>
+                <option value="lead_updated">lead_updated - Lead details changed</option>
+                <option value="lead_converted">lead_converted - Lead becomes candidate</option>
+                <option value="lead_enriched">lead_enriched - Lead enriched with data</option>
+                <option value="candidate_created">candidate_created - New candidate added</option>
+                <option value="candidate_updated">candidate_updated - Candidate details changed</option>
+                <option value="candidate_hired">candidate_hired - Candidate hired!</option>
+                <option value="candidate_rejected">candidate_rejected - Candidate rejected</option>
+              </optgroup>
+              <optgroup label="📊 Pipeline & Stages">
+                <option value="candidate_moved_to_stage">candidate_moved_to_stage - Generic stage change</option>
+                <option value="candidate_interviewed">candidate_interviewed - Marked as interviewed</option>
+                <option value="candidate_offered">candidate_offered - Offer stage reached</option>
+                <option value="pipeline_created">pipeline_created - New pipeline created</option>
+              </optgroup>
+              <optgroup label="🔔 Messaging & Communication">
+                <option value="message_sent">message_sent - Outbound message sent</option>
+                <option value="message_reply">message_reply - Candidate replied</option>
+                <option value="email_opened">email_opened - Email opened</option>
+                <option value="email_clicked">email_clicked - Email link clicked</option>
+                <option value="email_bounced">email_bounced - Email failed to send</option>
+              </optgroup>
+              <optgroup label="📈 Campaigns">
+                <option value="campaign_created">campaign_created - New campaign created</option>
+                <option value="campaign_launched">campaign_launched - Campaign went live</option>
+              </optgroup>
+              <optgroup label="🔄 Legacy Events (deprecated)">
+                <option value="lead.created">lead.created (legacy)</option>
+                <option value="lead.updated">lead.updated (legacy)</option>
+                <option value="lead.stage_changed">lead.stage_changed (legacy)</option>
+              </optgroup>
             </select>
             <button onClick={saveWebhook} disabled={savingWebhook||!hookUrl} className="px-4 py-2 bg-blue-600 text-white rounded-md">
               {savingWebhook ? 'Saving…' : 'Save Webhook'}

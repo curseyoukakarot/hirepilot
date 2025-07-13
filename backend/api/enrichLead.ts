@@ -94,15 +94,32 @@ export default async function enrichLead(req: Request, res: Response) {
     }
 
     // Update lead with enrichment data
-    const { error: updateLeadError } = await supabase
+    const { data: updatedLead, error: updateLeadError } = await supabase
       .from('leads')
       .update({
         enrichment_data: enrichmentData,
+        enriched_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
-      .eq('id', lead_id);
+      .eq('id', lead_id)
+      .select()
+      .single();
 
     if (updateLeadError) throw updateLeadError;
+
+    // Emit lead enriched event
+    await import('../lib/zapEventEmitter').then(({ emitZapEvent, ZAP_EVENT_TYPES, createLeadEventData }) => {
+      emitZapEvent({
+        userId: user_id,
+        eventType: ZAP_EVENT_TYPES.LEAD_ENRICHED,
+        eventData: createLeadEventData(updatedLead, { 
+          enrichment_source: hasOwnApolloKey ? 'apollo_user_key' : 'apollo_shared',
+          credits_used: hasOwnApolloKey ? 0 : 1 
+        }),
+        sourceTable: 'leads',
+        sourceId: lead_id
+      });
+    });
 
     res.status(200).json({ 
       enrichment_data: enrichmentData,

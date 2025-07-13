@@ -520,16 +520,50 @@ export async function registerWebhook({
 
 export function listZapierEndpoints() {
   const base = process.env.BACKEND_URL || 'https://api.thehirepilot.com';
+  const supabaseUrl = process.env.SUPABASE_URL?.replace(/\/$/, '') || 'https://your-project.supabase.co';
+  
   return {
     actions: {
       createOrUpdateLead: `${base}/api/zapier/leads`,
-      enrichLead: `${base}/api/zapier/enrich`
+      enrichLead: `${base}/api/zapier/enrich`,
+      testEvent: `${base}/api/zapier/test-event`
     },
     triggers: {
+      // New comprehensive trigger (recommended)
+      universalEvents: `${base}/api/zapier/triggers/events`,
+      supabaseEdgeFunction: `${supabaseUrl}/functions/v1/zap-events`,
+      
+      // Legacy triggers (deprecated)
       newLead: `${base}/api/zapier/triggers/new-leads`,
       pipelineStageChanged: `${base}/api/zapier/triggers/pipeline-stage-changes`
     },
-    events: ['lead.created', 'lead.updated', 'lead.stage_changed']
+    eventTypes: {
+      leads: [
+        'lead_created', 'lead_updated', 'lead_converted', 
+        'lead_enriched', 'lead_sourced', 'lead_responded'
+      ],
+      candidates: [
+        'candidate_created', 'candidate_updated', 'candidate_tagged',
+        'candidate_interviewed', 'candidate_offered', 'candidate_hired', 'candidate_rejected'
+      ],
+      pipeline: [
+        'pipeline_stage_updated', 'pipeline_created', 'candidate_moved_to_stage'
+      ],
+      messaging: [
+        'message_sent', 'message_reply', 'email_bounced', 'email_opened', 'email_clicked'
+      ],
+      campaigns: [
+        'campaign_created', 'campaign_launched', 'campaign_completed'
+      ],
+      calendar: [
+        'calendar_scheduled'
+      ]
+    },
+    usage: {
+      polling: 'Use ?event_type=lead_created&since=2024-01-15T10:00:00Z for filtering',
+      webhooks: 'Register webhook URLs via the UI or API to receive real-time events',
+      testing: `POST ${base}/api/zapier/test-event with {"event_type": "lead_created"}`
+    }
   };
 }
 
