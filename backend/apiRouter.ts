@@ -12,7 +12,7 @@ import deleteTemplate from "./api/deleteTemplate";
 import pipelineStages from "./api/pipelineStages";
 import messageRouter from './routers/messageRouter';
 import { launchCampaign } from './api/campaigns/launch';
-import { triggerLinkedInCampaign } from './api/campaign';
+import { triggerLinkedInCampaign, pollPhantomBusterResults, debugPhantomBusterWebhook } from './api/campaign';
 import campaignPerformance from './api/campaignPerformance';
 import userPerformance from './api/userPerformance';
 import analyticsTimeSeries from './api/analyticsTimeSeries';
@@ -70,6 +70,8 @@ router.post('/campaigns/:id/launch', launchCampaign);
 
 // LinkedIn trigger endpoint for Sales Navigator campaigns
 router.post('/campaigns/linkedin/trigger', requireAuth, triggerLinkedInCampaign);
+router.get('/campaigns/executions/:executionId/poll', requireAuth, pollPhantomBusterResults);
+router.post('/campaigns/executions/:executionId/debug-webhook', requireAuth, debugPhantomBusterWebhook);
 
 // Add campaign performance endpoint
 router.get('/campaigns/:id/performance', campaignPerformance);
