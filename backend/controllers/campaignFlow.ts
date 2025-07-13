@@ -120,7 +120,11 @@ export async function handlePhantomBusterWebhook(executionId: string, results: a
     }
 
     // 2. Process each lead from PhantomBuster results
+    console.log('[handlePhantomBusterWebhook] Processing', results.length, 'results for execution:', execution);
+    
     for (const result of results) {
+      console.log('[handlePhantomBusterWebhook] Processing lead:', result);
+      
       // Create lead in database
       const { data: lead, error: leadError } = await supabase
         .from('leads')
@@ -143,6 +147,8 @@ export async function handlePhantomBusterWebhook(executionId: string, results: a
         continue;
       }
 
+      console.log('[handlePhantomBusterWebhook] Created lead:', lead.id);
+
       // Process lead asynchronously
       processLead(lead.id).catch(error => {
         console.error(`[handlePhantomBusterWebhook] Failed to process lead ${lead.id}:`, error);
@@ -150,16 +156,25 @@ export async function handlePhantomBusterWebhook(executionId: string, results: a
     }
 
     // 3. Update campaign execution status
-    const { error: updateError } = await supabase
+    console.log('[handlePhantomBusterWebhook] Updating execution status for ID:', executionId);
+    
+    const { data: updateData, error: updateError } = await supabase
       .from('campaign_executions')
       .update({
         status: 'completed',
         completed_at: new Date().toISOString()
       })
-      .eq('phantombuster_execution_id', executionId);
+      .eq('phantombuster_execution_id', executionId)
+      .select();
+
+    console.log('[handlePhantomBusterWebhook] Update result:', { updateData, updateError });
 
     if (updateError) {
-      throw new Error('Failed to update campaign execution status');
+      throw new Error(`Failed to update campaign execution status: ${updateError.message}`);
+    }
+
+    if (!updateData || updateData.length === 0) {
+      console.warn('[handlePhantomBusterWebhook] No rows updated - execution ID may not exist:', executionId);
     }
 
     return {
