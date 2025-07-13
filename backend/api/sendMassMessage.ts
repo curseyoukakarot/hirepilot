@@ -209,13 +209,13 @@ async function sendViaGoogle(lead: any, content: string, userId: string, templat
 
     console.log(`[sendViaGoogle] Sending email to ${lead.email} with subject: ${subject}`);
     
-    // Use GmailTrackingService for proper tracking
+    // Use GmailTrackingService for proper tracking with campaign attribution
     const messageId = await GmailTrackingService.sendEmail(
       userId,
       lead.email,
       subject,
       body,
-      undefined, // campaignId - could be passed if available
+      lead.campaign_id, // Fix: Pass campaign_id instead of undefined
       lead.id    // leadId
     );
 
@@ -249,6 +249,7 @@ async function sendViaGoogle(lead: any, content: string, userId: string, templat
 
     if (insertError) {
       console.error('[sendViaGoogle] Message insert error:', insertError);
+      // Don't fail the entire operation for database insert errors
     } else {
       console.log('[sendViaGoogle] Message stored successfully with tracking ID:', messageId);
     }
@@ -256,8 +257,20 @@ async function sendViaGoogle(lead: any, content: string, userId: string, templat
     console.log(`[sendViaGoogle] Successfully sent to ${lead.email}`);
     return true;
   } catch (error: any) {
-    console.error('[sendViaGoogle] Error:', error);
-    return false;
+    console.error('[sendViaGoogle] Failed to send email:', error);
+    
+    // Check for specific Gmail API errors
+    if (error.message?.includes('Google not connected') || error.message?.includes('access_token')) {
+      console.error('[sendViaGoogle] Gmail authentication issue for user:', userId);
+    } else if (error.response?.status === 401) {
+      console.error('[sendViaGoogle] Gmail token expired or invalid for user:', userId);
+    } else if (error.response?.status === 403) {
+      console.error('[sendViaGoogle] Gmail API permission denied for user:', userId);
+    } else if (error.response?.status === 429) {
+      console.error('[sendViaGoogle] Gmail API rate limit exceeded for user:', userId);
+    }
+    
+    return false; // Return false on any error to ensure accurate status reporting
   }
 }
 
@@ -299,13 +312,13 @@ async function sendViaOutlook(lead: any, content: string, userId: string, templa
 
     console.log(`[sendViaOutlook] Sending email to ${lead.email} with subject: ${subject}`);
     
-    // Use OutlookTrackingService for proper tracking
+    // Use OutlookTrackingService for proper tracking with campaign attribution
     const messageId = await OutlookTrackingService.sendEmail(
       userId,
       lead.email,
       subject,
       body,
-      undefined, // campaignId - could be passed if available
+      lead.campaign_id, // Fix: Pass campaign_id instead of undefined
       lead.id    // leadId
     );
 
@@ -339,6 +352,7 @@ async function sendViaOutlook(lead: any, content: string, userId: string, templa
 
     if (insertError) {
       console.error('[sendViaOutlook] Message insert error:', insertError);
+      // Don't fail the entire operation for database insert errors
     } else {
       console.log('[sendViaOutlook] Message stored successfully with tracking ID:', messageId);
     }
@@ -346,8 +360,20 @@ async function sendViaOutlook(lead: any, content: string, userId: string, templa
     console.log(`[sendViaOutlook] Successfully sent to ${lead.email}`);
     return true;
   } catch (error: any) {
-    console.error('[sendViaOutlook] Error:', error);
-    return false;
+    console.error('[sendViaOutlook] Failed to send email:', error);
+    
+    // Check for specific Outlook API errors
+    if (error.message?.includes('No Outlook tokens found') || error.message?.includes('access_token')) {
+      console.error('[sendViaOutlook] Outlook authentication issue for user:', userId);
+    } else if (error.response?.status === 401) {
+      console.error('[sendViaOutlook] Outlook token expired or invalid for user:', userId);
+    } else if (error.response?.status === 403) {
+      console.error('[sendViaOutlook] Outlook API permission denied for user:', userId);
+    } else if (error.response?.status === 429) {
+      console.error('[sendViaOutlook] Outlook API rate limit exceeded for user:', userId);
+    }
+    
+    return false; // Return false on any error to ensure accurate status reporting
   }
 }
 

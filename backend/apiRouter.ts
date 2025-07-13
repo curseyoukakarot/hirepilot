@@ -33,6 +33,7 @@ import bulkScheduleMessages from './api/bulkScheduleMessages';
 import testBackfill from './api/testBackfill';
 import debugMessageCenter from './api/debugMessageCenter';
 import testAnalytics from './api/testAnalytics';
+import testGmailConnection from './api/testGmailConnection';
 
 const router = Router();
 
@@ -125,5 +126,8 @@ router.get('/test/backfill', testBackfill);
 router.get('/test/message-center', debugMessageCenter);
 // Test analytics tracking
 router.get('/test/analytics', testAnalytics);
+
+// Test Gmail connection for debugging
+router.get('/test/gmail-connection', testGmailConnection);
 
 export default router;
