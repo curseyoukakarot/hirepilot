@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { startCampaignFlow, processLead, handlePhantomBusterWebhook } from '../controllers/campaignFlow';
+import { triggerLinkedInSearch } from '../services/phantombuster/triggerLinkedInSearch';
 
 export async function startCampaign(req: Request, res: Response) {
   try {
@@ -26,6 +27,46 @@ export async function startCampaign(req: Request, res: Response) {
   } catch (error: any) {
     console.error('[startCampaign] Error:', error);
     res.status(500).json({ error: error.message || 'Failed to start campaign' });
+  }
+}
+
+export async function triggerLinkedInCampaign(req: Request, res: Response) {
+  try {
+    const { campaignId, searchUrl } = req.body;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    if (!campaignId || !searchUrl) {
+      res.status(400).json({ error: 'Missing required fields: campaignId and searchUrl' });
+      return;
+    }
+
+    console.log('[triggerLinkedInCampaign] Starting LinkedIn search for campaign:', campaignId);
+
+    const result = await triggerLinkedInSearch({
+      searchUrl,
+      userId,
+      campaignId
+    });
+
+    console.log('[triggerLinkedInCampaign] LinkedIn search triggered successfully:', result);
+
+    res.json({
+      success: true,
+      message: 'LinkedIn search started successfully',
+      executionId: result.id,
+      status: result.status
+    });
+  } catch (error: any) {
+    console.error('[triggerLinkedInCampaign] Error:', error);
+    res.status(500).json({ 
+      error: error.message || 'Failed to start LinkedIn search',
+      details: error.stack
+    });
   }
 }
 

@@ -12,6 +12,7 @@ import deleteTemplate from "./api/deleteTemplate";
 import pipelineStages from "./api/pipelineStages";
 import messageRouter from './routers/messageRouter';
 import { launchCampaign } from './api/campaigns/launch';
+import { triggerLinkedInCampaign } from './api/campaign';
 import campaignPerformance from './api/campaignPerformance';
 import userPerformance from './api/userPerformance';
 import analyticsTimeSeries from './api/analyticsTimeSeries';
@@ -66,6 +67,9 @@ router.use('/message', messageRouter);
 router.use('/team', requireAuth, teamRouter);
 
 router.post('/campaigns/:id/launch', launchCampaign);
+
+// LinkedIn trigger endpoint for Sales Navigator campaigns
+router.post('/campaigns/linkedin/trigger', requireAuth, triggerLinkedInCampaign);
 
 // Add campaign performance endpoint
 router.get('/campaigns/:id/performance', campaignPerformance);
