@@ -35,12 +35,16 @@ export async function triggerLinkedInCampaign(req: Request, res: Response) {
     const { campaignId, searchUrl } = req.body;
     const userId = req.user?.id;
 
+    console.log('[triggerLinkedInCampaign] Request body:', req.body);
+    console.log('[triggerLinkedInCampaign] Extracted values:', { campaignId, searchUrl, userId });
+
     if (!userId) {
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
 
     if (!campaignId || !searchUrl) {
+      console.log('[triggerLinkedInCampaign] Missing fields - campaignId:', !!campaignId, 'searchUrl:', !!searchUrl);
       res.status(400).json({ error: 'Missing required fields: campaignId and searchUrl' });
       return;
     }

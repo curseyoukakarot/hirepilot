@@ -70,6 +70,13 @@ export default function Step5ReviewLaunch({ onBack, onEdit }) {
 
       // For Sales Navigator campaigns, trigger the LinkedIn search
       if (isSalesNavigatorCampaign) {
+        // Extract search URL from the lead source payload
+        const searchUrl = campaign.lead_source_payload?.linkedin_search_url;
+        
+        if (!searchUrl) {
+          throw new Error('LinkedIn search URL not found in campaign');
+        }
+        
         // Call the LinkedIn search trigger API
         const response = await fetch(`${API_BASE_URL}/campaigns/linkedin/trigger`, {
           method: 'POST',
@@ -80,7 +87,7 @@ export default function Step5ReviewLaunch({ onBack, onEdit }) {
           credentials: 'include',
           body: JSON.stringify({ 
             campaignId: campaign.id,
-            searchUrl: campaign.linkedin_search_url 
+            searchUrl: searchUrl 
           })
         });
 
@@ -218,11 +225,11 @@ export default function Step5ReviewLaunch({ onBack, onEdit }) {
                 <Globe className="h-5 w-5 text-gray-400 mr-2" />
                 <div>
                   <p className="text-sm font-medium text-gray-500">Search URL</p>
-                  <p className="text-sm text-gray-900 truncate" title={campaign?.linkedin_search_url}>
-                    {campaign?.linkedin_search_url ? 
-                      campaign.linkedin_search_url.length > 50 
-                        ? `${campaign.linkedin_search_url.substring(0, 50)}...`
-                        : campaign.linkedin_search_url
+                  <p className="text-sm text-gray-900 truncate" title={campaign?.lead_source_payload?.linkedin_search_url}>
+                    {campaign?.lead_source_payload?.linkedin_search_url ? 
+                      campaign.lead_source_payload.linkedin_search_url.length > 50 
+                        ? `${campaign.lead_source_payload.linkedin_search_url.substring(0, 50)}...`
+                        : campaign.lead_source_payload.linkedin_search_url
                       : 'LinkedIn search URL configured'
                     }
                   </p>
