@@ -12,7 +12,7 @@ import deleteTemplate from "./api/deleteTemplate";
 import pipelineStages from "./api/pipelineStages";
 import messageRouter from './routers/messageRouter';
 import { launchCampaign } from './api/campaigns/launch';
-import { triggerLinkedInCampaign, pollPhantomBusterResults, debugPhantomBusterWebhook } from './api/campaign';
+import { triggerLinkedInCampaign, pollPhantomBusterResults, debugPhantomBusterWebhook, debugSearchLeads } from './api/campaign';
 import campaignPerformance from './api/campaignPerformance';
 import userPerformance from './api/userPerformance';
 import analyticsTimeSeries from './api/analyticsTimeSeries';
@@ -72,6 +72,7 @@ router.post('/campaigns/:id/launch', launchCampaign);
 router.post('/campaigns/linkedin/trigger', requireAuth, triggerLinkedInCampaign);
 router.get('/campaigns/executions/:executionId/poll', requireAuth, pollPhantomBusterResults);
 router.post('/campaigns/executions/:executionId/debug-webhook', requireAuth, debugPhantomBusterWebhook);
+router.get('/campaigns/debug/search-leads', requireAuth, debugSearchLeads);
 
 // Add campaign performance endpoint
 router.get('/campaigns/:id/performance', campaignPerformance);

@@ -324,3 +324,91 @@ export async function phantomBusterWebhook(req: Request, res: Response) {
     res.status(500).json({ error: error.message || 'Failed to process webhook' });
   }
 } 
+
+// Debug endpoint to search for leads and executions
+export async function debugSearchLeads(req: Request, res: Response) {
+  try {
+    const { query } = req.query;
+    
+    console.log('[debugSearchLeads] Starting search with query:', query);
+
+    // Search for recent leads
+    const { data: recentLeads, error: leadsError } = await supabaseDb
+      .from('leads')
+      .select('id, first_name, last_name, title, company, campaign_id, user_id, created_at')
+      .gte('created_at', new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()) // Last 2 hours
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    // Search for John Doe specifically
+    const { data: johnDoe, error: johnError } = await supabaseDb
+      .from('leads')
+      .select('*')
+      .eq('first_name', 'John')
+      .eq('last_name', 'Doe')
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    // Search for Jane Smith specifically  
+    const { data: janeSmith, error: janeError } = await supabaseDb
+      .from('leads')
+      .select('*')
+      .eq('first_name', 'Jane')
+      .eq('last_name', 'Smith')
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    // Check campaign executions
+    const { data: executions, error: execError } = await supabaseDb
+      .from('campaign_executions')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    // Check the specific execution
+    const { data: specificExecution, error: specificError } = await supabaseDb
+      .from('campaign_executions')
+      .select('*')
+      .eq('phantombuster_execution_id', 'zapier-1752370006693-af3978')
+      .single();
+
+    res.json({
+      recentLeads: {
+        data: recentLeads,
+        error: leadsError?.message,
+        count: recentLeads?.length || 0
+      },
+      testLeads: {
+        johnDoe: {
+          data: johnDoe,
+          error: johnError?.message,
+          count: johnDoe?.length || 0
+        },
+        janeSmith: {
+          data: janeSmith, 
+          error: janeError?.message,
+          count: janeSmith?.length || 0
+        }
+      },
+      executions: {
+        all: {
+          data: executions,
+          error: execError?.message,
+          count: executions?.length || 0
+        },
+        specific: {
+          data: specificExecution,
+          error: specificError?.message
+        }
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error: any) {
+    console.error('[debugSearchLeads] Error:', error);
+    res.status(500).json({ 
+      error: error.message || 'Failed to search leads',
+      details: error.stack
+    });
+  }
+} 
