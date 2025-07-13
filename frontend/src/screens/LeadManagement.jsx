@@ -72,6 +72,11 @@ function LeadManagement() {
   const LEADS_PER_PAGE = 50;
   const [currentPage, setCurrentPage] = useState(1);
 
+  // Bulk tagging state
+  const [showBulkTagModal, setShowBulkTagModal] = useState(false);
+  const [bulkTagInput, setBulkTagInput] = useState('');
+  const [isBulkTagging, setIsBulkTagging] = useState(false);
+
   // Provider selection for bulk messaging
   const [selectedProvider, setSelectedProvider] = useState(null);
   const [providerStatus, setProviderStatus] = useState({
@@ -591,11 +596,21 @@ function LeadManagement() {
     if (!newTag || (lead.tags || []).includes(newTag)) return;
     const newTags = [...(lead.tags || []), newTag];
     try {
-      const { error } = await supabase
-        .from('leads')
-        .update({ tags: newTags })
-        .eq('id', leadId);
-      if (error) throw error;
+      const response = await fetch(`${API_BASE_URL}/leads/${leadId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ tags: newTags }),
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to add tag' }));
+        throw new Error(errorData.error || 'Failed to add tag');
+      }
+      
+      const updatedLead = await response.json();
       setLeads(leads.map(l => l.id === leadId ? { ...l, tags: newTags } : l));
       setTagInputValue('');
       toast.success('Tag added!');
@@ -610,11 +625,21 @@ function LeadManagement() {
     if (!lead) return;
     const newTags = (lead.tags || []).filter(t => t !== tag);
     try {
-      const { error } = await supabase
-        .from('leads')
-        .update({ tags: newTags })
-        .eq('id', leadId);
-      if (error) throw error;
+      const response = await fetch(`${API_BASE_URL}/leads/${leadId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ tags: newTags }),
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to remove tag' }));
+        throw new Error(errorData.error || 'Failed to remove tag');
+      }
+      
+      const updatedLead = await response.json();
       setLeads(leads.map(l => l.id === leadId ? { ...l, tags: newTags } : l));
       toast.success('Tag removed!');
     } catch (err) {
@@ -742,6 +767,82 @@ function LeadManagement() {
       toast.error(error.message || 'Failed to delete leads');
     } finally {
       setIsBulkDeleting(false);
+    }
+  };
+
+  // Add bulk tag handler
+  const handleBulkTag = async () => {
+    const tagToAdd = bulkTagInput.trim();
+    if (!tagToAdd) {
+      toast.error('Please enter a tag');
+      return;
+    }
+
+    setIsBulkTagging(true);
+    try {
+      const promises = selectedLeadIds.map(async (leadId) => {
+        const lead = leads.find(l => l.id === leadId);
+        if (!lead) return;
+
+        // Check if tag already exists
+        if ((lead.tags || []).includes(tagToAdd)) {
+          return { leadId, success: true, message: 'Tag already exists' };
+        }
+
+        const newTags = [...(lead.tags || []), tagToAdd];
+        
+        const response = await fetch(`${API_BASE_URL}/leads/${leadId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ tags: newTags }),
+          credentials: 'include',
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: 'Failed to add tag' }));
+          throw new Error(errorData.error || 'Failed to add tag');
+        }
+        
+        return { leadId, success: true, newTags };
+      });
+
+      const results = await Promise.allSettled(promises);
+      let successCount = 0;
+      let errorCount = 0;
+
+      results.forEach((result, index) => {
+        const leadId = selectedLeadIds[index];
+        if (result.status === 'fulfilled' && result.value?.success) {
+          successCount++;
+          if (result.value.newTags) {
+            // Update local state
+            setLeads(prevLeads => 
+              prevLeads.map(l => 
+                l.id === leadId ? { ...l, tags: result.value.newTags } : l
+              )
+            );
+          }
+        } else {
+          errorCount++;
+        }
+      });
+
+      if (successCount > 0) {
+        toast.success(`Tag "${tagToAdd}" added to ${successCount} lead(s)`);
+      }
+      if (errorCount > 0) {
+        toast.error(`Failed to add tag to ${errorCount} lead(s)`);
+      }
+
+      setShowBulkTagModal(false);
+      setBulkTagInput('');
+    } catch (error) {
+      console.error('Error bulk tagging leads:', error);
+      toast.error(error.message || 'Failed to add tags');
+    } finally {
+      setIsBulkTagging(false);
     }
   };
 
@@ -890,7 +991,13 @@ function LeadManagement() {
           >
             Message
           </button>
-          <button className="border px-4 py-2 rounded-lg hover:bg-gray-50">Tag</button>
+          <button
+            className={`border px-4 py-2 rounded-lg hover:bg-gray-50 disabled:opacity-50 ${selectedLeadIds.length === 0 ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+            disabled={selectedLeadIds.length === 0}
+            onClick={selectedLeadIds.length > 0 ? () => setShowBulkTagModal(true) : undefined}
+          >
+            Tag
+          </button>
           <button
             className={`border px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-purple-50 text-purple-700 border-purple-500 disabled:opacity-50 ${selectedLeadIds.length === 0 ? 'cursor-not-allowed' : 'cursor-pointer'}`}
             disabled={selectedLeadIds.length === 0 || isBulkEnriching}
@@ -1738,6 +1845,66 @@ function LeadManagement() {
                 disabled={isBulkDeleting}
               >
                 {isBulkDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Tag Modal */}
+      {showBulkTagModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-lg">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Add Tag to Leads</h3>
+                             <button
+                 className="text-gray-400 hover:text-gray-600"
+                 onClick={() => {
+                   setShowBulkTagModal(false);
+                   setBulkTagInput('');
+                 }}
+               >
+                 <FaTimes />
+               </button>
+            </div>
+            <p className="text-gray-600 mb-4">
+              Add a tag to {selectedLeadIds.length} selected lead(s).
+            </p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Tag Name
+              </label>
+              <input
+                type="text"
+                className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                placeholder="Enter tag name"
+                value={bulkTagInput}
+                onChange={(e) => setBulkTagInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleBulkTag()}
+                autoFocus
+              />
+            </div>
+            <div className="mb-4">
+              <p className="text-sm text-gray-500">
+                Existing tags on selected leads will be preserved. This tag will be added to all selected leads.
+              </p>
+            </div>
+            <div className="flex justify-end gap-3">
+                             <button
+                 className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+                 onClick={() => {
+                   setShowBulkTagModal(false);
+                   setBulkTagInput('');
+                 }}
+               >
+                 Cancel
+               </button>
+              <button
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                onClick={handleBulkTag}
+                disabled={isBulkTagging || !bulkTagInput.trim()}
+              >
+                {isBulkTagging ? 'Adding Tag...' : 'Add Tag'}
               </button>
             </div>
           </div>

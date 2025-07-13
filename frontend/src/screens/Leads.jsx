@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import CsvImportButton from '../components/leads/CsvImportButton';
 import { supabase } from '../lib/supabase';
-import { Toaster } from 'react-hot-toast';
+import { Toaster, toast } from 'react-hot-toast';
 import { FaPlus, FaSearch, FaFilter, FaDownload } from 'react-icons/fa';
 import { downloadCSV } from '../utils/csvExport';
 
@@ -15,6 +15,11 @@ export default function Leads() {
   const [selectedLeads, setSelectedLeads] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+
+  // Bulk tagging state
+  const [showBulkTagModal, setShowBulkTagModal] = useState(false);
+  const [bulkTagInput, setBulkTagInput] = useState('');
+  const [isBulkTagging, setIsBulkTagging] = useState(false);
 
   const fetchLeads = async () => {
     try {
@@ -68,31 +73,103 @@ export default function Leads() {
   };
 
   const handleExportLeads = () => {
-    console.log('Exporting leads, selected:', selectedLeads);
     if (selectedLeads.length === 0) {
-      console.log('No leads selected for export');
+      toast.error('Please select at least one lead to export');
       return;
     }
-    // Get only the selected leads
-    const selectedLeadData = leads.filter(lead => selectedLeads.includes(lead.id));
-    console.log('Selected lead data for export:', selectedLeadData);
-    // Format leads data for export
-    const exportData = selectedLeadData.map(lead => ({
-      'First Name': lead.first_name || '',
-      'Last Name': lead.last_name || '',
+    
+    const selectedLeadsData = leads.filter(lead => selectedLeads.includes(lead.id));
+    const csvData = selectedLeadsData.map(lead => ({
+      'Name': `${lead.first_name || ''} ${lead.last_name || ''}`.trim(),
       'Email': lead.email || '',
+      'Company': lead.company || '',
+      'Title': lead.title || '',
       'Phone': lead.phone || '',
-      'Company': lead.company_name || '',
-      'Title': lead.title || lead.headline || '',
-      'LinkedIn URL': lead.linkedin_url || '',
+      'LinkedIn': lead.linkedin_url || '',
       'Status': lead.status || '',
-      'Source': lead.source_type || '',
-      'Created At': new Date(lead.created_at).toLocaleDateString(),
-      'Last Updated': new Date(lead.updated_at).toLocaleDateString()
+      'Created': new Date(lead.created_at).toLocaleDateString(),
     }));
-    console.log('Formatted export data:', exportData);
-    downloadCSV(exportData, `leads-export-${new Date().toISOString().split('T')[0]}`);
+    
+    downloadCSV(csvData, `leads-export-${new Date().toISOString().split('T')[0]}`);
     setShowExportModal(false);
+  };
+
+  // Bulk tag handler
+  const handleBulkTag = async () => {
+    const tagToAdd = bulkTagInput.trim();
+    if (!tagToAdd) {
+      toast.error('Please enter a tag');
+      return;
+    }
+
+    setIsBulkTagging(true);
+    try {
+      const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
+      const promises = selectedLeads.map(async (leadId) => {
+        const lead = leads.find(l => l.id === leadId);
+        if (!lead) return;
+
+        // Check if tag already exists
+        const currentTags = lead.tags || [];
+        if (currentTags.includes(tagToAdd)) {
+          return { leadId, success: true, message: 'Tag already exists' };
+        }
+
+        const newTags = [...currentTags, tagToAdd];
+        
+        const response = await fetch(`${API_BASE_URL}/leads/${leadId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ tags: newTags }),
+          credentials: 'include',
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: 'Failed to add tag' }));
+          throw new Error(errorData.error || 'Failed to add tag');
+        }
+        
+        return { leadId, success: true, newTags };
+      });
+
+      const results = await Promise.allSettled(promises);
+      let successCount = 0;
+      let errorCount = 0;
+
+      results.forEach((result, index) => {
+        const leadId = selectedLeads[index];
+        if (result.status === 'fulfilled' && result.value?.success) {
+          successCount++;
+          if (result.value.newTags) {
+            // Update local state
+            setLeads(prevLeads => 
+              prevLeads.map(l => 
+                l.id === leadId ? { ...l, tags: result.value.newTags } : l
+              )
+            );
+          }
+        } else {
+          errorCount++;
+        }
+      });
+
+      if (successCount > 0) {
+        toast.success(`Tag "${tagToAdd}" added to ${successCount} lead(s)`);
+      }
+      if (errorCount > 0) {
+        toast.error(`Failed to add tag to ${errorCount} lead(s)`);
+      }
+
+      setShowBulkTagModal(false);
+      setBulkTagInput('');
+    } catch (error) {
+      console.error('Error bulk tagging leads:', error);
+      toast.error(error.message || 'Failed to add tags');
+    } finally {
+      setIsBulkTagging(false);
+    }
   };
 
   return (
@@ -128,7 +205,13 @@ export default function Leads() {
                 {selectedLeads.length} leads selected
               </div>
               <button className="px-3 py-1 rounded bg-gray-100 text-gray-700 text-sm hover:bg-gray-200">Message</button>
-              <button className="px-3 py-1 rounded bg-gray-100 text-gray-700 text-sm hover:bg-gray-200">Tag</button>
+              <button 
+                className={`px-3 py-1 rounded bg-gray-100 text-gray-700 text-sm hover:bg-gray-200 ${selectedLeads.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                onClick={selectedLeads.length > 0 ? () => setShowBulkTagModal(true) : undefined}
+                disabled={selectedLeads.length === 0}
+              >
+                Tag
+              </button>
               <button className="px-3 py-1 rounded bg-purple-100 text-purple-700 text-sm hover:bg-purple-200">Enrich</button>
               <button className="px-3 py-1 rounded bg-green-100 text-green-700 text-sm hover:bg-green-200">Convert to Candidate</button>
               <button
@@ -265,6 +348,66 @@ export default function Leads() {
                 className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
               >
                 Download CSV
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Tag Modal */}
+      {showBulkTagModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-lg">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Add Tag to Leads</h3>
+              <button
+                className="text-gray-400 hover:text-gray-600"
+                onClick={() => {
+                  setShowBulkTagModal(false);
+                  setBulkTagInput('');
+                }}
+              >
+                ×
+              </button>
+            </div>
+            <p className="text-gray-600 mb-4">
+              Add a tag to {selectedLeads.length} selected lead(s).
+            </p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Tag Name
+              </label>
+              <input
+                type="text"
+                className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                placeholder="Enter tag name"
+                value={bulkTagInput}
+                onChange={(e) => setBulkTagInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleBulkTag()}
+                autoFocus
+              />
+            </div>
+            <div className="mb-4">
+              <p className="text-sm text-gray-500">
+                Existing tags on selected leads will be preserved. This tag will be added to all selected leads.
+              </p>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+                onClick={() => {
+                  setShowBulkTagModal(false);
+                  setBulkTagInput('');
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                onClick={handleBulkTag}
+                disabled={isBulkTagging || !bulkTagInput.trim()}
+              >
+                {isBulkTagging ? 'Adding Tag...' : 'Add Tag'}
               </button>
             </div>
           </div>

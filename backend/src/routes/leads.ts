@@ -679,8 +679,6 @@ router.delete('/', requireAuth, async (req: Request, res: Response) => {
 
 console.log('Leads routes registered');
 
-export default router;
-
 export const getLeads = async (req: ApiRequest, res: Response) => {
   try {
     if (!req.user) {
@@ -738,6 +736,26 @@ export const updateLead = async (req: ApiRequest, res: Response) => {
     }
 
     const { id } = req.params;
+    
+    // Get the original lead data for comparison
+    const { data: originalLead, error: fetchError } = await supabase
+      .from('leads')
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (fetchError) {
+      res.status(500).json({ error: fetchError.message });
+      return;
+    }
+
+    if (!originalLead) {
+      res.status(404).json({ error: 'Lead not found' });
+      return;
+    }
+
+    // Update the lead
     const { data, error } = await supabase
       .from('leads')
       .update(req.body)
@@ -754,6 +772,55 @@ export const updateLead = async (req: ApiRequest, res: Response) => {
     if (!data) {
       res.status(404).json({ error: 'Lead not found' });
       return;
+    }
+
+    // Emit Zapier events
+    try {
+      await import('../../lib/zapEventEmitter').then(async ({ emitZapEvent, ZAP_EVENT_TYPES, createLeadEventData }) => {
+        // Always emit lead updated event
+        emitZapEvent({
+          userId: req.user!.id,
+          eventType: ZAP_EVENT_TYPES.LEAD_UPDATED,
+          eventData: createLeadEventData(data, { 
+            previous_status: originalLead.status,
+            updated_fields: Object.keys(req.body)
+          }),
+          sourceTable: 'leads',
+          sourceId: data.id
+        });
+
+        // If status changed, emit stage changed event
+        if (req.body.status && req.body.status !== originalLead.status) {
+          emitZapEvent({
+            userId: req.user!.id,
+            eventType: ZAP_EVENT_TYPES.LEAD_STAGE_CHANGED,
+            eventData: createLeadEventData(data, {
+              old_status: originalLead.status,
+              new_status: req.body.status,
+            }),
+            sourceTable: 'leads',
+            sourceId: data.id
+          });
+        }
+
+        // If tags changed, we could add a specific event for that
+        if (req.body.tags && JSON.stringify(req.body.tags) !== JSON.stringify(originalLead.tags)) {
+          emitZapEvent({
+            userId: req.user!.id,
+            eventType: ZAP_EVENT_TYPES.LEAD_UPDATED,
+            eventData: createLeadEventData(data, {
+              previous_tags: originalLead.tags || [],
+              new_tags: req.body.tags || [],
+              action: 'tags_updated'
+            }),
+            sourceTable: 'leads',
+            sourceId: data.id
+          });
+        }
+      });
+    } catch (zapierError) {
+      console.error('Error emitting Zapier events:', zapierError);
+      // Don't fail the request if Zapier events fail
     }
 
     res.json(data);
@@ -819,4 +886,9 @@ export const getLeadById = async (req: ApiRequest, res: Response) => {
     console.error('Error fetching lead:', error);
     res.status(500).json({ error: 'Failed to fetch lead' });
   }
-}; 
+};
+
+// Add PATCH route for lead updates
+router.patch('/:id', requireAuth, updateLead);
+
+export default router; 
