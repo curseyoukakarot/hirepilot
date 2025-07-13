@@ -105,7 +105,7 @@ export async function pollPhantomBusterResults(req: Request, res: Response) {
       res.json({ 
         status: execution.status,
         message: 'Execution already processed',
-        completed_at: execution.completed_at
+        updated_at: execution.updated_at
       });
       return;
     }
@@ -176,7 +176,7 @@ export async function pollPhantomBusterResults(req: Request, res: Response) {
           .update({
             status: 'failed',
             error: processError.message,
-            completed_at: new Date().toISOString()
+            updated_at: new Date().toISOString()
           })
           .eq('phantombuster_execution_id', executionId);
 
@@ -192,7 +192,7 @@ export async function pollPhantomBusterResults(req: Request, res: Response) {
         .update({
           status: 'failed',
           error: pbError || 'PhantomBuster execution failed',
-          completed_at: new Date().toISOString()
+          updated_at: new Date().toISOString()
         })
         .eq('phantombuster_execution_id', executionId);
 

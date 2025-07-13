@@ -162,7 +162,7 @@ export async function handlePhantomBusterWebhook(executionId: string, results: a
       .from('campaign_executions')
       .update({
         status: 'completed',
-        completed_at: new Date().toISOString()
+        updated_at: new Date().toISOString()
       })
       .eq('phantombuster_execution_id', executionId)
       .select();
