@@ -87,7 +87,7 @@ export async function processLead(leadId: string) {
     const { error: updateError } = await supabase
       .from('leads')
       .update({
-        status: 'processed',
+        status: 'Contacted',
         processed_at: new Date().toISOString()
       })
       .eq('id', leadId);
@@ -136,7 +136,7 @@ export async function handlePhantomBusterWebhook(executionId: string, results: a
           title: result.title,
           company: result.company,
           linkedin_url: result.linkedinUrl,
-          status: 'pending',
+          status: 'New',
           created_at: new Date().toISOString()
         })
         .select()
