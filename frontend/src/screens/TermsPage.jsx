@@ -95,6 +95,35 @@ export default function TermsPage() {
                 <h3 className="text-xl font-semibold mb-3">6. Contact</h3>
                 <p className="text-gray-700">Questions about these Terms? Email <a href="mailto:support@thehirepilot.com" className="text-blue-600 hover:underline">support@thehirepilot.com</a>.</p>
               </div>
+
+              {/* Google OAuth Compliance Sections */}
+              <div>
+                <h3 className="text-xl font-semibold mb-3">How We Use Google User Data</h3>
+                <p className="text-gray-700 mb-3">
+                  HirePilot uses the Gmail API to support recruiting workflows initiated by the user. When you connect your Gmail account, we use the access granted to:
+                </p>
+                <ul className="list-disc ml-6 space-y-2 text-gray-700">
+                  <li>Send personalized outreach emails to job candidates on your behalf (<code className="bg-gray-100 px-2 py-1 rounded text-sm">gmail.send</code>)</li>
+                  <li>Detect replies to those emails to stop further outreach and notify you (<code className="bg-gray-100 px-2 py-1 rounded text-sm">gmail.readonly</code>)</li>
+                </ul>
+                <p className="text-gray-700 mt-3">
+                  We only access emails sent via HirePilot. We do not access, store, or analyze unrelated inbox content, attachments, or personal emails.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="text-xl font-semibold mb-3">Data Sharing & Disclosure</h3>
+                <p className="text-gray-700">
+                  HirePilot does not sell, share, or transfer your Gmail data to any third party. Access is granted solely for your use of the platform, and only with your explicit permission via Google's OAuth2 process. Your data is never used for advertising, analytics, or external reporting.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="text-xl font-semibold mb-3">Revoking Access</h3>
+                <p className="text-gray-700">
+                  You may revoke Gmail access at any time from within the HirePilot dashboard or by visiting <a href="https://myaccount.google.com/permissions" target="_blank" className="text-blue-600 hover:underline">https://myaccount.google.com/permissions</a>. Upon disconnection, no further Gmail data is accessed or processed.
+                </p>
+              </div>
             </div>
           </section>
         )}
