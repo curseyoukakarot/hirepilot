@@ -142,4 +142,8 @@ router.get('/debug/campaign-metrics', debugCampaignMetrics);
 // Backfill campaign attribution for messages and email_events
 router.post('/backfill/campaign-attribution', backfillCampaignAttribution);
 
+// Fix today's email attribution
+import fixTodayEmails from './api/fixTodayEmails';
+router.post('/fix/today-emails', fixTodayEmails);
+
 export default router;
