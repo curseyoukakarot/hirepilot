@@ -22,24 +22,33 @@ router.post('/sendgrid/webhook', async (req, res) => {
         event: eventType,
         sg_message_id,
         sg_event_id,
-        user_id, // This should be passed in custom_args when sending
-        campaign_id, // This should be passed in custom_args when sending
-        lead_id, // This should be passed in custom_args when sending
+        custom_args = {}
       } = event;
+
+      // Extract tracking data from custom_args
+      const {
+        user_id,
+        campaign_id,
+        lead_id
+      } = custom_args;
 
       // Store the event in Supabase
       const { error } = await supabase
         .from('email_events')
         .insert({
-          email,
           event_type: eventType,
-          sg_message_id,
-          sg_event_id,
           user_id,
           campaign_id,
           lead_id,
-          timestamp: new Date(timestamp * 1000).toISOString(),
-          raw_event: event
+          message_id: sg_message_id || `sg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          provider: 'sendgrid',
+          event_timestamp: new Date(timestamp * 1000).toISOString(),
+          metadata: {
+            email,
+            sg_message_id,
+            sg_event_id,
+            event_source: 'sendgrid_webhook'
+          }
         });
 
       if (error) {

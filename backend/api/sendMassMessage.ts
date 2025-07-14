@@ -99,6 +99,11 @@ async function sendViaSendGrid(lead: any, content: string, userId: string, templ
       trackingSettings: {
         clickTracking: { enable: true },
         openTracking: { enable: true }
+      },
+      custom_args: {
+        user_id: userId,
+        campaign_id: lead.campaign_id,
+        lead_id: lead.id
       }
     };
 

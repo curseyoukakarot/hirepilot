@@ -25,7 +25,6 @@ import getCampaigns from './api/getCampaigns';
 import deleteCampaign from './api/deleteCampaign';
 import { createClient } from '@supabase/supabase-js';
 import axios from 'axios';
-import sendgridRouter from './api/sendgrid';
 import sendgridWebhookRouter from './api/sendgridWebhook';
 import sendgridValidateRouter from './api/sendgridValidate';
 import sendgridSaveRouter from './api/sendgridSave';
@@ -164,7 +163,6 @@ console.table(listEndpoints(app).filter((r: any) => r.path.startsWith('/api/lead
 app.use('/api/outreach', outreachRouter);
 app.get('/api/getCampaigns', getCampaigns);
 app.delete('/api/deleteCampaign', deleteCampaign);
-app.use('/api/sendgrid', sendgridRouter);
 app.use('/api/sendgrid', sendgridValidateRouter);
 app.use('/api/sendgrid', sendgridSaveRouter);
 app.use('/api', sendgridWebhookRouter);
