@@ -35,6 +35,8 @@ import debugMessageCenter from './api/debugMessageCenter';
 import testAnalytics from './api/testAnalytics';
 import testGmailConnection from './api/testGmailConnection';
 import testLeadStatusUpdate from './api/testLeadStatusUpdate';
+import debugCampaignMetrics from './api/debugCampaignMetrics';
+import backfillCampaignAttribution from './api/backfillCampaignAttribution';
 
 const router = Router();
 
@@ -133,5 +135,11 @@ router.get('/test/gmail-connection', testGmailConnection);
 
 // Test lead status update trigger
 router.get('/test/lead-status-update', testLeadStatusUpdate);
+
+// Debug campaign metrics attribution
+router.get('/debug/campaign-metrics', debugCampaignMetrics);
+
+// Backfill campaign attribution for messages and email_events
+router.post('/backfill/campaign-attribution', backfillCampaignAttribution);
 
 export default router;
