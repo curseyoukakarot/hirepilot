@@ -34,6 +34,7 @@ import testBackfill from './api/testBackfill';
 import debugMessageCenter from './api/debugMessageCenter';
 import testAnalytics from './api/testAnalytics';
 import testGmailConnection from './api/testGmailConnection';
+import testLeadStatusUpdate from './api/testLeadStatusUpdate';
 
 const router = Router();
 
@@ -129,5 +130,8 @@ router.get('/test/analytics', testAnalytics);
 
 // Test Gmail connection for debugging
 router.get('/test/gmail-connection', testGmailConnection);
+
+// Test lead status update trigger
+router.get('/test/lead-status-update', testLeadStatusUpdate);
 
 export default router;
