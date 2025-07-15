@@ -171,12 +171,55 @@ export async function fetchPhantomBusterResults(executionId: string): Promise<an
     // If output is a string, try to parse it as JSON
     if (typeof output === 'string') {
       try {
-        const parsedOutput = JSON.parse(output);
+        // Clean the output by removing any log messages before the JSON
+        let cleanedOutput = output.trim();
+        
+        // Remove common log prefixes that can appear before JSON
+        const logPrefixes = [
+          /^\(node:\d+\) NOTE:.*\n/gm,
+          /^\(node:\d+\) WARNING:.*\n/gm,
+          /^\(node:\d+\) DeprecationWarning:.*\n/gm,
+          /^(WARNING|NOTE|INFO|ERROR):.*\n/gm
+        ];
+        
+        for (const prefix of logPrefixes) {
+          cleanedOutput = cleanedOutput.replace(prefix, '');
+        }
+        
+        // Find the first JSON array or object
+        const jsonStart = Math.min(
+          cleanedOutput.indexOf('[') !== -1 ? cleanedOutput.indexOf('[') : Infinity,
+          cleanedOutput.indexOf('{') !== -1 ? cleanedOutput.indexOf('{') : Infinity
+        );
+        
+        if (jsonStart !== Infinity && jsonStart < cleanedOutput.length) {
+          cleanedOutput = cleanedOutput.substring(jsonStart);
+          console.log(`[fetchPhantomBusterResults] Cleaned output, found JSON starting at position ${jsonStart}`);
+        }
+        
+        const parsedOutput = JSON.parse(cleanedOutput);
         console.log(`[fetchPhantomBusterResults] Successfully parsed JSON string into ${Array.isArray(parsedOutput) ? parsedOutput.length : 'non-array'} results`);
         return parsedOutput || [];
       } catch (error) {
         console.error(`[fetchPhantomBusterResults] Failed to parse output as JSON:`, error);
         console.log(`[fetchPhantomBusterResults] Raw output sample:`, output.substring(0, 200) + '...');
+        
+        // Try to extract just the JSON part more aggressively
+        try {
+          const lines = output.split('\n');
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (line.startsWith('[') || line.startsWith('{')) {
+              const jsonPart = lines.slice(i).join('\n');
+              const parsedOutput = JSON.parse(jsonPart);
+              console.log(`[fetchPhantomBusterResults] Successfully parsed JSON from line ${i}`);
+              return parsedOutput || [];
+            }
+          }
+        } catch (innerError) {
+          console.error(`[fetchPhantomBusterResults] Even aggressive parsing failed:`, innerError);
+        }
+        
         return [];
       }
     }

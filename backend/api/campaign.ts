@@ -62,11 +62,11 @@ export async function triggerLinkedInCampaign(req: Request, res: Response) {
 
     console.log('[triggerLinkedInCampaign] LinkedIn search triggered successfully:', result);
 
-    // Update campaign status to running
+    // Update campaign status to active (running is not a valid status)
     const { error: updateError } = await supabaseDb
       .from('campaigns')
       .update({ 
-        status: 'running',
+        status: 'active',
         // started_at: new Date().toISOString(), // TODO: Add started_at column to campaigns table
         updated_at: new Date().toISOString()
       })
