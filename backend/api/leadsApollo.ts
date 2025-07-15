@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { requireAuth } from '../middleware/authMiddleware';
 import { toApolloGeoString, parseApolloLocation, formatLocation } from '../utils/locationNormalizer';
 import { searchAndEnrichPeople, ApolloSearchParams } from '../utils/apolloApi';
+import { sendApolloSearchNotifications, sendApolloErrorNotifications } from '../services/apolloNotificationService';
 
 const router = express.Router();
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -63,6 +64,22 @@ router.post('/search', requireAuth, async (req, res) => {
     // Search and enrich the leads
     const { leads } = await searchAndEnrichPeople(searchParams);
     
+    // Send notifications if campaignId is provided
+    const campaignId = req.body.campaignId;
+    if (campaignId && leads.length > 0) {
+      const searchCriteria = {
+        jobTitle: jobTitle || undefined,
+        keywords: keywords || undefined,
+        location: location !== 'Any' ? location : undefined
+      };
+      
+      // Send success notifications asynchronously
+      sendApolloSearchNotifications(userId, campaignId, searchCriteria, leads.length)
+        .catch(error => {
+          console.error('[Apollo Search] Error sending notifications:', error);
+        });
+    }
+    
     res.json({ leads });
     return;
   } catch (error: any) {
@@ -71,6 +88,22 @@ router.post('/search', requireAuth, async (req, res) => {
       response: error.response?.data,
       status: error.response?.status
     });
+    
+    // Send error notifications if campaignId is provided
+    const campaignId = req.body.campaignId;
+    if (campaignId) {
+      const searchCriteria = {
+        jobTitle: jobTitle || undefined,
+        keywords: keywords || undefined,
+        location: location !== 'Any' ? location : undefined
+      };
+      
+      // Send error notifications asynchronously
+      sendApolloErrorNotifications(userId, campaignId, error.message, searchCriteria)
+        .catch(notificationError => {
+          console.error('[Apollo Search] Error sending error notifications:', notificationError);
+        });
+    }
     
     res.status(500).json({ 
       error: 'Failed to search leads',

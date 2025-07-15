@@ -13,6 +13,7 @@ interface PhantomResponse {
   id: string;
   status: string;
   message?: string;
+  executionId?: string;
 }
 
 // Decryption function for LinkedIn cookies
@@ -28,15 +29,59 @@ function decrypt(text: string): string {
   return decrypted.toString();
 }
 
-// Schema for validating Zapier payload
+
+
+/**
+ * Fetch results directly from PhantomBuster API
+ */
+export async function fetchPhantomBusterResults(executionId: string): Promise<any[]> {
+  try {
+    const phantomBusterApiKey = process.env.PHANTOMBUSTER_API_KEY;
+    if (!phantomBusterApiKey) {
+      throw new Error('PhantomBuster API key is not set');
+    }
+
+    console.log('[fetchPhantomBusterResults] Fetching results for execution:', executionId);
+
+    const response = await axios.get(`https://api.phantombuster.com/api/v2/agents/fetch-output`, {
+      params: {
+        id: executionId,
+        output: 'latest'
+      },
+      headers: {
+        'X-Phantombuster-Key': phantomBusterApiKey
+      },
+      timeout: 30000
+    });
+
+    const { output } = response.data;
+    
+    console.log('[fetchPhantomBusterResults] Fetched', output?.length || 0, 'results');
+    
+    return output || [];
+  } catch (error: any) {
+    console.error('[fetchPhantomBusterResults] Error:', error);
+    
+    if (error.response) {
+      console.error('[fetchPhantomBusterResults] PhantomBuster API error:', error.response.data);
+      throw new Error(`Failed to fetch results: ${error.response.data?.message || error.response.statusText}`);
+    }
+    
+    throw new Error(error.message || 'Failed to fetch PhantomBuster results');
+  }
+}
+
+// Schema for validating Zapier payload (keeping for backward compatibility)
 const zapierPayloadSchema = z.object({
   phantomId: z.string().min(1),
   sessionCookie: z.string().min(10),
   searchUrl: z.string().url(),
   campaignId: z.string().min(1),
-  userId: z.string().min(1)
+  userId: z.string().min(1),
+  notificationWebhook: z.string().url()
 });
 
+// Original Zapier-based function (keeping for backward compatibility)
 export async function triggerLinkedInSearch({ searchUrl, userId, campaignId }: LinkedInSearchParams): Promise<PhantomResponse> {
   try {
     // Validate environment variables
@@ -49,6 +94,8 @@ export async function triggerLinkedInSearch({ searchUrl, userId, campaignId }: L
     if (!phantomId) {
       throw new Error('PhantomBuster LinkedIn search phantom ID is not set in environment variables.');
     }
+
+    const backendUrl = process.env.BACKEND_URL || 'https://api.thehirepilot.com';
 
     // Get user's LinkedIn cookie from the linkedin_cookies table
     const { data: cookieData, error: cookieError } = await supabaseDb
@@ -74,7 +121,8 @@ export async function triggerLinkedInSearch({ searchUrl, userId, campaignId }: L
       sessionCookie: sessionCookie,
       searchUrl,
       campaignId,
-      userId
+      userId,
+      notificationWebhook: `${backendUrl}/api/phantom/status-update`
     };
 
     // Validate payload before sending

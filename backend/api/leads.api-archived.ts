@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { enrichLead as enrichWithApollo } from '../services/apollo/enrichLead';
 import { analyzeProfile } from '../services/gpt/analyzeProfile';
 import jwtDecode from 'jwt-decode';
+import { sendApolloSearchNotifications } from '../services/apolloNotificationService';
 // import sgMail from '@sendgrid/mail'; // Uncomment if you want email
 
 const router = Router();
@@ -41,6 +42,15 @@ router.post('/import', async (req: Request, res: Response) => {
     await axios.post(slackWebhook, {
       text: `🚀 Imported ${leads.length} leads successfully!`,
     });
+
+    // Send Apollo-specific notifications if source is Apollo
+    const { campaignId, userId, source, searchCriteria } = req.body;
+    if (source === 'apollo' && campaignId && userId && leads.length > 0) {
+      sendApolloSearchNotifications(userId, campaignId, searchCriteria || {}, leads.length)
+        .catch(error => {
+          console.error('[Leads Import] Error sending Apollo notifications:', error);
+        });
+    }
 
     res.status(200).json({ success: true, message: `${leads.length} leads imported` });
   } catch (error) {

@@ -5,6 +5,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { ApolloClient, DefaultApolloClient } from './apolloClient';
 import { EnrichedPerson } from '../types/apollo';
 import { v4 as uuidv4 } from 'uuid';
+import { sendApolloEnrichmentNotifications } from './apolloNotificationService';
 
 const BATCH_SIZE = 10;
 const RATE_LIMIT_MS = 1000;
@@ -357,6 +358,12 @@ export class EnrichmentService {
       if (totalEnriched > 0) {
         await this.updateJobStatus(job.id, 'complete', { progress: 100 });
         await this.updateCampaignStatus(job.campaignId, 'active');
+        
+        // Send enrichment completion notifications
+        sendApolloEnrichmentNotifications(job.userId, job.campaignId, totalEnriched, job.apolloIds.length)
+          .catch(error => {
+            console.error('[EnrichmentService] Error sending completion notifications:', error);
+          });
       } else {
         throw new Error('No leads were enriched');
       }
