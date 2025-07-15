@@ -149,10 +149,8 @@ export async function handlePhantomBusterWebhook(executionId: string, results: a
 
       console.log('[handlePhantomBusterWebhook] Created lead:', lead.id);
 
-      // Process lead asynchronously
-      processLead(lead.id).catch(error => {
-        console.error(`[handlePhantomBusterWebhook] Failed to process lead ${lead.id}:`, error);
-      });
+      // Note: Automatic enrichment removed - users can manually enrich leads later
+      // via POST /api/leads/:id/enrich endpoint
     }
 
     // 3. Update campaign execution status
