@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { supabaseDb as supabase } from '../lib/supabase';
 import { triggerLinkedInSearch } from '../services/phantombuster/triggerLinkedInSearch';
 import { enrichLead as enrichWithApollo } from '../services/apollo/enrichLead';
 import { enrichLead as enrichWithProxycurl } from '../services/proxycurl/enrichLead';
