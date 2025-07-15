@@ -150,15 +150,41 @@ async function fetchPhantomBusterResults(executionId: string): Promise<any[]> {
           cleanedOutput = cleanedOutput.replace(prefix, '');
         }
         
-        // Find the first JSON array or object
-        const jsonStart = Math.min(
-          cleanedOutput.indexOf('[') !== -1 ? cleanedOutput.indexOf('[') : Infinity,
-          cleanedOutput.indexOf('{') !== -1 ? cleanedOutput.indexOf('{') : Infinity
-        );
+        // Find the first JSON array or object more aggressively
+        let jsonStart = -1;
         
-        if (jsonStart !== Infinity && jsonStart < cleanedOutput.length) {
+        // Look for valid JSON start patterns, prioritizing arrays
+        for (let i = 0; i < cleanedOutput.length - 1; i++) {
+          const char = cleanedOutput[i];
+          const nextChar = cleanedOutput[i + 1];
+          
+          // Look for array start: [ followed by { or "
+          if (char === '[' && (nextChar === '{' || nextChar === '"' || nextChar === '\n' || nextChar === ' ')) {
+            jsonStart = i;
+            break;
+          }
+          // Look for object start: { followed by "
+          if (char === '{' && (nextChar === '"' || nextChar === '\n' || nextChar === ' ')) {
+            jsonStart = i;
+            break;
+          }
+        }
+        
+        if (jsonStart !== -1) {
           cleanedOutput = cleanedOutput.substring(jsonStart);
-          console.log(`[fetchPhantomBusterResults] Cleaned output, found JSON starting at position ${jsonStart}`);
+          console.log(`[fetchPhantomBusterResults] Found valid JSON starting at position ${jsonStart}`);
+        } else {
+          console.log(`[fetchPhantomBusterResults] No valid JSON start found, trying fallback`);
+          // Fallback: find any [ or { character
+          const fallbackStart = Math.min(
+            cleanedOutput.indexOf('[') !== -1 ? cleanedOutput.indexOf('[') : Infinity,
+            cleanedOutput.indexOf('{') !== -1 ? cleanedOutput.indexOf('{') : Infinity
+          );
+          
+          if (fallbackStart !== Infinity) {
+            cleanedOutput = cleanedOutput.substring(fallbackStart);
+            console.log(`[fetchPhantomBusterResults] Using fallback JSON start at position ${fallbackStart}`);
+          }
         }
         
         const parsedOutput = JSON.parse(cleanedOutput);
@@ -173,11 +199,34 @@ async function fetchPhantomBusterResults(executionId: string): Promise<any[]> {
           const lines = output.split('\n');
           for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
-            if (line.startsWith('[') || line.startsWith('{')) {
+            
+            // Look for lines that start with valid JSON
+            if (line.startsWith('[{') || line.startsWith('[') && line.includes('{')) {
               const jsonPart = lines.slice(i).join('\n');
-              const parsedOutput = JSON.parse(jsonPart);
-              console.log(`[fetchPhantomBusterResults] Successfully parsed JSON from line ${i}`);
-              return parsedOutput;
+              try {
+                const parsedOutput = JSON.parse(jsonPart);
+                console.log(`[fetchPhantomBusterResults] Successfully parsed JSON from line ${i}`);
+                return parsedOutput;
+              } catch (lineParseError) {
+                console.log(`[fetchPhantomBusterResults] Line ${i} parsing failed, trying next...`);
+                continue;
+              }
+            }
+          }
+          
+          // Last resort: try to find any JSON array in the entire output
+          const arrayMatches = output.match(/\[[\s\S]*?\]/g);
+          if (arrayMatches) {
+            for (const match of arrayMatches) {
+              try {
+                const parsedOutput = JSON.parse(match);
+                if (Array.isArray(parsedOutput) && parsedOutput.length > 0) {
+                  console.log(`[fetchPhantomBusterResults] Found valid array with ${parsedOutput.length} items using regex`);
+                  return parsedOutput;
+                }
+              } catch (regexParseError) {
+                continue;
+              }
             }
           }
         } catch (innerError) {
