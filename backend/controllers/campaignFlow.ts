@@ -124,6 +124,23 @@ export async function handlePhantomBusterWebhook(executionId: string, results: a
     
     for (const result of results) {
       console.log('[handlePhantomBusterWebhook] Processing lead:', result);
+      console.log('[handlePhantomBusterWebhook] Lead field names:', Object.keys(result));
+      
+      // Handle multiple possible field name variations from PhantomBuster
+      const firstName = result.firstName || result.firstname || result.first_name || '';
+      const lastName = result.lastName || result.lastname || result.last_name || '';
+      const fullName = `${firstName} ${lastName}`.trim();
+      const title = result.title || result.jobTitle || result.headline || '';
+      const company = result.company || result.companyName || result.company_name || '';
+      const linkedinUrl = result.linkedinUrl || result.profileUrl || result.linkedin_url || result.profile_url || '';
+      const location = result.location || result.city || result.region || '';
+      const city = result.city || '';
+      const state = result.state || result.region || '';
+      const country = result.country || '';
+      
+      console.log('[handlePhantomBusterWebhook] Mapped fields:', {
+        firstName, lastName, fullName, title, company, linkedinUrl, location
+      });
       
       // Create lead in database
       const { data: lead, error: leadError } = await supabase
@@ -131,23 +148,24 @@ export async function handlePhantomBusterWebhook(executionId: string, results: a
         .insert({
           user_id: execution.user_id,
           campaign_id: execution.campaign_id,
-          first_name: result.firstName,
-          last_name: result.lastName,
-          name: `${result.firstName || ''} ${result.lastName || ''}`.trim(),
-          title: result.title,
-          company: result.company,
-          linkedin_url: result.linkedinUrl,
-          location: result.location || '',
-          city: result.city || '',
-          state: result.state || '',
-          country: result.country || '',
-          campaign_location: result.location || '',
+          first_name: firstName,
+          last_name: lastName,
+          name: fullName,
+          title: title,
+          company: company,
+          linkedin_url: linkedinUrl,
+          location: location,
+          city: city,
+          state: state,
+          country: country,
+          campaign_location: location,
           status: 'New',
           enrichment_source: 'Sales Navigator',
           enrichment_data: JSON.stringify({
-            location: result.location || '',
+            location: location,
             source: 'Sales Navigator',
-            originalUrl: result.linkedinUrl || ''
+            originalUrl: linkedinUrl,
+            rawData: result // Store the raw PhantomBuster data for debugging
           }),
           created_at: new Date().toISOString()
         })
