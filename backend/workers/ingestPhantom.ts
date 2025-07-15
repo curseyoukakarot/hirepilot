@@ -43,7 +43,7 @@ async function main() {
       first_name: r.firstName,
       last_name: r.lastName,
       headline: r.headline,
-      linkedin_url: r.profileUrl,
+      linkedin_url: r.linkedinUrl || r.profileUrl, // Prioritize linkedinUrl over profileUrl
       company: r.companyName,
       enriched: false  // explicitly set to false
     }));
