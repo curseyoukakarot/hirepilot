@@ -61,6 +61,24 @@ export async function triggerLinkedInCampaign(req: Request, res: Response) {
 
     console.log('[triggerLinkedInCampaign] LinkedIn search triggered successfully:', result);
 
+    // Update campaign status to running
+    const { error: updateError } = await supabaseDb
+      .from('campaigns')
+      .update({ 
+        status: 'running',
+        started_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', campaignId)
+      .eq('user_id', userId);
+
+    if (updateError) {
+      console.error('[triggerLinkedInCampaign] Failed to update campaign status:', updateError);
+      // Don't fail the request since PhantomBuster was already triggered
+    } else {
+      console.log('[triggerLinkedInCampaign] Campaign status updated to running');
+    }
+
     res.json({
       success: true,
       message: 'LinkedIn search started successfully',
@@ -69,6 +87,29 @@ export async function triggerLinkedInCampaign(req: Request, res: Response) {
     });
   } catch (error: any) {
     console.error('[triggerLinkedInCampaign] Error:', error);
+    
+    // Update campaign status to failed
+    const { campaignId } = req.body;
+    const userId = req.user?.id;
+    
+    if (campaignId && userId) {
+      const { error: updateError } = await supabaseDb
+        .from('campaigns')
+        .update({ 
+          status: 'failed',
+          error: error.message || 'Failed to start LinkedIn search',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', campaignId)
+        .eq('user_id', userId);
+      
+      if (updateError) {
+        console.error('[triggerLinkedInCampaign] Failed to update campaign status to failed:', updateError);
+      } else {
+        console.log('[triggerLinkedInCampaign] Campaign status updated to failed');
+      }
+    }
+    
     res.status(500).json({ 
       error: error.message || 'Failed to start LinkedIn search',
       details: error.stack

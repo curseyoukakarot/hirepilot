@@ -175,6 +175,25 @@ export async function handlePhantomBusterWebhook(executionId: string, results: a
       console.warn('[handlePhantomBusterWebhook] No rows updated - execution ID may not exist:', executionId);
     }
 
+    // 4. Update campaign status to completed
+    console.log('[handlePhantomBusterWebhook] Updating campaign status to completed for campaign:', execution.campaign_id);
+    
+    const { error: campaignUpdateError } = await supabase
+      .from('campaigns')
+      .update({
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', execution.campaign_id);
+
+    if (campaignUpdateError) {
+      console.error('[handlePhantomBusterWebhook] Failed to update campaign status:', campaignUpdateError);
+      // Don't fail the request since leads were already processed
+    } else {
+      console.log('[handlePhantomBusterWebhook] Campaign status updated to completed');
+    }
+
     return {
       success: true,
       message: 'Webhook processed successfully'
