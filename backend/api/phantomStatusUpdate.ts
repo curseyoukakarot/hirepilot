@@ -42,28 +42,38 @@ router.post('/status-update', async (req: Request, res: Response) => {
       console.error('[PhantomBuster Status] Failed to update execution status:', updateError);
     }
 
-    // Get user and campaign details for notifications
+    // Get execution details first
     const { data: execution, error: executionError } = await supabaseDb
       .from('campaign_executions')
-      .select(`
-        *,
-        campaigns (
-          id,
-          title,
-          user_id,
-          users (
-            id,
-            email,
-            first_name,
-            last_name
-          )
-        )
-      `)
+      .select('*')
       .eq('phantombuster_execution_id', executionId)
       .single();
 
-    const user = execution?.campaigns?.users;
-    const campaign = execution?.campaigns;
+    if (executionError || !execution) {
+      console.error('[PhantomBuster Status] Execution not found:', executionId);
+      return;
+    }
+
+    // Get user and campaign details separately for notifications
+    const { data: user, error: userError } = await supabaseDb
+      .from('users')
+      .select('id, email, first_name, last_name')
+      .eq('id', execution.user_id)
+      .single();
+
+    const { data: campaign, error: campaignError } = await supabaseDb
+      .from('campaigns')
+      .select('id, title, description')
+      .eq('id', execution.campaign_id)
+      .single();
+
+    if (userError || !user) {
+      console.error('[PhantomBuster Status] User not found:', execution.user_id);
+    }
+
+    if (campaignError || !campaign) {
+      console.error('[PhantomBuster Status] Campaign not found:', execution.campaign_id);
+    }
 
     // If the execution completed successfully, fetch the results
     if (status === 'success') {

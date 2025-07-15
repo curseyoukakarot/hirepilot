@@ -23,23 +23,10 @@ router.get('/poll/:executionId', async (req: Request, res: Response) => {
 
     console.log('[PhantomBuster Poll] Manually polling for execution:', executionId);
 
-    // Get execution details from database with user and campaign info
+    // Get execution details from database
     const { data: execution, error: executionError } = await supabaseDb
       .from('campaign_executions')
-      .select(`
-        *,
-        campaigns (
-          id,
-          title,
-          user_id,
-          users (
-            id,
-            email,
-            first_name,
-            last_name
-          )
-        )
-      `)
+      .select('*')
       .eq('phantombuster_execution_id', executionId)
       .single();
 
@@ -48,8 +35,26 @@ router.get('/poll/:executionId', async (req: Request, res: Response) => {
       return;
     }
 
-    const user = execution?.campaigns?.users;
-    const campaign = execution?.campaigns;
+    // Get user and campaign details separately for notifications
+    const { data: user, error: userError } = await supabaseDb
+      .from('users')
+      .select('id, email, first_name, last_name')
+      .eq('id', execution.user_id)
+      .single();
+
+    const { data: campaign, error: campaignError } = await supabaseDb
+      .from('campaigns')
+      .select('id, title, description')
+      .eq('id', execution.campaign_id)
+      .single();
+
+    if (userError || !user) {
+      console.error('[PhantomBuster Poll] User not found:', execution.user_id);
+    }
+
+    if (campaignError || !campaign) {
+      console.error('[PhantomBuster Poll] Campaign not found:', execution.campaign_id);
+    }
 
     // If already completed, return cached status
     if (execution.status === 'completed' || execution.status === 'failed') {

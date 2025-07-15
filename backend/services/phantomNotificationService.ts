@@ -3,6 +3,12 @@ import { notifySlack } from '../lib/slack';
 
 export async function sendSuccessNotifications(user: any, campaign: any, leadCount: number) {
   try {
+    console.log('[PhantomBuster Notifications] sendSuccessNotifications called with:', {
+      user: user?.email,
+      campaign: campaign?.title,
+      leadCount
+    });
+    
     const userEmail = user.email;
     const userName = user.first_name || 'there';
     const campaignTitle = campaign.title || 'Your campaign';

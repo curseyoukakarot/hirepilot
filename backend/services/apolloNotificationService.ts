@@ -13,6 +13,13 @@ export async function sendApolloSearchNotifications(
   leadCount: number
 ) {
   try {
+    console.log('[Apollo Notifications] sendApolloSearchNotifications called with:', {
+      userId,
+      campaignId,
+      searchCriteria,
+      leadCount
+    });
+    
     // Get user and campaign details
     const { data: user, error: userError } = await supabaseDb
       .from('users')

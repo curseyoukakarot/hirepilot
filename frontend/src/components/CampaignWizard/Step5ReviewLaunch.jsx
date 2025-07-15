@@ -108,57 +108,57 @@ export default function Step5ReviewLaunch({ onBack, onEdit }) {
         toast.success('Sales Navigator search started! Leads will be imported automatically.');
       } else {
         // For Apollo/CSV campaigns, use the existing lead import logic
-        const leadsToInsert = selectedLeads.map(lead => {
-          const { id, emailStatus, firstName, lastName, isGdprLocked, linkedinUrl, status, ...rest } = lead;
-          const obj = {
-            ...rest,
-            user_id: session.user.id,
-            first_name: lead.first_name || lead.firstName || '',
-            last_name: lead.last_name || lead.lastName || '',
-            name: ((lead.first_name || lead.firstName || '') + ' ' + (lead.last_name || lead.lastName || '')).trim(),
-            email_status: emailStatus,
-            is_gdpr_locked: isGdprLocked,
-            linkedin_url: linkedinUrl,
-            campaign_id: campaign.id,
-            enrichment_data: {
-              location: [lead.city, lead.state, lead.country].filter(Boolean).join(', ') || campaign.location || 'Unknown',
-              source: 'Apollo'
-            },
-            enrichment_source: 'Apollo',
-            city: lead.city || campaign.location || 'Unknown',
-            state: lead.state || '',
-            country: lead.country || '',
-            campaign_location: campaign.location || 'Unknown',
-            location: [lead.city, lead.state, lead.country].filter(Boolean).join(', ') || campaign.location || 'Unknown'
-          };
-          return obj;
-        });
-
-        console.log('[Launch] sending leads to backend import endpoint', { leads: leadsToInsert.length });
-
-        const importRes = await fetch(`${API_BASE_URL}/leads/import`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`
+      const leadsToInsert = selectedLeads.map(lead => {
+        const { id, emailStatus, firstName, lastName, isGdprLocked, linkedinUrl, status, ...rest } = lead;
+        const obj = {
+          ...rest,
+          user_id: session.user.id,
+          first_name: lead.first_name || lead.firstName || '',
+          last_name: lead.last_name || lead.lastName || '',
+          name: ((lead.first_name || lead.firstName || '') + ' ' + (lead.last_name || lead.lastName || '')).trim(),
+          email_status: emailStatus,
+          is_gdpr_locked: isGdprLocked,
+          linkedin_url: linkedinUrl,
+          campaign_id: campaign.id,
+          enrichment_data: {
+            location: [lead.city, lead.state, lead.country].filter(Boolean).join(', ') || campaign.location || 'Unknown',
+            source: 'Apollo'
           },
-          credentials: 'include',
-          body: JSON.stringify({ campaignId: campaign.id, leads: leadsToInsert })
-        });
+          enrichment_source: 'Apollo',
+          city: lead.city || campaign.location || 'Unknown',
+          state: lead.state || '',
+          country: lead.country || '',
+          campaign_location: campaign.location || 'Unknown',
+          location: [lead.city, lead.state, lead.country].filter(Boolean).join(', ') || campaign.location || 'Unknown'
+        };
+        return obj;
+      });
 
-        if (!importRes.ok) {
-          const { error } = await importRes.json().catch(() => ({}));
-          throw new Error(error || 'Failed to import leads');
-        }
+      console.log('[Launch] sending leads to backend import endpoint', { leads: leadsToInsert.length });
 
-        // Update campaign status
-        await supabase
-          .from('campaigns')
-          .update({
-            status: 'active',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', campaign.id);
+      const importRes = await fetch(`${API_BASE_URL}/leads/import`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        credentials: 'include',
+        body: JSON.stringify({ campaignId: campaign.id, leads: leadsToInsert })
+      });
+
+      if (!importRes.ok) {
+        const { error } = await importRes.json().catch(() => ({}));
+        throw new Error(error || 'Failed to import leads');
+      }
+
+      // Update campaign status
+      await supabase
+        .from('campaigns')
+        .update({
+          status: 'active',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', campaign.id);
 
         toast.success('Campaign launched successfully!');
       }
@@ -261,59 +261,59 @@ export default function Step5ReviewLaunch({ onBack, onEdit }) {
         </div>
       ) : (
         /* Traditional Selected Leads Table (Apollo/CSV) */
-        <div className="bg-white shadow sm:rounded-lg">
-          <div className="px-4 py-5 sm:p-6">
-            <h3 className="text-lg font-medium leading-6 text-gray-900 mb-4">
-              Selected Leads
-            </h3>
-            <div className="mt-4 flow-root">
-              <div className="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
-                <div className="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
-                  <table className="min-w-full divide-y divide-gray-300">
-                    <thead>
-                      <tr>
-                        <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Name</th>
-                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Title</th>
-                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Company</th>
-                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Location</th>
-                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Email Status</th>
+      <div className="bg-white shadow sm:rounded-lg">
+        <div className="px-4 py-5 sm:p-6">
+          <h3 className="text-lg font-medium leading-6 text-gray-900 mb-4">
+            Selected Leads
+          </h3>
+          <div className="mt-4 flow-root">
+            <div className="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+              <div className="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
+                <table className="min-w-full divide-y divide-gray-300">
+                  <thead>
+                    <tr>
+                      <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Name</th>
+                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Title</th>
+                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Company</th>
+                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Location</th>
+                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Email Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 bg-white">
+                    {selectedLeads.map((lead) => (
+                      <tr key={lead.id}>
+                        <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900">
+                          {lead.firstName} {lead.lastName}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                          {lead.title}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                          {lead.company}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                          {lead.location}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                          {lead.isGdprLocked ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                              GDPR Protected
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                              Ready
+                            </span>
+                          )}
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200 bg-white">
-                      {selectedLeads.map((lead) => (
-                        <tr key={lead.id}>
-                          <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900">
-                            {lead.firstName} {lead.lastName}
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                            {lead.title}
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                            {lead.company}
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                            {lead.location}
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                            {lead.isGdprLocked ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-                                GDPR Protected
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                                Ready
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
         </div>
+      </div>
       )}
 
       {/* Action Buttons */}
