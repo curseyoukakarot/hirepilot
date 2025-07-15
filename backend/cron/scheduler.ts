@@ -1,4 +1,5 @@
 import { resetStuckPhantoms } from './resetStuckPhantoms';
+import { monitorCampaignExecutions } from './monitorCampaignExecutions';
 import { supabaseDb } from '../lib/supabase';
 
 // Import queue/launch helpers – gracefully handle missing helper to keep server alive
@@ -165,6 +166,7 @@ export function startCronJobs() {
 
   async function runAndReschedule() {
     await resetStuckPhantoms();
+    await monitorCampaignExecutions(); // Monitor campaign executions for PhantomBuster completion
     await generateDailyPhantomJobs();
     await processPhantomJobQueue();
     await processScheduledMessages();
