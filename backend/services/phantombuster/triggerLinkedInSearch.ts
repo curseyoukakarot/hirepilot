@@ -154,10 +154,9 @@ export async function fetchPhantomBusterResults(executionId: string): Promise<an
 
     console.log('[fetchPhantomBusterResults] Fetching results for execution:', executionId);
 
-    const response = await axios.get(`https://api.phantombuster.com/api/v2/agents/fetch-output`, {
+    const response = await axios.get(`https://api.phantombuster.com/api/v2/containers/fetch-output`, {
       params: {
-        id: executionId,
-        output: 'latest'
+        id: executionId
       },
       headers: {
         'X-Phantombuster-Key': phantomBusterApiKey
