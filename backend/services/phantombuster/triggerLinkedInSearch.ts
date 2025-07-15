@@ -250,14 +250,45 @@ export async function fetchPhantomBusterResults(executionId: string): Promise<an
             }
           }
           
-          // Last resort: try to find any JSON array in the entire output
-          const arrayMatches = output.match(/\[[\s\S]*?\]/g);
-          if (arrayMatches) {
-            for (const match of arrayMatches) {
+          // Last resort: try to find JSON arrays with lead-like data
+          console.log(`[fetchPhantomBusterResults] Trying regex extraction on full output...`);
+          
+          // Look for arrays that contain objects with typical lead fields
+          const leadArrayRegex = /\[[\s\S]*?(?:firstName|lastName|name|title|company|linkedin|profile)[\s\S]*?\]/gi;
+          const leadMatches = output.match(leadArrayRegex);
+          
+          if (leadMatches) {
+            console.log(`[fetchPhantomBusterResults] Found ${leadMatches.length} potential lead arrays`);
+            for (let i = 0; i < leadMatches.length; i++) {
+              const match = leadMatches[i];
               try {
                 const parsedOutput = JSON.parse(match);
                 if (Array.isArray(parsedOutput) && parsedOutput.length > 0) {
-                  console.log(`[fetchPhantomBusterResults] Found valid array with ${parsedOutput.length} items using regex`);
+                  // Check if the first object has lead-like fields
+                  const firstItem = parsedOutput[0];
+                  if (firstItem && typeof firstItem === 'object' && 
+                      (firstItem.firstName || firstItem.name || firstItem.title || firstItem.company || firstItem.linkedinUrl || firstItem.profileUrl)) {
+                    console.log(`[fetchPhantomBusterResults] Found valid lead array ${i+1} with ${parsedOutput.length} items`);
+                    return parsedOutput || [];
+                  }
+                }
+              } catch (regexParseError) {
+                console.log(`[fetchPhantomBusterResults] Lead array ${i+1} parsing failed:`, regexParseError.message);
+                continue;
+              }
+            }
+          }
+          
+          // Fallback: try any JSON array (previous behavior)
+          const anyArrayMatches = output.match(/\[[\s\S]*?\]/g);
+          if (anyArrayMatches) {
+            console.log(`[fetchPhantomBusterResults] Trying ${anyArrayMatches.length} generic arrays as fallback`);
+            for (let i = 0; i < anyArrayMatches.length; i++) {
+              const match = anyArrayMatches[i];
+              try {
+                const parsedOutput = JSON.parse(match);
+                if (Array.isArray(parsedOutput) && parsedOutput.length > 0) {
+                  console.log(`[fetchPhantomBusterResults] Found generic array ${i+1} with ${parsedOutput.length} items`);
                   return parsedOutput || [];
                 }
               } catch (regexParseError) {

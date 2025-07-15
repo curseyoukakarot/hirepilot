@@ -249,7 +249,7 @@ export async function handlePhantomBusterWebhook(executionId: string, results: a
       .from('campaigns')
       .update({
         status: 'completed',
-        completed_at: new Date().toISOString(),
+        // completed_at: new Date().toISOString(), // TODO: Add completed_at column to campaigns table
         updated_at: new Date().toISOString()
       })
       .eq('id', execution.campaign_id);
