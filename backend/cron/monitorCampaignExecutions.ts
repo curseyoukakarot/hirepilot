@@ -11,11 +11,11 @@ export async function monitorCampaignExecutions() {
   try {
     console.log('[monitorCampaignExecutions] Checking for running campaign executions...');
     
-    // Find all campaign executions that are still running
+    // Find all campaign executions that are still running (but not already being processed)
     const { data: runningExecutions, error } = await supabase
       .from('campaign_executions')
       .select('*')
-      .eq('status', 'running')
+      .eq('status', 'running') // Only get 'running' status, skip 'processing'
       .order('created_at', { ascending: true });
 
     if (error) {

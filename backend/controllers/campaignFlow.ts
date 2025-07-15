@@ -119,6 +119,21 @@ export async function handlePhantomBusterWebhook(executionId: string, results: a
       throw new Error('Campaign execution not found');
     }
 
+    // CRITICAL: Immediately mark as processing to prevent duplicate processing by monitor
+    console.log('[handlePhantomBusterWebhook] Marking execution as processing to prevent duplicates:', executionId);
+    const { error: statusError } = await supabase
+      .from('campaign_executions')
+      .update({
+        status: 'processing',
+        updated_at: new Date().toISOString()
+      })
+      .eq('phantombuster_execution_id', executionId);
+
+    if (statusError) {
+      console.error('[handlePhantomBusterWebhook] Failed to update status to processing:', statusError);
+      // Continue anyway, but log the error
+    }
+
     // 2. Process each lead from PhantomBuster results
     console.log('[handlePhantomBusterWebhook] Processing', results.length, 'results for execution:', execution);
     
