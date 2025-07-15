@@ -128,6 +128,12 @@ async function fetchPhantomBusterResults(executionId: string): Promise<any[]> {
     return output || [];
   }
   
+  // If there's substantial output data (>1000 chars), likely has results even if status is undefined
+  if (output && (typeof output === 'string' ? output.length > 1000 : output.length > 0)) {
+    console.log(`[fetchPhantomBusterResults] Found substantial output data despite status: ${status}, processing results`);
+    return output;
+  }
+  
   // If it's still running, return empty array (we'll check again later)
   if (status === 'running') {
     return [];
