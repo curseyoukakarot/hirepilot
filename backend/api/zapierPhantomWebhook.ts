@@ -1,5 +1,7 @@
 import express, { Request, Response } from 'express';
 import { handlePhantomBusterWebhook } from '../controllers/campaignFlow';
+import { sendSuccessNotifications, sendNoResultsNotifications, sendErrorNotifications } from '../services/phantomNotificationService';
+import { supabaseDb } from '../lib/supabase';
 
 const router = express.Router();
 
@@ -29,6 +31,42 @@ router.post('/webhook', async (req: Request, res: Response) => {
     const result = await handlePhantomBusterWebhook(executionId, results);
     
     console.log('[Zapier Phantom Webhook] Successfully processed results');
+
+    // Get user and campaign details for notifications
+    const { data: execution, error: executionError } = await supabaseDb
+      .from('campaign_executions')
+      .select('user_id, campaign_id')
+      .eq('phantombuster_execution_id', executionId)
+      .single();
+
+    if (execution && !executionError) {
+      const { data: user, error: userError } = await supabaseDb
+        .from('users')
+        .select('email, firstName, lastName')
+        .eq('id', execution.user_id)
+        .single();
+
+      const { data: campaign, error: campaignError } = await supabaseDb
+        .from('campaigns')
+        .select('title, description')
+        .eq('id', execution.campaign_id)
+        .single();
+
+      // Send notifications based on results
+      if (user && campaign && !userError && !campaignError) {
+        if (results.length > 0) {
+          console.log(`[Zapier Phantom Webhook] Sending success notifications for ${results.length} leads`);
+          await sendSuccessNotifications(user, campaign, results.length);
+        } else {
+          console.log('[Zapier Phantom Webhook] Sending no results notification');
+          await sendNoResultsNotifications(user, campaign);
+        }
+      } else {
+        console.warn('[Zapier Phantom Webhook] Could not send notifications - user or campaign not found');
+      }
+    } else {
+      console.warn('[Zapier Phantom Webhook] Could not send notifications - execution not found');
+    }
     
     res.json({
       success: true,
@@ -38,6 +76,40 @@ router.post('/webhook', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('[Zapier Phantom Webhook] Error processing webhook:', error);
+    
+    // Try to send error notifications
+    try {
+      const { executionId } = req.body;
+      if (executionId) {
+        const { data: execution, error: executionError } = await supabaseDb
+          .from('campaign_executions')
+          .select('user_id, campaign_id')
+          .eq('phantombuster_execution_id', executionId)
+          .single();
+
+        if (execution && !executionError) {
+          const { data: user, error: userError } = await supabaseDb
+            .from('users')
+            .select('email, firstName, lastName')
+            .eq('id', execution.user_id)
+            .single();
+
+          const { data: campaign, error: campaignError } = await supabaseDb
+            .from('campaigns')
+            .select('title, description')
+            .eq('id', execution.campaign_id)
+            .single();
+
+          if (user && campaign && !userError && !campaignError) {
+            console.log('[Zapier Phantom Webhook] Sending error notifications');
+            await sendErrorNotifications(user, campaign, error.message);
+          }
+        }
+      }
+    } catch (notificationError) {
+      console.error('[Zapier Phantom Webhook] Failed to send error notifications:', notificationError);
+    }
+    
     res.status(500).json({ 
       error: error.message || 'Failed to process Zapier PhantomBuster webhook',
       details: error.stack

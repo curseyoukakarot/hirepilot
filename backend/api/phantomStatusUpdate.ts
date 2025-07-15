@@ -57,7 +57,7 @@ router.post('/status-update', async (req: Request, res: Response) => {
     // Get user and campaign details separately for notifications
     const { data: user, error: userError } = await supabaseDb
       .from('users')
-      .select('id, email, first_name, last_name')
+      .select('id, email, firstName, lastName')
       .eq('id', execution.user_id)
       .single();
 

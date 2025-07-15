@@ -10,7 +10,7 @@ export async function sendSuccessNotifications(user: any, campaign: any, leadCou
     });
     
     const userEmail = user.email;
-    const userName = user.first_name || 'there';
+    const userName = user.firstName || 'there';
     const campaignTitle = campaign.title || 'Your campaign';
 
     // Create email content
@@ -62,7 +62,7 @@ export async function sendSuccessNotifications(user: any, campaign: any, leadCou
 export async function sendNoResultsNotifications(user: any, campaign: any) {
   try {
     const userEmail = user.email;
-    const userName = user.first_name || 'there';
+    const userName = user.firstName || 'there';
     const campaignTitle = campaign.title || 'Your campaign';
 
     // Create email content
@@ -122,7 +122,7 @@ export async function sendNoResultsNotifications(user: any, campaign: any) {
 export async function sendErrorNotifications(user: any, campaign: any, errorMessage: string) {
   try {
     const userEmail = user.email;
-    const userName = user.first_name || 'there';
+    const userName = user.firstName || 'there';
     const campaignTitle = campaign.title || 'Your campaign';
 
     // Create email content
