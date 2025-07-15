@@ -168,6 +168,19 @@ export async function fetchPhantomBusterResults(executionId: string): Promise<an
     
     console.log('[fetchPhantomBusterResults] Fetched', output?.length || 0, 'results');
     
+    // If output is a string, try to parse it as JSON
+    if (typeof output === 'string') {
+      try {
+        const parsedOutput = JSON.parse(output);
+        console.log(`[fetchPhantomBusterResults] Successfully parsed JSON string into ${Array.isArray(parsedOutput) ? parsedOutput.length : 'non-array'} results`);
+        return parsedOutput || [];
+      } catch (error) {
+        console.error(`[fetchPhantomBusterResults] Failed to parse output as JSON:`, error);
+        console.log(`[fetchPhantomBusterResults] Raw output sample:`, output.substring(0, 200) + '...');
+        return [];
+      }
+    }
+    
     return output || [];
   } catch (error: any) {
     console.error('[fetchPhantomBusterResults] Error:', error);

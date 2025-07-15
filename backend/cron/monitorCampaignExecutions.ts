@@ -131,6 +131,20 @@ async function fetchPhantomBusterResults(executionId: string): Promise<any[]> {
   // If there's substantial output data (>1000 chars), likely has results even if status is undefined
   if (output && (typeof output === 'string' ? output.length > 1000 : output.length > 0)) {
     console.log(`[fetchPhantomBusterResults] Found substantial output data despite status: ${status}, processing results`);
+    
+    // If output is a string, try to parse it as JSON
+    if (typeof output === 'string') {
+      try {
+        const parsedOutput = JSON.parse(output);
+        console.log(`[fetchPhantomBusterResults] Successfully parsed JSON string into ${Array.isArray(parsedOutput) ? parsedOutput.length : 'non-array'} results`);
+        return parsedOutput;
+      } catch (error) {
+        console.error(`[fetchPhantomBusterResults] Failed to parse output as JSON:`, error);
+        console.log(`[fetchPhantomBusterResults] Raw output sample:`, output.substring(0, 200) + '...');
+        return [];
+      }
+    }
+    
     return output;
   }
   

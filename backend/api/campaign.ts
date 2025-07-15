@@ -67,7 +67,7 @@ export async function triggerLinkedInCampaign(req: Request, res: Response) {
       .from('campaigns')
       .update({ 
         status: 'running',
-        started_at: new Date().toISOString(),
+        // started_at: new Date().toISOString(), // TODO: Add started_at column to campaigns table
         updated_at: new Date().toISOString()
       })
       .eq('id', campaignId)

@@ -157,6 +157,12 @@ export async function handlePhantomBusterWebhook(executionId: string, results: a
         firstName, lastName, fullName, title, company, linkedinUrl, location
       });
       
+      // Skip leads with no meaningful data to prevent duplicates
+      if (!firstName && !lastName && !title && !company && !linkedinUrl) {
+        console.log('[handlePhantomBusterWebhook] Skipping lead with no meaningful data');
+        continue;
+      }
+
       // Create lead in database
       const { data: lead, error: leadError } = await supabase
         .from('leads')
@@ -168,7 +174,7 @@ export async function handlePhantomBusterWebhook(executionId: string, results: a
           name: fullName,
           title: title,
           company: company,
-          linkedin_url: linkedinUrl,
+          linkedin_url: linkedinUrl || null, // Use null instead of empty string to avoid constraint issues
           location: location,
           city: city,
           state: state,
@@ -187,8 +193,21 @@ export async function handlePhantomBusterWebhook(executionId: string, results: a
         .select()
         .single();
 
-      if (leadError || !lead) {
+      if (leadError) {
         console.error('[handlePhantomBusterWebhook] Failed to create lead:', leadError);
+        
+        // If it's a duplicate constraint error, log and continue instead of failing
+        if (leadError.code === '23505') {
+          console.log('[handlePhantomBusterWebhook] Skipping duplicate lead:', { firstName, lastName, linkedinUrl });
+          continue;
+        }
+        
+        // For other errors, continue processing other leads
+        continue;
+      }
+
+      if (!lead) {
+        console.error('[handlePhantomBusterWebhook] Lead creation returned no data');
         continue;
       }
 
