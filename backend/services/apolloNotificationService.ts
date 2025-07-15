@@ -23,7 +23,7 @@ export async function sendApolloSearchNotifications(
     // Get user and campaign details
     const { data: user, error: userError } = await supabaseDb
       .from('users')
-      .select('email, first_name, last_name')
+      .select('email, firstName, lastName')
       .eq('id', userId)
       .single();
 
@@ -44,7 +44,7 @@ export async function sendApolloSearchNotifications(
     }
 
     const userEmail = user.email;
-    const userName = user.first_name || 'there';
+    const userName = user.firstName || 'there';
     const campaignTitle = campaign.title || 'Your Apollo campaign';
 
     // Build search criteria summary
@@ -133,7 +133,7 @@ export async function sendApolloEnrichmentNotifications(
     // Get user and campaign details
     const { data: user, error: userError } = await supabaseDb
       .from('users')
-      .select('email, first_name, last_name')
+      .select('email, firstName, lastName')
       .eq('id', userId)
       .single();
 
@@ -154,7 +154,7 @@ export async function sendApolloEnrichmentNotifications(
     }
 
     const userEmail = user.email;
-    const userName = user.first_name || 'there';
+    const userName = user.firstName || 'there';
     const campaignTitle = campaign.title || 'Your campaign';
 
     // Create email content
@@ -231,7 +231,7 @@ export async function sendApolloErrorNotifications(
     // Get user and campaign details
     const { data: user, error: userError } = await supabaseDb
       .from('users')
-      .select('email, first_name, last_name')
+      .select('email, firstName, lastName')
       .eq('id', userId)
       .single();
 
@@ -252,7 +252,7 @@ export async function sendApolloErrorNotifications(
     }
 
     const userEmail = user.email;
-    const userName = user.first_name || 'there';
+    const userName = user.firstName || 'there';
     const campaignTitle = campaign.title || 'Your Apollo campaign';
 
     // Build search criteria summary if provided
