@@ -230,7 +230,8 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
       console.log('Making search request...', {
         jobTitle: jobTitleInput,
         keywords: keywordsInput,
-        location: locationInput
+        location: locationInput,
+        campaignId: wizard.campaign?.id
       });
 
       const response = await fetch(`${BACKEND}/api/leads/apollo/search`, {
@@ -242,7 +243,8 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
         body: JSON.stringify({
           jobTitle: jobTitleInput,
           keywords: keywordsInput,
-          location: locationInput
+          location: locationInput,
+          campaignId: wizard.campaign?.id
         })
       });
 

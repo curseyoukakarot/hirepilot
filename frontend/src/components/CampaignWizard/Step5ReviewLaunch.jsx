@@ -143,7 +143,16 @@ export default function Step5ReviewLaunch({ onBack, onEdit }) {
           'Authorization': `Bearer ${session.access_token}`
         },
         credentials: 'include',
-        body: JSON.stringify({ campaignId: campaign.id, leads: leadsToInsert })
+        body: JSON.stringify({ 
+          campaignId: campaign.id, 
+          leads: leadsToInsert,
+          source: 'apollo',
+          searchCriteria: {
+            jobTitle: campaign.title,
+            keywords: campaign.keywords,
+            location: campaign.location
+          }
+        })
       });
 
       if (!importRes.ok) {
