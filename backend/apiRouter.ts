@@ -12,7 +12,7 @@ import deleteTemplate from "./api/deleteTemplate";
 import pipelineStages from "./api/pipelineStages";
 import messageRouter from './routers/messageRouter';
 import { launchCampaign } from './api/campaigns/launch';
-import { triggerLinkedInCampaign, pollPhantomBusterResults, debugPhantomBusterWebhook, debugSearchLeads } from './api/campaign';
+import { triggerLinkedInCampaign, pollPhantomBusterResults, debugPhantomBusterWebhook, debugSearchLeads, testDirectPhantomBuster } from './api/campaign';
 import campaignPerformance from './api/campaignPerformance';
 import userPerformance from './api/userPerformance';
 import analyticsTimeSeries from './api/analyticsTimeSeries';
@@ -74,6 +74,8 @@ router.post('/campaigns/:id/launch', launchCampaign);
 
 // LinkedIn trigger endpoint for Sales Navigator campaigns
 router.post('/campaigns/linkedin/trigger', requireAuth, triggerLinkedInCampaign);
+// Test endpoint for direct PhantomBuster integration (remove after testing)
+router.post('/campaigns/linkedin/test-direct', requireAuth, testDirectPhantomBuster);
 router.get('/campaigns/executions/:executionId/poll', requireAuth, pollPhantomBusterResults);
 router.post('/campaigns/executions/:executionId/debug-webhook', requireAuth, debugPhantomBusterWebhook);
 router.get('/campaigns/debug/search-leads', requireAuth, debugSearchLeads);

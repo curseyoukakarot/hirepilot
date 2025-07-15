@@ -12,8 +12,6 @@ interface LinkedInSearchParams {
 interface PhantomResponse {
   id: string;
   status: string;
-  message?: string;
-  executionId?: string;
 }
 
 // Decryption function for LinkedIn cookies
@@ -29,7 +27,120 @@ function decrypt(text: string): string {
   return decrypted.toString();
 }
 
+/**
+ * NEW: Direct PhantomBuster trigger (bypasses Zapier for lead processing)
+ */
+export async function triggerLinkedInSearchDirect({ searchUrl, userId, campaignId }: LinkedInSearchParams): Promise<PhantomResponse> {
+  try {
+    // Validate environment variables
+    const phantomBusterApiKey = process.env.PHANTOMBUSTER_API_KEY;
+    if (!phantomBusterApiKey) {
+      throw new Error('PhantomBuster API key is not set in environment variables.');
+    }
 
+    const phantomId = process.env.PHANTOMBUSTER_LINKEDIN_SEARCH_PHANTOM_ID;
+    if (!phantomId) {
+      throw new Error('PhantomBuster LinkedIn search phantom ID is not set in environment variables.');
+    }
+
+    const backendUrl = process.env.BACKEND_URL || 'https://api.thehirepilot.com';
+
+    // Get user's LinkedIn cookie from the linkedin_cookies table
+    const { data: cookieData, error: cookieError } = await supabaseDb
+      .from('linkedin_cookies')
+      .select('session_cookie')
+      .eq('user_id', userId)
+      .single();
+
+    if (cookieError) {
+      throw new Error('Failed to fetch LinkedIn cookie');
+    }
+
+    if (!cookieData?.session_cookie) {
+      throw new Error('LinkedIn session cookie not found');
+    }
+
+    // Decrypt the LinkedIn cookie
+    const sessionCookie = decrypt(cookieData.session_cookie);
+
+    // Generate execution ID
+    const executionId = `direct-${Date.now()}-${campaignId.slice(0, 8)}`;
+
+    // Store the execution record BEFORE launching
+    await supabaseDb
+      .from('campaign_executions')
+      .insert({
+        campaign_id: campaignId,
+        user_id: userId,
+        phantombuster_execution_id: executionId,
+        status: 'started',
+        started_at: new Date().toISOString()
+      });
+
+    // Prepare PhantomBuster arguments
+    const phantomArgs = {
+      sessionCookie,
+      queries: searchUrl,
+      searchType: 'people',
+      numberOfProfiles: 50,
+      pageLoadDelay: 8000,
+      profileLoadDelay: 5000,
+      // Add metadata for webhook processing
+      campaignId,
+      userId,
+      executionId,
+      // Direct webhook URL (PhantomBuster will call this when done)
+      webhookUrl: `${backendUrl}/api/phantombuster/webhook`
+    };
+
+    console.log('[triggerLinkedInSearchDirect] Launching PhantomBuster with args:', {
+      phantomId,
+      sessionCookie: sessionCookie.slice(0, 20) + '...',
+      searchUrl,
+      campaignId,
+      userId,
+      executionId
+    });
+
+    // Launch PhantomBuster directly
+    const response = await axios.post('https://api.phantombuster.com/api/v2/agents/launch', {
+      id: phantomId,
+      argument: phantomArgs,
+      saveArgument: true,
+      // Set up webhook for completion notification
+      webhook: `${backendUrl}/api/phantombuster/webhook`
+    }, {
+      headers: {
+        'X-Phantombuster-Key': phantomBusterApiKey,
+        'Content-Type': 'application/json'
+      },
+      timeout: 30000
+    });
+
+    console.log('[triggerLinkedInSearchDirect] PhantomBuster response:', response.data);
+
+    // Update execution record with actual PhantomBuster container ID
+    if (response.data?.containerId) {
+      await supabaseDb
+        .from('campaign_executions')
+        .update({
+          phantombuster_execution_id: response.data.containerId,
+          status: 'running',
+          updated_at: new Date().toISOString()
+        })
+        .eq('phantombuster_execution_id', executionId);
+    }
+
+    return {
+      id: response.data?.containerId || executionId,
+      status: 'started'
+    };
+
+  } catch (error: any) {
+    console.error('[triggerLinkedInSearchDirect] Error:', error);
+    throw new Error(error.message || 'Failed to trigger LinkedIn search');
+  }
+}
 
 /**
  * Fetch results directly from PhantomBuster API
@@ -168,16 +279,6 @@ export async function triggerLinkedInSearch({ searchUrl, userId, campaignId }: L
     };
   } catch (error: any) {
     console.error('[triggerLinkedInSearch] Error:', error);
-    
-    // Provide more specific error messages
-    if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-      throw new Error('Zapier webhook request timed out. Please try again.');
-    } else if (error.response?.status === 404) {
-      throw new Error('Zapier webhook URL not found. Please check configuration.');
-    } else if (error.response?.status >= 500) {
-      throw new Error('Zapier service is temporarily unavailable. Please try again later.');
-    }
-    
-    throw new Error(error.message || 'Failed to trigger LinkedIn search via Zapier');
+    throw new Error(error.message || 'Failed to trigger LinkedIn search');
   }
 } 

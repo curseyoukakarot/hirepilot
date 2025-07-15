@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { startCampaignFlow, processLead, handlePhantomBusterWebhook } from '../controllers/campaignFlow';
-import { triggerLinkedInSearch } from '../services/phantombuster/triggerLinkedInSearch';
+import { triggerLinkedInSearch, triggerLinkedInSearchDirect } from '../services/phantombuster/triggerLinkedInSearch';
 import axios from 'axios';
 import { supabaseDb } from '../lib/supabase';
 
@@ -53,7 +53,8 @@ export async function triggerLinkedInCampaign(req: Request, res: Response) {
 
     console.log('[triggerLinkedInCampaign] Starting LinkedIn search for campaign:', campaignId);
 
-    const result = await triggerLinkedInSearch({
+    // Use direct PhantomBuster integration (bypasses Zapier for lead processing)
+    const result = await triggerLinkedInSearchDirect({
       searchUrl,
       userId,
       campaignId
@@ -449,6 +450,51 @@ export async function debugSearchLeads(req: Request, res: Response) {
     console.error('[debugSearchLeads] Error:', error);
     res.status(500).json({ 
       error: error.message || 'Failed to search leads',
+      details: error.stack
+    });
+  }
+} 
+
+// Test endpoint for direct PhantomBuster integration (remove after testing)
+export async function testDirectPhantomBuster(req: Request, res: Response) {
+  try {
+    const { campaignId, searchUrl } = req.body;
+    const userId = req.user?.id;
+
+    console.log('[testDirectPhantomBuster] Testing direct PhantomBuster integration');
+    console.log('[testDirectPhantomBuster] Input:', { campaignId, searchUrl, userId });
+
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    if (!campaignId || !searchUrl) {
+      res.status(400).json({ error: 'Missing required fields: campaignId and searchUrl' });
+      return;
+    }
+
+    // Test the direct PhantomBuster integration
+    const result = await triggerLinkedInSearchDirect({
+      searchUrl,
+      userId,
+      campaignId
+    });
+
+    console.log('[testDirectPhantomBuster] Direct PhantomBuster result:', result);
+
+    res.json({
+      success: true,
+      message: 'Direct PhantomBuster integration test successful',
+      executionId: result.id,
+      status: result.status,
+      method: 'direct',
+      webhookUrl: `${process.env.BACKEND_URL}/api/phantombuster/webhook`
+    });
+  } catch (error: any) {
+    console.error('[testDirectPhantomBuster] Error:', error);
+    res.status(500).json({ 
+      error: error.message || 'Failed to test direct PhantomBuster integration',
       details: error.stack
     });
   }
