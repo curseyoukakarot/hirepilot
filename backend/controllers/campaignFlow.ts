@@ -133,10 +133,22 @@ export async function handlePhantomBusterWebhook(executionId: string, results: a
           campaign_id: execution.campaign_id,
           first_name: result.firstName,
           last_name: result.lastName,
+          name: `${result.firstName || ''} ${result.lastName || ''}`.trim(),
           title: result.title,
           company: result.company,
           linkedin_url: result.linkedinUrl,
+          location: result.location || '',
+          city: result.city || '',
+          state: result.state || '',
+          country: result.country || '',
+          campaign_location: result.location || '',
           status: 'New',
+          enrichment_source: 'Sales Navigator',
+          enrichment_data: JSON.stringify({
+            location: result.location || '',
+            source: 'Sales Navigator',
+            originalUrl: result.linkedinUrl || ''
+          }),
           created_at: new Date().toISOString()
         })
         .select()
@@ -151,6 +163,9 @@ export async function handlePhantomBusterWebhook(executionId: string, results: a
 
       // Note: Automatic enrichment removed - users can manually enrich leads later
       // via POST /api/leads/:id/enrich endpoint
+      
+      // TODO: Update LinkedIn URLs from Sales Navigator to regular profile URLs
+      // for better Apollo/Proxycurl enrichment compatibility
     }
 
     // 3. Update campaign execution status
