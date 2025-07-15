@@ -180,7 +180,7 @@ router.post('/import', requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
-    const { campaignId, leads } = req.body;
+    const { campaignId, leads, source, searchCriteria } = req.body;
     if (!campaignId || !Array.isArray(leads)) {
       res.status(400).json({ error: 'Missing campaignId or leads' });
       return;
@@ -222,6 +222,7 @@ router.post('/import', requireAuth, async (req: Request, res: Response) => {
         enrichment_data: lead.enrichment_data ? JSON.stringify(lead.enrichment_data) : null,
         enrichment_source: lead.enrichment_source || null,
         source_meta: lead.sourceMeta ? JSON.stringify(lead.sourceMeta) : null,
+        source: source || null,
         status: 'New',
         created_at: new Date().toISOString(),
       };
@@ -285,14 +286,21 @@ router.post('/import', requireAuth, async (req: Request, res: Response) => {
         console.error('Error getting enriched leads count:', enrichedError);
       }
 
-      // Update campaign with new counts
+      // Update campaign with new counts and source
+      const campaignUpdate: any = {
+        total_leads: totalLeads || 0,
+        enriched_leads: enrichedLeads || 0,
+        updated_at: new Date().toISOString()
+      };
+
+      // Set campaign source if provided
+      if (source) {
+        campaignUpdate.source = source;
+      }
+
       const { error: campaignError } = await supabase
         .from('campaigns')
-        .update({ 
-          total_leads: totalLeads || 0,
-          enriched_leads: enrichedLeads || 0,
-          updated_at: new Date().toISOString()
-        })
+        .update(campaignUpdate)
         .eq('id', campaignId);
 
       if (campaignError) {
@@ -308,6 +316,29 @@ router.post('/import', requireAuth, async (req: Request, res: Response) => {
     } catch (countError) {
       console.error('❌ Error updating campaign counts:', countError);
       // Don't fail the request for count update errors
+    }
+
+    // Send Apollo notifications if this is an Apollo campaign
+    if (source === 'apollo' && data && data.length > 0) {
+      try {
+        const { sendApolloSearchNotifications } = await import('../../services/apolloNotificationService');
+        
+        console.log('[Leads Import] Sending Apollo notifications:', {
+          userId,
+          campaignId,
+          source,
+          searchCriteria,
+          leadCount: data.length
+        });
+        
+        // Send notifications asynchronously
+        sendApolloSearchNotifications(userId, campaignId, searchCriteria || {}, data.length)
+          .catch(error => {
+            console.error('[Leads Import] Error sending Apollo notifications:', error);
+          });
+      } catch (importError) {
+        console.error('[Leads Import] Error importing Apollo notification service:', importError);
+      }
     }
 
     res.json({ 
