@@ -12,7 +12,7 @@ import deleteTemplate from "./api/deleteTemplate";
 import pipelineStages from "./api/pipelineStages";
 import messageRouter from './routers/messageRouter';
 import { launchCampaign } from './api/campaigns/launch';
-import { triggerLinkedInCampaign, pollPhantomBusterResults, debugPhantomBusterWebhook, debugSearchLeads, testDirectPhantomBuster } from './api/campaign';
+import { triggerLinkedInCampaign, pollPhantomBusterResults, debugPhantomBusterWebhook, debugSearchLeads, testDirectPhantomBuster, fetchExistingPhantomResults } from './api/campaign';
 import campaignPerformance from './api/campaignPerformance';
 import userPerformance from './api/userPerformance';
 import analyticsTimeSeries from './api/analyticsTimeSeries';
@@ -76,6 +76,8 @@ router.post('/campaigns/:id/launch', launchCampaign);
 router.post('/campaigns/linkedin/trigger', requireAuth, triggerLinkedInCampaign);
 // Test endpoint for direct PhantomBuster integration (remove after testing)
 router.post('/campaigns/linkedin/test-direct', requireAuth, testDirectPhantomBuster);
+// Fetch existing PhantomBuster results for campaigns that already ran
+router.get('/campaigns/:campaignId/fetch-existing-results', requireAuth, fetchExistingPhantomResults);
 router.get('/campaigns/executions/:executionId/poll', requireAuth, pollPhantomBusterResults);
 router.post('/campaigns/executions/:executionId/debug-webhook', requireAuth, debugPhantomBusterWebhook);
 router.get('/campaigns/debug/search-leads', requireAuth, debugSearchLeads);

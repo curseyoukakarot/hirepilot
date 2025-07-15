@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { startCampaignFlow, processLead, handlePhantomBusterWebhook } from '../controllers/campaignFlow';
-import { triggerLinkedInSearch, triggerLinkedInSearchDirect } from '../services/phantombuster/triggerLinkedInSearch';
+import { triggerLinkedInSearch, triggerLinkedInSearchDirect, fetchPhantomBusterResults } from '../services/phantombuster/triggerLinkedInSearch';
 import axios from 'axios';
 import { supabaseDb } from '../lib/supabase';
 
@@ -495,6 +495,84 @@ export async function testDirectPhantomBuster(req: Request, res: Response) {
     console.error('[testDirectPhantomBuster] Error:', error);
     res.status(500).json({ 
       error: error.message || 'Failed to test direct PhantomBuster integration',
+      details: error.stack
+    });
+  }
+} 
+
+// Debug endpoint to fetch existing PhantomBuster results (for campaigns that already ran)
+export async function fetchExistingPhantomResults(req: Request, res: Response) {
+  try {
+    const { campaignId } = req.params;
+    const userId = req.user?.id;
+
+    console.log('[fetchExistingPhantomResults] Fetching existing results for campaign:', campaignId);
+
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    // Get the campaign execution record
+    const { data: execution, error: executionError } = await supabaseDb
+      .from('campaign_executions')
+      .select('*')
+      .eq('campaign_id', campaignId)
+      .eq('user_id', userId)
+      .single();
+
+    if (executionError || !execution) {
+      res.status(404).json({ error: 'Campaign execution not found' });
+      return;
+    }
+
+    console.log('[fetchExistingPhantomResults] Found execution:', execution);
+
+    const { phantombuster_execution_id: executionId } = execution;
+
+    if (!executionId) {
+      res.status(400).json({ error: 'No PhantomBuster execution ID found' });
+      return;
+    }
+
+    // Fetch results from PhantomBuster API
+    console.log('[fetchExistingPhantomResults] Fetching results from PhantomBuster API...');
+    
+    const results = await fetchPhantomBusterResults(executionId);
+    
+    console.log(`[fetchExistingPhantomResults] Fetched ${results.length} results from PhantomBuster`);
+
+    if (results.length === 0) {
+      res.json({
+        success: true,
+        message: 'No results found in PhantomBuster execution',
+        executionId,
+        leadCount: 0,
+        executionStatus: execution.status
+      });
+      return;
+    }
+
+    // Process the results using the existing handler
+    console.log('[fetchExistingPhantomResults] Processing results...');
+    
+    await handlePhantomBusterWebhook(executionId, results);
+
+    console.log('[fetchExistingPhantomResults] Results processed successfully');
+
+    res.json({
+      success: true,
+      message: `Successfully processed ${results.length} leads from existing PhantomBuster execution`,
+      executionId,
+      leadCount: results.length,
+      executionStatus: execution.status,
+      sampleResults: results.slice(0, 3) // Show first 3 results as sample
+    });
+
+  } catch (error: any) {
+    console.error('[fetchExistingPhantomResults] Error:', error);
+    res.status(500).json({ 
+      error: error.message || 'Failed to fetch existing PhantomBuster results',
       details: error.stack
     });
   }
