@@ -145,9 +145,21 @@ export async function handlePhantomBusterWebhook(executionId: string, results: a
       const firstName = result.firstName || result.firstname || result.first_name || '';
       const lastName = result.lastName || result.lastname || result.last_name || '';
       const fullName = `${firstName} ${lastName}`.trim();
-      const title = result.title || result.jobTitle || result.headline || '';
+      const title = result.title || result.jobTitle || result.linkedinJobTitle || result.headline || '';
       const company = result.company || result.companyName || result.company_name || '';
-      const linkedinUrl = result.linkedinUrl || result.profileUrl || result.linkedin_url || result.profile_url || '';
+      
+      // CRITICAL: Use the correct LinkedIn profile URL field from PhantomBuster
+      // defaultProfileUrl contains the REAL LinkedIn profile URL (perfect for enrichment)
+      // profileUrl and linkedInProfileUrl contain Sales Navigator URLs (useless for enrichment)
+      let linkedinUrl = result.defaultProfileUrl || result.default_profile_url || '';
+      
+      // Add https:// if missing
+      if (linkedinUrl && !linkedinUrl.startsWith('http')) {
+        linkedinUrl = 'https://' + linkedinUrl;
+      }
+      
+      console.log(`[handlePhantomBusterWebhook] Found LinkedIn URL: ${linkedinUrl}`);
+      
       const location = result.location || result.city || result.region || '';
       const city = result.city || '';
       const state = result.state || result.region || '';
