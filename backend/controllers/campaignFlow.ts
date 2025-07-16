@@ -2,6 +2,11 @@ import { supabaseDb as supabase } from '../lib/supabase';
 import { triggerLinkedInSearch } from '../services/phantombuster/triggerLinkedInSearch';
 import { enrichLead as enrichWithApollo } from '../services/apollo/enrichLead';
 import { validateEmail } from '../services/neverbounce/validateEmail';
+import { 
+  sendSalesNavigatorStartNotifications,
+  sendSalesNavigatorSuccessNotifications, 
+  sendSalesNavigatorNoResultsNotifications 
+} from '../services/salesNavigatorNotificationService';
 
 interface CampaignFlowParams {
   campaignId: string;
@@ -18,7 +23,19 @@ export async function startCampaignFlow({ campaignId, userId, searchUrl }: Campa
       campaignId
     });
 
-    // 2. Set up webhook listener for PhantomBuster results
+    // 2. Send start notifications with timing expectations
+    try {
+      await sendSalesNavigatorStartNotifications(
+        userId,
+        campaignId,
+        { searchUrl }
+      );
+    } catch (notificationError) {
+      console.error('[startCampaignFlow] Error sending start notifications:', notificationError);
+      // Don't fail the campaign start if notifications fail
+    }
+
+    // 3. Set up webhook listener for PhantomBuster results
     // This will be handled by a separate webhook endpoint
 
     return {
@@ -302,6 +319,33 @@ export async function handlePhantomBusterWebhook(executionId: string, results: a
       // Don't fail the request since leads were already processed
     } else {
       console.log(`[handlePhantomBusterWebhook] Campaign status updated to completed with ${totalLeads} total leads, ${enrichedLeads} enriched`);
+    }
+
+    // 7. Send completion notifications (no results case - success case handled by CRON monitor)
+    try {
+      // Get campaign details for search URL
+      const { data: campaign } = await supabase
+        .from('campaigns')
+        .select('lead_source_payload')
+        .eq('id', execution.campaign_id)
+        .single();
+        
+      const searchUrl = campaign?.lead_source_payload?.linkedin_search_url;
+      
+      if ((totalLeads || 0) === 0) {
+        // Send no results notifications
+        console.log('[handlePhantomBusterWebhook] Sending no results notifications');
+        await sendSalesNavigatorNoResultsNotifications(
+          execution.user_id,
+          execution.campaign_id,
+          { searchUrl }
+        );
+      } else {
+        console.log('[handlePhantomBusterWebhook] Success notifications will be sent by CRON monitor');
+      }
+    } catch (notificationError) {
+      console.error('[handlePhantomBusterWebhook] Error sending completion notifications:', notificationError);
+      // Don't fail the request since leads were already processed
     }
 
     return {

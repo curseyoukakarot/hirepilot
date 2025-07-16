@@ -2,6 +2,11 @@ import 'dotenv/config';
 import { createClient } from '@supabase/supabase-js';
 import axios from 'axios';
 import { handlePhantomBusterWebhook } from '../controllers/campaignFlow';
+import { 
+  sendSalesNavigatorSuccessNotifications, 
+  sendSalesNavigatorNoResultsNotifications, 
+  sendSalesNavigatorErrorNotifications 
+} from '../services/salesNavigatorNotificationService';
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -64,6 +69,26 @@ async function processPhantomBusterExecution(execution: any) {
         updated_at: new Date().toISOString()
       })
       .eq('id', execution.id);
+      
+    // Send timeout error notifications
+    try {
+      // Get campaign details for search URL
+      const { data: campaign } = await supabase
+        .from('campaigns')
+        .select('lead_source_payload')
+        .eq('id', execution.campaign_id)
+        .single();
+        
+      const searchUrl = campaign?.lead_source_payload?.linkedin_search_url;
+      await sendSalesNavigatorErrorNotifications(
+        execution.user_id,
+        execution.campaign_id,
+        'Execution timeout - no response from PhantomBuster after 30 minutes',
+        { searchUrl }
+      );
+    } catch (notificationError) {
+      console.error(`[processPhantomBusterExecution] Error sending timeout notifications:`, notificationError);
+    }
     
     return;
   }
@@ -79,6 +104,33 @@ async function processPhantomBusterExecution(execution: any) {
       await handlePhantomBusterWebhook(executionId, results);
       
       console.log(`[processPhantomBusterExecution] Successfully processed ${results.length} leads for execution ${executionId}`);
+      
+      // Send beautiful success notifications with search criteria
+      try {
+        // Get execution details to extract search criteria
+        const { data: executionDetails } = await supabase
+          .from('campaign_executions')
+          .select(`
+            user_id, 
+            campaign_id, 
+            campaigns!inner(lead_source_payload)
+          `)
+          .eq('phantombuster_execution_id', executionId)
+          .single();
+          
+        if (executionDetails && executionDetails.campaigns) {
+          const campaign = Array.isArray(executionDetails.campaigns) ? executionDetails.campaigns[0] : executionDetails.campaigns;
+          const searchUrl = campaign?.lead_source_payload?.linkedin_search_url;
+          await sendSalesNavigatorSuccessNotifications(
+            executionDetails.user_id,
+            executionDetails.campaign_id,
+            { searchUrl },
+            results.length
+          );
+        }
+      } catch (notificationError) {
+        console.error(`[processPhantomBusterExecution] Error sending success notifications:`, notificationError);
+      }
     } else {
       console.log(`[processPhantomBusterExecution] No results found yet for execution ${executionId}`);
     }
@@ -97,6 +149,19 @@ async function processPhantomBusterExecution(execution: any) {
           updated_at: new Date().toISOString()
         })
         .eq('id', execution.id);
+        
+      // Send error notifications
+      try {
+        const searchUrl = execution.campaigns?.lead_source_payload?.linkedin_search_url;
+        await sendSalesNavigatorErrorNotifications(
+          execution.user_id,
+          execution.campaign_id,
+          'PhantomBuster execution not found',
+          { searchUrl }
+        );
+      } catch (notificationError) {
+        console.error(`[processPhantomBusterExecution] Error sending error notifications:`, notificationError);
+      }
     }
   }
 }

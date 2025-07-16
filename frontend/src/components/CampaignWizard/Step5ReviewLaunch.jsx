@@ -105,7 +105,7 @@ export default function Step5ReviewLaunch({ onBack, onEdit }) {
           })
           .eq('id', campaign.id);
 
-        toast.success('Sales Navigator search started! Leads will be imported automatically.');
+        toast.success('Sales Navigator search started! Processing takes ~10 minutes. You\'ll receive email and Slack notifications when your leads are ready.');
       } else {
         // For Apollo/CSV campaigns, use the existing lead import logic
       const leadsToInsert = selectedLeads.map(lead => {
@@ -323,6 +323,48 @@ export default function Step5ReviewLaunch({ onBack, onEdit }) {
           </div>
         </div>
       </div>
+      )}
+
+      {/* Sales Navigator Timing Expectations */}
+      {isSalesNavigatorCampaign && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <div className="flex items-center justify-center h-8 w-8 rounded-full bg-blue-100">
+                <svg className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+            <div className="ml-4 flex-1">
+              <h3 className="text-lg font-medium text-blue-900">
+                What to Expect
+              </h3>
+              <div className="mt-2 space-y-2">
+                <p className="text-sm text-blue-800">
+                  <strong>Processing Time:</strong> Your LinkedIn Sales Navigator search will take approximately <strong>10 minutes</strong> to complete.
+                </p>
+                <p className="text-sm text-blue-800">
+                  <strong>Automatic Processing:</strong> Our system will scrape LinkedIn in the background and import leads directly to your campaign.
+                </p>
+                <p className="text-sm text-blue-800">
+                  <strong>Notifications:</strong> You'll receive both email and Slack notifications when your leads are ready for review.
+                </p>
+                <p className="text-sm text-blue-800">
+                  <strong>Credit Usage:</strong> This campaign will use 50 credits for LinkedIn scraping.
+                </p>
+              </div>
+              <div className="mt-3 flex items-center">
+                <div className="flex-shrink-0">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                </div>
+                <p className="ml-2 text-xs text-blue-700">
+                  You can safely close this page - the search will continue in the background
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Action Buttons */}

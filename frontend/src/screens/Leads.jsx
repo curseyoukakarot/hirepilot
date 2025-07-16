@@ -16,6 +16,10 @@ export default function Leads() {
   const [selectAll, setSelectAll] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const LEADS_PER_PAGE = 50;
+
   // Bulk tagging state
   const [showBulkTagModal, setShowBulkTagModal] = useState(false);
   const [bulkTagInput, setBulkTagInput] = useState('');
@@ -62,14 +66,28 @@ export default function Leads() {
     });
   };
 
+  // Calculate current page leads
+  const startIndex = (currentPage - 1) * LEADS_PER_PAGE;
+  const endIndex = startIndex + LEADS_PER_PAGE;
+  const currentPageLeads = leads.slice(startIndex, endIndex);
+  const totalPages = Math.ceil(leads.length / LEADS_PER_PAGE);
+
+  // Check if all leads on current page are selected
+  const currentPageLeadIds = currentPageLeads.map(lead => lead.id);
+  const currentPageSelectedCount = selectedLeads.filter(id => currentPageLeadIds.includes(id)).length;
+  const isCurrentPageFullySelected = currentPageLeads.length > 0 && currentPageSelectedCount === currentPageLeads.length;
+
   const handleSelectAll = () => {
-    console.log('Select all clicked, current state:', selectAll);
-    if (selectAll) {
-      setSelectedLeads([]);
+    console.log('Select all clicked, current state:', isCurrentPageFullySelected);
+    if (isCurrentPageFullySelected) {
+      // Deselect all leads on current page
+      const currentPageLeadIds = currentPageLeads.map(lead => lead.id);
+      setSelectedLeads(prev => prev.filter(id => !currentPageLeadIds.includes(id)));
     } else {
-      setSelectedLeads(leads.map(lead => lead.id));
+      // Select all leads on current page (and keep any previously selected leads from other pages)
+      const currentPageLeadIds = currentPageLeads.map(lead => lead.id);
+      setSelectedLeads(prev => [...new Set([...prev, ...currentPageLeadIds])]);
     }
-    setSelectAll(!selectAll);
   };
 
   const handleExportLeads = () => {
@@ -110,12 +128,11 @@ export default function Leads() {
         if (!lead) return;
 
         // Check if tag already exists
-        const currentTags = lead.tags || [];
-        if (currentTags.includes(tagToAdd)) {
+        if ((lead.tags || []).includes(tagToAdd)) {
           return { leadId, success: true, message: 'Tag already exists' };
         }
 
-        const newTags = [...currentTags, tagToAdd];
+        const newTags = [...(lead.tags || []), tagToAdd];
         
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) throw new Error('Not authenticated');
@@ -177,22 +194,8 @@ export default function Leads() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white pb-16">
+    <div className="min-h-screen bg-gray-50">
       <Toaster position="top-right" />
-      <div className="max-w-7xl mx-auto px-4 pt-10 pb-6 flex flex-col md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Your Leads</h1>
-          <p className="text-gray-500 mb-4 md:mb-0">Manage and track your candidate leads in one place.</p>
-        </div>
-        <div className="flex gap-3">
-          <button
-            onClick={() => setShowAddLeadModal(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm flex items-center shadow transition-all duration-150"
-          >
-            <FaPlus className="mr-2" /> Add Lead
-          </button>
-        </div>
-      </div>
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-6">
           <div>
@@ -250,7 +253,7 @@ export default function Leads() {
                     <input
                       type="checkbox"
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      checked={selectAll}
+                      checked={isCurrentPageFullySelected}
                       onChange={handleSelectAll}
                     />
                   </th>
@@ -264,7 +267,7 @@ export default function Leads() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {leads.map((lead) => {
+                {currentPageLeads.map((lead) => {
                   // Parse enrichment_data if it's a string
                   let enrichment = lead.enrichment_data;
                   if (typeof enrichment === 'string') {
@@ -331,6 +334,34 @@ export default function Leads() {
                 })}
               </tbody>
             </table>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="bg-white px-6 py-3 border-t border-gray-200 flex items-center justify-between">
+                <div className="text-sm text-gray-700">
+                  Showing {leads.length === 0 ? 0 : startIndex + 1} to {Math.min(endIndex, leads.length)} of {leads.length} results
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-2 text-sm border rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Previous
+                  </button>
+                  <span className="px-3 py-2 text-sm font-medium">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-2 text-sm border rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
