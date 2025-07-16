@@ -2,10 +2,10 @@ import React from "react";
 
 const TestGmail: React.FC = () => {
   // Use environment variables for the OAuth configuration
-  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID_HERE";
-  const backendUrl = import.meta.env.VITE_BACKEND_URL || "https://thehirepilot.com";
+  const clientId = (import.meta as any).env.VITE_GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID_HERE";
+  const backendUrl = (import.meta as any).env.VITE_BACKEND_URL || "https://thehirepilot.com";
   const redirectUri = `${backendUrl}/api/auth/google/callback`;
-  const scope = encodeURIComponent("https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly email profile");
+  const scope = encodeURIComponent("https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile openid");
   
   // Generate unique state for each test session
   const uniqueState = `test-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -31,9 +31,9 @@ const TestGmail: React.FC = () => {
             <h3 className="font-semibold text-blue-900 mb-2">Requested Scopes:</h3>
             <ul className="text-blue-800 text-sm space-y-1 text-left">
               <li>• <code>gmail.send</code> - Send emails on behalf of the user</li>
-              <li>• <code>gmail.readonly</code> - Read Gmail messages and metadata</li>
-              <li>• <code>email</code> - Access user's email address</li>
-              <li>• <code>profile</code> - Access basic profile information</li>
+              <li>• <code>userinfo.email</code> - Access user's email address</li>
+              <li>• <code>userinfo.profile</code> - Access basic profile information</li>
+              <li>• <code>openid</code> - OpenID Connect authentication</li>
             </ul>
           </div>
           

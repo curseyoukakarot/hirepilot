@@ -25,8 +25,8 @@ router.get('/debug/:messageId?', async (req, res) => {
       },
       routes: {
         pixelEndpoint: `${baseUrl}/api/tracking/pixel/:messageId`,
-        gmailWebhook: `${baseUrl}/api/tracking/gmail/webhook`,
         outlookWebhook: `${baseUrl}/api/tracking/outlook/webhook`
+        // Note: Gmail webhook removed for CASA compliance (requires gmail.readonly)
       },
       timestamp: new Date().toISOString(),
       database: null
@@ -73,6 +73,7 @@ router.get('/pixel/:messageId', async (req, res) => {
     const userAgent = req.headers['user-agent'] || '';
 
     // Handle tracking pixel for both Gmail and Outlook
+    // Note: Gmail tracking limited to pixel opens only (no reply detection)
     await Promise.all([
       GmailTrackingService.handleTrackingPixel(messageId, ip, userAgent),
       OutlookTrackingService.handleTrackingPixel(messageId, ip, userAgent)
@@ -93,32 +94,9 @@ router.get('/pixel/:messageId', async (req, res) => {
   }
 });
 
-// Handle Gmail push notifications
-router.post('/gmail/webhook', async (req, res) => {
-  try {
-    const { message } = req.body;
-    const userId = req.headers['x-goog-channel-token'] as string;
-
-    if (!userId || !message) {
-      res.status(400).json({ error: 'Missing required fields' });
-      return;
-    }
-
-    if (queue) {
-      await queue.add('process-gmail-notification', {
-        userId,
-        messageId: message.id
-      });
-    } else {
-      console.warn('[tracking] Queue disabled – skipping Gmail notification job');
-    }
-
-    res.status(200).end();
-  } catch (error) {
-    console.error('Error handling Gmail webhook:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+// Gmail webhook endpoint removed for CASA compliance
+// Gmail reply notifications require gmail.readonly scope which is no longer requested
+// Email reply tracking is now handled by SendGrid and Outlook webhooks only
 
 // Handle Outlook webhook notifications
 router.post('/outlook/webhook', async (req, res) => {

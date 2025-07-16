@@ -111,88 +111,25 @@ export class GmailTrackingService {
     }
   }
 
-  /**
-   * Set up Gmail push notifications for replies
+  /* 
+   * REMOVED: Gmail reply notification functionality to comply with CASA requirements
+   * The following methods have been commented out as they require gmail.readonly scope:
+   * - setupReplyNotifications
+   * - handlePushNotification
+   * 
+   * These features relied on Gmail API methods that read user messages:
+   * - gmail.users.watch (requires gmail.readonly)
+   * - gmail.users.messages.get (requires gmail.readonly)
+   * 
+   * Email tracking now relies solely on:
+   * - Tracking pixels for open detection (no special permissions needed)
+   * - SendGrid webhooks for reply detection when using SendGrid
+   * - Outlook webhooks for reply detection when using Outlook
    */
-  static async setupReplyNotifications(userId: string): Promise<void> {
-    try {
-      const accessToken = await getGoogleAccessToken(userId);
-      const oauth2client = new google.auth.OAuth2();
-      oauth2client.setCredentials({ access_token: accessToken });
-      const gmail = google.gmail({ version: 'v1', auth: oauth2client });
 
-      // Set up push notifications
-      await gmail.users.watch({
-        userId: 'me',
-        requestBody: {
-          labelIds: ['INBOX'],
-          topicName: `projects/${process.env.GOOGLE_CLOUD_PROJECT}/topics/gmail-notifications`
-        }
-      });
-
-      // Store notification setup in database
-      await supabase
-        .from('gmail_notifications')
-        .upsert({
-          user_id: userId,
-          watch_expiration: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-          updated_at: new Date()
-        });
-    } catch (error) {
-      console.error('Error setting up Gmail notifications:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Handle Gmail push notification
-   */
-  static async handlePushNotification(userId: string, messageId: string): Promise<void> {
-    try {
-      const accessToken = await getGoogleAccessToken(userId);
-      const oauth2client = new google.auth.OAuth2();
-      oauth2client.setCredentials({ access_token: accessToken });
-      const gmail = google.gmail({ version: 'v1', auth: oauth2client });
-
-      // Get message details
-      const message = await gmail.users.messages.get({
-        userId: 'me',
-        id: messageId,
-        format: 'metadata',
-        metadataHeaders: ['In-Reply-To', 'References']
-      });
-
-      // Check if this is a reply
-      const inReplyTo = message.data.payload?.headers?.find(h => h.name === 'In-Reply-To')?.value;
-      if (!inReplyTo) return;
-
-      // Find original message
-      const { data: originalMessage } = await supabase
-        .from('email_events')
-        .select('user_id, campaign_id, lead_id, message_id')
-        .eq('provider', 'gmail')
-        .eq('event_type', 'sent')
-        .eq('metadata->gmail_message_id', inReplyTo)
-        .single();
-
-      if (!originalMessage) return;
-
-      // Store reply event
-      await EmailEventService.storeEvent({
-        user_id: originalMessage.user_id,
-        campaign_id: originalMessage.campaign_id,
-        lead_id: originalMessage.lead_id,
-        provider: 'gmail',
-        message_id: originalMessage.message_id,
-        event_type: 'reply',
-        metadata: {
-          reply_message_id: messageId,
-          thread_id: message.data.threadId
-        }
-      });
-    } catch (error) {
-      console.error('Error handling Gmail push notification:', error);
-      throw error;
-    }
-  }
+  // DEPRECATED: setupReplyNotifications method removed
+  // This method required gmail.readonly scope which is not compatible with CASA approval
+  
+  // DEPRECATED: handlePushNotification method removed  
+  // This method required gmail.readonly scope which is not compatible with CASA approval
 } 

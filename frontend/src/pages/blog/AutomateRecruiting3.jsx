@@ -267,7 +267,7 @@ export default function AutomateRecruiting3() {
                 <tr>
                   <td>Tracking</td>
                   <td>❌ Spreadsheets</td>
-                  <td>✅ Open/reply tracking</td>
+                  <td>✅ Open tracking</td>
                 </tr>
                 <tr>
                   <td>Managing replies</td>

@@ -54,7 +54,9 @@ export default function TermsPage() {
                 </p>
                 <ul className="list-disc ml-6 space-y-2 text-gray-700">
                   <li>Send personalized outreach emails to job candidates on your behalf (<code className="bg-gray-100 px-2 py-1 rounded text-sm">gmail.send</code>)</li>
-                  <li>Detect replies to those emails to stop further outreach and notify you (<code className="bg-gray-100 px-2 py-1 rounded text-sm">gmail.readonly</code>)</li>
+                  <li>
+                  <strong>Gmail Integration:</strong> With your explicit permission, we connect to your Gmail account using Google's OAuth 2.0 to send recruitment emails on your behalf. We only request the minimum necessary permissions: <code className="bg-gray-100 px-2 py-1 rounded text-sm">gmail.send</code> for sending emails, and basic profile information for account authentication.
+                </li>
                 </ul>
                 <p className="text-gray-700 mt-3">
                   We only access emails sent via HirePilot. We do not access, store, or analyze unrelated inbox content, attachments, or personal emails.

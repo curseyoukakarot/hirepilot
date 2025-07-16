@@ -1,6 +1,6 @@
 import { Worker, Job } from 'bullmq';
 import { supabase } from '../lib/supabase';
-import { GmailTrackingService } from '../services/gmailTrackingService';
+// Note: GmailTrackingService import removed - Gmail notification features disabled for CASA compliance
 import { OutlookTrackingService } from '../services/outlookTrackingService';
 
 let worker: Worker | null = null;
@@ -17,14 +17,11 @@ if (process.env.REDIS_URL || process.env.REDIS_HOST) {
 
   worker = new Worker('email-sync', async (job: Job) => {
     switch (job.name) {
-      case 'refresh-gmail-watch':
-        await handleGmailWatchRefresh();
-        break;
+      // Gmail notification cases removed for CASA compliance
+      // case 'refresh-gmail-watch':
+      // case 'process-gmail-notification':
       case 'refresh-outlook-subscription':
         await handleOutlookSubscriptionRefresh();
-        break;
-      case 'process-gmail-notification':
-        await handleGmailNotification(job.data);
         break;
       case 'process-outlook-notification':
         await handleOutlookNotification(job.data);
@@ -35,30 +32,8 @@ if (process.env.REDIS_URL || process.env.REDIS_HOST) {
   }, connectionOptions);
 }
 
-// Handle Gmail watch refresh
-async function handleGmailWatchRefresh() {
-  try {
-    // Get Gmail users with expiring watches
-    const { data: users } = await supabase
-      .from('gmail_notifications')
-      .select('user_id')
-      .lt('watch_expiration', new Date(Date.now() + 24 * 60 * 60 * 1000)); // Less than 24 hours left
-
-    if (!users?.length) return;
-
-    // Refresh watch for each user
-    for (const user of users) {
-      try {
-        await GmailTrackingService.setupReplyNotifications(user.user_id);
-        console.log(`Refreshed Gmail watch for user ${user.user_id}`);
-      } catch (error) {
-        console.error(`Error refreshing Gmail watch for user ${user.user_id}:`, error);
-      }
-    }
-  } catch (error) {
-    console.error('Error in Gmail watch refresh:', error);
-  }
-}
+// Gmail watch refresh handler removed - requires gmail.readonly scope
+// async function handleGmailWatchRefresh() { ... }
 
 // Handle Outlook subscription refresh
 async function handleOutlookSubscriptionRefresh() {
@@ -74,7 +49,7 @@ async function handleOutlookSubscriptionRefresh() {
     // Refresh subscription for each user
     for (const user of users) {
       try {
-        await OutlookTrackingService.refreshSubscription(user.user_id);
+        await OutlookTrackingService.setupReplyNotifications(user.user_id);
         console.log(`Refreshed Outlook subscription for user ${user.user_id}`);
       } catch (error) {
         console.error(`Error refreshing Outlook subscription for user ${user.user_id}:`, error);
@@ -85,15 +60,8 @@ async function handleOutlookSubscriptionRefresh() {
   }
 }
 
-// Handle Gmail notification
-async function handleGmailNotification(data: { userId: string; messageId: string }) {
-  try {
-    await GmailTrackingService.handlePushNotification(data.userId, data.messageId);
-    console.log(`Processed Gmail notification for message ${data.messageId}`);
-  } catch (error) {
-    console.error(`Error processing Gmail notification for message ${data.messageId}:`, error);
-  }
-}
+// Gmail notification handler removed - requires gmail.readonly scope
+// async function handleGmailNotification(data: { userId: string; messageId: string }) { ... }
 
 // Handle Outlook notification
 async function handleOutlookNotification(data: { userId: string; messageId: string }) {
@@ -115,4 +83,4 @@ worker?.on('failed', (job: Job | undefined, error: Error) => {
   console.error(`Job ${job?.name} ${job?.id} failed:`, error);
 });
 
-export default worker; 
+export { worker }; 

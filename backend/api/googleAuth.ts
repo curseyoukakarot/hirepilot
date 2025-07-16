@@ -39,9 +39,9 @@ router.get('/init', async (req, res) => {
   const url = oauth2.generateAuthUrl({
     scope: [
       'https://www.googleapis.com/auth/gmail.send',
-      'https://www.googleapis.com/auth/gmail.readonly',
-      'email',
-      'profile'
+      'https://www.googleapis.com/auth/userinfo.email',
+      'https://www.googleapis.com/auth/userinfo.profile',
+      'openid'
     ],
     access_type: 'offline',
     prompt: 'consent',
@@ -110,15 +110,9 @@ router.get('/callback', async (req, res) => {
       upsertData
     });
 
-    // Set up Gmail tracking notifications for email analytics
-    try {
-      const { GmailTrackingService } = await import('../services/gmailTrackingService');
-      await GmailTrackingService.setupReplyNotifications(user_id);
-      console.log('[Google OAuth] Gmail tracking notifications set up successfully');
-    } catch (trackingError) {
-      console.error('[Google OAuth] Failed to set up Gmail tracking:', trackingError);
-      // Don't fail the OAuth flow if tracking setup fails
-    }
+    // Note: Gmail tracking notifications have been removed to comply with CASA requirements
+    // These features required gmail.readonly scope which is no longer requested
+    // Email tracking now relies on tracking pixels and SendGrid/Outlook webhooks
 
     res.redirect(`${process.env.APP_WEB_URL}/settings/integrations?google=success`);
   } catch (error) {
