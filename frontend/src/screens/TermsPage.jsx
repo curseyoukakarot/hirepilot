@@ -82,6 +82,12 @@ export default function TermsPage() {
                 <h3 className="text-xl font-semibold mb-3">Contact</h3>
                 <p className="text-gray-700">For privacy questions, contact <a href="mailto:support@thehirepilot.com" className="text-blue-600 hover:underline">support@thehirepilot.com</a>.</p>
               </div>
+              <div>
+                <h3 className="text-xl font-semibold mb-3">AI/ML Compliance with Google Workspace APIs</h3>
+                <p className="text-gray-700">
+                  HirePilot uses AI features (e.g., automation and recommendations) to enhance the recruiting workflow. These features do <strong>not</strong> use or train on Gmail or Google Workspace API data. We fully comply with Google's <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" className="text-blue-600 hover:underline">API Services User Data Policy</a>, including all <strong>Limited Use</strong> restrictions.
+                </p>
+              </div>
             </div>
           </section>
         )}
