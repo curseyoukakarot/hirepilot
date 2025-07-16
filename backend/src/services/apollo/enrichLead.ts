@@ -35,11 +35,20 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
       throw new Error('Apollo API key not found');
     }
 
-    // Prepare search parameters
+    // Prepare search parameters - clean name fields for better Apollo matching
     const searchParams: any = {};
     if (firstName && lastName) {
-      searchParams.first_name = firstName;
-      searchParams.last_name = lastName;
+      // Clean firstName: remove titles, degrees, etc.
+      const cleanFirstName = firstName.trim().replace(/\b(Mr|Mrs|Ms|Dr|PhD|MBA|MD)\.?\b/gi, '').trim();
+      
+      // Clean lastName: remove degrees, titles, suffixes
+      const cleanLastName = lastName.trim()
+        .replace(/\b(Jr|Sr|III?|IV|PhD|MBA|MD|Esq)\.?\b/gi, '') // Remove suffixes/degrees
+        .replace(/,.*$/, '') // Remove everything after comma (like ", MBA")
+        .trim();
+      
+      searchParams.first_name = cleanFirstName;
+      searchParams.last_name = cleanLastName;
     }
     if (company) {
       searchParams.organization_name = company;
@@ -52,7 +61,9 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
     searchParams.api_key = settings.apollo_api_key;
 
     console.log('[Apollo] Search parameters:', {
-      firstName, lastName, company, linkedinUrl,
+      originalName: `${firstName} ${lastName}`,
+      cleanedName: `${searchParams.first_name} ${searchParams.last_name}`,
+      company, linkedinUrl,
       searchParams: { ...searchParams, api_key: '***' }
     });
 
