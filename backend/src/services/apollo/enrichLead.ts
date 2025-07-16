@@ -51,6 +51,11 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
     // Add API key to params (Apollo expects it as query param)
     searchParams.api_key = settings.apollo_api_key;
 
+    console.log('[Apollo] Search parameters:', {
+      firstName, lastName, company, linkedinUrl,
+      searchParams: { ...searchParams, api_key: '***' }
+    });
+
     // Search for person in Apollo
     const response = await axios.get('https://api.apollo.io/v1/people/search', {
       params: searchParams,
@@ -59,11 +64,26 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
       }
     });
 
+    console.log('[Apollo] API Response:', {
+      status: response.status,
+      peopleCount: response.data?.people?.length || 0,
+      firstPersonName: response.data?.people?.[0] ? 
+        `${response.data.people[0].first_name} ${response.data.people[0].last_name}` : 'None'
+    });
+
     if (!response.data?.people?.[0]) {
       throw new Error('No matching person found in Apollo');
     }
 
     const person = response.data.people[0];
+    
+    console.log('[Apollo] Found person:', {
+      name: `${person.first_name} ${person.last_name}`,
+      email: person.email,
+      linkedin: person.linkedin_url,
+      searchedFor: `${firstName} ${lastName}`,
+      company: person.organization?.name
+    });
 
     // Update lead with enrichment data - ONLY add contact info, preserve original identity
     const updateData: any = {};

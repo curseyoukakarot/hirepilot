@@ -6,32 +6,36 @@ interface EnrichmentParams {
 }
 
 export async function enrichLead(params: EnrichmentParams | string) {
-  try {
-    console.log('[Proxycurl] Input params:', params);
-    
-    // Handle both string and object parameters
-    const linkedinUrl = typeof params === 'string' ? params : params.linkedinUrl;
-    console.log('[Proxycurl] Extracted URL:', linkedinUrl);
-    
-    if (!linkedinUrl) {
-      throw new Error('LinkedIn URL is required');
-    }
+  console.log('[Proxycurl] Input params:', params);
+  
+  // Handle both string and object parameters
+  const linkedinUrl = typeof params === 'string' ? params : params.linkedinUrl;
+  console.log('[Proxycurl] Extracted URL:', linkedinUrl);
+  
+  if (!linkedinUrl) {
+    throw new Error('LinkedIn URL is required');
+  }
 
-    // Clean and normalize URL
-    let cleanUrl = linkedinUrl.trim()
-      .replace(/^http:/, 'https:')  // Convert http to https
-      .replace(/^https:\/\/(?!www\.)/, 'https://www.'); // Ensure www. prefix
-    // Remove trailing slash or semicolon
-    cleanUrl = cleanUrl.replace(/[;\/]$/, '');
+  // Clean and normalize URL
+  let cleanUrl = linkedinUrl.trim()
+    .replace(/^http:/, 'https:')  // Convert http to https
+    .replace(/^https:\/\/(?!www\.)/, 'https://www.'); // Ensure www. prefix
+  // Remove trailing slash or semicolon
+  cleanUrl = cleanUrl.replace(/[;\/]$/, '');
+
+  try {
     
+    console.log('[Proxycurl] Input URL:', linkedinUrl);
     console.log('[Proxycurl] Cleaned URL:', cleanUrl);
     
     if (!cleanUrl.match(/^https:\/\/www\.linkedin\.com\/in\/[^/]+$/)) {
-      throw new Error('Invalid LinkedIn URL format');
+      console.error('[Proxycurl] URL validation failed:', cleanUrl);
+      throw new Error(`Invalid LinkedIn URL format: ${cleanUrl}`);
     }
 
     // Get API key from environment
     const apiKey = process.env.PROXYCURL_API_KEY;
+    console.log('[Proxycurl] API key available:', !!apiKey);
     console.log('[Proxycurl] key prefix:', (apiKey || '').substring(0, 10));
     if (!apiKey) {
       throw new Error('Proxycurl API key not found');
@@ -63,7 +67,9 @@ export async function enrichLead(params: EnrichmentParams | string) {
       data: response.data
     };
   } catch (error: any) {
-    console.error('[Proxycurl] Error:', error);
+    console.error('[Proxycurl] Error for URL:', linkedinUrl);
+    console.error('[Proxycurl] Cleaned URL was:', cleanUrl);
+    console.error('[Proxycurl] Error:', error.message);
     
     // Log detailed error information
     if (error.response) {
@@ -71,13 +77,19 @@ export async function enrichLead(params: EnrichmentParams | string) {
         status: error.response.status,
         statusText: error.response.statusText,
         data: error.response.data,
-        headers: error.response.headers
+        url: error.config?.url,
+        params: error.config?.params
       });
     }
     
     // If we have a specific error message from Proxycurl, use it
     if (error.response?.data?.errors) {
       throw new Error(`Proxycurl API Error: ${JSON.stringify(error.response.data.errors)}`);
+    }
+    
+    // Enhance 404 error message
+    if (error.response?.status === 404) {
+      throw new Error(`Proxycurl 404: LinkedIn profile not found or invalid URL format: ${cleanUrl}`);
     }
     
     throw error; // Let the caller handle the error

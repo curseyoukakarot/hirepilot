@@ -373,11 +373,23 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                   <div className="space-y-3">
                     <div className="flex items-center space-x-3">
                       <i className="fa-regular fa-envelope text-gray-500"></i>
-                      <span>{localLead.email || "N/A"}</span>
+                      <span>{
+                        localLead.email || 
+                        (localLead.enrichment_data?.apollo?.email && 
+                         !localLead.enrichment_data.apollo.email.includes('email_not_unlocked') ? 
+                         localLead.enrichment_data.apollo.email : null) ||
+                        (localLead.enrichment_data?.proxycurl?.personal_emails?.[0]?.email) ||
+                        "N/A"
+                      }</span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <i className="fa-solid fa-phone text-gray-500"></i>
-                      <span>{localLead.phone || "N/A"}</span>
+                      <span>{
+                        localLead.phone || 
+                        (localLead.enrichment_data?.apollo?.phone) ||
+                        (localLead.enrichment_data?.proxycurl?.personal_numbers?.[0]?.number) ||
+                        "N/A"
+                      }</span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <i className="fa-brands fa-twitter text-gray-500"></i>
