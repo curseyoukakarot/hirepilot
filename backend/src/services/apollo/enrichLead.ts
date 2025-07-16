@@ -277,25 +277,52 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
       searchParams: { ...searchParams, api_key: '***' }
     });
 
-    // Search for person in Apollo
+    // Use Apollo's Match API for enrichment (not search)
     let response;
     try {
-      response = await axios.get('https://api.apollo.io/v1/people/search', {
-        params: searchParams,
+      // Prepare match parameters for enrichment API
+      const matchParams: any = {
+        api_key: settings.apollo_api_key,
+        reveal_personal_emails: true // Key parameter to get email addresses
+        // Note: reveal_phone_number requires webhook_url configuration
+      };
+
+      // Add available lead information for matching
+      if (firstName && lastName) {
+        matchParams.first_name = searchParams.first_name;
+        matchParams.last_name = searchParams.last_name;
+      }
+      if (company) {
+        matchParams.organization_name = company;
+      }
+      if (linkedinUrl) {
+        matchParams.linkedin_url = linkedinUrl;
+      }
+
+      console.log('[Apollo] Using Match API for enrichment:', {
+        originalName: `${firstName} ${lastName}`,
+        cleanedName: `${matchParams.first_name} ${matchParams.last_name}`,
+        company, linkedinUrl,
+        endpoint: 'people/match'
+      });
+
+      response = await axios.post('https://api.apollo.io/api/v1/people/match', matchParams, {
         headers: {
           'Content-Type': 'application/json'
         },
         timeout: 10000 // 10 second timeout
       });
 
-      console.log('[Apollo] API Response:', {
+      console.log('[Apollo] Match API Response:', {
         status: response.status,
-        peopleCount: response.data?.people?.length || 0,
-        firstPersonName: response.data?.people?.[0] ? 
-          `${response.data.people[0].first_name} ${response.data.people[0].last_name}` : 'None'
+        personFound: !!response.data?.person,
+        personName: response.data?.person ? 
+          `${response.data.person.first_name} ${response.data.person.last_name}` : 'None',
+        hasEmail: !!response.data?.person?.email,
+        hasPhone: !!response.data?.person?.phone_numbers?.length
       });
     } catch (apolloApiError: any) {
-      console.error('[Apollo] API request failed:', apolloApiError);
+      console.error('[Apollo] Match API request failed:', apolloApiError);
       errors.push(`Apollo API error: ${apolloApiError.message || 'Service unavailable'}`);
       return {
         success: false,
@@ -305,9 +332,9 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
       };
     }
 
-    if (!response.data?.people?.[0]) {
-      const errorMsg = 'No matching person found in Apollo';
-      console.log('[Apollo] No person found for search criteria');
+    if (!response.data?.person) {
+      const errorMsg = 'No matching person found in Apollo Match API';
+      console.log('[Apollo] No person found for match criteria');
       errors.push(errorMsg);
       return {
         success: false,
@@ -317,7 +344,7 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
       };
     }
 
-    const person = response.data.people[0];
+    const person = response.data.person;
 
     console.log('[Apollo] Found person:', {
       name: `${person.first_name} ${person.last_name}`,
@@ -335,9 +362,11 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
       updateData.email = person.email;
     }
     
-    // Only add phone if we found one and lead doesn't already have one  
-    if (person.phone && !lead.phone) {
-      updateData.phone = person.phone;
+    // Only add phone if we found one and lead doesn't already have one
+    // Apollo Match API returns phone numbers in phone_numbers array
+    const phoneNumber = person.phone_numbers?.[0]?.sanitized_number || person.phone;
+    if (phoneNumber && !lead.phone) {
+      updateData.phone = phoneNumber;
     }
     
     // Always update enrichment data but preserve original lead identity and any previous Hunter/Skrapp data
