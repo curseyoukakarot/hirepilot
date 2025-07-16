@@ -28,6 +28,7 @@ import zapierRouter from './api/zapierRouter';
 import createApikey from './api/createApikey';
 import getApiKeys from './api/getApiKeys';
 import deleteApiKey from './api/deleteApiKey';
+import userIntegrationsRouter from './api/userIntegrations';
 import webhooksRouter from './api/webhooksRouter';
 import bulkScheduleMessages from './api/bulkScheduleMessages';
 import testBackfill from './api/testBackfill';
@@ -35,6 +36,7 @@ import debugMessageCenter from './api/debugMessageCenter';
 import testAnalytics from './api/testAnalytics';
 import testGmailConnection from './api/testGmailConnection';
 import testLeadStatusUpdate from './api/testLeadStatusUpdate';
+import testEnrichmentProviders from './api/testEnrichmentProviders';
 import debugCampaignMetrics from './api/debugCampaignMetrics';
 import backfillCampaignAttribution from './api/backfillCampaignAttribution';
 
@@ -122,6 +124,9 @@ router.post('/apiKeys', requireAuth, createApikey);
 router.get('/apiKeys', requireAuth, getApiKeys);
 router.delete('/apiKeys/:id', requireAuth, deleteApiKey);
 
+// User integrations (Hunter.io, Skrapp.io API keys)
+router.use('/user-integrations', userIntegrationsRouter);
+
 router.use('/webhooks', webhooksRouter);
 
 router.post('/messages/bulk-schedule', requireAuth, bulkScheduleMessages);
@@ -139,6 +144,9 @@ router.get('/test/gmail-connection', testGmailConnection);
 
 // Test lead status update trigger
 router.get('/test/lead-status-update', testLeadStatusUpdate);
+
+// Test enrichment providers (Hunter.io, Skrapp.io)
+router.post('/test/enrichment-providers', requireAuth, testEnrichmentProviders);
 
 // Debug campaign metrics attribution
 router.get('/debug/campaign-metrics', debugCampaignMetrics);

@@ -48,19 +48,15 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
 
   // Contact field editing functions
   const startEditingEmail = () => {
-    const currentEmail = localLead.email || 
-      (localLead.enrichment_data?.apollo?.email && 
-       !localLead.enrichment_data.apollo.email.includes('email_not_unlocked') ? 
-       localLead.enrichment_data.apollo.email : '') ||
-      (localLead.enrichment_data?.apollo?.personal_emails?.[0]?.email) || '';
+    const emailInfo = getEmailWithSource(localLead);
+    const currentEmail = emailInfo ? emailInfo.email : '';
     setTempEmail(currentEmail);
     setEditingEmail(true);
   };
 
   const startEditingPhone = () => {
-    const currentPhone = localLead.phone || 
-      (localLead.enrichment_data?.apollo?.phone) ||
-      (localLead.enrichment_data?.apollo?.personal_numbers?.[0]?.number) || '';
+    const phoneInfo = getPhoneWithSource(localLead);
+    const currentPhone = phoneInfo ? phoneInfo.phone : '';
     setTempPhone(currentPhone);
     setEditingPhone(true);
   };
@@ -198,6 +194,224 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   const isEnriched = Boolean(
     localLead.enrichment_data && Object.keys(localLead.enrichment_data).length > 0
   );
+
+  // NEW: Helper to detect enrichment sources and get metadata
+  const getEnrichmentSources = (lead) => {
+    const sources = [];
+    const enrichmentData = lead.enrichment_data || {};
+
+    // Check for Hunter.io enrichment
+    if (enrichmentData.hunter?.email) {
+      sources.push({
+        type: 'hunter',
+        name: 'Hunter.io',
+        data: enrichmentData.hunter,
+        badge: 'Email via Hunter.io',
+        color: 'bg-green-100 text-green-800',
+        icon: '🎯'
+      });
+    }
+
+    // Check for Skrapp.io enrichment
+    if (enrichmentData.skrapp?.email) {
+      sources.push({
+        type: 'skrapp',
+        name: 'Skrapp.io',
+        data: enrichmentData.skrapp,
+        badge: 'Email via Skrapp.io',
+        color: 'bg-blue-100 text-blue-800',
+        icon: '🔍'
+      });
+    }
+
+    // Check for Apollo enrichment
+    if (enrichmentData.apollo) {
+      sources.push({
+        type: 'apollo',
+        name: 'Apollo',
+        data: enrichmentData.apollo,
+        badge: enrichmentData.apollo.used_as_fallback ? 'Profile via Apollo (fallback)' : 'Enriched via Apollo',
+        color: 'bg-purple-100 text-purple-800',
+        icon: '🚀'
+      });
+    }
+
+    // Check for PhantomBuster (Sales Navigator) enrichment
+    if (enrichmentData.phantombuster || enrichmentData.sales_navigator) {
+      sources.push({
+        type: 'phantombuster',
+        name: 'PhantomBuster',
+        data: enrichmentData.phantombuster || enrichmentData.sales_navigator,
+        badge: 'Enriched via PhantomBuster',
+        color: 'bg-indigo-100 text-indigo-800',
+        icon: '👻'
+      });
+    }
+
+    return sources;
+  };
+
+  // Helper to get the primary email source with tooltip info
+  const getEmailWithSource = (lead) => {
+    const enrichmentData = lead.enrichment_data || {};
+    
+    // Check if email came from Hunter.io
+    if (enrichmentData.hunter?.email) {
+      return {
+        email: enrichmentData.hunter.email,
+        source: 'Hunter.io',
+        tooltip: `Email found via Hunter.io with confidence score`,
+        enrichedAt: enrichmentData.hunter.enriched_at
+      };
+    }
+
+    // Check if email came from Skrapp.io
+    if (enrichmentData.skrapp?.email) {
+      return {
+        email: enrichmentData.skrapp.email,
+        source: 'Skrapp.io',
+        tooltip: `Email found via Skrapp.io with high confidence`,
+        enrichedAt: enrichmentData.skrapp.enriched_at
+      };
+    }
+
+    // Check if email came from Apollo
+    if (enrichmentData.apollo?.email && !enrichmentData.apollo.email.includes('email_not_unlocked')) {
+      return {
+        email: enrichmentData.apollo.email,
+        source: 'Apollo',
+        tooltip: `Email found via Apollo enrichment`,
+        enrichedAt: enrichmentData.apollo.enriched_at
+      };
+    }
+
+    // Fallback to lead's direct email field
+    if (lead.email) {
+      return {
+        email: lead.email,
+        source: 'Direct',
+        tooltip: `Email added directly`,
+        enrichedAt: null
+      };
+    }
+
+    return null;
+  };
+
+  // Helper to get the primary phone source with tooltip info
+  const getPhoneWithSource = (lead) => {
+    const enrichmentData = lead.enrichment_data || {};
+    
+    // Check if phone came from Apollo
+    if (enrichmentData.apollo?.phone) {
+      return {
+        phone: enrichmentData.apollo.phone,
+        source: 'Apollo',
+        tooltip: `Phone found via Apollo enrichment`,
+        enrichedAt: enrichmentData.apollo.enriched_at
+      };
+    }
+
+    // Check Apollo personal numbers
+    if (enrichmentData.apollo?.personal_numbers?.[0]?.number) {
+      return {
+        phone: enrichmentData.apollo.personal_numbers[0].number,
+        source: 'Apollo',
+        tooltip: `Personal phone found via Apollo enrichment`,
+        enrichedAt: enrichmentData.apollo.enriched_at
+      };
+    }
+
+    // Fallback to lead's direct phone field
+    if (lead.phone) {
+      return {
+        phone: lead.phone,
+        source: 'Direct',
+        tooltip: `Phone added directly`,
+        enrichedAt: null
+      };
+    }
+
+    return null;
+  };
+
+  // Helper to determine lead source for appropriate messaging
+  const getLeadSource = (lead) => {
+    // You might want to add a 'source' field to leads table to track this
+    // For now, infer from available data
+    if (lead.lead_source) return lead.lead_source;
+    if (lead.linkedin_url && lead.linkedin_url.includes('sales-nav')) return 'Sales Navigator';
+    if (localLead.enrichment_data?.apollo) return 'Apollo';
+    return 'Unknown';
+  };
+
+  // Helper to detect PhantomBuster enrichment scenarios
+  const getPhantomBusterStatus = (lead) => {
+    const leadSource = getLeadSource(lead);
+    const enrichmentData = lead.enrichment_data || {};
+    
+    if (leadSource === 'Sales Navigator') {
+      // Sales Navigator leads should have PhantomBuster data
+      if (enrichmentData.phantombuster || enrichmentData.sales_navigator) {
+        return {
+          status: 'enriched',
+          message: 'Profile data available from PhantomBuster',
+          hasData: true
+        };
+      } else {
+        return {
+          status: 'missing',
+          message: 'No profile data found. This lead may not have been enriched yet.',
+          hasData: false,
+          canRetrigger: true
+        };
+      }
+    }
+    
+    return {
+      status: 'not_applicable',
+      message: null,
+      hasData: true
+    };
+  };
+
+  // Helper to get enrichment error context
+  const getEnrichmentErrorContext = (lead) => {
+    const emailInfo = getEmailWithSource(lead);
+    const phoneInfo = getPhoneWithSource(lead);
+    const enrichmentSources = getEnrichmentSources(lead);
+    const hasAnyData = emailInfo || phoneInfo || enrichmentSources.length > 0;
+    
+    if (!hasAnyData) {
+      return {
+        type: 'no_data',
+        message: 'No contact information available',
+        suggestion: 'Try enriching this lead or add contact details manually'
+      };
+    }
+    
+    if (!emailInfo) {
+      return {
+        type: 'missing_email',
+        message: 'Email not available',
+        suggestion: 'Enrich to find email or add manually'
+      };
+    }
+    
+    if (!phoneInfo) {
+      return {
+        type: 'missing_phone',
+        message: 'Phone not available',
+        suggestion: 'Contact information partially complete'
+      };
+    }
+    
+    return {
+      type: 'complete',
+      message: 'Contact information available',
+      suggestion: null
+    };
+  };
 
   // Add a function to fetch the latest lead data
   const fetchLatestLead = async (id) => {
@@ -446,25 +660,82 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                     <i className="fa-solid fa-user-plus mr-2"></i>
                     {isConverting ? 'Converting...' : 'Convert to Candidate'}
                   </button>
-                  <button
-                    className="px-4 py-2 bg-purple-50 border border-purple-500 text-purple-700 rounded-lg flex items-center hover:bg-purple-100 disabled:opacity-50"
-                    onClick={handleEnrich}
-                    disabled={isEnriching}
-                  >
-                    {isEnriching ? (
-                      <svg className="animate-spin h-4 w-4 mr-1 text-purple-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
-                      </svg>
-                    ) : (
-                      <FaWandMagicSparkles className="mr-1" />
-                    )}
-                    Enrich
-                  </button>
+                  {(() => {
+                    const emailInfo = getEmailWithSource(localLead);
+                    const phantomStatus = getPhantomBusterStatus(localLead);
+                    const errorContext = getEnrichmentErrorContext(localLead);
+                    const hasAnyEnrichment = isEnriched;
+                    const needsEnrichment = !emailInfo || !hasAnyEnrichment;
+                    const leadSource = getLeadSource(localLead);
+                    
+                    // Determine button appearance and behavior
+                    let buttonClass, buttonText, tooltipText, flowText;
+                    
+                    if (leadSource === 'Sales Navigator' && phantomStatus.status === 'missing') {
+                      buttonClass = 'bg-blue-50 border border-blue-500 text-blue-700 hover:bg-blue-100';
+                      buttonText = 'Enrich Profile';
+                      tooltipText = 'Run PhantomBuster to extract Sales Navigator profile data';
+                      flowText = 'PhantomBuster';
+                    } else if (needsEnrichment) {
+                      buttonClass = 'bg-purple-50 border border-purple-500 text-purple-700 hover:bg-purple-100';
+                      buttonText = 'Enrich Now';
+                      tooltipText = 'Find contact information using Hunter.io → Skrapp.io → Apollo flow';
+                      flowText = 'Hunter→Skrapp→Apollo';
+                    } else {
+                      buttonClass = 'bg-green-50 border border-green-500 text-green-700 hover:bg-green-100';
+                      buttonText = 'Re-enrich';
+                      tooltipText = 'Re-run enrichment to find additional data or update existing information';
+                      flowText = 'Update';
+                    }
+                    
+                    return (
+                      <button
+                        className={`px-4 py-2 rounded-lg flex items-center disabled:opacity-50 ${buttonClass}`}
+                        onClick={handleEnrich}
+                        disabled={isEnriching}
+                        title={tooltipText}
+                      >
+                        {isEnriching ? (
+                          <svg className="animate-spin h-4 w-4 mr-1 text-purple-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                          </svg>
+                        ) : (
+                          <FaWandMagicSparkles className="mr-1" />
+                        )}
+                        {buttonText}
+                        {(needsEnrichment || phantomStatus.status === 'missing') && (
+                          <span className={`ml-1 text-xs px-1 rounded ${
+                            leadSource === 'Sales Navigator' 
+                              ? 'bg-blue-200 text-blue-800' 
+                              : 'bg-purple-200 text-purple-800'
+                          }`}>
+                            {flowText}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })()}
                 </div>
-                {/* Enrichment Status Feedback */}
+                {/* Enhanced Enrichment Status Feedback */}
                 {(enrichStatus.apollo || enrichStatus.gpt) && (
                   <div className="mt-4 space-y-2">
+                    {(() => {
+                      const leadSource = getLeadSource(localLead);
+                      const phantomStatus = getPhantomBusterStatus(localLead);
+                      
+                      return (
+                        <div className="text-xs text-gray-600 mb-2">
+                          <span className="font-medium">Enrichment Strategy:</span>
+                          {leadSource === 'Sales Navigator' && phantomStatus.status === 'missing' ? (
+                            <span className="ml-1">PhantomBuster → Profile Data Extraction</span>
+                          ) : (
+                            <span className="ml-1">Hunter.io → Skrapp.io → Apollo (with graceful fallbacks)</span>
+                          )}
+                        </div>
+                      );
+                    })()}
+                    
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
                         enrichStatus.apollo === 'success' ? 'bg-green-100 text-green-800' : 
@@ -472,11 +743,11 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                         enrichStatus.apollo === 'retry' ? 'bg-orange-100 text-orange-800' :
                         'bg-red-100 text-red-800'
                       }`}>
-                        Apollo: {
+                        Contact Enrichment: {
                           enrichStatus.apollo === 'success' ? 'Success' : 
-                          enrichStatus.apollo === 'no_results' ? 'Nothing found' :
+                          enrichStatus.apollo === 'no_results' ? 'No results found' :
                           enrichStatus.apollo === 'retry' ? 'Can retry' :
-                          'Failed'
+                          'Service error'
                         }
                       </span>
                       {enrichStatus.apollo === 'retry' && (
@@ -485,13 +756,11 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                           disabled={isEnriching}
                           className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600 disabled:opacity-50"
                         >
-                          Try Again
+                          Retry
                         </button>
                       )}
-                      {(enrichStatus.apollo === 'error' || enrichStatus.apollo === 'no_results' || enrichStatus.apollo === 'retry') && enrichStatus.apolloMsg && (
-                        <span className="text-xs text-gray-600">{enrichStatus.apolloMsg}</span>
-                      )}
                     </div>
+                    
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
                         enrichStatus.gpt === 'success' ? 'bg-green-100 text-green-800' : 
@@ -501,9 +770,9 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                       }`}>
                         Profile Analysis: {
                           enrichStatus.gpt === 'success' ? 'Success' : 
-                          enrichStatus.gpt === 'no_results' ? 'Nothing found' :
+                          enrichStatus.gpt === 'no_results' ? 'No data available' :
                           enrichStatus.gpt === 'retry' ? 'Can retry' :
-                          'Failed'
+                          'Analysis failed'
                         }
                       </span>
                       {enrichStatus.gpt === 'retry' && (
@@ -512,19 +781,115 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                           disabled={isEnriching}
                           className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600 disabled:opacity-50"
                         >
-                          Try Again
+                          Retry
                         </button>
                       )}
-                      {(enrichStatus.gpt === 'error' || enrichStatus.gpt === 'no_results' || enrichStatus.gpt === 'retry') && enrichStatus.gptMsg && (
-                        <span className="text-xs text-gray-600">{enrichStatus.gptMsg}</span>
-                      )}
                     </div>
+                    
+                    {/* Enhanced status messages with context */}
+                    {(enrichStatus.apolloMsg || enrichStatus.gptMsg) && (
+                      <div className="text-xs text-gray-600 space-y-1">
+                        {enrichStatus.apolloMsg && (
+                          <div className="flex items-start space-x-1">
+                            <span>•</span>
+                            <span>
+                              Contact Enrichment: {enrichStatus.apolloMsg}
+                              {enrichStatus.apollo === 'no_results' && (
+                                <span className="text-gray-500 ml-1">(tried all available sources)</span>
+                              )}
+                            </span>
+                          </div>
+                        )}
+                        {enrichStatus.gptMsg && (
+                          <div className="flex items-start space-x-1">
+                            <span>•</span>
+                            <span>Profile Analysis: {enrichStatus.gptMsg}</span>
+                          </div>
+                        )}
+                        <div className="mt-2 text-xs text-gray-500 italic">
+                          💡 Enrichment uses graceful fallbacks - if one service fails, others are automatically tried
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
 
               {/* Profile Sections */}
               <div className="px-6 py-6 space-y-8">
+                {/* Enhanced Data Sources Display with Error Handling */}
+                {(() => {
+                  const phantomStatus = getPhantomBusterStatus(localLead);
+                  const errorContext = getEnrichmentErrorContext(localLead);
+                  const sources = getEnrichmentSources(localLead);
+                  
+                  return (
+                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                      <h3 className="text-sm font-medium text-gray-700 mb-3">Enrichment Status</h3>
+                      
+                      {/* PhantomBuster-specific messaging for Sales Navigator leads */}
+                      {phantomStatus.status === 'missing' && (
+                        <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                          <div className="flex items-start space-x-2">
+                            <span className="text-yellow-600 text-sm">⚠️</span>
+                            <div className="flex-1">
+                              <p className="text-sm text-yellow-800 font-medium">{phantomStatus.message}</p>
+                              <p className="text-xs text-yellow-700 mt-1">
+                                Sales Navigator leads require PhantomBuster enrichment for complete profile data.
+                              </p>
+                              {phantomStatus.canRetrigger && (
+                                <button 
+                                  className="mt-2 text-xs bg-yellow-600 text-white px-2 py-1 rounded hover:bg-yellow-700"
+                                  onClick={() => console.log('TODO: Trigger PhantomBuster re-run')}
+                                >
+                                  Re-trigger PhantomBuster
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Regular enrichment sources */}
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {sources.map((source, index) => (
+                          <div
+                            key={index}
+                            className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${source.color}`}
+                            title={`Enriched at: ${source.data.enriched_at ? new Date(source.data.enriched_at).toLocaleString() : 'Unknown'}`}
+                          >
+                            <span className="mr-1">{source.icon}</span>
+                            {source.badge}
+                          </div>
+                        ))}
+                        
+                        {/* Error state messaging */}
+                        {sources.length === 0 && (
+                          <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                            errorContext.type === 'no_data' ? 'bg-red-100 text-red-800' :
+                            errorContext.type === 'missing_email' ? 'bg-orange-100 text-orange-800' :
+                            'bg-gray-100 text-gray-600'
+                          }`}>
+                            <span className="mr-1">{
+                              errorContext.type === 'no_data' ? '❌' :
+                              errorContext.type === 'missing_email' ? '📧' :
+                              '❓'
+                            }</span>
+                            {errorContext.message}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Lead source and suggestion */}
+                      <div className="text-xs text-gray-500 space-y-1">
+                        <div>Lead Source: <span className="font-medium">{getLeadSource(localLead)}</span></div>
+                        {errorContext.suggestion && (
+                          <div className="text-gray-600 italic">{errorContext.suggestion}</div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
                 {/* Always show: LinkedIn, Contact Info, Name, Profile Pic */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">LinkedIn Profile</h3>
@@ -573,14 +938,38 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                         </div>
                       ) : (
                         <div className="flex items-center space-x-2 flex-1">
-                          <span className="flex-1">{
-                            localLead.email || 
-                            (localLead.enrichment_data?.apollo?.email && 
-                             !localLead.enrichment_data.apollo.email.includes('email_not_unlocked') ? 
-                             localLead.enrichment_data.apollo.email : null) ||
-                            (localLead.enrichment_data?.apollo?.personal_emails?.[0]?.email) ||
-                            "N/A"
-                          }</span>
+                          {(() => {
+                            const emailInfo = getEmailWithSource(localLead);
+                            const errorContext = getEnrichmentErrorContext(localLead);
+                            
+                            return emailInfo ? (
+                              <div className="flex items-center space-x-2 flex-1">
+                                <span className="flex-1" title={emailInfo.tooltip}>
+                                  {emailInfo.email}
+                                </span>
+                                <span 
+                                  className={`text-xs px-2 py-1 rounded-full font-medium ${
+                                    emailInfo.source === 'Hunter.io' ? 'bg-green-100 text-green-700' :
+                                    emailInfo.source === 'Skrapp.io' ? 'bg-blue-100 text-blue-700' :
+                                    emailInfo.source === 'Apollo' ? 'bg-purple-100 text-purple-700' :
+                                    'bg-gray-100 text-gray-700'
+                                  }`}
+                                  title={`Email source: ${emailInfo.source}${emailInfo.enrichedAt ? ` (${new Date(emailInfo.enrichedAt).toLocaleDateString()})` : ''}`}
+                                >
+                                  {emailInfo.source}
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center space-x-2 flex-1">
+                                <span className="flex-1 text-gray-400">
+                                  {errorContext.type === 'missing_email' ? 'Email not available' : 'No email found'}
+                                </span>
+                                <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600">
+                                  {errorContext.type === 'missing_email' ? 'Missing' : 'None'}
+                                </span>
+                              </div>
+                            );
+                          })()}
                           <button
                             onClick={startEditingEmail}
                             className="px-2 py-1 text-gray-500 hover:text-blue-600 text-sm"
@@ -623,12 +1012,36 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                         </div>
                       ) : (
                         <div className="flex items-center space-x-2 flex-1">
-                          <span className="flex-1">{
-                            localLead.phone || 
-                            (localLead.enrichment_data?.apollo?.phone) ||
-                            (localLead.enrichment_data?.apollo?.personal_numbers?.[0]?.number) ||
-                            "N/A"
-                          }</span>
+                          {(() => {
+                            const phoneInfo = getPhoneWithSource(localLead);
+                            const errorContext = getEnrichmentErrorContext(localLead);
+                            
+                            return phoneInfo ? (
+                              <div className="flex items-center space-x-2 flex-1">
+                                <span className="flex-1" title={phoneInfo.tooltip}>
+                                  {phoneInfo.phone}
+                                </span>
+                                <span 
+                                  className={`text-xs px-2 py-1 rounded-full font-medium ${
+                                    phoneInfo.source === 'Apollo' ? 'bg-purple-100 text-purple-700' :
+                                    'bg-gray-100 text-gray-700'
+                                  }`}
+                                  title={`Phone source: ${phoneInfo.source}${phoneInfo.enrichedAt ? ` (${new Date(phoneInfo.enrichedAt).toLocaleDateString()})` : ''}`}
+                                >
+                                  {phoneInfo.source}
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center space-x-2 flex-1">
+                                <span className="flex-1 text-gray-400">
+                                  {errorContext.type === 'missing_phone' ? 'Phone not available' : 'No phone found'}
+                                </span>
+                                <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600">
+                                  {errorContext.type === 'missing_phone' ? 'Missing' : 'None'}
+                                </span>
+                              </div>
+                            );
+                          })()}
                           <button
                             onClick={startEditingPhone}
                             className="px-2 py-1 text-gray-500 hover:text-blue-600 text-sm"
@@ -739,15 +1152,93 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                         )}
                       </div>
                     </div>
-                    {/* GPT Notes */}
+                    {/* Profile Analysis / GPT Notes */}
                     <div className="space-y-4">
-                      <h3 className="text-lg font-semibold">GPT-Generated Notes</h3>
-                      <div className="bg-gray-50 p-4 rounded-lg">
-                        {isEnriched ? (
-                          getGptNotes(localLead) ? <p className="text-gray-600">{getGptNotes(localLead)}</p> : <span className="text-gray-400">No notes found.</span>
-                        ) : (
-                          <p className="text-gray-600">Strong technical background with 6+ years of experience in full-stack development. Currently leading a team at Google, showing both technical expertise and leadership capabilities. Active in the open-source community and regular speaker at tech conferences.</p>
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold">
+                          {(() => {
+                            const leadSource = getLeadSource(localLead);
+                            if (leadSource === 'Sales Navigator') return 'PhantomBuster Profile Data';
+                            if (leadSource === 'Apollo') return 'Apollo Profile Summary';
+                            return 'Profile Analysis';
+                          })()}
+                        </h3>
+                        {isEnriched && getEnrichmentSources(localLead).length > 0 && (
+                          <span className="text-xs text-gray-500">
+                            via {getEnrichmentSources(localLead).map(s => s.name).join(', ')}
+                          </span>
                         )}
+                      </div>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        {(() => {
+                          const phantomStatus = getPhantomBusterStatus(localLead);
+                          const leadSource = getLeadSource(localLead);
+                          const gptNotes = getGptNotes(localLead);
+                          
+                          // Handle PhantomBuster-specific scenarios
+                          if (leadSource === 'Sales Navigator' && phantomStatus.status === 'missing') {
+                            return (
+                              <div className="text-center py-6">
+                                <div className="text-gray-400 mb-2">👻</div>
+                                <p className="text-gray-500 text-sm">No profile data found.</p>
+                                <p className="text-gray-400 text-xs mt-1">
+                                  This Sales Navigator lead may need PhantomBuster enrichment.
+                                </p>
+                                <button 
+                                  className="mt-3 text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+                                  onClick={() => console.log('TODO: Trigger PhantomBuster run')}
+                                >
+                                  Run PhantomBuster Enrichment
+                                </button>
+                              </div>
+                            );
+                          }
+                          
+                          // Regular enrichment display
+                          if (isEnriched && gptNotes) {
+                            return (
+                              <div>
+                                <p className="text-gray-600">{gptNotes}</p>
+                                {/* Show data source attribution */}
+                                {localLead.enrichment_data?.phantombuster && (
+                                  <div className="mt-2 text-xs text-blue-600 flex items-center">
+                                    <span className="mr-1">👻</span>
+                                    Data collected via PhantomBuster Sales Navigator extraction
+                                  </div>
+                                )}
+                                {localLead.enrichment_data?.apollo?.summary && (
+                                  <div className="mt-2 text-xs text-purple-600 flex items-center">
+                                    <span className="mr-1">🚀</span>
+                                    Profile summary generated from Apollo data
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          }
+                          
+                          // No enrichment data available
+                          if (isEnriched) {
+                            return (
+                              <div className="text-center py-4">
+                                <p className="text-gray-400 text-sm">No profile analysis available.</p>
+                                <p className="text-gray-400 text-xs mt-1">
+                                  Contact information was found but no detailed profile data.
+                                </p>
+                              </div>
+                            );
+                          }
+                          
+                          // Fallback placeholder content
+                          return (
+                            <div className="text-center py-6">
+                              <div className="text-gray-300 mb-2">📋</div>
+                              <p className="text-gray-400 text-sm">Profile analysis will appear here after enrichment.</p>
+                              <p className="text-gray-400 text-xs mt-1">
+                                Click "Enrich Now" to discover professional background and experience.
+                              </p>
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>

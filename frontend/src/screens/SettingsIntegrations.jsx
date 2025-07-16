@@ -80,6 +80,16 @@ export default function SettingsIntegrations() {
   const [apolloKeyStatus, setApolloKeyStatus] = useState(null); // 'valid' | 'invalid' | null
   const [currentUser, setCurrentUser] = useState(null);
 
+  // State for enrichment API keys
+  const [enrichmentKeys, setEnrichmentKeys] = useState({
+    hunter_api_key: '',
+    skrapp_api_key: ''
+  });
+  const [enrichmentLoading, setEnrichmentLoading] = useState(false);
+  const [enrichmentSaving, setEnrichmentSaving] = useState(false);
+  const [enrichmentError, setEnrichmentError] = useState('');
+  const [enrichmentSuccess, setEnrichmentSuccess] = useState('');
+
   // Fetch integration status from Supabase on mount
   useEffect(() => {
     const fetchIntegrations = async () => {
@@ -727,6 +737,92 @@ export default function SettingsIntegrations() {
     })();
   }, []);
 
+  // Fetch existing enrichment API keys
+  const fetchEnrichmentKeys = async () => {
+    try {
+      setEnrichmentLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('user_integrations')
+        .select('hunter_api_key, skrapp_api_key')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
+        console.error('Error fetching enrichment keys:', error);
+        return;
+      }
+
+      if (data) {
+        setEnrichmentKeys({
+          hunter_api_key: data.hunter_api_key || '',
+          skrapp_api_key: data.skrapp_api_key || ''
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching enrichment keys:', err);
+    } finally {
+      setEnrichmentLoading(false);
+    }
+  };
+
+  // Save enrichment API keys
+  const saveEnrichmentKeys = async () => {
+    try {
+      setEnrichmentSaving(true);
+      setEnrichmentError('');
+      setEnrichmentSuccess('');
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setEnrichmentError('User not authenticated');
+        return;
+      }
+
+      // Call backend endpoint
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(`${BACKEND}/api/user-integrations`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({
+          hunter_api_key: enrichmentKeys.hunter_api_key || null,
+          skrapp_api_key: enrichmentKeys.skrapp_api_key || null
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to save API keys');
+      }
+
+      setEnrichmentSuccess('API keys saved successfully!');
+      setTimeout(() => setEnrichmentSuccess(''), 3000);
+    } catch (err) {
+      console.error('Error saving enrichment keys:', err);
+      setEnrichmentError(err.message || 'Failed to save API keys');
+      setTimeout(() => setEnrichmentError(''), 5000);
+    } finally {
+      setEnrichmentSaving(false);
+    }
+  };
+
+  // Fetch enrichment keys when currentUser is set
+  useEffect(() => {
+    if (currentUser) {
+      fetchEnrichmentKeys();
+    }
+  }, [currentUser]);
+
+  // Check if user has admin access for enrichment features
+  // Role-based access control for Hunter/Skrapp enrichment features
+  // Only allow: Super Admin, Pro, Team Admin, RecruitPro
+  const hasEnrichmentAccess = currentUser?.role && ['super_admin', 'Pro', 'team_admin', 'RecruitPro'].includes(currentUser.role);
+
   if (loading) return <div className="p-6">Loading integrations...</div>;
 
   return (
@@ -860,6 +956,113 @@ export default function SettingsIntegrations() {
           ))}
         </div>
       </div>
+
+      {/* Enrichment API Keys Section - Admin Only */}
+      {hasEnrichmentAccess && (
+        <div className="bg-white rounded-lg border shadow-sm p-6 mt-8 w-full max-w-3xl mx-auto">
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <h2 className="text-2xl font-semibold text-gray-900">Email Enrichment Keys</h2>
+              <p className="text-gray-600 mt-2">Optional API keys for enhanced email enrichment. These will be used as priority sources before falling back to Apollo.</p>
+            </div>
+            <div className="flex items-center space-x-1 text-blue-600">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+              <span className="text-sm font-medium">Admin Feature</span>
+            </div>
+          </div>
+
+          {/* Priority Flow Explanation */}
+          <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="flex items-center space-x-2 mb-2">
+              <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+              </svg>
+              <h3 className="text-sm font-semibold text-blue-900">Enrichment Priority Order</h3>
+            </div>
+            <p className="text-sm text-blue-800">
+              <span className="font-semibold">1.</span> Hunter.io → <span className="font-semibold">2.</span> Skrapp.io → <span className="font-semibold">3.</span> Apollo (fallback)
+            </p>
+          </div>
+
+          {enrichmentLoading ? (
+            <div className="text-center py-4 text-gray-500">Loading API keys...</div>
+          ) : (
+            <div className="space-y-6">
+              {/* Hunter.io API Key */}
+              <div>
+                <label htmlFor="hunter-key" className="block text-sm font-medium text-gray-700 mb-2">
+                  Hunter.io API Key
+                  <span className="ml-1 group relative cursor-help">
+                    <svg className="w-4 h-4 text-gray-400 inline" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8.94 6.94a1.5 1.5 0 112.12 2.12L10 10.06l-1.06-1.06a1.5 1.5 0 010-2.12zM10 11a1 1 0 100 2 1 1 0 000-2z" clipRule="evenodd" />
+                    </svg>
+                    <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                      High-accuracy email finder for professional domains
+                    </div>
+                  </span>
+                </label>
+                <input
+                  id="hunter-key"
+                  type="password"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter your Hunter.io API key"
+                  value={enrichmentKeys.hunter_api_key}
+                  onChange={(e) => setEnrichmentKeys(prev => ({ ...prev, hunter_api_key: e.target.value }))}
+                />
+              </div>
+
+              {/* Skrapp.io API Key */}
+              <div>
+                <label htmlFor="skrapp-key" className="block text-sm font-medium text-gray-700 mb-2">
+                  Skrapp.io API Key
+                  <span className="ml-1 group relative cursor-help">
+                    <svg className="w-4 h-4 text-gray-400 inline" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8.94 6.94a1.5 1.5 0 112.12 2.12L10 10.06l-1.06-1.06a1.5 1.5 0 010-2.12zM10 11a1 1 0 100 2 1 1 0 000-2z" clipRule="evenodd" />
+                    </svg>
+                    <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                      LinkedIn-focused email enrichment service
+                    </div>
+                  </span>
+                </label>
+                <input
+                  id="skrapp-key"
+                  type="password"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter your Skrapp.io API key"
+                  value={enrichmentKeys.skrapp_api_key}
+                  onChange={(e) => setEnrichmentKeys(prev => ({ ...prev, skrapp_api_key: e.target.value }))}
+                />
+              </div>
+
+              {/* Status Messages */}
+              {enrichmentError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-sm text-red-600">{enrichmentError}</p>
+                </div>
+              )}
+              {enrichmentSuccess && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-md">
+                  <p className="text-sm text-green-600">{enrichmentSuccess}</p>
+                </div>
+              )}
+
+              {/* Save Button */}
+              <div className="flex justify-end">
+                <button
+                  onClick={saveEnrichmentKeys}
+                  disabled={enrichmentSaving}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {enrichmentSaving ? 'Saving...' : 'Save API Keys'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* LinkedIn Sales Navigator Integration */}
       <div className="bg-white rounded-lg border shadow-sm p-6 mt-10 w-full max-w-3xl mx-auto">
         <div className="flex items-start justify-between mb-6">
