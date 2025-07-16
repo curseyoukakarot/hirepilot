@@ -118,10 +118,18 @@ export default function Step4Import({ onBack, onNext }) {
   const [apolloLocation, setApolloLocation] = useState('');
   const [apolloKeywords, setApolloKeywords] = useState('');
 
+  // Credit state - MOVE UP to fix temporal dead zone
+  const [userCredits, setUserCredits] = useState({
+    totalCredits: 0,
+    usedCredits: 0,
+    remainingCredits: 0
+  });
+  const [creditsLoading, setCreditsLoading] = useState(true);
+
   // LinkedIn account selection
   const [linkedinAccountType, setLinkedinAccountType] = useState(USER_HAS_LINKEDIN ? 'own' : 'hirepilot');
 
-  // Credit logic
+  // Credit logic - NOW SAFE to use userCredits since it's declared above
   const usingHirePilotLinkedIn = selectedSource === 'linkedin' && linkedinAccountType === 'hirepilot' && !USER_HAS_APOLLO;
   const creditsNeeded = usingHirePilotLinkedIn ? 50 : 0; // LinkedIn campaigns cost 50 credits
   const hasEnoughCredits = userCredits.remainingCredits >= creditsNeeded;
@@ -138,14 +146,6 @@ export default function Step4Import({ onBack, onNext }) {
   const apolloKeyFetched = useRef(false);
 
   const [sources, setSources] = useState(defaultSources);
-
-  // Credit state
-  const [userCredits, setUserCredits] = useState({
-    totalCredits: 0,
-    usedCredits: 0,
-    remainingCredits: 0
-  });
-  const [creditsLoading, setCreditsLoading] = useState(true);
 
   // Fetch user credits on mount
   useEffect(() => {

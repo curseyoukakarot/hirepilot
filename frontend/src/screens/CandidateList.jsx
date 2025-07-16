@@ -13,6 +13,15 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { downloadCSV } from '../utils/csvExport';
 
+// Helper function to safely parse enrichment title - fixes temporal dead zone issues
+const parseEnrichmentTitle = (enrichmentData) => {
+  try {
+    return JSON.parse(enrichmentData).current_title;
+  } catch {
+    return undefined;
+  }
+};
+
 export default function CandidateList() {
   /** ------------------------------------------------------------------
    * State
@@ -407,7 +416,7 @@ export default function CandidateList() {
                             <div className="text-sm text-gray-500">
                               {candidate.title ||
                                 (typeof candidate.enrichment_data === 'string'
-                                  ? (() => { try { return JSON.parse(candidate.enrichment_data).current_title; } catch { return undefined; } })()
+                                  ? parseEnrichmentTitle(candidate.enrichment_data)
                                   : candidate.enrichment_data?.current_title) ||
                                 'No title'}
                             </div>
