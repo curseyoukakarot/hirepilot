@@ -12,6 +12,18 @@ interface EnrichmentParams {
 
 export async function enrichWithApollo({ leadId, userId, firstName, lastName, company, linkedinUrl }: EnrichmentParams) {
   try {
+    // Get the current lead data to preserve original information
+    const { data: lead, error: leadError } = await supabase
+      .from('leads')
+      .select('*')
+      .eq('id', leadId)
+      .eq('user_id', userId)
+      .single();
+
+    if (leadError || !lead) {
+      throw new Error('Lead not found');
+    }
+
     // Get user's Apollo API key
     const { data: settings, error: settingsError } = await supabase
       .from('user_settings')
@@ -53,44 +65,42 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
 
     const person = response.data.people[0];
 
-    // Update lead with enrichment data
+    // Update lead with enrichment data - ONLY add contact info, preserve original identity
+    const updateData: any = {};
+    
+    // Only add email if we found a valid one and lead doesn't already have one
+    if (person.email && !person.email.startsWith('email_not_unlocked') && !lead.email) {
+      updateData.email = person.email;
+    }
+    
+    // Only add phone if we found one and lead doesn't already have one  
+    if (person.phone && !lead.phone) {
+      updateData.phone = person.phone;
+    }
+    
+    // Always update enrichment data but preserve original lead identity
+    updateData.enrichment_data = {
+      ...(lead.enrichment_data || {}),
+      apollo: {
+        person_id: person.id,
+        organization: person.organization,
+        location: person.location,
+        seniority: person.seniority,
+        department: person.department,
+        subdepartments: person.subdepartments,
+        skills: person.skills,
+        // Store Apollo's suggestions without overwriting original data
+        apollo_suggested_name: `${person.first_name} ${person.last_name}`,
+        apollo_suggested_title: person.title,
+        apollo_suggested_company: person.organization?.name
+      }
+    };
+    
+    updateData.enriched_at = new Date().toISOString();
+    
     let { error: updateError } = await supabase
       .from('leads')
-      .update({
-        first_name: person.first_name,
-        last_name: person.last_name,
-        title: person.title,
-        company: person.organization?.name,
-        ...(person.email && !person.email.startsWith('email_not_unlocked') && { email: person.email }),
-        phone: person.phone,
-        linkedin_url: person.linkedin_url,
-        enrichment_data: {
-          apollo: {
-            person_id: person.id,
-            organization: person.organization,
-            location: person.location,
-            seniority: person.seniority,
-            department: person.department,
-            subdepartments: person.subdepartments,
-            skills: person.skills,
-            languages: person.languages,
-            interests: person.interests,
-            organization_titles: person.organization_titles,
-            social_profiles: {
-              twitter: person.twitter_url,
-              facebook: person.facebook_url,
-              github: person.github_url
-            },
-            contact_info: {
-              personal_email: person.personal_email,
-              mobile_phone: person.mobile_phone,
-              work_email: person.work_email,
-              work_phone: person.work_phone
-            }
-          }
-        },
-        updated_at: new Date().toISOString()
-      })
+      .update(updateData)
       .eq('id', leadId)
       .eq('user_id', userId);
 
