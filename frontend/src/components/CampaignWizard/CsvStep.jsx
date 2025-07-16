@@ -206,44 +206,54 @@ export default function CsvStep({ onLeadsSelected }) {
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Select
+                  <th scope="col" className="relative py-3.5 pl-4 pr-3 sm:pl-6">
+                    <input
+                      type="checkbox"
+                      className="absolute left-4 top-1/2 -mt-2 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      checked={selectedIds.length === leads.length && leads.length > 0}
+                      onChange={(e) => handleSelectAll(e.target.checked)}
+                    />
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Name
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Email
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Title
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Company
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Location
-                  </th>
+                  {REQUIRED_FIELDS.map(field => (
+                    <th
+                      key={field.key}
+                      scope="col"
+                      className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
+                    >
+                      {field.label}
+                    </th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
-                {leads.map(lead => (
-                  <tr key={lead.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
+              <tbody className="divide-y divide-gray-200 bg-white">
+                {leads.map((lead) => (
+                  <tr key={lead.id}>
+                    <td className="relative w-12 px-6 sm:w-16 sm:px-8">
                       <input
                         type="checkbox"
+                        className="absolute left-4 top-1/2 -mt-2 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         checked={selectedIds.includes(lead.id)}
                         onChange={() => handleSelectLead(lead.id)}
-                        className="rounded border-gray-300"
                       />
                     </td>
-                    <td className="px-4 py-3">
-                      {lead.firstName} {lead.lastName}
+                    <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900">
+                      {lead.firstName}
                     </td>
-                    <td className="px-4 py-3">{lead.email}</td>
-                    <td className="px-4 py-3">{lead.title || '-'}</td>
-                    <td className="px-4 py-3">{lead.company || '-'}</td>
-                    <td className="px-4 py-3">{lead.location || '-'}</td>
+                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                      {lead.lastName}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                      {lead.email}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                      {lead.title}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                      {lead.company}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                      {lead.location}
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -549,6 +549,9 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                               Email
                             </th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              LinkedIn
+                            </th>
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
@@ -575,7 +578,18 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
                                 {lead.location}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {lead.email}
+                                {lead.emailStatus === 'gdpr_locked' ? (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                    GDPR Protected
+                                  </span>
+                                ) : lead.email || '••••@••••.•••'}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {lead.linkedinUrl && (
+                                  <a href={lead.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">
+                                    View Profile
+                                  </a>
+                                )}
                               </td>
                             </tr>
                           ))}
@@ -599,6 +613,7 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
           isOpen={showApiKeyModal}
           onClose={() => setShowApiKeyModal(false)}
           onSuccess={handleApiKeySuccess}
+          currentApiKey={apiKey}
         />
       )}
     </div>
