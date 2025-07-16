@@ -53,7 +53,7 @@ export default function MeetRex() {
               {
                 icon: 'fa-search',
                 title: 'Source & Score',
-                desc: 'REX scans your campaigns, recommends the best candidates, and enriches them using Apollo, LinkedIn, and Proxycurl.'
+                desc: 'REX scans your campaigns, recommends the best candidates, and enriches them using Apollo and LinkedIn.'
               },
               {
                 icon: 'fa-envelope',

@@ -10,7 +10,7 @@ Example Prompts:
 - "REX, walk me through the Apollo search wizard."
 
 ## 🛠 enrichLead
-*Tool Description:* Enrich lead data using Proxycurl or Apollo
+*Tool Description:* Enrich lead data using Apollo
 
 Example Prompts:
 - "REX, enrich this lead with a personal email."

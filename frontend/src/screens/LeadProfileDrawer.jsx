@@ -14,6 +14,14 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   const [isEnriching, setIsEnriching] = useState(false);
   const [enrichStatus, setEnrichStatus] = useState({ apollo: null, gpt: null });
   const [localLead, setLocalLead] = useState(lead);
+  
+  // Edit states for contact fields
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [editingPhone, setEditingPhone] = useState(false);
+  const [editingTwitter, setEditingTwitter] = useState(false);
+  const [tempEmail, setTempEmail] = useState('');
+  const [tempPhone, setTempPhone] = useState('');
+  const [tempTwitter, setTempTwitter] = useState('');
 
   useEffect(() => {
     // Parse enrichment_data if it's a string
@@ -36,6 +44,68 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   // Toast helper (replace with your own toast if needed)
   const showToast = (msg, type = 'success') => {
     window.alert(msg); // Replace with your toast system
+  };
+
+  // Contact field editing functions
+  const startEditingEmail = () => {
+    const currentEmail = localLead.email || 
+      (localLead.enrichment_data?.apollo?.email && 
+       !localLead.enrichment_data.apollo.email.includes('email_not_unlocked') ? 
+       localLead.enrichment_data.apollo.email : '') ||
+      (localLead.enrichment_data?.apollo?.personal_emails?.[0]?.email) || '';
+    setTempEmail(currentEmail);
+    setEditingEmail(true);
+  };
+
+  const startEditingPhone = () => {
+    const currentPhone = localLead.phone || 
+      (localLead.enrichment_data?.apollo?.phone) ||
+      (localLead.enrichment_data?.apollo?.personal_numbers?.[0]?.number) || '';
+    setTempPhone(currentPhone);
+    setEditingPhone(true);
+  };
+
+  const startEditingTwitter = () => {
+    setTempTwitter(localLead.twitter || '');
+    setEditingTwitter(true);
+  };
+
+  const saveContactField = async (field, value) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+      
+      const response = await fetch(`${API_BASE_URL}/leads/${localLead.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ [field]: value }),
+      });
+
+      if (!response.ok) throw new Error('Failed to update lead');
+      
+      const updatedLead = await response.json();
+      setLocalLead({ ...localLead, [field]: value });
+      onLeadUpdated?.({ ...localLead, [field]: value });
+      showToast(`${field.charAt(0).toUpperCase() + field.slice(1)} updated successfully`);
+    } catch (error) {
+      showToast(`Failed to update ${field}: ${error.message}`, 'error');
+    }
+  };
+
+  const cancelEditing = (field) => {
+    if (field === 'email') {
+      setEditingEmail(false);
+      setTempEmail('');
+    } else if (field === 'phone') {
+      setEditingPhone(false);
+      setTempPhone('');
+    } else if (field === 'twitter') {
+      setEditingTwitter(false);
+      setTempTwitter('');
+    }
   };
 
   const handleConvertToCandidate = async () => {
@@ -80,20 +150,19 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   // Helper to get LinkedIn URL
   const getLinkedInUrl = (lead) => lead.linkedin_url || lead.linkedin || '';
 
-  // Helper to get work history (ALWAYS prefer Proxycurl if present)
+  // Helper to get work history from Apollo data
   const getWorkHistory = (lead) => {
     if (
-      lead.enrichment_data &&
-      lead.enrichment_data.proxycurl &&
-      Array.isArray(lead.enrichment_data.proxycurl.experiences) &&
-      lead.enrichment_data.proxycurl.experiences.length > 0
+      lead.enrichment_data?.apollo?.experiences &&
+      Array.isArray(lead.enrichment_data.apollo.experiences) &&
+      lead.enrichment_data.apollo.experiences.length > 0
     ) {
-      // Map Proxycurl experiences to a common format
-      return lead.enrichment_data.proxycurl.experiences.map(exp => ({
-        company: exp.company,
+      // Map Apollo experiences to a common format
+      return lead.enrichment_data.apollo.experiences.map(exp => ({
+        company: exp.company || exp.organization_name,
         title: exp.title,
-        years: (exp.starts_at && exp.starts_at.year ? exp.starts_at.year : '') +
-               (exp.ends_at && exp.ends_at.year ? ` - ${exp.ends_at.year}` : exp.ends_at === null ? ' - Present' : ''),
+        years: (exp.start_date ? exp.start_date : '') +
+               (exp.end_date ? ` - ${exp.end_date}` : exp.current ? ' - Present' : ''),
         description: exp.description || '',
         location: exp.location || ''
       }));
@@ -104,26 +173,22 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     return [];
   };
 
-  // Helper to get GPT notes (prefer Proxycurl summary)
+  // Helper to get GPT notes (from Apollo or GPT analysis)
   const getGptNotes = (lead) => {
-    if (
-      lead.enrichment_data &&
-      lead.enrichment_data.proxycurl &&
-      lead.enrichment_data.proxycurl.summary
-    ) return lead.enrichment_data.proxycurl.summary;
+    if (lead.enrichment_data?.apollo?.summary) return lead.enrichment_data.apollo.summary;
+    if (lead.enrichment_data?.gpt?.analysis) return lead.enrichment_data.gpt.analysis;
     if (lead.gptNotes) return lead.gptNotes;
     if (lead.enrichment_data && lead.enrichment_data.gptNotes) return lead.enrichment_data.gptNotes;
     return '';
   };
 
-  // Helper to get skills (prefer Proxycurl)
+  // Helper to get skills (from Apollo data)
   const getSkills = (lead) => {
     if (
-      lead.enrichment_data &&
-      lead.enrichment_data.proxycurl &&
-      Array.isArray(lead.enrichment_data.proxycurl.skills) &&
-      lead.enrichment_data.proxycurl.skills.length > 0
-    ) return lead.enrichment_data.proxycurl.skills;
+      lead.enrichment_data?.apollo?.skills &&
+      Array.isArray(lead.enrichment_data.apollo.skills) &&
+      lead.enrichment_data.apollo.skills.length > 0
+    ) return lead.enrichment_data.apollo.skills;
     if (lead.skills && lead.skills.length > 0) return lead.skills;
     if (lead.enrichment_data && Array.isArray(lead.enrichment_data.skills) && lead.enrichment_data.skills.length > 0) return lead.enrichment_data.skills;
     return [];
@@ -182,10 +247,34 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
         },
         credentials: 'include',
       });
+      
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Failed to enrich lead' }));
-        throw new Error(errorData.message || 'Failed to enrich lead');
+        
+        // Check for specific error types
+        if (response.status === 404) {
+          setEnrichStatus({ 
+            apollo: 'no_results', 
+            gpt: 'no_results',
+            apolloMsg: 'Nothing was found',
+            gptMsg: 'No profile data available'
+          });
+          showToast('Nothing was found for this lead. You can manually add contact information using the edit buttons above.', 'info');
+          return;
+        } else if (response.status >= 500) {
+          setEnrichStatus({ 
+            apollo: 'retry', 
+            gpt: 'retry',
+            apolloMsg: 'Service temporarily unavailable',
+            gptMsg: 'Service temporarily unavailable'
+          });
+          showToast('Service temporarily unavailable. Please try again in a moment.', 'warning');
+          return;
+        } else {
+          throw new Error(errorData.message || 'Failed to enrich lead');
+        }
       }
+      
       const updated = await response.json();
       let enrichmentData = updated.enrichment_data;
       if (typeof enrichmentData === 'string') {
@@ -195,6 +284,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
           enrichmentData = {};
         }
       }
+      
       const newLead = {
         ...localLead,
         ...updated,
@@ -202,6 +292,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
         gptNotes: updated.gptNotes || (enrichmentData && enrichmentData.gptNotes) || localLead.gptNotes,
         enrichment_data: enrichmentData || localLead.enrichment_data
       };
+      
       // Parse enrichment_data if it's a string (defensive)
       let parsed = newLead;
       if (newLead && typeof newLead.enrichment_data === 'string') {
@@ -211,28 +302,70 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
           parsed = { ...newLead, enrichment_data: {} };
         }
       }
+      
       setLocalLead(parsed);
       onLeadUpdated?.(parsed);
       // Fetch the latest lead from backend to ensure UI is up to date
       fetchLatestLead(localLead.id);
-      // Set enrichment status for visual feedback
-      setEnrichStatus({
-        apollo: updated.apolloErrorMsg ? 'error' : 'success',
-        gpt: updated.gptErrorMsg ? 'error' : 'success',
-        apolloMsg: updated.apolloErrorMsg,
-        gptMsg: updated.gptErrorMsg
-      });
-      if (updated.apolloErrorMsg && !updated.gptErrorMsg) {
-        showToast('Apollo enrichment failed, but GPT succeeded.', 'warning');
-      } else if (!updated.apolloErrorMsg && updated.gptErrorMsg) {
-        showToast('GPT enrichment failed, but Apollo succeeded.', 'warning');
-      } else if (updated.apolloErrorMsg && updated.gptErrorMsg) {
-        showToast('Both Apollo and GPT enrichment failed.', 'error');
+      
+      // Check if any data was actually found
+      const hasNewEmail = parsed.email && parsed.email !== localLead.email;
+      const hasNewPhone = parsed.phone && parsed.phone !== localLead.phone;
+      const hasEnrichmentData = enrichmentData && Object.keys(enrichmentData).length > 0;
+      
+      if (!hasNewEmail && !hasNewPhone && !hasEnrichmentData) {
+        setEnrichStatus({ 
+          apollo: 'no_results', 
+          gpt: 'no_results',
+          apolloMsg: 'Nothing was found',
+          gptMsg: 'No additional data found'
+        });
+        showToast('Nothing was found for this lead. You can manually add contact information using the edit buttons above.', 'info');
       } else {
-        showToast('Lead enriched successfully!', 'success');
+        // Set enrichment status for visual feedback
+        setEnrichStatus({
+          apollo: updated.apolloErrorMsg ? (updated.apolloErrorMsg.includes('not found') ? 'no_results' : 'retry') : 'success',
+          gpt: updated.gptErrorMsg ? (updated.gptErrorMsg.includes('not found') ? 'no_results' : 'retry') : 'success',
+          apolloMsg: updated.apolloErrorMsg,
+          gptMsg: updated.gptErrorMsg
+        });
+        
+        if (updated.apolloErrorMsg && !updated.gptErrorMsg) {
+          if (updated.apolloErrorMsg.includes('not found')) {
+            showToast('Apollo found nothing, but other data was enriched successfully.', 'info');
+          } else {
+            showToast('Apollo enrichment failed, but other data was enriched successfully. You can try again.', 'warning');
+          }
+        } else if (!updated.apolloErrorMsg && updated.gptErrorMsg) {
+          if (updated.gptErrorMsg.includes('not found')) {
+            showToast('Profile analysis found nothing, but contact data was enriched successfully.', 'info');
+          } else {
+            showToast('Profile analysis failed, but contact data was enriched successfully. You can try again.', 'warning');
+          }
+        } else if (updated.apolloErrorMsg && updated.gptErrorMsg) {
+          const hasRetryableErrors = !updated.apolloErrorMsg.includes('not found') || !updated.gptErrorMsg.includes('not found');
+          if (hasRetryableErrors) {
+            showToast('Enrichment failed. Please try again.', 'warning');
+          } else {
+            showToast('Nothing was found for this lead. You can manually add contact information.', 'info');
+          }
+        } else {
+          const foundItems = [];
+          if (hasNewEmail) foundItems.push('email');
+          if (hasNewPhone) foundItems.push('phone');
+          if (hasEnrichmentData) foundItems.push('profile data');
+          
+          showToast(`Lead enriched successfully! Found: ${foundItems.join(', ')}.`, 'success');
+        }
       }
     } catch (error) {
-      showToast(error.message || 'Failed to enrich lead', 'error');
+      setEnrichStatus({ 
+        apollo: 'retry', 
+        gpt: 'retry',
+        apolloMsg: 'Connection failed',
+        gptMsg: 'Connection failed'
+      });
+      showToast(`Connection failed. Please try again. ${error.message}`, 'error');
     } finally {
       setIsEnriching(false);
     }
@@ -303,7 +436,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                     onClick={handleMessageAgain}
                   >
                     <i className="fa-regular fa-paper-plane mr-2"></i>
-                    Message Again
+                    Message
                   </button>
                   <button
                     className="px-4 py-2 bg-white border border-gray-300 rounded-lg flex items-center"
@@ -332,20 +465,58 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                 {/* Enrichment Status Feedback */}
                 {(enrichStatus.apollo || enrichStatus.gpt) && (
                   <div className="mt-4 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${enrichStatus.apollo === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                        Apollo: {enrichStatus.apollo === 'success' ? 'Success' : 'Failed'}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                        enrichStatus.apollo === 'success' ? 'bg-green-100 text-green-800' : 
+                        enrichStatus.apollo === 'no_results' ? 'bg-yellow-100 text-yellow-800' :
+                        enrichStatus.apollo === 'retry' ? 'bg-orange-100 text-orange-800' :
+                        'bg-red-100 text-red-800'
+                      }`}>
+                        Apollo: {
+                          enrichStatus.apollo === 'success' ? 'Success' : 
+                          enrichStatus.apollo === 'no_results' ? 'Nothing found' :
+                          enrichStatus.apollo === 'retry' ? 'Can retry' :
+                          'Failed'
+                        }
                       </span>
-                      {enrichStatus.apollo === 'error' && (
-                        <span className="text-xs text-red-500">{enrichStatus.apolloMsg}</span>
+                      {enrichStatus.apollo === 'retry' && (
+                        <button
+                          onClick={handleEnrich}
+                          disabled={isEnriching}
+                          className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600 disabled:opacity-50"
+                        >
+                          Try Again
+                        </button>
+                      )}
+                      {(enrichStatus.apollo === 'error' || enrichStatus.apollo === 'no_results' || enrichStatus.apollo === 'retry') && enrichStatus.apolloMsg && (
+                        <span className="text-xs text-gray-600">{enrichStatus.apolloMsg}</span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${enrichStatus.gpt === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                        GPT: {enrichStatus.gpt === 'success' ? 'Success' : 'Failed'}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                        enrichStatus.gpt === 'success' ? 'bg-green-100 text-green-800' : 
+                        enrichStatus.gpt === 'no_results' ? 'bg-yellow-100 text-yellow-800' :
+                        enrichStatus.gpt === 'retry' ? 'bg-orange-100 text-orange-800' :
+                        'bg-red-100 text-red-800'
+                      }`}>
+                        Profile Analysis: {
+                          enrichStatus.gpt === 'success' ? 'Success' : 
+                          enrichStatus.gpt === 'no_results' ? 'Nothing found' :
+                          enrichStatus.gpt === 'retry' ? 'Can retry' :
+                          'Failed'
+                        }
                       </span>
-                      {enrichStatus.gpt === 'error' && (
-                        <span className="text-xs text-red-500">{enrichStatus.gptMsg}</span>
+                      {enrichStatus.gpt === 'retry' && (
+                        <button
+                          onClick={handleEnrich}
+                          disabled={isEnriching}
+                          className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600 disabled:opacity-50"
+                        >
+                          Try Again
+                        </button>
+                      )}
+                      {(enrichStatus.gpt === 'error' || enrichStatus.gpt === 'no_results' || enrichStatus.gpt === 'retry') && enrichStatus.gptMsg && (
+                        <span className="text-xs text-gray-600">{enrichStatus.gptMsg}</span>
                       )}
                     </div>
                   </div>
@@ -371,29 +542,145 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">Contact Information</h3>
                   <div className="space-y-3">
+                    {/* Email Field */}
                     <div className="flex items-center space-x-3">
                       <i className="fa-regular fa-envelope text-gray-500"></i>
-                      <span>{
-                        localLead.email || 
-                        (localLead.enrichment_data?.apollo?.email && 
-                         !localLead.enrichment_data.apollo.email.includes('email_not_unlocked') ? 
-                         localLead.enrichment_data.apollo.email : null) ||
-                        (localLead.enrichment_data?.proxycurl?.personal_emails?.[0]?.email) ||
-                        "N/A"
-                      }</span>
+                      {editingEmail ? (
+                        <div className="flex items-center space-x-2 flex-1">
+                          <input
+                            type="email"
+                            value={tempEmail}
+                            onChange={(e) => setTempEmail(e.target.value)}
+                            className="flex-1 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Enter email"
+                            autoFocus
+                          />
+                          <button
+                            onClick={() => {
+                              saveContactField('email', tempEmail);
+                              setEditingEmail(false);
+                            }}
+                            className="px-2 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+                          >
+                            <i className="fa-solid fa-check"></i>
+                          </button>
+                          <button
+                            onClick={() => cancelEditing('email')}
+                            className="px-2 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700"
+                          >
+                            <i className="fa-solid fa-times"></i>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center space-x-2 flex-1">
+                          <span className="flex-1">{
+                            localLead.email || 
+                            (localLead.enrichment_data?.apollo?.email && 
+                             !localLead.enrichment_data.apollo.email.includes('email_not_unlocked') ? 
+                             localLead.enrichment_data.apollo.email : null) ||
+                            (localLead.enrichment_data?.apollo?.personal_emails?.[0]?.email) ||
+                            "N/A"
+                          }</span>
+                          <button
+                            onClick={startEditingEmail}
+                            className="px-2 py-1 text-gray-500 hover:text-blue-600 text-sm"
+                            title="Edit email"
+                          >
+                            <i className="fa-solid fa-pencil"></i>
+                          </button>
+                        </div>
+                      )}
                     </div>
+
+                    {/* Phone Field */}
                     <div className="flex items-center space-x-3">
                       <i className="fa-solid fa-phone text-gray-500"></i>
-                      <span>{
-                        localLead.phone || 
-                        (localLead.enrichment_data?.apollo?.phone) ||
-                        (localLead.enrichment_data?.proxycurl?.personal_numbers?.[0]?.number) ||
-                        "N/A"
-                      }</span>
+                      {editingPhone ? (
+                        <div className="flex items-center space-x-2 flex-1">
+                          <input
+                            type="tel"
+                            value={tempPhone}
+                            onChange={(e) => setTempPhone(e.target.value)}
+                            className="flex-1 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Enter phone number"
+                            autoFocus
+                          />
+                          <button
+                            onClick={() => {
+                              saveContactField('phone', tempPhone);
+                              setEditingPhone(false);
+                            }}
+                            className="px-2 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+                          >
+                            <i className="fa-solid fa-check"></i>
+                          </button>
+                          <button
+                            onClick={() => cancelEditing('phone')}
+                            className="px-2 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700"
+                          >
+                            <i className="fa-solid fa-times"></i>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center space-x-2 flex-1">
+                          <span className="flex-1">{
+                            localLead.phone || 
+                            (localLead.enrichment_data?.apollo?.phone) ||
+                            (localLead.enrichment_data?.apollo?.personal_numbers?.[0]?.number) ||
+                            "N/A"
+                          }</span>
+                          <button
+                            onClick={startEditingPhone}
+                            className="px-2 py-1 text-gray-500 hover:text-blue-600 text-sm"
+                            title="Edit phone"
+                          >
+                            <i className="fa-solid fa-pencil"></i>
+                          </button>
+                        </div>
+                      )}
                     </div>
+
+                    {/* Twitter/X Field */}
                     <div className="flex items-center space-x-3">
-                      <i className="fa-brands fa-twitter text-gray-500"></i>
-                      <span>{localLead.twitter || "N/A"}</span>
+                      <i className="fa-brands fa-x-twitter text-gray-500"></i>
+                      {editingTwitter ? (
+                        <div className="flex items-center space-x-2 flex-1">
+                          <input
+                            type="text"
+                            value={tempTwitter}
+                            onChange={(e) => setTempTwitter(e.target.value)}
+                            className="flex-1 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Enter X/Twitter handle"
+                            autoFocus
+                          />
+                          <button
+                            onClick={() => {
+                              saveContactField('twitter', tempTwitter);
+                              setEditingTwitter(false);
+                            }}
+                            className="px-2 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+                          >
+                            <i className="fa-solid fa-check"></i>
+                          </button>
+                          <button
+                            onClick={() => cancelEditing('twitter')}
+                            className="px-2 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700"
+                          >
+                            <i className="fa-solid fa-times"></i>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center space-x-2 flex-1">
+                          <span className="flex-1">{localLead.twitter || "N/A"}</span>
+                          <button
+                            onClick={startEditingTwitter}
+                            className="px-2 py-1 text-gray-500 hover:text-blue-600 text-sm"
+                            title="Edit X/Twitter"
+                          >
+                            <i className="fa-solid fa-pencil"></i>
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

@@ -99,7 +99,7 @@ export default function CreditsGuide() {
               <li>Personal or work email</li>
               <li>Optional: phone number, location, etc.</li>
             </ul>
-            <p>📧 Only email lookups from scratch cost credits (via Apollo or Proxycurl)</p>
+            <p>📧 Only email lookups from scratch cost credits (via Apollo)</p>
           </div>
 
           {/* REX */}

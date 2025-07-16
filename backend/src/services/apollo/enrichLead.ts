@@ -47,8 +47,9 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
         .replace(/,.*$/, '') // Remove everything after comma (like ", MBA")
         .trim();
       
-      searchParams.first_name = cleanFirstName;
-      searchParams.last_name = cleanLastName;
+      // Only use cleaned names if they're not empty
+      searchParams.first_name = cleanFirstName || firstName;
+      searchParams.last_name = cleanLastName || lastName;
     }
     if (company) {
       searchParams.organization_name = company;

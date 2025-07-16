@@ -114,7 +114,7 @@ export default function ImportCsvGuide() {
           {/* Enrich */}
           <div id="enrich">
             <h2>✨ Step 3: (Optional) Enrich Your Leads</h2>
-            <p>After upload, you can choose to auto-enrich your leads using Proxycurl or Apollo. This helps fill in missing data like:</p>
+            <p>After upload, you can choose to auto-enrich your leads using Apollo. This helps fill in missing data like:</p>
             <ul>
               <li>Personal or work email</li>
               <li>Phone number</li>

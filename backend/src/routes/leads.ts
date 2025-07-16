@@ -3,7 +3,6 @@ import express, { Request, Response } from 'express';
 import { supabase } from '../lib/supabase';
 import { enrichWithApollo } from '../services/apollo/enrichLead';
 import { analyzeProfile } from '../services/gpt/analyzeProfile';
-import { enrichLead as enrichWithProxycurl } from '../../services/proxycurl/enrichLead';
 import { requireAuth } from '../../middleware/authMiddleware';
 import { searchAndEnrichPeople } from '../../utils/apolloApi';
 import { ApiRequest } from '../../types/api';
@@ -400,16 +399,6 @@ router.post('/:id/enrich', requireAuth, async (req: Request, res: Response) => {
       company: lead.company,
       linkedinUrl: lead.linkedin_url
     });
-    
-    // Enrich with Proxycurl (non-fatal)
-    let proxycurlData = null;
-    try {
-      if (lead.linkedin_url) {
-        proxycurlData = await enrichWithProxycurl({ linkedinUrl: lead.linkedin_url });
-      }
-    } catch (err) {
-      console.error('Proxycurl enrichment failed:', err);
-    }
 
     // Analyze with GPT
     let gptAnalysis = null;
@@ -428,7 +417,6 @@ router.post('/:id/enrich', requireAuth, async (req: Request, res: Response) => {
       .update({
         enrichment_data: {
           apollo: apolloData?.data || apolloData,
-          proxycurl: proxycurlData?.data || proxycurlData,
           gpt: gptAnalysis
         },
         enriched_at: new Date().toISOString()

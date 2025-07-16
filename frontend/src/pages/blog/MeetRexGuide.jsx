@@ -76,7 +76,7 @@ export default function MeetRexGuide() {
             <p>REX is deeply integrated with your HirePilot workspace. It can:</p>
             <ul>
               <li>Recommend leads from your existing campaigns</li>
-              <li>Enrich lead profiles using external tools like Apollo or Proxycurl</li>
+              <li>Enrich lead profiles using external tools like Apollo</li>
               <li>Generate outreach messages tailored to your job req and candidate</li>
               <li>Trigger automations (like follow-ups or webhook calls)</li>
               <li>Answer support questions such as:
@@ -97,7 +97,7 @@ export default function MeetRexGuide() {
               <li>Your campaigns, leads, and candidates</li>
               <li>HirePilot's help center articles (like this one!)</li>
               <li>Tools and actions wired into your account</li>
-              <li>Enrichment data from Apollo, LinkedIn, Proxycurl, and more</li>
+              <li>Enrichment data from Apollo, LinkedIn, and more</li>
             </ul>
             <p>As we expand our content library, REX gets smarter every week.</p>
           </div>

@@ -1,7 +1,6 @@
 import { supabaseDb as supabase } from '../lib/supabase';
 import { triggerLinkedInSearch } from '../services/phantombuster/triggerLinkedInSearch';
 import { enrichLead as enrichWithApollo } from '../services/apollo/enrichLead';
-import { enrichLead as enrichWithProxycurl } from '../services/proxycurl/enrichLead';
 import { validateEmail } from '../services/neverbounce/validateEmail';
 
 interface CampaignFlowParams {
@@ -46,7 +45,7 @@ export async function processLead(leadId: string) {
       throw new Error('Lead not found');
     }
 
-    // 2. Try Apollo enrichment first
+    // 2. Try Apollo enrichment
     try {
       await enrichWithApollo({
         leadId,
@@ -57,18 +56,8 @@ export async function processLead(leadId: string) {
         linkedinUrl: lead.linkedin_url
       });
     } catch (apolloError) {
-      console.warn('[processLead] Apollo enrichment failed, trying Proxycurl:', apolloError);
-      
-      // 3. Fallback to Proxycurl if Apollo fails
-      try {
-        await enrichWithProxycurl({
-          leadId,
-          linkedinUrl: lead.linkedin_url
-        });
-      } catch (proxycurlError) {
-        console.error('[processLead] Proxycurl enrichment failed:', proxycurlError);
-        // Continue with email validation even if both enrichments fail
-      }
+      console.warn('[processLead] Apollo enrichment failed:', apolloError);
+      // Continue with email validation even if enrichment fails
     }
 
     // 4. Validate email if available
@@ -247,7 +236,7 @@ export async function handlePhantomBusterWebhook(executionId: string, results: a
       // via POST /api/leads/:id/enrich endpoint
       
       // TODO: Update LinkedIn URLs from Sales Navigator to regular profile URLs
-      // for better Apollo/Proxycurl enrichment compatibility
+      // for better Apollo enrichment compatibility
     }
 
     // 4. Update campaign counts

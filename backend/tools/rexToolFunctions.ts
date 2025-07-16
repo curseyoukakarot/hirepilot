@@ -6,7 +6,6 @@ import { notifySlack } from '../lib/slack';
 import sgMail from '@sendgrid/mail';
 import { searchAndEnrichPeople } from '../utils/apolloApi';
 import { enrichLead as apolloEnrichLead } from '../services/apollo/enrichLead';
-import { enrichLead as proxycurlEnrichLead } from '../services/proxycurl/enrichLead';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import { personalizeMessage } from '../utils/messageUtils';
@@ -121,46 +120,24 @@ export async function enrichLead({
 
   if (leadErr || !leadRow) throw new Error('Lead not found');
 
-  // First attempt Apollo enrichment if email requested
-  if (fields.includes('email') || fields.includes('phone')) {
-    try {
-      const resp = await apolloEnrichLead({
-        leadId,
-        userId,
-        firstName: leadRow.first_name,
-        lastName: leadRow.last_name,
-        company: leadRow.company,
-        linkedinUrl: leadRow.linkedin_url
-      });
-      return { provider: 'apollo', ...resp };
-    } catch (e) {
-      console.warn('[enrichLead] Apollo enrichment failed – falling back', e);
-    }
+  // Apollo enrichment only
+  if (!fields.includes('email') && !fields.includes('phone')) {
+    throw new Error('No enrichment fields requested');
   }
 
-  // Fallback Proxycurl – uses linkedin_url
-  if (!leadRow.linkedin_url) throw new Error('No LinkedIn URL for Proxycurl enrichment');
-
-  const enrichedResp = await proxycurlEnrichLead(leadRow.linkedin_url);
-  const enrichedData: any = (enrichedResp as any)?.data || {};
-
-  // Update lead with any new fields if they exist in Proxycurl response
-  const patch: any = {};
-  if (fields.includes('email') && enrichedData?.personal_emails?.length) {
-    patch.email = enrichedData.personal_emails[0].email;
+  try {
+    const resp = await apolloEnrichLead({
+      leadId,
+      userId,
+      firstName: leadRow.first_name,
+      lastName: leadRow.last_name,
+      company: leadRow.company,
+      linkedinUrl: leadRow.linkedin_url
+    });
+    return { provider: 'apollo', ...resp };
+  } catch (e) {
+    throw new Error(`Apollo enrichment failed: ${e instanceof Error ? e.message : 'Unknown error'}`);
   }
-  if (fields.includes('phone') && enrichedData?.personal_numbers?.length) {
-    patch.phone = enrichedData.personal_numbers[0].number;
-  }
-
-  if (Object.keys(patch).length) {
-    await supabaseDb
-      .from('leads')
-      .update(patch)
-      .eq('id', leadId);
-  }
-
-  return { provider: 'proxycurl', enrichedFields: Object.keys(patch) };
 }
 
 export async function sendMessage({

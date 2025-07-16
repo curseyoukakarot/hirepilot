@@ -3,7 +3,6 @@ import path from 'path';
 import { supabase } from '../lib/supabase';
 import { launchQueue } from '../../api/campaigns/launch';
 import sgMail from '@sendgrid/mail';
-import { enrichLead as proxycurlEnrichLead } from '../../services/proxycurl/enrichLead';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const {
   sourceLeads,
@@ -194,7 +193,7 @@ server.registerCapabilities({
           url = data.linkedin_url as string;
         }
 
-        return await proxycurlEnrichLead(url);
+        throw new Error('Proxycurl service is no longer available. Please use Apollo enrichment instead.');
       }
     },
     get_campaign_metrics: {

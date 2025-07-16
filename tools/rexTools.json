@@ -15,7 +15,7 @@
   },
   {
     "name": "enrichLead",
-    "description": "Enrich a lead using Apollo or Proxycurl to find email, phone, and other data.",
+          "description": "Enrich a lead using Apollo to find email and other data.",
     "parameters": {
       "leadId": "string",
       "fields": "array"

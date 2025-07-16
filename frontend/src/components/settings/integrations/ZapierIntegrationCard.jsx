@@ -142,7 +142,7 @@ export default function ZapierIntegrationCard({ user }) {
               <div><code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">lead_created</code> - New lead added</div>
               <div><code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">lead_updated</code> - Lead details changed</div>
               <div><code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">lead_converted</code> - Lead becomes candidate</div>
-              <div><code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">lead_enriched</code> - Apollo/Proxycurl enrichment</div>
+              <div><code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">lead_enriched</code> - Apollo enrichment</div>
               <div><code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">candidate_created</code> - New candidate added</div>
               <div><code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">candidate_hired</code> - Candidate hired!</div>
               <div><code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">candidate_rejected</code> - Candidate rejected</div>

@@ -196,7 +196,7 @@ export default function AutomateRecruiting2() {
             <p>If your leads are missing info, REX will:</p>
 
             <ul>
-              <li>Use Apollo or Proxycurl to find missing emails or phone numbers</li>
+              <li>Use Apollo to find missing emails or phone numbers, or connect your own data sources via Zapier</li>
               <li>Only charge credits when enrichment succeeds</li>
               <li>Return the source ("Enriched by: Apollo")</li>
             </ul>
