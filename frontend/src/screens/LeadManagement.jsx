@@ -307,8 +307,16 @@ function LeadManagement() {
   const handleEnrich = async (leadId) => {
     setIsEnriching(leadId);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+      const accessToken = session.access_token;
+      
       const response = await fetch(`${API_BASE_URL}/leads/${leadId}/enrich`, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
         credentials: 'include',
       });
       if (!response.ok) {
@@ -329,9 +337,17 @@ function LeadManagement() {
   const handleBulkEnrich = async () => {
     setIsBulkEnriching(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+      const accessToken = session.access_token;
+      
       const enrichPromises = selectedLeadIds.map(leadId =>
         fetch(`${API_BASE_URL}/leads/${leadId}/enrich`, {
           method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`,
+          },
           credentials: 'include',
         })
           .then(async response => {
