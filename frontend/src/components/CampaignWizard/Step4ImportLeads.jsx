@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { SupabaseClient } from '@supabase/supabase-js';
+import { getUserCredits } from '../../services/creditService';
 
 const defaultSources = [
   { key: 'apollo', label: 'Apollo.io', icon: <Database className="text-blue-600 w-6 h-6" />, leads: 12 },
@@ -48,7 +49,12 @@ export default function Step4ImportLeads({ leads, setLeads, onBack, onNext }) {
   const [keywords, setKeywords] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [linkedinAccountType, setLinkedinAccountType] = useState('session');
-  const [userCredits, setUserCredits] = useState(0);
+  const [userCredits, setUserCredits] = useState({
+    totalCredits: 0,
+    usedCredits: 0,
+    remainingCredits: 0
+  });
+  const [creditsLoading, setCreditsLoading] = useState(true);
   const [userHasLinkedin, setUserHasLinkedin] = useState(true);
   const [sources, setSources] = useState(defaultSources);
 
@@ -107,6 +113,18 @@ export default function Step4ImportLeads({ leads, setLeads, onBack, onNext }) {
   const canProceed = selectedLeads.length > 0 && (selectedSource !== 'linkedin' || isLoading === false);
 
   useEffect(() => {
+    const fetchCredits = async () => {
+      try {
+        setCreditsLoading(true);
+        const credits = await getUserCredits();
+        setUserCredits(credits);
+      } catch (error) {
+        console.error('Error fetching credits:', error);
+      } finally {
+        setCreditsLoading(false);
+      }
+    };
+
     async function checkLinkedinCookie() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -121,6 +139,8 @@ export default function Step4ImportLeads({ leads, setLeads, onBack, onNext }) {
       const data = await response.json();
       setUserHasLinkedin(response.ok && data.exists);
     }
+    
+    fetchCredits();
     checkLinkedinCookie();
   }, []);
 
@@ -228,7 +248,9 @@ export default function Step4ImportLeads({ leads, setLeads, onBack, onNext }) {
                         {/* <option value="phantombuster">Use your PhantomBuster account (coming soon)</option> */}
                       </select>
                     </div>
-                    <div className="mt-2 text-blue-600 font-medium">This will use 1 credit per lead. You have {userCredits} credits.</div>
+                    <div className="mt-2 text-blue-600 font-medium">
+                      This will use 50 credits per campaign. You have {creditsLoading ? '...' : userCredits.remainingCredits.toLocaleString()} credits available.
+                    </div>
                   </div>
                 )}
               </div>

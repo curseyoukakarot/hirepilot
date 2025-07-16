@@ -134,7 +134,27 @@ export async function handlePhantomBusterWebhook(executionId: string, results: a
       // Continue anyway, but log the error
     }
 
-    // 2. Process each lead from PhantomBuster results
+    // 2. Deduct credits for LinkedIn lead sourcing (50 credits per campaign)
+    const LINKEDIN_CAMPAIGN_COST = 50; // Fixed cost per LinkedIn campaign
+    try {
+      const { CreditService } = await import('../services/creditService');
+      await CreditService.useCreditsEffective(execution.user_id, LINKEDIN_CAMPAIGN_COST);
+      
+      // Log the specific usage for LinkedIn campaign
+      await CreditService.logCreditUsage(
+        execution.user_id, 
+        LINKEDIN_CAMPAIGN_COST, 
+        'api_usage', 
+        `LinkedIn campaign execution: ${LINKEDIN_CAMPAIGN_COST} credits for ${results.length} leads found`
+      );
+      
+      console.log(`[handlePhantomBusterWebhook] Deducted ${LINKEDIN_CAMPAIGN_COST} credits for LinkedIn campaign`);
+    } catch (creditError) {
+      console.error('[handlePhantomBusterWebhook] Error deducting credits:', creditError);
+      // Continue processing but log the credit error
+    }
+
+    // 3. Process each lead from PhantomBuster results
     console.log('[handlePhantomBusterWebhook] Processing', results.length, 'results for execution:', execution);
     
     for (const result of results) {
@@ -230,7 +250,29 @@ export async function handlePhantomBusterWebhook(executionId: string, results: a
       // for better Apollo/Proxycurl enrichment compatibility
     }
 
-    // 3. Update campaign execution status
+    // 4. Update campaign counts
+    console.log('[handlePhantomBusterWebhook] Updating campaign lead counts for campaign:', execution.campaign_id);
+    
+    const { count: totalLeads, error: totalError } = await supabase
+      .from('leads')
+      .select('id', { count: 'exact' })
+      .eq('campaign_id', execution.campaign_id);
+
+    const { count: enrichedLeads, error: enrichedError } = await supabase
+      .from('leads')
+      .select('id', { count: 'exact' })
+      .eq('campaign_id', execution.campaign_id)
+      .not('email', 'is', null)
+      .neq('email', '');
+
+    if (totalError) {
+      console.error('[handlePhantomBusterWebhook] Error getting total leads count:', totalError);
+    }
+    if (enrichedError) {
+      console.error('[handlePhantomBusterWebhook] Error getting enriched leads count:', enrichedError);
+    }
+
+    // 5. Update campaign execution status
     console.log('[handlePhantomBusterWebhook] Updating execution status for ID:', executionId);
     
     const { data: updateData, error: updateError } = await supabase
@@ -252,13 +294,15 @@ export async function handlePhantomBusterWebhook(executionId: string, results: a
       console.warn('[handlePhantomBusterWebhook] No rows updated - execution ID may not exist:', executionId);
     }
 
-    // 4. Update campaign status to completed
+    // 6. Update campaign status to completed with proper lead counts
     console.log('[handlePhantomBusterWebhook] Updating campaign status to completed for campaign:', execution.campaign_id);
     
     const { error: campaignUpdateError } = await supabase
       .from('campaigns')
       .update({
         status: 'completed',
+        total_leads: totalLeads || 0,
+        enriched_leads: enrichedLeads || 0,
         // completed_at: new Date().toISOString(), // TODO: Add completed_at column to campaigns table
         updated_at: new Date().toISOString()
       })
@@ -268,7 +312,7 @@ export async function handlePhantomBusterWebhook(executionId: string, results: a
       console.error('[handlePhantomBusterWebhook] Failed to update campaign status:', campaignUpdateError);
       // Don't fail the request since leads were already processed
     } else {
-      console.log('[handlePhantomBusterWebhook] Campaign status updated to completed');
+      console.log(`[handlePhantomBusterWebhook] Campaign status updated to completed with ${totalLeads} total leads, ${enrichedLeads} enriched`);
     }
 
     return {

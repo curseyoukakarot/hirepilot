@@ -13,6 +13,7 @@ import { useWizard } from '../../context/WizardContext';
 import ApolloStep from './ApolloStep';
 import CsvStep from './CsvStep';
 import { SupabaseClient } from '@supabase/supabase-js';
+import { getUserCredits } from '../../services/creditService';
 
 const ApolloLogo = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -27,8 +28,7 @@ const LinkedInLogo = () => (
   </svg>
 );
 
-// Mock user state for credits and integrations
-const USER_CREDITS = 50; // TODO: Replace with real user credits from backend
+// User state - will be fetched from backend
 const USER_HAS_LINKEDIN = false; // TODO: Replace with real check from settings
 const USER_HAS_APOLLO = false; // TODO: Replace with real check from settings
 
@@ -121,8 +121,8 @@ export default function Step4Import({ onBack, onNext }) {
 
   // Credit logic
   const usingHirePilotLinkedIn = selectedSource === 'linkedin' && linkedinAccountType === 'hirepilot' && !USER_HAS_APOLLO;
-  const creditsNeeded = usingHirePilotLinkedIn ? leadAmount : 0;
-  const hasEnoughCredits = USER_CREDITS >= creditsNeeded;
+  const creditsNeeded = usingHirePilotLinkedIn ? 50 : 0; // LinkedIn campaigns cost 50 credits
+  const hasEnoughCredits = userCredits.remainingCredits >= creditsNeeded;
 
   // New state for userHasLinkedin
   const [userHasLinkedin, setUserHasLinkedin] = useState(USER_HAS_LINKEDIN);
@@ -136,6 +136,32 @@ export default function Step4Import({ onBack, onNext }) {
   const apolloKeyFetched = useRef(false);
 
   const [sources, setSources] = useState(defaultSources);
+
+  // Credit state
+  const [userCredits, setUserCredits] = useState({
+    totalCredits: 0,
+    usedCredits: 0,
+    remainingCredits: 0
+  });
+  const [creditsLoading, setCreditsLoading] = useState(true);
+
+  // Fetch user credits on mount
+  useEffect(() => {
+    const fetchCredits = async () => {
+      try {
+        setCreditsLoading(true);
+        const credits = await getUserCredits();
+        setUserCredits(credits);
+      } catch (error) {
+        console.error('Error fetching credits:', error);
+        // Keep default values if fetch fails
+      } finally {
+        setCreditsLoading(false);
+      }
+    };
+
+    fetchCredits();
+  }, []);
 
   // Debug: log wizard state only when campaign changes
   useEffect(() => {
@@ -596,7 +622,9 @@ export default function Step4Import({ onBack, onNext }) {
                       <div className="mt-2 text-red-600 font-medium">Please connect your LinkedIn session cookie on the Integrations page before importing leads.</div>
                     )}
                   </div>
-                  <div className="mt-2 text-blue-600 font-medium">This will use 1 credit per lead. You have {USER_CREDITS} credits.</div>
+                  <div className="mt-2 text-blue-600 font-medium">
+                    This will use 50 credits per campaign. You have {creditsLoading ? '...' : userCredits.remainingCredits.toLocaleString()} credits available.
+                  </div>
                   <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 w-full text-base font-semibold" onClick={handleSaveLeadSource} disabled={linkedinCookieStatus !== 'valid'}>Save Lead Source</button>
                 </div>
               ) : (
