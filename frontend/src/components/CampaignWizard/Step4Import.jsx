@@ -39,17 +39,19 @@ const defaultSources = [
   { key: 'linkedin', label: 'Sales Navigator', icon: <LinkedInLogo /> },
 ];
 
-// We'll decide Apollo label based on account type
-let dynamicApolloLabel = 'Apollo.io';
-try {
-  const storedUser = JSON.parse(localStorage.getItem('supabase.auth.user') || 'null');
-  if (storedUser?.user_metadata?.account_type === 'RecruitPro' || storedUser?.user_metadata?.role === 'RecruitPro') {
-    dynamicApolloLabel = 'Candidate Keyword Search';
-  }
-} catch {}
+// We'll decide Apollo label based on account type - fix temporal dead zone
+const getDynamicApolloLabel = () => {
+  try {
+    const storedUser = JSON.parse(localStorage.getItem('supabase.auth.user') || 'null');
+    if (storedUser?.user_metadata?.account_type === 'RecruitPro' || storedUser?.user_metadata?.role === 'RecruitPro') {
+      return 'Candidate Keyword Search';
+    }
+  } catch {}
+  return 'Apollo.io';
+};
 
 const SOURCES = [
-  { key: 'apollo', label: dynamicApolloLabel, icon: <ApolloLogo /> },
+  { key: 'apollo', label: getDynamicApolloLabel(), icon: <ApolloLogo /> },
   { key: 'linkedin', label: 'Sales Navigator', icon: <LinkedInLogo /> },
 ];
 
