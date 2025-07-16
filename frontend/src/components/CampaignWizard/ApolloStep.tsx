@@ -1,136 +1,164 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useWizard } from '../../context/WizardContext';
-import { supabase } from '@/lib/supabase';
-import { toast } from 'react-hot-toast';
-import ApolloApiKeyModal from '../ApolloApiKeyModal';
-import debounce from 'lodash/debounce';
-import { SupabaseClient } from '@supabase/supabase-js';
-import { Loader2, Search, CheckCircle } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import Papa from 'papaparse';
 
-interface Lead {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email?: string | null;
-  emailStatus: string;
-  title?: string;
-  company?: string;
-  linkedinUrl?: string;
-  seniority?: string;
-  location?: string;
-  isGdprLocked: boolean;
-}
+// Location suggestion type (keeping as comment for reference)
+// interface LocationSuggestion {
+//   id: string;
+//   text: string;
+//   country?: string;
+// }
 
-interface LocationSuggestion {
-  id: string;
-  name: string;
-}
+// Lead type (keeping as comment for reference)  
+// interface Lead {
+//   id: string;
+//   firstName: string;
+//   lastName: string;
+//   email?: string | null;
+//   emailStatus: string;
+//   title?: string;
+//   company?: string;
+//   linkedinUrl?: string;
+//   location?: string;
+//   isGdprLocked: boolean;
+// }
 
-interface ApolloStepProps {
-  onLeadsSelected: (leads: Lead[]) => void;
-  defaultJobTitle?: string;
-  defaultKeywords?: string;
-  defaultLocation?: string;
-}
+// Props type (keeping as comment for reference)
+// interface ApolloStepProps {
+//   onLeadsSelected: (leads: Lead[]) => void;
+//   defaultJobTitle?: string;
+//   defaultKeywords?: string;
+//   defaultLocation?: string;
+// }
 
-// Loading Modal Component
-const SearchLoadingModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
-  const [progress, setProgress] = useState(0);
-  const [currentStep, setCurrentStep] = useState('Connecting to Apollo...');
+const LOCATION_SUGGESTIONS = [
+  { id: 'us', text: 'United States', country: 'US' },
+  { id: 'uk', text: 'United Kingdom', country: 'GB' },
+  { id: 'ca', text: 'Canada', country: 'CA' },
+  { id: 'au', text: 'Australia', country: 'AU' },
+  { id: 'de', text: 'Germany', country: 'DE' },
+  { id: 'fr', text: 'France', country: 'FR' },
+  { id: 'in', text: 'India', country: 'IN' },
+  { id: 'sg', text: 'Singapore', country: 'SG' },
+  { id: 'hk', text: 'Hong Kong', country: 'HK' },
+  { id: 'jp', text: 'Japan', country: 'JP' },
+  { id: 'nl', text: 'Netherlands', country: 'NL' },
+  { id: 'se', text: 'Sweden', country: 'SE' },
+  { id: 'ch', text: 'Switzerland', country: 'CH' },
+  { id: 'it', text: 'Italy', country: 'IT' },
+  { id: 'es', text: 'Spain', country: 'ES' },
+  { id: 'br', text: 'Brazil', country: 'BR' },
+  { id: 'mx', text: 'Mexico', country: 'MX' },
+  { id: 'ar', text: 'Argentina', country: 'AR' },
+  { id: 'cl', text: 'Chile', country: 'CL' },
+  { id: 'co', text: 'Colombia', country: 'CO' },
+  { id: 'pe', text: 'Peru', country: 'PE' },
+  { id: 'za', text: 'South Africa', country: 'ZA' },
+  { id: 'ng', text: 'Nigeria', country: 'NG' },
+  { id: 'ke', text: 'Kenya', country: 'KE' },
+  { id: 'eg', text: 'Egypt', country: 'EG' },
+  { id: 'ae', text: 'United Arab Emirates', country: 'AE' },
+  { id: 'sa', text: 'Saudi Arabia', country: 'SA' },
+  { id: 'il', text: 'Israel', country: 'IL' },
+  { id: 'tr', text: 'Turkey', country: 'TR' },
+  { id: 'ru', text: 'Russia', country: 'RU' },
+  { id: 'ua', text: 'Ukraine', country: 'UA' },
+  { id: 'pl', text: 'Poland', country: 'PL' },
+  { id: 'cz', text: 'Czech Republic', country: 'CZ' },
+  { id: 'hu', text: 'Hungary', country: 'HU' },
+  { id: 'ro', text: 'Romania', country: 'RO' },
+  { id: 'bg', text: 'Bulgaria', country: 'BG' },
+  { id: 'hr', text: 'Croatia', country: 'HR' },
+  { id: 'si', text: 'Slovenia', country: 'SI' },
+  { id: 'sk', text: 'Slovakia', country: 'SK' },
+  { id: 'lt', text: 'Lithuania', country: 'LT' },
+  { id: 'lv', text: 'Latvia', country: 'LV' },
+  { id: 'ee', text: 'Estonia', country: 'EE' },
+  { id: 'fi', text: 'Finland', country: 'FI' },
+  { id: 'no', text: 'Norway', country: 'NO' },
+  { id: 'dk', text: 'Denmark', country: 'DK' },
+  { id: 'is', text: 'Iceland', country: 'IS' },
+  { id: 'ie', text: 'Ireland', country: 'IE' },
+  { id: 'pt', text: 'Portugal', country: 'PT' },
+  { id: 'gr', text: 'Greece', country: 'GR' },
+  { id: 'cy', text: 'Cyprus', country: 'CY' },
+  { id: 'mt', text: 'Malta', country: 'MT' },
+  { id: 'lu', text: 'Luxembourg', country: 'LU' },
+  { id: 'be', text: 'Belgium', country: 'BE' },
+  { id: 'at', text: 'Austria', country: 'AT' },
+  { id: 'li', text: 'Liechtenstein', country: 'LI' },
+  { id: 'mc', text: 'Monaco', country: 'MC' },
+  { id: 'sm', text: 'San Marino', country: 'SM' },
+  { id: 'va', text: 'Vatican City', country: 'VA' },
+  { id: 'ad', text: 'Andorra', country: 'AD' },
+  { id: 'cn', text: 'China', country: 'CN' },
+  { id: 'kr', text: 'South Korea', country: 'KR' },
+  { id: 'tw', text: 'Taiwan', country: 'TW' },
+  { id: 'th', text: 'Thailand', country: 'TH' },
+  { id: 'vn', text: 'Vietnam', country: 'VN' },
+  { id: 'my', text: 'Malaysia', country: 'MY' },
+  { id: 'id', text: 'Indonesia', country: 'ID' },
+  { id: 'ph', text: 'Philippines', country: 'PH' },
+  { id: 'bd', text: 'Bangladesh', country: 'BD' },
+  { id: 'pk', text: 'Pakistan', country: 'PK' },
+  { id: 'lk', text: 'Sri Lanka', country: 'LK' },
+  { id: 'np', text: 'Nepal', country: 'NP' },
+  { id: 'bt', text: 'Bhutan', country: 'BT' },
+  { id: 'mv', text: 'Maldives', country: 'MV' },
+  { id: 'af', text: 'Afghanistan', country: 'AF' },
+  { id: 'ir', text: 'Iran', country: 'IR' },
+  { id: 'iq', text: 'Iraq', country: 'IQ' },
+  { id: 'sy', text: 'Syria', country: 'SY' },
+  { id: 'lb', text: 'Lebanon', country: 'LB' },
+  { id: 'jo', text: 'Jordan', country: 'JO' },
+  { id: 'kw', text: 'Kuwait', country: 'KW' },
+  { id: 'qa', text: 'Qatar', country: 'QA' },
+  { id: 'bh', text: 'Bahrain', country: 'BH' },
+  { id: 'om', text: 'Oman', country: 'OM' },
+  { id: 'ye', text: 'Yemen', country: 'YE' },
+  { id: 'kz', text: 'Kazakhstan', country: 'KZ' },
+  { id: 'kg', text: 'Kyrgyzstan', country: 'KG' },
+  { id: 'tj', text: 'Tajikistan', country: 'TJ' },
+  { id: 'tm', text: 'Turkmenistan', country: 'TM' },
+  { id: 'uz', text: 'Uzbekistan', country: 'UZ' },
+  { id: 'mn', text: 'Mongolia', country: 'MN' },
+  { id: 'by', text: 'Belarus', country: 'BY' },
+  { id: 'md', text: 'Moldova', country: 'MD' },
+  { id: 'am', text: 'Armenia', country: 'AM' },
+  { id: 'az', text: 'Azerbaijan', country: 'AZ' },
+  { id: 'ge', text: 'Georgia', country: 'GE' },
+];
 
-  useEffect(() => {
-    if (!isOpen) {
-      setProgress(0);
-      setCurrentStep('Connecting to Apollo...');
-      return;
-    }
+const mockSearchResults = [
+  {
+    id: 'mock1',
+    firstName: 'John',
+    lastName: 'Smith',
+    email: 'john.smith@tech.com',
+    emailStatus: 'valid',
+    title: 'Senior Software Engineer',
+    company: 'Tech Corp',
+    linkedinUrl: 'https://linkedin.com/in/johnsmith',
+    location: 'San Francisco, CA',
+    isGdprLocked: false,
+  },
+  // ... rest of mock data
+];
 
-    const steps = [
-      'Connecting to Apollo...',
-      'Processing search criteria...',
-      'Searching lead database...',
-      'Enriching lead data...',
-      'Finalizing results...'
-    ];
-
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        const newProgress = prev + Math.random() * 15 + 5;
-        if (newProgress >= 95) {
-          clearInterval(interval);
-          return 95;
-        }
-        
-        // Update step based on progress
-        const stepIndex = Math.floor((newProgress / 100) * steps.length);
-        setCurrentStep(steps[Math.min(stepIndex, steps.length - 1)]);
-        
-        return newProgress;
-      });
-    }, 400);
-
-    return () => clearInterval(interval);
-  }, [isOpen]);
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
-      <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full mx-4">
-        <div className="text-center">
-          <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 mb-4">
-            <Search className="h-6 w-6 text-blue-600 animate-pulse" />
-          </div>
-          
-          <h3 className="text-lg font-medium text-gray-900 mb-4">
-            Searching Apollo Database
-          </h3>
-          
-          <div className="mb-4">
-            <div className="flex items-center justify-center mb-2">
-              <Loader2 className="h-5 w-5 text-blue-600 animate-spin mr-2" />
-              <span className="text-sm text-gray-600">{currentStep}</span>
-            </div>
-            
-            {/* Progress Bar */}
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div 
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
-                style={{ width: `${progress}%` }}
-              ></div>
-            </div>
-            <div className="text-xs text-gray-500 mt-1">{Math.round(progress)}% complete</div>
-          </div>
-          
-          <p className="text-sm text-gray-500 mb-4">
-            This usually takes 5-15 seconds depending on search criteria.
-          </p>
-          
-          <button
-            onClick={onClose}
-            className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            Cancel search
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKeywords, defaultLocation }: ApolloStepProps) {
+export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKeywords, defaultLocation }) {
   const { wizard, setWizard } = useWizard();
   const [jobTitleInput, setJobTitleInput] = useState(defaultJobTitle || '');
   const [keywordsInput, setKeywordsInput] = useState(defaultKeywords || '');
   const [locationInput, setLocationInput] = useState(defaultLocation || '');
   const [apiKey, setApiKey] = useState('');
-  const [isKeyValid, setIsKeyValid] = useState<boolean | null>(null);
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [selectedLeads, setSelectedLeads] = useState<string[]>(wizard.selectedLeads || []);
+  const [isKeyValid, setIsKeyValid] = useState(null);
+  const [leads, setLeads] = useState([]);
+  const [selectedLeads, setSelectedLeads] = useState(wizard.selectedLeads || []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
-  const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
+  const [locationSuggestions, setLocationSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const numLeads = wizard?.numLeads || 100;
@@ -139,10 +167,10 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
   const [searchCompleted, setSearchCompleted] = useState(false);
 
   // add fetch helper
-  const fetchWithAuth = async (supabaseClient: SupabaseClient, url: string, options: RequestInit = {}) => {
+  const fetchWithAuth = async (supabaseClient, url, options = {}) => {
     const { data: { session } } = await supabaseClient.auth.getSession();
     const token = session?.access_token;
-    const doFetch = async (jwt?: string) => {
+    const doFetch = async (jwt) => {
       return fetch(url, {
         ...options,
         headers: {
@@ -163,13 +191,13 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
   };
 
   // Select/Deselect all leads
-  const handleSelectAll = (checked: boolean) => {
+  const handleSelectAll = (checked) => {
     const newSelectedLeads = checked ? leads.map(lead => lead.id) : [];
     setSelectedLeads(newSelectedLeads);
   };
 
   // Select/Deselect individual lead
-  const handleSelectLead = (leadId: string) => {
+  const handleSelectLead = (leadId) => {
     setSelectedLeads(prev => 
       prev.includes(leadId) 
         ? prev.filter(id => id !== leadId)
@@ -189,7 +217,7 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
       const selectedLeadObjects = leads.filter(lead => selectedLeads.includes(lead.id));
       
       // Update wizard state once
-      await new Promise<void>((resolve) => {
+      await new Promise(resolve => {
         setWizard(prev => {
           const newState = {
             ...prev,
@@ -298,7 +326,7 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
     }
   };
 
-  const handleLocationInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLocationInputChange = async (e) => {
     const value = e.target.value;
     setLocationInput(value);
     
@@ -332,7 +360,7 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
     }
   };
 
-  const handleLocationSelect = (suggestion: LocationSuggestion) => {
+  const handleLocationSelect = (suggestion) => {
     setLocationInput(suggestion.name);
     setShowSuggestions(false);
   };
@@ -448,7 +476,7 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
               onChange={handleLocationInputChange}
               onFocus={() => {
                 if (locationInput.trim().length >= 2) {
-                  handleLocationInputChange({ target: { value: locationInput } } as React.ChangeEvent<HTMLInputElement>);
+                  handleLocationInputChange({ target: { value: locationInput } });
                 }
               }}
             />

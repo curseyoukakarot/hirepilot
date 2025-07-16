@@ -14,7 +14,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   const [isEnriching, setIsEnriching] = useState(false);
   const [enrichStatus, setEnrichStatus] = useState({ apollo: null, gpt: null });
   const [localLead, setLocalLead] = useState(lead);
-  
+
   // Edit states for contact fields
   const [editingEmail, setEditingEmail] = useState(false);
   const [editingPhone, setEditingPhone] = useState(false);
@@ -271,7 +271,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
           showToast('Service temporarily unavailable. Please try again in a moment.', 'warning');
           return;
         } else {
-          throw new Error(errorData.message || 'Failed to enrich lead');
+        throw new Error(errorData.message || 'Failed to enrich lead');
         }
       }
       
@@ -322,34 +322,34 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
         });
         showToast('Nothing was found for this lead. You can manually add contact information using the edit buttons above.', 'info');
       } else {
-        // Set enrichment status for visual feedback
-        setEnrichStatus({
+      // Set enrichment status for visual feedback
+      setEnrichStatus({
           apollo: updated.apolloErrorMsg ? (updated.apolloErrorMsg.includes('not found') ? 'no_results' : 'retry') : 'success',
           gpt: updated.gptErrorMsg ? (updated.gptErrorMsg.includes('not found') ? 'no_results' : 'retry') : 'success',
-          apolloMsg: updated.apolloErrorMsg,
-          gptMsg: updated.gptErrorMsg
-        });
+        apolloMsg: updated.apolloErrorMsg,
+        gptMsg: updated.gptErrorMsg
+      });
         
-        if (updated.apolloErrorMsg && !updated.gptErrorMsg) {
+      if (updated.apolloErrorMsg && !updated.gptErrorMsg) {
           if (updated.apolloErrorMsg.includes('not found')) {
             showToast('Apollo found nothing, but other data was enriched successfully.', 'info');
           } else {
             showToast('Apollo enrichment failed, but other data was enriched successfully. You can try again.', 'warning');
           }
-        } else if (!updated.apolloErrorMsg && updated.gptErrorMsg) {
+      } else if (!updated.apolloErrorMsg && updated.gptErrorMsg) {
           if (updated.gptErrorMsg.includes('not found')) {
             showToast('Profile analysis found nothing, but contact data was enriched successfully.', 'info');
           } else {
             showToast('Profile analysis failed, but contact data was enriched successfully. You can try again.', 'warning');
           }
-        } else if (updated.apolloErrorMsg && updated.gptErrorMsg) {
+      } else if (updated.apolloErrorMsg && updated.gptErrorMsg) {
           const hasRetryableErrors = !updated.apolloErrorMsg.includes('not found') || !updated.gptErrorMsg.includes('not found');
           if (hasRetryableErrors) {
             showToast('Enrichment failed. Please try again.', 'warning');
           } else {
             showToast('Nothing was found for this lead. You can manually add contact information.', 'info');
           }
-        } else {
+      } else {
           const foundItems = [];
           if (hasNewEmail) foundItems.push('email');
           if (hasNewPhone) foundItems.push('phone');

@@ -88,7 +88,7 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
     }
 
     const person = response.data.people[0];
-    
+
     console.log('[Apollo] Found person:', {
       name: `${person.first_name} ${person.last_name}`,
       email: person.email,
@@ -113,19 +113,19 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
     // Always update enrichment data but preserve original lead identity
     updateData.enrichment_data = {
       ...(lead.enrichment_data || {}),
-      apollo: {
-        person_id: person.id,
-        organization: person.organization,
-        location: person.location,
-        seniority: person.seniority,
-        department: person.department,
-        subdepartments: person.subdepartments,
-        skills: person.skills,
+          apollo: {
+            person_id: person.id,
+            organization: person.organization,
+            location: person.location,
+            seniority: person.seniority,
+            department: person.department,
+            subdepartments: person.subdepartments,
+            skills: person.skills,
         // Store Apollo's suggestions without overwriting original data
         apollo_suggested_name: `${person.first_name} ${person.last_name}`,
         apollo_suggested_title: person.title,
         apollo_suggested_company: person.organization?.name
-      }
+            }
     };
     
     updateData.enriched_at = new Date().toISOString();

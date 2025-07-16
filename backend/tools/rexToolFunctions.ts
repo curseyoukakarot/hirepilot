@@ -125,17 +125,17 @@ export async function enrichLead({
     throw new Error('No enrichment fields requested');
   }
 
-  try {
-    const resp = await apolloEnrichLead({
-      leadId,
-      userId,
-      firstName: leadRow.first_name,
-      lastName: leadRow.last_name,
-      company: leadRow.company,
-      linkedinUrl: leadRow.linkedin_url
-    });
-    return { provider: 'apollo', ...resp };
-  } catch (e) {
+    try {
+      const resp = await apolloEnrichLead({
+        leadId,
+        userId,
+        firstName: leadRow.first_name,
+        lastName: leadRow.last_name,
+        company: leadRow.company,
+        linkedinUrl: leadRow.linkedin_url
+      });
+      return { provider: 'apollo', ...resp };
+    } catch (e) {
     throw new Error(`Apollo enrichment failed: ${e instanceof Error ? e.message : 'Unknown error'}`);
   }
 }

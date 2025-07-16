@@ -4,6 +4,13 @@ export const initialState = {
   campaign: null, // the DB row only
   job: null,
   keywords: '',
+  // Add properties expected by TypeScript components
+  selectedLeads: [],
+  leads: [],
+  numLeads: 100,
+  step: 1,
+  pipeline: null,
+  message: '',
 };
 
 const WizardContext = createContext(null);

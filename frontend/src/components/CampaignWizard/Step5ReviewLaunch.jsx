@@ -361,10 +361,10 @@ export default function Step5ReviewLaunch({ onBack, onEdit }) {
                 <p className="ml-2 text-xs text-blue-700">
                   You can safely close this page - the search will continue in the background
                 </p>
-              </div>
             </div>
           </div>
         </div>
+      </div>
       )}
 
       {/* Action Buttons */}
