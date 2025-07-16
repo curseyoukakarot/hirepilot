@@ -143,6 +143,12 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     return '';
   };
 
+  // Helper to generate avatar URL with initials (like in leads page)
+  const getAvatarUrl = (lead) => {
+    const name = getDisplayName(lead);
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
+  };
+
   // Helper to get LinkedIn URL
   const getLinkedInUrl = (lead) => lead.linkedin_url || lead.linkedin || '';
 
@@ -623,7 +629,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
             {/* Header */}
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <img src={localLead.avatar || "https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg"} alt="Profile Picture" className="w-12 h-12 rounded-full" />
+                <img src={getAvatarUrl(localLead)} alt="Profile Picture" className="w-12 h-12 rounded-full" />
                 <div>
                   <h2 className="text-xl font-semibold">{getDisplayName(localLead) || "Name"}</h2>
                   <p className="text-gray-600">{localLead.title || "Title"}</p>
