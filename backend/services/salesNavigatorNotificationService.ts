@@ -97,7 +97,7 @@ export async function sendSalesNavigatorSuccessNotifications(
           <div style="background-color: #f0f9ff; border: 1px solid #7dd3fc; border-radius: 8px; padding: 20px; margin: 20px 0;">
             <h3 style="color: #0369a1; margin-top: 0; margin-bottom: 10px;">📊 Campaign Summary</h3>
             <div style="color: #0369a1; font-size: 14px;">
-              <strong>${leadCount}</strong> qualified prospects found from LinkedIn Sales Navigator<br>
+              <strong>${leadCount} qualified prospects found</strong><br>
               <strong>Processing time:</strong> ~10 minutes (automated scraping completed)<br>
               <strong>Data quality:</strong> LinkedIn verified profiles with current company info
             </div>
@@ -133,15 +133,27 @@ export async function sendSalesNavigatorSuccessNotifications(
         </div>
       `;
 
-      await sendEmail(userEmail, emailSubject, `Sales Navigator campaign "${campaignTitle}" found ${leadCount} leads!`, emailHtml);
-      console.log('[Sales Navigator Notifications] Success email sent to:', userEmail);
+      try {
+        await sendEmail(userEmail, emailSubject, `Sales Navigator campaign "${campaignTitle}" found ${leadCount} leads!`, emailHtml);
+        console.log('[Sales Navigator Notifications] Success email sent to:', userEmail);
+      } catch (emailError) {
+        console.error('[Sales Navigator Notifications] Email failed (SendGrid issue):', emailError.message);
+        // Don't fail the entire notification process if email fails
+      }
     }
 
     // Send Slack notification (if user has Slack notifications enabled)
-    if (user.slack_notifications !== false) {
-      const slackMessage = `🎯 *Sales Navigator Campaign: ${campaignTitle}* completed!\n✅ Found ${leadCount} qualified prospects from LinkedIn\n🔍 Search: ${searchCriteriaText}\n⚡ Ready for enrichment and outreach in HirePilot\n💳 50 credits used for LinkedIn scraping`;
-      await notifySlack(slackMessage);
-      console.log('[Sales Navigator Notifications] Success Slack notification sent');
+    // Handle missing slack_notifications column gracefully
+    const slackEnabled = user.slack_notifications !== false; // Default to true if column missing
+    if (slackEnabled) {
+      try {
+        const slackMessage = `🎯 *Sales Navigator Campaign: ${campaignTitle}* completed!\n✅ Found ${leadCount} qualified prospects from LinkedIn\n🔍 Search: ${searchCriteriaText}\n⚡ Ready for enrichment and outreach in HirePilot\n💳 50 credits used for LinkedIn scraping`;
+        await notifySlack(slackMessage);
+        console.log('[Sales Navigator Notifications] Success Slack notification sent');
+      } catch (slackError) {
+        console.error('[Sales Navigator Notifications] Slack failed:', slackError.message);
+        // Don't fail the entire notification process if Slack fails
+      }
     }
 
   } catch (error) {
