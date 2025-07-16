@@ -173,7 +173,7 @@ export async function handlePhantomBusterWebhook(executionId: string, results: a
           last_name: lastName,
           name: fullName,
           title: title,
-          company: company,
+          company_name: company, // Use company_name instead of company
           linkedin_url: linkedinUrl || null, // Use null instead of empty string to avoid constraint issues
           location: location,
           city: city,
@@ -181,12 +181,12 @@ export async function handlePhantomBusterWebhook(executionId: string, results: a
           country: country,
           campaign_location: location,
           status: 'New',
-          enrichment_source: 'Sales Navigator',
+          source: 'Sales Navigator', // Use source instead of enrichment_source
+          source_payload: JSON.stringify(result), // Use source_payload instead of enrichment_data for raw data
           enrichment_data: JSON.stringify({
             location: location,
             source: 'Sales Navigator',
-            originalUrl: linkedinUrl,
-            rawData: result // Store the raw PhantomBuster data for debugging
+            originalUrl: linkedinUrl
           }),
           created_at: new Date().toISOString()
         })

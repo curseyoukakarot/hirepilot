@@ -135,6 +135,28 @@ async function fetchPhantomBusterResults(executionId: string): Promise<any[]> {
     
     // If output is a string, try to parse it as JSON
     if (typeof output === 'string') {
+      // NEW: Look for S3 JSON URLs in the logs first (this is the key insight!)
+      const s3JsonUrlMatch = output.match(/JSON saved at (https:\/\/phantombuster\.s3\.amazonaws\.com\/[^\s]+\.json)/);
+      
+      if (s3JsonUrlMatch) {
+        const s3JsonUrl = s3JsonUrlMatch[1];
+        console.log(`[fetchPhantomBusterResults] Found S3 JSON URL in logs: ${s3JsonUrl}`);
+        
+        try {
+          console.log(`[fetchPhantomBusterResults] Fetching clean results from S3...`);
+          const s3Response = await axios.get(s3JsonUrl, { timeout: 30000 });
+          const s3Results = s3Response.data;
+          
+          if (Array.isArray(s3Results) && s3Results.length > 0) {
+            console.log(`[fetchPhantomBusterResults] ✅ Successfully fetched ${s3Results.length} clean results from S3!`);
+            return s3Results;
+          }
+        } catch (s3Error: any) {
+          console.error(`[fetchPhantomBusterResults] Failed to fetch from S3:`, s3Error.message);
+          // Continue to fallback parsing methods below
+        }
+      }
+
       try {
         // Clean the output by removing any log messages before the JSON
         let cleanedOutput = output.trim();
