@@ -72,26 +72,27 @@ interface Lead {
 
 export async function searchPeople(params: ApolloSearchParams) {
   try {
-    // Convert our params to the correct format for mixed_people/search
+    // Use the WORKING format from the OAuth implementation
     const searchPayload: any = {
       page: params.page || 1,
       per_page: params.per_page || 100
     };
 
-    // Map our parameters to the correct Apollo API format
+    // Use simple parameter names that actually work (from OAuth implementation)
     if (params.person_titles && params.person_titles.length > 0) {
-      searchPayload.person_titles = params.person_titles;
+      searchPayload.title = params.person_titles[0];  // ✅ Use 'title', not 'person_titles'
     }
     if (params.q_keywords) {
-      searchPayload.keywords = params.q_keywords;
+      searchPayload.keywords = params.q_keywords;  // ✅ Keep as 'keywords'
     }
     if (params.person_locations && params.person_locations.length > 0) {
-      searchPayload.person_locations = params.person_locations;
+      searchPayload.location = params.person_locations[0];  // ✅ Use 'location', not 'person_locations'
     }
 
-    console.log('[Apollo] Making search request with params:', {
+    console.log('[Apollo] Making search request with WORKING OAuth format:', {
       ...searchPayload,
-      endpoint: 'mixed_people/search'
+      endpoint: 'mixed_people/search',
+      api_key: '***'
     });
 
     const response = await axios.post(`${APOLLO_API_URL}/mixed_people/search`, searchPayload, {
