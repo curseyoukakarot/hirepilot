@@ -20,12 +20,21 @@ router.post('/search', requireAuth, async (req, res) => {
   // Handle both parameter formats (camelCase and snake_case)
   const actualJobTitle = jobTitle || job_title;
 
-  console.log('[Apollo Search] Search params:', { 
-    jobTitle: actualJobTitle, 
-    keywords, 
-    location,
-    original_body: req.body 
-  });
+      console.log('[Apollo Search] Search params:', { 
+      jobTitle: actualJobTitle, 
+      keywords, 
+      location,
+      original_body: req.body 
+    });
+
+    console.log('[Apollo Search] DETAILED MAPPING DEBUG:', {
+      'Frontend job_title': req.body.job_title,
+      'Frontend keywords': req.body.keywords,
+      'Backend actualJobTitle': actualJobTitle,
+      'Backend keywords': keywords,
+      'actualJobTitle exists?': !!actualJobTitle,
+      'keywords exists?': !!keywords
+    });
 
   try {
     // Get user role to check for RecruitPro privileges
@@ -80,21 +89,41 @@ router.post('/search', requireAuth, async (req, res) => {
       per_page: 100
     };
 
-    // Add search criteria
+    // Add search criteria - TESTING: Apollo may ignore person_titles!
+    if (actualJobTitle && !keywords) {
+      // If only job title, put it in q_keywords (Apollo may ignore person_titles)
+      searchParams.q_keywords = actualJobTitle;
+      console.log('[Apollo Search] TEST: Job title only - putting in q_keywords');
+    } else if (actualJobTitle && keywords) {
+      // If both, combine them in q_keywords
+      searchParams.q_keywords = `${actualJobTitle} ${keywords}`;
+      console.log('[Apollo Search] TEST: Both fields - combining in q_keywords');
+    } else if (keywords) {
+      // If only keywords
+      searchParams.q_keywords = keywords;
+      console.log('[Apollo Search] TEST: Keywords only - using q_keywords');
+    }
+    
+    // Keep person_titles for comparison (but Apollo may ignore it)
     if (actualJobTitle) {
       searchParams.person_titles = [actualJobTitle];
-    }
-    if (keywords) {
-      searchParams.q_keywords = keywords;
     }
     if (location && location !== 'Any') {
       searchParams.person_locations = [toApolloGeoString(location)];
     }
 
-    // Debug logging
+    // Debug logging - what we're sending to Apollo
     console.log('[Apollo Search] Final search params being sent to Apollo API:', {
       ...searchParams,
       api_key: '***'
+    });
+
+    console.log('[Apollo Search] CRITICAL DEBUG - What Apollo will receive:', {
+      'person_titles': searchParams.person_titles,
+      'q_keywords': searchParams.q_keywords,
+      'person_locations': searchParams.person_locations,
+      'Will Apollo see job title?': !!searchParams.person_titles?.length,
+      'Will Apollo see keywords?': !!searchParams.q_keywords
     });
 
     // Search and enrich the leads
