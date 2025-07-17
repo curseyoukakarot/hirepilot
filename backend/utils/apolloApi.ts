@@ -70,32 +70,74 @@ interface Lead {
   isGdprLocked: boolean;
 }
 
-// Helper function to expand job title variants
+// Helper function to expand job title variants for ALL titles
 function expandTitleVariants(title: string): string[] {
-  const baseTitle = title.toLowerCase();
+  const baseTitle = title.toLowerCase().trim();
   const variants = [baseTitle];
   
-  // Common patterns for Director of Product Management
+  // Generic patterns that work for ANY title
+  const words = baseTitle.split(/\s+/);
+  
+  // Add variations without common words
+  const commonWords = ['of', 'the', 'and', '&', 'at'];
+  const filteredWords = words.filter(word => !commonWords.includes(word));
+  if (filteredWords.length !== words.length) {
+    variants.push(filteredWords.join(' '));
+  }
+  
+  // Add variations with/without senior/jr prefixes
+  if (baseTitle.includes('senior') || baseTitle.includes('sr')) {
+    const withoutSenior = baseTitle.replace(/\b(senior|sr\.?)\s+/gi, '').trim();
+    if (withoutSenior !== baseTitle) variants.push(withoutSenior);
+  } else {
+    variants.push(`senior ${baseTitle}`);
+    variants.push(`sr ${baseTitle}`);
+  }
+  
+  if (baseTitle.includes('junior') || baseTitle.includes('jr')) {
+    const withoutJunior = baseTitle.replace(/\b(junior|jr\.?)\s+/gi, '').trim();
+    if (withoutJunior !== baseTitle) variants.push(withoutJunior);
+  }
+  
+  // Specific role-based expansions
   if (baseTitle.includes('director') && baseTitle.includes('product')) {
     variants.push(
       'director product',
-      'director of product',
+      'director of product', 
       'product director',
       'director product management',
       'product management director',
-      'head of product',
-      'sr director product',
-      'senior director product'
+      'head of product'
     );
   }
   
-  // VP variations
+  if (baseTitle.includes('director') && !baseTitle.includes('product')) {
+    variants.push(`head of ${words.slice(-1)[0]}`); // "Director Marketing" → "Head of Marketing"
+  }
+  
+  if (baseTitle.includes('manager')) {
+    const department = words.filter(w => w !== 'manager').join(' ');
+    if (department) {
+      variants.push(`${department} lead`);
+      variants.push(`lead ${department}`);
+    }
+  }
+  
+  if (baseTitle.includes('engineer')) {
+    const specialty = words.filter(w => w !== 'engineer').join(' ');
+    if (specialty) {
+      variants.push(`${specialty} developer`);
+      variants.push(`${specialty} dev`);
+    }
+    variants.push(baseTitle.replace('engineer', 'developer'));
+  }
+  
   if (baseTitle.includes('vp') || baseTitle.includes('vice president')) {
     variants.push('vp product', 'vice president product', 'svp product');
   }
   
-  // Remove duplicates and return
-  return [...new Set(variants)];
+  // Remove empty strings and duplicates
+  return [...new Set(variants.filter(v => v.trim().length > 0))];
 }
 
 // Helper function to normalize location variants  
