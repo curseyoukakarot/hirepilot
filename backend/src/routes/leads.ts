@@ -192,26 +192,6 @@ router.post('/apollo/search', requireAuth, async (req: Request, res: Response) =
 
       console.log('[Apollo Search] SUPER_ADMIN - Using SIMPLE approach:', apolloPayload);
 
-      // 🧪 TEST MODE: Log what we WOULD send to Apollo without actually calling it
-      console.log('[Apollo Search] 🧪 SUPER_ADMIN TEST MODE - Would send to Apollo:', {
-        endpoint: 'https://api.apollo.io/v1/mixed_people/search',
-        method: 'POST', 
-        headers: { 'X-Api-Key': '***', 'Content-Type': 'application/json' },
-        payload: apolloPayload
-      });
-      
-      // 🧪 Return fake test data for now
-      res.json({ 
-        leads: [
-          { id: 'test1', firstName: 'Test', lastName: 'Admin', title: 'TEST - Director Product', company: 'Test Co' }
-        ],
-        testMode: true,
-        superAdminMode: true,
-        wouldSendToApollo: apolloPayload
-      });
-      return;
-
-      /*
       const response = await fetch('https://api.apollo.io/v1/mixed_people/search', {
         method: 'POST',
         headers: {
@@ -225,7 +205,6 @@ router.post('/apollo/search', requireAuth, async (req: Request, res: Response) =
       const leads = data.people || data.contacts || [];
       res.json({ leads });
       return;
-      */
     }
 
     res.status(400).json({ 
