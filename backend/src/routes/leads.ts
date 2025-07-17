@@ -122,15 +122,37 @@ router.post('/apollo/search', requireAuth, async (req: Request, res: Response) =
       }
     }
 
-    // 3. Fallback: Use API key from user_settings
-    const { data: settings } = await supabase
-      .from('user_settings')
-      .select('apollo_api_key')
-      .eq('user_id', userId)
+    // 3. Check if user has privileged role access to SUPER_ADMIN_APOLLO_API_KEY
+    const { data: userRecord, error: userErr } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', userId)
       .single();
 
-    if (settings?.apollo_api_key) {
-      // SIMPLE APPROACH: Use same format as working OAuth version
+    // Check user metadata as fallback
+    let authMetadata = null;
+    try {
+      const { data: authUser } = await supabase.auth.admin.getUserById(userId);
+      authMetadata = authUser?.user?.user_metadata;
+    } catch (authError) {
+      console.error('Error fetching auth metadata:', authError);
+    }
+
+    // Check if user is privileged (RecruitPro, TeamAdmin, admin, member)
+    const privilegedTypes = ['RecruitPro', 'TeamAdmin', 'admin', 'member'];
+    const userRole = userRecord?.role || authMetadata?.role || authMetadata?.account_type;
+    const isPrivileged = privilegedTypes.includes(userRole);
+
+    console.log('[Apollo Search] Privilege check:', {
+      userRole,
+      isPrivileged,
+      privilegedTypes
+    });
+
+    // If privileged user, use SUPER_ADMIN_APOLLO_API_KEY
+    if (isPrivileged && process.env.SUPER_ADMIN_APOLLO_API_KEY) {
+      console.log('[Apollo Search] Using SUPER_ADMIN_APOLLO_API_KEY for privileged user');
+      
       const apolloPayload = {
         title: jobTitle,        // ✅ Job title goes to 'title' 
         keywords,               // ✅ Keywords go to 'keywords'
@@ -139,27 +161,43 @@ router.post('/apollo/search', requireAuth, async (req: Request, res: Response) =
         per_page: 100
       };
 
-      console.log('[Apollo Search] Using SIMPLE approach like OAuth:', apolloPayload);
+      console.log('[Apollo Search] PRIVILEGED USER - Using SIMPLE approach:', apolloPayload);
 
-      // 🧪 TEST MODE: Log what we WOULD send to Apollo without actually calling it
-      console.log('[Apollo Search] 🧪 TEST MODE - Would send to Apollo:', {
-        endpoint: 'https://api.apollo.io/v1/mixed_people/search',
+      const response = await fetch('https://api.apollo.io/v1/mixed_people/search', {
         method: 'POST',
-        headers: { 'X-Api-Key': '***', 'Content-Type': 'application/json' },
-        payload: apolloPayload
+        headers: {
+          'X-Api-Key': process.env.SUPER_ADMIN_APOLLO_API_KEY,  
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(apolloPayload)
       });
-      
-      // 🧪 Return fake test data for now
-      res.json({ 
-        leads: [
-          { id: 'test1', firstName: 'Test', lastName: 'User', title: 'TEST - Director Product', company: 'Test Co' }
-        ],
-        testMode: true,
-        wouldSendToApollo: apolloPayload
-      });
-      return;
 
-      /*
+      const data = await response.json() as { people?: any[]; contacts?: any[] };
+      const leads = data.people || data.contacts || [];
+      res.json({ leads });
+      return;
+    }
+
+    // 4. Fallback: Use API key from user_settings
+    const { data: settings } = await supabase
+      .from('user_settings')
+      .select('apollo_api_key')
+      .eq('user_id', userId)
+      .single();
+
+    if (settings?.apollo_api_key) {
+      console.log('[Apollo Search] Using user personal API key');
+      
+      const apolloPayload = {
+        title: jobTitle,        // ✅ Job title goes to 'title' 
+        keywords,               // ✅ Keywords go to 'keywords'
+        location,               // ✅ Location goes to 'location'
+        page: 1,
+        per_page: 100
+      };
+
+      console.log('[Apollo Search] USER API KEY - Using SIMPLE approach:', apolloPayload);
+
       const response = await fetch('https://api.apollo.io/v1/mixed_people/search', {
         method: 'POST',
         headers: {
@@ -172,16 +210,15 @@ router.post('/apollo/search', requireAuth, async (req: Request, res: Response) =
       const data = await response.json() as { people?: any[]; contacts?: any[] };
       const leads = data.people || data.contacts || [];
       res.json({ leads });
-      return; // CRITICAL: Early return to prevent double response
-      */
+      return;
     }
 
-    // 4. Global fallback to SUPER_ADMIN_APOLLO_API_KEY
+    // 5. Final global fallback to SUPER_ADMIN_APOLLO_API_KEY (for non-privileged users)
     const superKey = process.env.SUPER_ADMIN_APOLLO_API_KEY;
 
     if (superKey) {
-      console.log('[Apollo Search] Using SUPER_ADMIN_APOLLO_API_KEY fallback');
-      // SIMPLE APPROACH: Use same format as working OAuth version
+      console.log('[Apollo Search] Using SUPER_ADMIN_APOLLO_API_KEY final fallback');
+      
       const apolloPayload = {
         title: jobTitle,        // ✅ Job title goes to 'title' 
         keywords,               // ✅ Keywords go to 'keywords'
@@ -190,7 +227,7 @@ router.post('/apollo/search', requireAuth, async (req: Request, res: Response) =
         per_page: 100
       };
 
-      console.log('[Apollo Search] SUPER_ADMIN - Using SIMPLE approach:', apolloPayload);
+      console.log('[Apollo Search] FINAL FALLBACK - Using SIMPLE approach:', apolloPayload);
 
       const response = await fetch('https://api.apollo.io/v1/mixed_people/search', {
         method: 'POST',
