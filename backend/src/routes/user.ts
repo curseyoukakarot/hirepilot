@@ -16,7 +16,23 @@ router.get('/settings', requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
-    // Get user settings first
+    // Get user account type to check for RecruitPro privileges
+    const { data: userRecord, error: userErr } = await supabase
+      .from('users')
+      .select('account_type, role')
+      .eq('id', userId)
+      .single();
+
+    if (userErr) {
+      console.error('Error fetching user record:', userErr);
+    }
+
+    // Check if user is RecruitPro or other privileged type
+    const privilegedTypes = ['RecruitPro', 'TeamAdmin', 'admin', 'member'];
+    const accountType = userRecord?.account_type || userRecord?.role;
+    const isRecruitPro = privilegedTypes.includes(accountType);
+
+    // Get user settings
     const { data: settings, error: settingsError } = await supabase
       .from('user_settings')
       .select('apollo_api_key')
@@ -36,10 +52,20 @@ router.get('/settings', requireAuth, async (req: Request, res: Response) => {
       .eq('status', 'connected')
       .single();
 
+    // Determine Apollo API key and connection status
+    let apolloApiKey = settings?.apollo_api_key || null;
+    let apolloConnected = !!integration;
+
+    // RecruitPro users get access to SUPER_ADMIN_APOLLO_API_KEY
+    if (isRecruitPro && process.env.SUPER_ADMIN_APOLLO_API_KEY) {
+      apolloApiKey = process.env.SUPER_ADMIN_APOLLO_API_KEY;
+      apolloConnected = true; // Mark as connected for RecruitPro users
+    }
+
     // Return both OAuth status and API key
     res.json({
-      apollo_connected: !!integration,
-      apollo_api_key: settings?.apollo_api_key || null
+      apollo_connected: apolloConnected,
+      apollo_api_key: apolloApiKey
     });
   } catch (err) {
     logger.error('Error in /api/user/settings:', err);

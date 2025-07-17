@@ -20,6 +20,20 @@ router.post('/search', requireAuth, async (req, res) => {
   console.log('[Apollo Search] Search params:', { jobTitle, keywords, location });
 
   try {
+    // Get user account type to check for RecruitPro privileges
+    const { data: userRecord, error: userErr } = await supabase
+      .from('users')
+      .select('account_type, role')
+      .eq('id', userId)
+      .single();
+
+    if (userErr) console.error('[Apollo Search] user fetch error:', userErr);
+
+    // Check if user is RecruitPro or other privileged type
+    const privilegedTypes = ['RecruitPro', 'TeamAdmin', 'admin', 'member'];
+    const accountType = userRecord?.account_type || userRecord?.role;
+    const isRecruitPro = privilegedTypes.includes(accountType);
+
     // Get API key from settings
     const { data: settings, error: settingsError } = await supabase
       .from('user_settings')
@@ -27,10 +41,18 @@ router.post('/search', requireAuth, async (req, res) => {
       .eq('user_id', userId)
       .single();
 
-    let apiKey = settings?.apollo_api_key;
     if (settingsError) console.error('[Apollo Search] settings fetch error:', settingsError);
 
-    if (!apiKey) apiKey = process.env.SUPER_ADMIN_APOLLO_API_KEY;
+    // Determine which API key to use
+    let apiKey: string | undefined;
+
+    if (isRecruitPro) {
+      apiKey = process.env.SUPER_ADMIN_APOLLO_API_KEY;
+    } else if (settings?.apollo_api_key) {
+      apiKey = settings.apollo_api_key;
+    } else {
+      apiKey = process.env.SUPER_ADMIN_APOLLO_API_KEY; // Fallback for backwards compatibility
+    }
 
     if (!apiKey) {
       res.status(401).json({ error: 'No valid Apollo API key found' });
@@ -165,16 +187,39 @@ router.get('/locations', requireAuth, async (req, res) => {
   }
 
   try {
-    // Get API key from settings or RecruitPro fallback
+    // Get user account type to check for RecruitPro privileges
+    const { data: userRecord, error: userErr } = await supabase
+      .from('users')
+      .select('account_type, role')
+      .eq('id', userId)
+      .single();
+
+    if (userErr) console.error('[Apollo Locations] user fetch error:', userErr);
+
+    // Check if user is RecruitPro or other privileged type
+    const privilegedTypes = ['RecruitPro', 'TeamAdmin', 'admin', 'member'];
+    const accountType = userRecord?.account_type || userRecord?.role;
+    const isRecruitPro = privilegedTypes.includes(accountType);
+
+    // Get API key from settings
     const { data: settings, error: settingsError } = await supabase
       .from('user_settings')
       .select('apollo_api_key')
       .eq('user_id', userId)
       .single();
 
-    let apiKey = settings?.apollo_api_key;
     if (settingsError) console.error('[Apollo Locations] settings fetch error:', settingsError);
-    if (!apiKey) apiKey = process.env.SUPER_ADMIN_APOLLO_API_KEY;
+
+    // Determine which API key to use
+    let apiKey: string | undefined;
+
+    if (isRecruitPro) {
+      apiKey = process.env.SUPER_ADMIN_APOLLO_API_KEY;
+    } else if (settings?.apollo_api_key) {
+      apiKey = settings.apollo_api_key;
+    } else {
+      apiKey = process.env.SUPER_ADMIN_APOLLO_API_KEY; // Fallback for backwards compatibility
+    }
 
     if (!apiKey) {
       res.status(401).json({ error: 'No valid Apollo API key found' });
