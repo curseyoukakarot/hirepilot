@@ -70,38 +70,103 @@ interface Lead {
   isGdprLocked: boolean;
 }
 
+// Helper function to expand job title variants
+function expandTitleVariants(title: string): string[] {
+  const baseTitle = title.toLowerCase();
+  const variants = [baseTitle];
+  
+  // Common patterns for Director of Product Management
+  if (baseTitle.includes('director') && baseTitle.includes('product')) {
+    variants.push(
+      'director product',
+      'director of product',
+      'product director',
+      'director product management',
+      'product management director',
+      'head of product',
+      'sr director product',
+      'senior director product'
+    );
+  }
+  
+  // VP variations
+  if (baseTitle.includes('vp') || baseTitle.includes('vice president')) {
+    variants.push('vp product', 'vice president product', 'svp product');
+  }
+  
+  // Remove duplicates and return
+  return [...new Set(variants)];
+}
+
+// Helper function to normalize location variants  
+function normalizeLocationVariants(location: string): string[] {
+  const variants = [];
+  
+  // Handle common formats like "Miami, FL" -> proper Apollo format
+  if (location.includes(',')) {
+    const parts = location.split(',').map(p => p.trim());
+    
+    if (parts.length === 2) {
+      const [city, state] = parts;
+      
+      // Map common state abbreviations
+      const stateMap: { [key: string]: string } = {
+        'FL': 'Florida', 'CA': 'California', 'NY': 'New York', 'TX': 'Texas',
+        'IL': 'Illinois', 'WA': 'Washington', 'MA': 'Massachusetts'
+      };
+      
+      const fullState = stateMap[state] || state;
+      
+      // Add both city and state level variants
+      variants.push(`${city}, ${fullState}, US`);
+      variants.push(`${fullState}, US`);
+    }
+  } else {
+    // Single location, assume it's a state or city
+    variants.push(`${location}, US`);
+  }
+  
+  return variants;
+}
+
 export async function searchPeople(params: ApolloSearchParams) {
   try {
-    // Use the WORKING format from the OAuth implementation
-    const searchPayload: any = {
+    // Build correct Apollo API request format (top-level properties, no wrapper)
+    const requestBody: any = {
+      per_page: params.per_page || 25,
       page: params.page || 1,
-      per_page: params.per_page || 100
+      contact_email_status: 'verified'  // Focus on verified emails
     };
 
-    // Use simple parameter names that actually work (from OAuth implementation)
+    // Add title variants (multiple for better matching)
     if (params.person_titles && params.person_titles.length > 0) {
-      searchPayload.title = params.person_titles[0];  // ✅ Use 'title', not 'person_titles'
+      const titleVariants = expandTitleVariants(params.person_titles[0]);
+      requestBody.person_titles = titleVariants;
     }
-    if (params.q_keywords) {
-      searchPayload.keywords = params.q_keywords;  // ✅ Keep as 'keywords'
-    }
+    
+    // Add location variants (proper Apollo format)
     if (params.person_locations && params.person_locations.length > 0) {
-      searchPayload.location = params.person_locations[0];  // ✅ Use 'location', not 'person_locations'
+      const locationVariants = normalizeLocationVariants(params.person_locations[0]);
+      requestBody.person_locations = locationVariants;
+    }
+    
+    // Add keywords if provided
+    if (params.q_keywords) {
+      requestBody.q_keywords = params.q_keywords;
     }
 
-    console.log('[Apollo] Making search request with WORKING OAuth format:', {
-      ...searchPayload,
-      endpoint: 'mixed_people/search',
-      api_key: '***'
+    console.log('[Apollo] Making search request with CORRECT API format:', {
+      ...requestBody,
+      person_titles_count: requestBody.person_titles?.length || 0,
+      person_locations_count: requestBody.person_locations?.length || 0,
+      endpoint: 'mixed_people/search'
     });
 
-    const response = await axios.post(`${APOLLO_API_URL}/mixed_people/search`, searchPayload, {
+    const response = await axios.post(`${APOLLO_API_URL}/mixed_people/search`, requestBody, {
       headers: {
+        'X-Api-Key': params.api_key,  // Use proper header format
         'Content-Type': 'application/json',
         'Cache-Control': 'no-cache'
-      },
-      params: {
-        api_key: params.api_key
       }
     });
 
