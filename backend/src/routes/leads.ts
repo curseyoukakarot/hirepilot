@@ -130,33 +130,50 @@ router.post('/apollo/search', requireAuth, async (req: Request, res: Response) =
       .single();
 
     if (settings?.apollo_api_key) {
-      const searchParams: any = {
-        api_key: settings.apollo_api_key,
+      // SIMPLE APPROACH: Use same format as working OAuth version
+      const apolloPayload = {
+        title: jobTitle,        // ✅ Job title goes to 'title' 
+        keywords,               // ✅ Keywords go to 'keywords'
+        location,               // ✅ Location goes to 'location'
         page: 1,
         per_page: 100
       };
 
-      // FIX: Put job titles in q_keywords since Apollo ignores person_titles!
-      if (jobTitle && !keywords) {
-        searchParams.q_keywords = jobTitle;
-        console.log('[Apollo Search] Job title only - putting in q_keywords');
-      } else if (jobTitle && keywords) {
-        searchParams.q_keywords = `${jobTitle} ${keywords}`;
-        console.log('[Apollo Search] Both fields - combining in q_keywords');
-      } else if (keywords) {
-        searchParams.q_keywords = keywords;
-        console.log('[Apollo Search] Keywords only - using q_keywords');
-      }
+      console.log('[Apollo Search] Using SIMPLE approach like OAuth:', apolloPayload);
 
-      if (location && location !== 'Any') {
-        searchParams.person_locations = [location];
-      }
+      // 🧪 TEST MODE: Log what we WOULD send to Apollo without actually calling it
+      console.log('[Apollo Search] 🧪 TEST MODE - Would send to Apollo:', {
+        endpoint: 'https://api.apollo.io/v1/mixed_people/search',
+        method: 'POST',
+        headers: { 'X-Api-Key': '***', 'Content-Type': 'application/json' },
+        payload: apolloPayload
+      });
+      
+      // 🧪 Return fake test data for now
+      res.json({ 
+        leads: [
+          { id: 'test1', firstName: 'Test', lastName: 'User', title: 'TEST - Director Product', company: 'Test Co' }
+        ],
+        testMode: true,
+        wouldSendToApollo: apolloPayload
+      });
+      return;
 
-      console.log('[Apollo Search] ACTUAL ROUTE - Final params:', searchParams);
+      /*
+      const response = await fetch('https://api.apollo.io/v1/mixed_people/search', {
+        method: 'POST',
+        headers: {
+          'X-Api-Key': settings.apollo_api_key,  
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(apolloPayload)
+      });
 
-      const { leads } = await searchAndEnrichPeople(searchParams);
+      const data = await response.json() as { people?: any[]; contacts?: any[] };
+      const leads = data.people || data.contacts || [];
       res.json({ leads });
       return; // CRITICAL: Early return to prevent double response
+      */
     }
 
     // 4. Global fallback to SUPER_ADMIN_APOLLO_API_KEY
@@ -164,33 +181,51 @@ router.post('/apollo/search', requireAuth, async (req: Request, res: Response) =
 
     if (superKey) {
       console.log('[Apollo Search] Using SUPER_ADMIN_APOLLO_API_KEY fallback');
-      const searchParams: any = {
-        api_key: superKey,
+      // SIMPLE APPROACH: Use same format as working OAuth version
+      const apolloPayload = {
+        title: jobTitle,        // ✅ Job title goes to 'title' 
+        keywords,               // ✅ Keywords go to 'keywords'
+        location,               // ✅ Location goes to 'location'
         page: 1,
         per_page: 100
       };
 
-      // FIX: Put job titles in q_keywords since Apollo ignores person_titles!
-      if (jobTitle && !keywords) {
-        searchParams.q_keywords = jobTitle;
-        console.log('[Apollo Search] SUPER_ADMIN - Job title only in q_keywords');
-      } else if (jobTitle && keywords) {
-        searchParams.q_keywords = `${jobTitle} ${keywords}`;
-        console.log('[Apollo Search] SUPER_ADMIN - Both fields in q_keywords');
-      } else if (keywords) {
-        searchParams.q_keywords = keywords;
-        console.log('[Apollo Search] SUPER_ADMIN - Keywords only in q_keywords');
-      }
+      console.log('[Apollo Search] SUPER_ADMIN - Using SIMPLE approach:', apolloPayload);
 
-      if (location && location !== 'Any') {
-        searchParams.person_locations = [location];
-      }
+      // 🧪 TEST MODE: Log what we WOULD send to Apollo without actually calling it
+      console.log('[Apollo Search] 🧪 SUPER_ADMIN TEST MODE - Would send to Apollo:', {
+        endpoint: 'https://api.apollo.io/v1/mixed_people/search',
+        method: 'POST', 
+        headers: { 'X-Api-Key': '***', 'Content-Type': 'application/json' },
+        payload: apolloPayload
+      });
+      
+      // 🧪 Return fake test data for now
+      res.json({ 
+        leads: [
+          { id: 'test1', firstName: 'Test', lastName: 'Admin', title: 'TEST - Director Product', company: 'Test Co' }
+        ],
+        testMode: true,
+        superAdminMode: true,
+        wouldSendToApollo: apolloPayload
+      });
+      return;
 
-      console.log('[Apollo Search] SUPER_ADMIN - Final params:', searchParams);
+      /*
+      const response = await fetch('https://api.apollo.io/v1/mixed_people/search', {
+        method: 'POST',
+        headers: {
+          'X-Api-Key': superKey,  
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(apolloPayload)
+      });
 
-      const { leads } = await searchAndEnrichPeople(searchParams);
+      const data = await response.json() as { people?: any[]; contacts?: any[] };
+      const leads = data.people || data.contacts || [];
       res.json({ leads });
       return;
+      */
     }
 
     res.status(400).json({ 
