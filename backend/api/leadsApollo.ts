@@ -83,6 +83,12 @@ router.post('/search', requireAuth, async (req, res) => {
       searchParams.person_locations = [toApolloGeoString(location)];
     }
 
+    // Debug logging
+    console.log('[Apollo Search] Final search params being sent to Apollo API:', {
+      ...searchParams,
+      api_key: '***'
+    });
+
     // Search and enrich the leads
     const { leads } = await searchAndEnrichPeople(searchParams);
     

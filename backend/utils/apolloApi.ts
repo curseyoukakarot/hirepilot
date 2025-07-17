@@ -20,12 +20,16 @@ interface ApolloSearchHit {
   first_name: string;
   last_name: string;
   email: string | null;
-  title: string;
-  city: string;
-  state: string;
-  country: string;
+  title?: string;
+  job_title?: string;  // Alternative field name from mixed_people/search
+  city?: string;
+  state?: string;
+  country?: string;
   linkedin_url?: string;
   organization?: {
+    name: string;
+  };
+  company?: {  // Alternative field name from mixed_people/search
     name: string;
   };
 }
@@ -68,23 +72,59 @@ interface Lead {
 
 export async function searchPeople(params: ApolloSearchParams) {
   try {
+    // Convert our params to the correct format for mixed_people/search
+    const searchPayload: any = {
+      page: params.page || 1,
+      per_page: params.per_page || 100
+    };
+
+    // Map our parameters to the correct Apollo API format
+    if (params.person_titles && params.person_titles.length > 0) {
+      searchPayload.person_titles = params.person_titles;
+    }
+    if (params.q_keywords) {
+      searchPayload.keywords = params.q_keywords;
+    }
+    if (params.person_locations && params.person_locations.length > 0) {
+      searchPayload.person_locations = params.person_locations;
+    }
+
     console.log('[Apollo] Making search request with params:', {
-      ...params,
-      api_key: '***' // Hide API key in logs
+      ...searchPayload,
+      endpoint: 'mixed_people/search'
     });
 
-    const response = await axios.get(`${APOLLO_API_URL}/people/search`, {
+    const response = await axios.post(`${APOLLO_API_URL}/mixed_people/search`, searchPayload, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache'
+      },
       params: {
-        ...params,
-        email_statuses: ['verified']  // Always filter for verified emails
+        api_key: params.api_key
       }
     });
 
-    if (!response.data?.people) {
-      throw new Error(`Invalid search response: ${JSON.stringify(response.data).slice(0, 200)}`);
+    // Handle both people and contacts in response
+    const people = response.data?.people || [];
+    const contacts = response.data?.contacts || [];
+    const allResults = [...people, ...contacts];
+
+    if (allResults.length === 0) {
+      console.log('[Apollo] No results found in response:', response.data);
+      return { people: [] };
     }
 
-    return response.data;
+    // Debug logging for search results
+    console.log('[Apollo] Search response summary:', {
+      totalResults: allResults.length,
+      peopleCount: people.length,
+      contactsCount: contacts.length,
+      firstFewTitles: allResults.slice(0, 5).map(p => p.title || p.job_title) || [],
+      searchedFor: params.person_titles,
+      requestUrl: `${APOLLO_API_URL}/mixed_people/search`
+    });
+
+    return { people: allResults };
   } catch (error: any) {
     console.error('[Apollo] Search error:', {
       status: error.response?.status,
@@ -157,7 +197,7 @@ export async function enrichBatch(apiKey: string, ids: string[]): Promise<Enrich
 
 export async function searchAndEnrichPeople(params: ApolloSearchParams) {
   try {
-    // 1. Search with verified email filter
+    // 1. Search using mixed_people/search endpoint
     const searchResponse = await searchPeople(params);
     const searchHits = searchResponse.people as ApolloSearchHit[];
     
@@ -216,12 +256,12 @@ export async function searchAndEnrichPeople(params: ApolloSearchParams) {
         lastName: enriched?.last_name || hit.last_name,
         email: enriched?.email || null,  // Explicitly handle undefined case
         emailStatus: enriched?.email_status || 'unknown',
-        title: enriched?.title || hit.title,
-        company: enriched?.organization?.name || hit.organization?.name,
+        title: enriched?.title || hit.title || hit.job_title || '',  // Handle both title formats
+        company: enriched?.organization?.name || hit.organization?.name || hit.company?.name || '',
         linkedinUrl: enriched?.linkedin_url || hit.linkedin_url,
-        city: enriched?.city || hit.city,
-        state: enriched?.state || hit.state,
-        country: enriched?.country || hit.country,
+        city: enriched?.city || hit.city || '',
+        state: enriched?.state || hit.state || '',
+        country: enriched?.country || hit.country || '',
         isGdprLocked: enriched?.email_status === 'gdpr_locked'
       };
     });
