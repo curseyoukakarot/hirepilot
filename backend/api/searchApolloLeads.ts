@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { supabase } from '../lib/supabase';
 import axios from 'axios';
+import { searchAndEnrichPeople, ApolloSearchParams } from '../utils/apolloApi';
 
 const APOLLO_API_URL = 'https://api.apollo.io/v1';
 
@@ -50,39 +51,44 @@ export default async function searchApolloLeads(req: Request, res: Response) {
       return;
     }
 
-    // Prepare Apollo API request
-    const searchParams = {
+    // Use the correct Apollo API format (same as the main implementation)  
+    const searchParams: ApolloSearchParams = {
       api_key: apolloApiKey,
-      q_organization_titles: job_title ? [job_title.toLowerCase()] : [],
-      q_organization_locations: location ? [location.toLowerCase()] : [],
-      q_organization_keywords: keywords ? keywords.split(',').map((k: string) => k.trim().toLowerCase()) : [],
       page: 1,
       per_page: 25
     };
 
-    // Call Apollo API
-    const response = await axios.get(`${APOLLO_API_URL}/people/search`, {
-      params: searchParams
-    });
+    if (job_title) {
+      searchParams.person_titles = [job_title]; // ✅ Search person titles, not organization titles
+    }
+    if (keywords) {
+      searchParams.q_keywords = keywords;
+    }
+    if (location) {
+      searchParams.person_locations = [location];
+    }
 
-    if (!response.data || !response.data.people) {
+    // Use the same searchAndEnrichPeople function for consistency
+    const { leads: apolloLeads } = await searchAndEnrichPeople(searchParams);
+
+    if (!apolloLeads || apolloLeads.length === 0) {
       res.status(404).json({ error: 'No leads found' });
       return;
     }
 
-    // Transform Apollo response to our lead format
-    const leads = response.data.people.map((person: any) => ({
-      first_name: person.first_name,
-      last_name: person.last_name,
-      title: person.title,
-      company: person.organization?.name,
-      email: person.email,
-      linkedin_url: person.linkedin_url,
-      phone: person.phone,
+    // Transform leads to our format (apolloLeads already have the right structure from searchAndEnrichPeople)
+    const leads = apolloLeads.map((lead: any) => ({
+      first_name: lead.firstName,
+      last_name: lead.lastName,
+      title: lead.title,
+      company: lead.company,
+      email: lead.email,
+      linkedin_url: lead.linkedinUrl,
+      phone: lead.phone,
       enrichment_data: {
-        apollo_id: person.id,
-        organization_id: person.organization?.id,
-        organization_website: person.organization?.website_url,
+        apollo_id: lead.id,
+        organization_id: lead.organization?.id,
+        organization_website: lead.organization?.website_url,
         organization_linkedin: person.organization?.linkedin_url,
         organization_twitter: person.organization?.twitter_url,
         organization_facebook: person.organization?.facebook_url,
