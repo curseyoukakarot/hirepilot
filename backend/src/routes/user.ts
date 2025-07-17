@@ -16,21 +16,41 @@ router.get('/settings', requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
-    // Get user account type to check for RecruitPro privileges
+    // Get user role to check for RecruitPro privileges
     const { data: userRecord, error: userErr } = await supabase
       .from('users')
-      .select('account_type, role')
+      .select('role')
       .eq('id', userId)
       .single();
 
-    if (userErr) {
-      console.error('Error fetching user record:', userErr);
+    // Also get auth user metadata as fallback
+    let authMetadata = null;
+    try {
+      const { data: authUser } = await supabase.auth.admin.getUserById(userId);
+      authMetadata = authUser?.user?.user_metadata;
+    } catch (authError) {
+      console.error('Error fetching auth metadata:', authError);
     }
+
+    // Debug logging
+    console.log('[User Settings] Debug info:', {
+      userId,
+      userRecord,
+      userErr,
+      authMetadata,
+      env_has_super_admin_key: !!process.env.SUPER_ADMIN_APOLLO_API_KEY
+    });
 
     // Check if user is RecruitPro or other privileged type
     const privilegedTypes = ['RecruitPro', 'TeamAdmin', 'admin', 'member'];
-    const accountType = userRecord?.account_type || userRecord?.role;
-    const isRecruitPro = privilegedTypes.includes(accountType);
+    const userRole = userRecord?.role || authMetadata?.role || authMetadata?.account_type;
+    const isRecruitPro = privilegedTypes.includes(userRole);
+
+    console.log('[User Settings] RecruitPro check:', {
+      userRole,
+      isRecruitPro,
+      privilegedTypes
+    });
 
     // Get user settings
     const { data: settings, error: settingsError } = await supabase

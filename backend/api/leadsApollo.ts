@@ -20,10 +20,10 @@ router.post('/search', requireAuth, async (req, res) => {
   console.log('[Apollo Search] Search params:', { jobTitle, keywords, location });
 
   try {
-    // Get user account type to check for RecruitPro privileges
+    // Get user role to check for RecruitPro privileges
     const { data: userRecord, error: userErr } = await supabase
       .from('users')
-      .select('account_type, role')
+      .select('role')
       .eq('id', userId)
       .single();
 
@@ -31,8 +31,8 @@ router.post('/search', requireAuth, async (req, res) => {
 
     // Check if user is RecruitPro or other privileged type
     const privilegedTypes = ['RecruitPro', 'TeamAdmin', 'admin', 'member'];
-    const accountType = userRecord?.account_type || userRecord?.role;
-    const isRecruitPro = privilegedTypes.includes(accountType);
+    const userRole = userRecord?.role;
+    const isRecruitPro = privilegedTypes.includes(userRole);
 
     // Get API key from settings
     const { data: settings, error: settingsError } = await supabase
@@ -187,10 +187,10 @@ router.get('/locations', requireAuth, async (req, res) => {
   }
 
   try {
-    // Get user account type to check for RecruitPro privileges
+    // Get user role to check for RecruitPro privileges
     const { data: userRecord, error: userErr } = await supabase
       .from('users')
-      .select('account_type, role')
+      .select('role')
       .eq('id', userId)
       .single();
 
@@ -198,8 +198,8 @@ router.get('/locations', requireAuth, async (req, res) => {
 
     // Check if user is RecruitPro or other privileged type
     const privilegedTypes = ['RecruitPro', 'TeamAdmin', 'admin', 'member'];
-    const accountType = userRecord?.account_type || userRecord?.role;
-    const isRecruitPro = privilegedTypes.includes(accountType);
+    const userRole = userRecord?.role;
+    const isRecruitPro = privilegedTypes.includes(userRole);
 
     // Get API key from settings
     const { data: settings, error: settingsError } = await supabase
