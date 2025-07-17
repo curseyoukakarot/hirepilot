@@ -118,6 +118,7 @@ router.post('/apollo/search', requireAuth, async (req: Request, res: Response) =
         const data = await response.json() as { people?: any[]; contacts?: any[] };
         const leads = data.people || data.contacts || [];
         res.json({ leads });
+        return; // CRITICAL: Early return to prevent double response
       }
     }
 
@@ -129,17 +130,33 @@ router.post('/apollo/search', requireAuth, async (req: Request, res: Response) =
       .single();
 
     if (settings?.apollo_api_key) {
-      const searchParams = {
+      const searchParams: any = {
         api_key: settings.apollo_api_key,
         page: 1,
-        per_page: 100,
-        ...(jobTitle && { person_titles: [jobTitle] }),
-        ...(keywords && { q_keywords: keywords }),
-        ...(location && location !== 'Any' && { person_locations: [location] })
+        per_page: 100
       };
+
+      // FIX: Put job titles in q_keywords since Apollo ignores person_titles!
+      if (jobTitle && !keywords) {
+        searchParams.q_keywords = jobTitle;
+        console.log('[Apollo Search] Job title only - putting in q_keywords');
+      } else if (jobTitle && keywords) {
+        searchParams.q_keywords = `${jobTitle} ${keywords}`;
+        console.log('[Apollo Search] Both fields - combining in q_keywords');
+      } else if (keywords) {
+        searchParams.q_keywords = keywords;
+        console.log('[Apollo Search] Keywords only - using q_keywords');
+      }
+
+      if (location && location !== 'Any') {
+        searchParams.person_locations = [location];
+      }
+
+      console.log('[Apollo Search] ACTUAL ROUTE - Final params:', searchParams);
 
       const { leads } = await searchAndEnrichPeople(searchParams);
       res.json({ leads });
+      return; // CRITICAL: Early return to prevent double response
     }
 
     // 4. Global fallback to SUPER_ADMIN_APOLLO_API_KEY
@@ -147,14 +164,29 @@ router.post('/apollo/search', requireAuth, async (req: Request, res: Response) =
 
     if (superKey) {
       console.log('[Apollo Search] Using SUPER_ADMIN_APOLLO_API_KEY fallback');
-      const searchParams = {
+      const searchParams: any = {
         api_key: superKey,
         page: 1,
-        per_page: 100,
-        ...(jobTitle && { person_titles: [jobTitle] }),
-        ...(keywords && { q_keywords: keywords }),
-        ...(location && location !== 'Any' && { person_locations: [location] })
-      } as any;
+        per_page: 100
+      };
+
+      // FIX: Put job titles in q_keywords since Apollo ignores person_titles!
+      if (jobTitle && !keywords) {
+        searchParams.q_keywords = jobTitle;
+        console.log('[Apollo Search] SUPER_ADMIN - Job title only in q_keywords');
+      } else if (jobTitle && keywords) {
+        searchParams.q_keywords = `${jobTitle} ${keywords}`;
+        console.log('[Apollo Search] SUPER_ADMIN - Both fields in q_keywords');
+      } else if (keywords) {
+        searchParams.q_keywords = keywords;
+        console.log('[Apollo Search] SUPER_ADMIN - Keywords only in q_keywords');
+      }
+
+      if (location && location !== 'Any') {
+        searchParams.person_locations = [location];
+      }
+
+      console.log('[Apollo Search] SUPER_ADMIN - Final params:', searchParams);
 
       const { leads } = await searchAndEnrichPeople(searchParams);
       res.json({ leads });
