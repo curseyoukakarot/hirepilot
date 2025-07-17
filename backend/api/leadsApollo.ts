@@ -14,10 +14,18 @@ const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // POST /api/leads/apollo/search
 router.post('/search', requireAuth, async (req, res) => {
-  const { jobTitle, keywords, location } = req.body;
+  const { jobTitle, job_title, keywords, location } = req.body;
   const userId = req.user?.id;
 
-  console.log('[Apollo Search] Search params:', { jobTitle, keywords, location });
+  // Handle both parameter formats (camelCase and snake_case)
+  const actualJobTitle = jobTitle || job_title;
+
+  console.log('[Apollo Search] Search params:', { 
+    jobTitle: actualJobTitle, 
+    keywords, 
+    location,
+    original_body: req.body 
+  });
 
   try {
     // Get user role to check for RecruitPro privileges
@@ -60,7 +68,7 @@ router.post('/search', requireAuth, async (req, res) => {
     }
 
     // Validate search parameters
-    if (!jobTitle && !keywords && !location) {
+    if (!actualJobTitle && !keywords && !location) {
       res.status(400).json({ error: 'At least one search parameter is required' });
       return;
     }
@@ -73,8 +81,8 @@ router.post('/search', requireAuth, async (req, res) => {
     };
 
     // Add search criteria
-    if (jobTitle) {
-      searchParams.person_titles = [jobTitle];
+    if (actualJobTitle) {
+      searchParams.person_titles = [actualJobTitle];
     }
     if (keywords) {
       searchParams.q_keywords = keywords;
@@ -96,7 +104,7 @@ router.post('/search', requireAuth, async (req, res) => {
     const campaignId = req.body.campaignId;
     if (campaignId && leads.length > 0) {
       const searchCriteria = {
-        jobTitle: jobTitle || undefined,
+        jobTitle: actualJobTitle || undefined,
         keywords: keywords || undefined,
         location: location !== 'Any' ? location : undefined
       };
@@ -121,7 +129,7 @@ router.post('/search', requireAuth, async (req, res) => {
     const campaignId = req.body.campaignId;
     if (campaignId) {
       const searchCriteria = {
-        jobTitle: jobTitle || undefined,
+        jobTitle: actualJobTitle || undefined,
         keywords: keywords || undefined,
         location: location !== 'Any' ? location : undefined
       };
