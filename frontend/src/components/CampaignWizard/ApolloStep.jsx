@@ -185,7 +185,7 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
 
   // Search function
   const handleSearch = async () => {
-    if (!jobTitleInput.trim()) {
+    if (!keywordsInput.trim()) {
       setError('Please enter a job title');
       toast.error('Please enter a job title');
       return;
@@ -362,14 +362,14 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
             <div>
               <label htmlFor="job-title" className="block text-sm font-medium text-gray-700">
-                Job Title *
+                Keywords
               </label>
               <div className="mt-1">
                 <input
                   type="text"
                   id="job-title"
                   className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                  placeholder="e.g. Software Engineer"
+                  placeholder="e.g. React, Node.js, Python"
                   value={jobTitleInput}
                   onChange={(e) => setJobTitleInput(e.target.value)}
                 />
@@ -415,14 +415,14 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
 
           <div className="mt-6">
             <label htmlFor="keywords" className="block text-sm font-medium text-gray-700">
-              Keywords
+              Job Title *
             </label>
             <div className="mt-1">
               <input
                 type="text"
                 id="keywords"
                 className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                placeholder="e.g. React, Node.js, Python"
+                placeholder="e.g. Director of Product Management"
                 value={keywordsInput}
                 onChange={(e) => setKeywordsInput(e.target.value)}
               />
