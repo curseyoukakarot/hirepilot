@@ -153,27 +153,24 @@ router.post('/apollo/search', requireAuth, async (req: Request, res: Response) =
     if (isPrivileged && process.env.SUPER_ADMIN_APOLLO_API_KEY) {
       console.log('[Apollo Search] Using SUPER_ADMIN_APOLLO_API_KEY for privileged user');
       
-      const apolloPayload = {
-        title: jobTitle,        // ✅ Job title goes to 'title' 
-        keywords,               // ✅ Keywords go to 'keywords'
-        location,               // ✅ Location goes to 'location'
+      // Use the CORRECT Apollo API format that actually works
+      const { searchAndEnrichPeople } = await import('../../utils/apolloApi');
+      
+      const searchParams = {
+        api_key: process.env.SUPER_ADMIN_APOLLO_API_KEY,
+        person_titles: jobTitle ? [jobTitle] : undefined,  // ✅ Correct parameter name
+        q_keywords: keywords,                              // ✅ Keep keywords separate  
+        person_locations: location ? [location] : undefined, // ✅ Correct parameter name
         page: 1,
         per_page: 100
       };
 
-      console.log('[Apollo Search] PRIVILEGED USER - Using SIMPLE approach:', apolloPayload);
-
-      const response = await fetch('https://api.apollo.io/v1/mixed_people/search', {
-        method: 'POST',
-        headers: {
-          'X-Api-Key': process.env.SUPER_ADMIN_APOLLO_API_KEY,  
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(apolloPayload)
+      console.log('[Apollo Search] PRIVILEGED USER - Using WORKING Apollo implementation:', {
+        ...searchParams,
+        api_key: '***'
       });
 
-      const data = await response.json() as { people?: any[]; contacts?: any[] };
-      const leads = data.people || data.contacts || [];
+      const { leads } = await searchAndEnrichPeople(searchParams);
       res.json({ leads });
       return;
     }
@@ -188,27 +185,24 @@ router.post('/apollo/search', requireAuth, async (req: Request, res: Response) =
     if (settings?.apollo_api_key) {
       console.log('[Apollo Search] Using user personal API key');
       
-      const apolloPayload = {
-        title: jobTitle,        // ✅ Job title goes to 'title' 
-        keywords,               // ✅ Keywords go to 'keywords'
-        location,               // ✅ Location goes to 'location'
+      // Use the CORRECT Apollo API format that actually works
+      const { searchAndEnrichPeople } = await import('../../utils/apolloApi');
+      
+      const searchParams = {
+        api_key: settings.apollo_api_key,
+        person_titles: jobTitle ? [jobTitle] : undefined,  // ✅ Correct parameter name
+        q_keywords: keywords,                              // ✅ Keep keywords separate  
+        person_locations: location ? [location] : undefined, // ✅ Correct parameter name
         page: 1,
         per_page: 100
       };
 
-      console.log('[Apollo Search] USER API KEY - Using SIMPLE approach:', apolloPayload);
-
-      const response = await fetch('https://api.apollo.io/v1/mixed_people/search', {
-        method: 'POST',
-        headers: {
-          'X-Api-Key': settings.apollo_api_key,  
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(apolloPayload)
+      console.log('[Apollo Search] USER API KEY - Using WORKING Apollo implementation:', {
+        ...searchParams,
+        api_key: '***'
       });
 
-      const data = await response.json() as { people?: any[]; contacts?: any[] };
-      const leads = data.people || data.contacts || [];
+      const { leads } = await searchAndEnrichPeople(searchParams);
       res.json({ leads });
       return;
     }
@@ -219,27 +213,24 @@ router.post('/apollo/search', requireAuth, async (req: Request, res: Response) =
     if (superKey) {
       console.log('[Apollo Search] Using SUPER_ADMIN_APOLLO_API_KEY final fallback');
       
-      const apolloPayload = {
-        title: jobTitle,        // ✅ Job title goes to 'title' 
-        keywords,               // ✅ Keywords go to 'keywords'
-        location,               // ✅ Location goes to 'location'
+      // Use the CORRECT Apollo API format that actually works
+      const { searchAndEnrichPeople } = await import('../../utils/apolloApi');
+      
+      const searchParams = {
+        api_key: superKey,
+        person_titles: jobTitle ? [jobTitle] : undefined,  // ✅ Correct parameter name
+        q_keywords: keywords,                              // ✅ Keep keywords separate  
+        person_locations: location ? [location] : undefined, // ✅ Correct parameter name
         page: 1,
         per_page: 100
       };
 
-      console.log('[Apollo Search] FINAL FALLBACK - Using SIMPLE approach:', apolloPayload);
-
-      const response = await fetch('https://api.apollo.io/v1/mixed_people/search', {
-        method: 'POST',
-        headers: {
-          'X-Api-Key': superKey,  
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(apolloPayload)
+      console.log('[Apollo Search] FINAL FALLBACK - Using WORKING Apollo implementation:', {
+        ...searchParams,
+        api_key: '***'
       });
 
-      const data = await response.json() as { people?: any[]; contacts?: any[] };
-      const leads = data.people || data.contacts || [];
+      const { leads } = await searchAndEnrichPeople(searchParams);
       res.json({ leads });
       return;
     }
