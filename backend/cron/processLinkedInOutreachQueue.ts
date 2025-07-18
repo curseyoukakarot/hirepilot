@@ -8,7 +8,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const ZAPIER_WEBHOOK_URL = "https://hooks.zapier.com/hooks/catch/18279230/u2qdg1l/";
+const ZAPIER_WEBHOOK_URL = process.env.ZAPIER_LINKEDIN_WEBHOOK_URL2 || "https://hooks.zapier.com/hooks/catch/18279230/u2qdg1l/";
 const DAILY_LIMIT = 10;
 
 // Cookie decryption (matches linkedinSaveCookie.ts)
