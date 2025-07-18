@@ -1,12 +1,13 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
+import { ApiRequest } from '../types/api';
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export default async function handler(req: Request, res: Response) {
+export default async function handler(req: ApiRequest, res: Response) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
