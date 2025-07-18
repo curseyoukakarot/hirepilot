@@ -140,22 +140,19 @@ export default async function handler(req: Request, res: Response) {
       return res.status(500).json({ error: 'Failed to deduct credits' });
     }
 
-    // Log the credit transaction
-    const { error: transactionError } = await supabase
-      .from('credit_transactions')
+    // Log the credit usage in the proper billing table
+    const { error: usageLogError } = await supabase
+      .from('credit_usage_log')
       .insert({
         user_id: userId,
-        credits_used: creditCost,
-        action: 'linkedin_request',
-        details: { 
-          linkedin_url,
-          message: message?.substring(0, 50),
-          queue_item_id: queueItem.id
-        }
+        amount: -creditCost, // Negative for debit/usage
+        type: 'debit',
+        usage_type: 'api_usage',
+        description: `LinkedIn connection request to ${linkedin_url.replace('https://www.linkedin.com/in/', '').replace('/', '')}`
       });
 
-    if (transactionError) {
-      console.error('Error logging credit transaction:', transactionError);
+    if (usageLogError) {
+      console.error('Error logging credit usage:', usageLogError);
       // Don't fail the request for logging errors, just log it
     }
 
