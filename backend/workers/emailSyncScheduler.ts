@@ -5,7 +5,7 @@ let queue: Queue | null = null;
 // Initialize Redis queue if Redis is configured
 if (process.env.REDIS_URL || process.env.REDIS_HOST) {
   const connectionOptions = process.env.REDIS_URL
-    ? { connection: require('ioredis')(process.env.REDIS_URL) }
+    ? { connection: new (require('ioredis'))(process.env.REDIS_URL) }
     : {
         connection: {
           host: process.env.REDIS_HOST,
