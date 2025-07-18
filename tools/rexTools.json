@@ -170,5 +170,21 @@
     "examples": [
       "REX, schedule the SDR follow-up template for these 50 leads tomorrow at 9 AM using jobs@acme.co."
     ]
+  },
+  {
+    "name": "linkedin_connect",
+    "description": "Queue LinkedIn connection requests to one or more profiles with optional personal message.",
+    "parameters": {
+      "userId": "string",
+      "linkedin_urls": "array",
+      "message": "string (optional)",
+      "scheduled_at": "string (optional)"
+    },
+    "examples": [
+      "REX, send LinkedIn requests to these 5 leads with a personal message.",
+      "REX, connect with this lead on LinkedIn.",
+      "REX, schedule LinkedIn connection requests for tomorrow at 10 AM.",
+      "Send LinkedIn request to this lead with message: 'Hi #firstName#, I'd love to connect...'"
+    ]
   }
 ] 

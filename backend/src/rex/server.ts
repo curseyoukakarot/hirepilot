@@ -24,7 +24,8 @@ const {
   suggestAutomationWorkflows,
   setupIntegrationGuide,
   troubleshootIntegration,
-  getRecentAutomationEvents
+  getRecentAutomationEvents,
+  linkedin_connect
 } = require('../../tools/rexToolFunctions');
 
 // Resolve SDK root then require specific compiled files to sidestep export mapping quirks
@@ -444,6 +445,18 @@ server.registerCapabilities({
       handler: async ({ userId, campaignId }) => {
         await assertPremium(userId);
         return await getCampaignLeadCount({ userId, campaignId });
+      }
+    },
+    linkedin_connect: {
+      parameters: { 
+        userId: {type:'string'}, 
+        linkedin_urls: {type:'array'}, 
+        message: {type:'string', optional: true}, 
+        scheduled_at: {type:'string', optional: true} 
+      },
+      handler: async ({ userId, linkedin_urls, message, scheduled_at }) => {
+        await assertPremium(userId);
+        return await linkedin_connect({ userId, linkedin_urls, message, scheduled_at });
       }
     }
   }

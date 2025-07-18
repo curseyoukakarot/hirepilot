@@ -39,6 +39,8 @@ import testLeadStatusUpdate from './api/testLeadStatusUpdate';
 import testEnrichmentProviders from './api/testEnrichmentProviders';
 import debugCampaignMetrics from './api/debugCampaignMetrics';
 import backfillCampaignAttribution from './api/backfillCampaignAttribution';
+import linkedinSend from './api/linkedinSend';
+import linkedinDailyCount from './api/linkedinDailyCount';
 
 const router = Router();
 
@@ -95,6 +97,10 @@ router.get('/analytics/time-series', analyticsTimeSeries);
 
 // Add schedule mass message endpoint
 router.post('/scheduleMassMessage', scheduleMassMessage);
+
+// LinkedIn outreach endpoints
+router.post('/linkedin/send', requireAuth, linkedinSend);
+router.get('/linkedin/daily-count', requireAuth, linkedinDailyCount);
 
 // Add debug trial emails endpoint
 router.get('/debug-trial-emails', debugTrialEmails);

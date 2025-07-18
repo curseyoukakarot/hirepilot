@@ -63,6 +63,7 @@ import adminUsersRouter from './src/routes/adminUsers';
 import campaignPerformance from './api/campaignPerformance';
 import leadsApolloRouter from './api/leadsApollo';
 import rexChat from './src/api/rexChat';
+import rexToolsHandler, { linkedinConnectHandler } from './src/api/rexTools';
 import slackToggle from './src/api/slackToggle';
 import slackConnect from './src/api/slack/connect';
 import slackCallback from './src/api/slack/callback';
@@ -199,6 +200,8 @@ app.get('/api/campaigns/all/performance', (req, res) => {
   return campaignPerformance(req, res);
 });
 app.post('/api/rex/chat', rexChat);
+app.post('/api/rex/tools', rexToolsHandler);
+app.post('/api/rex/tools/linkedin_connect', linkedinConnectHandler);
 app.post('/api/integrations/slack/enabled', slackToggle);
 app.get('/api/slack/connect', slackConnect);
 app.get('/api/slack/callback', slackCallback);

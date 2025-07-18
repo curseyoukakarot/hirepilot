@@ -1347,6 +1347,156 @@ export async function getRecentAutomationEvents({
   };
 }
 
+export async function linkedin_connect({
+  userId,
+  linkedin_urls,
+  message,
+  scheduled_at
+}: {
+  userId: string;
+  linkedin_urls: string[];
+  message?: string;
+  scheduled_at?: string;
+}) {
+  try {
+    // Validate required parameters
+    if (!linkedin_urls || linkedin_urls.length === 0) {
+      throw new Error('At least one LinkedIn URL is required');
+    }
+
+    // Validate message length if provided
+    if (message && message.length > 300) {
+      throw new Error('Message cannot exceed 300 characters');
+    }
+
+    // Validate LinkedIn URLs
+    const invalidUrls = linkedin_urls.filter(url => !url.includes('linkedin.com/in/'));
+    if (invalidUrls.length > 0) {
+      throw new Error(`Invalid LinkedIn URL format: ${invalidUrls.join(', ')}`);
+    }
+
+    // Check user's daily limit
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const { count: dailyCount, error: countError } = await supabaseDb
+      .from('linkedin_outreach_queue')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('status', 'sent')
+      .gte('sent_at', today.toISOString());
+
+    if (countError) {
+      throw new Error(`Failed to check daily limit: ${countError.message}`);
+    }
+
+    const DAILY_LIMIT = 10;
+    const remainingRequests = DAILY_LIMIT - (dailyCount || 0);
+    
+    if (linkedin_urls.length > remainingRequests) {
+      throw new Error(`Cannot queue ${linkedin_urls.length} requests. Daily limit allows ${remainingRequests} more requests today.`);
+    }
+
+    // Calculate total credits needed
+    const creditCostPerRequest = 20;
+    const totalCreditsNeeded = linkedin_urls.length * creditCostPerRequest;
+
+    // Check user credits
+    const { data: userCredits, error: creditsError } = await supabaseDb
+      .from('users')
+      .select('credits')
+      .eq('id', userId)
+      .single();
+
+    if (creditsError) {
+      throw new Error(`Failed to check user credits: ${creditsError.message}`);
+    }
+
+    if (!userCredits || userCredits.credits < totalCreditsNeeded) {
+      throw new Error(`Insufficient credits. Need ${totalCreditsNeeded} credits, have ${userCredits?.credits || 0}`);
+    }
+
+    // Check for duplicate URLs
+    const { data: existingRequests, error: duplicateError } = await supabaseDb
+      .from('linkedin_outreach_queue')
+      .select('linkedin_url')
+      .eq('user_id', userId)
+      .in('linkedin_url', linkedin_urls)
+      .neq('status', 'failed');
+
+    if (duplicateError) {
+      throw new Error(`Failed to check for duplicates: ${duplicateError.message}`);
+    }
+
+    const duplicateUrls = existingRequests?.map(req => req.linkedin_url) || [];
+    if (duplicateUrls.length > 0) {
+      throw new Error(`LinkedIn requests already exist for: ${duplicateUrls.join(', ')}`);
+    }
+
+    // Prepare queue items
+    const scheduledDate = scheduled_at ? new Date(scheduled_at) : new Date();
+    const queueItems = linkedin_urls.map(url => ({
+      user_id: userId,
+      linkedin_url: url,
+      message: message?.trim() || null,
+      scheduled_at: scheduledDate.toISOString(),
+      credit_cost: creditCostPerRequest,
+    }));
+
+    // Insert queue items
+    const { data: insertedItems, error: insertError } = await supabaseDb
+      .from('linkedin_outreach_queue')
+      .insert(queueItems)
+      .select();
+
+    if (insertError) {
+      throw new Error(`Failed to queue LinkedIn requests: ${insertError.message}`);
+    }
+
+    // Deduct credits
+    const { error: updateCreditsError } = await supabaseDb
+      .from('users')
+      .update({ credits: userCredits.credits - totalCreditsNeeded })
+      .eq('id', userId);
+
+    if (updateCreditsError) {
+      // Rollback queue items if credit deduction fails
+      await supabaseDb
+        .from('linkedin_outreach_queue')
+        .delete()
+        .in('id', insertedItems!.map(item => item.id));
+      
+      throw new Error(`Failed to deduct credits: ${updateCreditsError.message}`);
+    }
+
+    // Log the action
+    await supabaseDb
+      .from('credit_transactions')
+      .insert({
+        user_id: userId,
+        credits_used: totalCreditsNeeded,
+        action: 'linkedin_request',
+        details: { urls: linkedin_urls, message: message?.substring(0, 50) }
+      });
+
+    return {
+      success: true,
+      message: `Successfully queued ${linkedin_urls.length} LinkedIn connection request(s)`,
+      queued_count: linkedin_urls.length,
+      credits_used: totalCreditsNeeded,
+      scheduled_at: scheduledDate.toISOString(),
+      queue_ids: insertedItems!.map(item => item.id)
+    };
+
+  } catch (error) {
+    console.error('LinkedIn connect tool error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    };
+  }
+}
+
 /**
  * Generate human-readable summary of an event
  */

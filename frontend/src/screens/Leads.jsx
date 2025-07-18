@@ -7,6 +7,75 @@ import { Toaster, toast } from 'react-hot-toast';
 import { FaPlus, FaSearch, FaFilter, FaDownload } from 'react-icons/fa';
 import { downloadCSV } from '../utils/csvExport';
 
+// LinkedIn Status Pill Component
+function LinkedInStatusPill({ lead }) {
+  // Find the most recent LinkedIn outreach request for this lead
+  const linkedInRequests = lead.linkedin_outreach_queue || [];
+  
+  if (linkedInRequests.length === 0) {
+    return (
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+        No Request
+      </span>
+    );
+  }
+
+  // Sort by created_at to get the most recent request
+  const mostRecentRequest = linkedInRequests.sort((a, b) => 
+    new Date(b.created_at) - new Date(a.created_at)
+  )[0];
+
+  const status = mostRecentRequest.status;
+  const getStatusDisplay = () => {
+    switch (status) {
+      case 'pending':
+        return {
+          text: 'Queued',
+          className: 'bg-yellow-100 text-yellow-800',
+          icon: '⏳'
+        };
+      case 'sent':
+        return {
+          text: 'Sent',
+          className: 'bg-green-100 text-green-800',
+          icon: '✅'
+        };
+      case 'failed':
+        return {
+          text: 'Failed',
+          className: 'bg-red-100 text-red-800',
+          icon: '❌'
+        };
+      default:
+        return {
+          text: 'Unknown',
+          className: 'bg-gray-100 text-gray-800',
+          icon: '❓'
+        };
+    }
+  };
+
+  const { text, className, icon } = getStatusDisplay();
+  
+  // Build tooltip with more details
+  const tooltip = [
+    `Status: ${text}`,
+    mostRecentRequest.sent_at ? `Sent: ${new Date(mostRecentRequest.sent_at).toLocaleDateString()}` : null,
+    mostRecentRequest.scheduled_at ? `Scheduled: ${new Date(mostRecentRequest.scheduled_at).toLocaleDateString()}` : null,
+    linkedInRequests.length > 1 ? `Total requests: ${linkedInRequests.length}` : null
+  ].filter(Boolean).join(' • ');
+  
+  return (
+    <span 
+      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${className}`}
+      title={tooltip}
+    >
+      <span className="mr-1">{icon}</span>
+      {text}
+    </span>
+  );
+}
+
 export default function Leads() {
   console.log('Leads component rendered');
   const navigate = useNavigate();
@@ -25,20 +94,50 @@ export default function Leads() {
   const [bulkTagInput, setBulkTagInput] = useState('');
   const [isBulkTagging, setIsBulkTagging] = useState(false);
 
+  // LinkedIn guidance state - remember user preference
+  const [showLinkedInGuidance, setShowLinkedInGuidance] = useState(() => {
+    const dismissed = localStorage.getItem('linkedinGuidanceDismissed');
+    return dismissed !== 'true';
+  });
+
   const fetchLeads = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const { data, error } = await supabase
+      // Fetch leads first
+      const { data: leadsData, error: leadsError } = await supabase
         .from('leads')
         .select('*')
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      console.log('Fetched leads:', data);
-      setLeads(data || []);
+      if (leadsError) throw leadsError;
+
+      // Fetch LinkedIn outreach statuses for this user
+      const { data: linkedinData, error: linkedinError } = await supabase
+        .from('linkedin_outreach_queue')
+        .select('linkedin_url, status, scheduled_at, sent_at, created_at')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false });
+
+      if (linkedinError) throw linkedinError;
+
+      // Merge LinkedIn status into leads data
+      const leadsWithLinkedInStatus = leadsData.map(lead => {
+        // Find LinkedIn outreach requests for this lead's LinkedIn URL
+        const linkedinRequests = linkedinData.filter(req => 
+          req.linkedin_url === lead.linkedin_url
+        );
+        
+        return {
+          ...lead,
+          linkedin_outreach_queue: linkedinRequests
+        };
+      });
+
+      console.log('Fetched leads with LinkedIn status:', leadsWithLinkedInStatus);
+      setLeads(leadsWithLinkedInStatus || []);
     } catch (err) {
       console.error('Error fetching leads:', err);
     } finally {
@@ -48,6 +147,17 @@ export default function Leads() {
 
   useEffect(() => {
     fetchLeads();
+  }, []);
+
+  // Auto-refresh leads every 30 seconds to show LinkedIn status updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchLeads();
+      }
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
   }, []);
 
   const handleMessageAgain = (lead) => {
@@ -202,8 +312,97 @@ export default function Leads() {
             <h1 className="text-2xl font-bold text-gray-900">Leads</h1>
             <p className="text-sm text-gray-500 mt-1">Manage and organize your leads</p>
           </div>
-          <CsvImportButton onImportComplete={fetchLeads} />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={fetchLeads}
+              className="px-3 py-2 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-2"
+              disabled={loading}
+              title="Refresh leads and LinkedIn status"
+            >
+              <i className={`fa-solid fa-refresh ${loading ? 'fa-spin' : ''}`}></i>
+              Refresh
+            </button>
+            <CsvImportButton onImportComplete={fetchLeads} />
+          </div>
         </div>
+
+        {/* LinkedIn Guidance Banner */}
+        {showLinkedInGuidance && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <i className="fa-brands fa-linkedin text-blue-600 text-xl"></i>
+              </div>
+              <div className="ml-3 flex-1">
+                <h3 className="text-sm font-medium text-blue-800">
+                  LinkedIn Connection Request Guidelines
+                </h3>
+                <div className="mt-2 text-sm text-blue-700">
+                  <p className="mb-2">
+                    <strong>Daily Safe Limit:</strong> Maximum 10 connection requests per day to maintain account safety
+                  </p>
+                  <p className="mb-2">
+                    <strong>Status Tracking:</strong> Monitor request status in the "LinkedIn" column - 
+                    <span className="mx-1 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">⏳ Queued</span>
+                    requests are processed automatically every 5 minutes
+                  </p>
+                  <p className="mb-2">
+                    <strong>Best Practice:</strong> Add personal messages to increase connection acceptance rates
+                  </p>
+                  {(() => {
+                    // Calculate status counts across all leads
+                    const statusCounts = leads.reduce((counts, lead) => {
+                      const linkedInRequests = lead.linkedin_outreach_queue || [];
+                      linkedInRequests.forEach(request => {
+                        counts[request.status] = (counts[request.status] || 0) + 1;
+                      });
+                      return counts;
+                    }, {});
+
+                    const total = Object.values(statusCounts).reduce((sum, count) => sum + count, 0);
+                    
+                    if (total > 0) {
+                      return (
+                        <div className="flex items-center gap-4 text-xs">
+                          <span className="font-medium">Current Status:</span>
+                          {statusCounts.pending && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full bg-yellow-100 text-yellow-800">
+                              ⏳ {statusCounts.pending} Queued
+                            </span>
+                          )}
+                          {statusCounts.sent && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full bg-green-100 text-green-800">
+                              ✅ {statusCounts.sent} Sent
+                            </span>
+                          )}
+                          {statusCounts.failed && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full bg-red-100 text-red-800">
+                              ❌ {statusCounts.failed} Failed
+                            </span>
+                          )}
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+              </div>
+              <div className="flex-shrink-0">
+                <button
+                  onClick={() => {
+                    setShowLinkedInGuidance(false);
+                    localStorage.setItem('linkedinGuidanceDismissed', 'true');
+                  }}
+                  className="bg-blue-100 text-blue-600 hover:bg-blue-200 rounded p-1"
+                  title="Dismiss guidance"
+                >
+                  <i className="fa-solid fa-times text-sm"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Bulk Actions */}
         {selectedLeads.length > 0 && (
           <div className="bg-white p-4 rounded-lg shadow-sm border mb-4 flex items-center justify-between">
@@ -263,6 +462,7 @@ export default function Leads() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">LinkedIn</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
@@ -320,6 +520,9 @@ export default function Leads() {
                         <div className="text-sm text-gray-900">
                           {lead.enrichment_source || 'Unknown'}
                         </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <LinkedInStatusPill lead={lead} />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button

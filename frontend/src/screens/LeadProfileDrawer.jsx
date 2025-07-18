@@ -14,6 +14,13 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   const [isEnriching, setIsEnriching] = useState(false);
   const [enrichStatus, setEnrichStatus] = useState({ apollo: null, gpt: null });
   const [localLead, setLocalLead] = useState(lead);
+  
+  // LinkedIn request modal state
+  const [showLinkedInModal, setShowLinkedInModal] = useState(false);
+  const [linkedInMessage, setLinkedInMessage] = useState('');
+  const [isSubmittingLinkedIn, setIsSubmittingLinkedIn] = useState(false);
+  const [dailyLinkedInCount, setDailyLinkedInCount] = useState(0);
+  const [isLoadingLinkedInCount, setIsLoadingLinkedInCount] = useState(false);
 
   // Edit states for contact fields
   const [editingEmail, setEditingEmail] = useState(false);
@@ -38,12 +45,39 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     // When drawer opens, pull the freshest lead data from backend
     if (isOpen && lead?.id) {
       fetchLatestLead(lead.id);
+      fetchDailyLinkedInCount();
     }
   }, [lead, isOpen]);
 
   // Toast helper (replace with your own toast if needed)
   const showToast = (msg, type = 'success') => {
     window.alert(msg); // Replace with your toast system
+  };
+
+  // Fetch daily LinkedIn request count
+  const fetchDailyLinkedInCount = async () => {
+    if (!isOpen) return;
+    
+    setIsLoadingLinkedInCount(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const response = await fetch(`${API_BASE_URL}/linkedin/daily-count`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setDailyLinkedInCount(data.count || 0);
+      }
+    } catch (error) {
+      console.error('Failed to fetch daily LinkedIn count:', error);
+    } finally {
+      setIsLoadingLinkedInCount(false);
+    }
   };
 
   // Contact field editing functions
@@ -604,6 +638,47 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     navigate('/messages');
   };
 
+  const handleLinkedInSubmit = async () => {
+    if (!localLead?.linkedin_url) {
+      showToast('No LinkedIn URL found for this lead', 'error');
+      return;
+    }
+
+    setIsSubmittingLinkedIn(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const response = await fetch(`${API_BASE_URL}/linkedin/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          linkedin_url: localLead.linkedin_url,
+          message: linkedInMessage.trim() || null,
+          campaign_id: localLead.campaign_id || null,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to queue LinkedIn request');
+      }
+
+      showToast('LinkedIn request queued successfully!');
+      setShowLinkedInModal(false);
+      setLinkedInMessage('');
+      // Update daily count
+      setDailyLinkedInCount(prev => prev + 1);
+    } catch (error) {
+      showToast(`Failed to queue LinkedIn request: ${error.message}`, 'error');
+    } finally {
+      setIsSubmittingLinkedIn(false);
+    }
+  };
+
   if (!isOpen || !localLead) return null;
 
   return (
@@ -648,6 +723,23 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto">
+              {/* LinkedIn Limit Warning */}
+              {dailyLinkedInCount >= 9 && (
+                <div className="px-6 py-3 bg-yellow-50 border-b border-yellow-200">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <i className="fa-solid fa-triangle-exclamation text-yellow-400"></i>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-yellow-800">
+                        ⚠️ You're near your daily LinkedIn request limit ({dailyLinkedInCount}/10). 
+                        Requests will pause once the limit is hit.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               {/* Quick Actions */}
               <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
                 <div className="flex space-x-4">
@@ -665,6 +757,24 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                   >
                     <i className="fa-solid fa-user-plus mr-2"></i>
                     {isConverting ? 'Converting...' : 'Convert to Candidate'}
+                  </button>
+                  <button
+                    className={`px-4 py-2 rounded-lg flex items-center ${
+                      (!localLead?.linkedin_url || dailyLinkedInCount >= 10) 
+                        ? 'bg-gray-400 cursor-not-allowed' 
+                        : 'bg-linkedin hover:bg-blue-700'
+                    } text-white`}
+                    onClick={() => setShowLinkedInModal(true)}
+                    disabled={!localLead?.linkedin_url || dailyLinkedInCount >= 10}
+                    style={{backgroundColor: (!localLead?.linkedin_url || dailyLinkedInCount >= 10) ? undefined : '#0077B5'}}
+                    title={
+                      !localLead?.linkedin_url ? 'No LinkedIn URL available' : 
+                      dailyLinkedInCount >= 10 ? 'Daily LinkedIn request limit reached (10/10)' :
+                      `Send LinkedIn connection request (${dailyLinkedInCount}/10 used today)`
+                    }
+                  >
+                    <i className="fa-brands fa-linkedin mr-2"></i>
+                    LinkedIn Request {dailyLinkedInCount >= 10 && '(Limit Reached)'}
                   </button>
                   {(() => {
                     const emailInfo = getEmailWithSource(localLead);
@@ -1261,6 +1371,75 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
           </div>
         </div>
       </div>
+
+      {/* LinkedIn Request Modal */}
+      {showLinkedInModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg">
+            <h3 className="text-lg font-semibold mb-4">Send LinkedIn Request</h3>
+            <p className="mb-4 text-gray-600 text-sm">
+              Send a connection request to <strong>{localLead.name}</strong> on LinkedIn.
+            </p>
+            {/* Daily limit indicator */}
+            <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-blue-800">
+                  Daily LinkedIn Requests
+                </span>
+                <span className={`text-sm font-bold ${
+                  dailyLinkedInCount >= 9 ? 'text-yellow-600' : 'text-blue-600'
+                }`}>
+                  {dailyLinkedInCount}/10
+                </span>
+              </div>
+              <div className="mt-2 w-full bg-blue-200 rounded-full h-2">
+                <div 
+                  className={`h-2 rounded-full transition-all ${
+                    dailyLinkedInCount >= 9 ? 'bg-yellow-500' : 'bg-blue-500'
+                  }`}
+                  style={{ width: `${(dailyLinkedInCount / 10) * 100}%` }}
+                ></div>
+              </div>
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Personal message (optional)
+              </label>
+              <textarea
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                placeholder="Add a personal message to your connection request..."
+                maxLength={300}
+                rows={4}
+                value={linkedInMessage}
+                onChange={(e) => setLinkedInMessage(e.target.value)}
+              />
+              <div className="mt-1 text-xs text-gray-500 text-right">
+                {linkedInMessage.length}/300 characters
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setShowLinkedInModal(false);
+                  setLinkedInMessage('');
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                disabled={isSubmittingLinkedIn}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleLinkedInSubmit}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                style={{backgroundColor: '#0077B5'}}
+                disabled={isSubmittingLinkedIn}
+              >
+                {isSubmittingLinkedIn ? 'Queuing...' : 'Queue Request'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
