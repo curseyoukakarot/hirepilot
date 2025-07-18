@@ -77,6 +77,27 @@ export default async function handler(req: Request, res: Response) {
       });
     }
 
+    // Check user credits before queuing
+    const creditCost = 20;
+    const { data: userCredits, error: creditsError } = await supabase
+      .from('users')
+      .select('credits')
+      .eq('id', userId)
+      .single();
+
+    if (creditsError) {
+      console.error('Error checking user credits:', creditsError);
+      return res.status(500).json({ error: 'Failed to check user credits' });
+    }
+
+    if (!userCredits || userCredits.credits < creditCost) {
+      return res.status(402).json({ 
+        error: `Insufficient credits. Need ${creditCost} credits, have ${userCredits?.credits || 0}`,
+        required: creditCost,
+        available: userCredits?.credits || 0
+      });
+    }
+
     // Insert into queue (schedule immediately by default)
     const scheduledAt = new Date();
     
@@ -88,7 +109,7 @@ export default async function handler(req: Request, res: Response) {
         linkedin_url: linkedin_url,
         message: message?.trim() || null,
         scheduled_at: scheduledAt.toISOString(),
-        credit_cost: 20, // Default cost for LinkedIn requests
+        credit_cost: creditCost,
       })
       .select()
       .single();
@@ -98,8 +119,42 @@ export default async function handler(req: Request, res: Response) {
       return res.status(500).json({ error: 'Failed to queue LinkedIn request' });
     }
 
-    // TODO: Deduct credits from user's account here
-    // You might want to implement credit deduction logic similar to other features
+    // Deduct credits from user's account
+    const { error: updateCreditsError } = await supabase
+      .from('users')
+      .update({ credits: userCredits.credits - creditCost })
+      .eq('id', userId);
+
+    if (updateCreditsError) {
+      console.error('Error deducting credits:', updateCreditsError);
+      
+      // Rollback: Remove the queue item if credit deduction fails
+      await supabase
+        .from('linkedin_outreach_queue')
+        .delete()
+        .eq('id', queueItem.id);
+      
+      return res.status(500).json({ error: 'Failed to deduct credits' });
+    }
+
+    // Log the credit transaction
+    const { error: transactionError } = await supabase
+      .from('credit_transactions')
+      .insert({
+        user_id: userId,
+        credits_used: creditCost,
+        action: 'linkedin_request',
+        details: { 
+          linkedin_url,
+          message: message?.substring(0, 50),
+          queue_item_id: queueItem.id
+        }
+      });
+
+    if (transactionError) {
+      console.error('Error logging credit transaction:', transactionError);
+      // Don't fail the request for logging errors, just log it
+    }
 
     res.status(201).json({
       success: true,
@@ -108,6 +163,10 @@ export default async function handler(req: Request, res: Response) {
         id: queueItem.id,
         scheduled_at: queueItem.scheduled_at,
         status: queueItem.status
+      },
+      credits: {
+        used: creditCost,
+        remaining: userCredits.credits - creditCost
       }
     });
 

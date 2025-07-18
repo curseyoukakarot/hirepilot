@@ -17,10 +17,12 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   
   // LinkedIn request modal state
   const [showLinkedInModal, setShowLinkedInModal] = useState(false);
+  const [showCreditConfirm, setShowCreditConfirm] = useState(false);
   const [linkedInMessage, setLinkedInMessage] = useState('');
   const [isSubmittingLinkedIn, setIsSubmittingLinkedIn] = useState(false);
   const [dailyLinkedInCount, setDailyLinkedInCount] = useState(0);
   const [isLoadingLinkedInCount, setIsLoadingLinkedInCount] = useState(false);
+  const [userCredits, setUserCredits] = useState(0);
 
   // Edit states for contact fields
   const [editingEmail, setEditingEmail] = useState(false);
@@ -46,6 +48,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     if (isOpen && lead?.id) {
       fetchLatestLead(lead.id);
       fetchDailyLinkedInCount();
+      fetchUserCredits();
     }
   }, [lead, isOpen]);
 
@@ -77,6 +80,28 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       console.error('Failed to fetch daily LinkedIn count:', error);
     } finally {
       setIsLoadingLinkedInCount(false);
+    }
+  };
+
+  // Fetch user credits
+  const fetchUserCredits = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data, error } = await supabase
+        .from('users')
+        .select('credits')
+        .eq('id', session.user.id)
+        .single();
+
+      if (error) {
+        console.error('Failed to fetch user credits:', error);
+      } else {
+        setUserCredits(data?.credits || 0);
+      }
+    } catch (error) {
+      console.error('Failed to fetch user credits:', error);
     }
   };
 
@@ -664,14 +689,26 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to queue LinkedIn request');
+        
+        // Handle insufficient credits specifically
+        if (response.status === 402) {
+          showToast(`Insufficient credits: Need ${errorData.required} credits, have ${errorData.available}`, 'error');
+        } else {
+          showToast(errorData.error || 'Failed to queue LinkedIn request', 'error');
+        }
+        return;
       }
 
-      showToast('LinkedIn request queued successfully!');
+      const responseData = await response.json();
+      showToast(`LinkedIn request queued! ${responseData.credits?.remaining || 0} credits remaining`);
       setShowLinkedInModal(false);
+      setShowCreditConfirm(false);
       setLinkedInMessage('');
-      // Update daily count
+      // Update daily count and credits
       setDailyLinkedInCount(prev => prev + 1);
+      if (responseData.credits?.remaining !== undefined) {
+        setUserCredits(responseData.credits.remaining);
+      }
     } catch (error) {
       showToast(`Failed to queue LinkedIn request: ${error.message}`, 'error');
     } finally {
@@ -764,7 +801,10 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                         ? 'bg-gray-400 cursor-not-allowed' 
                         : 'bg-linkedin hover:bg-blue-700'
                     } text-white`}
-                    onClick={() => setShowLinkedInModal(true)}
+                    onClick={() => {
+                      fetchUserCredits();
+                      setShowCreditConfirm(true);
+                    }}
                     disabled={!localLead?.linkedin_url || dailyLinkedInCount >= 10}
                     style={{backgroundColor: (!localLead?.linkedin_url || dailyLinkedInCount >= 10) ? undefined : '#0077B5'}}
                     title={
@@ -1372,6 +1412,82 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
         </div>
       </div>
 
+      {/* Credit Confirmation Modal */}
+      {showCreditConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg">
+            <h3 className="text-lg font-semibold mb-4 flex items-center">
+              <i className="fa-solid fa-coins text-yellow-500 mr-2"></i>
+              Confirm LinkedIn Request
+            </h3>
+            
+            <div className="mb-6">
+              <p className="text-gray-700 mb-4">
+                You're about to send a LinkedIn connection request to <strong>{localLead.name}</strong>.
+              </p>
+              
+              {/* Credit breakdown */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-gray-600">Current Balance:</span>
+                  <span className="font-semibold text-gray-900">{userCredits} credits</span>
+                </div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-gray-600">Request Cost:</span>
+                  <span className="font-semibold text-red-600">-20 credits</span>
+                </div>
+                <hr className="my-2" />
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-700">After Request:</span>
+                  <span className={`font-bold ${userCredits >= 20 ? 'text-green-600' : 'text-red-600'}`}>
+                    {userCredits - 20} credits
+                  </span>
+                </div>
+              </div>
+
+              {userCredits < 20 && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg mb-4">
+                  <div className="flex items-center">
+                    <i className="fa-solid fa-exclamation-triangle text-red-500 mr-2"></i>
+                    <span className="text-sm text-red-700 font-medium">
+                      Insufficient credits to send this request
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div className="text-xs text-gray-500">
+                <p>💡 Credits are charged when the request is successfully sent via LinkedIn</p>
+                <p className="mt-1">⏱️ Requests are processed automatically every 5 minutes</p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowCreditConfirm(false);
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowCreditConfirm(false);
+                  setShowLinkedInModal(true);
+                }}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50"
+                style={{backgroundColor: '#0077B5'}}
+                disabled={userCredits < 20}
+              >
+                <i className="fa-brands fa-linkedin mr-2"></i>
+                {userCredits < 20 ? 'Insufficient Credits' : 'Continue'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* LinkedIn Request Modal */}
       {showLinkedInModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
@@ -1401,6 +1517,8 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                 ></div>
               </div>
             </div>
+
+
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Personal message (optional)
@@ -1422,6 +1540,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                 onClick={() => {
                   setShowLinkedInModal(false);
                   setLinkedInMessage('');
+                  setShowCreditConfirm(false);
                 }}
                 className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                 disabled={isSubmittingLinkedIn}
@@ -1434,7 +1553,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                 style={{backgroundColor: '#0077B5'}}
                 disabled={isSubmittingLinkedIn}
               >
-                {isSubmittingLinkedIn ? 'Queuing...' : 'Queue Request'}
+                {isSubmittingLinkedIn ? 'Sending Request...' : 'Send LinkedIn Request'}
               </button>
             </div>
           </div>
