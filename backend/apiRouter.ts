@@ -41,6 +41,7 @@ import debugCampaignMetrics from './api/debugCampaignMetrics';
 import backfillCampaignAttribution from './api/backfillCampaignAttribution';
 import linkedinSend from './api/linkedinSend';
 import linkedinDailyCount from './api/linkedinDailyCount';
+import getUserCredits from './api/getUserCredits';
 
 const router = Router();
 
@@ -101,6 +102,9 @@ router.post('/scheduleMassMessage', scheduleMassMessage);
 // LinkedIn outreach endpoints
 router.post('/linkedin/send', requireAuth, linkedinSend);
 router.get('/linkedin/daily-count', requireAuth, linkedinDailyCount);
+
+// User account endpoints
+router.get('/user/credits', requireAuth, getUserCredits);
 
 // Add debug trial emails endpoint
 router.get('/debug-trial-emails', debugTrialEmails);

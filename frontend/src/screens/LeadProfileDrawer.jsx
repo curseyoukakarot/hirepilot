@@ -89,16 +89,17 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const { data, error } = await supabase
-        .from('users')
-        .select('credits')
-        .eq('id', session.user.id)
-        .single();
+      const response = await fetch(`${API_BASE_URL}/user/credits`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
 
-      if (error) {
-        console.error('Failed to fetch user credits:', error);
+      if (response.ok) {
+        const data = await response.json();
+        setUserCredits(data.credits || 0);
       } else {
-        setUserCredits(data?.credits || 0);
+        console.error('Failed to fetch user credits:', response.status);
       }
     } catch (error) {
       console.error('Failed to fetch user credits:', error);
