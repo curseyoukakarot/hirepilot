@@ -80,9 +80,9 @@ export default async function handler(req: Request, res: Response) {
     // Check user credits before queuing
     const creditCost = 20;
     const { data: userCredits, error: creditsError } = await supabase
-      .from('users')
-      .select('credits')
-      .eq('id', userId)
+      .from('user_credits')
+      .select('used_credits, remaining_credits')
+      .eq('user_id', userId)
       .single();
 
     if (creditsError) {
@@ -90,11 +90,11 @@ export default async function handler(req: Request, res: Response) {
       return res.status(500).json({ error: 'Failed to check user credits' });
     }
 
-    if (!userCredits || userCredits.credits < creditCost) {
+    if (!userCredits || userCredits.remaining_credits < creditCost) {
       return res.status(402).json({ 
-        error: `Insufficient credits. Need ${creditCost} credits, have ${userCredits?.credits || 0}`,
+        error: `Insufficient credits. Need ${creditCost} credits, have ${userCredits?.remaining_credits || 0}`,
         required: creditCost,
-        available: userCredits?.credits || 0
+        available: userCredits?.remaining_credits || 0
       });
     }
 
@@ -121,9 +121,12 @@ export default async function handler(req: Request, res: Response) {
 
     // Deduct credits from user's account
     const { error: updateCreditsError } = await supabase
-      .from('users')
-      .update({ credits: userCredits.credits - creditCost })
-      .eq('id', userId);
+      .from('user_credits')
+      .update({ 
+        used_credits: userCredits.used_credits + creditCost,
+        remaining_credits: userCredits.remaining_credits - creditCost 
+      })
+      .eq('user_id', userId);
 
     if (updateCreditsError) {
       console.error('Error deducting credits:', updateCreditsError);
@@ -166,7 +169,7 @@ export default async function handler(req: Request, res: Response) {
       },
       credits: {
         used: creditCost,
-        remaining: userCredits.credits - creditCost
+        remaining: userCredits.remaining_credits - creditCost
       }
     });
 
