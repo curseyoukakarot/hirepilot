@@ -19,11 +19,11 @@ export default async function handler(req: ApiRequest, res: Response) {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    // Fetch user credits using service role key
-    const { data: user, error } = await supabase
-      .from('users')
-      .select('credits')
-      .eq('id', userId)
+    // Fetch user credits from user_credits table using service role key
+    const { data: userCredits, error } = await supabase
+      .from('user_credits')
+      .select('remaining_credits, total_credits, used_credits')
+      .eq('user_id', userId)
       .single();
 
     if (error) {
@@ -31,12 +31,15 @@ export default async function handler(req: ApiRequest, res: Response) {
       return res.status(500).json({ error: 'Failed to fetch user credits' });
     }
 
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+    if (!userCredits) {
+      return res.status(404).json({ error: 'User credits not found' });
     }
 
     res.status(200).json({
-      credits: user.credits || 0,
+      credits: userCredits.remaining_credits || 0,
+      totalCredits: userCredits.total_credits || 0,
+      usedCredits: userCredits.used_credits || 0,
+      remainingCredits: userCredits.remaining_credits || 0,
       userId: userId
     });
 
