@@ -41,6 +41,7 @@ import debugCampaignMetrics from './api/debugCampaignMetrics';
 import backfillCampaignAttribution from './api/backfillCampaignAttribution';
 import linkedinSend from './api/linkedinSend';
 import linkedinDailyCount from './api/linkedinDailyCount';
+import puppetLinkedInRequest from './api/linkedin/puppetRequest';
 import getUserCredits from './api/getUserCredits';
 
 const router = Router();
@@ -101,6 +102,7 @@ router.post('/scheduleMassMessage', scheduleMassMessage);
 
 // LinkedIn outreach endpoints
 router.post('/linkedin/send', requireAuth, linkedinSend);
+router.post('/linkedin/puppet-request', requireAuth, puppetLinkedInRequest);
 router.get('/linkedin/daily-count', requireAuth, linkedinDailyCount);
 
 // User account endpoints
