@@ -105,6 +105,81 @@ router.post('/linkedin/send', requireAuth, linkedinSend);
 router.post('/linkedin/puppet-request', requireAuth, puppetLinkedInRequest);
 router.get('/linkedin/daily-count', requireAuth, linkedinDailyCount);
 
+// Proxy assignment endpoints
+import { 
+  getUserAssignedProxy, 
+  assignProxyToUser as assignProxyAPI, 
+  getProxyAssignment, 
+  reassignProxy, 
+  updateProxyPerformance,
+  getAllProxyAssignments,
+  getAvailableProxies,
+  forceAssignProxy 
+} from './api/puppet/proxyAssignment';
+
+// Proxy health monitoring endpoints
+import {
+  checkProxyHealth,
+  getProxyHealthMetrics,
+  recordJobOutcome,
+  evaluateProxyHealth,
+  getProxyHealthOverview,
+  getFailingProxies,
+  reEnableProxy,
+  sendTestNotification,
+  getMyProxyHealthStatus
+} from './api/puppet/proxyHealthMonitoring';
+
+// Puppet health stats endpoints
+import puppetHealthStatsRouter from './api/puppet/healthStats';
+
+// Admin proxy management endpoints
+import {
+  testProxy,
+  getAllProxies,
+  getProxyStats,
+  getProxyTestHistory,
+  updateProxyStatus,
+  reassignProxy as adminReassignProxy,
+  batchTestProxies,
+  addProxy,
+  deleteProxy
+} from './api/admin/proxyManagement';
+
+router.get('/puppet/proxy/assigned', requireAuth, getUserAssignedProxy);
+router.post('/puppet/proxy/assign', requireAuth, assignProxyAPI);
+router.get('/puppet/proxy/assignment', requireAuth, getProxyAssignment);
+router.post('/puppet/proxy/reassign', requireAuth, reassignProxy);
+router.post('/puppet/proxy/performance', requireAuth, updateProxyPerformance);
+router.get('/puppet/proxy/admin/assignments', requireAuth, getAllProxyAssignments);
+router.get('/puppet/proxy/admin/available', requireAuth, getAvailableProxies);
+router.post('/puppet/proxy/admin/force-assign', requireAuth, forceAssignProxy);
+
+// Proxy health monitoring endpoints
+router.get('/puppet/proxy/health/check/:proxyId', requireAuth, checkProxyHealth);
+router.get('/puppet/proxy/health/metrics/:proxyId', requireAuth, getProxyHealthMetrics);
+router.post('/puppet/proxy/health/record-outcome', requireAuth, recordJobOutcome);
+router.post('/puppet/proxy/health/evaluate/:proxyId', requireAuth, evaluateProxyHealth);
+router.get('/puppet/proxy/health/my-status', requireAuth, getMyProxyHealthStatus);
+router.get('/puppet/proxy/health/admin/overview', requireAuth, getProxyHealthOverview);
+router.get('/puppet/proxy/health/admin/failing', requireAuth, getFailingProxies);
+router.post('/puppet/proxy/health/admin/re-enable', requireAuth, reEnableProxy);
+router.post('/puppet/proxy/health/admin/test-notification', requireAuth, sendTestNotification);
+
+// Admin proxy management endpoints
+router.post('/admin/proxies/test', requireAuth, testProxy);
+router.get('/admin/proxies', requireAuth, getAllProxies);
+router.get('/admin/proxies/stats', requireAuth, getProxyStats);
+router.get('/admin/proxies/:proxyId/history', requireAuth, getProxyTestHistory);
+router.post('/admin/proxies/:proxyId/status', requireAuth, updateProxyStatus);
+router.post('/admin/proxies/:proxyId/reassign', requireAuth, adminReassignProxy);
+router.post('/admin/proxies/batch-test', requireAuth, batchTestProxies);
+router.post('/admin/proxies/add', requireAuth, addProxy);
+router.delete('/admin/proxies/:proxyId', requireAuth, deleteProxy);
+
+// Puppet health stats endpoints for admin dashboard
+router.use('/puppet', requireAuth, puppetHealthStatsRouter);
+
 // User account endpoints
 router.get('/user/credits', requireAuth, getUserCredits);
 

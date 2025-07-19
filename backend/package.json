@@ -16,6 +16,8 @@
         "test:rex": "ts-node scripts/testRexIntegration.ts",
         "test:admin": "ts-node scripts/testAdminDashboard.ts",
         "test:linkedin-modal": "ts-node scripts/testLinkedInModalEnhancement.ts",
+        "test:proxy-assignment": "ts-node scripts/testProxyAssignmentSystem.ts",
+        "test:proxy-health": "ts-node scripts/testProxyHealthMonitoring.ts",
         "build": "tsc",
         "start": "node dist/server.js",
         "postinstall": "npm run build",
