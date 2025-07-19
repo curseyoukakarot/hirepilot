@@ -816,7 +816,7 @@ async function extractProfileInfo(page: Page) {
     try {
       const element = await page.$(selector);
       if (element) {
-        const text = await element.textContent();
+        const text = await element.evaluate(el => el.textContent);
         if (text?.trim()) {
           info.name = text.trim();
           break;
@@ -832,7 +832,7 @@ async function extractProfileInfo(page: Page) {
     try {
       const element = await page.$(selector);
       if (element) {
-        const text = await element.textContent();
+        const text = await element.evaluate(el => el.textContent);
         if (text?.trim()) {
           info.headline = text.trim();
           break;
