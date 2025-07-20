@@ -24,7 +24,7 @@
         "build:ultra-fast": "tsc --skipLibCheck --noImplicitAny false --noEmitOnError false --sourceMap false --declaration false --incremental false",
         "build:clean": "rm -rf dist .tsbuildinfo && tsc --incremental",
         "start": "node dist/server.js",
-        "postinstall": "npm run build:ultra-fast",
+        "_postinstall_disabled": "npm run build:ultra-fast",
         "backfill-credits": "ts-node scripts/backfillUserCredits.ts"
     },
     "puppeteer": {
