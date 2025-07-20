@@ -1,6 +1,5 @@
 [build]
-builder = "nixpacks"
-buildCommand = "npm ci --only=production && npm run build:production"
+builder = "dockerfile"
 
 [deploy]
 healthcheckPath = "/api/health"
@@ -13,5 +12,5 @@ startCommand = "npm start"
 
 [environments.production.variables]
 NODE_ENV = "production"
-NPM_CONFIG_FUND = "false"
-NPM_CONFIG_AUDIT = "false"
+PUPPETEER_EXECUTABLE_PATH = "/usr/bin/chromium-browser"
+PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = "true"

@@ -10,8 +10,7 @@
       "noUnusedLocals": false,
       "noUnusedParameters": false,
       "moduleResolution": "node",
-      "incremental": true,
-      "tsBuildInfoFile": ".tsbuildinfo",
+      "incremental": false,
       "composite": false,
       "declaration": false,
       "declarationMap": false,
@@ -21,7 +20,31 @@
         "@modelcontextprotocol/sdk": ["./src/modelcontextprotocol-sdk.d.ts"]
       }
     },
-    "include": ["./**/*.ts", "./**/*.d.ts"],
-    "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts", "scripts/test*.ts"]
+    "include": [
+      "./server.ts",
+      "./app.ts", 
+      "./apiRouter.ts",
+      "./api/**/*.ts",
+      "./services/**/*.ts",
+      "./lib/**/*.ts",
+      "./middleware/**/*.ts",
+      "./routes/**/*.ts",
+      "./controllers/**/*.ts",
+      "./workers/**/*.ts",
+      "./cron/**/*.ts",
+      "./types/**/*.ts",
+      "./utils/**/*.ts",
+      "./src/**/*.ts"
+    ],
+    "exclude": [
+      "node_modules", 
+      "dist", 
+      "**/*.test.ts", 
+      "**/*.spec.ts", 
+      "scripts/**/*.ts",
+      "test/**/*.ts",
+      "*.md",
+      "migrations/**/*.ts"
+    ]
   }
   

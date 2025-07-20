@@ -30,3 +30,18 @@ temp
 .cache
 *.tgz
 *.tar.gz
+
+# Additional Railway optimizations
+package-lock.json
+debug-*.js
+test-*.js
+generate-*.js
+*.bak
+*.sql
+migrations/
+docs/
+hirepilot-cookie/
+test.json
+.eslintrc*
+.prettierrc*
+tsconfig.tsbuildinfo

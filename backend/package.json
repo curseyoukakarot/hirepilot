@@ -21,10 +21,14 @@
         "build": "tsc --incremental",
         "build:fast": "tsc --incremental --skipLibCheck --noEmit false",
         "build:production": "tsc --skipLibCheck --incremental false --sourceMap false --declaration false",
+        "build:ultra-fast": "tsc --skipLibCheck --noImplicitAny false --noEmitOnError false --sourceMap false --declaration false --incremental false",
         "build:clean": "rm -rf dist .tsbuildinfo && tsc --incremental",
         "start": "node dist/server.js",
-        "postinstall": "npm run build:production",
+        "postinstall": "npm run build:ultra-fast",
         "backfill-credits": "ts-node scripts/backfillUserCredits.ts"
+    },
+    "puppeteer": {
+        "skipDownload": true
     },
     "dependencies": {
         "@microsoft/microsoft-graph-client": "^3.0.7",
