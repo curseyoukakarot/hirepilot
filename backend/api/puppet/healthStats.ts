@@ -13,11 +13,34 @@ const supabase = createClient(
 
 const router = express.Router();
 
+// 🔧 ERROR HANDLING WRAPPER - Prevents HTML error pages
+const asyncHandler = (fn: Function) => (req: any, res: any, next: any) => {
+  Promise.resolve(fn(req, res, next)).catch((error) => {
+    console.error('Puppet API Error:', error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      message: error.message,
+      endpoint: req.path
+    });
+  });
+};
+
+// 🔧 DEBUG: Simple test endpoint
+router.get('/test', asyncHandler(async (req: any, res: any) => {
+  res.json({ 
+    status: 'ok', 
+    message: 'Puppet health API is working',
+    timestamp: new Date().toISOString()
+  });
+}));
+
 // ===============================================
 // 1. Job Queue Statistics
 // ===============================================
-router.get('/stats/jobs', async (req, res) => {
+router.get('/stats/jobs', asyncHandler(async (req: any, res: any) => {
   try {
+    console.log('📊 Puppet health - fetching job stats');
+    
     const timeRange = req.query.hours ? parseInt(req.query.hours as string) : 24;
     const cutoffTime = new Date(Date.now() - timeRange * 60 * 60 * 1000).toISOString();
 
@@ -28,7 +51,11 @@ router.get('/stats/jobs', async (req, res) => {
       .gte('created_at', cutoffTime);
 
     if (jobError) {
-      throw new Error(`Job stats error: ${jobError.message}`);
+      console.error('Job stats error:', jobError);
+      return res.status(500).json({ 
+        error: 'Failed to fetch job statistics',
+        details: jobError.message 
+      });
     }
 
     // Get retry backlog
@@ -40,18 +67,25 @@ router.get('/stats/jobs', async (req, res) => {
       .gte('next_retry_at', new Date().toISOString());
 
     if (retryError) {
-      throw new Error(`Retry stats error: ${retryError.message}`);
+      console.error('Retry stats error:', retryError);
+      return res.status(500).json({ 
+        error: 'Failed to fetch retry statistics',
+        details: retryError.message 
+      });
     }
 
-    // Calculate stats
+    // Calculate stats safely
+    const safeJobStats = jobStats || [];
+    const safeRetryJobs = retryJobs || [];
+    
     const stats = {
-      pending: jobStats.filter(j => j.status === 'queued').length,
-      in_progress: jobStats.filter(j => j.status === 'running').length,
-      completed: jobStats.filter(j => j.final_status === 'completed').length,
-      failed: jobStats.filter(j => j.final_status === 'failed' || j.final_status === 'permanently_failed').length,
-      total: jobStats.length,
-      retry_backlog: retryJobs?.length || 0,
-      retry_jobs_ready: retryJobs?.filter(j => new Date(j.next_retry_at) <= new Date()).length || 0
+      pending: safeJobStats.filter(j => j.status === 'queued').length,
+      in_progress: safeJobStats.filter(j => j.status === 'running').length,
+      completed: safeJobStats.filter(j => j.final_status === 'completed').length,
+      failed: safeJobStats.filter(j => j.final_status === 'failed' || j.final_status === 'permanently_failed').length,
+      total: safeJobStats.length,
+      retry_backlog: safeRetryJobs?.length || 0,
+      retry_jobs_ready: safeRetryJobs?.filter(j => new Date(j.next_retry_at) <= new Date()).length || 0
     };
 
     // Job trend data (hourly breakdown)
@@ -59,7 +93,7 @@ router.get('/stats/jobs', async (req, res) => {
       const hourStart = new Date(Date.now() - (23 - i) * 60 * 60 * 1000);
       const hourEnd = new Date(Date.now() - (22 - i) * 60 * 60 * 1000);
       
-      const hourJobs = jobStats.filter(job => {
+      const hourJobs = safeJobStats.filter(job => {
         const jobTime = new Date(job.created_at);
         return jobTime >= hourStart && jobTime < hourEnd;
       });
@@ -89,12 +123,12 @@ router.get('/stats/jobs', async (req, res) => {
       error: error.message || 'Failed to fetch job statistics' 
     });
   }
-});
+}));
 
 // ===============================================
 // 2. Proxy Health Statistics
 // ===============================================
-router.get('/stats/proxies', async (req, res) => {
+router.get('/stats/proxies', asyncHandler(async (req: any, res: any) => {
   try {
     const timeRange = 24; // Last 24 hours
     const cutoffTime = new Date(Date.now() - timeRange * 60 * 60 * 1000).toISOString();
@@ -185,12 +219,12 @@ router.get('/stats/proxies', async (req, res) => {
       error: error.message || 'Failed to fetch proxy statistics' 
     });
   }
-});
+}));
 
 // ===============================================
 // 3. Warm-Up Tier Tracking
 // ===============================================
-router.get('/stats/warmup-tiers', async (req, res) => {
+router.get('/stats/warmup-tiers', asyncHandler(async (req: any, res: any) => {
   try {
     const daysBack = 3; // Last 3 days for success rate calculation
     const cutoffTime = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000).toISOString();
@@ -292,12 +326,12 @@ router.get('/stats/warmup-tiers', async (req, res) => {
       error: error.message || 'Failed to fetch warmup tier statistics' 
     });
   }
-});
+}));
 
 // ===============================================
 // 4. Deduplication Warnings
 // ===============================================
-router.get('/stats/deduped-invites', async (req, res) => {
+router.get('/stats/deduped-invites', asyncHandler(async (req: any, res: any) => {
   try {
     const timeRange = parseInt(req.query.hours as string) || 24;
     const cutoffTime = new Date(Date.now() - timeRange * 60 * 60 * 1000).toISOString();
@@ -363,12 +397,12 @@ router.get('/stats/deduped-invites', async (req, res) => {
       error: error.message || 'Failed to fetch deduplication statistics' 
     });
   }
-});
+}));
 
 // ===============================================
 // 5. System Health Summary
 // ===============================================
-router.get('/stats/summary', async (req, res) => {
+router.get('/stats/summary', asyncHandler(async (req: any, res: any) => {
   try {
     const timeRange = 24; // Last 24 hours
     const cutoffTime = new Date(Date.now() - timeRange * 60 * 60 * 1000).toISOString();
@@ -530,12 +564,12 @@ router.get('/stats/summary', async (req, res) => {
       error: error.message || 'Failed to fetch system summary' 
     });
   }
-});
+}));
 
 // 🆕 ===============================================
 // 6. CAPTCHA Incidents Endpoint
 // ===============================================
-router.get('/stats/captcha-incidents', async (req, res) => {
+router.get('/stats/captcha-incidents', asyncHandler(async (req: any, res: any) => {
   try {
     const timeRange = parseInt(req.query.hours as string) || 24;
     const cutoffTime = new Date(Date.now() - timeRange * 60 * 60 * 1000).toISOString();
@@ -612,6 +646,6 @@ router.get('/stats/captcha-incidents', async (req, res) => {
       error: error.message || 'Failed to fetch CAPTCHA incidents' 
     });
   }
-});
+}));
 
 export default router; 
