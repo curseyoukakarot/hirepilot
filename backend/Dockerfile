@@ -19,17 +19,18 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies (production only, no audit/fund)
-RUN npm ci --omit=dev --omit=optional --no-audit --no-fund
+# Install ALL dependencies first (needed for TypeScript build)
+RUN npm ci --no-audit --no-fund
 
 # Copy source code
 COPY . .
 
-# Build TypeScript (ultra-fast mode)
+# Build TypeScript (now tsc is available)
 RUN npm run build:ultra-fast
 
-# Remove source files to save space
-RUN rm -rf src/ scripts/ *.ts tsconfig.json .tsbuildinfo
+# Clean up dev dependencies and source files to save space
+RUN npm prune --omit=dev && \
+    rm -rf src/ scripts/ *.ts tsconfig.json .tsbuildinfo node_modules/.cache
 
 EXPOSE 8080
 
