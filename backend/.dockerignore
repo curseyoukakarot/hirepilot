@@ -32,7 +32,6 @@ temp
 *.tar.gz
 
 # Additional Railway optimizations
-package-lock.json
 debug-*.js
 test-*.js
 generate-*.js
