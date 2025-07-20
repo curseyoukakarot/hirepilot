@@ -90,6 +90,16 @@ export default function TermsPage() {
                   HirePilot uses AI features (e.g., automation and recommendations) to enhance the recruiting workflow. These features do <strong>not</strong> use or train on Gmail or Google Workspace API data. We fully comply with Google's <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" className="text-blue-600 hover:underline">API Services User Data Policy</a>, including all <strong>Limited Use</strong> restrictions.
                 </p>
               </div>
+
+              <div>
+                <h3 className="text-xl font-semibold mb-3">Google API User Data Policy Compliance</h3>
+                <p className="text-gray-700 mb-3">
+                  HirePilot's use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" className="text-blue-600 hover:underline">Google API Services User Data Policy</a>, including the Limited Use requirements.
+                </p>
+                <p className="text-gray-700">
+                  We only access and use Gmail data to send user-authorized outreach emails, and we do not store, read, or share any email content beyond what's required to complete the requested actions.
+                </p>
+              </div>
             </div>
           </section>
         )}
