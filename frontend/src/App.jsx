@@ -1,5 +1,6 @@
 import React, { Suspense, lazy, useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Navbar from "./components/Navbar";
 import Sidebar from "./components/Sidebar";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -17,6 +18,8 @@ import PhantomAnalytics from '../pages/phantom/analytics';
 import SuperAdminDashboard from './screens/SuperAdminDashboard';
 import { supabase } from "./lib/supabase";
 import AdminUserManagement from './screens/AdminUserManagement';
+import AdminPuppetHealth from './screens/AdminPuppetHealth';
+import AdminProxyManagement from './screens/AdminProxyManagement';
 import LeadSyncFailures from './screens/LeadSyncFailures';
 import PhantomConfig from './screens/PhantomConfig';
 import WebhookLogs from './screens/WebhookLogs';
@@ -207,9 +210,11 @@ export default function App() {
   return (
     <ErrorBoundary>
       <WizardProvider>
-        <BrowserRouter>
-          <InnerApp />
-        </BrowserRouter>
+        <QueryClientProvider client={queryClient}>
+          <BrowserRouter>
+            <InnerApp />
+          </BrowserRouter>
+        </QueryClientProvider>
       </WizardProvider>
     </ErrorBoundary>
   );
@@ -334,6 +339,8 @@ function InnerApp() {
               <Route path="/phantom/webhook-logs" element={<WebhookLogs />} />
               <Route path="/super-admin" element={<SuperAdminDashboard />} />
               <Route path="/admin/users" element={<AdminUserManagement />} />
+              <Route path="/admin/puppet-health" element={<AdminPuppetHealth />} />
+              <Route path="/admin/proxy-management" element={<AdminProxyManagement />} />
               <Route path="/blog" element={<BlogLandingPage />} />
               <Route path="/chromeextension" element={<ChromeExtension />} />
               <Route path="/chromeextension/privacy" element={<ChromeExtensionPrivacy />} />
@@ -366,3 +373,14 @@ function InnerApp() {
     </div>
   );
 }
+
+// Create a query client for React Query
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30000, // Data is considered fresh for 30 seconds
+      retry: 1, // Retry failed requests once
+      refetchOnWindowFocus: false, // Don't refetch on window focus
+    },
+  },
+});

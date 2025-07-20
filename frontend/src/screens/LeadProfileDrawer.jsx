@@ -23,6 +23,10 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   const [dailyLinkedInCount, setDailyLinkedInCount] = useState(0);
   const [isLoadingLinkedInCount, setIsLoadingLinkedInCount] = useState(false);
   const [userCredits, setUserCredits] = useState(0);
+  
+  // REX Mode state (Prompt 8 enhancement)
+  const [rexMode, setRexMode] = useState('manual'); // 'auto' or 'manual'
+  const [consentAccepted, setConsentAccepted] = useState(false);
 
   // Edit states for contact fields
   const [editingEmail, setEditingEmail] = useState(false);
@@ -670,12 +674,25 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       return;
     }
 
+    // Validate consent checkbox
+    if (!consentAccepted) {
+      showToast('You must consent to HirePilot acting on your behalf for LinkedIn automation', 'error');
+      return;
+    }
+
+    // Validate message
+    if (!linkedInMessage.trim()) {
+      showToast('Please provide a message for your LinkedIn connection request', 'error');
+      return;
+    }
+
     setIsSubmittingLinkedIn(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      const response = await fetch(`${API_BASE_URL}/linkedin/send`, {
+      // Use new Puppet endpoint (Prompt 8 enhancement)
+      const response = await fetch(`${API_BASE_URL}/linkedin/puppet-request`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -683,30 +700,55 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
         },
         body: JSON.stringify({
           linkedin_url: localLead.linkedin_url,
-          message: linkedInMessage.trim() || null,
+          message: linkedInMessage.trim(),
+          rex_mode: rexMode,
+          consent_accepted: consentAccepted,
           campaign_id: localLead.campaign_id || null,
+          priority: 5
         }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
         
-        // Handle insufficient credits specifically
-        if (response.status === 402) {
+        // Handle specific error types
+        if (errorData.consent_required) {
+          showToast('Please accept the consent checkbox to proceed', 'error');
+          return;
+        } else if (errorData.insufficient_credits) {
           showToast(`Insufficient credits: Need ${errorData.required} credits, have ${errorData.available}`, 'error');
+          return;
+        } else if (errorData.daily_limit_reached) {
+          showToast(errorData.error || 'Daily connection limit reached', 'error');
+          return;
+        } else if (errorData.duplicate_request) {
+          showToast(errorData.error || 'Request already exists for this profile', 'error');
+          return;
+        } else if (errorData.setup_required) {
+          showToast('LinkedIn integration setup required. Please configure your LinkedIn cookie first.', 'error');
+          return;
         } else {
           showToast(errorData.error || 'Failed to queue LinkedIn request', 'error');
+          return;
         }
-        return;
       }
 
       const responseData = await response.json();
-      showToast(`LinkedIn request queued! ${responseData.credits?.remaining || 0} credits remaining`);
+      const successMessage = rexMode === 'auto' 
+        ? `LinkedIn request queued automatically! Job ID: ${responseData.job?.id?.substring(0, 8)}...`
+        : `LinkedIn request queued for review! Job ID: ${responseData.job?.id?.substring(0, 8)}...`;
+      
+      showToast(`${successMessage} ${responseData.credits?.remaining || 0} credits remaining`);
+      
       setShowLinkedInModal(false);
       setShowCreditConfirm(false);
       setLinkedInMessage('');
+      setConsentAccepted(false); // Reset for next time
+      
       // Update daily count and credits
-      setDailyLinkedInCount(prev => prev + 1);
+      if (responseData.daily_stats?.connections_today !== undefined) {
+        setDailyLinkedInCount(responseData.daily_stats.connections_today);
+      }
       if (responseData.credits?.remaining !== undefined) {
         setUserCredits(responseData.credits.remaining);
       }
@@ -762,7 +804,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
             {/* Content */}
             <div className="flex-1 overflow-y-auto">
               {/* LinkedIn Limit Warning */}
-              {dailyLinkedInCount >= 9 && (
+              {dailyLinkedInCount >= 18 && (
                 <div className="px-6 py-3 bg-yellow-50 border-b border-yellow-200">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
@@ -770,7 +812,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                     </div>
                     <div className="ml-3">
                       <p className="text-sm text-yellow-800">
-                        ⚠️ You're near your daily LinkedIn request limit ({dailyLinkedInCount}/10). 
+                        ⚠️ You're near your daily LinkedIn request limit ({dailyLinkedInCount}/20). 
                         Requests will pause once the limit is hit.
                       </p>
                     </div>
@@ -798,7 +840,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                   </button>
                   <button
                     className={`px-4 py-2 rounded-lg flex items-center ${
-                      (!localLead?.linkedin_url || dailyLinkedInCount >= 10) 
+                      (!localLead?.linkedin_url || dailyLinkedInCount >= 20) 
                         ? 'bg-gray-400 cursor-not-allowed' 
                         : 'bg-linkedin hover:bg-blue-700'
                     } text-white`}
@@ -806,16 +848,16 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                       fetchUserCredits();
                       setShowCreditConfirm(true);
                     }}
-                    disabled={!localLead?.linkedin_url || dailyLinkedInCount >= 10}
-                    style={{backgroundColor: (!localLead?.linkedin_url || dailyLinkedInCount >= 10) ? undefined : '#0077B5'}}
+                    disabled={!localLead?.linkedin_url || dailyLinkedInCount >= 20}
+                    style={{backgroundColor: (!localLead?.linkedin_url || dailyLinkedInCount >= 20) ? undefined : '#0077B5'}}
                     title={
                       !localLead?.linkedin_url ? 'No LinkedIn URL available' : 
-                      dailyLinkedInCount >= 10 ? 'Daily LinkedIn request limit reached (10/10)' :
-                      `Send LinkedIn connection request (${dailyLinkedInCount}/10 used today)`
+                      dailyLinkedInCount >= 20 ? 'Daily LinkedIn request limit reached (20/20)' :
+                      `Send LinkedIn connection request (${dailyLinkedInCount}/20 used today)`
                     }
                   >
                     <i className="fa-brands fa-linkedin mr-2"></i>
-                    LinkedIn Request {dailyLinkedInCount >= 10 && '(Limit Reached)'}
+                    LinkedIn Request {dailyLinkedInCount >= 20 && '(Limit Reached)'}
                   </button>
                   {(() => {
                     const emailInfo = getEmailWithSource(localLead);
@@ -1435,23 +1477,23 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                 </div>
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-sm text-gray-600">Request Cost:</span>
-                  <span className="font-semibold text-red-600">-20 credits</span>
+                  <span className="font-semibold text-red-600">-10 credits</span>
                 </div>
                 <hr className="my-2" />
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium text-gray-700">After Request:</span>
-                  <span className={`font-bold ${userCredits >= 20 ? 'text-green-600' : 'text-red-600'}`}>
-                    {userCredits - 20} credits
+                  <span className={`font-bold ${userCredits >= 10 ? 'text-green-600' : 'text-red-600'}`}>
+                    {userCredits - 10} credits
                   </span>
                 </div>
               </div>
 
-              {userCredits < 20 && (
+              {userCredits < 10 && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-lg mb-4">
                   <div className="flex items-center">
                     <i className="fa-solid fa-exclamation-triangle text-red-500 mr-2"></i>
                     <span className="text-sm text-red-700 font-medium">
-                      Insufficient credits to send this request
+                      Insufficient credits to send this request (need 10 credits)
                     </span>
                   </div>
                 </div>
@@ -1479,10 +1521,10 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                 }}
                 className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50"
                 style={{backgroundColor: '#0077B5'}}
-                disabled={userCredits < 20}
+                disabled={userCredits < 10}
               >
                 <i className="fa-brands fa-linkedin mr-2"></i>
-                {userCredits < 20 ? 'Insufficient Credits' : 'Continue'}
+                {userCredits < 10 ? 'Insufficient Credits (Need 10)' : 'Continue'}
               </button>
             </div>
           </div>
@@ -1492,11 +1534,47 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       {/* LinkedIn Request Modal */}
       {showLinkedInModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg">
+          <div className="bg-white rounded-xl p-6 w-full max-w-lg shadow-lg">
             <h3 className="text-lg font-semibold mb-4">Send LinkedIn Request</h3>
             <p className="mb-4 text-gray-600 text-sm">
               Send a connection request to <strong>{localLead.name}</strong> on LinkedIn.
             </p>
+            
+            {/* REX Auto/Manual Mode Toggle */}
+            <div className="mb-4 p-3 bg-purple-50 rounded-lg border border-purple-200">
+              <label className="block text-sm font-medium text-purple-800 mb-2">
+                REX Mode Selection
+              </label>
+              <div className="flex gap-3">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="rexMode"
+                    value="manual"
+                    checked={rexMode === 'manual'}
+                    onChange={(e) => setRexMode(e.target.value)}
+                    className="mr-2 text-purple-600"
+                  />
+                  <span className="text-sm text-gray-700">
+                    <strong>Manual</strong> - Review message before sending
+                  </span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="rexMode"
+                    value="auto"
+                    checked={rexMode === 'auto'}
+                    onChange={(e) => setRexMode(e.target.value)}
+                    className="mr-2 text-purple-600"
+                  />
+                  <span className="text-sm text-gray-700">
+                    <strong>Auto</strong> - Send immediately
+                  </span>
+                </label>
+              </div>
+            </div>
+            
             {/* Daily limit indicator */}
             <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
               <div className="flex items-center justify-between">
@@ -1504,25 +1582,24 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                   Daily LinkedIn Requests
                 </span>
                 <span className={`text-sm font-bold ${
-                  dailyLinkedInCount >= 9 ? 'text-yellow-600' : 'text-blue-600'
+                  dailyLinkedInCount >= 19 ? 'text-yellow-600' : 'text-blue-600'
                 }`}>
-                  {dailyLinkedInCount}/10
+                  {dailyLinkedInCount}/20
                 </span>
               </div>
               <div className="mt-2 w-full bg-blue-200 rounded-full h-2">
                 <div 
                   className={`h-2 rounded-full transition-all ${
-                    dailyLinkedInCount >= 9 ? 'bg-yellow-500' : 'bg-blue-500'
+                    dailyLinkedInCount >= 19 ? 'bg-yellow-500' : 'bg-blue-500'
                   }`}
-                  style={{ width: `${(dailyLinkedInCount / 10) * 100}%` }}
+                  style={{ width: `${(dailyLinkedInCount / 20) * 100}%` }}
                 ></div>
               </div>
             </div>
 
-
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Personal message (optional)
+                Personal message *
               </label>
               <textarea
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
@@ -1536,11 +1613,29 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                 {linkedInMessage.length}/300 characters
               </div>
             </div>
+            
+            {/* Consent Checkbox */}
+            <div className="mb-4 p-3 bg-orange-50 rounded-lg border border-orange-200">
+              <label className="flex items-start">
+                <input
+                  type="checkbox"
+                  checked={consentAccepted}
+                  onChange={(e) => setConsentAccepted(e.target.checked)}
+                  className="mr-3 mt-1 text-orange-600"
+                />
+                <span className="text-sm text-gray-700">
+                  <strong>I consent to HirePilot acting on my behalf to automate LinkedIn outreach.</strong> 
+                  I understand this simulates my own manual usage.
+                </span>
+              </label>
+            </div>
+            
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => {
                   setShowLinkedInModal(false);
                   setLinkedInMessage('');
+                  setConsentAccepted(false);
                   setShowCreditConfirm(false);
                 }}
                 className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
@@ -1552,9 +1647,22 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                 onClick={handleLinkedInSubmit}
                 className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
                 style={{backgroundColor: '#0077B5'}}
-                disabled={isSubmittingLinkedIn}
+                disabled={isSubmittingLinkedIn || !consentAccepted || !linkedInMessage.trim() || userCredits < 10}
               >
-                {isSubmittingLinkedIn ? 'Sending Request...' : 'Send LinkedIn Request'}
+                {isSubmittingLinkedIn ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                    </svg>
+                    Queuing Request...
+                  </>
+                ) : (
+                  <>
+                    <i className="fa-brands fa-linkedin mr-2"></i>
+                    {rexMode === 'auto' ? 'Queue Automatically' : 'Queue for Review'}
+                  </>
+                )}
               </button>
             </div>
           </div>
