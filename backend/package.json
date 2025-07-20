@@ -20,9 +20,10 @@
         "test:proxy-health": "ts-node scripts/testProxyHealthMonitoring.ts",
         "build": "tsc --incremental",
         "build:fast": "tsc --incremental --skipLibCheck --noEmit false",
+        "build:production": "tsc --skipLibCheck --incremental false --sourceMap false --declaration false",
         "build:clean": "rm -rf dist .tsbuildinfo && tsc --incremental",
         "start": "node dist/server.js",
-        "postinstall": "npm run build",
+        "postinstall": "npm run build:production",
         "backfill-credits": "ts-node scripts/backfillUserCredits.ts"
     },
     "dependencies": {

@@ -43,10 +43,14 @@ import linkedinSend from './api/linkedinSend';
 import linkedinDailyCount from './api/linkedinDailyCount';
 import puppetLinkedInRequest from './api/linkedin/puppetRequest';
 import getUserCredits from './api/getUserCredits';
+import healthCheck from './api/health';
 
 const router = Router();
 
 export type ApiHandler = (req: ApiRequest, res: Response) => Promise<void>;
+
+// Health check endpoint for Railway
+router.get('/health', healthCheck);
 
 // Get campaigns
 router.get("/getCampaigns", getCampaigns);
