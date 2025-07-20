@@ -52,9 +52,6 @@ export class JobExecutor {
     console.log(`[JobExecutor] Starting execution of job ${job.id} (type: ${job.job_type})`);
 
     try {
-      // Start execution tracking
-      await this.startJobExecution(job.id);
-      
       // Execute the actual puppet job
       const result = await this.executePuppetJob(job);
       
@@ -84,7 +81,8 @@ export class JobExecutor {
       let retryScheduled = false;
       try {
         console.log(`[JobExecutor] Attempting to schedule retry for job ${job.id} (error: ${errorType})`);
-        retryScheduled = await retryManager.scheduleRetry(job.id, errorMessage, errorType, this.executorId);
+        const retryResult = await retryManager.scheduleJobRetry(job.id, errorMessage, errorType);
+        retryScheduled = retryResult.scheduled;
         
         if (retryScheduled) {
           console.log(`✅ [JobExecutor] Retry scheduled for job ${job.id}`);
@@ -137,8 +135,20 @@ export class JobExecutor {
       created_at: job.created_at
     };
 
+    // Create proper context for EnhancedPuppetJobRunner
+    const jobContext = {
+      jobId: puppetJob.id,
+      userId: puppetJob.user_id,
+      linkedinProfileUrl: puppetJob.job_config?.linkedin_url || '',
+      maxRetries: 3,
+      priority: puppetJob.priority || 1,
+      messageText: puppetJob.job_config?.message || '',
+      proxyId: puppetJob.job_config?.proxy_id,
+      executorId: this.executorId
+    };
+
     // Execute the job using your existing puppet system
-    const result = await puppetRunner.executeJob(puppetJob);
+    const result = await EnhancedPuppetJobRunner.executeLinkedInJob(jobContext);
     
     return result;
   }

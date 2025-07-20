@@ -10,11 +10,18 @@
       "noUnusedLocals": false,
       "noUnusedParameters": false,
       "moduleResolution": "node",
+      "incremental": true,
+      "tsBuildInfoFile": ".tsbuildinfo",
+      "composite": false,
+      "declaration": false,
+      "declarationMap": false,
+      "sourceMap": false,
+      "removeComments": true,
       "paths": {
         "@modelcontextprotocol/sdk": ["./src/modelcontextprotocol-sdk.d.ts"]
       }
     },
     "include": ["./**/*.ts", "./**/*.d.ts"],
-    "exclude": ["node_modules", "dist"]
+    "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts", "scripts/test*.ts"]
   }
   

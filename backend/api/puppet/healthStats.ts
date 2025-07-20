@@ -425,7 +425,7 @@ router.get('/stats/summary', async (req, res) => {
     const successfulRetries = retries.filter(r => r.success).length;
     const retrySuccessRate = totalRetries > 0 ? (successfulRetries / totalRetries) * 100 : 100;
 
-    const uniqueProxies = new Set(proxies.map(p => p.proxy_id)).size;
+    const uniqueProxies = new Set(proxies.map((p: any) => p.proxy_url || p.id || p.proxy_id || 'unknown')).size;
     const failedProxies = proxies.filter(p => p.status === 'failed' || p.status === 'rotated').length;
 
     // 🆕 CAPTCHA metrics

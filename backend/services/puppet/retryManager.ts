@@ -586,4 +586,7 @@ export class RetryManager {
   }
 }
 
+// 🔧 EXPORT INSTANCE - Fix import errors  
+export const retryManager = new RetryManager('default-executor');
+
 export default RetryManager; 

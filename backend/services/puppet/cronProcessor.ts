@@ -111,6 +111,27 @@ export class CronProcessor {
     console.log(`[CronProcessor] Initialized with ID: ${this.config.processorId}`);
   }
 
+  // 🔧 PUBLIC GETTERS - Fix private property access violations
+  get running(): boolean {
+    return this.isRunning;
+  }
+
+  get processorConfig(): CronProcessorConfig {
+    return { ...this.config }; // Return copy for safety
+  }
+
+  get batchJobLoader(): BatchJobLoader {
+    return this.batchLoader;
+  }
+
+  get concurrencyManagerInstance(): ConcurrencyManager {
+    return this.concurrencyManager;
+  }
+
+  get stats() {
+    return { ...this.processingStats };
+  }
+
   /**
    * Start the cron processor
    */
@@ -183,6 +204,7 @@ export class CronProcessor {
       successfulJobs: 0,
       failedJobs: 0,
       timedOutJobs: 0,
+      retriedJobs: 0, // 🔧 Add missing property
       skippedJobs: {
         userConcurrencyLimited: 0,
         globalConcurrencyLimited: 0,
@@ -350,10 +372,10 @@ export class CronProcessor {
       const retryPromises = retryJobBatch.map(async (job) => {
         try {
           // Check concurrency limits
-          const canExecute = await this.concurrencyManager.canExecuteJob(job.user_id);
-          if (!canExecute.allowed) {
-            console.log(`[CronProcessor] Retry job ${job.id} skipped: ${canExecute.reason}`);
-            return { success: false, error: canExecute.reason, jobId: job.id };
+          const canExecute = await this.concurrencyManager.canUserExecuteJob(job.user_id);
+          if (!canExecute) {
+            console.log(`[CronProcessor] Retry job ${job.id} skipped: concurrency limit reached`);
+            return { success: false, error: 'concurrency limit reached', jobId: job.id };
           }
 
           // Execute the retry job

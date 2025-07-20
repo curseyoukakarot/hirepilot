@@ -78,17 +78,19 @@ export default async function puppetLinkedInRequestHandler(req: Request, res: Re
       campaign_id ? 'campaign' : 'manual'
     );
     
-    if (!deduplicationCheck.allowed) {
-      console.log(`🚫 [PuppetLinkedIn] Invitation blocked by deduplication: ${deduplicationCheck.reason}`);
+    if (!deduplicationCheck.isAllowed) {
+      console.log(`❌ [PuppetLinkedIn] Invitation blocked by deduplication: ${deduplicationCheck.reason}`);
       
-      return res.status(409).json({
-        error: deduplicationCheck.reason,
-        duplicate_invitation: true,
-        previous_invite_date: deduplicationCheck.previous_invite_date,
-        previous_status: deduplicationCheck.previous_status,
-        days_since_last: deduplicationCheck.days_since_last,
-        rule_applied: deduplicationCheck.rule_applied,
-        can_override: false // Could be made configurable based on user permissions
+      return res.json({
+        success: false,
+        blocked_by_deduplication: true,
+        reason: deduplicationCheck.reason,
+        message: deduplicationCheck.message,
+        previous_invite_date: deduplicationCheck.previousInviteId ? 'exists' : null,
+        previous_status: null, // Not available in new structure
+        days_since_last: null, // Not available in new structure
+        rule_applied: deduplicationCheck.ruleApplied,
+        cooldown_expires_at: deduplicationCheck.cooldownExpiresAt
       });
     }
 
@@ -226,11 +228,12 @@ export default async function puppetLinkedInRequestHandler(req: Request, res: Re
             remaining_today: warmupValidation.remaining_today
           },
           deduplication_check: {
-            allowed: deduplicationCheck.allowed,
+            allowed: deduplicationCheck.isAllowed,
             reason: deduplicationCheck.reason,
-            rule_applied: deduplicationCheck.rule_applied,
-            previous_invite_date: deduplicationCheck.previous_invite_date,
-            previous_status: deduplicationCheck.previous_status
+            rule_applied: deduplicationCheck.ruleApplied,
+            previous_invite_date: deduplicationCheck.previousInviteId,
+            previous_status: null, // Not available in new structure
+            days_since_last: null // Not available in new structure
           }
         }
       })
@@ -313,9 +316,9 @@ export default async function puppetLinkedInRequestHandler(req: Request, res: Re
             remaining_today: warmupValidation.remaining_today
           },
           deduplication: {
-            check_passed: deduplicationCheck.allowed,
-            rule_applied: deduplicationCheck.rule_applied,
-            previous_invite_date: deduplicationCheck.previous_invite_date
+            check_passed: deduplicationCheck.isAllowed,
+            rule_applied: deduplicationCheck.ruleApplied,
+            previous_invite_date: deduplicationCheck.previousInviteId
           }
         }
       });
@@ -351,10 +354,10 @@ export default async function puppetLinkedInRequestHandler(req: Request, res: Re
         consecutive_successful_days: updatedWarmupStatus?.consecutive_successful_days || 0
       },
       deduplication: {
-        check_passed: deduplicationCheck.allowed,
+        check_passed: deduplicationCheck.isAllowed,
         reason: deduplicationCheck.reason,
-        rule_applied: deduplicationCheck.rule_applied,
-        is_new_profile: !deduplicationCheck.previous_invite_date
+        rule_applied: deduplicationCheck.ruleApplied,
+        is_new_profile: !deduplicationCheck.previousInviteId
       }
     };
 

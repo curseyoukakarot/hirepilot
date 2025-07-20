@@ -17,7 +17,7 @@ import {
 } from '../../types/puppet';
 
 // Import enhanced services
-import { createCaptchaDetectionService, CaptchaDetectionService } from './captchaDetection';
+import { createCaptchaDetectionService, CaptchaDetectionService } from './captchaDetectionService';
 import { inviteWarmupService } from './inviteWarmupService';
 import { proxyHealthService } from './proxyHealthService';
 import { inviteDeduplicationService } from './inviteDeduplicationService';
@@ -239,10 +239,9 @@ export class PuppetLinkedInAutomation {
           await inviteDeduplicationService.recordSentInvite(
             this.config.user_id,
             this.config.linkedin_profile_url,
-            this.config.message,
             (this.config as any).campaign_id, // Campaign ID may not be in config type
             this.config.job_id,
-            'puppet_automation'
+            'success'
           );
           await this.logStep('info', `🔄 Recorded successful invite in deduplication system`, 'deduplication_tracking');
         } catch (deduplicationError) {

@@ -46,6 +46,7 @@ export interface DeduplicationRule {
 }
 
 export class InviteDeduplicationService {
+  private processorId: string;
   
   /**
    * Normalize LinkedIn URL for consistent comparison
@@ -164,6 +165,55 @@ export class InviteDeduplicationService {
         message: 'Blocked due to error in deduplication check',
         logId
       };
+    }
+  }
+
+  // 🔧 ALIAS METHODS - Fix method name mismatches
+  async checkInviteEligibility(
+    userId: string,
+    profileUrl: string,
+    campaignId?: string,
+    puppetJobId?: string
+  ): Promise<DeduplicationResult> {
+    // Call the static method with correct parameters
+    return InviteDeduplicationService.checkInviteDeduplication(
+      userId,
+      profileUrl,
+      campaignId,
+      puppetJobId
+    );
+  }
+
+  async recordSentInvite(
+    userId: string,
+    profileUrl: string,
+    campaignId?: string,
+    puppetJobId?: string,
+    outcome: 'success' | 'failed' = 'success'
+  ): Promise<boolean> {
+    try {
+      // Record the sent invite in our tracking system
+      const { error } = await supabase
+        .from('sent_invites')
+        .insert({
+          user_id: userId,
+          linkedin_profile_url: InviteDeduplicationService.normalizeLinkedInUrl(profileUrl),
+          campaign_id: campaignId,
+          puppet_job_id: puppetJobId,
+          outcome,
+          sent_at: new Date().toISOString()
+        });
+
+      if (error) {
+        console.error('Error recording sent invite:', error);
+        return false;
+      }
+
+      console.log(`✅ Recorded sent invite for ${profileUrl}`);
+      return true;
+    } catch (error) {
+      console.error('Error recording sent invite:', error);
+      return false;
     }
   }
 
@@ -582,4 +632,7 @@ export class InviteDeduplicationService {
       return null;
     }
   }
-} 
+}
+
+// 🔧 EXPORT INSTANCE - Fix import errors
+export const inviteDeduplicationService = new InviteDeduplicationService(); 

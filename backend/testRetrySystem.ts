@@ -191,11 +191,10 @@ class RetrySystemTester {
     
     try {
       // Test scheduling a retry for network error (should retry)
-      const retryScheduled = await retryManager.scheduleRetry(
+      const retryScheduled = await retryManager.scheduleJobRetry(
         jobId,
         'Network timeout occurred',
-        'network',
-        'test-executor'
+        'network'
       );
 
       if (!retryScheduled) {
@@ -362,11 +361,10 @@ class RetrySystemTester {
       }
 
       // Simulate job failure and retry scheduling
-      const retryScheduled = await retryManager.scheduleRetry(
-        failJob.id,
-        'Simulated failure for testing',
-        'timeout',
-        'test-executor'
+      const retryScheduled = await retryManager.scheduleJobRetry(
+        'test-job-1',
+        'Test failure message',
+        'network_error'
       );
 
       // Test fetching jobs ready for retry

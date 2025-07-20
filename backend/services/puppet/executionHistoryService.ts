@@ -464,7 +464,7 @@ export class ExecutionHistoryService {
 
     const breakdown: Record<string, Record<string, number>> = {};
     (data || []).forEach(row => {
-      const jobType = row.puppet_jobs.job_type;
+      const jobType = (row.puppet_jobs as any)?.job_type || 'unknown';
       const errorType = row.error_type;
       
       if (!breakdown[jobType]) breakdown[jobType] = {};
@@ -490,7 +490,7 @@ export class ExecutionHistoryService {
 
     const breakdown: Record<string, number> = {};
     (data || []).forEach(row => {
-      const userId = row.puppet_jobs.user_id;
+      const userId = (row.puppet_jobs as any)?.user_id || 'unknown';
       breakdown[userId] = (breakdown[userId] || 0) + 1;
     });
 

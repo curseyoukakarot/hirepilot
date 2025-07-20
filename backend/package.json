@@ -18,7 +18,9 @@
         "test:linkedin-modal": "ts-node scripts/testLinkedInModalEnhancement.ts",
         "test:proxy-assignment": "ts-node scripts/testProxyAssignmentSystem.ts",
         "test:proxy-health": "ts-node scripts/testProxyHealthMonitoring.ts",
-        "build": "tsc",
+        "build": "tsc --incremental",
+        "build:fast": "tsc --incremental --skipLibCheck --noEmit false",
+        "build:clean": "rm -rf dist .tsbuildinfo && tsc --incremental",
         "start": "node dist/server.js",
         "postinstall": "npm run build",
         "backfill-credits": "ts-node scripts/backfillUserCredits.ts"

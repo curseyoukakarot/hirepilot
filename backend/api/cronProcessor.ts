@@ -6,6 +6,7 @@
 import { Request, Response } from 'express';
 import CronProcessor from '../services/puppet/cronProcessor';
 import ExecutionHistoryService from '../services/puppet/executionHistoryService';
+import os from 'os';
 
 // Global processor instance
 let globalCronProcessor: CronProcessor | null = null;
@@ -15,11 +16,11 @@ let globalCronProcessor: CronProcessor | null = null;
  */
 export const startCronProcessor = async (req: Request, res: Response) => {
   try {
-    if (globalCronProcessor?.isRunning) {
+    if (globalCronProcessor?.running) {
       return res.status(400).json({
         success: false,
         message: 'Cron processor is already running',
-        processorId: globalCronProcessor.config.processorId
+        processorId: globalCronProcessor.processorConfig.processorId
       });
     }
 
@@ -139,7 +140,7 @@ export const getCronProcessorStatus = async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      isRunning: globalCronProcessor.isRunning,
+      isRunning: globalCronProcessor.running,
       status,
       health: healthCheck
     });
@@ -238,8 +239,8 @@ export const healthCheck = async (req: Request, res: Response) => {
       status: 'healthy',
       timestamp: new Date().toISOString(),
       processor: {
-        running: globalCronProcessor?.isRunning || false,
-        processorId: globalCronProcessor?.config?.processorId || null
+        running: globalCronProcessor?.running || false,
+        processorId: globalCronProcessor?.processorConfig?.processorId || null
       }
     };
 
@@ -337,9 +338,9 @@ export const getJobQueueStatus = async (req: Request, res: Response) => {
       });
     }
 
-    const queueStats = await globalCronProcessor.batchLoader.getJobQueueStats();
-    const executingStats = await globalCronProcessor.batchLoader.getExecutingJobsStatus();
-    const concurrencyStats = await globalCronProcessor.concurrencyManager.getConcurrencyStats();
+    const queueStats = await globalCronProcessor.batchJobLoader.getJobQueueStats();
+    const executingStats = await globalCronProcessor.batchJobLoader.getExecutingJobsStatus();
+    const concurrencyStats = await globalCronProcessor.concurrencyManagerInstance.getConcurrencyStats();
 
     res.json({
       success: true,
@@ -368,7 +369,7 @@ export const resetStuckJobs = async (req: Request, res: Response) => {
 
     let resetCount = 0;
     if (globalCronProcessor) {
-      resetCount = await globalCronProcessor.batchLoader.resetStuckJobs(timeoutMinutes);
+      resetCount = await globalCronProcessor.batchJobLoader.resetStuckJobs(timeoutMinutes);
     } else {
       // Reset stuck jobs even without processor running
       const { createClient } = await import('@supabase/supabase-js');
@@ -416,8 +417,8 @@ export const getProcessorConfig = async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      isRunning: globalCronProcessor.isRunning,
-      config: globalCronProcessor.config
+      isRunning: globalCronProcessor.running,
+      config: globalCronProcessor.processorConfig
     });
 
   } catch (error) {
@@ -435,7 +436,7 @@ export const getProcessorConfig = async (req: Request, res: Response) => {
  */
 export const updateProcessorConfig = async (req: Request, res: Response) => {
   try {
-    const wasRunning = globalCronProcessor?.isRunning || false;
+    const wasRunning = globalCronProcessor?.running || false;
 
     // Stop existing processor if running
     if (globalCronProcessor) {
@@ -463,7 +464,7 @@ export const updateProcessorConfig = async (req: Request, res: Response) => {
     res.json({
       success: true,
       message: 'Processor configuration updated',
-      config: globalCronProcessor.config,
+      config: globalCronProcessor.processorConfig,
       restarted: wasRunning
     });
 

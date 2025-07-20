@@ -56,3 +56,6 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
     res.status(500).json({ error: 'Internal server error' });
   }
 };
+
+// 🔧 EXPORT ALIAS - Fix import errors
+export const authMiddleware = requireAuth;
