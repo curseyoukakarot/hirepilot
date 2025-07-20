@@ -157,7 +157,7 @@ export default function Pricing() {
 
           <div className="grid md:grid-cols-3 gap-8 max-w-7xl mx-auto">
             <div id="dfy-basic" className="bg-gray-800 rounded-2xl p-8 border border-gray-700">
-              <h3 className="text-xl font-bold text-white mb-4">Done-For-You – 1 Role</h3>
+              <h3 className="text-xl font-bold text-white mb-4">Done-For-You – 1-3 Roles</h3>
               <p className="text-gray-400 mb-6">Perfect for single position hiring</p>
               <div className="flex items-center justify-center mb-8">
                 <i className="fa-solid fa-user-tie text-4xl text-blue-400"></i>
@@ -166,7 +166,7 @@ export default function Pricing() {
             </div>
 
             <div id="dfy-standard" className="bg-gray-800 rounded-2xl p-8 border border-gray-700">
-              <h3 className="text-xl font-bold text-white mb-4">Done-For-You – 3 Roles</h3>
+              <h3 className="text-xl font-bold text-white mb-4">Done-For-You – 4-6 Roles</h3>
               <p className="text-gray-400 mb-6">Ideal for multiple position monthly hiring</p>
               <div className="flex items-center justify-center mb-8">
                 <i className="fa-solid fa-users text-4xl text-blue-400"></i>
@@ -175,9 +175,9 @@ export default function Pricing() {
             </div>
 
             <div id="dfy-premium" className="bg-gray-800 rounded-2xl p-8 border border-gray-700">
-              <h3 className="text-xl font-bold text-white mb-4">Done-For-You – 5 Roles</h3>
+              <h3 className="text-xl font-bold text-white mb-4">Done-For-You – 7-10 Roles</h3>
               <p className="text-gray-400 mb-6">Best for department-wide hiring</p>
-              <p className="text-gray-400 mb-6">More than 5? Happy to support - Let us know what your needs are!</p>
+              <p className="text-gray-400 mb-6">More than 10? Happy to support - Let us know what your needs are!</p>
               <div className="flex items-center justify-center mb-8">
                 <i className="fa-solid fa-building-user text-4xl text-blue-400"></i>
               </div>
