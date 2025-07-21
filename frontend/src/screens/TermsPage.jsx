@@ -96,6 +96,9 @@ export default function TermsPage() {
                 <p className="text-gray-700 mb-3">
                   HirePilot's use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" className="text-blue-600 hover:underline">Google API Services User Data Policy</a>, including the Limited Use requirements.
                 </p>
+                <p className="text-gray-700 mb-3">
+                  HirePilot's use of information received from Google APIs adheres to the Limited Use requirements of the Google Workspace API User Data and Developer Policy. We access user data only to provide the core features of our platform and never use it for advertising, unauthorized transfers, or unrelated purposes.
+                </p>
                 <p className="text-gray-700">
                   We only access and use Gmail data to send user-authorized outreach emails, and we do not store, read, or share any email content beyond what's required to complete the requested actions.
                 </p>
