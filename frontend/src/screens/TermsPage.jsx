@@ -87,20 +87,20 @@ export default function TermsPage() {
               <div>
                 <h3 className="text-xl font-semibold mb-3">AI/ML Compliance with Google Workspace APIs</h3>
                 <p className="text-gray-700">
-                  HirePilot uses AI features (e.g., automation and recommendations) to enhance the recruiting workflow. These features do <strong>not</strong> use or train on Gmail or Google Workspace API data. We fully comply with Google's <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" className="text-blue-600 hover:underline">API Services User Data Policy</a>, including all <strong>Limited Use</strong> restrictions.
+                  HirePilot uses AI features (e.g., automation and recommendations) to enhance the recruiting workflow. These features do <strong>not</strong> use or train on Gmail or Google Workspace API data. We fully comply with Google's <a href="https://developers.google.com/workspace/workspace-api-user-data-developer-policy#limited-use" target="_blank" className="text-blue-600 hover:underline">Limited Use requirements</a>, as outlined in the Workspace API User Data and Developer Policy.
                 </p>
               </div>
 
               <div>
-                <h3 className="text-xl font-semibold mb-3">Google API User Data Policy Compliance</h3>
+                <h3 className="text-xl font-semibold mb-3">Use of Google User Data</h3>
                 <p className="text-gray-700 mb-3">
-                  HirePilot's use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" className="text-blue-600 hover:underline">Google API Services User Data Policy</a>, including the Limited Use requirements.
+                  HirePilot accesses Gmail user data solely to enable users to send emails through their own Gmail accounts from within our platform. We do not read, store, or access any email content beyond what is required to execute the user's request.
                 </p>
                 <p className="text-gray-700 mb-3">
-                  HirePilot's use of information received from Google APIs adheres to the Limited Use requirements of the Google Workspace API User Data and Developer Policy. We access user data only to provide the core features of our platform and never use it for advertising, unauthorized transfers, or unrelated purposes.
+                  Our use of Gmail and other Workspace APIs strictly adheres to Google's Limited Use requirements, as outlined in the <a href="https://developers.google.com/workspace/workspace-api-user-data-developer-policy" target="_blank" className="text-blue-600 hover:underline">Workspace API User Data and Developer Policy</a>. We do not use or transfer data for serving ads, building profiles, or training generalized AI/ML models.
                 </p>
                 <p className="text-gray-700">
-                  We only access and use Gmail data to send user-authorized outreach emails, and we do not store, read, or share any email content beyond what's required to complete the requested actions.
+                  We maintain strong data privacy protections and do not share user data with third parties except as required to perform the requested service.
                 </p>
               </div>
             </div>
