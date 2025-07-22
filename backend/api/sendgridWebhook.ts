@@ -6,9 +6,12 @@ const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SE
 
 // SendGrid sends events as an array
 router.post('/sendgrid/webhook', async (req, res) => {
+  console.log('📧 SendGrid webhook received:', JSON.stringify(req.body, null, 2));
+  
   const events = req.body;
   
   if (!Array.isArray(events)) {
+    console.error('❌ SendGrid webhook: Invalid payload - not an array');
     res.status(400).json({ error: 'Invalid webhook payload' });
     return;
   }
@@ -25,12 +28,18 @@ router.post('/sendgrid/webhook', async (req, res) => {
         custom_args = {}
       } = event;
 
+      console.log(`📧 Processing SendGrid event: ${eventType} for ${email} (msg: ${sg_message_id})`);
+
       // Extract tracking data from custom_args
       const {
         user_id,
         campaign_id,
         lead_id
       } = custom_args;
+
+      if (!user_id) {
+        console.warn(`⚠️ SendGrid event missing user_id: ${sg_message_id}`);
+      }
 
       // Store the event in Supabase
       const { error } = await supabase
@@ -52,22 +61,30 @@ router.post('/sendgrid/webhook', async (req, res) => {
         });
 
       if (error) {
-        console.error('Error storing email event:', error);
+        console.error('❌ Error storing SendGrid email event:', error);
+      } else {
+        console.log(`✅ Stored SendGrid ${eventType} event for ${email}`);
       }
 
       // Update message status in messages table
       if (eventType === 'delivered' || eventType === 'bounce' || eventType === 'dropped') {
         const status = eventType === 'delivered' ? 'delivered' : 'failed';
-        await supabase
+        const { error: updateError } = await supabase
           .from('messages')
           .update({ status })
           .eq('sg_message_id', sg_message_id);
+        
+        if (updateError) {
+          console.error('❌ Error updating message status:', updateError);
+        }
       }
     }
 
-    res.status(200).json({ success: true });
+    console.log(`✅ Processed ${events.length} SendGrid webhook events successfully`);
+    res.status(200).json({ success: true, processed: events.length });
+    
   } catch (error) {
-    console.error('SendGrid webhook error:', error);
+    console.error('❌ SendGrid webhook error:', error);
     res.status(500).json({ error: 'Failed to process webhook' });
   }
 });
