@@ -241,13 +241,20 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
       
       // Show helpful message if Boolean search returned no results
       if (data.leads.length === 0 && booleanSearchEnabled) {
-        toast.error('No results found for Boolean search. Try simpler terms or disable Boolean mode.', {
+        toast.error('No results found for Boolean search. Try broader or alternative terms.', {
           duration: 6000
         });
-        setError('Boolean search returned no results. Try: 1) Simpler Boolean operators (e.g., "VP OR Director"), 2) Individual words instead of complex phrases, 3) Broader location criteria, or 4) Disable Boolean search for regular matching.');
+        setError('Boolean search returned no results. Try: 1) Alternative job titles (e.g., "VP" + "Director" + "Manager"), 2) Broader terms without quotes, 3) Check spelling and title variations, or 4) Disable Boolean search for standard matching.');
       } else if (data.leads.length === 0) {
         toast.error('No results found. Try different search terms or location.');
         setError('No leads found matching your criteria. Try adjusting your search terms or location.');
+      }
+
+      // Show success message for Boolean searches
+      if (data.leads.length > 0 && booleanSearchEnabled) {
+        toast.success(`Boolean search found ${data.leads.length} leads with exact title matches!`, {
+          duration: 4000
+        });
       }
       
       // Update wizard state
@@ -450,7 +457,7 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
                 id="keywords"
                 className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
                 placeholder={booleanSearchEnabled 
-                  ? 'e.g. Director OR VP, "Product Manager" AND SaaS, Manager NOT Assistant'
+                  ? 'e.g. "VP of Operations" OR "Head of Operations", CEO OR Founder'
                   : "e.g. Director of Product Management"
                 }
                 value={keywordsInput}
@@ -460,19 +467,19 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
             {booleanSearchEnabled && (
               <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
                 <p className="text-sm text-blue-800">
-                  <strong>Boolean Search Syntax:</strong> Use AND, OR, NOT operators with quotes for exact phrases.
+                  <strong>Boolean Search:</strong> Uses Apollo's native OR logic with exact title matching.
                   <br />
                   <strong>Examples:</strong>
                   <br />
-                  • <code className="bg-blue-100 px-1 rounded">Director AND Marketing</code> (both terms required)
+                  • <code className="bg-blue-100 px-1 rounded">"VP of Operations" OR "Head of Operations"</code> (exact phrases)
                   <br />
-                  • <code className="bg-blue-100 px-1 rounded">VP OR Director</code> (either term)
+                  • <code className="bg-blue-100 px-1 rounded">CEO OR Founder OR President</code> (any of these titles)
                   <br />
-                  • <code className="bg-blue-100 px-1 rounded">"Product Manager" AND SaaS</code> (exact phrase + keyword)
+                  • <code className="bg-blue-100 px-1 rounded">"Product Manager" OR "Project Manager"</code> (specific roles)
                   <br />
-                  • <code className="bg-blue-100 px-1 rounded">Manager NOT Assistant</code> (exclude terms)
+                  • <code className="bg-blue-100 px-1 rounded">Director OR VP OR Manager</code> (leadership levels)
                   <br />
-                  <span className="text-blue-600">💡 Tip: Start simple and add complexity gradually if no results.</span>
+                  <span className="text-blue-600">💡 Results show people whose job titles exactly match any of your terms.</span>
                 </p>
               </div>
             )}

@@ -173,30 +173,26 @@ function normalizeLocationVariants(location: string): string[] {
 
 export async function searchPeople(params: ApolloSearchParams) {
   try {
-    // Build correct Apollo API request format (top-level properties, no wrapper)
+    // Check if this is a Boolean search
+    const isBooleanSearch = params.person_titles?.[0] && /\b(AND|OR|NOT)\b/i.test(params.person_titles[0]);
+    
+    if (isBooleanSearch) {
+      console.log('[Apollo] Boolean search detected, parsing terms for person_titles array');
+      return await handleBooleanSearchCorrectly(params);
+    }
+
+    // Regular search logic
     const requestBody: any = {
       per_page: params.per_page || 25,
       page: params.page || 1,
-      // Make email status less restrictive for Boolean searches
-      contact_email_status: params.q_keywords ? ['verified', 'likely_to_engage', 'likely_to_engage_soon'] : 'verified'
+      contact_email_status: 'verified'
     };
 
     // Add title variants (multiple for better matching)
     if (params.person_titles && params.person_titles.length > 0) {
       const titleVariants = expandTitleVariants(params.person_titles[0]);
-      
-      // Check if this looks like Boolean syntax - if so, don't expand variants
-      const isBooleanSyntax = /\b(AND|OR|NOT)\b/i.test(params.person_titles[0]);
-      
-      if (isBooleanSyntax) {
-        // Use Boolean syntax as-is, don't expand variants
-        requestBody.person_titles = params.person_titles;
-        console.log('[Apollo] Using Boolean syntax in person_titles:', params.person_titles[0]);
-      } else {
-        // Regular title search - expand variants for better matching
-        requestBody.person_titles = titleVariants;
-        console.log('[Apollo] Expanding title variants for regular search:', titleVariants.length);
-      }
+      requestBody.person_titles = titleVariants;
+      console.log('[Apollo] Expanding title variants for regular search:', titleVariants.length);
     }
     
     // Add location variants (proper Apollo format)
@@ -205,32 +201,21 @@ export async function searchPeople(params: ApolloSearchParams) {
       requestBody.person_locations = locationVariants;
     }
     
-    // Add keywords if provided - clean up Boolean syntax for Apollo
+    // Add keywords if provided
     if (params.q_keywords) {
-      // Apollo might be sensitive to certain Boolean syntax
-      let cleanedKeywords = params.q_keywords;
-      
-      // Log original vs cleaned for debugging
-      console.log('[Apollo] Boolean query processing:', {
-        original: params.q_keywords,
-        cleaned: cleanedKeywords
-      });
-      
-      requestBody.q_keywords = cleanedKeywords;
+      requestBody.q_keywords = params.q_keywords;
     }
 
     console.log('[Apollo] Making search request with CORRECT API format:', {
       ...requestBody,
       person_titles_count: requestBody.person_titles?.length || 0,
       person_locations_count: requestBody.person_locations?.length || 0,
-      has_boolean_titles: requestBody.person_titles?.some(title => /\b(AND|OR|NOT)\b/i.test(title)) || false,
-      q_keywords_present: !!requestBody.q_keywords,
       endpoint: 'mixed_people/search'
     });
 
     const response = await axios.post(`${APOLLO_API_URL}/mixed_people/search`, requestBody, {
       headers: {
-        'X-Api-Key': params.api_key,  // Use proper header format
+        'X-Api-Key': params.api_key,
         'Content-Type': 'application/json',
         'Cache-Control': 'no-cache'
       }
@@ -241,30 +226,11 @@ export async function searchPeople(params: ApolloSearchParams) {
     const contacts = response.data?.contacts || [];
     const allResults = [...people, ...contacts];
 
-    if (allResults.length === 0) {
-      console.log('[Apollo] No results found in response:', response.data);
-      
-      // For Boolean searches that return no results, suggest trying simpler syntax
-      if (params.person_titles?.some(title => /\b(AND|OR|NOT)\b/i.test(title))) {
-        console.log('[Apollo] Boolean search in person_titles returned no results. Consider trying:');
-        console.log('- Simpler terms without parentheses');
-        console.log('- Individual words instead of quoted phrases');
-        console.log('- Broader location criteria');
-        console.log('- Removing email status restrictions');
-      }
-      
-      return { people: [] };
-    }
-
-    // Debug logging for search results
     console.log('[Apollo] Search response summary:', {
       totalResults: allResults.length,
       peopleCount: people.length,
       contactsCount: contacts.length,
-      firstFewTitles: allResults.slice(0, 5).map(p => p.title || p.job_title) || [],
       searchedTitles: params.person_titles,
-      booleanTitleQuery: params.person_titles?.find(title => /\b(AND|OR|NOT)\b/i.test(title)),
-      keywordQuery: params.q_keywords,
       requestUrl: `${APOLLO_API_URL}/mixed_people/search`
     });
 
@@ -277,6 +243,90 @@ export async function searchPeople(params: ApolloSearchParams) {
     });
     throw error;
   }
+}
+
+// FIXED: Use Apollo's native person_titles array OR logic (single API call)
+async function handleBooleanSearchCorrectly(params: ApolloSearchParams) {
+  const booleanQuery = params.person_titles?.[0];
+  if (!booleanQuery) return { people: [] };
+
+  console.log('[Apollo] Processing Boolean query with native person_titles array:', booleanQuery);
+
+  // Parse Boolean query to extract individual terms for person_titles array
+  const terms = parseBooleanQueryForPersonTitles(booleanQuery);
+  console.log('[Apollo] Extracted terms for person_titles array:', terms);
+
+  if (terms.length === 0) {
+    console.log('[Apollo] No valid terms extracted from Boolean query');
+    return { people: [] };
+  }
+
+  // SINGLE API call with person_titles array (Apollo handles OR logic natively)
+  const requestBody: any = {
+    per_page: params.per_page || 25,
+    page: params.page || 1,
+    contact_email_status: 'verified',
+    person_titles: terms // Apollo automatically ORs these terms!
+  };
+
+  // Add location if specified
+  if (params.person_locations && params.person_locations.length > 0) {
+    const locationVariants = normalizeLocationVariants(params.person_locations[0]);
+    requestBody.person_locations = locationVariants;
+  }
+
+  console.log('[Apollo] Making SINGLE Boolean search request:', {
+    ...requestBody,
+    person_titles_count: requestBody.person_titles.length,
+    api_approach: 'native_person_titles_array_OR'
+  });
+
+  const response = await axios.post(`${APOLLO_API_URL}/mixed_people/search`, requestBody, {
+    headers: {
+      'X-Api-Key': params.api_key,
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache'
+    }
+  });
+
+  const people = response.data?.people || [];
+  const contacts = response.data?.contacts || [];
+  const allResults = [...people, ...contacts];
+
+  console.log(`[Apollo] Boolean search complete with SINGLE API call: ${allResults.length} results for ${terms.length} terms`);
+
+  return { people: allResults };
+}
+
+// Updated parser: Extract terms for person_titles array (no complex Boolean logic needed)
+function parseBooleanQueryForPersonTitles(query: string): string[] {
+  console.log('[Apollo] Parsing Boolean query for person_titles array:', query);
+  
+  const terms: string[] = [];
+  
+  // Extract quoted phrases (exact titles)
+  const quotedMatches = query.match(/"([^"]+)"/g);
+  if (quotedMatches) {
+    quotedMatches.forEach(match => {
+      const term = match.replace(/"/g, '').trim();
+      if (term) terms.push(term);
+    });
+  }
+  
+  // Extract non-quoted terms (exclude Boolean operators and parentheses)
+  const remainingQuery = query.replace(/"[^"]+"/g, ''); // Remove quoted parts
+  const words = remainingQuery.split(/\s+/)
+    .filter(word => word.trim() && !['AND', 'OR', 'NOT', '(', ')'].includes(word.toUpperCase()))
+    .filter(word => word.length > 1);
+    
+  words.forEach(word => {
+    if (!terms.includes(word)) {
+      terms.push(word);
+    }
+  });
+
+  console.log('[Apollo] Final person_titles array terms:', terms);
+  return terms.slice(0, 10); // Reasonable limit for person_titles array
 }
 
 export async function enrichBatch(apiKey: string, ids: string[]): Promise<EnrichedPerson[]> {
