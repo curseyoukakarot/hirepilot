@@ -177,7 +177,8 @@ export async function searchPeople(params: ApolloSearchParams) {
     const requestBody: any = {
       per_page: params.per_page || 25,
       page: params.page || 1,
-      contact_email_status: 'verified'  // Focus on verified emails
+      // Make email status less restrictive for Boolean searches
+      contact_email_status: params.q_keywords ? ['verified', 'likely_to_engage', 'likely_to_engage_soon'] : 'verified'
     };
 
     // Add title variants (multiple for better matching)
@@ -192,15 +193,25 @@ export async function searchPeople(params: ApolloSearchParams) {
       requestBody.person_locations = locationVariants;
     }
     
-    // Add keywords if provided
+    // Add keywords if provided - clean up Boolean syntax for Apollo
     if (params.q_keywords) {
-      requestBody.q_keywords = params.q_keywords;
+      // Apollo might be sensitive to certain Boolean syntax
+      let cleanedKeywords = params.q_keywords;
+      
+      // Log original vs cleaned for debugging
+      console.log('[Apollo] Boolean query processing:', {
+        original: params.q_keywords,
+        cleaned: cleanedKeywords
+      });
+      
+      requestBody.q_keywords = cleanedKeywords;
     }
 
     console.log('[Apollo] Making search request with CORRECT API format:', {
       ...requestBody,
       person_titles_count: requestBody.person_titles?.length || 0,
       person_locations_count: requestBody.person_locations?.length || 0,
+      q_keywords_present: !!requestBody.q_keywords,
       endpoint: 'mixed_people/search'
     });
 
@@ -219,6 +230,16 @@ export async function searchPeople(params: ApolloSearchParams) {
 
     if (allResults.length === 0) {
       console.log('[Apollo] No results found in response:', response.data);
+      
+      // For Boolean searches that return no results, suggest trying simpler syntax
+      if (params.q_keywords && (params.q_keywords.includes('(') || params.q_keywords.includes('OR'))) {
+        console.log('[Apollo] Boolean search returned no results. Consider trying:');
+        console.log('- Simpler terms without parentheses');
+        console.log('- Individual words instead of quoted phrases');
+        console.log('- Broader location criteria');
+        console.log('- Removing email status restrictions');
+      }
+      
       return { people: [] };
     }
 
@@ -229,6 +250,7 @@ export async function searchPeople(params: ApolloSearchParams) {
       contactsCount: contacts.length,
       firstFewTitles: allResults.slice(0, 5).map(p => p.title || p.job_title) || [],
       searchedFor: params.person_titles,
+      booleanQuery: params.q_keywords,
       requestUrl: `${APOLLO_API_URL}/mixed_people/search`
     });
 

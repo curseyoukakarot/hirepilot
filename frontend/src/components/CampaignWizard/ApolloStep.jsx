@@ -239,6 +239,17 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
       setSelectedLeads(data.leads.map(lead => lead.id));
       setSearchCompleted(true);
       
+      // Show helpful message if Boolean search returned no results
+      if (data.leads.length === 0 && booleanSearchEnabled) {
+        toast.error('No results found for Boolean search. Try simpler terms or disable Boolean mode.', {
+          duration: 6000
+        });
+        setError('Boolean search returned no results. Try: 1) Simpler terms without quotes, 2) Individual words instead of complex operators, 3) Broader location criteria, or 4) Disable Boolean search for regular matching.');
+      } else if (data.leads.length === 0) {
+        toast.error('No results found. Try different search terms or location.');
+        setError('No leads found matching your criteria. Try adjusting your search terms or location.');
+      }
+      
       // Update wizard state
       setWizard(prev => ({
         ...prev,
@@ -439,7 +450,7 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
                 id="keywords"
                 className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
                 placeholder={booleanSearchEnabled 
-                  ? 'e.g. ("VP Marketing" OR "Head of Growth") AND SaaS AND NOT intern'
+                  ? 'e.g. Director OR VP, "Product Manager" AND SaaS, Manager NOT Assistant'
                   : "e.g. Director of Product Management"
                 }
                 value={keywordsInput}
@@ -451,7 +462,17 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
                 <p className="text-sm text-blue-800">
                   <strong>Boolean Search Syntax:</strong> Use AND, OR, NOT operators with quotes for exact phrases.
                   <br />
-                  Example: <code className="bg-blue-100 px-1 rounded">("Marketing Director" OR "VP Marketing") AND SaaS AND NOT intern</code>
+                  <strong>Examples:</strong>
+                  <br />
+                  • <code className="bg-blue-100 px-1 rounded">Director AND Marketing</code> (both terms required)
+                  <br />
+                  • <code className="bg-blue-100 px-1 rounded">VP OR Director</code> (either term)
+                  <br />
+                  • <code className="bg-blue-100 px-1 rounded">"Product Manager" AND SaaS</code> (exact phrase + keyword)
+                  <br />
+                  • <code className="bg-blue-100 px-1 rounded">Manager NOT Assistant</code> (exclude terms)
+                  <br />
+                  <span className="text-blue-600">💡 Tip: Start simple and add complexity gradually if no results.</span>
                 </p>
               </div>
             )}
