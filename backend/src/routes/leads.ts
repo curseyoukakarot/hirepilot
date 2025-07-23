@@ -77,7 +77,14 @@ router.post('/apollo/search', requireAuth, async (req: Request, res: Response) =
       return;
     }
 
-    const { jobTitle, keywords, location } = req.body;
+    const { jobTitle, keywords, location, booleanSearch } = req.body;
+
+    console.log('[Apollo Search] Request parameters:', {
+      jobTitle,
+      keywords,
+      location,
+      booleanSearch
+    });
 
     // 1. Check for active Apollo integration
     const { data: integration } = await supabase
@@ -156,14 +163,28 @@ router.post('/apollo/search', requireAuth, async (req: Request, res: Response) =
       // Use the CORRECT Apollo API format that actually works
       const { searchAndEnrichPeople } = await import('../../utils/apolloApi');
       
-      const searchParams = {
+      const searchParams: any = {
         api_key: process.env.SUPER_ADMIN_APOLLO_API_KEY,
-        person_titles: jobTitle ? [jobTitle] : undefined,  // ✅ Correct parameter name
-        q_keywords: keywords,                              // ✅ Keep keywords separate  
         person_locations: location ? [location] : undefined, // ✅ Correct parameter name
         page: 1,
         per_page: 100
       };
+
+      // Handle Boolean search mode
+      if (booleanSearch && keywords) {
+        // Boolean mode: Use only q_keywords, don't use person_titles
+        searchParams.q_keywords = keywords.trim();
+        console.log('[Apollo Search] Boolean mode enabled - using q_keywords only:', searchParams.q_keywords);
+      } else {
+        // Regular mode: Use person_titles for job title and q_keywords for additional keywords
+        if (jobTitle) {
+          searchParams.person_titles = [jobTitle];
+        }
+        if (keywords) {
+          searchParams.q_keywords = keywords;
+        }
+        console.log('[Apollo Search] Regular mode - using person_titles and q_keywords separately');
+      }
 
       console.log('[Apollo Search] PRIVILEGED USER - Using WORKING Apollo implementation:', {
         ...searchParams,
@@ -188,14 +209,28 @@ router.post('/apollo/search', requireAuth, async (req: Request, res: Response) =
       // Use the CORRECT Apollo API format that actually works
       const { searchAndEnrichPeople } = await import('../../utils/apolloApi');
       
-      const searchParams = {
+      const searchParams: any = {
         api_key: settings.apollo_api_key,
-        person_titles: jobTitle ? [jobTitle] : undefined,  // ✅ Correct parameter name
-        q_keywords: keywords,                              // ✅ Keep keywords separate  
         person_locations: location ? [location] : undefined, // ✅ Correct parameter name
         page: 1,
         per_page: 100
       };
+
+      // Handle Boolean search mode
+      if (booleanSearch && keywords) {
+        // Boolean mode: Use only q_keywords, don't use person_titles
+        searchParams.q_keywords = keywords.trim();
+        console.log('[Apollo Search] Boolean mode enabled - using q_keywords only:', searchParams.q_keywords);
+      } else {
+        // Regular mode: Use person_titles for job title and q_keywords for additional keywords
+        if (jobTitle) {
+          searchParams.person_titles = [jobTitle];
+        }
+        if (keywords) {
+          searchParams.q_keywords = keywords;
+        }
+        console.log('[Apollo Search] Regular mode - using person_titles and q_keywords separately');
+      }
 
       console.log('[Apollo Search] USER API KEY - Using WORKING Apollo implementation:', {
         ...searchParams,
@@ -216,14 +251,28 @@ router.post('/apollo/search', requireAuth, async (req: Request, res: Response) =
       // Use the CORRECT Apollo API format that actually works
       const { searchAndEnrichPeople } = await import('../../utils/apolloApi');
       
-      const searchParams = {
+      const searchParams: any = {
         api_key: superKey,
-        person_titles: jobTitle ? [jobTitle] : undefined,  // ✅ Correct parameter name
-        q_keywords: keywords,                              // ✅ Keep keywords separate  
         person_locations: location ? [location] : undefined, // ✅ Correct parameter name
         page: 1,
         per_page: 100
       };
+
+      // Handle Boolean search mode
+      if (booleanSearch && keywords) {
+        // Boolean mode: Use only q_keywords, don't use person_titles
+        searchParams.q_keywords = keywords.trim();
+        console.log('[Apollo Search] Boolean mode enabled - using q_keywords only:', searchParams.q_keywords);
+      } else {
+        // Regular mode: Use person_titles for job title and q_keywords for additional keywords
+        if (jobTitle) {
+          searchParams.person_titles = [jobTitle];
+        }
+        if (keywords) {
+          searchParams.q_keywords = keywords;
+        }
+        console.log('[Apollo Search] Regular mode - using person_titles and q_keywords separately');
+      }
 
       console.log('[Apollo Search] FINAL FALLBACK - Using WORKING Apollo implementation:', {
         ...searchParams,

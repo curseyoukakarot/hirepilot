@@ -14,7 +14,7 @@ const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // POST /api/leads/apollo/search
 router.post('/search', requireAuth, async (req, res) => {
-  const { jobTitle, job_title, keywords, location } = req.body;
+  const { jobTitle, job_title, keywords, location, booleanSearch } = req.body;
   const userId = req.user?.id;
 
   // Handle both parameter formats (camelCase and snake_case)
@@ -24,6 +24,7 @@ router.post('/search', requireAuth, async (req, res) => {
       jobTitle: actualJobTitle, 
       keywords, 
       location,
+      booleanSearch,
       original_body: req.body 
     });
 
@@ -32,6 +33,7 @@ router.post('/search', requireAuth, async (req, res) => {
       'Frontend keywords': req.body.keywords,
       'Backend actualJobTitle': actualJobTitle,
       'Backend keywords': keywords,
+      'Backend booleanSearch': booleanSearch,
       'actualJobTitle exists?': !!actualJobTitle,
       'keywords exists?': !!keywords
     });
@@ -82,6 +84,15 @@ router.post('/search', requireAuth, async (req, res) => {
       return;
     }
 
+    // Validate Boolean search string if enabled
+    if (booleanSearch && keywords) {
+      const sanitizedKeywords = validateAndSanitizeBooleanSearch(keywords);
+      if (!sanitizedKeywords) {
+        res.status(400).json({ error: 'Invalid Boolean search syntax. Please check your query and try again.' });
+        return;
+      }
+    }
+
     // Construct search params
     const searchParams: ApolloSearchParams = {
       api_key: apiKey,
@@ -89,25 +100,22 @@ router.post('/search', requireAuth, async (req, res) => {
       per_page: 100
     };
 
-    // Add search criteria - TESTING: Apollo may ignore person_titles!
-    if (actualJobTitle && !keywords) {
-      // If only job title, put it in q_keywords (Apollo may ignore person_titles)
-      searchParams.q_keywords = actualJobTitle;
-      console.log('[Apollo Search] TEST: Job title only - putting in q_keywords');
-    } else if (actualJobTitle && keywords) {
-      // If both, combine them in q_keywords
-      searchParams.q_keywords = `${actualJobTitle} ${keywords}`;
-      console.log('[Apollo Search] TEST: Both fields - combining in q_keywords');
-    } else if (keywords) {
-      // If only keywords
-      searchParams.q_keywords = keywords;
-      console.log('[Apollo Search] TEST: Keywords only - using q_keywords');
+    // Handle Boolean search mode vs regular mode
+    if (booleanSearch && keywords) {
+      // Boolean mode: Use only q_keywords, don't use person_titles to avoid conflicts
+      searchParams.q_keywords = keywords.trim();
+      console.log('[Apollo Search] Boolean mode enabled - using q_keywords only:', searchParams.q_keywords);
+    } else {
+      // Regular mode: Use person_titles for job title and q_keywords for additional keywords
+      if (actualJobTitle) {
+        searchParams.person_titles = [actualJobTitle];
+      }
+      if (keywords) {
+        searchParams.q_keywords = keywords;
+      }
+      console.log('[Apollo Search] Regular mode - using person_titles and q_keywords separately');
     }
     
-    // Keep person_titles for comparison (but Apollo may ignore it)
-    if (actualJobTitle) {
-      searchParams.person_titles = [actualJobTitle];
-    }
     if (location && location !== 'Any') {
       searchParams.person_locations = [toApolloGeoString(location)];
     }
@@ -122,6 +130,7 @@ router.post('/search', requireAuth, async (req, res) => {
       'person_titles': searchParams.person_titles,
       'q_keywords': searchParams.q_keywords,
       'person_locations': searchParams.person_locations,
+      'Boolean mode enabled?': booleanSearch && !!keywords,
       'Will Apollo see job title?': !!searchParams.person_titles?.length,
       'Will Apollo see keywords?': !!searchParams.q_keywords
     });
@@ -407,3 +416,32 @@ router.post('/save-key', requireAuth, async (req, res) => {
 });
 
 export default router; 
+
+// Helper function to validate and sanitize Boolean search strings
+function validateAndSanitizeBooleanSearch(query: string): string | null {
+  if (!query || typeof query !== 'string') {
+    return null;
+  }
+
+  const sanitized = query.trim();
+  
+  // Basic validation - check for balanced parentheses
+  let openParens = 0;
+  for (const char of sanitized) {
+    if (char === '(') openParens++;
+    if (char === ')') openParens--;
+    if (openParens < 0) return null; // More closing than opening
+  }
+  if (openParens !== 0) return null; // Unmatched parentheses
+
+  // Check for basic Boolean operators (case insensitive)
+  const hasValidOperators = /\b(AND|OR|NOT)\b/i.test(sanitized);
+  const hasQuotes = /"[^"]*"/.test(sanitized);
+  
+  // Allow if it has Boolean operators OR quoted phrases (or just plain text)
+  if (sanitized.length > 0) {
+    return sanitized;
+  }
+  
+  return null;
+} 

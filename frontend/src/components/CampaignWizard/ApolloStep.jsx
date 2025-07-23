@@ -110,6 +110,7 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
   const BACKEND = import.meta.env.VITE_BACKEND_URL;
   const [isSearching, setIsSearching] = useState(false);
   const [searchCompleted, setSearchCompleted] = useState(false);
+  const [booleanSearchEnabled, setBooleanSearchEnabled] = useState(false);
 
   // add fetch helper
   const fetchWithAuth = async (supabaseClient, url, options = {}) => {
@@ -208,7 +209,8 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
         job_title: jobTitleInput.trim(),
         keywords: keywordsInput.trim(),
         location: locationInput.trim(),
-        num_leads: numLeads
+        num_leads: numLeads,
+        booleanSearch: booleanSearchEnabled
       };
 
       console.log('[ApolloStep] Searching with payload:', searchPayload);
@@ -414,19 +416,45 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
           </div>
 
           <div className="mt-6">
-            <label htmlFor="keywords" className="block text-sm font-medium text-gray-700">
-              Job Title *
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label htmlFor="keywords" className="block text-sm font-medium text-gray-700">
+                Job Title *
+              </label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="boolean-search"
+                  checked={booleanSearchEnabled}
+                  onChange={(e) => setBooleanSearchEnabled(e.target.checked)}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor="boolean-search" className="text-sm text-gray-600">
+                  Enable Boolean Search
+                </label>
+              </div>
+            </div>
             <div className="mt-1">
               <input
                 type="text"
                 id="keywords"
                 className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                placeholder="e.g. Director of Product Management"
+                placeholder={booleanSearchEnabled 
+                  ? 'e.g. ("VP Marketing" OR "Head of Growth") AND SaaS AND NOT intern'
+                  : "e.g. Director of Product Management"
+                }
                 value={keywordsInput}
                 onChange={(e) => setKeywordsInput(e.target.value)}
               />
             </div>
+            {booleanSearchEnabled && (
+              <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                <p className="text-sm text-blue-800">
+                  <strong>Boolean Search Syntax:</strong> Use AND, OR, NOT operators with quotes for exact phrases.
+                  <br />
+                  Example: <code className="bg-blue-100 px-1 rounded">("Marketing Director" OR "VP Marketing") AND SaaS AND NOT intern</code>
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end mt-6">
