@@ -184,7 +184,19 @@ export async function searchPeople(params: ApolloSearchParams) {
     // Add title variants (multiple for better matching)
     if (params.person_titles && params.person_titles.length > 0) {
       const titleVariants = expandTitleVariants(params.person_titles[0]);
-      requestBody.person_titles = titleVariants;
+      
+      // Check if this looks like Boolean syntax - if so, don't expand variants
+      const isBooleanSyntax = /\b(AND|OR|NOT)\b/i.test(params.person_titles[0]);
+      
+      if (isBooleanSyntax) {
+        // Use Boolean syntax as-is, don't expand variants
+        requestBody.person_titles = params.person_titles;
+        console.log('[Apollo] Using Boolean syntax in person_titles:', params.person_titles[0]);
+      } else {
+        // Regular title search - expand variants for better matching
+        requestBody.person_titles = titleVariants;
+        console.log('[Apollo] Expanding title variants for regular search:', titleVariants.length);
+      }
     }
     
     // Add location variants (proper Apollo format)
@@ -211,6 +223,7 @@ export async function searchPeople(params: ApolloSearchParams) {
       ...requestBody,
       person_titles_count: requestBody.person_titles?.length || 0,
       person_locations_count: requestBody.person_locations?.length || 0,
+      has_boolean_titles: requestBody.person_titles?.some(title => /\b(AND|OR|NOT)\b/i.test(title)) || false,
       q_keywords_present: !!requestBody.q_keywords,
       endpoint: 'mixed_people/search'
     });
@@ -232,8 +245,8 @@ export async function searchPeople(params: ApolloSearchParams) {
       console.log('[Apollo] No results found in response:', response.data);
       
       // For Boolean searches that return no results, suggest trying simpler syntax
-      if (params.q_keywords && (params.q_keywords.includes('(') || params.q_keywords.includes('OR'))) {
-        console.log('[Apollo] Boolean search returned no results. Consider trying:');
+      if (params.person_titles?.some(title => /\b(AND|OR|NOT)\b/i.test(title))) {
+        console.log('[Apollo] Boolean search in person_titles returned no results. Consider trying:');
         console.log('- Simpler terms without parentheses');
         console.log('- Individual words instead of quoted phrases');
         console.log('- Broader location criteria');
@@ -249,8 +262,9 @@ export async function searchPeople(params: ApolloSearchParams) {
       peopleCount: people.length,
       contactsCount: contacts.length,
       firstFewTitles: allResults.slice(0, 5).map(p => p.title || p.job_title) || [],
-      searchedFor: params.person_titles,
-      booleanQuery: params.q_keywords,
+      searchedTitles: params.person_titles,
+      booleanTitleQuery: params.person_titles?.find(title => /\b(AND|OR|NOT)\b/i.test(title)),
+      keywordQuery: params.q_keywords,
       requestUrl: `${APOLLO_API_URL}/mixed_people/search`
     });
 

@@ -172,9 +172,10 @@ router.post('/apollo/search', requireAuth, async (req: Request, res: Response) =
 
       // Handle Boolean search mode
       if (booleanSearch && keywords) {
-        // Boolean mode: Use only q_keywords, don't use person_titles
-        searchParams.q_keywords = keywords.trim();
-        console.log('[Apollo Search] Boolean mode enabled - using q_keywords only:', searchParams.q_keywords);
+        // Boolean mode: Put Boolean job title search in person_titles, not q_keywords
+        // Apollo supports Boolean syntax in person_titles field
+        searchParams.person_titles = [keywords.trim()];
+        console.log('[Apollo Search] Boolean mode enabled - using person_titles with Boolean syntax:', searchParams.person_titles);
       } else {
         // Regular mode: Use person_titles for job title and q_keywords for additional keywords
         if (jobTitle) {
@@ -218,9 +219,10 @@ router.post('/apollo/search', requireAuth, async (req: Request, res: Response) =
 
       // Handle Boolean search mode
       if (booleanSearch && keywords) {
-        // Boolean mode: Use only q_keywords, don't use person_titles
-        searchParams.q_keywords = keywords.trim();
-        console.log('[Apollo Search] Boolean mode enabled - using q_keywords only:', searchParams.q_keywords);
+        // Boolean mode: Put Boolean job title search in person_titles, not q_keywords
+        // Apollo supports Boolean syntax in person_titles field
+        searchParams.person_titles = [keywords.trim()];
+        console.log('[Apollo Search] Boolean mode enabled - using person_titles with Boolean syntax:', searchParams.person_titles);
       } else {
         // Regular mode: Use person_titles for job title and q_keywords for additional keywords
         if (jobTitle) {
@@ -260,9 +262,10 @@ router.post('/apollo/search', requireAuth, async (req: Request, res: Response) =
 
       // Handle Boolean search mode
       if (booleanSearch && keywords) {
-        // Boolean mode: Use only q_keywords, don't use person_titles
-        searchParams.q_keywords = keywords.trim();
-        console.log('[Apollo Search] Boolean mode enabled - using q_keywords only:', searchParams.q_keywords);
+        // Boolean mode: Put Boolean job title search in person_titles, not q_keywords
+        // Apollo supports Boolean syntax in person_titles field
+        searchParams.person_titles = [keywords.trim()];
+        console.log('[Apollo Search] Boolean mode enabled - using person_titles with Boolean syntax:', searchParams.person_titles);
       } else {
         // Regular mode: Use person_titles for job title and q_keywords for additional keywords
         if (jobTitle) {

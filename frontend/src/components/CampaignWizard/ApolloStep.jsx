@@ -244,7 +244,7 @@ export default function ApolloStep({ onLeadsSelected, defaultJobTitle, defaultKe
         toast.error('No results found for Boolean search. Try simpler terms or disable Boolean mode.', {
           duration: 6000
         });
-        setError('Boolean search returned no results. Try: 1) Simpler terms without quotes, 2) Individual words instead of complex operators, 3) Broader location criteria, or 4) Disable Boolean search for regular matching.');
+        setError('Boolean search returned no results. Try: 1) Simpler Boolean operators (e.g., "VP OR Director"), 2) Individual words instead of complex phrases, 3) Broader location criteria, or 4) Disable Boolean search for regular matching.');
       } else if (data.leads.length === 0) {
         toast.error('No results found. Try different search terms or location.');
         setError('No leads found matching your criteria. Try adjusting your search terms or location.');
