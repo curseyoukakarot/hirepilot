@@ -137,9 +137,9 @@ export default function EmailDeliverability1() {
             <table>
               <thead>
                 <tr>
-                  <th style={{color: 'white !important'}}>Platform</th>
-                  <th style={{color: 'white !important'}}>Max Daily Sends</th>
-                  <th style={{color: 'white !important'}}>Common Spam Triggers</th>
+                  <th style={{color: '#ffffff !important', backgroundColor: 'inherit', fontWeight: 'bold !important', textShadow: 'none !important'}}>Platform</th>
+                  <th style={{color: '#ffffff !important', backgroundColor: 'inherit', fontWeight: 'bold !important', textShadow: 'none !important'}}>Max Daily Sends</th>
+                  <th style={{color: '#ffffff !important', backgroundColor: 'inherit', fontWeight: 'bold !important', textShadow: 'none !important'}}>Common Spam Triggers</th>
                 </tr>
               </thead>
               <tbody>
@@ -182,8 +182,8 @@ export default function EmailDeliverability1() {
 
           {/* Inline CTA 2 */}
           <div id="inline-cta-2" className="bg-gray-800 border border-gray-700 rounded-lg p-6 my-8 text-center">
-            <h3 className="text-xl font-semibold mb-2" style={{color: 'white !important'}}>Need Help with SendGrid Setup?</h3>
-            <p className="mb-4" style={{color: 'white !important'}}>Chat with REX, our AI assistant, for step-by-step guidance on email deliverability.</p>
+            <h3 style={{color: '#ffffff !important', fontSize: '1.25rem !important', fontWeight: '600 !important', marginBottom: '0.5rem !important', textShadow: 'none !important', backgroundColor: 'transparent !important'}}>Need Help with SendGrid Setup?</h3>
+            <p style={{color: '#ffffff !important', marginBottom: '1rem !important', textShadow: 'none !important', backgroundColor: 'transparent !important'}}>Chat with REX, our AI assistant, for step-by-step guidance on email deliverability.</p>
             <a href="/login" className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors inline-block">Chat with REX</a>
           </div>
 
@@ -224,7 +224,7 @@ export default function EmailDeliverability1() {
       {/* Related articles */}
       <div id="related-articles" className="bg-gray-800 py-16">
         <div className="max-w-6xl mx-auto px-6">
-          <h2 className="text-3xl font-bold text-center mb-12" style={{color: 'white !important'}}>Email Deliverability Series</h2>
+          <h2 style={{color: '#ffffff !important', fontSize: '1.875rem !important', fontWeight: '700 !important', textAlign: 'center !important', marginBottom: '3rem !important', textShadow: 'none !important', backgroundColor: 'transparent !important'}}>Email Deliverability Series</h2>
           <div className="grid md:grid-cols-3 gap-8">
             <a href="/blog/email-deliverability-2" className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block">
               <img
@@ -234,7 +234,7 @@ export default function EmailDeliverability1() {
               />
               <div className="p-6">
                 <span className="text-blue-400 text-sm font-medium">Email Deliverability</span>
-                <h3 className="text-xl font-semibold mt-2 mb-3" style={{color: 'white !important'}}>Part 2: Protect Your Domain Reputation</h3>
+                <h3 style={{color: '#ffffff !important', fontSize: '1.25rem !important', fontWeight: '600 !important', marginTop: '0.5rem !important', marginBottom: '0.75rem !important', textShadow: 'none !important', backgroundColor: 'transparent !important'}}>Part 2: Protect Your Domain Reputation</h3>
                 <p className="text-gray-400 mb-4">
                   Learn advanced strategies for maintaining a clean sender reputation and avoiding blacklists.
                 </p>
@@ -254,7 +254,7 @@ export default function EmailDeliverability1() {
               />
               <div className="p-6">
                 <span className="text-blue-400 text-sm font-medium">Email Deliverability</span>
-                <h3 className="text-xl font-semibold mt-2 mb-3" style={{color: 'white !important'}}>Part 3: SendGrid Setup Guide</h3>
+                <h3 style={{color: '#ffffff !important', fontSize: '1.25rem !important', fontWeight: '600 !important', marginTop: '0.5rem !important', marginBottom: '0.75rem !important', textShadow: 'none !important', backgroundColor: 'transparent !important'}}>Part 3: SendGrid Setup Guide</h3>
                 <p className="text-gray-400 mb-4">
                   Step-by-step walkthrough for connecting SendGrid to HirePilot and optimizing settings.
                 </p>
@@ -274,7 +274,7 @@ export default function EmailDeliverability1() {
               />
               <div className="p-6">
                 <span className="text-blue-400 text-sm font-medium">Email Deliverability</span>
-                <h3 className="text-xl font-semibold mt-2 mb-3" style={{color: 'white !important'}}>Part 4: Advanced Deliverability Tactics</h3>
+                <h3 style={{color: '#ffffff !important', fontSize: '1.25rem !important', fontWeight: '600 !important', marginTop: '0.5rem !important', marginBottom: '0.75rem !important', textShadow: 'none !important', backgroundColor: 'transparent !important'}}>Part 4: Advanced Deliverability Tactics</h3>
                 <p className="text-gray-400 mb-4">
                   Pro strategies for warming up domains, managing IP reputation, and monitoring metrics.
                 </p>
