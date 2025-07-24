@@ -148,6 +148,38 @@ export default function Pricing() {
           </div>
         </div>
 
+        {/* ROI Comparison Section */}
+        <div id="roi-comparison" className="bg-white py-20 px-6">
+          <div className="max-w-4xl mx-auto text-center">
+            <span className="inline-block text-blue-600 bg-blue-50 rounded-full px-4 py-1 text-sm mb-4">Why HirePilot</span>
+            <h2 className="text-3xl font-bold text-gray-900 mb-6">What You'd Pay Without HirePilot</h2>
+            <p className="text-gray-600 mb-10 max-w-2xl mx-auto">Compare the cost of building your own recruiting stack with what you get inside HirePilot.</p>
+
+            <div className="grid sm:grid-cols-2 gap-6 text-left max-w-3xl mx-auto">
+              <div className="flex items-center justify-between bg-gray-50 border border-gray-200 p-4 rounded-xl shadow-sm">
+                <span className="text-gray-700 font-medium">Sourcer</span>
+                <span className="text-red-600 font-semibold">$2,000/mo</span>
+              </div>
+              <div className="flex items-center justify-between bg-gray-50 border border-gray-200 p-4 rounded-xl shadow-sm">
+                <span className="text-gray-700 font-medium">Recruiter</span>
+                <span className="text-red-600 font-semibold">$5,000/mo</span>
+              </div>
+              <div className="flex items-center justify-between bg-gray-50 border border-gray-200 p-4 rounded-xl shadow-sm">
+                <span className="text-gray-700 font-medium">Outreach Automation</span>
+                <span className="text-red-600 font-semibold">$300/mo</span>
+              </div>
+              <div className="flex items-center justify-between bg-green-50 border border-green-200 p-4 rounded-xl shadow-sm">
+                <span className="text-gray-700 font-medium">HirePilot</span>
+                <span className="text-green-600 font-semibold">$99/mo</span>
+              </div>
+            </div>
+
+            <div className="mt-12 text-center">
+              <p className="text-xl font-bold text-blue-600">→ Save over <span className="text-green-600">$6,000/month</span> and make better hires</p>
+            </div>
+          </div>
+        </div>
+
         {/* Done-For-You Section */}
         <div id="dfy-section" className="bg-gray-900 py-20 px-6">
           <div className="max-w-7xl mx-auto text-center mb-16">
