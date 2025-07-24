@@ -40,48 +40,243 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
     }
 
     // Get lead details for the profile URL
-    const { data: lead } = await supabase
+    const { data: lead, error: leadError } = await supabase
       .from('leads')
-      .select('linkedin_url, name')
+      .select('*')
       .eq('id', leadId)
+      .eq('user_id', userId)  // Security: ensure user owns this lead
       .single();
 
-    if (!lead) {
+    if (leadError || !lead) {
       return res.status(404).json({
         success: false,
-        message: 'Lead not found'
+        message: 'Lead not found or access denied'
       });
     }
 
-    // Call our new enrichment endpoint internally
-    const enrichmentRequest = {
-      leadId: leadId,
-      profileUrl: lead.linkedin_url || `https://linkedin.com/in/${lead.name?.toLowerCase().replace(/\s+/g, '-')}`
-    };
+    console.log(`[LeadEnrich] Starting enrichment for lead: ${lead.first_name} ${lead.last_name}`);
 
-    // Make internal request to our new endpoint
-    const enrichResponse = await fetch(`http://localhost:${process.env.PORT || 8080}/api/leads/enrich`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': req.headers.authorization || ''
-      },
-      body: JSON.stringify(enrichmentRequest)
-    });
+    let enrichmentData: any = {};
+    let enrichmentSource = 'none';
+    let errorMessages: string[] = [];
 
-    const enrichResult = await enrichResponse.json();
+    // STEP 1: Try Decodo first (with LinkedIn authentication)
+    if (lead.linkedin_url) {
+      try {
+        console.log('[LeadEnrich] Step 1: Attempting Decodo enrichment...');
+        
+        // Import the enrichWithDecodo function from the enrichLeadProfile module
+        const enrichLeadProfileModule = await import('./leads/decodo/enrichLeadProfile');
+        
+        // The function is not exported, so we'll call the Decodo logic directly
+        const { getDecodoClient } = await import('../utils/decodo');
+        const { decryptCookie } = await import('../utils/encryption');
+        
+        // Get LinkedIn cookie for authenticated scraping
+        const { data: cookieData } = await supabase
+          .from('linkedin_cookies')
+          .select('encrypted_cookie, valid')
+          .eq('user_id', userId)
+          .eq('valid', true)
+          .single();
 
-    if (!enrichResponse.ok) {
-      return res.status(enrichResponse.status).json(enrichResult);
+        let linkedinCookie = null;
+        if (cookieData?.encrypted_cookie) {
+          try {
+            linkedinCookie = decryptCookie(cookieData.encrypted_cookie);
+            await supabase
+              .from('linkedin_cookies')
+              .update({ last_used_at: new Date().toISOString() })
+              .eq('user_id', userId);
+          } catch (error) {
+            console.warn('[LeadEnrich] Failed to decrypt LinkedIn cookie:', error);
+          }
+        }
+
+        const decodoClient = getDecodoClient();
+        const html = await decodoClient.scrapeLinkedInProfile(lead.linkedin_url, linkedinCookie);
+
+        if (html && !html.includes('Sign in to LinkedIn')) {
+          // Parse the LinkedIn profile data using Cheerio
+          const { parseLinkedInProfile } = await import('../utils/cheerio/salesNavParser');
+          const profileData = parseLinkedInProfile(html);
+
+          if (profileData.headline || profileData.summary || profileData.experience?.length || profileData.email) {
+            enrichmentData.decodo = {
+              ...profileData,
+              enriched_at: new Date().toISOString()
+            };
+            enrichmentSource = 'decodo';
+            console.log('[LeadEnrich] ✅ Decodo enrichment successful');
+          }
+        } else {
+          console.log('[LeadEnrich] ❌ Decodo failed: LinkedIn authentication required');
+          errorMessages.push('Decodo: LinkedIn authentication required');
+        }
+      } catch (error: any) {
+        console.warn('[LeadEnrich] ❌ Decodo enrichment failed:', error.message);
+        errorMessages.push(`Decodo: ${error.message}`);
+      }
     }
 
-    return res.status(200).json(enrichResult);
+    // STEP 2: If Decodo didn't find email, try Hunter.io
+    if (!enrichmentData.decodo?.email) {
+      try {
+        console.log('[LeadEnrich] Step 2: Trying Hunter.io email enrichment...');
+        const { enrichWithHunter } = await import('../../services/hunter/enrichLead');
+        
+        const fullName = `${lead.first_name} ${lead.last_name}`.trim();
+        const domain = lead.company ? lead.company.toLowerCase().replace(/[^a-z0-9]/g, '') + '.com' : 'unknown.com';
+        
+        const hunterResult = await enrichWithHunter(process.env.HUNTER_API_KEY || '', fullName, domain);
+        
+        if (hunterResult) {
+          enrichmentData.hunter = {
+            email: hunterResult,
+            enriched_at: new Date().toISOString()
+          };
+          if (enrichmentSource === 'none') enrichmentSource = 'hunter';
+          console.log('[LeadEnrich] ✅ Hunter.io enrichment successful');
+        } else {
+          console.log('[LeadEnrich] ❌ Hunter.io: No email found');
+          errorMessages.push('Hunter: No email found');
+        }
+      } catch (error: any) {
+        console.warn('[LeadEnrich] ❌ Hunter enrichment failed:', error.message);
+        errorMessages.push(`Hunter: ${error.message}`);
+      }
+    }
+
+    // STEP 3: If still no email, try Skrapp.io
+    if (!enrichmentData.decodo?.email && !enrichmentData.hunter?.email) {
+      try {
+        console.log('[LeadEnrich] Step 3: Trying Skrapp.io email enrichment...');
+        const { enrichWithSkrapp } = await import('../../services/skrapp/enrichLead');
+        
+        const fullName = `${lead.first_name} ${lead.last_name}`.trim();
+        const domain = lead.company ? lead.company.toLowerCase().replace(/[^a-z0-9]/g, '') + '.com' : 'unknown.com';
+        
+        const skrappResult = await enrichWithSkrapp(process.env.SKRAPP_API_KEY || '', fullName, domain);
+        
+        if (skrappResult) {
+          enrichmentData.skrapp = {
+            email: skrappResult,
+            enriched_at: new Date().toISOString()
+          };
+          if (enrichmentSource === 'none') enrichmentSource = 'skrapp';
+          console.log('[LeadEnrich] ✅ Skrapp.io enrichment successful');
+        } else {
+          console.log('[LeadEnrich] ❌ Skrapp.io: No email found');
+          errorMessages.push('Skrapp: No email found');
+        }
+      } catch (error: any) {
+        console.warn('[LeadEnrich] ❌ Skrapp enrichment failed:', error.message);
+        errorMessages.push(`Skrapp: ${error.message}`);
+      }
+    }
+
+    // STEP 4: Final fallback to Apollo (only if no email found)
+    if (!enrichmentData.decodo?.email && !enrichmentData.hunter?.email && !enrichmentData.skrapp?.email) {
+      try {
+        console.log('[LeadEnrich] Step 4: Using Apollo as final fallback...');
+        const apolloResult = await enrichWithApollo({
+          leadId: leadId,
+          userId: userId,
+          firstName: lead.first_name,
+          lastName: lead.last_name,
+          company: lead.company,
+          linkedinUrl: lead.linkedin_url
+        });
+
+        if (apolloResult && apolloResult.success && apolloResult.data) {
+          enrichmentData.apollo = {
+            ...apolloResult.data,
+            used_as_fallback: true,
+            enriched_at: new Date().toISOString()
+          };
+          if (enrichmentSource === 'none') enrichmentSource = 'apollo';
+          console.log('[LeadEnrich] ✅ Apollo enrichment successful (fallback)');
+        } else {
+          console.log('[LeadEnrich] ❌ Apollo: No data found');
+          errorMessages.push('Apollo: No data found');
+        }
+      } catch (error: any) {
+        console.warn('[LeadEnrich] ❌ Apollo enrichment failed:', error.message);
+        errorMessages.push(`Apollo: ${error.message}`);
+      }
+    }
+
+    // Update lead with enrichment data
+    const updateData: any = {
+      enrichment_data: {
+        ...(lead.enrichment_data || {}),
+        ...enrichmentData,
+        last_enrichment_attempt: {
+          attempted_at: new Date().toISOString(),
+          source: enrichmentSource,
+          errors: errorMessages
+        }
+      },
+      updated_at: new Date().toISOString()
+    };
+
+    // Extract primary email to lead.email field (priority: Decodo > Hunter > Skrapp > Apollo)
+    const primaryEmail = enrichmentData.decodo?.email || 
+                        enrichmentData.hunter?.email || 
+                        enrichmentData.skrapp?.email || 
+                        enrichmentData.apollo?.email;
+    
+    if (primaryEmail && !primaryEmail.includes('email_not_unlocked')) {
+      updateData.email = primaryEmail;
+    }
+
+    // Extract primary phone if available
+    const primaryPhone = enrichmentData.apollo?.phone || enrichmentData.decodo?.phone;
+    if (primaryPhone) {
+      updateData.phone = primaryPhone;
+    }
+
+    // Extract title/headline if available  
+    const headline = enrichmentData.decodo?.headline || 
+                    enrichmentData.apollo?.title || 
+                    enrichmentData.apollo?.headline;
+    if (headline) {
+      updateData.title = headline;
+    }
+
+    const { data: updatedLead, error: updateError } = await supabase
+      .from('leads')
+      .update(updateData)
+      .eq('id', leadId)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('[LeadEnrich] Failed to update lead:', updateError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to save enrichment data'
+      });
+    }
+
+    console.log(`[LeadEnrich] Enrichment completed. Source: ${enrichmentSource}`);
+
+    // Return updated lead with enrichment status
+    return res.status(200).json({
+      ...updatedLead,
+      enrichment_status: {
+        source: enrichmentSource,
+        success: enrichmentSource !== 'none',
+        errors: errorMessages
+      }
+    });
 
   } catch (error: any) {
     console.error('[LeadEnrich] Error in compatibility endpoint:', error);
     return res.status(500).json({
       success: false,
-      message: 'Internal server error during enrichment'
+      message: 'Internal server error during enrichment',
+      error: error.message
     });
   }
 });
