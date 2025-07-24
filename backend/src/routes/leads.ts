@@ -18,6 +18,75 @@ console.log('Registering leads routes...');
 
 // Mount Decodo routes
 router.use('/', decodoRouter);
+
+// Add compatibility route for frontend that expects /api/leads/:id/enrich
+router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const leadId = req.params.id;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User authentication required'
+      });
+    }
+
+    if (!leadId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Lead ID is required'
+      });
+    }
+
+    // Get lead details for the profile URL
+    const { data: lead } = await supabase
+      .from('leads')
+      .select('linkedin_url, name')
+      .eq('id', leadId)
+      .single();
+
+    if (!lead) {
+      return res.status(404).json({
+        success: false,
+        message: 'Lead not found'
+      });
+    }
+
+    // Call our new enrichment endpoint internally
+    const enrichmentRequest = {
+      leadId: leadId,
+      profileUrl: lead.linkedin_url || `https://linkedin.com/in/${lead.name?.toLowerCase().replace(/\s+/g, '-')}`
+    };
+
+    // Make internal request to our new endpoint
+    const enrichResponse = await fetch(`http://localhost:${process.env.PORT || 8080}/api/leads/enrich`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': req.headers.authorization || ''
+      },
+      body: JSON.stringify(enrichmentRequest)
+    });
+
+    const enrichResult = await enrichResponse.json();
+
+    if (!enrichResponse.ok) {
+      return res.status(enrichResponse.status).json(enrichResult);
+    }
+
+    return res.status(200).json(enrichResult);
+
+  } catch (error: any) {
+    console.error('[LeadEnrich] Error in compatibility endpoint:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error during enrichment'
+    });
+  }
+});
+
+// Mount the new Decodo enrichment router
 router.use('/', enrichmentRouter);
 
 // GET /api/leads/candidates - fetch all candidates for the authenticated user
