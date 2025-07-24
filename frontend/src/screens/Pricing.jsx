@@ -111,7 +111,6 @@ export default function Pricing() {
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Everything in Starter plus:</span></li>
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>1000 credits/month</span></li>
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Connect to Zapier or Make</span></li>
-                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Access to live customer chat support</span></li>
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Access to REX - your Recruiting AI assistant</span></li>
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Credit rollover</span></li>
               </ul>
@@ -140,6 +139,7 @@ export default function Pricing() {
               <ul className="space-y-4 mb-8">
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>5,000 credits/month</span></li>
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>5 users</span></li>
+                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Access to live customer chat support</span></li>
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Hiring Scaling Support</span></li>
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>API Access</span></li>
               </ul>
