@@ -7,6 +7,8 @@ import { ApiRequest } from '../../../../types/api';
 import { enrichWithHunter } from '../../../../services/hunter/enrichLead';
 import { enrichWithSkrapp } from '../../../../services/skrapp/enrichLead';
 import { enrichLead as enrichWithApollo } from '../../../../services/apollo/enrichLead';
+import { decryptCookie } from '../../../utils/encryption';
+import { getDecodoClient } from '../../../utils/decodo';
 
 const router = express.Router();
 
@@ -164,8 +166,51 @@ function parseLinkedInProfile(html: string): any {
   }
 }
 
+/**
+ * Retrieve user's LinkedIn cookie for enrichment
+ */
+async function getUserLinkedInCookie(userId: string): Promise<string | null> {
+  try {
+    const { data: cookieData, error } = await supabase
+      .from('linkedin_cookies')
+      .select('encrypted_cookie, valid, expires_at')
+      .eq('user_id', userId)
+      .eq('valid', true)
+      .single();
+
+    if (error || !cookieData) {
+      console.log(`[EnrichmentAuth] No valid cookie found for user ${userId}`);
+      return null;
+    }
+
+    // Check if cookie is expired
+    if (cookieData.expires_at) {
+      const expiresAt = new Date(cookieData.expires_at);
+      if (expiresAt < new Date()) {
+        console.log(`[EnrichmentAuth] Cookie expired for user ${userId}`);
+        return null;
+      }
+    }
+
+    // Decrypt and return cookie
+    const decryptedCookie = decryptCookie(cookieData.encrypted_cookie);
+    
+    // Update last_used_at timestamp
+    await supabase
+      .from('linkedin_cookies')
+      .update({ last_used_at: new Date().toISOString() })
+      .eq('user_id', userId);
+
+    return decryptedCookie;
+
+  } catch (error: any) {
+    console.error('[EnrichmentAuth] Error retrieving cookie:', error.message);
+    return null;
+  }
+}
+
 // STEP 1: Decodo Profile Scraping
-async function enrichWithDecodo(profileUrl: string): Promise<EnrichmentResult> {
+async function enrichWithDecodo(profileUrl: string, userId: string): Promise<EnrichmentResult | null> {
   if (!DECODO_API_KEY) {
     return {
       source: 'decodo',
@@ -175,78 +220,42 @@ async function enrichWithDecodo(profileUrl: string): Promise<EnrichmentResult> {
   }
 
   try {
-    console.log('[enrichWithDecodo] Starting profile scrape for:', profileUrl);
-
-    // Submit scraping task
-    const taskResponse = await axios.post(DECODO_API_URL, {
-      url: profileUrl,
-      render: true,
-      geo: "us",
-      proxy_type: "residential",
-      user_agent: "desktop"
-    }, {
-      headers: {
-        'Authorization': `Bearer ${DECODO_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      timeout: 30000
-    });
-
-    const taskId = taskResponse.data.task_id;
-    console.log('[enrichWithDecodo] Task submitted:', taskId);
-
-    // Poll for completion
-    let attempts = 0;
-    const maxAttempts = 20;
+    console.log('[Enrichment] Attempting Decodo profile enrichment');
     
-    while (attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      const statusResponse = await axios.get(`${DECODO_API_URL}/${taskId}`, {
-        headers: {
-          'Authorization': `Bearer ${DECODO_API_KEY}`
-        },
-        timeout: 10000
-      });
-
-      const result: DecodoProfileResponse = statusResponse.data;
-      
-      if (result.status === 'completed' && result.html) {
-        console.log('[enrichWithDecodo] Profile scraping completed');
-        
-        // Parse the HTML to extract profile data
-        const profileData = parseLinkedInProfile(result.html);
-        
-        return {
-          source: 'decodo',
-          success: true,
-          data: profileData,
-          confidence: 85
-        };
-      } else if (result.status === 'failed') {
-        return {
-          source: 'decodo',
-          success: false,
-          error: result.error || 'Scraping task failed'
-        };
+    // Get LinkedIn authentication cookie
+    const linkedinCookie = await getUserLinkedInCookie(userId);
+    
+    const decodoClient = getDecodoClient();
+    const html = await decodoClient.scrapeLinkedInProfile(profileUrl, linkedinCookie);
+    
+    if (!html || html.includes('Sign in to LinkedIn')) {
+      if (linkedinCookie) {
+        // Cookie might be invalid, mark it
+        await supabase
+          .from('linkedin_cookies')
+          .update({ valid: false })
+          .eq('user_id', userId);
+        console.warn('[Enrichment] LinkedIn authentication failed, cookie marked as invalid');
       }
-      
-      attempts++;
+      return null;
     }
-
-    return {
-      source: 'decodo',
-      success: false,
-      error: 'Scraping timeout - task did not complete'
-    };
-
+    
+    const profileData = parseLinkedInProfile(html);
+    
+    if (profileData.headline || profileData.summary || profileData.experience?.length) {
+      console.log('[Enrichment] Decodo enrichment successful');
+      return {
+        success: true,
+        source: 'decodo',
+        data: profileData
+      };
+    }
+    
+    return null;
+    
   } catch (error: any) {
-    console.error('[enrichWithDecodo] Error:', error.message);
-    return {
-      source: 'decodo',
-      success: false,
-      error: error.message
-    };
+    console.error('[Enrichment] Decodo enrichment failed:', error.message);
+    return null;
   }
 }
 
@@ -465,12 +474,12 @@ router.post('/enrich', requireAuth, async (req: Request, res: Response) => {
     console.log('[enrichLeadProfile] Step 1: Trying Decodo profile scraping...');
     enrichmentLog.push('Step 1: Decodo profile scraping');
     
-    const decodoResult = await enrichWithDecodo(profileUrl);
-    if (decodoResult.success && decodoResult.data) {
+    const decodoResult = await enrichWithDecodo(profileUrl, userId);
+    if (decodoResult && decodoResult.success && decodoResult.data) {
       enrichmentResult = decodoResult;
       enrichmentLog.push('✅ Decodo: Success - enrichment complete');
     } else {
-      enrichmentLog.push(`❌ Decodo: ${decodoResult.error || 'Failed'}`);
+      enrichmentLog.push(`❌ Decodo: ${decodoResult?.error || 'Failed'}`);
       
       // STEP 2: Try Hunter if Decodo failed
       const fullName = `${lead.first_name} ${lead.last_name}`.trim();

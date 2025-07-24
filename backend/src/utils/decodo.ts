@@ -133,33 +133,56 @@ export class DecodoClient {
   }
 
   /**
-   * Scrape Sales Navigator search results
+   * Scrape Sales Navigator search results with LinkedIn authentication
    */
-  async scrapeSalesNavigatorSearch(searchUrl: string, page: number = 1): Promise<string> {
+  async scrapeSalesNavigatorSearch(searchUrl: string, page: number = 1, linkedinCookie?: string): Promise<string> {
     const pageUrl = `${searchUrl}&page=${page}`;
+    
+    const customHeaders: Record<string, string> = {
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.5',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'DNT': '1',
+      'Connection': 'keep-alive',
+      'Upgrade-Insecure-Requests': '1'
+    };
+
+    // Add LinkedIn authentication cookie if provided
+    if (linkedinCookie) {
+      customHeaders['Cookie'] = `li_at=${linkedinCookie}`;
+      console.log('[DecodoClient] Using LinkedIn authentication for Sales Navigator scraping');
+    } else {
+      console.warn('[DecodoClient] No LinkedIn cookie provided - scraping may be limited to public content');
+    }
+
     return this.scrapeUrl(pageUrl, {
-      custom_headers: {
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'DNT': '1',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1'
-      }
+      custom_headers: customHeaders
     });
   }
 
   /**
-   * Scrape LinkedIn profile page
+   * Scrape LinkedIn profile page with LinkedIn authentication
    */
-  async scrapeLinkedInProfile(profileUrl: string): Promise<string> {
+  async scrapeLinkedInProfile(profileUrl: string, linkedinCookie?: string): Promise<string> {
+    const customHeaders: Record<string, string> = {
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.5',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'DNT': '1',
+      'Connection': 'keep-alive',
+      'Upgrade-Insecure-Requests': '1'
+    };
+
+    // Add LinkedIn authentication cookie if provided
+    if (linkedinCookie) {
+      customHeaders['Cookie'] = `li_at=${linkedinCookie}`;
+      console.log('[DecodoClient] Using LinkedIn authentication for profile scraping');
+    } else {
+      console.warn('[DecodoClient] No LinkedIn cookie provided - scraping public profile only');
+    }
+
     return this.scrapeUrl(profileUrl, {
-      custom_headers: {
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache'
-      }
+      custom_headers: customHeaders
     });
   }
 

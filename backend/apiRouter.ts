@@ -46,6 +46,7 @@ import getUserCredits from './api/getUserCredits';
 import healthCheck from './api/health';
 // Import Decodo LinkedIn trigger
 import linkedinTriggerRouter from './src/routes/campaigns/linkedin/trigger';
+import linkedInCookieRouter from './src/routes/cookies/storeLinkedInCookie';
 
 const router = Router();
 
@@ -250,5 +251,8 @@ router.post('/backfill/campaign-attribution', backfillCampaignAttribution);
 // Fix today's email attribution
 import fixTodayEmails from './api/fixTodayEmails';
 router.post('/fix/today-emails', fixTodayEmails);
+
+// LinkedIn Cookie Management Routes
+router.use('/cookies/linkedin', linkedInCookieRouter);
 
 export default router;

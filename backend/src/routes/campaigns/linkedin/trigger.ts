@@ -5,6 +5,7 @@ import { ApiRequest } from '../../../../types/api';
 import { DecodoClient } from '../../../utils/decodo';
 import { parseSalesNavigatorSearchResults } from '../../../utils/cheerio/salesNavParser';
 import enrichmentProcessor from '../../../cron/enrichmentProcessor';
+import { decryptCookie } from '../../../utils/encryption';
 
 const router = express.Router();
 
@@ -91,14 +92,25 @@ router.post('/trigger', requireAuth, async (req: ApiRequest, res: Response) => {
     let totalLeads = 0;
     const allLeads: any[] = [];
 
+    // Retrieve user's LinkedIn authentication cookie
+    const linkedinCookie = await getUserLinkedInCookie(userId);
+    
+    if (!linkedinCookie) {
+      return res.status(400).json({
+        success: false,
+        message: 'LinkedIn authentication required. Please connect your LinkedIn account to use Sales Navigator scraping.',
+        numLeads: 0
+      });
+    }
+
     try {
-      // Scrape each page
+      // Scrape each page with LinkedIn authentication
       for (let page = 1; page <= pagesToScrape; page++) {
         console.log(`[LinkedInTrigger] Scraping page ${page}/${pagesToScrape}`);
         
         try {
-          // Use Decodo to scrape the page
-          const html = await decodoClient.scrapeSalesNavigatorSearch(searchUrl, page);
+          // Pass LinkedIn cookie to Decodo client
+          const html = await decodoClient.scrapeSalesNavigatorSearch(searchUrl, page, linkedinCookie);
           
           // Parse the HTML to extract leads
           const pageLeads = parseSalesNavigatorSearchResults(html);
@@ -141,7 +153,7 @@ router.post('/trigger', requireAuth, async (req: ApiRequest, res: Response) => {
             await new Promise(resolve => setTimeout(resolve, 2000));
           }
 
-        } catch (pageError) {
+        } catch (pageError: any) {
           console.error(`[LinkedInTrigger] Error scraping page ${page}:`, pageError);
           // Continue with next page instead of failing completely
           continue;
@@ -274,5 +286,54 @@ router.post('/trigger', requireAuth, async (req: ApiRequest, res: Response) => {
     });
   }
 });
+
+/**
+ * Retrieve user's LinkedIn cookie for authentication
+ */
+async function getUserLinkedInCookie(userId: string): Promise<string | null> {
+  try {
+    const { data: cookieData, error } = await supabase
+      .from('linkedin_cookies')
+      .select('encrypted_cookie, valid, expires_at')
+      .eq('user_id', userId)
+      .eq('valid', true)
+      .single();
+
+    if (error || !cookieData) {
+      console.log(`[LinkedInAuth] No valid cookie found for user ${userId}`);
+      return null;
+    }
+
+    // Check if cookie is expired
+    if (cookieData.expires_at) {
+      const expiresAt = new Date(cookieData.expires_at);
+      if (expiresAt < new Date()) {
+        console.log(`[LinkedInAuth] Cookie expired for user ${userId}`);
+        // Mark as invalid
+        await supabase
+          .from('linkedin_cookies')
+          .update({ valid: false })
+          .eq('user_id', userId);
+        return null;
+      }
+    }
+
+    // Decrypt and return cookie
+    const decryptedCookie = decryptCookie(cookieData.encrypted_cookie);
+    
+    // Update last_used_at timestamp
+    await supabase
+      .from('linkedin_cookies')
+      .update({ last_used_at: new Date().toISOString() })
+      .eq('user_id', userId);
+
+    console.log(`[LinkedInAuth] Retrieved valid cookie for user ${userId}`);
+    return decryptedCookie;
+
+  } catch (error: any) {
+    console.error('[LinkedInAuth] Error retrieving cookie:', error.message);
+    return null;
+  }
+}
 
 export default router; 
