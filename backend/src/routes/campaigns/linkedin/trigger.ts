@@ -55,25 +55,14 @@ router.post('/trigger', requireAuth, async (req: ApiRequest, res: Response) => {
       });
     }
 
-    // Check user credits
-    const { data: user, error: userError } = await supabase
-      .from('users')
-      .select('scraping_credits')
-      .eq('id', userId)
-      .single();
+    // Use centralized credit service (we will deduct after scraping based on actual leads)
+    const { CreditService } = await import('../../../../services/creditService');
 
-    if (userError || !user) {
-      console.error('[LinkedInTrigger] User not found:', userError);
-      return res.status(404).json({ 
-        error: 'User not found' 
-      });
-    }
-
-    // Check if user has sufficient credits (1 credit per page)
-    const creditsRequired = pagesToScrape;
-    if (user.scraping_credits < creditsRequired) {
-      return res.status(402).json({ 
-        error: `Insufficient credits. You need ${creditsRequired} scraping credits but only have ${user.scraping_credits}` 
+    // Basic sanity check: ensure the user has at least one credit before we start.
+    const startingBalance = await CreditService.getRemainingCredits(userId);
+    if (startingBalance <= 0) {
+      return res.status(402).json({
+        error: 'Insufficient credits. You currently have 0 credits.'
       });
     }
 
@@ -193,24 +182,24 @@ router.post('/trigger', requireAuth, async (req: ApiRequest, res: Response) => {
       const actualInserted = insertedLeads?.length || 0;
       console.log(`[LinkedInTrigger] Successfully inserted ${actualInserted} unique leads`);
 
-      // Deduct credits after successful scraping
-      await supabase
-        .from('users')
-        .update({ 
-          scraping_credits: user.scraping_credits - creditsRequired 
-        })
-        .eq('id', userId);
+      // Calculate credits to deduct based on unique leads inserted (1 credit per lead)
+      const creditsToDeduct = actualInserted;
 
-      // Log credit usage
-      await supabase
-        .from('credit_usage_log')
-        .insert({
-          user_id: userId,
-          amount: creditsRequired,
-          type: 'scraping',
-          description: `Sales Navigator scraping: ${actualInserted} leads from ${pagesToScrape} pages`,
-          campaign_id: campaignId
+      const hasCreditsAfterScrape = await CreditService.hasSufficientCredits(userId, creditsToDeduct);
+      if (!hasCreditsAfterScrape) {
+        return res.status(402).json({
+          error: `Insufficient credits. You need ${creditsToDeduct} scraping credits but have less than that.`
         });
+      }
+
+      // Deduct credits per lead
+      await CreditService.useCreditsEffective(userId, creditsToDeduct);
+      await CreditService.logCreditUsage(
+        userId,
+        creditsToDeduct,
+        'campaign_creation',
+        `Sales Navigator scraping for campaign ${campaignId}`
+      );
 
       // Update campaign status and stats
       await supabase
@@ -253,8 +242,8 @@ router.post('/trigger', requireAuth, async (req: ApiRequest, res: Response) => {
           campaignId,
           totalLeads: actualInserted,
           pagesScraped: pagesToScrape,
-          creditsUsed: creditsRequired,
-          remainingCredits: user.scraping_credits - creditsRequired,
+          creditsUsed: creditsToDeduct,
+          remainingCredits: await CreditService.getRemainingCredits(userId),
           enrichmentJobsQueued: leadsToEnrich.length
         }
       });
