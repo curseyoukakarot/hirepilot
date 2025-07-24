@@ -48,6 +48,11 @@ const ImportCsvGuide = lazy(() => import("./pages/blog/ImportCsvGuide"));
 const CampaignWizardGuide = lazy(() => import("./pages/blog/CampaignWizardGuide"));
 const PipelineBestPracticesGuide = lazy(() => import("./pages/blog/PipelineBestPracticesGuide"));
 const EmailTroubleshootingGuide = lazy(() => import("./pages/blog/EmailTroubleshootingGuide"));
+const EmailDeliverability1 = lazy(() => import("./pages/blog/EmailDeliverability1"));
+const EmailDeliverability2 = lazy(() => import("./pages/blog/EmailDeliverability2"));
+const EmailDeliverability3 = lazy(() => import("./pages/blog/EmailDeliverability3"));
+const EmailDeliverability4 = lazy(() => import("./pages/blog/EmailDeliverability4"));
+const EmailDeliverability5 = lazy(() => import("./pages/blog/EmailDeliverability5"));
 const CreditsGuide = lazy(() => import("./pages/blog/CreditsGuide"));
 // AutomateRecruiting Series
 const AutomateRecruiting1 = lazy(() => import("./pages/blog/AutomateRecruiting1"));
@@ -359,6 +364,12 @@ function InnerApp() {
               <Route path="/blog/PipelineBestPractices" element={<PipelineBestPracticesGuide />} />
               <Route path="/blog/email-troubleshooting" element={<EmailTroubleshootingGuide />} />
               <Route path="/blog/CreditsGuide" element={<CreditsGuide />} />
+              {/* Email Deliverability Series */}
+              <Route path="/blog/email-deliverability-1" element={<EmailDeliverability1 />} />
+              <Route path="/blog/email-deliverability-2" element={<EmailDeliverability2 />} />
+              <Route path="/blog/email-deliverability-3" element={<EmailDeliverability3 />} />
+              <Route path="/blog/email-deliverability-4" element={<EmailDeliverability4 />} />
+              <Route path="/blog/email-deliverability-5" element={<EmailDeliverability5 />} />
               {/* AutomateRecruiting Series */}
               <Route path="/blog/AutomateRecruiting1" element={<AutomateRecruiting1 />} />
               <Route path="/blog/AutomateRecruiting2" element={<AutomateRecruiting2 />} />
