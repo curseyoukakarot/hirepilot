@@ -8,11 +8,17 @@ import { searchAndEnrichPeople } from '../../utils/apolloApi';
 import { ApiRequest } from '../../types/api';
 import { EmailEventService } from '../../services/emailEventService';
 import axios from 'axios';
+import decodoRouter from './leads/decodo/salesNavigatorScraper';
+import enrichmentRouter from './leads/decodo/enrichLeadProfile';
 
 const router = express.Router();
 
 // Debug logging for route registration
 console.log('Registering leads routes...');
+
+// Mount Decodo routes
+router.use('/', decodoRouter);
+router.use('/', enrichmentRouter);
 
 // GET /api/leads/candidates - fetch all candidates for the authenticated user
 router.get('/candidates', requireAuth, async (req: Request, res: Response) => {

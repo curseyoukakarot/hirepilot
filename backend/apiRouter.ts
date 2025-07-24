@@ -12,7 +12,7 @@ import deleteTemplate from "./api/deleteTemplate";
 import pipelineStages from "./api/pipelineStages";
 import messageRouter from './routers/messageRouter';
 import { launchCampaign } from './api/campaigns/launch';
-import { triggerLinkedInCampaign, pollPhantomBusterResults, debugPhantomBusterWebhook, debugSearchLeads, testDirectPhantomBuster, fetchExistingPhantomResults } from './api/campaign';
+import { pollPhantomBusterResults, debugPhantomBusterWebhook, debugSearchLeads, testDirectPhantomBuster, fetchExistingPhantomResults } from './api/campaign';
 import campaignPerformance from './api/campaignPerformance';
 import userPerformance from './api/userPerformance';
 import analyticsTimeSeries from './api/analyticsTimeSeries';
@@ -44,6 +44,8 @@ import linkedinDailyCount from './api/linkedinDailyCount';
 import puppetLinkedInRequest from './api/linkedin/puppetRequest';
 import getUserCredits from './api/getUserCredits';
 import healthCheck from './api/health';
+// Import Decodo LinkedIn trigger
+import linkedinTriggerRouter from './src/routes/campaigns/linkedin/trigger';
 
 const router = Router();
 
@@ -82,8 +84,8 @@ router.use('/team', requireAuth, teamRouter);
 
 router.post('/campaigns/:id/launch', launchCampaign);
 
-// LinkedIn trigger endpoint for Sales Navigator campaigns
-router.post('/campaigns/linkedin/trigger', requireAuth, triggerLinkedInCampaign);
+// LinkedIn trigger endpoint for Sales Navigator campaigns using Decodo
+router.use('/campaigns/linkedin', linkedinTriggerRouter);
 // Test endpoint for direct PhantomBuster integration (remove after testing)
 router.post('/campaigns/linkedin/test-direct', requireAuth, testDirectPhantomBuster);
 // Fetch existing PhantomBuster results for campaigns that already ran
