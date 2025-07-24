@@ -226,7 +226,7 @@ export default function EmailDeliverability1() {
         <div className="max-w-6xl mx-auto px-6">
           <h2 className="text-3xl font-bold text-center mb-12" style={{color: '#ffffff !important', filter: 'brightness(10) contrast(10)', WebkitTextFillColor: '#ffffff !important', textShadow: '0 0 0 #ffffff !important'}}>Email Deliverability Series</h2>
           <div className="grid md:grid-cols-3 gap-8">
-            <a href="/blog/email-deliverability-2" className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block" style={{color: '#ffffff !important', textDecoration: 'none !important'}}>
+            <a href="/blog/email-deliverability-2" className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block" style={{color: '#ffffff', textDecoration: 'none'}}>
               <img
                 className="w-full h-48 object-cover"
                 src="https://storage.googleapis.com/uxpilot-auth.appspot.com/a38d6691dc-92163dbe18bd3d5afa0e.png"
@@ -234,7 +234,7 @@ export default function EmailDeliverability1() {
               />
               <div className="p-6">
                 <span className="text-blue-400 text-sm font-medium">Email Deliverability</span>
-                <h3 className="text-xl font-semibold mt-2 mb-3" style={{color: '#ffffff !important', filter: 'brightness(10) contrast(10)', WebkitTextFillColor: '#ffffff !important', textShadow: '0 0 0 #ffffff !important', MozTextFillColor: '#ffffff !important', forcedColorAdjust: 'none !important', colorScheme: 'dark !important', outline: '1px solid #ffffff !important', outlineOffset: '-1px !important'}}>Part 2: Protect Your Domain Reputation</h3>
+                <h3 className="text-xl font-semibold mt-2 mb-3" style={{color: '#ffffff'}}>Part 2: Protect Your Domain Reputation</h3>
                 <p className="text-gray-400 mb-4">
                   Learn advanced strategies for maintaining a clean sender reputation and avoiding blacklists.
                 </p>
