@@ -122,11 +122,11 @@ export default function EmailDeliverability2() {
             <h2>🧰 Step-by-Step: Setting Up a Deliverability-Ready Domain</h2>
             
             <h3>1. Buy a Custom Domain or Subdomain</h3>
-            <p>If your main domain is <code>yourdomain.com</code>, use a subdomain for outreach like:</p>
+            <p>If your main domain is <code style={{color: '#ffffff'}}>yourdomain.com</code>, use a subdomain for outreach like:</p>
             <ul>
-              <li><code>hi.yourdomain.com</code></li>
-              <li><code>careers.yourdomain.com</code></li>
-              <li><code>contact.yourdomain.com</code></li>
+              <li><code style={{color: '#ffffff'}}>hi.yourdomain.com</code></li>
+              <li><code style={{color: '#ffffff'}}>careers.yourdomain.com</code></li>
+              <li><code style={{color: '#ffffff'}}>contact.yourdomain.com</code></li>
             </ul>
 
             <p><strong>Why?</strong></p>
@@ -164,7 +164,7 @@ export default function EmailDeliverability2() {
                 <tr>
                   <td>SPF</td>
                   <td>Authorizes SendGrid to send emails on your behalf</td>
-                  <td><code style={{color: '#ffffff !important', filter: 'brightness(10) contrast(10)', WebkitTextFillColor: '#ffffff !important', textShadow: '0 0 0 #ffffff !important'}}>v=spf1 include:sendgrid.net ~all</code></td>
+                  <td><code style={{color: '#ffffff'}}>v=spf1 include:sendgrid.net ~all</code></td>
                 </tr>
                 <tr>
                   <td>DKIM</td>
@@ -174,7 +174,7 @@ export default function EmailDeliverability2() {
                 <tr>
                   <td>DMARC</td>
                   <td>Instructs mailbox providers on how to handle failed SPF/DKIM checks</td>
-                  <td><code style={{color: '#ffffff !important', filter: 'brightness(10) contrast(10)', WebkitTextFillColor: '#ffffff !important', textShadow: '0 0 0 #ffffff !important'}}>v=DMARC1; p=none; rua=mailto:dmarc@yourdomain.com</code></td>
+                  <td><code style={{color: '#ffffff'}}>v=DMARC1; p=none; rua=mailto:dmarc@yourdomain.com</code></td>
                 </tr>
               </tbody>
             </table>
@@ -235,7 +235,7 @@ export default function EmailDeliverability2() {
           <div id="throwaway-domains">
             <h2>🧠 Bonus: Should You Buy a "Throwaway" Domain?</h2>
             <p>
-              Some advanced users buy "sacrificial" domains (like <code>recruiting-yourdomain.com</code>) to protect their main brand.
+              Some advanced users buy "sacrificial" domains (like <code style={{color: '#ffffff'}}>recruiting-yourdomain.com</code>) to protect their main brand.
             </p>
 
             <p><strong>It's a legit strategy — but risky if done wrong:</strong></p>
@@ -249,7 +249,7 @@ export default function EmailDeliverability2() {
           <div id="action-plan">
             <h2>✅ Your Action Plan (Technical, but Worth It)</h2>
             <ol>
-              <li>Buy a subdomain (e.g. <code style={{color: '#ffffff !important', filter: 'brightness(10) contrast(10)', WebkitTextFillColor: '#ffffff !important', textShadow: '0 0 0 #ffffff !important'}}>hi.yourcompany.com</code>)</li>
+              <li>Buy a subdomain (e.g. <code style={{color: '#ffffff'}}>hi.yourcompany.com</code>)</li>
               <li>Set up SPF, DKIM, and DMARC records via your DNS</li>
               <li>Verify your domain in SendGrid and test with mail-tester</li>
               <li>Start sending slowly — use HirePilot's campaign throttling tools</li>
@@ -273,7 +273,7 @@ export default function EmailDeliverability2() {
         <div className="max-w-6xl mx-auto px-6">
           <h2 className="text-3xl font-bold text-center mb-12">Email Deliverability Series</h2>
           <div className="grid md:grid-cols-3 gap-8">
-            <a href="/blog/email-deliverability-1" className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block" style={{color: '#ffffff !important', textDecoration: 'none !important'}}>
+            <a href="/blog/email-deliverability-1" className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block" style={{color: '#ffffff', textDecoration: 'none'}}>
               <img
                 className="w-full h-48 object-cover"
                 src="https://storage.googleapis.com/uxpilot-auth.appspot.com/22f7736434-ea460dbdda56f2c78643.png"
@@ -293,7 +293,7 @@ export default function EmailDeliverability2() {
               </div>
             </a>
 
-            <a href="/blog/email-deliverability-3" className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block" style={{color: '#ffffff !important', textDecoration: 'none !important'}}>
+            <a href="/blog/email-deliverability-3" className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block" style={{color: '#ffffff', textDecoration: 'none'}}>
               <img
                 className="w-full h-48 object-cover"
                 src="https://storage.googleapis.com/uxpilot-auth.appspot.com/ae9ba539d4-75ea5d607595907901a7.png"
@@ -313,7 +313,7 @@ export default function EmailDeliverability2() {
               </div>
             </a>
 
-            <a href="/blog/email-deliverability-4" className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block" style={{color: '#ffffff !important', textDecoration: 'none !important'}}>
+            <a href="/blog/email-deliverability-4" className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block" style={{color: '#ffffff', textDecoration: 'none'}}>
               <img
                 className="w-full h-48 object-cover"
                 src="https://storage.googleapis.com/uxpilot-auth.appspot.com/75caae2492-c87687c0aa429fc7491c.png"
