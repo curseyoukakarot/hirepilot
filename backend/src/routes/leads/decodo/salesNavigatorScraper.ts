@@ -7,8 +7,8 @@ import { ApiRequest } from '../../../../types/api';
 
 const router = express.Router();
 
-// Decodo API configuration
-const DECODO_API_URL = 'https://scraper-api.smartproxy.com/v1/tasks';
+// Decodo API configuration – default to new v2 "instant" endpoint but allow override via env
+const DECODO_API_URL = process.env.DECODO_API_URL || 'https://scraper-api.decodo.com/v2/scrape';
 const DECODO_API_KEY = process.env.DECODO_API_KEY;
 
 interface DecodoTaskRequest {
@@ -183,19 +183,39 @@ async function submitDecodoTask(targetUrl: string): Promise<DecodoTaskResponse> 
 
   console.log(`[submitDecodoTask] Submitting task for URL: ${targetUrl}`);
 
+  // Detect if we're using the new synchronous v2 endpoint
+  const isInstant = DECODO_API_URL.includes('/v2/scrape');
+
   try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+
+    // v2 uses Basic auth whereas v1 uses Bearer
+    headers['Authorization'] = isInstant ? `Basic ${DECODO_API_KEY}` : `Bearer ${DECODO_API_KEY}`;
+
     const response = await axios.post(DECODO_API_URL, taskRequest, {
-      headers: {
-        'Authorization': `Bearer ${DECODO_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
+      headers,
       timeout: 30000
     });
 
+    // Instant mode: Return a synthetic DecodoTaskResponse with status completed
+    if (isInstant) {
+      const html = response.data?.html || response.data?.data || response.data;
+      if (!html) throw new Error('No HTML content returned from Decodo');
+      return {
+        task_id: 'instant',
+        url: targetUrl,
+        status: 'completed',
+        html
+      } as DecodoTaskResponse;
+    }
+
+    // Legacy mode – return the task object for polling
     const result: DecodoTaskResponse = response.data;
     console.log(`[submitDecodoTask] Task submitted successfully: ${result.task_id}`);
-    
     return result;
+
   } catch (error: any) {
     console.error('[submitDecodoTask] Error submitting task:', {
       message: error.message,
@@ -208,6 +228,15 @@ async function submitDecodoTask(targetUrl: string): Promise<DecodoTaskResponse> 
 
 // Poll Decodo task until completion
 async function pollDecodoTask(taskId: string, maxAttempts: number = 30): Promise<DecodoTaskResponse> {
+  // If task was handled synchronously, skip polling
+  if (taskId === 'instant') {
+    return {
+      task_id: 'instant',
+      url: '',
+      status: 'completed'
+    } as DecodoTaskResponse;
+  }
+
   if (!DECODO_API_KEY) {
     throw new Error('DECODO_API_KEY environment variable is not set');
   }
@@ -379,16 +408,24 @@ router.post('/salesNavigatorScraper', requireAuth, async (req: Request, res: Res
         // Submit Decodo task
         const task = await submitDecodoTask(pageUrl);
         
-        // Poll for completion
-        const completedTask = await pollDecodoTask(task.task_id);
-        
-        if (!completedTask.html) {
+        let htmlContent: string | undefined;
+
+        if (task.status === 'completed' && task.html) {
+          // Instant endpoint – HTML ready
+          htmlContent = task.html;
+        } else {
+          // Poll legacy endpoint
+          const completedTask = await pollDecodoTask(task.task_id);
+          htmlContent = completedTask.html;
+        }
+
+        if (!htmlContent) {
           errors.push(`Page ${page}: No HTML content returned`);
           continue;
         }
 
         // Parse HTML to extract leads
-        const pageLeads = parseLinkedInSalesNavHTML(completedTask.html);
+        const pageLeads = parseLinkedInSalesNavHTML(htmlContent);
         console.log(`[salesNavigatorScraper] Page ${page} extracted ${pageLeads.length} leads`);
         
         allLeads.push(...pageLeads);

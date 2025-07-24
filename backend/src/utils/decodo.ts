@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const DECODO_API_URL = 'https://scraper-api.smartproxy.com/v1/tasks';
+// Updated default Decodo endpoint (supports both old /v1/tasks and new /v2/scrape)
+// The new v2 endpoint returns the HTML payload synchronously – no polling required.
+const DECODO_API_URL = process.env.DECODO_API_URL || 'https://scraper-api.decodo.com/v2/scrape';
 const DECODO_API_KEY = process.env.DECODO_API_KEY;
 
 export interface DecodoTaskRequest {
@@ -110,6 +112,13 @@ export class DecodoClient {
   }
 
   /**
+   * Check if the configured endpoint is the new synchronous scrape endpoint.
+   */
+  private _isInstantEndpoint(): boolean {
+    return this.baseUrl.includes('/v2/scrape');
+  }
+
+  /**
    * Submit and wait for a scraping task to complete
    */
   async scrapeUrl(url: string, options: Partial<DecodoTaskRequest> = {}): Promise<string> {
@@ -122,9 +131,29 @@ export class DecodoClient {
       ...options
     };
 
+    // New v2 endpoint returns HTML synchronously – one request only.
+    if (this._isInstantEndpoint()) {
+      try {
+        const response = await axios.post(this.baseUrl, taskRequest, {
+          headers: {
+            'Authorization': `Basic ${this.apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 30000
+        });
+
+        const html = response.data?.html || response.data?.data || response.data;
+        if (!html) throw new Error('No HTML content returned from Decodo');
+        return html as string;
+      } catch (err: any) {
+        throw new Error(`Decodo scrape failed: ${err.message}`);
+      }
+    }
+
+    // Legacy /v1/tasks flow – keep for backward compatibility
     const submitResponse = await this.submitTask(taskRequest);
     const completedTask = await this.pollTask(submitResponse.task_id);
-    
+
     if (!completedTask.html) {
       throw new Error('No HTML content returned from Decodo');
     }
