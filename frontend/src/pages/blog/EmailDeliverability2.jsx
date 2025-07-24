@@ -122,11 +122,11 @@ export default function EmailDeliverability2() {
             <h2>🧰 Step-by-Step: Setting Up a Deliverability-Ready Domain</h2>
             
             <h3>1. Buy a Custom Domain or Subdomain</h3>
-            <p>If your main domain is <code>offrgroup.com</code>, use a subdomain for outreach like:</p>
+            <p>If your main domain is <code>yourdomain.com</code>, use a subdomain for outreach like:</p>
             <ul>
-              <li><code>hi.offrgroup.com</code></li>
-              <li><code>careers.offrgroup.com</code></li>
-              <li><code>contact.offrgroup.com</code></li>
+              <li><code>hi.yourdomain.com</code></li>
+              <li><code>careers.yourdomain.com</code></li>
+              <li><code>contact.yourdomain.com</code></li>
             </ul>
 
             <p><strong>Why?</strong></p>
@@ -155,16 +155,16 @@ export default function EmailDeliverability2() {
             <table>
               <thead>
                 <tr>
-                  <th>Record</th>
-                  <th>What it Does</th>
-                  <th>Example</th>
+                  <th style={{color: '#ffffff !important', backgroundColor: 'inherit', fontWeight: 'bold !important', textShadow: 'none !important'}}>Record</th>
+                  <th style={{color: '#ffffff !important', backgroundColor: 'inherit', fontWeight: 'bold !important', textShadow: 'none !important'}}>What it Does</th>
+                  <th style={{color: '#ffffff !important', backgroundColor: 'inherit', fontWeight: 'bold !important', textShadow: 'none !important'}}>Example</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
                   <td>SPF</td>
                   <td>Authorizes SendGrid to send emails on your behalf</td>
-                  <td><code>v=spf1 include:sendgrid.net ~all</code></td>
+                  <td><code style={{color: '#ffffff !important', filter: 'brightness(10) contrast(10)', WebkitTextFillColor: '#ffffff !important', textShadow: '0 0 0 #ffffff !important'}}>v=spf1 include:sendgrid.net ~all</code></td>
                 </tr>
                 <tr>
                   <td>DKIM</td>
@@ -174,7 +174,7 @@ export default function EmailDeliverability2() {
                 <tr>
                   <td>DMARC</td>
                   <td>Instructs mailbox providers on how to handle failed SPF/DKIM checks</td>
-                  <td><code>v=DMARC1; p=none; rua=mailto:dmarc@yourdomain.com</code></td>
+                  <td><code style={{color: '#ffffff !important', filter: 'brightness(10) contrast(10)', WebkitTextFillColor: '#ffffff !important', textShadow: '0 0 0 #ffffff !important'}}>v=DMARC1; p=none; rua=mailto:dmarc@yourdomain.com</code></td>
                 </tr>
               </tbody>
             </table>
@@ -209,9 +209,9 @@ export default function EmailDeliverability2() {
 
           {/* Inline CTA 2 */}
           <div id="inline-cta-2" className="bg-gray-800 border border-gray-700 rounded-lg p-6 my-8 text-center">
-            <h3 className="text-xl font-semibold mb-2">Need Help with Domain Authentication?</h3>
-            <p className="mb-4">Chat with REX for personalized guidance on SPF, DKIM, and DMARC setup.</p>
-            <button className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors">Chat with REX</button>
+            <h3 className="text-xl font-semibold mb-2" style={{color: '#ffffff !important', filter: 'brightness(10) contrast(10)', WebkitTextFillColor: '#ffffff !important', textShadow: '0 0 0 #ffffff !important'}}>Need Help with Domain Authentication?</h3>
+            <p className="mb-4" style={{color: '#ffffff !important', filter: 'brightness(10) contrast(10)', WebkitTextFillColor: '#ffffff !important', textShadow: '0 0 0 #ffffff !important'}}>Chat with REX for personalized guidance on SPF, DKIM, and DMARC setup.</p>
+            <a href="/login" className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors inline-block">Chat with REX</a>
           </div>
 
           <div id="monitoring-health">
@@ -235,7 +235,7 @@ export default function EmailDeliverability2() {
           <div id="throwaway-domains">
             <h2>🧠 Bonus: Should You Buy a "Throwaway" Domain?</h2>
             <p>
-              Some advanced users buy "sacrificial" domains (like <code>offr-recruiting.com</code>) to protect their main brand.
+              Some advanced users buy "sacrificial" domains (like <code>recruiting-yourdomain.com</code>) to protect their main brand.
             </p>
 
             <p><strong>It's a legit strategy — but risky if done wrong:</strong></p>
@@ -249,7 +249,7 @@ export default function EmailDeliverability2() {
           <div id="action-plan">
             <h2>✅ Your Action Plan (Technical, but Worth It)</h2>
             <ol>
-              <li>Buy a subdomain (e.g. <code>hi.yourcompany.com</code>)</li>
+              <li>Buy a subdomain (e.g. <code style={{color: '#ffffff !important', filter: 'brightness(10) contrast(10)', WebkitTextFillColor: '#ffffff !important', textShadow: '0 0 0 #ffffff !important'}}>hi.yourcompany.com</code>)</li>
               <li>Set up SPF, DKIM, and DMARC records via your DNS</li>
               <li>Verify your domain in SendGrid and test with mail-tester</li>
               <li>Start sending slowly — use HirePilot's campaign throttling tools</li>
@@ -273,7 +273,7 @@ export default function EmailDeliverability2() {
         <div className="max-w-6xl mx-auto px-6">
           <h2 className="text-3xl font-bold text-center mb-12">Email Deliverability Series</h2>
           <div className="grid md:grid-cols-3 gap-8">
-            <article className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300">
+            <a href="/blog/email-deliverability-1" className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block" style={{color: '#ffffff !important', textDecoration: 'none !important'}}>
               <img
                 className="w-full h-48 object-cover"
                 src="https://storage.googleapis.com/uxpilot-auth.appspot.com/22f7736434-ea460dbdda56f2c78643.png"
@@ -281,19 +281,19 @@ export default function EmailDeliverability2() {
               />
               <div className="p-6">
                 <span className="text-blue-400 text-sm font-medium">Email Deliverability</span>
-                <h3 className="text-xl font-semibold mt-2 mb-3">Part 1: The #1 Mistake Recruiters Make</h3>
+                <h3 className="text-xl font-semibold mt-2 mb-3" style={{color: '#ffffff !important', filter: 'brightness(10) contrast(10)', WebkitTextFillColor: '#ffffff !important', textShadow: '0 0 0 #ffffff !important', MozTextFillColor: '#ffffff !important', forcedColorAdjust: 'none !important', colorScheme: 'dark !important', outline: '1px solid #ffffff !important', outlineOffset: '-1px !important'}}>Part 1: The #1 Mistake Recruiters Make</h3>
                 <p className="text-gray-400 mb-4">
                   Why sending 200+ cold emails from Gmail destroys your domain reputation.
                 </p>
                 <div className="flex items-center text-sm text-gray-500">
-                  <span>January 15, 2025</span>
+                  <span>July 24, 2025</span>
                   <span className="mx-2">•</span>
                   <span>Part 1 of 5</span>
                 </div>
               </div>
-            </article>
+            </a>
 
-            <article className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300">
+            <a href="/blog/email-deliverability-3" className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block" style={{color: '#ffffff !important', textDecoration: 'none !important'}}>
               <img
                 className="w-full h-48 object-cover"
                 src="https://storage.googleapis.com/uxpilot-auth.appspot.com/ae9ba539d4-75ea5d607595907901a7.png"
@@ -301,19 +301,19 @@ export default function EmailDeliverability2() {
               />
               <div className="p-6">
                 <span className="text-blue-400 text-sm font-medium">Email Deliverability</span>
-                <h3 className="text-xl font-semibold mt-2 mb-3">Part 3: Free Email Provider Limitations</h3>
+                <h3 className="text-xl font-semibold mt-2 mb-3" style={{color: '#ffffff !important', filter: 'brightness(10) contrast(10)', WebkitTextFillColor: '#ffffff !important', textShadow: '0 0 0 #ffffff !important', MozTextFillColor: '#ffffff !important', forcedColorAdjust: 'none !important', colorScheme: 'dark !important', outline: '1px solid #ffffff !important', outlineOffset: '-1px !important'}}>Part 3: Free Email Provider Limitations</h3>
                 <p className="text-gray-400 mb-4">
                   The harsh truth about Gmail, Outlook and why professional senders avoid them.
                 </p>
                 <div className="flex items-center text-sm text-gray-500">
-                  <span>Coming soon</span>
+                  <span>July 24, 2025</span>
                   <span className="mx-2">•</span>
                   <span>Part 3 of 5</span>
                 </div>
               </div>
-            </article>
+            </a>
 
-            <article className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300">
+            <a href="/blog/email-deliverability-4" className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block" style={{color: '#ffffff !important', textDecoration: 'none !important'}}>
               <img
                 className="w-full h-48 object-cover"
                 src="https://storage.googleapis.com/uxpilot-auth.appspot.com/75caae2492-c87687c0aa429fc7491c.png"
@@ -321,17 +321,17 @@ export default function EmailDeliverability2() {
               />
               <div className="p-6">
                 <span className="text-blue-400 text-sm font-medium">Email Deliverability</span>
-                <h3 className="text-xl font-semibold mt-2 mb-3">Part 4: Advanced Deliverability Tactics</h3>
+                <h3 className="text-xl font-semibold mt-2 mb-3" style={{color: '#ffffff !important', filter: 'brightness(10) contrast(10)', WebkitTextFillColor: '#ffffff !important', textShadow: '0 0 0 #ffffff !important', MozTextFillColor: '#ffffff !important', forcedColorAdjust: 'none !important', colorScheme: 'dark !important', outline: '1px solid #ffffff !important', outlineOffset: '-1px !important'}}>Part 4: Advanced Deliverability Tactics</h3>
                 <p className="text-gray-400 mb-4">
                   Pro strategies for monitoring, warming, and maintaining excellent sender reputation.
                 </p>
                 <div className="flex items-center text-sm text-gray-500">
-                  <span>Coming soon</span>
+                  <span>July 24, 2025</span>
                   <span className="mx-2">•</span>
                   <span>Part 4 of 5</span>
                 </div>
               </div>
-            </article>
+            </a>
           </div>
         </div>
       </div>
