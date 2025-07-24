@@ -270,6 +270,18 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     const sources = [];
     const enrichmentData = lead.enrichment_data || {};
 
+    // Check for Decodo enrichment (NEW - highest priority)
+    if (enrichmentData.decodo) {
+      sources.push({
+        type: 'decodo',
+        name: 'Decodo',
+        data: enrichmentData.decodo,
+        badge: 'Profile via Decodo',
+        color: 'bg-indigo-100 text-indigo-800',
+        icon: '🔍'
+      });
+    }
+
     // Check for Hunter.io enrichment
     if (enrichmentData.hunter?.email) {
       sources.push({
@@ -313,7 +325,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
         name: 'PhantomBuster',
         data: enrichmentData.phantombuster || enrichmentData.sales_navigator,
         badge: 'Enriched via PhantomBuster',
-        color: 'bg-indigo-100 text-indigo-800',
+        color: 'bg-gray-100 text-gray-800',
         icon: '👻'
       });
     }
@@ -325,6 +337,16 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   const getEmailWithSource = (lead) => {
     const enrichmentData = lead.enrichment_data || {};
     
+    // Check if email came from Decodo (NEW - highest priority)
+    if (enrichmentData.decodo?.email) {
+      return {
+        email: enrichmentData.decodo.email,
+        source: 'Decodo',
+        tooltip: `Email found via Decodo profile scraping`,
+        enrichedAt: enrichmentData.decodo.enriched_at
+      };
+    }
+
     // Check if email came from Hunter.io
     if (enrichmentData.hunter?.email) {
       return {
@@ -878,8 +900,8 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                     } else if (needsEnrichment) {
                       buttonClass = 'bg-purple-50 border border-purple-500 text-purple-700 hover:bg-purple-100';
                       buttonText = 'Enrich Now';
-                      tooltipText = 'Find contact information using Hunter.io → Skrapp.io → Apollo flow';
-                      flowText = 'Hunter→Skrapp→Apollo';
+                      tooltipText = 'Find contact information using Decodo → Hunter.io → Skrapp.io → Apollo flow';
+                      flowText = 'Decodo→Hunter→Skrapp→Apollo';
                     } else {
                       buttonClass = 'bg-green-50 border border-green-500 text-green-700 hover:bg-green-100';
                       buttonText = 'Re-enrich';
@@ -929,7 +951,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                           {leadSource === 'Sales Navigator' && phantomStatus.status === 'missing' ? (
                             <span className="ml-1">PhantomBuster → Profile Data Extraction</span>
                           ) : (
-                            <span className="ml-1">Hunter.io → Skrapp.io → Apollo (with graceful fallbacks)</span>
+                            <span className="ml-1">Decodo → Hunter.io → Skrapp.io → Apollo (with graceful fallbacks)</span>
                           )}
                         </div>
                       );
@@ -1151,6 +1173,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                                     emailInfo.source === 'Hunter.io' ? 'bg-green-100 text-green-700' :
                                     emailInfo.source === 'Skrapp.io' ? 'bg-blue-100 text-blue-700' :
                                     emailInfo.source === 'Apollo' ? 'bg-purple-100 text-purple-700' :
+                                    emailInfo.source === 'Decodo' ? 'bg-indigo-100 text-indigo-700' :
                                     'bg-gray-100 text-gray-700'
                                   }`}
                                   title={`Email source: ${emailInfo.source}${emailInfo.enrichedAt ? ` (${new Date(emailInfo.enrichedAt).toLocaleDateString()})` : ''}`}
