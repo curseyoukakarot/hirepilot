@@ -234,7 +234,7 @@ export default function EmailDeliverability1() {
               />
               <div className="p-6">
                 <span className="text-blue-400 text-sm font-medium">Email Deliverability</span>
-                <h3 className="text-xl font-semibold mt-2 mb-3" style={{color: '#ffffff !important', filter: 'brightness(10) contrast(10)', WebkitTextFillColor: '#ffffff !important', textShadow: '0 0 0 #ffffff !important'}}>Part 2: Protect Your Domain Reputation</h3>
+                <h3 className="text-xl font-semibold mt-2 mb-3" style={{color: '#ffffff !important', filter: 'brightness(10) contrast(10)', WebkitTextFillColor: '#ffffff !important', textShadow: '0 0 0 #ffffff !important', MozTextFillColor: '#ffffff !important', forcedColorAdjust: 'none !important', colorScheme: 'dark !important', outline: '1px solid #ffffff !important', outlineOffset: '-1px !important'}}>Part 2: Protect Your Domain Reputation</h3>
                 <p className="text-gray-400 mb-4">
                   Learn advanced strategies for maintaining a clean sender reputation and avoiding blacklists.
                 </p>
@@ -254,7 +254,7 @@ export default function EmailDeliverability1() {
               />
               <div className="p-6">
                 <span className="text-blue-400 text-sm font-medium">Email Deliverability</span>
-                <h3 className="text-xl font-semibold mt-2 mb-3" style={{color: '#ffffff !important', filter: 'brightness(10) contrast(10)', WebkitTextFillColor: '#ffffff !important', textShadow: '0 0 0 #ffffff !important'}}>Part 3: SendGrid Setup Guide</h3>
+                <h3 className="text-xl font-semibold mt-2 mb-3" style={{color: '#ffffff !important', filter: 'brightness(10) contrast(10)', WebkitTextFillColor: '#ffffff !important', textShadow: '0 0 0 #ffffff !important', MozTextFillColor: '#ffffff !important', forcedColorAdjust: 'none !important', colorScheme: 'dark !important', outline: '1px solid #ffffff !important', outlineOffset: '-1px !important'}}>Part 3: SendGrid Setup Guide</h3>
                 <p className="text-gray-400 mb-4">
                   Step-by-step walkthrough for connecting SendGrid to HirePilot and optimizing settings.
                 </p>
@@ -274,7 +274,7 @@ export default function EmailDeliverability1() {
               />
               <div className="p-6">
                 <span className="text-blue-400 text-sm font-medium">Email Deliverability</span>
-                <h3 className="text-xl font-semibold mt-2 mb-3" style={{color: '#ffffff !important', filter: 'brightness(10) contrast(10)', WebkitTextFillColor: '#ffffff !important', textShadow: '0 0 0 #ffffff !important'}}>Part 4: Advanced Deliverability Tactics</h3>
+                <h3 className="text-xl font-semibold mt-2 mb-3" style={{color: '#ffffff !important', filter: 'brightness(10) contrast(10)', WebkitTextFillColor: '#ffffff !important', textShadow: '0 0 0 #ffffff !important', MozTextFillColor: '#ffffff !important', forcedColorAdjust: 'none !important', colorScheme: 'dark !important', outline: '1px solid #ffffff !important', outlineOffset: '-1px !important'}}>Part 4: Advanced Deliverability Tactics</h3>
                 <p className="text-gray-400 mb-4">
                   Pro strategies for warming up domains, managing IP reputation, and monitoring metrics.
                 </p>
