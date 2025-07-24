@@ -53,10 +53,10 @@ export default function EmailDeliverability1() {
                 alt="Author"
                 className="w-12 h-12 rounded-full"
               />
-              <div>
-                <p className="font-semibold text-white">Brandon Omoregie</p>
-                <p className="text-gray-300 text-sm">Published on January 15, 2025 • Part 1 of 5</p>
-              </div>
+                              <div>
+                  <p className="font-semibold text-white">HirePilot Team</p>
+                  <p className="text-gray-300 text-sm">Published on July 24, 2025 • Part 1 of 5</p>
+                </div>
             </div>
           </div>
         </div>
