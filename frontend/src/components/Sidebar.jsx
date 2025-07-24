@@ -32,7 +32,7 @@ export default function Sidebar() {
           role = user.user_metadata.role;
         }
       }
-      const premiumRoles = ['RecruitPro','TeamAdmin','SuperAdmin','super_admin'];
+      const premiumRoles = ['RecruitPro','TeamAdmin','SuperAdmin','super_admin','admin'];
       setIsPremium(premiumRoles.includes(role));
       setIsSuperAdmin(role === 'super_admin');
     };

@@ -415,7 +415,7 @@ router.post('/apollo/search', requireAuth, async (req: Request, res: Response) =
       console.error('Error fetching auth metadata:', authError);
     }
 
-    // Check if user is privileged (RecruitPro, TeamAdmin, admin, member)
+    // Check if user is privileged (RecruitPro, TeamAdmin, admin, member) - includes admin for REX and Apollo access
     const privilegedTypes = ['RecruitPro', 'TeamAdmin', 'admin', 'member'];
     const userRole = userRecord?.role || authMetadata?.role || authMetadata?.account_type;
     const isPrivileged = privilegedTypes.includes(userRole);

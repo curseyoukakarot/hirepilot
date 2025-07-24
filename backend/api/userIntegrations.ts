@@ -32,8 +32,8 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
 
     const role = userData?.role;
     // Role-based access control for Hunter/Skrapp enrichment features
-    // Only allow: Super Admin, Pro, Team Admin, RecruitPro
-    const allowedRoles = ['super_admin', 'Pro', 'team_admin', 'RecruitPro'];
+    // Only allow: Super Admin, Pro, Team Admin, RecruitPro, Admin
+    const allowedRoles = ['super_admin', 'Pro', 'team_admin', 'RecruitPro', 'admin'];
     
     if (!role || !allowedRoles.includes(role)) {
       res.status(403).json({ error: 'Premium access required for enrichment API keys. Contact support to upgrade your plan.' });
@@ -80,8 +80,8 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
 
     const role = userData?.role;
     // Role-based access control for Hunter/Skrapp enrichment features
-    // Only allow: Super Admin, Pro, Team Admin, RecruitPro
-    const allowedRoles = ['super_admin', 'Pro', 'team_admin', 'RecruitPro'];
+    // Only allow: Super Admin, Pro, Team Admin, RecruitPro, Admin
+    const allowedRoles = ['super_admin', 'Pro', 'team_admin', 'RecruitPro', 'admin'];
     
     if (!role || !allowedRoles.includes(role)) {
       res.status(403).json({ error: 'Premium access required for enrichment API keys. Contact support to upgrade your plan.' });

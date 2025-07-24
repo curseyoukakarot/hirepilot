@@ -27,8 +27,8 @@ export async function getUserIntegrations(userId: string): Promise<UserIntegrati
 
     const role = userData?.role;
     // Role-based access control for Hunter/Skrapp enrichment features
-    // Only allow: Super Admin, Pro, Team Admin, RecruitPro
-    const allowedRoles = ['super_admin', 'Pro', 'team_admin', 'RecruitPro'];
+    // Only allow: Super Admin, Pro, Team Admin, RecruitPro, Admin
+    const allowedRoles = ['super_admin', 'Pro', 'team_admin', 'RecruitPro', 'admin'];
     
     if (!role || !allowedRoles.includes(role)) {
       console.log(`User ${userId} with role '${role}' does not have access to premium enrichment features`);

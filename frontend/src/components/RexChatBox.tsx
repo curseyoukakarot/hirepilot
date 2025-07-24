@@ -254,7 +254,7 @@ export default function RexChatBox() {
         if (data?.role) userType = data.role;
       }
 
-      setEligible(["RecruitPro","TeamAdmin","SuperAdmin","super_admin"].includes(userType));
+      setEligible(["RecruitPro","TeamAdmin","SuperAdmin","super_admin","admin"].includes(userType));
     })();
   }, []);
 

@@ -170,7 +170,7 @@ export default function MeetRex() {
         <div className="max-w-4xl mx-auto px-6 text-center">
           <div className="bg-gradient-to-r from-purple-200 to-blue-300 rounded-2xl p-12 border border-purple-300/30">
             <h2 className="text-4xl font-bold text-slate-900 mb-6">Ready to Meet REX?</h2>
-            <p className="text-xl text-slate-600 mb-8">REX is included with all Team plans. Start your 7-day free trial today.</p>
+            <p className="text-xl text-slate-600 mb-8">REX is included with Pro and Team plans. Start your 7-day free trial today.</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
               <a href="/pricing" className="bg-white text-blue-600 border-2 border-blue-600 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-blue-50">Start for Free →</a>
               <a href="/pricing" className="border-2 border-purple-200 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-purple-50">View Pricing</a>

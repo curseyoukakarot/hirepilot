@@ -41,7 +41,7 @@ router.get('/settings', requireAuth, async (req: Request, res: Response) => {
       env_has_super_admin_key: !!process.env.SUPER_ADMIN_APOLLO_API_KEY
     });
 
-    // Check if user is RecruitPro or other privileged type
+    // Check if user is RecruitPro or other privileged type (includes admin for REX access)
     const privilegedTypes = ['RecruitPro', 'TeamAdmin', 'admin', 'member'];
     const userRole = userRecord?.role || authMetadata?.role || authMetadata?.account_type;
     const isRecruitPro = privilegedTypes.includes(userRole);

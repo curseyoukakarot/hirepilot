@@ -18,6 +18,7 @@ export default function RexSlackIntegrationCard({ user }) {
     "recruiter",
     "Recruiter",
     "super_admin",
+    "admin",
   ].includes(roleValue);
 
   if (!hasAccess) return null;
