@@ -759,78 +759,7 @@ router.post('/csv/parse', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/leads/:id/enrich
-router.post('/:id/enrich', requireAuth, async (req: Request, res: Response) => {
-  try {
-    const userId = (req as ApiRequest).user?.id;
-    if (!userId) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
-
-    const { id } = req.params;
-    const { data: lead, error: leadError } = await supabase
-      .from('leads')
-      .select('*')
-      .eq('id', id)
-      .eq('user_id', userId)
-      .single();
-
-    if (leadError) {
-      res.status(500).json({ error: leadError.message });
-      return;
-    }
-
-    if (!lead) {
-      res.status(404).json({ error: 'Lead not found' });
-      return;
-    }
-
-    // Enrich with Apollo
-    const apolloData = await enrichWithApollo({
-      leadId: lead.id,
-      userId: lead.user_id,
-      firstName: lead.first_name,
-      lastName: lead.last_name,
-      company: lead.company,
-      linkedinUrl: lead.linkedin_url
-    });
-
-    // Analyze with GPT
-    let gptAnalysis = null;
-    try {
-      if (lead.linkedin_url) {
-        gptAnalysis = await analyzeProfile(lead.linkedin_url);
-      }
-    } catch (err) {
-      console.error('GPT analysis failed:', err);
-    }
-
-    // Update lead with enriched data
-    console.log('[enrich route] writing enrichment_data for', id);
-    const { data: updatedLead, error: updateError } = await supabase
-      .from('leads')
-      .update({
-        enrichment_data: {
-          apollo: apolloData?.data || apolloData,
-          gpt: gptAnalysis
-        },
-        enriched_at: new Date().toISOString()
-      })
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (updateError) {
-      console.error('[enrich route] Supabase error', updateError);
-    }
-
-    res.json(updatedLead);
-  } catch (error) {
-    console.error('Error enriching lead:', error);
-    res.status(500).json({ error: 'Failed to enrich lead' });
-  }
-});
+// OLD APOLLO ROUTE REMOVED - Now using Decodo-first compatibility route above
 
 // GET /api/leads/:id - fetch a single lead by ID
 router.get('/:id', async (req: Request, res: Response) => {
