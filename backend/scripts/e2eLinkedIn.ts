@@ -33,7 +33,15 @@ import { randomUUID } from 'crypto';
   const proxyHost = `${process.env.DECODO_HOST}:${process.env.DECODO_PORT}`;
   console.log('Proxy:', proxyHost);
 
-  const browser = await puppeteer.launch({ headless: 'new', args: [`--proxy-server=${proxyHost}`] });
+  const browser = await puppeteer.launch({
+    headless: 'new',
+    args: [
+      `--proxy-server=${proxyHost}`,
+      '--proxy-bypass-list=<-loopback>',
+      '--no-sandbox',
+      '--disable-gpu'
+    ]
+  });
   const page = await browser.newPage();
   await page.setUserAgent('Mozilla/5.0 (HirePilotBot Stage)');
 
