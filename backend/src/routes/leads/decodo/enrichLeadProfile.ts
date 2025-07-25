@@ -8,7 +8,7 @@ import { enrichWithHunter } from '../../../../services/hunter/enrichLead';
 import { enrichWithSkrapp } from '../../../../services/skrapp/enrichLead';
 import { enrichLead as enrichWithApollo } from '../../../../services/apollo/enrichLead';
 import { decryptCookie } from '../../../utils/encryption';
-import { getDecodoClient } from '../../../utils/decodo';
+import { fetchHtml } from '../../../lib/decodoProxy';
 
 const router = express.Router();
 
@@ -225,8 +225,12 @@ async function enrichWithDecodo(profileUrl: string, userId: string): Promise<Enr
     // Get LinkedIn authentication cookie
     const linkedinCookie = await getUserLinkedInCookie(userId);
     
-    const decodoClient = getDecodoClient();
-    const html = await decodoClient.scrapeLinkedInProfile(profileUrl, linkedinCookie);
+    const { html, size } = await fetchHtml(profileUrl, linkedinCookie ? `li_at=${linkedinCookie}` : '');
+
+    // Track Decodo bandwidth usage
+    await supabase
+      .from('decodo_bandwidth_log')
+      .insert({ user_id: userId, type: 'profile', bytes: size, created_at: new Date().toISOString() });
     
     if (!html || html.includes('Sign in to LinkedIn')) {
       if (linkedinCookie) {

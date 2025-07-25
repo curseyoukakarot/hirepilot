@@ -4,6 +4,8 @@ import * as cheerio from 'cheerio';
 import { supabase } from '../../../lib/supabase';
 import { requireAuth } from '../../../../middleware/authMiddleware';
 import { ApiRequest } from '../../../../types/api';
+import { fetchHtml } from '../../../lib/decodoProxy';
+import { decryptCookie } from '../../../utils/encryption';
 
 const router = express.Router();
 
@@ -395,6 +397,27 @@ router.post('/salesNavigatorScraper', requireAuth, async (req: Request, res: Res
     console.log(`[salesNavigatorScraper] Starting scraping for campaign: ${campaign.name}`);
     console.log(`[salesNavigatorScraper] URL: ${searchUrl}, Pages: ${pagesToScrape}`);
 
+    // Retrieve user's LinkedIn authentication cookie (if any)
+    const { data: cookieData } = await supabase
+      .from('linkedin_cookies')
+      .select('encrypted_cookie, valid')
+      .eq('user_id', userId)
+      .eq('valid', true)
+      .single();
+
+    let linkedinCookie: string | null = null;
+    if (cookieData?.encrypted_cookie) {
+      try {
+        linkedinCookie = decryptCookie(cookieData.encrypted_cookie);
+        await supabase
+          .from('linkedin_cookies')
+          .update({ last_used_at: new Date().toISOString() })
+          .eq('user_id', userId);
+      } catch (err) {
+        console.warn('[salesNavigatorScraper] Failed to decrypt LinkedIn cookie:', err);
+      }
+    }
+
     const allLeads: LeadData[] = [];
     const errors: string[] = [];
 
@@ -405,19 +428,13 @@ router.post('/salesNavigatorScraper', requireAuth, async (req: Request, res: Res
         const pageUrl = `${searchUrl}&page=${page}`;
         console.log(`[salesNavigatorScraper] Processing page ${page}/${pagesToScrape}: ${pageUrl}`);
 
-        // Submit Decodo task
-        const task = await submitDecodoTask(pageUrl);
-        
-        let htmlContent: string | undefined;
+        // Fetch page HTML via Decodo Site Unblocker proxy
+        const { html: htmlContent, size } = await fetchHtml(pageUrl, linkedinCookie ? `li_at=${linkedinCookie}` : '');
 
-        if (task.status === 'completed' && task.html) {
-          // Instant endpoint – HTML ready
-          htmlContent = task.html;
-        } else {
-          // Poll legacy endpoint
-          const completedTask = await pollDecodoTask(task.task_id);
-          htmlContent = completedTask.html;
-        }
+        // Record bandwidth usage
+        await supabase
+          .from('decodo_bandwidth_log')
+          .insert({ user_id: userId, type: 'sales_nav_page', bytes: size, created_at: new Date().toISOString() });
 
         if (!htmlContent) {
           errors.push(`Page ${page}: No HTML content returned`);

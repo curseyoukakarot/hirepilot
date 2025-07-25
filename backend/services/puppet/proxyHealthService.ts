@@ -29,6 +29,7 @@ export interface ProxyPool {
   id: string;
   provider: ProxyProvider;
   endpoint: string;
+  tier?: 'decodo' | 'local' | 'direct';
   username?: string;
   password?: string;
   country_code?: string;
@@ -237,35 +238,52 @@ export class ProxyHealthService {
     try {
       console.log(`🎯 [ProxyHealth] Assigning proxy to user ${userId} (reason: ${reason})`);
 
-      // Get best available proxy using database function
-      const { data: bestProxyId, error } = await supabase.rpc('get_next_available_proxy', {
-        p_user_id: userId
-      });
+      // Custom tier-based selection logic – configurable via env
+      const tierPriority = (process.env.PROXY_TIER_ORDER || 'decodo,local,direct')
+        .split(',')
+        .map(t => t.trim());
+      let proxy: any | null = null;
 
-      if (error) {
-        throw new Error(`Failed to get available proxy: ${error.message}`);
+      for (const tier of tierPriority) {
+        const { data: proxies, error } = await supabase
+          .from('proxy_pool')
+          .select('*')
+          .eq('status', 'active')
+          .eq('tier', tier)
+          .order('global_failure_count', { ascending: true })
+          .limit(1);
+
+        if (error) {
+          throw new Error(`Failed to query proxy pool: ${error.message}`);
+        }
+
+        if (proxies && proxies.length) {
+          proxy = proxies[0];
+          break;
+        }
       }
 
-      if (!bestProxyId) {
+      if (!proxy) {
         console.log(`❌ [ProxyHealth] No available proxies for user ${userId}`);
-        
-        // Escalate to admin
-        await this.escalateToAdmin(userId, null, 'No available proxies in pool');
-        
+
+        await this.escalateToAdmin(userId, null, 'No available proxies after tier filtering');
+
         return {
           success: false,
           message: 'No available proxies. Admin has been notified.'
         };
       }
 
+      const bestProxyId = proxy.id;
+
       // Get proxy details
-      const { data: proxy, error: proxyError } = await supabase
+      const { data: proxyDetails, error: proxyError } = await supabase
         .from('proxy_pool')
         .select('*')
         .eq('id', bestProxyId)
         .single();
 
-      if (proxyError || !proxy) {
+      if (proxyError || !proxyDetails) {
         throw new Error('Failed to fetch proxy details');
       }
 
@@ -297,22 +315,22 @@ export class ProxyHealthService {
       }
 
       const proxyConfig = {
-        proxy_endpoint: proxy.endpoint,
-        proxy_port: proxy.endpoint.includes(':') ? proxy.endpoint.split(':')[1] : '80',
-        proxy_username: proxy.username,
-        proxy_password: proxy.password,
-        proxy_type: proxy.proxy_type || 'residential',
-        country_code: proxy.country_code,
-        provider: proxy.provider
+        proxy_endpoint: proxyDetails.endpoint,
+        proxy_port: proxyDetails.endpoint.includes(':') ? proxyDetails.endpoint.split(':')[1] : '80',
+        proxy_username: proxyDetails.username,
+        proxy_password: proxyDetails.password,
+        proxy_type: proxyDetails.proxy_type || 'residential',
+        country_code: proxyDetails.country_code,
+        provider: proxyDetails.provider
       };
 
-      console.log(`✅ [ProxyHealth] Assigned proxy ${bestProxyId} (${proxy.endpoint}) to user ${userId}`);
+      console.log(`✅ [ProxyHealth] Assigned proxy ${bestProxyId} (${proxyDetails.endpoint}) to user ${userId}`);
 
       return {
         success: true,
         proxy_id: bestProxyId,
         proxy_config: proxyConfig,
-        message: `Proxy assigned: ${proxy.endpoint} (${proxy.provider})`
+        message: `Proxy assigned: ${proxyDetails.endpoint} (${proxyDetails.provider})`
       };
 
     } catch (error) {
@@ -531,7 +549,8 @@ export class ProxyHealthService {
           max_concurrent_users: proxyConfig.max_concurrent_users || 1,
           notes: proxyConfig.notes,
           added_by: proxyConfig.added_by,
-          status: 'testing' // Start in testing mode
+          status: 'testing', // Start in testing mode
+          tier: proxyConfig.provider === 'custom' ? 'decodo' : 'local'
         })
         .select()
         .single();

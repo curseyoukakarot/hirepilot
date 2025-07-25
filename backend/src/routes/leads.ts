@@ -10,6 +10,7 @@ import { EmailEventService } from '../../services/emailEventService';
 import axios from 'axios';
 import decodoRouter from './leads/decodo/salesNavigatorScraper';
 import enrichmentRouter from './leads/decodo/enrichLeadProfile';
+import { fetchHtml } from '../lib/decodoProxy';
 
 const router = express.Router();
 
@@ -69,16 +70,21 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
         const enrichLeadProfileModule = await import('./leads/decodo/enrichLeadProfile');
         
         // The function is not exported, so we'll call the Decodo logic directly
-        const { getDecodoClient } = await import('../utils/decodo');
         const { decryptCookie } = await import('../utils/encryption');
         
         // Get LinkedIn cookie for authenticated scraping
         const { data: cookieData } = await supabase
           .from('linkedin_cookies')
-          .select('encrypted_cookie, valid')
+          .select('encrypted_cookie, valid, updated_at')
           .eq('user_id', userId)
-          .eq('valid', true)
           .single();
+
+        // Enforce freshness (24h) and validity
+        const cookieFresh = cookieData && cookieData.updated_at && new Date(cookieData.updated_at) > new Date(Date.now() - 24 * 60 * 60 * 1000);
+        if (!cookieData || !cookieData.valid || !cookieFresh) {
+          const { ErrorWithCode } = await import('../utils/errors');
+          throw new ErrorWithCode('Missing or stale LinkedIn cookie', 402);
+        }
 
         let linkedinCookie = null;
         if (cookieData?.encrypted_cookie) {
@@ -93,8 +99,12 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
           }
         }
 
-        const decodoClient = getDecodoClient();
-        const html = await decodoClient.scrapeLinkedInProfile(lead.linkedin_url, linkedinCookie);
+        const { html, size } = await fetchHtml(lead.linkedin_url, linkedinCookie ? `li_at=${linkedinCookie}` : '');
+
+        // Log bandwidth usage for auditing
+        await supabase
+          .from('decodo_bandwidth_log')
+          .insert({ user_id: userId, type: 'profile', bytes: size, created_at: new Date().toISOString() });
 
         if (html && !html.includes('Sign in to LinkedIn')) {
           // Parse the LinkedIn profile data using Cheerio
