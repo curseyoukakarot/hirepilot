@@ -61,7 +61,9 @@ import { randomUUID } from 'crypto';
   /* PROFILE ENRICHMENT */
   await page.goto('https://www.linkedin.com/in/jackson-bailey-3aa032254/', { waitUntil: 'domcontentloaded', timeout: 30000 });
   const profileHtml = await page.content();
-  await prisma.puppet_jobs.create({ data: { type: 'enrich_profile', proxy_session: session, html_size: profileHtml.length, status: 'success' } });
+  if (prisma) {
+    await prisma.puppet_jobs.create({ data: { type: 'enrich_profile', proxy_session: session, html_size: profileHtml.length, status: 'success' } });
+  }
   console.log('[Enrich] bytes:', profileHtml.length);
 
   /* CONNECTION REQUEST */
@@ -72,7 +74,9 @@ import { randomUUID } from 'crypto';
     await page.type('textarea[name="message"]', 'Hi Jackson – testing HirePilot automation. Please ignore 😊', { delay: 25 });
     await page.click('button:has-text("Send")');
     console.log('[Invite] Sent');
-    await prisma.linkedin_sent_invites.create({ data: { user_id: TEST_USER_ID, target_profile: 'jackson-bailey-3aa032254', sent_at: new Date() } });
+    if (prisma) {
+      await prisma.linkedin_sent_invites.create({ data: { user_id: TEST_USER_ID, target_profile: 'jackson-bailey-3aa032254', sent_at: new Date() } });
+    }
   } else {
     console.log('[Invite] Button not found or already connected');
   }
@@ -81,7 +85,9 @@ import { randomUUID } from 'crypto';
   const navUrl = 'https://www.linkedin.com/sales/search/people?query=(replace_query)&page=1';
   await page.goto(navUrl, { waitUntil: 'domcontentloaded' });
   const navHtml = await page.content();
-  await prisma.puppet_jobs.create({ data: { type: 'sales_nav_page', proxy_session: session, html_size: navHtml.length, status: 'success' } });
+  if (prisma) {
+    await prisma.puppet_jobs.create({ data: { type: 'sales_nav_page', proxy_session: session, html_size: navHtml.length, status: 'success' } });
+  }
   console.log('[SalesNav] bytes:', navHtml.length);
 
   await browser.close();
