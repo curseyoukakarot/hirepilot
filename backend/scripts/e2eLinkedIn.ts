@@ -1,10 +1,16 @@
 import puppeteer from 'puppeteer';
 // @ts-ignore - optional dev dependency available in runtime env
-import { PrismaClient } from '@prisma/client';
+let prisma: any = null;
+try {
+  // Dynamically import Prisma only if a schema/client exists
+  const { PrismaClient } = await import('@prisma/client');
+  prisma = new PrismaClient();
+} catch {
+  console.warn('[e2eLinkedIn] Prisma not available – DB writes disabled');
+}
 import { randomUUID } from 'crypto';
 
 async function main() {
-  const prisma = new PrismaClient();
   const TEST_USER_ID = process.env.TEST_USER_ID || 'REPLACE_WITH_UUID';
 
   // Retrieve fresh, valid cookie
@@ -44,14 +50,16 @@ async function main() {
     timeout: 30000,
   });
   const profileHtml = await page.content();
-  await prisma.puppet_jobs.create({
-    data: {
-      type: 'enrich_profile',
-      proxy_session: session,
-      html_size: profileHtml.length,
-      status: 'success',
-    },
-  });
+  if (prisma) {
+    await prisma.puppet_jobs.create({
+      data: {
+        type: 'enrich_profile',
+        proxy_session: session,
+        html_size: profileHtml.length,
+        status: 'success',
+      },
+    });
+  }
   console.log('[Enrich] bytes:', profileHtml.length);
 
   /* 2️⃣  CONNECTION REQUEST */
@@ -62,13 +70,15 @@ async function main() {
     await page.type('textarea[name="message"]', 'Hi Jackson – testing HirePilot automation. Please ignore 😊', { delay: 25 });
     await page.click('button:has-text("Send")');
     console.log('[Invite] Sent');
-    await prisma.linkedin_sent_invites.create({
-      data: {
-        user_id: TEST_USER_ID,
-        target_profile: 'jackson-bailey-3aa032254',
-        sent_at: new Date(),
-      },
-    });
+    if (prisma) {
+      await prisma.linkedin_sent_invites.create({
+        data: {
+          user_id: TEST_USER_ID,
+          target_profile: 'jackson-bailey-3aa032254',
+          sent_at: new Date(),
+        },
+      });
+    }
   } else {
     console.log('[Invite] Button not found or already connected');
   }
@@ -77,18 +87,22 @@ async function main() {
   const navUrl = 'https://www.linkedin.com/sales/search/people?query=(replace_query)&page=1';
   await page.goto(navUrl, { waitUntil: 'domcontentloaded' });
   const navHtml = await page.content();
-  await prisma.puppet_jobs.create({
-    data: {
-      type: 'sales_nav_page',
-      proxy_session: session,
-      html_size: navHtml.length,
-      status: 'success',
-    },
-  });
+  if (prisma) {
+    await prisma.puppet_jobs.create({
+      data: {
+        type: 'sales_nav_page',
+        proxy_session: session,
+        html_size: navHtml.length,
+        status: 'success',
+      },
+    });
+  }
   console.log('[SalesNav] bytes:', navHtml.length);
 
   await browser.close();
-  await prisma.$disconnect();
+  if (prisma) {
+    await prisma.$disconnect();
+  }
 }
 
 main().catch(err => {
