@@ -20,8 +20,13 @@ import { randomUUID } from 'crypto';
     });
     cookieStr = `li_at=${cookieRow.li_at}; JSESSIONID=${cookieRow.jsessionid};`;
   } else {
-    console.error('🛑 Prisma unavailable – cannot fetch linkedin cookie rows');
-    process.exit(1);
+    const liAt = process.env.LINKEDIN_LI_AT;
+    const jsid = process.env.LINKEDIN_JSESSIONID;
+    if (!liAt) {
+      console.error('🛑 Provide LINKEDIN_LI_AT env var when Prisma is unavailable');
+      process.exit(1);
+    }
+    cookieStr = `li_at=${liAt};` + (jsid ? ` JSESSIONID=${jsid};` : '');
   }
 
   const session = randomUUID().slice(0, 8);
