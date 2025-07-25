@@ -67,6 +67,8 @@ import { randomUUID } from 'crypto';
     await page.waitForSelector('.pv-top-card', { timeout: 10000 });
   } catch {
     console.error('Profile main selector not found – possible redirect');
+    console.log('Redirected to:', page.url());
+    console.log('Title:', await page.title());
     await browser.close();
     process.exit(1);
   }
