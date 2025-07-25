@@ -35,13 +35,15 @@ import { randomUUID } from 'crypto';
 
   const browser = await puppeteer.launch({
     headless: 'new',
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
     args: [
       `--proxy-server=${proxyHost}`,
       '--proxy-bypass-list=<-loopback>',
       '--no-sandbox',
-      '--disable-gpu',
       '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage'
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--remote-debugging-port=9222'
     ]
   });
   const page = await browser.newPage();
