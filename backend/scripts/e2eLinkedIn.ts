@@ -55,13 +55,8 @@ import { randomUUID } from 'crypto';
     password: process.env.DECODO_PASS!
   });
 
-  // Set cookies
-  const cookies = cookieStr.split(';').map(pair => {
-    const [name, value] = pair.trim().split('=');
-    return { name, value, domain: '.linkedin.com', httpOnly: true, secure: true } as any;
-  });
-  // @ts-ignore
-  await page.setCookie(...cookies);
+  // Attach cookie via HTTP header (avoids CDP length limits)
+  await page.setExtraHTTPHeaders({ Cookie: cookieStr });
 
   /* PROFILE ENRICHMENT */
   await page.goto('https://www.linkedin.com/in/jackson-bailey-3aa032254/', { waitUntil: 'domcontentloaded', timeout: 30000 });
