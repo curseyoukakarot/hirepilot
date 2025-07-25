@@ -59,7 +59,18 @@ import { randomUUID } from 'crypto';
   await page.setExtraHTTPHeaders({ Cookie: cookieStr });
 
   /* PROFILE ENRICHMENT */
-  await page.goto('https://www.linkedin.com/in/jackson-bailey-3aa032254/', { waitUntil: 'domcontentloaded', timeout: 30000 });
+  const profileUrl = 'https://www.linkedin.com/in/jackson-bailey-3aa032254/';
+  await page.goto(profileUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+
+  // Wait for the main profile selector – headline or top-card
+  try {
+    await page.waitForSelector('.pv-top-card', { timeout: 10000 });
+  } catch {
+    console.error('Profile main selector not found – possible redirect');
+    await browser.close();
+    process.exit(1);
+  }
+
   const profileHtml = await page.content();
   if (prisma) {
     await prisma.puppet_jobs.create({ data: { type: 'enrich_profile', proxy_session: session, html_size: profileHtml.length, status: 'success' } });
@@ -71,7 +82,7 @@ import { randomUUID } from 'crypto';
   if (connectBtn) {
     await connectBtn.click();
     await page.waitForSelector('textarea[name="message"]', { timeout: 5000 });
-    await page.type('textarea[name="message"]', 'Hi Jackson – testing HirePilot automation. Please ignore 😊', { delay: 25 });
+    await page.type('textarea[name="message"]', 'Hi Jackson lets connect!', { delay: 25 });
     await page.click('button:has-text("Send")');
     console.log('[Invite] Sent');
     if (prisma) {
