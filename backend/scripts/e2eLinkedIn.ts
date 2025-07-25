@@ -30,14 +30,18 @@ import { randomUUID } from 'crypto';
   }
 
   const session = randomUUID().slice(0, 8);
-  const proxyUrl = `http://${process.env.DECODO_USER}:${process.env.DECODO_PASS}` +
-    `@${process.env.DECODO_HOST}:${process.env.DECODO_PORT}`;
+  const proxyHost = `${process.env.DECODO_HOST}:${process.env.DECODO_PORT}`;
+  console.log('Proxy:', proxyHost);
 
-  console.log('Proxy:', proxyUrl);
-
-  const browser = await puppeteer.launch({ headless: 'new', args: [`--proxy-server=${proxyUrl}`] });
+  const browser = await puppeteer.launch({ headless: 'new', args: [`--proxy-server=${proxyHost}`] });
   const page = await browser.newPage();
   await page.setUserAgent('Mozilla/5.0 (HirePilotBot Stage)');
+
+  // Provide proxy credentials
+  await page.authenticate({
+    username: process.env.DECODO_USER!,
+    password: process.env.DECODO_PASS!
+  });
 
   // Set cookies
   const cookies = cookieStr.split(';').map(pair => {
