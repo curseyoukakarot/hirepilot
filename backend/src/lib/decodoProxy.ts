@@ -44,4 +44,12 @@ export async function fetchHtml(
     html: await res.text(),
     size: Number(res.headers.get('content-length') || 0),
   };
+}
+
+export function pickDecodoPort(): number {
+  const ports = (process.env.DECODO_PORTS || '10001,10002,10003,10004,10005,10006,10007')
+    .split(',')
+    .map(p => Number(p.trim()))
+    .filter(Boolean);
+  return ports[Math.floor(Math.random() * ports.length)];
 } 

@@ -366,6 +366,8 @@ router.post('/salesNavigatorScraper', requireAuth, async (req: Request, res: Res
 
     const { campaignId, searchUrl, pagesToScrape }: ScrapingRequest = req.body;
 
+    const totalPages = Math.max(pagesToScrape, 5);
+
     // Validation
     if (!campaignId || !searchUrl || !pagesToScrape) {
       res.status(400).json({ 
@@ -422,11 +424,11 @@ router.post('/salesNavigatorScraper', requireAuth, async (req: Request, res: Res
     const errors: string[] = [];
 
     // Process each page
-    for (let page = 1; page <= pagesToScrape; page++) {
+    for (let page = 1; page <= totalPages; page++) {
       try {
         // Construct page URL
         const pageUrl = `${searchUrl}&page=${page}`;
-        console.log(`[salesNavigatorScraper] Processing page ${page}/${pagesToScrape}: ${pageUrl}`);
+        console.log(`[salesNavigatorScraper] Processing page ${page}/${totalPages}: ${pageUrl}`);
 
         // Fetch page HTML via Decodo Site Unblocker proxy
         const { html: htmlContent, size } = await fetchHtml(pageUrl, linkedinCookie ? `li_at=${linkedinCookie}` : '');
@@ -448,7 +450,7 @@ router.post('/salesNavigatorScraper', requireAuth, async (req: Request, res: Res
         allLeads.push(...pageLeads);
 
         // Add delay between pages to be respectful
-        if (page < pagesToScrape) {
+        if (page < totalPages) {
           await new Promise(resolve => setTimeout(resolve, 2000));
         }
 
@@ -476,7 +478,7 @@ router.post('/salesNavigatorScraper', requireAuth, async (req: Request, res: Res
       numLeads: numStored,
       totalExtracted: allLeads.length,
       uniqueLeads: uniqueLeads.length,
-      pagesProcessed: pagesToScrape - errors.length,
+      pagesProcessed: totalPages - errors.length,
       errors: errors.length > 0 ? errors : undefined
     };
 

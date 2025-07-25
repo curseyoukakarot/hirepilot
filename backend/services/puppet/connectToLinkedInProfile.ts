@@ -726,6 +726,18 @@ async function launchBrowser(params: ConnectionParams): Promise<Browser> {
     ]
   };
 
+  // Auto-create Decodo proxy if none provided and ENV vars present
+  if (!params.proxy && process.env.DECODO_HOST && process.env.DECODO_USER && process.env.DECODO_PASS) {
+    const { pickDecodoPort } = await import('../../lib/decodoProxy');
+    const decodoPort = pickDecodoPort();
+    params.proxy = {
+      endpoint: `${process.env.DECODO_HOST}:${decodoPort}`,
+      username: process.env.DECODO_USER,
+      password: process.env.DECODO_PASS,
+      type: 'residential'
+    };
+  }
+
   // Add proxy configuration if provided
   if (params.proxy) {
     launchOptions.args.push(`--proxy-server=${params.proxy.endpoint}`);
