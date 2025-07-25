@@ -25,7 +25,7 @@ export async function fetchHtml(
   const res = await fetch(
     `${url}?render=true`,
     {
-      agent: decodoAgent as unknown as any,
+      // agent: decodoAgent as unknown as any, // temporarily disabled – fallback to Smartproxy/default
       // Node-fetch types don't include timeout; cast to any to suppress.
       timeout: 25_000,
       headers: {
