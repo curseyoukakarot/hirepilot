@@ -39,7 +39,9 @@ import { randomUUID } from 'crypto';
       `--proxy-server=${proxyHost}`,
       '--proxy-bypass-list=<-loopback>',
       '--no-sandbox',
-      '--disable-gpu'
+      '--disable-gpu',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage'
     ]
   });
   const page = await browser.newPage();
