@@ -906,7 +906,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                       buttonClass = 'bg-green-50 border border-green-500 text-green-700 hover:bg-green-100';
                       buttonText = 'Re-enrich';
                       tooltipText = 'Re-run enrichment to find additional data or update existing information';
-                      flowText = 'Update';
+                      flowText = '';
                     }
                     
                     return (
