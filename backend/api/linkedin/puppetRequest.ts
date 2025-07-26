@@ -182,9 +182,8 @@ export default async function puppetLinkedInRequestHandler(req: Request, res: Re
     if (!hasCookie) {
       const { data: cookieRow, error: cookieErr } = await supabase
         .from('linkedin_cookies')
-        .select('encrypted_cookie, session_cookie')
+        .select('encrypted_cookie, session_cookie, status, is_valid')
         .eq('user_id', userId)
-        .eq('valid', true)
         .single();
 
       if (!cookieErr && (cookieRow?.encrypted_cookie || cookieRow?.session_cookie)) {
