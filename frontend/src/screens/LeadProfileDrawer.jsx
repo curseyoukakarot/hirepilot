@@ -900,8 +900,8 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                     } else if (needsEnrichment) {
                       buttonClass = 'bg-purple-50 border border-purple-500 text-purple-700 hover:bg-purple-100';
                       buttonText = 'Enrich Now';
-                      tooltipText = 'Find contact information using Decodo → Hunter.io → Skrapp.io → Apollo flow';
-                      flowText = 'Decodo→Hunter→Skrapp→Apollo';
+                      tooltipText = 'Find contact information using multiple enrichment services';
+                      flowText = '';
                     } else {
                       buttonClass = 'bg-green-50 border border-green-500 text-green-700 hover:bg-green-100';
                       buttonText = 'Re-enrich';
@@ -925,7 +925,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                           <FaWandMagicSparkles className="mr-1" />
                         )}
                         {buttonText}
-                        {(needsEnrichment || phantomStatus.status === 'missing') && (
+                        {flowText && (
                           <span className={`ml-1 text-xs px-1 rounded ${
                             leadSource === 'Sales Navigator' 
                               ? 'bg-blue-200 text-blue-800' 
