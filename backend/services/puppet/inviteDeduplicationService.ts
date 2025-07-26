@@ -112,6 +112,15 @@ export class InviteDeduplicationService {
       // Determine action based on result
       const action: DeduplicationAction = result.is_allowed ? 'allowed' : 'blocked';
       
+      // DEBUG: trace call to logDeduplicationDecision for success path
+      console.log('[DEBUG][Dedup] About to log decision', {
+        userId,
+        action,
+        reason: result.reason,
+        rule_applied: result.rule_applied,
+        previous_invite: result.previous_invite_id
+      });
+
       // Log the decision
       const logId = await this.logDeduplicationDecision(
         userId,
@@ -124,6 +133,8 @@ export class InviteDeduplicationService {
         campaignId,
         puppetJobId
       );
+
+      console.log('[DEBUG][Dedup] logDeduplicationDecision returned', logId);
       
       const deduplicationResult: DeduplicationResult = {
         isAllowed: result.is_allowed,
@@ -145,8 +156,10 @@ export class InviteDeduplicationService {
       
     } catch (error) {
       console.error('Error checking invite deduplication:', error);
+      console.log('[DEBUG][Dedup] Exception stack', error);
       
       // Log the error and default to blocking for safety
+      console.log('[DEBUG][Dedup] Logging blocked decision due to error');
       const logId = await this.logDeduplicationDecision(
         userId,
         profileUrl,
@@ -158,6 +171,7 @@ export class InviteDeduplicationService {
         campaignId,
         puppetJobId
       );
+      console.log('[DEBUG][Dedup] logDeduplicationDecision (error path) returned', logId);
       
       return {
         isAllowed: false,
