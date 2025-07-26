@@ -75,7 +75,7 @@ export default async function puppetLinkedInRequestHandler(req: Request, res: Re
     const deduplicationCheck = await inviteDeduplicationService.checkInviteEligibility(
       userId,
       linkedin_url,
-      campaign_id ? 'campaign' : 'manual'
+      campaign_id || undefined
     );
     
     if (!deduplicationCheck.isAllowed) {
