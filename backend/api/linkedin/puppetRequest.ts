@@ -186,7 +186,7 @@ export default async function puppetLinkedInRequestHandler(req: Request, res: Re
         .eq('user_id', userId)
         .single();
 
-      if (!cookieErr && (cookieRow?.encrypted_cookie || cookieRow?.session_cookie)) {
+      if (cookieRow && (cookieRow.encrypted_cookie || cookieRow.session_cookie)) {
         hasCookie = true;
       }
     }
