@@ -176,8 +176,23 @@ export default async function puppetLinkedInRequestHandler(req: Request, res: Re
       }
     }
 
-    // Check if user has LinkedIn cookie configured
-    if (!userSettings!.li_at_cookie) {
+    // Check if user has LinkedIn cookie configured (first in user settings, else in cookies table)
+    let hasCookie = Boolean(userSettings!.li_at_cookie);
+
+    if (!hasCookie) {
+      const { data: cookieRow, error: cookieErr } = await supabase
+        .from('linkedin_cookies')
+        .select('encrypted_cookie, session_cookie')
+        .eq('user_id', userId)
+        .eq('valid', true)
+        .single();
+
+      if (!cookieErr && (cookieRow?.encrypted_cookie || cookieRow?.session_cookie)) {
+        hasCookie = true;
+      }
+    }
+
+    if (!hasCookie) {
       return res.status(400).json({ 
         error: 'LinkedIn cookie not configured. Please set up LinkedIn integration first.',
         setup_required: true
