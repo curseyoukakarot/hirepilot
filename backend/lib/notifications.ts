@@ -84,7 +84,7 @@ export async function sendNotify(type: string, payload: NotificationPayload) {
       try {
         await sgMail.send({
           to: settings.email,
-          from: 'noreply@hirepilot.ai',
+          from: 'noreply@thehirepilot.com',
           subject,
           text: msg.replace(/\*/g, '') // Remove markdown for email
         });
@@ -151,7 +151,7 @@ export async function sendTeamNotify(
       try {
         await sgMail.send({
           to: settings.email,
-          from: 'noreply@hirepilot.ai',
+          from: 'noreply@thehirepilot.com',
           subject,
           text: msg.replace(/\*/g, '') // Remove markdown for email
         });
@@ -161,5 +161,57 @@ export async function sendTeamNotify(
     }
   } catch (error) {
     console.error('Notification error:', error);
+  }
+}
+
+// LinkedIn invite notification
+export async function sendInviteNotification(
+  userId: string,
+  profileUrl: string,
+  success: boolean,
+  errorMessage?: string
+) {
+  try {
+    const { data: settings, error: settingsError } = await supabase
+      .from('user_settings')
+      .select('slack_webhook_url, email_notifications, slack_notifications, email, campaign_updates')
+      .eq('user_id', userId)
+      .single();
+
+    if (settingsError) {
+      console.error('Error fetching user settings for invite notify:', settingsError);
+      return;
+    }
+
+    const profileHandle = profileUrl.replace('https://www.linkedin.com/in/', '').replace(/\/$/, '');
+    const text = success
+      ? `✅ LinkedIn invite sent to *${profileHandle}*`
+      : `❌ LinkedIn invite to *${profileHandle}* failed: ${errorMessage || 'unknown error'}`;
+    const subject = success ? 'LinkedIn invite sent' : 'LinkedIn invite failed';
+
+    // Slack
+    if (settings.slack_notifications && settings.slack_webhook_url) {
+      try {
+        await axios.post(settings.slack_webhook_url, { text });
+      } catch (err) {
+        console.error('Slack invite notify error:', err);
+      }
+    }
+
+    // Email
+    if (settings.email_notifications && settings.email) {
+      try {
+        await sgMail.send({
+          to: settings.email,
+          from: 'noreply@thehirepilot.com',
+          subject,
+          text: text.replace(/\*/g, '')
+        });
+      } catch (err) {
+        console.error('Sendgrid invite notify error:', err);
+      }
+    }
+  } catch (err) {
+    console.error('sendInviteNotification error:', err);
   }
 } 
