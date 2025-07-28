@@ -9,6 +9,7 @@ import {
   PUPPET_CONSTANTS
 } from '../../types/puppet';
 import { executePuppetJob } from '../../services/puppet/puppetAutomation';
+import { sendInviteNotification } from '../../lib/notifications';
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -89,6 +90,9 @@ export default async function processPuppetJobs(req: Request, res: Response) {
         successfulJobs++;
         console.log(`[${processId}] Job ${job.id} completed successfully`);
 
+        // Notify user
+        await sendInviteNotification(job.user_id, job.linkedin_profile_url, true);
+
       } catch (error) {
         console.error(`[${processId}] Job ${job.id} failed:`, error);
 
@@ -122,6 +126,8 @@ export default async function processPuppetJobs(req: Request, res: Response) {
           await updateDailyStats(job.user_id, {
             jobs_failed: 1
           });
+          // Failure notification
+          await sendInviteNotification(job.user_id, job.linkedin_profile_url, false, error instanceof Error ? error.message : 'unknown');
         }
 
         // Update job with error details
@@ -174,22 +180,12 @@ export default async function processPuppetJobs(req: Request, res: Response) {
 async function getPendingJobs(): Promise<PuppetJob[]> {
   const { data: jobs, error } = await supabase
     .from('puppet_jobs')
-    .select(`
-      *,
-      puppet_user_settings!inner(
-        user_id,
-        auto_mode_enabled,
-        daily_connection_limit,
-        li_at_cookie
-      )
-    `)
+    .select('*')
     .eq('status', 'pending')
-    .eq('puppet_user_settings.auto_mode_enabled', true)
-    .not('puppet_user_settings.li_at_cookie', 'is', null)
     .lte('scheduled_at', new Date().toISOString())
     .order('priority', { ascending: false })
     .order('created_at', { ascending: true })
-    .limit(10); // Process max 10 jobs at a time
+    .limit(10);
 
   if (error) {
     throw new Error(`Failed to fetch pending jobs: ${error.message}`);
