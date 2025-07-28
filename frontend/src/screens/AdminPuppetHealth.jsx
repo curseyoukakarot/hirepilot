@@ -4,6 +4,7 @@ import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Alert } from '../components/ui/alert';
 import { RefreshCw, AlertTriangle, CheckCircle, XCircle, Clock, Users, Zap, Shield } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
 
 const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
 
@@ -12,7 +13,14 @@ const usePuppetHealthData = (endpoint, refreshInterval = 30000) => {
   return useQuery({
     queryKey: ['puppet-health', endpoint],
     queryFn: async () => {
-      const response = await fetch(`${API_BASE_URL}/puppet/${endpoint}`);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const response = await fetch(`${API_BASE_URL}/puppet/${endpoint}`, {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
       if (!response.ok) {
         throw new Error(`Failed to fetch ${endpoint}`);
       }
