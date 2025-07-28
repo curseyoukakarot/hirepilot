@@ -10,13 +10,12 @@ const API_BASE_URL = `${(import.meta.env.VITE_BACKEND_URL || 'https://api.thehir
 
 // Helper to attach auth token (refreshing if necessary)
 const fetchWithAuth = async (url, options = {}) => {
-  // Try current session
-  let { data: { session } } = await supabase.auth.getSession();
-
-  if (!session) {
-    // give Supabase a moment to hydrate (new tab cold start)
-    await new Promise(res => setTimeout(res, 1000));
+  // Try to get a session, retry a few times for cold start
+  let session = null;
+  for (let i = 0; i < 5; i++) {
     ({ data: { session } } = await supabase.auth.getSession());
+    if (session) break;
+    await new Promise(res => setTimeout(res, 400)); // wait 400ms
   }
 
   if (!session) {
