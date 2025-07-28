@@ -34,14 +34,14 @@
       "./cron/**/*.ts",
       "./types/**/*.ts",
       "./utils/**/*.ts",
-      "./src/**/*.ts"
+      "./src/**/*.ts",
+      "./scripts/**/*.ts"
     ],
     "exclude": [
       "node_modules", 
       "dist", 
       "**/*.test.ts", 
       "**/*.spec.ts", 
-      "scripts/**/*.ts",
       "test/**/*.ts",
       "*.md",
       "migrations/**/*.ts"
