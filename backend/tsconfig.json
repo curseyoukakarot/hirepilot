@@ -35,7 +35,7 @@
       "./types/**/*.ts",
       "./utils/**/*.ts",
       "./src/**/*.ts",
-      "./scripts/**/*.ts"
+      "./scripts/puppetJobRunner.ts"
     ],
     "exclude": [
       "node_modules", 
@@ -44,7 +44,8 @@
       "**/*.spec.ts", 
       "test/**/*.ts",
       "*.md",
-      "migrations/**/*.ts"
+      "migrations/**/*.ts",
+      "scripts/e2eLinkedIn.ts"
     ]
   }
   
