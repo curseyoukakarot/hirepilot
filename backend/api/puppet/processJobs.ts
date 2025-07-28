@@ -210,14 +210,27 @@ async function buildExecutionConfig(job: PuppetJob): Promise<PuppetExecutionConf
   }
 
   // Decrypt LinkedIn cookie
-  const { data: cookieResult, error: cookieError } = await supabase
-    .rpc('decrypt_li_at_cookie', {
-      encrypted_cookie: userSettings.li_at_cookie,
-      user_id: job.user_id
-    });
+  let li_at_cookie = undefined;
+  try {
+    const { data: cookieResult, error: cookieError } = await supabase
+      .rpc('decrypt_li_at_cookie', {
+        encrypted_cookie: userSettings.li_at_cookie,
+        user_id: job.user_id
+      });
 
-  if (cookieError || !cookieResult) {
-    throw new Error('Failed to decrypt LinkedIn cookie');
+    if (cookieError || !cookieResult) {
+      throw new Error('Failed to decrypt LinkedIn cookie');
+    }
+    li_at_cookie = cookieResult;
+  } catch (e) {
+    console.warn(`[${job.id}] Failed to decrypt LinkedIn cookie for user ${job.user_id}:`, e);
+    // Fallback: if decryption fails, try to use the raw cookie if available
+    if (userSettings.li_at_cookie) {
+      li_at_cookie = userSettings.li_at_cookie;
+      console.warn(`[${job.id}] Using raw cookie for user ${job.user_id} due to decryption failure.`);
+    } else {
+      throw new Error('No valid LinkedIn cookie found for decryption.');
+    }
   }
 
   // Get assigned proxy if available
@@ -246,7 +259,7 @@ async function buildExecutionConfig(job: PuppetJob): Promise<PuppetExecutionConf
     job_id: job.id,
     linkedin_profile_url: job.linkedin_profile_url,
     message: job.message,
-    li_at_cookie: cookieResult,
+    li_at_cookie: li_at_cookie,
     proxy_config,
     user_settings: {
       min_delay_seconds: userSettings.min_delay_seconds,
