@@ -6,7 +6,7 @@ import { Alert } from '../components/ui/alert';
 import { RefreshCw, AlertTriangle, CheckCircle, XCircle, Clock, Users, Zap, Shield } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 
-const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
+const API_BASE_URL = `${(import.meta.env.VITE_BACKEND_URL || 'https://api.thehirepilot.com')}/api`;
 
 // API hook for fetching puppet health data
 const usePuppetHealthData = (endpoint, refreshInterval = 30000) => {
