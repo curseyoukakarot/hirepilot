@@ -41,7 +41,9 @@ const usePuppetHealthData = (endpoint, refreshInterval = 30000) => {
     queryFn: async () => {
       const response = await fetchWithAuth(`${API_BASE_URL}/puppet/${endpoint}`);
       if (!response.ok) {
-        throw new Error(`Failed to fetch ${endpoint}`);
+        const bodyText = await response.text();
+        console.error(`[puppet-health] ${endpoint} → ${response.status}`, bodyText);
+        throw new Error(`HTTP ${response.status}`);
       }
       return response.json();
     },
