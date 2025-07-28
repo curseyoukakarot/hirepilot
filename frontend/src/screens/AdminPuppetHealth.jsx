@@ -12,7 +12,15 @@ const API_BASE_URL = `${(import.meta.env.VITE_BACKEND_URL || 'https://api.thehir
 const fetchWithAuth = async (url, options = {}) => {
   // Try current session
   let { data: { session } } = await supabase.auth.getSession();
+
   if (!session) {
+    // give Supabase a moment to hydrate (new tab cold start)
+    await new Promise(res => setTimeout(res, 1000));
+    ({ data: { session } } = await supabase.auth.getSession());
+  }
+
+  if (!session) {
+    // final attempt via refresh token
     const { data, error } = await supabase.auth.refreshSession();
     if (error || !data.session) throw new Error('Not authenticated');
     session = data.session;
