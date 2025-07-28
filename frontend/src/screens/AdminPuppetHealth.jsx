@@ -8,19 +8,31 @@ import { supabase } from '../../lib/supabaseClient';
 
 const API_BASE_URL = `${(import.meta.env.VITE_BACKEND_URL || 'https://api.thehirepilot.com')}/api`;
 
+// Helper to attach auth token (refreshing if necessary)
+const fetchWithAuth = async (url, options = {}) => {
+  // Try current session
+  let { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    const { data, error } = await supabase.auth.refreshSession();
+    if (error || !data.session) throw new Error('Not authenticated');
+    session = data.session;
+  }
+
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...(options.headers || {}),
+      Authorization: `Bearer ${session.access_token}`,
+    },
+  });
+};
+
 // API hook for fetching puppet health data
 const usePuppetHealthData = (endpoint, refreshInterval = 30000) => {
   return useQuery({
     queryKey: ['puppet-health', endpoint],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('Not authenticated');
-
-      const response = await fetch(`${API_BASE_URL}/puppet/${endpoint}`, {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
+      const response = await fetchWithAuth(`${API_BASE_URL}/puppet/${endpoint}`);
       if (!response.ok) {
         throw new Error(`Failed to fetch ${endpoint}`);
       }
