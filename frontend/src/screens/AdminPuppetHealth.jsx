@@ -5,12 +5,14 @@ import { Button } from '../components/ui/button';
 import { Alert } from '../components/ui/alert';
 import { RefreshCw, AlertTriangle, CheckCircle, XCircle, Clock, Users, Zap, Shield } from 'lucide-react';
 
+const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
+
 // API hook for fetching puppet health data
 const usePuppetHealthData = (endpoint, refreshInterval = 30000) => {
   return useQuery({
     queryKey: ['puppet-health', endpoint],
     queryFn: async () => {
-      const response = await fetch(`/api/puppet/${endpoint}`);
+      const response = await fetch(`${API_BASE_URL}/puppet/${endpoint}`);
       if (!response.ok) {
         throw new Error(`Failed to fetch ${endpoint}`);
       }
