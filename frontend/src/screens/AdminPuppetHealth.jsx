@@ -40,12 +40,20 @@ const usePuppetHealthData = (endpoint, refreshInterval = 30000) => {
     queryKey: ['puppet-health', endpoint],
     queryFn: async () => {
       const response = await fetchWithAuth(`${API_BASE_URL}/puppet/${endpoint}`);
+      const text = await response.text();
+
       if (!response.ok) {
-        const bodyText = await response.text();
-        console.error(`[puppet-health] ${endpoint} → ${response.status}`, bodyText);
+        console.error(`[puppet-health] ${endpoint} → ${response.status}`, text.slice(0, 500));
         throw new Error(`HTTP ${response.status}`);
       }
-      return response.json();
+
+      // Successful status but ensure JSON payload
+      try {
+        return JSON.parse(text);
+      } catch (err) {
+        console.error(`[puppet-health] ${endpoint} → non-JSON response`, text.slice(0, 500));
+        throw new Error('Invalid JSON response');
+      }
     },
     refetchInterval: refreshInterval,
     refetchIntervalInBackground: true,
