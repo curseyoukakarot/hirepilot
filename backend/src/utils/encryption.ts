@@ -127,6 +127,32 @@ export function decryptCookie(encrypted: string): string {
 }
 
 /**
+ * Decrypt cookie stored by extension (aes-256-cbc, iv:cipher hex) using COOKIE_ENCRYPTION_KEY
+ */
+export function decryptLegacyAesCookie(encrypted: string): string {
+  try {
+    const keyRaw = process.env.COOKIE_ENCRYPTION_KEY;
+    if (!keyRaw) throw new Error('Missing COOKIE_ENCRYPTION_KEY env');
+
+    const key = keyRaw.slice(0, 32); // ensure 32 bytes
+
+    const [ivHex, cipherHex] = encrypted.split(':');
+    if (!ivHex || !cipherHex) throw new Error('Invalid legacy encrypted format');
+
+    const iv = Buffer.from(ivHex, 'hex');
+    const ciphertext = Buffer.from(cipherHex, 'hex');
+
+    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(key), iv);
+    let plaintext = decipher.update(ciphertext).toString();
+    plaintext += decipher.final('utf8');
+    return plaintext;
+  } catch (err: any) {
+    console.error('[Encryption] Legacy decrypt failed:', err.message);
+    throw err;
+  }
+}
+
+/**
  * Create a SHA-256 hash of the cookie for validation purposes
  * @param cookie - The plain li_at cookie value
  * @returns SHA-256 hash as hex string

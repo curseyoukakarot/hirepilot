@@ -324,8 +324,15 @@ async function getUserLinkedInCookie(userId: string): Promise<string | null> {
 
     // Fallback for legacy unencrypted storage
     if (!plaintextCookie && cookieData.session_cookie) {
-      console.log('[LinkedInAuth] Using legacy plaintext session_cookie');
-      plaintextCookie = cookieData.session_cookie;
+      try {
+        // Try decrypting legacy AES cookie first
+        const { decryptLegacyAesCookie } = await import('../../../utils/encryption');
+        plaintextCookie = decryptLegacyAesCookie(cookieData.session_cookie);
+        console.log('[LinkedInAuth] Decrypted legacy session_cookie');
+      } catch (legacyErr) {
+        console.warn('[LinkedInAuth] Unable to decrypt legacy session_cookie, using as-is');
+        plaintextCookie = cookieData.session_cookie;
+      }
     }
 
     if (!plaintextCookie) {
