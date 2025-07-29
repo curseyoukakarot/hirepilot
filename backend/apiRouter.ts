@@ -47,6 +47,10 @@ import healthCheck from './api/health';
 // Import Decodo LinkedIn trigger
 import linkedinTriggerRouter from './src/routes/campaigns/linkedin/trigger';
 import linkedInCookieRouter from './src/routes/cookies/storeLinkedInCookie';
+import adminUsersRouter from './src/routes/adminUsers';
+
+// LinkedIn session admin router
+const linkedinSessionAdmin = require('./api/linkedinSessionAdmin');
 
 const router = Router();
 
@@ -254,5 +258,7 @@ router.post('/fix/today-emails', fixTodayEmails);
 
 // LinkedIn Cookie Management Routes
 router.use('/cookies/linkedin', linkedInCookieRouter);
+
+router.use('/admin', requireAuth, linkedinSessionAdmin);
 
 export default router;
