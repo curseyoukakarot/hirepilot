@@ -288,6 +288,7 @@ async function getUserLinkedInCookie(userId: string): Promise<string | null> {
       .single();
 
     if (error || !cookieData) {
+      console.warn('[LinkedInAuth] Cookie query result', { error, cookieData });
       console.log(`[LinkedInAuth] No valid cookie found for user ${userId}`);
       return null;
     }
