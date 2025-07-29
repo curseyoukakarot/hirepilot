@@ -26,6 +26,8 @@ import {
 import { toast } from 'react-hot-toast';
 import { supabase } from '../lib/supabase';
 
+const API_BASE_URL = `${(import.meta.env.VITE_BACKEND_URL || 'https://api.thehirepilot.com')}/api`;
+
 // Components
 import ProxyTestModal from '../components/admin/ProxyTestModal';
 import ProxyHistoryModal from '../components/admin/ProxyHistoryModal';
@@ -95,7 +97,7 @@ const AdminProxyManagement = () => {
       });
       
       const { data } = await supabase.auth.getSession();
-      const response = await fetch(`/api/admin/proxies?${params}`, {
+      const response = await fetch(`${API_BASE_URL}/admin/proxies?${params}`, {
         headers: {
           'Authorization': `Bearer ${data.session?.access_token}`,
           'Content-Type': 'application/json'
@@ -124,7 +126,7 @@ const AdminProxyManagement = () => {
   const loadStats = async () => {
     try {
       const { data } = await supabase.auth.getSession();
-      const response = await fetch('/api/admin/proxies/stats', {
+      const response = await fetch(`${API_BASE_URL}/admin/proxies/stats`, {
         headers: {
           'Authorization': `Bearer ${data.session?.access_token}`,
           'Content-Type': 'application/json'
@@ -151,7 +153,7 @@ const AdminProxyManagement = () => {
       setTesting(prev => ({ ...prev, [proxyId]: true }));
       
       const { data } = await supabase.auth.getSession();
-      const response = await fetch('/api/admin/proxies/test', {
+      const response = await fetch(`${API_BASE_URL}/admin/proxies/test`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${data.session?.access_token}`,
@@ -196,7 +198,7 @@ const AdminProxyManagement = () => {
       const payload = proxyIds ? { proxy_ids: proxyIds } : { test_all: true };
       
       const { data } = await supabase.auth.getSession();
-      const response = await fetch('/api/admin/proxies/batch-test', {
+      const response = await fetch(`${API_BASE_URL}/admin/proxies/batch-test`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${data.session?.access_token}`,
@@ -227,7 +229,7 @@ const AdminProxyManagement = () => {
   const updateProxyStatus = async (proxyId, status) => {
     try {
       const { data } = await supabase.auth.getSession();
-      const response = await fetch(`/api/admin/proxies/${proxyId}/status`, {
+      const response = await fetch(`${API_BASE_URL}/admin/proxies/${proxyId}/status`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${data.session?.access_token}`,
@@ -259,7 +261,7 @@ const AdminProxyManagement = () => {
     
     try {
       const { data } = await supabase.auth.getSession();
-      const response = await fetch(`/api/admin/proxies/${proxyId}`, {
+      const response = await fetch(`${API_BASE_URL}/admin/proxies/${proxyId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${data.session?.access_token}`,
