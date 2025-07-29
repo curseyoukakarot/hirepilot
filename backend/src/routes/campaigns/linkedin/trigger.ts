@@ -283,13 +283,18 @@ async function getUserLinkedInCookie(userId: string): Promise<string | null> {
   try {
     const { data: cookieData, error } = await supabase
       .from('linkedin_cookies')
-      .select('encrypted_cookie, session_cookie, valid, expires_at')
+      .select('encrypted_cookie, session_cookie, valid, is_valid, expires_at')
       .eq('user_id', userId)
-      .eq('valid', true)
       .single();
 
     if (error || !cookieData) {
       console.log(`[LinkedInAuth] No valid cookie found for user ${userId}`);
+      return null;
+    }
+
+    // Ensure cookie marked valid
+    if (cookieData.valid === false || cookieData.is_valid === false) {
+      console.log(`[LinkedInAuth] Cookie marked invalid for user ${userId}`);
       return null;
     }
 
