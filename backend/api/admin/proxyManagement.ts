@@ -103,16 +103,28 @@ export const getAllProxies = async (req: Request, res: Response) => {
     query = query.range(Number(offset), Number(offset) + Number(limit) - 1);
     
     const { data, error, count } = await query;
-    
+
     if (error) {
+      if (error.message?.includes('does not exist')) {
+        // View not created yet – return empty list
+        return res.json({
+          success: true,
+          data: [],
+          pagination: {
+            total: 0,
+            limit: Number(limit),
+            offset: Number(offset)
+          }
+        });
+      }
       throw new Error(`Failed to get proxies: ${error.message}`);
     }
-    
+
     res.json({
       success: true,
       data: data || [],
       pagination: {
-        total: count,
+        total: count ?? 0,
         limit: Number(limit),
         offset: Number(offset)
       }
@@ -144,9 +156,13 @@ export const getProxyStats = async (req: Request, res: Response) => {
       .from('proxy_statistics')
       .select('*')
       .single();
-    
+    let safeStats = stats || {};
     if (statsError) {
-      throw new Error(`Failed to get proxy stats: ${statsError.message}`);
+      if (statsError.message?.includes('does not exist')) {
+        safeStats = {};
+      } else {
+        throw new Error(`Failed to get proxy stats: ${statsError.message}`);
+      }
     }
     
     // Get recent test activity (last 24 hours)
@@ -188,7 +204,7 @@ export const getProxyStats = async (req: Request, res: Response) => {
     res.json({
       success: true,
       data: {
-        ...stats,
+        ...safeStats,
         ...recentTestStats,
         top_performing_proxies: topProxies || [],
         recent_additions: recentProxies || []
