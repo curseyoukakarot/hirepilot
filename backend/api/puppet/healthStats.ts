@@ -292,6 +292,22 @@ router.get('/stats/deduped-invites', asyncHandler(async (req: any, res: any) => 
       .limit(100);
 
     if (dedupError) {
+      if (dedupError.message?.includes('does not exist')) {
+        // Table not present in this environment – return empty dataset
+        return res.json({
+          success: true,
+          data: {
+            warnings: [],
+            summary: {
+              total_blocked: 0,
+              active_cooldowns: 0,
+              rule_breakdown: {},
+              top_profiles: {}
+            },
+            last_updated: new Date().toISOString()
+          }
+        });
+      }
       throw new Error(`Deduplication stats error: ${dedupError.message}`);
     }
 
