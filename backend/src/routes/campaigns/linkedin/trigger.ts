@@ -1,5 +1,5 @@
 import express, { Request, Response } from 'express';
-import { supabase } from '../../../lib/supabase';
+import { supabase, supabaseDb } from '../../../../lib/supabase';
 import { requireAuth } from '../../../../middleware/authMiddleware';
 import { ApiRequest } from '../../../../types/api';
 import { DecodoClient } from '../../../utils/decodo';
@@ -281,7 +281,7 @@ router.post('/trigger', requireAuth, async (req: ApiRequest, res: Response) => {
  */
 async function getUserLinkedInCookie(userId: string): Promise<string | null> {
   try {
-    const { data: cookieData, error } = await supabase
+    const { data: cookieData, error } = await supabaseDb
       .from('linkedin_cookies')
       .select('encrypted_cookie, session_cookie, valid, is_valid, expires_at')
       .eq('user_id', userId)
@@ -304,7 +304,7 @@ async function getUserLinkedInCookie(userId: string): Promise<string | null> {
       if (expiresAt < new Date()) {
         console.log(`[LinkedInAuth] Cookie expired for user ${userId}`);
         // Mark as invalid
-        await supabase
+        await supabaseDb
           .from('linkedin_cookies')
           .update({ valid: false })
           .eq('user_id', userId);
@@ -341,7 +341,7 @@ async function getUserLinkedInCookie(userId: string): Promise<string | null> {
     }
 
     // Update last_used_at timestamp
-    await supabase
+    await supabaseDb
       .from('linkedin_cookies')
       .update({ last_used_at: new Date().toISOString() })
       .eq('user_id', userId);
