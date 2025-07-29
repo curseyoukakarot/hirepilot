@@ -133,36 +133,27 @@ router.get('/stats/proxies', asyncHandler(async (req: any, res: any) => {
     const timeRange = 24; // Last 24 hours
     const cutoffTime = new Date(Date.now() - timeRange * 60 * 60 * 1000).toISOString();
 
-    // Get proxy assignments and their performance
+    // Get proxy assignments and their performance (no joins)
     const { data: proxyData, error: proxyError } = await supabase
-      .from('puppet_proxy_assignments')
-      .select(`
-        *,
-        puppet_jobs!inner(
-          id, 
-          final_status, 
-          created_at,
-          users!inner(email)
-        )
-      `)
-      .gte('puppet_jobs.created_at', cutoffTime);
+      .from('proxy_assignments')
+      .select('*')
+      .gte('assigned_at', cutoffTime);
 
     if (proxyError) {
       throw new Error(`Proxy stats error: ${proxyError.message}`);
     }
 
-    // Aggregate proxy performance
     const proxyStats = new Map();
-    
-    proxyData?.forEach(assignment => {
+
+    proxyData?.forEach((assignment: any) => {
       const proxyId = assignment.proxy_id;
-      const userEmail = assignment.puppet_jobs?.users?.email || 'Unknown';
-      const jobStatus = assignment.puppet_jobs?.final_status;
+      const userId = assignment.user_id;
+      const wasSuccessful = assignment.was_successful;
 
       if (!proxyStats.has(proxyId)) {
         proxyStats.set(proxyId, {
           proxy_id: proxyId,
-          assigned_user: userEmail,
+          assigned_user_id: userId,
           success_count: 0,
           failure_count: 0,
           total_jobs: 0,
@@ -173,18 +164,17 @@ router.get('/stats/proxies', asyncHandler(async (req: any, res: any) => {
       }
 
       const stats = proxyStats.get(proxyId);
-      stats.total_jobs++;
-      
-      if (jobStatus === 'completed') {
-        stats.success_count++;
-      } else if (jobStatus === 'failed' || jobStatus === 'permanently_failed') {
-        stats.failure_count++;
+      stats.total_jobs += 1;
+
+      if (wasSuccessful === true) {
+        stats.success_count += 1;
+      } else if (wasSuccessful === false) {
+        stats.failure_count += 1;
       }
 
-      // Update last used time
-      if (new Date(assignment.assigned_at) > new Date(stats.last_used)) {
+      if (assignment.assigned_at && new Date(assignment.assigned_at) > new Date(stats.last_used)) {
         stats.last_used = assignment.assigned_at;
-        stats.assigned_user = userEmail;
+        stats.assigned_user_id = userId;
       }
     });
 
@@ -203,10 +193,10 @@ router.get('/stats/proxies', asyncHandler(async (req: any, res: any) => {
         proxies: proxies.sort((a, b) => b.total_jobs - a.total_jobs),
         summary: {
           total_proxies: proxies.length,
-          healthy_proxies: proxies.filter(p => p.health_status === 'healthy').length,
-          warning_proxies: proxies.filter(p => p.health_status === 'warning').length,
-          unhealthy_proxies: proxies.filter(p => p.health_status === 'unhealthy').length,
-          inactive_proxies: proxies.filter(p => p.health_status === 'inactive').length
+          healthy_proxies: proxies.filter((p: any) => p.health_status === 'healthy').length,
+          warning_proxies: proxies.filter((p: any) => p.health_status === 'warning').length,
+          unhealthy_proxies: proxies.filter((p: any) => p.health_status === 'unhealthy').length,
+          inactive_proxies: proxies.filter((p: any) => p.health_status === 'inactive').length
         },
         last_updated: new Date().toISOString()
       }
@@ -229,82 +219,39 @@ router.get('/stats/warmup-tiers', asyncHandler(async (req: any, res: any) => {
     const daysBack = 3; // Last 3 days for success rate calculation
     const cutoffTime = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000).toISOString();
 
-    // Get user warm-up data with recent job performance
+    // Get user warm-up status from view (no joins required)
     const { data: warmupData, error: warmupError } = await supabase
-      .from('puppet_warmup_tiers')
-      .select(`
-        *,
-        users!inner(email, id),
-        puppet_jobs(
-          id,
-          final_status,
-          created_at,
-          job_type
-        )
-      `)
-      .gte('puppet_jobs.created_at', cutoffTime);
+      .from('linkedin_user_warmup_status')
+      .select('*');
 
     if (warmupError) {
       throw new Error(`Warmup stats error: ${warmupError.message}`);
     }
 
-    // Process warm-up tier data
-    const tierMap = new Map();
-    
-    warmupData?.forEach(tierData => {
-      const userId = tierData.users.id;
-      const userEmail = tierData.users.email;
-      
-      if (!tierMap.has(userId)) {
-        tierMap.set(userId, {
-          user_email: userEmail,
-          current_tier: tierData.current_tier || 1,
-          daily_limit: tierData.daily_limit || 5,
-          tier_start_date: tierData.tier_start_date,
-          auto_advance_eligible: false,
-          recent_jobs: [],
-          success_count: 0,
-          total_jobs: 0
-        });
-      }
+    const warmupUsers = (warmupData || []).map((u: any) => {
+      const consecutiveDays = u.consecutive_successful_days || 0;
+      const daysInTier = u.last_tier_upgrade_date ?
+        Math.floor((Date.now() - new Date(u.last_tier_upgrade_date).getTime()) / (24 * 60 * 60 * 1000)) : 0;
 
-      const user = tierMap.get(userId);
-      
-      // Add job data
-      if (tierData.puppet_jobs) {
-        user.recent_jobs.push(tierData.puppet_jobs);
-        user.total_jobs++;
-        if (tierData.puppet_jobs.final_status === 'completed') {
-          user.success_count++;
-        }
-      }
-    });
-
-    // Calculate success rates and auto-advance eligibility
-    const warmupUsers = Array.from(tierMap.values()).map(user => {
-      const successRate = user.total_jobs > 0 ? (user.success_count / user.total_jobs) * 100 : 0;
-      const daysInTier = user.tier_start_date ? 
-        Math.floor((Date.now() - new Date(user.tier_start_date).getTime()) / (24 * 60 * 60 * 1000)) : 0;
-      
-      // Auto-advance criteria: >80% success rate, at least 7 days in tier, minimum 10 jobs
-      const autoAdvanceEligible = successRate > 80 && daysInTier >= 7 && user.total_jobs >= 10;
+      const successRate = u.today_invites_sent > 0 ?
+        (((u.today_invites_sent - u.failed_invites_today) / u.today_invites_sent) * 100).toFixed(1) : '0';
 
       return {
-        ...user,
-        success_rate: successRate.toFixed(1),
+        user_email: u.email,
+        current_tier: u.current_tier,
+        daily_limit: u.current_daily_limit,
+        today_invites_sent: u.today_invites_sent,
+        remaining_invites_today: u.remaining_invites_today,
+        success_rate: successRate,
         days_in_tier: daysInTier,
-        auto_advance_eligible: autoAdvanceEligible,
-        recent_job_types: [...new Set(user.recent_jobs.map(j => j.job_type))],
-        last_activity: user.recent_jobs.length > 0 ? 
-          user.recent_jobs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0].created_at :
-          null
+        auto_advance_eligible: u.auto_advance_enabled && consecutiveDays >= 7 && Number(successRate) > 80
       };
     });
 
     res.json({
       success: true,
       data: {
-        users: warmupUsers.sort((a, b) => b.current_tier - a.current_tier || b.total_jobs - a.total_jobs),
+        users: warmupUsers.sort((a, b) => b.current_tier - a.current_tier || b.today_invites_sent - a.today_invites_sent),
         summary: {
           total_users: warmupUsers.length,
           users_by_tier: {
@@ -338,13 +285,10 @@ router.get('/stats/deduped-invites', asyncHandler(async (req: any, res: any) => 
 
     // Get recent deduplication blocks
     const { data: dedupData, error: dedupError } = await supabase
-      .from('puppet_invite_deduplication_log')
-      .select(`
-        *,
-        users!inner(email)
-      `)
-      .gte('blocked_at', cutoffTime)
-      .order('blocked_at', { ascending: false })
+      .from('invite_deduplication_log')
+      .select('*')
+      .gte('checked_at', cutoffTime)
+      .order('checked_at', { ascending: false })
       .limit(100);
 
     if (dedupError) {
@@ -354,15 +298,15 @@ router.get('/stats/deduped-invites', asyncHandler(async (req: any, res: any) => 
     // Process deduplication data
     const dedupWarnings = dedupData?.map(entry => ({
       id: entry.id,
-      user_email: entry.users.email,
-      profile_url: entry.linkedin_profile_url,
-      rule_triggered: entry.deduplication_rule || 'Unknown',
-      blocked_reason: entry.blocked_reason || 'Duplicate invite detected',
-      blocked_at: entry.blocked_at,
-      cooldown_end: entry.cooldown_end_at,
-      cooldown_active: entry.cooldown_end_at ? new Date(entry.cooldown_end_at) > new Date() : false,
-      days_until_retry: entry.cooldown_end_at ? 
-        Math.ceil((new Date(entry.cooldown_end_at).getTime() - Date.now()) / (24 * 60 * 60 * 1000)) : 0
+      user_id: entry.user_id,
+      profile_url: entry.original_profile_url,
+      rule_triggered: entry.reason || 'Unknown',
+      blocked_reason: entry.reason || 'Duplicate invite detected',
+      blocked_at: entry.checked_at,
+      cooldown_end: entry.cooldown_expires_at,
+      cooldown_active: entry.cooldown_expires_at ? new Date(entry.cooldown_expires_at) > new Date() : false,
+      days_until_retry: entry.cooldown_expires_at ? 
+        Math.ceil((new Date(entry.cooldown_expires_at).getTime() - Date.now()) / (24 * 60 * 60 * 1000)) : 0
     })) || [];
 
     // Group by rule for summary
@@ -417,7 +361,7 @@ router.get('/stats/summary', asyncHandler(async (req: any, res: any) => {
       
       // Proxy health
       supabase
-        .from('puppet_proxy_assignments')
+        .from('proxy_assignments')
         .select('status')
         .gte('assigned_at', cutoffTime),
       
@@ -429,9 +373,9 @@ router.get('/stats/summary', asyncHandler(async (req: any, res: any) => {
       
       // Deduplication blocks
       supabase
-        .from('puppet_invite_deduplication_log')
+        .from('invite_deduplication_log')
         .select('id')
-        .gte('blocked_at', cutoffTime),
+        .gte('checked_at', cutoffTime),
 
       // 🆕 CAPTCHA incidents
       supabase
