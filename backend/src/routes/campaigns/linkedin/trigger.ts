@@ -5,7 +5,7 @@ import { ApiRequest } from '../../../../types/api';
 import { DecodoClient } from '../../../utils/decodo';
 import { parseSalesNavigatorSearchResults } from '../../../utils/cheerio/salesNavParser';
 import enrichmentProcessor from '../../../cron/enrichmentProcessor';
-import { decryptCookie } from '../../../utils/encryption';
+// encryption helpers imported dynamically where needed
 
 const router = express.Router();
 
@@ -283,7 +283,7 @@ async function getUserLinkedInCookie(userId: string): Promise<string | null> {
   try {
     const { data: cookieData, error } = await supabaseDb
       .from('linkedin_cookies')
-      .select('encrypted_cookie, session_cookie, valid, is_valid, expires_at')
+      .select('session_cookie, valid, is_valid, expires_at')
       .eq('user_id', userId)
       .single();
 
@@ -314,14 +314,6 @@ async function getUserLinkedInCookie(userId: string): Promise<string | null> {
     }
 
     let plaintextCookie: string | null = null;
-
-    if (cookieData.encrypted_cookie) {
-      try {
-        plaintextCookie = decryptCookie(cookieData.encrypted_cookie);
-      } catch (decErr) {
-        console.error('[LinkedInAuth] Failed to decrypt cookie, attempting fallback to plaintext:', decErr);
-      }
-    }
 
     // Fallback for legacy unencrypted storage
     if (!plaintextCookie && cookieData.session_cookie) {
