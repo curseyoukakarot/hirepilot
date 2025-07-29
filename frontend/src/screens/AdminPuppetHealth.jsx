@@ -10,18 +10,25 @@ const API_BASE_URL = `${(import.meta.env.VITE_BACKEND_URL || 'https://api.thehir
 
 // Helper to attach auth token (refreshing if necessary)
 const fetchWithAuth = async (url, options = {}) => {
-  // Try to get a session, retry a few times for cold start
+  // DEBUG
+  console.time('[fetchWithAuth] getSession');
   let session = null;
-  for (let i = 0; i < 5; i++) {
-    ({ data: { session } } = await supabase.auth.getSession());
+  for (let i = 0; i < 10; i++) { // allow up to ~4 s
+    const result = await supabase.auth.getSession();
+    session = result?.data?.session ?? null;
+    console.log(`[fetchWithAuth] attempt ${i + 1} – session`, session ? 'found' : 'missing');
     if (session) break;
-    await new Promise(res => setTimeout(res, 400)); // wait 400ms
+    await new Promise(res => setTimeout(res, 400));
   }
+  console.timeEnd('[fetchWithAuth] getSession');
 
   if (!session) {
-    // final attempt via refresh token
+    console.log('[fetchWithAuth] no session after polling, trying refresh');
     const { data, error } = await supabase.auth.refreshSession();
-    if (error || !data.session) throw new Error('Not authenticated');
+    if (error || !data?.session) {
+      console.error('[fetchWithAuth] refreshSession failed', error);
+      throw new Error('Not authenticated');
+    }
     session = data.session;
   }
 
