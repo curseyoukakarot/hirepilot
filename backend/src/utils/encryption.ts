@@ -47,8 +47,8 @@ export function encryptCookie(plaintext: string): string {
     // Derive encryption key
     const key = deriveKey(masterKey, salt);
     
-    // Create cipher
-    const cipher = crypto.createCipher(ALGORITHM, key);
+    // Create cipher using explicit IV (crypto.createCipher is deprecated)
+    const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
     
     // Encrypt the plaintext
     let ciphertext = cipher.update(plaintext, 'utf8', 'base64');
@@ -98,12 +98,24 @@ export function decryptCookie(encrypted: string): string {
     // Derive the same encryption key
     const key = deriveKey(masterKey, salt);
     
-    // Create decipher
-    const decipher = crypto.createDecipher(ALGORITHM, key);
-    
-    // Decrypt the ciphertext
-    let plaintext = decipher.update(ciphertext, 'base64', 'utf8');
-    plaintext += decipher.final('utf8');
+    let plaintext: string;
+    try {
+      // Preferred: decrypt with explicit IV (new scheme)
+      const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+      plaintext = decipher.update(ciphertext, 'base64', 'utf8');
+      plaintext += decipher.final('utf8');
+    } catch (modernErr) {
+      console.warn('[Encryption] Modern decrypt failed, attempting legacy decrypt (no IV).');
+      // Legacy fallback for cookies encrypted before migration (using deprecated createDecipher)
+      const legacyDecipher: crypto.Decipher = (crypto as any).createDecipher
+        ? (crypto as any).createDecipher(ALGORITHM, key)
+        : null;
+
+      if (!legacyDecipher) throw modernErr; // Cannot fallback
+
+      plaintext = legacyDecipher.update(ciphertext, 'base64', 'utf8');
+      plaintext += legacyDecipher.final('utf8');
+    }
     
     console.log('[Encryption] Cookie decrypted successfully');
     return plaintext;
