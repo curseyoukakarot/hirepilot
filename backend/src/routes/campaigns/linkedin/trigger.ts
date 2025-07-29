@@ -283,7 +283,7 @@ async function getUserLinkedInCookie(userId: string): Promise<string | null> {
   try {
     const { data: cookieData, error } = await supabase
       .from('linkedin_cookies')
-      .select('encrypted_cookie, valid, expires_at')
+      .select('encrypted_cookie, session_cookie, valid, expires_at')
       .eq('user_id', userId)
       .eq('valid', true)
       .single();
@@ -307,9 +307,27 @@ async function getUserLinkedInCookie(userId: string): Promise<string | null> {
       }
     }
 
-    // Decrypt and return cookie
-    const decryptedCookie = decryptCookie(cookieData.encrypted_cookie);
-    
+    let plaintextCookie: string | null = null;
+
+    if (cookieData.encrypted_cookie) {
+      try {
+        plaintextCookie = decryptCookie(cookieData.encrypted_cookie);
+      } catch (decErr) {
+        console.error('[LinkedInAuth] Failed to decrypt cookie, attempting fallback to plaintext:', decErr);
+      }
+    }
+
+    // Fallback for legacy unencrypted storage
+    if (!plaintextCookie && cookieData.session_cookie) {
+      console.log('[LinkedInAuth] Using legacy plaintext session_cookie');
+      plaintextCookie = cookieData.session_cookie;
+    }
+
+    if (!plaintextCookie) {
+      console.error('[LinkedInAuth] Unable to retrieve a usable cookie record');
+      return null;
+    }
+
     // Update last_used_at timestamp
     await supabase
       .from('linkedin_cookies')
@@ -317,7 +335,7 @@ async function getUserLinkedInCookie(userId: string): Promise<string | null> {
       .eq('user_id', userId);
 
     console.log(`[LinkedInAuth] Retrieved valid cookie for user ${userId}`);
-    return decryptedCookie;
+    return plaintextCookie;
 
   } catch (error: any) {
     console.error('[LinkedInAuth] Error retrieving cookie:', error.message);
