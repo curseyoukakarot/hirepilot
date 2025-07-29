@@ -4,7 +4,7 @@ import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Alert } from '../components/ui/alert';
 import { RefreshCw, AlertTriangle, CheckCircle, XCircle, Clock, Users, Zap, Shield } from 'lucide-react';
-import { supabase } from '../../lib/supabaseClient';
+import { supabase } from '../lib/supabase';
 
 const API_BASE_URL = `${(import.meta.env.VITE_BACKEND_URL || 'https://api.thehirepilot.com')}/api`;
 
