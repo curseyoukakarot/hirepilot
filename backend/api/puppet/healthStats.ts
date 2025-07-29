@@ -285,10 +285,10 @@ router.get('/stats/deduped-invites', asyncHandler(async (req: any, res: any) => 
 
     // Get recent deduplication blocks
     const { data: dedupData, error: dedupError } = await supabase
-      .from('invite_deduplication_log')
+      .from('puppet_invite_deduplication_log')
       .select('*')
-      .gte('checked_at', cutoffTime)
-      .order('checked_at', { ascending: false })
+      .gte('blocked_at', cutoffTime)
+      .order('blocked_at', { ascending: false })
       .limit(100);
 
     if (dedupError) {
@@ -299,14 +299,14 @@ router.get('/stats/deduped-invites', asyncHandler(async (req: any, res: any) => 
     const dedupWarnings = dedupData?.map(entry => ({
       id: entry.id,
       user_id: entry.user_id,
-      profile_url: entry.original_profile_url,
-      rule_triggered: entry.reason || 'Unknown',
-      blocked_reason: entry.reason || 'Duplicate invite detected',
-      blocked_at: entry.checked_at,
-      cooldown_end: entry.cooldown_expires_at,
-      cooldown_active: entry.cooldown_expires_at ? new Date(entry.cooldown_expires_at) > new Date() : false,
-      days_until_retry: entry.cooldown_expires_at ? 
-        Math.ceil((new Date(entry.cooldown_expires_at).getTime() - Date.now()) / (24 * 60 * 60 * 1000)) : 0
+      profile_url: entry.linkedin_profile_url,
+      rule_triggered: entry.deduplication_rule || entry.reason || 'Unknown',
+      blocked_reason: entry.blocked_reason || entry.reason || 'Duplicate invite detected',
+      blocked_at: entry.blocked_at,
+      cooldown_end: entry.cooldown_end_at,
+      cooldown_active: entry.cooldown_end_at ? new Date(entry.cooldown_end_at) > new Date() : false,
+      days_until_retry: entry.cooldown_end_at ? 
+        Math.ceil((new Date(entry.cooldown_end_at).getTime() - Date.now()) / (24 * 60 * 60 * 1000)) : 0
     })) || [];
 
     // Group by rule for summary
@@ -373,9 +373,9 @@ router.get('/stats/summary', asyncHandler(async (req: any, res: any) => {
       
       // Deduplication blocks
       supabase
-        .from('invite_deduplication_log')
+        .from('puppet_invite_deduplication_log')
         .select('id')
-        .gte('checked_at', cutoffTime),
+        .gte('blocked_at', cutoffTime),
 
       // 🆕 CAPTCHA incidents
       supabase
@@ -384,15 +384,22 @@ router.get('/stats/summary', asyncHandler(async (req: any, res: any) => {
         .gte('detected_at', cutoffTime)
     ]);
 
-    if (jobsResult.error || proxiesResult.error || retryResult.error) {
-      throw new Error('Failed to fetch system summary data');
-    }
+    // Gracefully handle environments where some tables/views are not present yet
+    const safeData = (result: any) => {
+      if (!result) return [];
+      if (!result.error) return result.data || [];
+      if (result.error?.message?.includes('does not exist')) return [];
+      // For other errors propagate
+      throw result.error;
+    };
 
-    const jobs = jobsResult.data || [];
-    const proxies = proxiesResult.data || [];
-    const retries = retryResult.data || [];
-    const dedupBlocks = dedupResult.data || [];
-    const captchaIncidents = captchaResult.data || []; // 🆕 CAPTCHA data
+    const jobs = safeData(jobsResult);
+    const proxies = safeData(proxiesResult);
+    const retries = safeData(retryResult);
+    const dedupBlocks = safeData(dedupResult);
+    const captchaIncidents = safeData(captchaResult);
+
+    // If we reach here, no critical errors occurred
 
     // Calculate key metrics
     const totalJobs = jobs.length;
