@@ -43,7 +43,18 @@ export class DecodoClient {
     if (!this.apiKey) {
       throw new Error('Decodo API key is required. Set DECODO_API_KEY environment variable.');
     }
+
+    // Proxy credentials (gate.decodo.com) if using direct proxy mode
+    this.proxyHost = process.env.DECODO_HOST || 'gate.decodo.com';
+    this.proxyPort = Number(process.env.DECODO_PORT || '10001');
+    this.proxyUser = process.env.DECODO_USER || '';
+    this.proxyPass = process.env.DECODO_PASS || '';
   }
+
+  private proxyHost: string;
+  private proxyPort: number;
+  private proxyUser: string;
+  private proxyPass: string;
 
   /**
    * Submit a scraping task to Decodo
@@ -137,7 +148,41 @@ export class DecodoClient {
       ...options
     };
 
-    // New v2 endpoint returns HTML synchronously – one request only.
+    // If proxy creds are available, prefer proxy mode (more reliable for LinkedIn)
+    if (this.proxyUser && this.proxyPass) {
+      try {
+        console.log('[DecodoClient] Fetching via residential proxy', `${this.proxyHost}:${this.proxyPort}`);
+        const response = await axios.get(url, {
+          headers: {
+            ...options.custom_headers,
+            'User-Agent': taskRequest.user_agent || 'Mozilla/5.0 (HirePilotBot)'
+          },
+          proxy: {
+            protocol: 'http',
+            host: this.proxyHost,
+            port: this.proxyPort,
+            auth: {
+              username: this.proxyUser,
+              password: this.proxyPass
+            }
+          },
+          timeout: 30000,
+          responseType: 'text',
+          validateStatus: status => status < 500 // accept 4xx so we can parse
+        });
+
+        if (response.status >= 400) {
+          throw new Error(`Proxy fetch failed with status ${response.status}`);
+        }
+
+        return response.data as string;
+      } catch (proxyErr: any) {
+        console.error('[DecodoClient] Proxy scraping failed:', proxyErr.message);
+        throw proxyErr;
+      }
+    }
+
+    // Fallback: use Decodo scraping API if proxy creds absent
     if (this._isInstantEndpoint()) {
       try {
         const response = await axios.post(this.baseUrl, taskRequest, {
