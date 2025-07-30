@@ -153,7 +153,7 @@ export class DecodoClient {
     if (this.proxyUser && this.proxyPass) {
       try {
         console.log('[DecodoClient] Fetching via residential proxy', `${this.proxyHost}:${this.proxyPort}`);
-        const proxyUrl = `http://${this.proxyUser}:${encodeURIComponent(this.proxyPass)}@${this.proxyHost}:${this.proxyPort}`;
+        const proxyUrl = `http://${this.proxyUser}:${this.proxyPass}@${this.proxyHost}:${this.proxyPort}`;
         const agent = new HttpsProxyAgent(proxyUrl);
 
         const response = await axios.get(url, {
