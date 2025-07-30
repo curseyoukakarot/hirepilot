@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 
 // Updated default Decodo endpoint (supports both old /v1/tasks and new /v2/scrape)
 // The new v2 endpoint returns the HTML payload synchronously – no polling required.
@@ -152,23 +153,19 @@ export class DecodoClient {
     if (this.proxyUser && this.proxyPass) {
       try {
         console.log('[DecodoClient] Fetching via residential proxy', `${this.proxyHost}:${this.proxyPort}`);
+        const proxyUrl = `http://${this.proxyUser}:${encodeURIComponent(this.proxyPass)}@${this.proxyHost}:${this.proxyPort}`;
+        const agent = new HttpsProxyAgent(proxyUrl);
+
         const response = await axios.get(url, {
           headers: {
             ...options.custom_headers,
             'User-Agent': taskRequest.user_agent || 'Mozilla/5.0 (HirePilotBot)'
           },
-          proxy: {
-            protocol: 'http',
-            host: this.proxyHost,
-            port: this.proxyPort,
-            auth: {
-              username: this.proxyUser,
-              password: this.proxyPass
-            }
-          },
+          httpsAgent: agent,
+          proxy: false, // disable axios default proxy handling
           timeout: 30000,
           responseType: 'text',
-          validateStatus: status => status < 500 // accept 4xx so we can parse
+          validateStatus: status => status < 500
         });
 
         if (response.status >= 400) {
