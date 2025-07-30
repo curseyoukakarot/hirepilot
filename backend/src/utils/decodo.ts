@@ -31,7 +31,13 @@ export class DecodoClient {
   private baseUrl: string;
 
   constructor(apiKey?: string) {
-    this.apiKey = apiKey || DECODO_API_KEY || '';
+    const rawKey = apiKey || DECODO_API_KEY || '';
+    // If key looks like username:password (contains colon and is not base64), encode it
+    if (rawKey.includes(':')) {
+      this.apiKey = Buffer.from(rawKey).toString('base64');
+    } else {
+      this.apiKey = rawKey;
+    }
     this.baseUrl = DECODO_API_URL;
     
     if (!this.apiKey) {
