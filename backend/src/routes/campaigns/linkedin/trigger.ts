@@ -5,7 +5,7 @@ import { ApiRequest } from '../../../../types/api';
 import { DecodoClient } from '../../../utils/decodo';
 import { parseSalesNavigatorSearchResults } from '../../../utils/cheerio/salesNavParser';
 import enrichmentProcessor from '../../../cron/enrichmentProcessor';
-import { fetchSalesNavJson } from '../../../services/linkedin/playwrightFetcher';
+import { fetchSalesNavJson } from '../../../../services/linkedin/playwrightFetcher';
 // encryption helpers imported dynamically where needed
 
 const router = express.Router();
@@ -129,16 +129,6 @@ router.post('/trigger', requireAuth, async (req: ApiRequest, res: Response) => {
       }
     }
 
-    // Retrieve user's LinkedIn authentication cookie
-    const linkedinCookie = await getUserLinkedInCookie(userId);
-    
-    if (!linkedinCookie) {
-      return res.status(400).json({
-        success: false,
-        message: 'LinkedIn authentication required. Please connect your LinkedIn account to use Sales Navigator scraping.',
-        numLeads: 0
-      });
-    }
 
     try {
       // Scrape each page with LinkedIn authentication
