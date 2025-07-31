@@ -51,23 +51,61 @@ export async function fetchSalesNavJson(options: SalesNavFetchOptions): Promise<
   await context.addCookies(cookies);
 
   const page = await context.newPage();
-  await page.goto('https://www.linkedin.com/sales', { waitUntil: 'domcontentloaded' });
+  // Step 1: load lightweight Sales Nav page to establish session & headers
+  await page.goto('https://www.linkedin.com/sales/home', { waitUntil: 'domcontentloaded' });
 
-  const result = await page.evaluate(async ({ url, csrf }) => {
+  // Extract x-li-page-instance from <meta name="pageInstance" ...>
+  const pageInstance = await page.evaluate(() => {
+    const meta = document.querySelector('meta[name="pageInstance"]');
+    return meta ? meta.getAttribute('content') : null;
+  });
+  if (!pageInstance) console.warn('[Playwright] Failed to grab pageInstance meta');
+
+  // Capture x-li-identity from the first voyager/sales API request
+  let identity: string | null = null;
+  const identityPromise = new Promise<string>((resolve) => {
+    page.on('request', req => {
+      if (identity) return;
+      if (req.url().includes('/salesApi') || req.url().includes('/voyager/api')) {
+        const hdr = req.headers();
+        if (hdr['x-li-identity']) {
+          identity = hdr['x-li-identity'];
+          resolve(identity);
+        }
+      }
+    });
+  });
+  // Trigger a benign fetch to ensure we capture headers quickly
+  await page.evaluate(() => fetch('/voyager/api/typeahead/hits?keywords=test').catch(() => {}));
+  await Promise.race([identityPromise, page.waitForTimeout(5000)]);
+
+  if (!identity) console.warn('[Playwright] x-li-identity not captured');
+
+  // Now perform target fetch with assembled headers
+  const result = await page.evaluate(async ({ url, csrf, identity, pageInstance }) => {
+    const headers: Record<string, string> = {
+      'accept': '*/*',
+      'csrf-token': csrf,
+      'x-restli-protocol-version': '2.0.0',
+      'x-li-lang': 'en_US',
+      'x-li-track': '{"clientVersion":"2.0.4899","mpName":"lighthouse-web"}'
+    };
+    if (identity) headers['x-li-identity'] = identity;
+    if (pageInstance) headers['x-li-page-instance'] = pageInstance;
+
     const res = await fetch(url, {
       method: 'GET',
-      headers: {
-        'accept': '*/*',
-        'csrf-token': csrf,
-        'x-restli-protocol-version': '2.0.0',
-        'x-li-lang': 'en_US',
-        'x-li-track': '{"clientVersion":"2.0.4899","mpName":"lighthouse-web"}'
-      },
+      headers,
       credentials: 'include'
     });
-    const json = await res.json();
+    let json: any = {};
+    try {
+      json = await res.json();
+    } catch {
+      // ignore JSON parse errors
+    }
     return { status: res.status, ok: res.ok, json };
-  }, { url: apiUrl, csrf: csrfToken });
+  }, { url: apiUrl, csrf: csrfToken, identity, pageInstance });
 
   await browser.close();
   return result;
