@@ -5,6 +5,7 @@ import { ApiRequest } from '../../../../types/api';
 import { DecodoClient } from '../../../utils/decodo';
 import { parseSalesNavigatorSearchResults } from '../../../utils/cheerio/salesNavParser';
 import enrichmentProcessor from '../../../cron/enrichmentProcessor';
+import { fetchSalesNavJson } from '../../../services/linkedin/playwrightFetcher';
 // encryption helpers imported dynamically where needed
 
 const router = express.Router();
@@ -80,6 +81,53 @@ router.post('/trigger', requireAuth, async (req: ApiRequest, res: Response) => {
      const decodoClient = getDecodoClient();
     let totalLeads = 0;
     const allLeads: any[] = [];
+
+    // Retrieve user's LinkedIn authentication cookie
+    const linkedinCookie = await getUserLinkedInCookie(userId);
+    
+    if (!linkedinCookie) {
+      return res.status(400).json({
+        success: false,
+        message: 'LinkedIn authentication required. Please connect your LinkedIn account to use Sales Navigator scraping.',
+        numLeads: 0
+      });
+    }
+
+    // Try Playwright JSON fetch if env flag enabled
+    if (process.env.PLAYWRIGHT_SALESNAV === '1' && linkedinCookie) {
+      try {
+        const decodedUrl = decodeURIComponent(searchUrl);
+        const recentMatch = decodedUrl.match(/recentSearchId=([0-9]+)/);
+        const sessionMatch = decodedUrl.match(/sessionId=([A-Za-z0-9%]+)/);
+        const searchId = recentMatch ? recentMatch[1] : '';
+        const sessionId = sessionMatch ? sessionMatch[1] : '';
+        const csrfTokenMatch = linkedinCookie.match(/JSESSIONID="?ajax:([0-9]+)/);
+        const csrfToken = csrfTokenMatch ? csrfTokenMatch[1] : '';
+
+        if (searchId && sessionId && csrfToken) {
+          const apiUrl = `https://www.linkedin.com/sales-api/salesApiLeadSearch?q=recentSearchId&start=0&count=25&recentSearchId=${searchId}&trackingParam=(sessionId:${sessionId})&decorationId=com.linkedin.sales.deco.desktop.searchv2.LeadSearchResult-14`;
+          console.log('[Playwright] Fetching SalesNav JSON', apiUrl);
+          const result = await fetchSalesNavJson({ apiUrl, fullCookie: linkedinCookie, csrfToken });
+          if (result.ok && result.json?.elements?.length) {
+            const jsonLeads = result.json.elements.map((e: any) => ({
+              name: `${e.firstName || ''} ${e.lastName || ''}`.trim(),
+              title: e.occupation,
+              company: e.companyName || (e.company && e.company.name) || '',
+              profileUrl: `https://www.linkedin.com/in/${e.publicIdentifier}`,
+              location: e.locationName || '',
+              image: e.profilePicture?.displayImageReference ?? ''
+            }));
+            allLeads.push(...jsonLeads);
+            totalLeads += jsonLeads.length;
+            console.log(`[Playwright] Extracted ${jsonLeads.length} leads via JSON API`);
+          } else {
+            console.warn('[Playwright] SalesNav JSON returned no leads', result.status);
+          }
+        }
+      } catch (playErr) {
+        console.error('[Playwright] SalesNav JSON fetch failed:', playErr);
+      }
+    }
 
     // Retrieve user's LinkedIn authentication cookie
     const linkedinCookie = await getUserLinkedInCookie(userId);
@@ -332,7 +380,7 @@ async function getUserLinkedInCookie(userId: string): Promise<string | null> {
       console.error('[LinkedInAuth] Unable to retrieve a usable cookie record');
       return null;
     }
-
+    
     // Update last_used_at timestamp
     await supabaseDb
       .from('linkedin_cookies')

@@ -25,7 +25,8 @@
         "build:clean": "rm -rf dist .tsbuildinfo && tsc --incremental",
         "start": "node dist/server.js",
         "_postinstall_disabled": "npm run build:ultra-fast",
-        "backfill-credits": "ts-node scripts/backfillUserCredits.ts"
+        "backfill-credits": "ts-node scripts/backfillUserCredits.ts",
+        "postinstall": "playwright install --with-deps chromium"
     },
     "puppeteer": {
         "skipDownload": true
@@ -53,7 +54,8 @@
         "express-list-endpoints": "^6.0.0",
         "express-validator": "^7.2.1",
         "googleapis": "^148.0.0",
-        "https-proxy-agent": "5.0.1",
+        "https-proxy-agent": "^5.0.1",
+        "playwright": "^1.44.1",
         "ioredis": "^5.6.1",
         "jsonwebtoken": "^9.0.2",
         "jwt-decode": "^4.0.0",
