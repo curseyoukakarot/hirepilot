@@ -57,9 +57,11 @@ export async function fetchSalesNavJson(options: SalesNavFetchOptions): Promise<
     const res = await fetch(url, {
       method: 'GET',
       headers: {
-        'accept': 'application/json',
+        'accept': '*/*',
         'csrf-token': csrf,
-        'x-restli-protocol-version': '2.0.0'
+        'x-restli-protocol-version': '2.0.0',
+        'x-li-lang': 'en_US',
+        'x-li-track': '{"clientVersion":"2.0.4899","mpName":"lighthouse-web"}'
       },
       credentials: 'include'
     });
