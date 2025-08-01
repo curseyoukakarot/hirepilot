@@ -43,19 +43,21 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /app
 
-# Copy everything and debug what we have
-COPY . .
-RUN echo "=== DEBUG: Files in root ===" && ls -la
-RUN echo "=== DEBUG: Backend directory ===" && ls -la backend/ || echo "No backend directory found"
-
-# Navigate to backend directory and work from there
-WORKDIR /app/backend
+# Copy only the backend directory to /app
+COPY backend/ .
+RUN echo "=== DEBUG: Files after copying backend ===" && ls -la
+RUN echo "=== DEBUG: Check package.json exists ===" && ls -la package.json || echo "No package.json"
 
 # Install dependencies
 RUN npm ci --production
 
 # Install Chromium browser explicitly during build
 RUN npx playwright install chromium
+
+# Show files before build
+RUN echo "=== PRE-BUILD: Files before TypeScript build ===" && ls -la
+RUN echo "=== PRE-BUILD: Check for TypeScript files ===" && ls -la *.ts || echo "No TS files found"
+RUN echo "=== PRE-BUILD: Check server.ts specifically ===" && ls -la server.ts || echo "No server.ts found"
 
 # Build the TypeScript application
 RUN npm run build:production
