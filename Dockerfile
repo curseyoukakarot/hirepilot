@@ -60,12 +60,13 @@ RUN npx playwright install chromium
 # Build the TypeScript application
 RUN npm run build:production
 
+# Debug: Show what got built
+RUN echo "=== POST-BUILD: Directory structure ===" && pwd && ls -la
+RUN echo "=== POST-BUILD: Dist directory ===" && ls -la dist/ || echo "No dist directory found"
+RUN echo "=== POST-BUILD: Looking for server files ===" && find . -name "*server*" -type f || echo "No server files found"
+
 # Expose port for Railway
 EXPOSE 3000
-
-# Ensure we're in the right directory and show what we have
-RUN echo "=== Final directory structure ===" && pwd && ls -la
-RUN echo "=== Dist directory ===" && ls -la dist/ || echo "No dist directory"
 
 # Start command (we're already in /app/backend)
 CMD ["npm", "start"]
