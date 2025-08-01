@@ -43,22 +43,19 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /app
 
-# Debug: List files in build context root
-RUN ls -la /tmp || echo "No /tmp" && ls -la / || echo "No root access"
+# Copy everything and debug what we have
+COPY . .
+RUN echo "=== DEBUG: Files in root ===" && ls -la
+RUN echo "=== DEBUG: Backend directory ===" && ls -la backend/ || echo "No backend directory found"
 
-# Add files to check context
-ADD . /tmp/build-context
-RUN ls -la /tmp/build-context
+# Navigate to backend directory and work from there
+WORKDIR /app/backend
 
-# Copy package.json and install deps (including Playwright)
-COPY backend/package*.json ./
+# Install dependencies
 RUN npm ci --production
 
 # Install Chromium browser explicitly during build
 RUN npx playwright install chromium
-
-# Copy all backend files
-COPY backend/ ./
 
 # Build the TypeScript application
 RUN npm run build:production
