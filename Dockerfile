@@ -63,5 +63,9 @@ RUN npm run build:production
 # Expose port for Railway
 EXPOSE 3000
 
-# Start command
+# Ensure we're in the right directory and show what we have
+RUN echo "=== Final directory structure ===" && pwd && ls -la
+RUN echo "=== Dist directory ===" && ls -la dist/ || echo "No dist directory"
+
+# Start command (we're already in /app/backend)
 CMD ["npm", "start"]
