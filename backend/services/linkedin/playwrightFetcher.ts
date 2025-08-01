@@ -109,8 +109,8 @@ export async function fetchSalesNavJson(options: SalesNavFetchOptions): Promise<
     path: '/',
     httpOnly: cookie.httpOnly || false,
     secure: true,  // Most LinkedIn cookies are secure
-    sameSite: cookie.sameSite || 'Lax' as const,
-    expires: cookie.expires || -1  // Preserve expiration if set
+    sameSite: cookie.sameSite || 'Lax' as const
+    // Note: expires field removed as it's not in our cookie type
   }));
   
   await context.addCookies(enhancedCookies);
