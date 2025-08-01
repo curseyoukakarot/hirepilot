@@ -93,7 +93,7 @@ router.post('/trigger', requireAuth, async (req: ApiRequest, res: Response) => {
       });
     }
 
-    // Try Playwright JSON fetch if env flag enabled
+    // Try Playwright JSON fetch if env flag enabled and Playwright is available
     if (process.env.PLAYWRIGHT_SALESNAV === '1' && linkedinCookie) {
       try {
         const decodedUrl = decodeURIComponent(searchUrl);
@@ -158,7 +158,9 @@ router.post('/trigger', requireAuth, async (req: ApiRequest, res: Response) => {
           console.warn('[Playwright] ⚠️ Missing required URL parameters:', { searchId, sessionId, csrfToken: !!csrfToken });
         }
       } catch (playErr) {
-        console.error('[Playwright] SalesNav JSON fetch failed:', playErr);
+        console.error('[Playwright] SalesNav JSON fetch failed:', playErr.message);
+        console.warn('[Playwright] Falling back to legacy HTML scraping...');
+        // Continue to legacy scraping approach below
       }
     }
 

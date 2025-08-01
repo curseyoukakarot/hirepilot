@@ -26,7 +26,7 @@
         "start": "node dist/server.js",
         "_postinstall_disabled": "npm run build:ultra-fast",
         "backfill-credits": "ts-node scripts/backfillUserCredits.ts",
-        "postinstall": "playwright install chromium"
+        "postinstall": "playwright install --with-deps chromium || playwright install chromium || echo 'Playwright install failed - will fallback to legacy scraping'"
     },
     "puppeteer": {
         "skipDownload": true
