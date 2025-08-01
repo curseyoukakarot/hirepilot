@@ -55,7 +55,8 @@ export async function fetchSalesNavJson(options: SalesNavFetchOptions): Promise<
     userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     viewport: { width: 1920, height: 1080 },
     locale: 'en-US',
-    timezoneId: 'America/New_York'
+    timezoneId: 'America/New_York',
+    storageState: undefined  // Clear any previous storage state
   });
 
   // Set a realistic user agent
@@ -100,7 +101,28 @@ export async function fetchSalesNavJson(options: SalesNavFetchOptions): Promise<
     console.warn('[Playwright] WARNING: Missing li_at cookie - authentication will likely fail');
   }
   
-  await context.addCookies(cookies);
+  // Enhanced cookie injection with proper domain/path/secure flags
+  const enhancedCookies = cookies.map(cookie => ({
+    name: cookie.name,
+    value: cookie.value,
+    domain: '.linkedin.com',  // Crucial for cross-subdomain access
+    path: '/',
+    httpOnly: cookie.httpOnly || false,
+    secure: true,  // Most LinkedIn cookies are secure
+    sameSite: cookie.sameSite || 'Lax' as const,
+    expires: cookie.expires || -1  // Preserve expiration if set
+  }));
+  
+  await context.addCookies(enhancedCookies);
+  
+  // Verify cookies were actually set
+  const setCookies = await context.cookies();
+  console.log('[Playwright] Verified cookies set:', setCookies.length);
+  console.log('[Playwright] Critical cookies present:', {
+    li_at: setCookies.some(c => c.name === 'li_at'),
+    JSESSIONID: setCookies.some(c => c.name === 'JSESSIONID'),
+    lidc: setCookies.some(c => c.name === 'lidc')
+  });
 
   const page = await context.newPage();
   
@@ -139,7 +161,22 @@ export async function fetchSalesNavJson(options: SalesNavFetchOptions): Promise<
   console.log('[Playwright] Navigating to Sales Navigator to capture session headers...');
   
   try {
-    // Navigate to Sales Navigator home to establish session context
+    // Step 1: Warm up session with LinkedIn feed first (mimics real user flow)
+    console.log('[Playwright] Warming up session via LinkedIn feed...');
+    await page.goto('https://www.linkedin.com/feed/', { 
+      waitUntil: 'domcontentloaded',
+      timeout: 15000 
+    });
+    await page.waitForTimeout(1000);
+    
+    const feedUrl = page.url();
+    if (feedUrl.includes('/login')) {
+      throw new Error('Session invalid - redirected to login on LinkedIn feed');
+    }
+    console.log('[Playwright] Feed warmup successful');
+    
+    // Step 2: Navigate to Sales Navigator home
+    console.log('[Playwright] Navigating to Sales Navigator...');
     await page.goto('https://www.linkedin.com/sales/home', { 
       waitUntil: 'domcontentloaded',
       timeout: 20000 
@@ -152,8 +189,11 @@ export async function fetchSalesNavJson(options: SalesNavFetchOptions): Promise<
     console.log('[Playwright] After navigation - URL:', currentUrl);
     console.log('[Playwright] After navigation - Title:', pageTitle);
     
-    if (currentUrl.includes('/login') || currentUrl.includes('/challenge') || pageTitle.includes('Sign In')) {
-      console.warn('[Playwright] ⚠️ Redirected to login page - cookies may be invalid');
+    if (currentUrl.includes('/login') || currentUrl.includes('/challenge') || currentUrl.includes('/auth') || pageTitle.includes('Sign In')) {
+      console.error('[Playwright] ❌ Redirected to login page - cookies are invalid or expired');
+      console.error('[Playwright] Expected: https://www.linkedin.com/sales/home');
+      console.error('[Playwright] Actual:', currentUrl);
+      throw new Error('LinkedIn session expired during navigation - user needs to refresh cookies from an active Sales Navigator session');
     }
     
     // Wait for the page to fully load and make API calls that will trigger identity capture
