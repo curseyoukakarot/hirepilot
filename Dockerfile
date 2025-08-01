@@ -43,10 +43,22 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /app
 
-# Copy only the backend directory to /app
-COPY backend/ .
-RUN echo "=== DEBUG: Files after copying backend ===" && ls -la
-RUN echo "=== DEBUG: Check package.json exists ===" && ls -la package.json || echo "No package.json"
+# Copy everything to see what's available
+COPY . .
+RUN echo "=== DEBUG: All files in project root ===" && ls -la
+RUN echo "=== DEBUG: Looking for backend directory ===" && ls -la backend/ || echo "Backend directory not found"
+
+# If backend exists, move into it; otherwise use current directory
+RUN if [ -d "backend" ]; then \
+      echo "Backend directory found, moving files..." && \
+      cp -r backend/* . && \
+      rm -rf backend frontend hirepilot-cookie public api services shared src supabase tools; \
+    else \
+      echo "No backend directory - assuming files are already in root"; \
+    fi
+
+RUN echo "=== DEBUG: Final file structure ===" && ls -la
+RUN echo "=== DEBUG: Check for package.json ===" && ls -la package.json || echo "No package.json found"
 
 # Install dependencies
 RUN npm ci --production
