@@ -32,12 +32,23 @@ function buildProxyArgs() {
 export async function fetchSalesNavJson(options: SalesNavFetchOptions): Promise<any> {
   const { apiUrl, fullCookie, csrfToken } = options;
   
-  // Try without proxy first for debugging
-  console.log('[Playwright] Launching browser without proxy for testing...');
+  // Launch browser with container-optimized settings
+  console.log('[Playwright] Launching Chromium browser...');
   const browser = await chromium.launch({ 
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-extensions',
+      '--disable-gpu',
+      '--disable-web-security',
+      '--no-first-run',
+      '--no-default-browser-check'
+    ]
   });
+  
+  console.log('[Playwright] Browser version:', await browser.version());
   const context: BrowserContext = await browser.newContext();
 
   // Set a realistic user agent
