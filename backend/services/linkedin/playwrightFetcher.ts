@@ -111,17 +111,39 @@ export async function fetchSalesNavJson(options: SalesNavFetchOptions): Promise<
     }
   });
 
-  // Skip navigation and try direct API call since we have the required cookies
-  console.log('[Playwright] Skipping navigation, attempting direct API call...');
+  // Navigate to Sales Navigator to establish proper session and capture headers
+  console.log('[Playwright] Navigating to Sales Navigator to capture session headers...');
   
-  // Set a basic page URL so the API call has the right origin
-  await page.goto('https://www.linkedin.com/', { 
-    waitUntil: 'domcontentloaded',
-    timeout: 10000 
-  });
-  
-  // Wait briefly to establish session
-  await page.waitForTimeout(1000);
+  try {
+    // Navigate to Sales Navigator home to establish session context
+    await page.goto('https://www.linkedin.com/sales/home', { 
+      waitUntil: 'domcontentloaded',
+      timeout: 20000 
+    });
+    console.log('[Playwright] Successfully navigated to Sales Nav home');
+    
+    // Wait for the page to fully load and make API calls that will trigger identity capture
+    await page.waitForTimeout(3000);
+    
+  } catch (navError: any) {
+    console.warn('[Playwright] Sales home navigation failed, trying search page:', navError.message);
+    try {
+      // Fallback to a basic sales search page
+      await page.goto('https://www.linkedin.com/sales/search/people', { 
+        waitUntil: 'domcontentloaded',
+        timeout: 15000 
+      });
+      console.log('[Playwright] Navigated to Sales search as fallback');
+      await page.waitForTimeout(2000);
+    } catch (searchError: any) {
+      console.warn('[Playwright] All Sales Nav navigation failed, using basic LinkedIn:', searchError.message);
+      await page.goto('https://www.linkedin.com/', { 
+        waitUntil: 'domcontentloaded',
+        timeout: 10000 
+      });
+      await page.waitForTimeout(1000);
+    }
+  }
 
   // Extract x-li-page-instance from <meta name="pageInstance" ...>
   let pageInstance = await page.evaluate(() => {
@@ -150,17 +172,33 @@ export async function fetchSalesNavJson(options: SalesNavFetchOptions): Promise<
     console.log('[Playwright] Captured pageInstance:', pageInstance);
   }
 
-  // Try to trigger an API call if identity not captured yet
+  // Try to trigger API calls if identity not captured yet
   if (!identity) {
-    console.log('[Playwright] Triggering test API call to capture identity...');
+    console.log('[Playwright] Triggering test API calls to capture identity...');
     try {
       await page.evaluate(() => {
-        // Try a simple voyager API call to trigger headers
-        return fetch('/voyager/api/me').catch(() => {});
+        // Try multiple API endpoints that Sales Navigator uses
+        const testEndpoints = [
+          '/voyager/api/me',
+          '/sales-api/search/blended?count=1',
+          '/voyager/api/identity/profiles',
+          '/sales-api/profileActions'
+        ];
+        
+        // Fire multiple requests to increase chances of capturing identity
+        testEndpoints.forEach(endpoint => {
+          fetch(endpoint, { 
+            credentials: 'include',
+            headers: {
+              'accept': 'application/vnd.linkedin.normalized+json+2.1',
+              'x-li-lang': 'en_US'
+            }
+          }).catch(() => {}); // Ignore errors, just want to trigger requests
+        });
       });
-      await page.waitForTimeout(1000);
+      await page.waitForTimeout(2000); // Wait longer for multiple requests
     } catch (apiErr) {
-      console.warn('[Playwright] Failed to trigger API call:', apiErr);
+      console.warn('[Playwright] Failed to trigger API calls:', apiErr);
     }
   }
 
