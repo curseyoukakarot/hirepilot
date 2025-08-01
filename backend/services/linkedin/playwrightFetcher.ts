@@ -248,6 +248,10 @@ export async function fetchSalesNavJson(options: SalesNavFetchOptions): Promise<
     pageInstance = 'urn:li:page:d_sales2_search_people;/g01A/2QS6qAo8QZvIQx+w==';
   }
 
+  // Log current page state before making the request
+  console.log('[Playwright] Current page URL:', page.url());
+  console.log('[Playwright] Current page title:', await page.title());
+
   // Now perform target fetch with assembled headers
   const result = await page.evaluate(async ({ url, csrf, identity, pageInstance }) => {
     const headers: Record<string, string> = {
@@ -273,8 +277,6 @@ export async function fetchSalesNavJson(options: SalesNavFetchOptions): Promise<
     console.log('[Playwright] Making request with headers:', Object.keys(headers).join(', '));
     console.log('[Playwright] CSRF token value:', csrf);
     console.log('[Playwright] Has identity:', !!identity, 'Has pageInstance:', !!pageInstance);
-    console.log('[Playwright] Current page URL:', await page.url());
-    console.log('[Playwright] Current page title:', await page.title());
     
     const res = await fetch(url, {
       method: 'GET',
