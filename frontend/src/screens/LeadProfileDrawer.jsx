@@ -199,22 +199,136 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     }
   };
 
-  // Helper to get display name
+  // Helper to get display name with Apollo fallback
   const getDisplayName = (lead) => {
+    const enrichmentData = lead.enrichment_data || {};
+    
+    // Prioritize Apollo enrichment data
+    if (enrichmentData.apollo?.first_name && enrichmentData.apollo?.last_name) {
+      return `${enrichmentData.apollo.first_name} ${enrichmentData.apollo.last_name}`;
+    }
+    if (enrichmentData.apollo?.first_name) return enrichmentData.apollo.first_name;
+    
+    // Fallback to direct lead properties
     if (lead.first_name && lead.last_name) return `${lead.first_name} ${lead.last_name}`;
     if (lead.first_name) return lead.first_name;
     if (lead.name) return lead.name;
     return '';
   };
 
-  // Helper to generate avatar URL with initials (like in leads page)
+  // Helper to generate avatar URL with Apollo photo fallback
   const getAvatarUrl = (lead) => {
+    const enrichmentData = lead.enrichment_data || {};
+    
+    // Use Apollo photo if available
+    if (enrichmentData.apollo?.photo_url) {
+      return enrichmentData.apollo.photo_url;
+    }
+    
+    // Fallback to generated avatar
     const name = getDisplayName(lead);
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
   };
 
-  // Helper to get LinkedIn URL
-  const getLinkedInUrl = (lead) => lead.linkedin_url || lead.linkedin || '';
+  // Helper to get LinkedIn URL with Apollo fallback
+  const getLinkedInUrl = (lead) => {
+    const enrichmentData = lead.enrichment_data || {};
+    
+    // Prioritize Apollo LinkedIn URL
+    if (enrichmentData.apollo?.linkedin_url) {
+      return enrichmentData.apollo.linkedin_url;
+    }
+    
+    // Fallback to direct properties
+    return lead.linkedin_url || lead.linkedin || '';
+  };
+
+  // Helper to get enriched title with Apollo fallback
+  const getEnrichedTitle = (lead) => {
+    const enrichmentData = lead.enrichment_data || {};
+    
+    // Prioritize Apollo title
+    if (enrichmentData.apollo?.title) {
+      return enrichmentData.apollo.title;
+    }
+    
+    // Fallback to direct properties
+    return lead.title || '';
+  };
+
+  // Helper to get enriched company with Apollo fallback
+  const getEnrichedCompany = (lead) => {
+    const enrichmentData = lead.enrichment_data || {};
+    
+    // Prioritize Apollo organization name
+    if (enrichmentData.apollo?.organization?.name) {
+      return enrichmentData.apollo.organization.name;
+    }
+    
+    // Fallback to direct properties
+    return lead.company || '';
+  };
+
+  // Helper to get enriched location with Apollo fallback
+  const getEnrichedLocation = (lead) => {
+    const enrichmentData = lead.enrichment_data || {};
+    
+    // Prioritize Apollo location
+    if (enrichmentData.apollo?.location) {
+      const { city, state, country } = enrichmentData.apollo.location;
+      const parts = [];
+      if (city) parts.push(city);
+      if (state) parts.push(state);
+      if (country && country !== 'United States') parts.push(country);
+      return parts.join(', ');
+    }
+    
+    // Fallback to direct properties
+    return lead.location || '';
+  };
+
+  // Helper to get Apollo functions and departments
+  const getApolloFunctionsAndDepartments = (lead) => {
+    const enrichmentData = lead.enrichment_data || {};
+    const items = [];
+    
+    if (enrichmentData.apollo?.department) {
+      items.push({ type: 'department', value: enrichmentData.apollo.department });
+    }
+    
+    if (enrichmentData.apollo?.subdepartments?.length > 0) {
+      enrichmentData.apollo.subdepartments.forEach(subdept => {
+        items.push({ type: 'subdepartment', value: subdept });
+      });
+    }
+    
+    if (enrichmentData.apollo?.seniority) {
+      items.push({ type: 'seniority', value: enrichmentData.apollo.seniority });
+    }
+    
+    return items;
+  };
+
+  // Helper to get Apollo social profiles
+  const getApolloSocialProfiles = (lead) => {
+    const enrichmentData = lead.enrichment_data || {};
+    const profiles = [];
+    
+    if (enrichmentData.apollo?.social_profiles) {
+      const { twitter, facebook, github } = enrichmentData.apollo.social_profiles;
+      if (twitter) profiles.push({ type: 'twitter', url: twitter, icon: 'fa-brands fa-x-twitter' });
+      if (facebook) profiles.push({ type: 'facebook', url: facebook, icon: 'fa-brands fa-facebook' });
+      if (github) profiles.push({ type: 'github', url: github, icon: 'fa-brands fa-github' });
+    }
+    
+    return profiles;
+  };
+
+  // Helper to get Apollo enrichment timestamp
+  const getApolloEnrichmentTimestamp = (lead) => {
+    const enrichmentData = lead.enrichment_data || {};
+    return enrichmentData.apollo?.enriched_at || null;
+  };
 
   // Helper to get work history from Apollo data
   const getWorkHistory = (lead) => {
@@ -807,9 +921,31 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <img src={getAvatarUrl(localLead)} alt="Profile Picture" className="w-12 h-12 rounded-full" />
-                <div>
-                  <h2 className="text-xl font-semibold">{getDisplayName(localLead) || "Name"}</h2>
-                  <p className="text-gray-600">{localLead.title || "Title"}</p>
+                <div className="flex-1">
+                  <div className="flex items-center space-x-2">
+                    <h2 className="text-xl font-semibold">{getDisplayName(localLead) || "Name"}</h2>
+                    {localLead.enrichment_data?.apollo && (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800" title="Profile enhanced via Apollo">
+                        <span className="mr-1">🚀</span>
+                        Apollo
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-gray-600">{getEnrichedTitle(localLead) || "Title"}</p>
+                  {getEnrichedCompany(localLead) && (
+                    <p className="text-sm text-gray-500">{getEnrichedCompany(localLead)}</p>
+                  )}
+                  {getEnrichedLocation(localLead) && (
+                    <p className="text-xs text-gray-400 flex items-center mt-1">
+                      <i className="fa-solid fa-location-dot mr-1"></i>
+                      {getEnrichedLocation(localLead)}
+                    </p>
+                  )}
+                  {getApolloEnrichmentTimestamp(localLead) && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      Enriched {new Date(getApolloEnrichmentTimestamp(localLead)).toLocaleDateString()}
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="flex items-center space-x-3">
@@ -1125,6 +1261,71 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                     )}
                   </div>
                 </div>
+                {/* Apollo Functions & Departments */}
+                {(() => {
+                  const functionsAndDepts = getApolloFunctionsAndDepartments(localLead);
+                  return functionsAndDepts.length > 0 ? (
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        Functions & Departments
+                        <span className="ml-2 text-xs text-purple-600 flex items-center">
+                          <span className="mr-1">🚀</span>
+                          via Apollo
+                        </span>
+                      </h3>
+                      <div className="flex flex-wrap gap-2">
+                        {functionsAndDepts.map((item, idx) => (
+                          <span 
+                            key={idx} 
+                            className={`px-3 py-1 rounded-full text-sm font-medium ${
+                              item.type === 'department' ? 'bg-blue-100 text-blue-800' :
+                              item.type === 'subdepartment' ? 'bg-green-100 text-green-800' :
+                              'bg-orange-100 text-orange-800'
+                            }`}
+                            title={`${item.type}: ${item.value}`}
+                          >
+                            {item.value}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
+                
+                {/* Apollo Social Profiles */}
+                {(() => {
+                  const socialProfiles = getApolloSocialProfiles(localLead);
+                  return socialProfiles.length > 0 ? (
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        Social Profiles
+                        <span className="ml-2 text-xs text-purple-600 flex items-center">
+                          <span className="mr-1">🚀</span>
+                          via Apollo
+                        </span>
+                      </h3>
+                      <div className="space-y-2">
+                        {socialProfiles.map((profile, idx) => (
+                          <div key={idx} className="flex items-center space-x-3">
+                            <i className={`${profile.icon} text-gray-500`}></i>
+                            <a 
+                              href={profile.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className="text-blue-600 hover:underline flex-1"
+                            >
+                              {profile.url.replace(/^https?:\/\//, "")}
+                            </a>
+                            <span className="text-xs px-2 py-1 rounded-full bg-purple-100 text-purple-700">
+                              Apollo
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
+                
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">Contact Information</h3>
                   <div className="space-y-3">
@@ -1163,23 +1364,49 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                             const emailInfo = getEmailWithSource(localLead);
                             const errorContext = getEnrichmentErrorContext(localLead);
                             
+                            // Also check for Apollo additional emails
+                            const apolloEmails = [];
+                            const enrichmentData = localLead.enrichment_data || {};
+                            if (enrichmentData.apollo?.contact_info) {
+                              const { personal_email, work_email } = enrichmentData.apollo.contact_info;
+                              if (personal_email && personal_email !== emailInfo?.email) {
+                                apolloEmails.push({ type: 'Personal', email: personal_email });
+                              }
+                              if (work_email && work_email !== emailInfo?.email) {
+                                apolloEmails.push({ type: 'Work', email: work_email });
+                              }
+                            }
+                            
                             return emailInfo ? (
-                              <div className="flex items-center space-x-2 flex-1">
-                                <span className="flex-1" title={emailInfo.tooltip}>
-                                  {emailInfo.email}
-                                </span>
-                                <span 
-                                  className={`text-xs px-2 py-1 rounded-full font-medium ${
-                                    emailInfo.source === 'Hunter.io' ? 'bg-green-100 text-green-700' :
-                                    emailInfo.source === 'Skrapp.io' ? 'bg-blue-100 text-blue-700' :
-                                    emailInfo.source === 'Apollo' ? 'bg-purple-100 text-purple-700' :
-                                    emailInfo.source === 'Decodo' ? 'bg-indigo-100 text-indigo-700' :
-                                    'bg-gray-100 text-gray-700'
-                                  }`}
-                                  title={`Email source: ${emailInfo.source}${emailInfo.enrichedAt ? ` (${new Date(emailInfo.enrichedAt).toLocaleDateString()})` : ''}`}
-                                >
-                                  {emailInfo.source}
-                                </span>
+                              <div className="flex-1">
+                                <div className="flex items-center space-x-2">
+                                  <span className="flex-1" title={emailInfo.tooltip}>
+                                    {emailInfo.email}
+                                  </span>
+                                  <span 
+                                    className={`text-xs px-2 py-1 rounded-full font-medium ${
+                                      emailInfo.source === 'Hunter.io' ? 'bg-green-100 text-green-700' :
+                                      emailInfo.source === 'Skrapp.io' ? 'bg-blue-100 text-blue-700' :
+                                      emailInfo.source === 'Apollo' ? 'bg-purple-100 text-purple-700' :
+                                      emailInfo.source === 'Decodo' ? 'bg-indigo-100 text-indigo-700' :
+                                      'bg-gray-100 text-gray-700'
+                                    }`}
+                                    title={`Email source: ${emailInfo.source}${emailInfo.enrichedAt ? ` (${new Date(emailInfo.enrichedAt).toLocaleDateString()})` : ''}`}
+                                  >
+                                    {emailInfo.source}
+                                  </span>
+                                </div>
+                                {apolloEmails.length > 0 && (
+                                  <div className="mt-1 space-y-1">
+                                    {apolloEmails.map((email, idx) => (
+                                      <div key={idx} className="flex items-center space-x-2 text-sm">
+                                        <span className="text-gray-500 w-12 text-xs">{email.type}:</span>
+                                        <span className="flex-1 text-gray-600">{email.email}</span>
+                                        <span className="text-xs px-1 py-0.5 rounded bg-purple-50 text-purple-600">Apollo</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                             ) : (
                               <div className="flex items-center space-x-2 flex-1">
@@ -1238,20 +1465,46 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                             const phoneInfo = getPhoneWithSource(localLead);
                             const errorContext = getEnrichmentErrorContext(localLead);
                             
+                            // Also check for Apollo additional phone numbers
+                            const apolloPhones = [];
+                            const enrichmentData = localLead.enrichment_data || {};
+                            if (enrichmentData.apollo?.contact_info) {
+                              const { mobile_phone, work_phone } = enrichmentData.apollo.contact_info;
+                              if (mobile_phone && mobile_phone !== phoneInfo?.phone) {
+                                apolloPhones.push({ type: 'Mobile', number: mobile_phone });
+                              }
+                              if (work_phone && work_phone !== phoneInfo?.phone) {
+                                apolloPhones.push({ type: 'Work', number: work_phone });
+                              }
+                            }
+                            
                             return phoneInfo ? (
-                              <div className="flex items-center space-x-2 flex-1">
-                                <span className="flex-1" title={phoneInfo.tooltip}>
-                                  {phoneInfo.phone}
-                                </span>
-                                <span 
-                                  className={`text-xs px-2 py-1 rounded-full font-medium ${
-                                    phoneInfo.source === 'Apollo' ? 'bg-purple-100 text-purple-700' :
-                                    'bg-gray-100 text-gray-700'
-                                  }`}
-                                  title={`Phone source: ${phoneInfo.source}${phoneInfo.enrichedAt ? ` (${new Date(phoneInfo.enrichedAt).toLocaleDateString()})` : ''}`}
-                                >
-                                  {phoneInfo.source}
-                                </span>
+                              <div className="flex-1">
+                                <div className="flex items-center space-x-2">
+                                  <span className="flex-1" title={phoneInfo.tooltip}>
+                                    {phoneInfo.phone}
+                                  </span>
+                                  <span 
+                                    className={`text-xs px-2 py-1 rounded-full font-medium ${
+                                      phoneInfo.source === 'Apollo' ? 'bg-purple-100 text-purple-700' :
+                                      'bg-gray-100 text-gray-700'
+                                    }`}
+                                    title={`Phone source: ${phoneInfo.source}${phoneInfo.enrichedAt ? ` (${new Date(phoneInfo.enrichedAt).toLocaleDateString()})` : ''}`}
+                                  >
+                                    {phoneInfo.source}
+                                  </span>
+                                </div>
+                                {apolloPhones.length > 0 && (
+                                  <div className="mt-1 space-y-1">
+                                    {apolloPhones.map((phone, idx) => (
+                                      <div key={idx} className="flex items-center space-x-2 text-sm">
+                                        <span className="text-gray-500 w-12 text-xs">{phone.type}:</span>
+                                        <span className="flex-1 text-gray-600">{phone.number}</span>
+                                        <span className="text-xs px-1 py-0.5 rounded bg-purple-50 text-purple-600">Apollo</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                             ) : (
                               <div className="flex items-center space-x-2 flex-1">
@@ -1324,7 +1577,15 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                   <div className={isEnriched ? '' : 'blur-sm'}>
                     {/* Work History */}
                     <div className="space-y-4">
-                      <h3 className="text-lg font-semibold">Work History</h3>
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold">Work History</h3>
+                        {isEnriched && localLead.enrichment_data?.apollo?.experiences?.length > 0 && (
+                          <span className="text-xs text-purple-600 flex items-center">
+                            <span className="mr-1">🚀</span>
+                            via Apollo
+                          </span>
+                        )}
+                      </div>
                       <div className="space-y-4">
                         {isEnriched ? (
                           getWorkHistory(localLead).length > 0 ? getWorkHistory(localLead).map((job, idx) => (
@@ -1361,7 +1622,15 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                     </div>
                     {/* Skills */}
                     <div className="space-y-4">
-                      <h3 className="text-lg font-semibold">Skills & Keywords</h3>
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold">Skills & Keywords</h3>
+                        {isEnriched && localLead.enrichment_data?.apollo?.skills?.length > 0 && (
+                          <span className="text-xs text-purple-600 flex items-center">
+                            <span className="mr-1">🚀</span>
+                            via Apollo
+                          </span>
+                        )}
+                      </div>
                       <div className="flex flex-wrap gap-2">
                         {isEnriched ? (
                           getSkills(localLead).length > 0 ? getSkills(localLead).map((skill, idx) => (
