@@ -32,7 +32,7 @@ function buildProxyArgs() {
 export async function fetchSalesNavJson(options: SalesNavFetchOptions): Promise<any> {
   const { apiUrl, fullCookie, csrfToken } = options;
   
-  // Launch browser with container-optimized settings
+  // Launch browser with container-optimized settings and anti-detection
   console.log('[Playwright] Launching Chromium browser...');
   const browser = await chromium.launch({ 
     headless: true,
@@ -44,12 +44,19 @@ export async function fetchSalesNavJson(options: SalesNavFetchOptions): Promise<
       '--disable-gpu',
       '--disable-web-security',
       '--no-first-run',
-      '--no-default-browser-check'
+      '--no-default-browser-check',
+      '--disable-blink-features=AutomationControlled',
+      '--disable-features=VizDisplayCompositor'
     ]
   });
   
   console.log('[Playwright] Browser version:', await browser.version());
-  const context: BrowserContext = await browser.newContext();
+  const context: BrowserContext = await browser.newContext({
+    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    viewport: { width: 1920, height: 1080 },
+    locale: 'en-US',
+    timezoneId: 'America/New_York'
+  });
 
   // Set a realistic user agent
   await context.setExtraHTTPHeaders({
@@ -97,6 +104,23 @@ export async function fetchSalesNavJson(options: SalesNavFetchOptions): Promise<
 
   const page = await context.newPage();
   
+  // Add stealth script to avoid detection
+  await page.addInitScript(() => {
+    // Remove webdriver property
+    Object.defineProperty(navigator, 'webdriver', {
+      get: () => undefined,
+    });
+    
+    // Mock plugins and languages
+    Object.defineProperty(navigator, 'languages', {
+      get: () => ['en-US', 'en'],
+    });
+    
+    Object.defineProperty(navigator, 'plugins', {
+      get: () => [1, 2, 3, 4, 5],
+    });
+  });
+  
   // Set up request interception to capture headers
   let identity: string | null = null;
   page.on('request', req => {
@@ -121,6 +145,16 @@ export async function fetchSalesNavJson(options: SalesNavFetchOptions): Promise<
       timeout: 20000 
     });
     console.log('[Playwright] Successfully navigated to Sales Nav home');
+    
+    // Check if we're actually logged in or got redirected to login
+    const currentUrl = page.url();
+    const pageTitle = await page.title();
+    console.log('[Playwright] After navigation - URL:', currentUrl);
+    console.log('[Playwright] After navigation - Title:', pageTitle);
+    
+    if (currentUrl.includes('/login') || currentUrl.includes('/challenge') || pageTitle.includes('Sign In')) {
+      console.warn('[Playwright] ⚠️ Redirected to login page - cookies may be invalid');
+    }
     
     // Wait for the page to fully load and make API calls that will trigger identity capture
     await page.waitForTimeout(3000);
@@ -239,6 +273,8 @@ export async function fetchSalesNavJson(options: SalesNavFetchOptions): Promise<
     console.log('[Playwright] Making request with headers:', Object.keys(headers).join(', '));
     console.log('[Playwright] CSRF token value:', csrf);
     console.log('[Playwright] Has identity:', !!identity, 'Has pageInstance:', !!pageInstance);
+    console.log('[Playwright] Current page URL:', await page.url());
+    console.log('[Playwright] Current page title:', await page.title());
     
     const res = await fetch(url, {
       method: 'GET',
