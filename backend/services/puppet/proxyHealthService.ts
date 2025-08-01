@@ -253,9 +253,9 @@ export class ProxyHealthService {
           .order('global_failure_count', { ascending: true })
           .limit(1);
 
-        if (error) {
+      if (error) {
           throw new Error(`Failed to query proxy pool: ${error.message}`);
-        }
+      }
 
         if (proxies && proxies.length) {
           proxy = proxies[0];
@@ -265,9 +265,9 @@ export class ProxyHealthService {
 
       if (!proxy) {
         console.log(`❌ [ProxyHealth] No available proxies for user ${userId}`);
-
+        
         await this.escalateToAdmin(userId, null, 'No available proxies after tier filtering');
-
+        
         return {
           success: false,
           message: 'No available proxies. Admin has been notified.'

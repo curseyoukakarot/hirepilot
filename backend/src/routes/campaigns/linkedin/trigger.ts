@@ -108,7 +108,9 @@ router.post('/trigger', requireAuth, async (req: ApiRequest, res: Response) => {
           const apiUrl = `https://www.linkedin.com/sales-api/salesApiLeadSearch?q=recentSearchId&start=0&count=25&recentSearchId=${searchId}&trackingParam=(sessionId:${sessionId})&decorationId=com.linkedin.sales.deco.desktop.searchv2.LeadSearchResult-14`;
           console.log('[Playwright] Fetching SalesNav JSON', apiUrl);
           const result = await fetchSalesNavJson({ apiUrl, fullCookie: linkedinCookie, csrfToken });
-          if (result.ok && result.json?.elements?.length) {
+          
+          // Handle both successful and error responses
+          if (result.status === 200 && result.json?.elements?.length) {
             const jsonLeads = result.json.elements.map((e: any) => ({
               name: `${e.firstName || ''} ${e.lastName || ''}`.trim(),
               title: e.occupation,
@@ -119,10 +121,18 @@ router.post('/trigger', requireAuth, async (req: ApiRequest, res: Response) => {
             }));
             allLeads.push(...jsonLeads);
             totalLeads += jsonLeads.length;
-            console.log(`[Playwright] Extracted ${jsonLeads.length} leads via JSON API`);
+            console.log(`[Playwright] ✅ Extracted ${jsonLeads.length} leads via JSON API`);
+          } else if (result.status === 401) {
+            console.warn('[Playwright] ❌ LinkedIn session expired (401) - user needs to refresh cookies');
           } else {
-            console.warn('[Playwright] SalesNav JSON returned no leads', result.status);
+            console.warn('[Playwright] ⚠️ SalesNav JSON returned no leads', {
+              status: result.status,
+              hasData: !!result.json?.data,
+              responsePreview: JSON.stringify(result.json).substring(0, 200)
+            });
           }
+        } else {
+          console.warn('[Playwright] ⚠️ Missing required URL parameters:', { searchId, sessionId, csrfToken: !!csrfToken });
         }
       } catch (playErr) {
         console.error('[Playwright] SalesNav JSON fetch failed:', playErr);
