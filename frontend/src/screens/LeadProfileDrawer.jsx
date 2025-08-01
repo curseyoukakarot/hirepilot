@@ -314,11 +314,11 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     const enrichmentData = lead.enrichment_data || {};
     const profiles = [];
     
-    if (enrichmentData.apollo?.social_profiles) {
-      const { twitter, facebook, github } = enrichmentData.apollo.social_profiles;
-      if (twitter) profiles.push({ type: 'twitter', url: twitter, icon: 'fa-brands fa-x-twitter' });
-      if (facebook) profiles.push({ type: 'facebook', url: facebook, icon: 'fa-brands fa-facebook' });
-      if (github) profiles.push({ type: 'github', url: github, icon: 'fa-brands fa-github' });
+    if (enrichmentData.apollo) {
+      const { twitter_url, facebook_url, github_url } = enrichmentData.apollo;
+      if (twitter_url) profiles.push({ type: 'twitter', url: twitter_url, icon: 'fa-brands fa-x-twitter' });
+      if (facebook_url) profiles.push({ type: 'facebook', url: facebook_url, icon: 'fa-brands fa-facebook' });
+      if (github_url) profiles.push({ type: 'github', url: github_url, icon: 'fa-brands fa-github' });
     }
     
     return profiles;
@@ -333,16 +333,16 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   // Helper to get work history from Apollo data
   const getWorkHistory = (lead) => {
     if (
-      lead.enrichment_data?.apollo?.experiences &&
-      Array.isArray(lead.enrichment_data.apollo.experiences) &&
-      lead.enrichment_data.apollo.experiences.length > 0
+      lead.enrichment_data?.apollo?.employment_history &&
+      Array.isArray(lead.enrichment_data.apollo.employment_history) &&
+      lead.enrichment_data.apollo.employment_history.length > 0
     ) {
-      // Map Apollo experiences to a common format
-      return lead.enrichment_data.apollo.experiences.map(exp => ({
-        company: exp.company || exp.organization_name,
+      // Map Apollo employment_history to a common format
+      return lead.enrichment_data.apollo.employment_history.map(exp => ({
+        company: exp.organization_name || exp.company,
         title: exp.title,
-        years: (exp.start_date ? exp.start_date : '') +
-               (exp.end_date ? ` - ${exp.end_date}` : exp.current ? ' - Present' : ''),
+        years: (exp.start_date ? new Date(exp.start_date).getFullYear() : '') +
+               (exp.end_date ? ` - ${new Date(exp.end_date).getFullYear()}` : exp.current ? ' - Present' : ''),
         description: exp.description || '',
         location: exp.location || ''
       }));
@@ -364,13 +364,22 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
 
   // Helper to get skills (from Apollo data)
   const getSkills = (lead) => {
-    if (
-      lead.enrichment_data?.apollo?.skills &&
-      Array.isArray(lead.enrichment_data.apollo.skills) &&
-      lead.enrichment_data.apollo.skills.length > 0
-    ) return lead.enrichment_data.apollo.skills;
+    // Note: Apollo data structure doesn't include a skills field
+    // Check for fallback data sources
     if (lead.skills && lead.skills.length > 0) return lead.skills;
     if (lead.enrichment_data && Array.isArray(lead.enrichment_data.skills) && lead.enrichment_data.skills.length > 0) return lead.enrichment_data.skills;
+    
+    // We could potentially extract skills from functions/departments as a fallback
+    const enrichmentData = lead.enrichment_data || {};
+    const skillsFromApollo = [];
+    if (enrichmentData.apollo?.functions) {
+      skillsFromApollo.push(...enrichmentData.apollo.functions);
+    }
+    if (enrichmentData.apollo?.departments) {
+      skillsFromApollo.push(...enrichmentData.apollo.departments);
+    }
+    if (skillsFromApollo.length > 0) return skillsFromApollo;
+    
     return [];
   };
 
@@ -1367,14 +1376,12 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                             // Also check for Apollo additional emails
                             const apolloEmails = [];
                             const enrichmentData = localLead.enrichment_data || {};
-                            if (enrichmentData.apollo?.contact_info) {
-                              const { personal_email, work_email } = enrichmentData.apollo.contact_info;
-                              if (personal_email && personal_email !== emailInfo?.email) {
-                                apolloEmails.push({ type: 'Personal', email: personal_email });
-                              }
-                              if (work_email && work_email !== emailInfo?.email) {
-                                apolloEmails.push({ type: 'Work', email: work_email });
-                              }
+                            if (enrichmentData.apollo?.personal_emails && Array.isArray(enrichmentData.apollo.personal_emails)) {
+                              enrichmentData.apollo.personal_emails.forEach(email => {
+                                if (email && email !== emailInfo?.email) {
+                                  apolloEmails.push({ type: 'Personal', email });
+                                }
+                              });
                             }
                             
                             return emailInfo ? (
@@ -1465,18 +1472,11 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                             const phoneInfo = getPhoneWithSource(localLead);
                             const errorContext = getEnrichmentErrorContext(localLead);
                             
-                            // Also check for Apollo additional phone numbers
+                            // Apollo doesn't seem to provide additional phone numbers in this data structure
                             const apolloPhones = [];
                             const enrichmentData = localLead.enrichment_data || {};
-                            if (enrichmentData.apollo?.contact_info) {
-                              const { mobile_phone, work_phone } = enrichmentData.apollo.contact_info;
-                              if (mobile_phone && mobile_phone !== phoneInfo?.phone) {
-                                apolloPhones.push({ type: 'Mobile', number: mobile_phone });
-                              }
-                              if (work_phone && work_phone !== phoneInfo?.phone) {
-                                apolloPhones.push({ type: 'Work', number: work_phone });
-                              }
-                            }
+                            // Note: Apollo data structure doesn't include separate mobile/work phones
+                            // Only the main phone number is provided in the primary phone field
                             
                             return phoneInfo ? (
                               <div className="flex-1">
@@ -1579,7 +1579,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <h3 className="text-lg font-semibold">Work History</h3>
-                        {isEnriched && localLead.enrichment_data?.apollo?.experiences?.length > 0 && (
+                        {isEnriched && localLead.enrichment_data?.apollo?.employment_history?.length > 0 && (
                           <span className="text-xs text-purple-600 flex items-center">
                             <span className="mr-1">🚀</span>
                             via Apollo
@@ -1624,7 +1624,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <h3 className="text-lg font-semibold">Skills & Keywords</h3>
-                        {isEnriched && localLead.enrichment_data?.apollo?.skills?.length > 0 && (
+                        {isEnriched && getSkills(localLead).length > 0 && localLead.enrichment_data?.apollo && (
                           <span className="text-xs text-purple-600 flex items-center">
                             <span className="mr-1">🚀</span>
                             via Apollo
