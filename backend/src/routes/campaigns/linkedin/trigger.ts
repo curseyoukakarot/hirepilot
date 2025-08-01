@@ -109,14 +109,14 @@ router.post('/trigger', requireAuth, async (req: ApiRequest, res: Response) => {
         const searchId = recentMatch ? recentMatch[1] : '';
         const sessionId = sessionMatch ? sessionMatch[1] : '';
         
-        // Extract CSRF token from Railway environment or cookie
+        // Extract CSRF token from Railway environment or cookie (keep full ajax:NUMBER format)
         let csrfToken = '';
         if (process.env.FULL_LINKEDIN_COOKIE) {
-          const envCsrfMatch = process.env.FULL_LINKEDIN_COOKIE.match(/JSESSIONID="?ajax:([0-9]+)/);
+          const envCsrfMatch = process.env.FULL_LINKEDIN_COOKIE.match(/JSESSIONID="?(ajax:[0-9]+)/);
           csrfToken = envCsrfMatch ? envCsrfMatch[1] : '';
         }
         if (!csrfToken) {
-          const cookieCsrfMatch = linkedinCookie.match(/JSESSIONID="?ajax:([0-9]+)/);
+          const cookieCsrfMatch = linkedinCookie.match(/JSESSIONID="?(ajax:[0-9]+)/);
           csrfToken = cookieCsrfMatch ? cookieCsrfMatch[1] : '';
         }
         

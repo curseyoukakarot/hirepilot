@@ -237,6 +237,8 @@ export async function fetchSalesNavJson(options: SalesNavFetchOptions): Promise<
     if (pageInstance) headers['x-li-page-instance'] = pageInstance;
 
     console.log('[Playwright] Making request with headers:', Object.keys(headers).join(', '));
+    console.log('[Playwright] CSRF token value:', csrf);
+    console.log('[Playwright] Has identity:', !!identity, 'Has pageInstance:', !!pageInstance);
     
     const res = await fetch(url, {
       method: 'GET',
