@@ -97,17 +97,40 @@ router.post('/trigger', requireAuth, async (req: ApiRequest, res: Response) => {
     if (process.env.PLAYWRIGHT_SALESNAV === '1' && linkedinCookie) {
       try {
         const decodedUrl = decodeURIComponent(searchUrl);
-        const recentMatch = decodedUrl.match(/recentSearchId=([0-9]+)/);
-        const sessionMatch = decodedUrl.match(/sessionId=([A-Za-z0-9%]+)/);
+        console.log('[Playwright] Decoded URL:', decodedUrl);
+        
+        // Try different patterns for recentSearchId/recentSearchParam
+        let recentMatch = decodedUrl.match(/recentSearchId=([0-9]+)/);
+        if (!recentMatch) {
+          recentMatch = decodedUrl.match(/recentSearchParam:\(id:([0-9]+)/);
+        }
+        
+        const sessionMatch = decodedUrl.match(/sessionId[=:]([A-Za-z0-9%=]+)/);
         const searchId = recentMatch ? recentMatch[1] : '';
         const sessionId = sessionMatch ? sessionMatch[1] : '';
-        const csrfTokenMatch = linkedinCookie.match(/JSESSIONID="?ajax:([0-9]+)/);
-        const csrfToken = csrfTokenMatch ? csrfTokenMatch[1] : '';
+        
+        // Extract CSRF token from Railway environment or cookie
+        let csrfToken = '';
+        if (process.env.FULL_LINKEDIN_COOKIE) {
+          const envCsrfMatch = process.env.FULL_LINKEDIN_COOKIE.match(/JSESSIONID="?ajax:([0-9]+)/);
+          csrfToken = envCsrfMatch ? envCsrfMatch[1] : '';
+        }
+        if (!csrfToken) {
+          const cookieCsrfMatch = linkedinCookie.match(/JSESSIONID="?ajax:([0-9]+)/);
+          csrfToken = cookieCsrfMatch ? cookieCsrfMatch[1] : '';
+        }
+        
+        console.log('[Playwright] Extracted params:', { searchId, sessionId, hasCsrfToken: !!csrfToken });
 
         if (searchId && sessionId && csrfToken) {
           const apiUrl = `https://www.linkedin.com/sales-api/salesApiLeadSearch?q=recentSearchId&start=0&count=25&recentSearchId=${searchId}&trackingParam=(sessionId:${sessionId})&decorationId=com.linkedin.sales.deco.desktop.searchv2.LeadSearchResult-14`;
           console.log('[Playwright] Fetching SalesNav JSON', apiUrl);
-          const result = await fetchSalesNavJson({ apiUrl, fullCookie: linkedinCookie, csrfToken });
+          
+          // Use fresh cookie from environment if available, otherwise use database cookie
+          const cookieToUse = process.env.FULL_LINKEDIN_COOKIE || linkedinCookie;
+          console.log('[Playwright] Using cookie source:', process.env.FULL_LINKEDIN_COOKIE ? 'environment' : 'database');
+          
+          const result = await fetchSalesNavJson({ apiUrl, fullCookie: cookieToUse, csrfToken });
           
           // Handle both successful and error responses
           if (result.status === 200 && result.json?.elements?.length) {
