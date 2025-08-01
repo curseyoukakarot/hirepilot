@@ -6969,7 +6969,7 @@
             }
             await this._saveSession(Object.assign({ expires_at: Math.round(Date.now() / 1e3) + data.expires_in }, data));
             await this._notifyAllSubscribers("MFA_CHALLENGE_VERIFIED", data);
-            return { data, error: null };
+            return { data, error };
           });
         } catch (error) {
           if (isAuthError(error)) {
@@ -7412,14 +7412,15 @@
   var q = (id) => document.getElementById(id) || console.warn(`#${id} not found`);
   var loginSection = q("loginSection");
   var mainSection = q("mainSection");
-  var statusEl = q("status");
-  var helloEl = q("hello");
+  var loginStatusEl = q("loginStatus");
+  var mainStatusEl = q("mainStatus");
   var loginBtn = q("loginBtn");
   var uploadBtn = q("uploadBtn");
+  var scrapeBtn = q("scrapeBtn");
   var logoutBtn = q("logoutBtn");
-  var API = "https://api.thehirepilot.com/api/linkedin/save-cookie";
+  var API = "http://localhost:8080/api/linkedin/save-cookie";
   var emailInput = q("email");
-  var pwInput = q("password");
+  var pwInput = q("pw");
   var userEmail = q("userEmail");
   function showLogin() {
     loginSection.classList.remove("hidden");
@@ -7430,17 +7431,22 @@
   function showMain(email) {
     loginSection.classList.add("hidden");
     mainSection.classList.remove("hidden");
-    statusEl.textContent = "";
+    mainStatusEl.textContent = "";
     if (userEmail && email) userEmail.textContent = email;
   }
-  function isLoggedIn() {
-    return !!localStorage.getItem("hp_user_id");
+  async function isLoggedIn() {
+    const result = await chrome.storage.local.get("hp_user_id");
+    return !!result.hp_user_id;
   }
-  if (isLoggedIn()) {
-    showMain(localStorage.getItem("hp_user_email"));
-  } else {
-    showLogin();
+  async function initializeUI() {
+    if (await isLoggedIn()) {
+      const result = await chrome.storage.local.get("hp_user_email");
+      showMain(result.hp_user_email);
+    } else {
+      showLogin();
+    }
   }
+  initializeUI();
   function btnState(id, text, disabled, loading = false) {
     const el = document.getElementById(id);
     if (!el) {
@@ -7458,82 +7464,142 @@
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     console.log("login result", { data, error });
     if (error) {
-      showStatus(error.message, true);
+      showStatus(error.message, true, true);
       btnState("loginBtn", "Log In", false);
       return;
     }
-    localStorage.setItem("hp_user_id", data.user.id);
-    localStorage.setItem("hp_jwt", data.session.access_token);
-    localStorage.setItem("hp_user_email", data.user.email);
-    flipToMain(data.user.email);
+    await chrome.storage.local.set({
+      hp_user_id: data.user.id,
+      hp_jwt: data.session.access_token,
+      hp_user_email: data.user.email
+    });
+    btnState("loginBtn", "Sign In", false);
+    showMain(data.user.email);
   };
-  logoutBtn?.addEventListener("click", () => {
-    localStorage.removeItem("hp_user_id");
-    localStorage.removeItem("hp_jwt");
-    localStorage.removeItem("hp_user_email");
+  logoutBtn?.addEventListener("click", async () => {
+    await chrome.storage.local.remove(["hp_user_id", "hp_jwt", "hp_user_email"]);
     showLogin();
   });
   if (uploadBtn) uploadBtn.onclick = async () => {
     btnState("uploadBtn", "Uploading\u2026", true, true);
-    statusEl.textContent = "\u23F3 grabbing cookie\u2026";
-    const { li_at, ua } = await chrome.runtime.sendMessage("getCookie").catch(() => ({}));
-    if (!li_at) {
-      showStatus("\u274C No li_at cookie \u2013 open linkedin.com & log-in first", true);
-      btnState("uploadBtn", "Copy & Upload LinkedIn Cookie", false, false);
-      return;
-    }
-    await navigator.clipboard.writeText(li_at).catch(() => {
-    });
-    const userId = localStorage.getItem("hp_user_id");
-    const jwt = localStorage.getItem("hp_jwt");
-    if (!userId || !jwt) {
-      showStatus("\u274C No user ID or token found \u2013 please log in first.", true);
-      btnState("uploadBtn", "Copy & Upload LinkedIn Cookie", false, false);
-      return;
-    }
+    showStatus("\u231B Grabbing full cookie...", false);
     try {
+      const response = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({ action: "getFullCookie" }, (response2) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error("Please open a LinkedIn page first"));
+          } else {
+            resolve(response2);
+          }
+        });
+      });
+      if (!response) {
+        showStatus("\u274C Please open a LinkedIn page first", true);
+        btnState("uploadBtn", "Upload Full LinkedIn Cookie", false, false);
+        return;
+      }
+      if (response.error) {
+        showStatus(`\u274C ${response.error}`, true);
+        btnState("uploadBtn", "Upload Full LinkedIn Cookie", false, false);
+        return;
+      }
+      if (!response.fullCookie) {
+        showStatus("\u274C No cookie found - log in to LinkedIn first", true);
+        btnState("uploadBtn", "Upload Full LinkedIn Cookie", false, false);
+        return;
+      }
+      const storage = await chrome.storage.local.get(["hp_user_id", "hp_jwt"]);
+      const userId = storage.hp_user_id;
+      const jwt = storage.hp_jwt;
+      if (!userId || !jwt) {
+        showStatus("\u274C No user ID or token - log in first", true);
+        btnState("uploadBtn", "Upload Full LinkedIn Cookie", false, false);
+        return;
+      }
       const res = await fetch(API, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${jwt}`
         },
-        body: JSON.stringify({ user_id: userId, session_cookie: li_at, user_agent: ua || navigator.userAgent })
+        body: JSON.stringify({
+          user_id: userId,
+          session_cookie: response.fullCookie,
+          // Now full cookie string
+          user_agent: navigator.userAgent
+        })
       });
       if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(`${res.status}: ${msg}`);
+        const errorText = await res.text();
+        throw new Error(`${res.status}: ${errorText}`);
       }
-      showStatus("\u2705 Cookie saved!", false);
+      showStatus("\u2705 Full cookie saved!", false);
     } catch (e) {
-      showStatus("\u274C Upload failed \u2013 " + e.message, true);
+      console.error("Upload error:", e);
+      showStatus("\u274C Upload failed - " + e.message, true);
     } finally {
-      btnState("uploadBtn", "Copy & Upload LinkedIn Cookie", false, false);
+      btnState("uploadBtn", "Upload Full LinkedIn Cookie", false, false);
     }
   };
-  function flipToMain(email) {
-    helloEl.textContent = `Logged in as ${email}`;
-    loginSection.hidden = true;
-    mainSection.hidden = false;
-    btnState("loginBtn", "Log In", false);
-  }
-  function flipToLogin() {
-    mainSection.hidden = true;
-    loginSection.hidden = false;
-    showStatus("");
-  }
-  function showStatus(msg = "", isErr = false) {
-    const el = statusEl;
+  if (scrapeBtn) scrapeBtn.onclick = async () => {
+    btnState("scrapeBtn", "Scraping...", true);
+    showStatus("\u231B Scraping leads...", false);
+    try {
+      const response = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({ action: "scrapeSalesNav" }, (response2) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error("Please open a Sales Navigator search page first"));
+          } else {
+            resolve(response2);
+          }
+        });
+      });
+      console.log("Scrape response:", response);
+      if (!response) {
+        showStatus("\u274C Please open a Sales Navigator search page first", true);
+      } else if (response.error) {
+        showStatus(`\u274C ${response.error}`, true);
+      } else if (response.leads) {
+        const result = response.result || {};
+        const creditsCharged = result.creditsCharged || response.leads.length;
+        showStatus(`\u2705 Added ${response.leads.length} leads to HirePilot! (${creditsCharged} credits charged)`, false);
+      } else {
+        showStatus("\u274C No response from content script", true);
+      }
+    } catch (e) {
+      console.error("Scrape error:", e);
+      showStatus("\u274C Scraping failed - " + e.message, true);
+    } finally {
+      btnState("scrapeBtn", "Scrape Sales Nav Leads", false);
+    }
+  };
+  function showStatus(msg = "", isErr = false, isLogin = false) {
+    const el = isLogin ? loginStatusEl : mainStatusEl;
     if (!el) {
-      console.warn("#status element missing");
+      console.warn(`#${isLogin ? "loginStatus" : "mainStatus"} element missing`);
       return;
     }
-    el.textContent = msg;
-    el.className = msg ? isErr ? "err" : "ok" : "";
-  }
-  if (localStorage.getItem("hp_user_id")) {
-    flipToMain(localStorage.getItem("hp_user_email"));
-  } else {
-    flipToLogin();
+    if (isLogin) {
+      el.textContent = msg;
+      el.className = msg ? isErr ? "status-message err" : "status-message ok" : "status-message";
+    } else {
+      el.textContent = msg;
+      const statusSection = el.closest(".status-section");
+      if (statusSection) {
+        statusSection.className = "status-section";
+        if (msg) {
+          if (isErr) {
+            statusSection.classList.add("error");
+          } else if (msg.includes("\u231B") || msg.includes("Scraping") || msg.includes("Grabbing")) {
+            statusSection.classList.add("loading");
+          } else if (msg.includes("\u2705") || msg.includes("Added") || msg.includes("saved")) {
+            statusSection.classList.add("success");
+          }
+        }
+      }
+      if (!msg) {
+        el.textContent = "Ready to extract leads";
+      }
+    }
   }
 })();

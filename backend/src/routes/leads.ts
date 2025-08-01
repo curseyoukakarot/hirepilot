@@ -7,6 +7,7 @@ import { requireAuth } from '../../middleware/authMiddleware';
 import { searchAndEnrichPeople } from '../../utils/apolloApi';
 import { ApiRequest } from '../../types/api';
 import { EmailEventService } from '../../services/emailEventService';
+import { CreditService } from '../../services/creditService';
 import axios from 'axios';
 import decodoRouter from './leads/decodo/salesNavigatorScraper';
 import enrichmentRouter from './leads/decodo/enrichLeadProfile';
@@ -755,6 +756,95 @@ router.post('/import', requireAuth, async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error importing leads:', error);
     res.status(500).json({ error: 'Failed to import leads' });
+  }
+});
+
+// POST /api/leads/bulk-add - Add scraped leads from extension without campaign or credits
+router.post('/bulk-add', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as ApiRequest).user?.id;
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const { leads } = req.body;
+    if (!Array.isArray(leads)) {
+      res.status(400).json({ error: 'Missing leads array' });
+      return;
+    }
+
+    // Normalize leads data from Sales Navigator scraping
+    const normalizedLeads = leads.map((lead: any) => {
+      const first = lead.first_name || (lead.name ? lead.name.split(' ')[0] : '') || '';
+      const last = lead.last_name || (lead.name ? lead.name.split(' ').slice(1).join(' ') : '') || '';
+
+      return {
+        user_id: userId,
+        first_name: first,
+        last_name: last,
+        name: lead.name || `${first} ${last}`.trim(),
+        email: lead.email || '',
+        title: lead.title || '',
+        company: lead.company || '',
+        linkedin_url: lead.profileUrl || null,
+        source: 'Chrome Extension',
+        enrichment_source: 'linkedin',
+        enrichment_data: {
+          location: lead.location || 'Unknown',
+          source: 'Chrome Extension'
+        },
+        status: 'New',
+        created_at: new Date().toISOString(),
+      };
+    }).filter(lead => lead.name); // Only include leads with names
+
+    if (normalizedLeads.length === 0) {
+      res.status(400).json({ error: 'No valid leads provided' });
+      return;
+    }
+
+    // Check if user has sufficient credits for the leads
+    const hasCredits = await CreditService.hasSufficientCredits(userId, normalizedLeads.length);
+    if (!hasCredits) {
+      res.status(402).json({ error: 'Insufficient credits. You need ' + normalizedLeads.length + ' credits to add these leads.' });
+      return;
+    }
+
+    // Deduct credits for Chrome extension lead scraping (1 credit per lead)
+    try {
+      await CreditService.deductCredits(
+        userId, 
+        normalizedLeads.length, 
+        'api_usage', 
+        `Chrome Extension: Scraped ${normalizedLeads.length} leads from Sales Navigator`
+      );
+    } catch (creditError) {
+      res.status(402).json({ error: 'Credit deduction failed: ' + creditError });
+      return;
+    }
+
+    // Insert leads into the database
+    const { data, error } = await supabase
+      .from('leads')
+      .insert(normalizedLeads)
+      .select('*');
+
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+
+    res.json({ 
+      success: true, 
+      data,
+      added: data?.length || 0,
+      creditsCharged: normalizedLeads.length,
+      message: `Successfully added ${data?.length || 0} leads and charged ${normalizedLeads.length} credits`
+    });
+  } catch (error) {
+    console.error('Error adding leads:', error);
+    res.status(500).json({ error: 'Failed to add leads' });
   }
 });
 

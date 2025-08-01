@@ -265,6 +265,10 @@ export class CreditService {
    * Deduct credits from user (considering team admin sharing)
    */
   static async deductCredits(userId: string, amount: number, usageType: CreditUsageType, description: string) {
+    // Check if user has their own credits first
+    const userCredits = await this.getUserCredits(userId);
+    const usingOwnCredits = userCredits && userCredits.remaining_credits >= amount;
+    
     // Use the effective credit usage method
     const success = await this.useCreditsEffective(userId, amount);
     
@@ -272,7 +276,11 @@ export class CreditService {
       throw new Error('Insufficient credits');
     }
 
-    // The logging is already handled in useCreditsEffective
+    // Log the credit usage ONLY if using own credits (team admin usage is already logged)
+    if (usingOwnCredits) {
+      await this.logCreditUsage(userId, amount, usageType, description);
+    }
+
     return true;
   }
 

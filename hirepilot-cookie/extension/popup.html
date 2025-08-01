@@ -1,26 +1,101 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8" />
-  <title>HirePilot Cookie Helper</title>
-  <link rel="stylesheet" href="popup.css" />
+  <meta charset="utf-8">
+  <title>HirePilot Tools</title>
+  <link rel="stylesheet" href="popup.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-  <header>
-    <img src="img/hirepilot-logo.svg" alt="HirePilot" width="110" />
-  </header>
 
-  <section id="loginSection">
-    <input id="email" placeholder="Email" />
-    <input id="password" type="password" placeholder="Password" />
-    <button id="loginBtn">Log In</button>
+  <!-- Login Section -->
+  <section id="loginSection" class="login-container">
+    <div class="login-header">
+      <img src="img/hirepilot-logo.svg" alt="HirePilot" class="logo">
+      <h1 class="app-title">HirePilot Tools</h1>
+    </div>
+    
+    <div class="login-form">
+      <h2>Sign In</h2>
+      <input id="email" type="email" placeholder="Email address" required>
+      <input id="pw" type="password" placeholder="Password" required>
+      <button id="loginBtn" class="btn-primary">Sign In</button>
+      <div id="loginStatus" class="status-message"></div>
+    </div>
   </section>
 
-  <section id="mainSection" class="hidden">
-    <p id="hello"></p>
-    <button id="uploadBtn">Copy & Upload LinkedIn Cookie</button>
-    <p id="status"></p>
-    <button id="logoutBtn" class="secondary">Log Out</button>
+  <!-- Main Section -->
+  <section id="mainSection" class="main-container hidden">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-left">
+        <img src="img/hirepilot-logo.svg" alt="HirePilot" class="logo">
+        <h1 class="app-title">HirePilot Tools</h1>
+      </div>
+      <div class="status-dot"></div>
+    </div>
+
+    <!-- User Info -->
+    <div class="user-info">
+      <div class="user-avatar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 12C14.7614 12 17 9.76142 17 7C17 4.23858 14.7614 2 12 2C9.23858 2 7 4.23858 7 7C7 9.76142 9.23858 12 12 12Z" fill="#666"/>
+          <path d="M12 14C7.58172 14 4 17.5817 4 22H20C20 17.5817 16.4183 14 12 14Z" fill="#666"/>
+        </svg>
+      </div>
+      <div class="user-details">
+        <div class="user-email" id="userEmail">john.doe@company.com</div>
+        <div class="user-status">Connected</div>
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="actions">
+      <button id="uploadBtn" class="btn-upload">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 15V3M12 3L16 7M12 3L8 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M2 17L2 19C2 20.1046 2.89543 21 4 21L20 21C21.1046 21 22 20.1046 22 19L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        Upload Full LinkedIn Cookie
+      </button>
+      
+      <button id="scrapeBtn" class="btn-scrape">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M17 21V19C17 16.7909 15.2091 15 13 15H5C2.79086 15 1 16.7909 1 19V21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M23 21V19C23 17.1362 21.7252 15.5701 20 15.126" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M16 3.12598C17.7252 3.56987 19 5.13617 19 7C19 8.86383 17.7252 10.4301 16 10.874" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Scrape Sales Nav Leads
+      </button>
+    </div>
+
+    <!-- Status Section -->
+    <div class="status-section">
+      <div class="status-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+          <path d="M12 16V12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M12 8H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div id="mainStatus" class="status-text">Ready to extract leads</div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <button id="logoutBtn" class="logout-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M9 21H5C3.89543 21 3 20.1046 3 19V5C3 3.89543 3.89543 3 5 3H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <polyline points="16,17 21,12 16,7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Log Out
+      </button>
+      <div class="version">v2.1.0</div>
+    </div>
   </section>
 
   <script src="popup.bundle.js"></script>

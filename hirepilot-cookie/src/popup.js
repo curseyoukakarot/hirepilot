@@ -9,17 +9,18 @@ const q = id => document.getElementById(id) || console.warn(`#${id} not found`);
 
 const loginSection = q('loginSection');
 const mainSection  = q('mainSection');
-const statusEl     = q('status');
-const helloEl      = q('hello');
+const loginStatusEl = q('loginStatus');
+const mainStatusEl  = q('mainStatus');
 
 const loginBtn  = q('loginBtn');
 const uploadBtn = q('uploadBtn');
+const scrapeBtn = q('scrapeBtn');
 const logoutBtn = q('logoutBtn');
 
-const API   = 'https://api.thehirepilot.com/api/linkedin/save-cookie';
+const API   = 'http://localhost:8080/api/linkedin/save-cookie';
 
 const emailInput = q('email');
-const pwInput = q('password');
+const pwInput = q('pw');
 const userEmail = q('userEmail');
 
 function showLogin() {
@@ -32,20 +33,25 @@ function showLogin() {
 function showMain(email) {
   loginSection.classList.add('hidden');
   mainSection.classList.remove('hidden');
-  statusEl.textContent = '';
+  mainStatusEl.textContent = '';
   if (userEmail && email) userEmail.textContent = email;
 }
 
-function isLoggedIn() {
-  return !!localStorage.getItem('hp_user_id');
+async function isLoggedIn() {
+  const result = await chrome.storage.local.get('hp_user_id');
+  return !!result.hp_user_id;
 }
 
-// On load, show correct section
-if (isLoggedIn()) {
-  showMain(localStorage.getItem('hp_user_email'));
-} else {
-  showLogin();
+// On load, show correct section (now async)
+async function initializeUI() {
+  if (await isLoggedIn()) {
+    const result = await chrome.storage.local.get('hp_user_email');
+    showMain(result.hp_user_email);
+  } else {
+    showLogin();
+  }
 }
+initializeUI();
 
 function btnState(id, text, disabled, loading = false) {
   const el = document.getElementById(id);
@@ -65,87 +71,168 @@ if (loginBtn) loginBtn.onclick = async () => {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   console.log('login result', { data, error });
   if (error) {
-    showStatus(error.message, true);
+    showStatus(error.message, true, true);  // Login section status
     btnState('loginBtn', 'Log In', false);
     return;
   }
-  localStorage.setItem('hp_user_id', data.user.id);
-  localStorage.setItem('hp_jwt', data.session.access_token);
-  localStorage.setItem('hp_user_email', data.user.email);
-  flipToMain(data.user.email);
+      await chrome.storage.local.set({
+      hp_user_id: data.user.id,
+      hp_jwt: data.session.access_token,
+      hp_user_email: data.user.email
+    });
+    btnState('loginBtn', 'Sign In', false);
+    showMain(data.user.email);
 };
 
-logoutBtn?.addEventListener('click', () => {
-  localStorage.removeItem('hp_user_id');
-  localStorage.removeItem('hp_jwt');
-  localStorage.removeItem('hp_user_email');
+logoutBtn?.addEventListener('click', async () => {
+  await chrome.storage.local.remove(['hp_user_id', 'hp_jwt', 'hp_user_email']);
   showLogin();
 });
 
 if (uploadBtn) uploadBtn.onclick = async () => {
   btnState('uploadBtn', 'Uploading…', true, true);
-  statusEl.textContent = '⏳ grabbing cookie…';
-  const { li_at, ua } = await chrome.runtime.sendMessage('getCookie').catch(() => ({}));
-  if (!li_at) {
-    showStatus('❌ No li_at cookie – open linkedin.com & log-in first', true);
-    btnState('uploadBtn', 'Copy & Upload LinkedIn Cookie', false, false);
-    return;
-  }
-  await navigator.clipboard.writeText(li_at).catch(()=>{});
-  const userId = localStorage.getItem('hp_user_id');
-  const jwt = localStorage.getItem('hp_jwt');
-  if (!userId || !jwt) {
-    showStatus('❌ No user ID or token found – please log in first.', true);
-    btnState('uploadBtn', 'Copy & Upload LinkedIn Cookie', false, false);
-    return;
-  }
+  showStatus('⌛ Grabbing full cookie...', false);  // Main section status
+  
   try {
+    const response = await new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage({ action: 'getFullCookie' }, (response) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error('Please open a LinkedIn page first'));
+        } else {
+          resolve(response);
+        }
+      });
+    });
+    
+    // Handle case where content script isn't available
+    if (!response) {
+      showStatus('❌ Please open a LinkedIn page first', true);
+      btnState('uploadBtn', 'Upload Full LinkedIn Cookie', false, false);
+      return;
+    }
+    
+    if (response.error) {
+      showStatus(`❌ ${response.error}`, true);
+      btnState('uploadBtn', 'Upload Full LinkedIn Cookie', false, false);
+      return;
+    }
+    
+    if (!response.fullCookie) {
+      showStatus('❌ No cookie found - log in to LinkedIn first', true);
+      btnState('uploadBtn', 'Upload Full LinkedIn Cookie', false, false);
+      return;
+    }
+    
+    const storage = await chrome.storage.local.get(['hp_user_id', 'hp_jwt']);
+    const userId = storage.hp_user_id;
+    const jwt = storage.hp_jwt;
+    if (!userId || !jwt) {
+      showStatus('❌ No user ID or token - log in first', true);
+      btnState('uploadBtn', 'Upload Full LinkedIn Cookie', false, false);
+      return;
+    }
+    
     const res = await fetch(API, {
       method : 'POST',
       headers: {
         'Content-Type':'application/json',
         'Authorization': `Bearer ${jwt}`
       },
-      body   : JSON.stringify({ user_id: userId, session_cookie: li_at, user_agent: ua || navigator.userAgent })
+      body   : JSON.stringify({ 
+        user_id: userId, 
+        session_cookie: response.fullCookie,  // Now full cookie string
+        user_agent: navigator.userAgent 
+      })
     });
+    
     if (!res.ok) {
-      const msg = await res.text();
-      throw new Error(`${res.status}: ${msg}`);
+      const errorText = await res.text();
+      throw new Error(`${res.status}: ${errorText}`);
     }
-    showStatus('✅ Cookie saved!', false);
+    
+    showStatus('✅ Full cookie saved!', false);
   } catch (e) {
-    showStatus('❌ Upload failed – ' + e.message, true);
+    console.error('Upload error:', e);
+    showStatus('❌ Upload failed - ' + e.message, true);
   } finally {
-    btnState('uploadBtn', 'Copy & Upload LinkedIn Cookie', false, false);
+    btnState('uploadBtn', 'Upload Full LinkedIn Cookie', false, false);
   }
 };
 
-function flipToMain(email) {
-  helloEl.textContent = `Logged in as ${email}`;
-  loginSection.hidden = true;
-  mainSection.hidden  = false;
-  btnState('loginBtn', 'Log In', false);
-}
+// Sales Navigator scraping functionality
+if (scrapeBtn) scrapeBtn.onclick = async () => {
+  btnState('scrapeBtn', 'Scraping...', true);
+  showStatus('⌛ Scraping leads...', false);  // Main section status
 
-function flipToLogin() {
-  mainSection.hidden  = true;
-  loginSection.hidden = false;
-  showStatus('');
-}
+  try {
+    const response = await new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage({ action: 'scrapeSalesNav' }, (response) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error('Please open a Sales Navigator search page first'));
+        } else {
+          resolve(response);
+        }
+      });
+    });
+    console.log('Scrape response:', response);
+    
+    // Handle case where content script isn't available
+    if (!response) {
+      showStatus('❌ Please open a Sales Navigator search page first', true);
+    } else if (response.error) {
+      showStatus(`❌ ${response.error}`, true);
+    } else if (response.leads) {
+      const result = response.result || {};
+      const creditsCharged = result.creditsCharged || response.leads.length;
+      showStatus(`✅ Added ${response.leads.length} leads to HirePilot! (${creditsCharged} credits charged)`, false);
+    } else {
+      showStatus('❌ No response from content script', true);
+    }
+  } catch (e) {
+    console.error('Scrape error:', e);
+    showStatus('❌ Scraping failed - ' + e.message, true);
+  } finally {
+    btnState('scrapeBtn', 'Scrape Sales Nav Leads', false);
+  }
+};
 
-function showStatus(msg = '', isErr = false) {
-  const el = statusEl;
+
+
+function showStatus(msg = '', isErr = false, isLogin = false) {
+  const el = isLogin ? loginStatusEl : mainStatusEl;
   if (!el) {
-    console.warn('#status element missing');
+    console.warn(`#${isLogin ? 'loginStatus' : 'mainStatus'} element missing`);
     return;
   }
-  el.textContent = msg;
-  el.className = msg ? (isErr ? 'err' : 'ok') : '';
+  
+  if (isLogin) {
+    // Login status (simple styling)
+    el.textContent = msg;
+    el.className = msg ? (isErr ? 'status-message err' : 'status-message ok') : 'status-message';
+  } else {
+    // Main status (with enhanced styling and status section parent)
+    el.textContent = msg;
+    const statusSection = el.closest('.status-section');
+    
+    if (statusSection) {
+      statusSection.className = 'status-section';
+      
+      if (msg) {
+        if (isErr) {
+          statusSection.classList.add('error');
+        } else if (msg.includes('⌛') || msg.includes('Scraping') || msg.includes('Grabbing')) {
+          statusSection.classList.add('loading');
+        } else if (msg.includes('✅') || msg.includes('Added') || msg.includes('saved')) {
+          statusSection.classList.add('success');
+        }
+      }
+    }
+    
+    // Update default message when cleared
+    if (!msg) {
+      el.textContent = 'Ready to extract leads';
+    }
+  }
 }
 
-// On load, show correct section
-if (localStorage.getItem('hp_user_id')) {
-  flipToMain(localStorage.getItem('hp_user_email'));
-} else {
-  flipToLogin();
-}
+// On load, show correct section (handled by initializeUI above)

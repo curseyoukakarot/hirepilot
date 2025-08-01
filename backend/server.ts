@@ -95,10 +95,20 @@ app.get('/health', (_, res) => res.json({ ok: true }));
 const allowed = [
   'https://thehirepilot.com',
   'https://www.thehirepilot.com',
-  'https://hirepilot.vercel.app'
+  'https://hirepilot.vercel.app',
+  'chrome-extension://hocopaaojddfommlkiegnflimmmppbnk',  // HirePilot Chrome Extension
+  /^chrome-extension:\/\/.*$/  // Allow any Chrome extension for development
 ];
 app.use(cors({
-  origin: (origin, cb) => cb(null, !origin || allowed.includes(origin)),
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true);
+    const isAllowed = allowed.some(allowedOrigin => 
+      typeof allowedOrigin === 'string' 
+        ? allowedOrigin === origin 
+        : allowedOrigin.test(origin)
+    );
+    cb(null, isAllowed);
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
