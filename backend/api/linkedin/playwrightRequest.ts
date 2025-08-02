@@ -121,12 +121,15 @@ export default async function playwrightLinkedInRequestHandler(req: Request, res
         priority: priority || 5,
         scheduled_at: new Date().toISOString(),
         status: 'processing',
-        job_type: 'playwright_connection',
-        metadata: {
+        // job_type: 'playwright_connection', // Column doesn't exist in production yet
+        result_data: {
+          job_type: 'playwright_connection', // Store in metadata instead
           rex_mode,
           lead_id,
           initiated_via: 'playwright_api'
-        }
+        },
+        retry_count: 0,
+        max_retries: 3
       })
       .select()
       .single();
