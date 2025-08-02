@@ -129,15 +129,23 @@ export class PlaywrightConnectionService {
       // Launch browser with maximum stealth + proxy for 2025 LinkedIn anti-bot detection
       console.log('[PlaywrightConnection] Launching Chromium with enhanced stealth configuration...');
       
-      // Auto-detect environment for headless mode
+      // Enhanced anti-detection: Force headless: false for debugging redirect loops
       const isProduction = process.env.NODE_ENV === 'production' || process.env.RAILWAY_ENVIRONMENT_NAME || !process.env.DISPLAY;
-      const headlessMode = isProduction;
+      const headlessMode = false; // Always visible for debugging LinkedIn detection
       
-      console.log(`[PlaywrightConnection] Environment: ${isProduction ? 'Production/Server' : 'Development'}, Headless: ${headlessMode}`);
+      console.log(`[PlaywrightConnection] Environment: ${isProduction ? 'Production/Server' : 'Development'}, Headless: ${headlessMode} (forced for debugging)`);
+      
+      // Enhanced user agents rotation (2025 realistic)
+      const userAgents = [
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+      ];
+      const randomUA = userAgents[Math.floor(Math.random() * userAgents.length)];
       
       const launchOptions: any = {
-        headless: headlessMode,  // Auto-detect: true for production/Railway, false for local dev
-        slowMo: headlessMode ? 50 : 100,     // Faster in headless mode
+        headless: headlessMode,
+        slowMo: 200, // Slower for more human-like behavior
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
@@ -154,7 +162,10 @@ export class PlaywrightConnectionService {
           '--disable-renderer-backgrounding',
           '--disable-features=TranslateUI',
           '--disable-ipc-flooding-protection',
-          '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+          '--disable-web-security', // Bypass CSP for anti-detection
+          '--disable-plugins',
+          '--disable-plugins-discovery',
+          `--user-agent=${randomUA}`,
           '--window-size=1920,1080',
           '--start-maximized',
           // Add proxy if available
@@ -239,12 +250,29 @@ export class PlaywrightConnectionService {
       // Create page with stealth scripts
       page = await context.newPage();
       
-      // Add redirect listener for debugging LinkedIn's bot detection
+      // Enhanced redirect loop detection and anti-bot monitoring
+      let redirectCount = 0;
+      const redirectLoop = new Set<string>();
       page.on('response', response => {
         if (response.status() >= 300 && response.status() < 400) {
+          redirectCount++;
           const location = response.headers()['location'] || 'unknown';
-          console.log(`[PlaywrightConnection] Redirect detected: ${response.status()} from ${response.url()} to ${location}`);
+          
+          console.log(`[PlaywrightConnection] Redirect ${redirectCount}: ${response.status()} from ${response.url()} to ${location}`);
           logs.push(`Redirect: ${response.status()} → ${location}`);
+          
+          // Detect redirect loops (same URL redirecting multiple times)
+          if (redirectLoop.has(location)) {
+            console.warn(`[PlaywrightConnection] ⚠️ Redirect loop detected to: ${location}`);
+            logs.push(`⚠️ Redirect loop detected to: ${location}`);
+          }
+          redirectLoop.add(location);
+          
+          // Break infinite redirect loops (LinkedIn anti-bot behavior)
+          if (redirectCount > 15) {
+            console.error(`[PlaywrightConnection] ❌ Breaking redirect loop after ${redirectCount} redirects - LinkedIn bot detection active`);
+            logs.push(`❌ Breaking redirect loop after ${redirectCount} redirects - LinkedIn bot detection active`);
+          }
         }
         if (response.url().includes('challenge') || response.url().includes('checkpoint')) {
           console.warn(`[PlaywrightConnection] Challenge/Checkpoint detected: ${response.url()}`);
@@ -282,18 +310,41 @@ export class PlaywrightConnectionService {
         );
       });
       
-      // Step 1: Warm up session (mimics real user behavior)
-      console.log('[PlaywrightConnection] Warming up LinkedIn session...');
+      // Step 1: Enhanced session warmup with longer timeouts for LinkedIn 2025 anti-bot
+      console.log('[PlaywrightConnection] Warming up LinkedIn session with enhanced timeouts...');
       logs.push('Warming up session via LinkedIn feed');
       
-      await page.goto('https://www.linkedin.com/feed/', { 
-        waitUntil: 'domcontentloaded',
-        timeout: 25000 // Increased timeout for anti-bot delays
+      try {
+        await page.goto('https://www.linkedin.com/feed/', { 
+          waitUntil: 'domcontentloaded',
+          timeout: 90000 // Massively increased timeout for LinkedIn's 2025 detection delays
+        });
+        logs.push('Feed navigation successful');
+      } catch (feedError: any) {
+        if (feedError.message.includes('ERR_TOO_MANY_REDIRECTS')) {
+          console.warn('[PlaywrightConnection] Feed redirect storm detected, attempting recovery...');
+          logs.push('⚠️ Feed redirect storm detected - attempting direct navigation');
+          // Try direct navigation without waiting for full load
+          await page.goto('https://www.linkedin.com/feed/', { 
+            waitUntil: 'commit',
+            timeout: 60000 
+          });
+        } else {
+          throw feedError;
+        }
+      }
+      
+      // Enhanced human-like behavior on feed
+      await page.waitForTimeout(3000 + Math.random() * 2000); // Extended delay 3-5s
+      
+      // Multiple human-like interactions
+      await page.evaluate(() => {
+        // Random scroll pattern
+        window.scrollTo(0, 150 + Math.random() * 300);
+        setTimeout(() => window.scrollTo(0, 50 + Math.random() * 100), 500);
       });
       
-      // Human-like behavior on feed
-      await page.waitForTimeout(2000 + Math.random() * 1000); // Random delay 2-3s
-      await page.evaluate(() => window.scrollTo(0, 200 + Math.random() * 300)); // Random scroll
+      await page.waitForTimeout(1000 + Math.random() * 1000); // Additional delay
       
       const feedUrl = page.url();
       if (feedUrl.includes('/login') || feedUrl.includes('/challenge')) {
@@ -308,22 +359,25 @@ export class PlaywrightConnectionService {
       await page.setExtraHTTPHeaders({ 'Referer': 'https://www.linkedin.com/feed/' });
       
       try {
-        // Primary attempt: Full network idle wait
+        // Primary attempt: Enhanced network idle wait with massive timeout
         await page.goto(profileUrl, { 
           waitUntil: 'networkidle',
-          timeout: 60000 // Extended timeout for anti-bot delays
+          timeout: 120000 // Massive timeout for LinkedIn's 2025 anti-bot delays
         });
         logs.push('Profile navigation successful with networkidle');
       } catch (err: any) {
         if (err.message.includes('net::ERR_TOO_MANY_REDIRECTS')) {
-          console.warn('[PlaywrightConnection] Redirect storm detected, trying fallback navigation...');
-          logs.push('⚠️ Redirect storm detected, attempting fallback');
+          console.warn('[PlaywrightConnection] Redirect storm detected on profile, trying multiple fallback strategies...');
+          logs.push('⚠️ Profile redirect storm detected, attempting enhanced fallback');
           
-          // Fallback strategy: Use domcontentloaded instead
+          // Wait for redirect storm to settle
+          await page.waitForTimeout(5000);
+          
+          // Fallback strategy 1: Use commit instead of networkidle
           try {
             await page.goto(profileUrl, { 
               waitUntil: 'domcontentloaded',
-              timeout: 30000 
+              timeout: 90000 // Increased fallback timeout
             });
             logs.push('Fallback navigation successful with domcontentloaded');
           } catch (fallbackErr: any) {
