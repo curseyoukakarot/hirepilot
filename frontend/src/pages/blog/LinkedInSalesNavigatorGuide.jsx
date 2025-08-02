@@ -46,7 +46,7 @@ export default function LinkedInSalesNavigatorGuide() {
               <img src="/blog-icon.png" alt="Author" className="w-12 h-12 rounded-full" />
               <div>
                 <p className="font-semibold text-white">HirePilot Team</p>
-                <p className="text-gray-300 text-sm">Published on July 4, 2025</p>
+                <p className="text-gray-300 text-sm">Published on August 2, 2025</p>
               </div>
             </div>
           </div>
@@ -71,50 +71,46 @@ export default function LinkedInSalesNavigatorGuide() {
 
         {/* Article */}
         <article id="article-body" className="flex-1 max-w-3xl prose prose-lg">
-          {/* Intro provided in hero */}
-
-          {/* Option 1 */}
           <div id="option1">
             <h2>🔌 Option 1: Use the Chrome Extension (Recommended)</h2>
-            <p>HirePilot has a lightweight Chrome extension that lets you:</p>
+            <p>The HirePilot Chrome Extension v2.0 is the easiest way to source and engage LinkedIn leads, giving you full control without needing manual cookie setups.</p>
             <ul>
-              <li>Pull leads directly from Sales Navigator search results</li>
-              <li>Select specific profiles to add to a campaign</li>
-              <li>Sync data (name, title, company, profile link) with one click</li>
+              <li>Capture Sales Navigator search results (bulk select profiles)</li>
+              <li>Pull leads into HirePilot campaigns instantly</li>
+              <li>Automatically sync Name, Title, Company, LinkedIn URL</li>
+              <li>Capture your LinkedIn session cookie securely (enables connection requests via HirePilot)</li>
+              <li>Navigate and scrape Sales Navigator pages directly from HirePilot</li>
             </ul>
             <p><strong>👉 To get started:</strong></p>
             <ol>
-              <li>Install the <strong><a href="/chromeextension" className="text-blue-400 hover:text-blue-300 underline">HirePilot Chrome Extension</a></strong><br />(You'll find the link inside the app under <em>Integrations → LinkedIn</em>)</li>
-              <li>Open LinkedIn Sales Navigator</li>
-              <li>Perform your search (e.g., "VP of Marketing, SaaS, Austin")</li>
-              <li>Click the HirePilot extension</li>
-              <li>Select leads → Add to campaign</li>
+              <li>Install the <strong><a href="/chromeextension" className="text-blue-400 hover:text-blue-300 underline">HirePilot Chrome Extension</a></strong> (found under Integrations → LinkedIn inside the app)</li>
+              <li>Go to LinkedIn Sales Navigator</li>
+              <li>Perform a targeted search (e.g., "VP of Revenue SaaS San Francisco")</li>
+              <li>Open the HirePilot Extension (click the icon in your toolbar)</li>
+              <li>Select the leads you want → Add to Campaign</li>
             </ol>
-            <blockquote>⚡ <strong>Fastest</strong> way to add leads from LinkedIn in real-time</blockquote>
+            <blockquote>⚡ Fastest and safest way to source + engage LinkedIn leads in real-time</blockquote>
           </div>
 
-          {/* Option 2 */}
           <div id="option2">
-            <h2>🧪 Option 2: Manually Add Your Session Cookie</h2>
-            <p>If you prefer not to use the Chrome extension (or are using a different browser or OS), you can still connect LinkedIn manually.</p>
-            <p>Here's how:</p>
+            <h2>🧪 Option 2: Manually Add Your LinkedIn Cookie</h2>
+            <p>If you prefer a manual setup (or are using a non-Chrome browser), you can still connect LinkedIn via session cookie.</p>
             <ol>
               <li>Open LinkedIn in Chrome</li>
-              <li>Right-click the page → <em>Inspect</em> → open the <strong>Console</strong></li>
-              <li>Paste this snippet and hit Enter:</li>
+              <li>Right-click anywhere → Inspect → Console tab</li>
+              <li>Paste this snippet:</li>
             </ol>
             <pre><code>{`document.cookie
   .split('; ')
   .find(row => row.startsWith('li_at='))
   .split('=')[1]`}</code></pre>
             <ol start={4}>
-              <li>Copy the string that appears — this is your session cookie</li>
-              <li>Paste it inside HirePilot:<br /> <em>Settings → Integrations → LinkedIn Sales Navigator</em></li>
+              <li>Copy the string that appears (this is your session cookie)</li>
+              <li>Paste it inside HirePilot: Settings → Integrations → LinkedIn Sales Navigator</li>
             </ol>
-            <p>🧠 This lets HirePilot make requests on your behalf and pull profile data</p>
+            <p>This allows HirePilot to act on your behalf (securely), pulling public profile data and enabling automation features like connection requests and scraping.</p>
           </div>
 
-          {/* Comparison */}
           <div id="comparison">
             <h2>🤔 When to Use Which Method?</h2>
             <div className="overflow-x-auto rounded-lg shadow border border-gray-700 my-6">
@@ -130,39 +126,38 @@ export default function LinkedInSalesNavigatorGuide() {
                 <tbody>
                   <tr className="bg-gray-900">
                     <td className="px-4 py-3">Chrome Extension</td>
-                    <td className="px-4 py-3">Daily use, speed</td>
-                    <td className="px-4 py-3">Easy UI, real-time selection</td>
+                    <td className="px-4 py-3">Daily sourcing, speed, automation</td>
+                    <td className="px-4 py-3">Easy UI, real-time lead selection, captures cookie automatically</td>
                     <td className="px-4 py-3">Chrome only</td>
                   </tr>
                   <tr className="bg-gray-800">
                     <td className="px-4 py-3">Manual Cookie</td>
-                    <td className="px-4 py-3">Advanced users, API tools</td>
-                    <td className="px-4 py-3">Works across platforms</td>
-                    <td className="px-4 py-3">Must refresh every few weeks</td>
+                    <td className="px-4 py-3">Advanced users, API workflows</td>
+                    <td className="px-4 py-3">Cross-browser support, no extension needed</td>
+                    <td className="px-4 py-3">Manual process, expires every few weeks</td>
                   </tr>
                 </tbody>
               </table>
             </div>
           </div>
 
-          {/* Privacy */}
           <div id="privacy">
-            <h2>🔐 Privacy &amp; Security</h2>
-            <p>Your cookie is stored securely and encrypted in our backend. HirePilot never uses it outside your account and cannot access your messages or private data — only public profile info needed for sourcing.</p>
-            <p>🔁 If LinkedIn logs you out or your cookie expires, you'll need to re-add it.</p>
+            <h2>🔐 Privacy & Security</h2>
+            <p>Your LinkedIn cookie is encrypted and stored securely in our backend. HirePilot uses it only for your account and only for sourcing tasks you initiate (like pulling profiles or sending invites).</p>
+            <p>We never access messages, inbox, or private data — only public profile information needed for recruiting workflows.</p>
+            <p>🔁 If LinkedIn logs you out or your session expires, you'll need to reconnect by re-adding the cookie (manually or via the extension).</p>
           </div>
 
-          {/* Ask REX */}
           <div id="rex">
             <h2>💬 Ask REX for Help</h2>
             <ul>
-              <li>"REX, how do I find my LinkedIn cookie?"</li>
-              <li>"REX, show me the best leads from my LinkedIn campaign."</li>
-              <li>"REX, which method is better for fast sourcing?"</li>
+              <li>"REX, show me how to pull leads from LinkedIn with the Chrome extension."</li>
+              <li>"REX, how do I capture my LinkedIn cookie for connection requests?"</li>
+              <li>"REX, give me a Boolean search string for finding SaaS sales leaders in New York."</li>
             </ul>
           </div>
         </article>
       </div>
     </>
   );
-} 
+}
