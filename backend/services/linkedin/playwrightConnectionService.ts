@@ -88,8 +88,23 @@ export class PlaywrightConnectionService {
         // Fallback: try using the cookie as-is (might be already decrypted)
         if (fullCookie.length > 50) { // Reasonable cookie length
           console.log('[PlaywrightConnection] Using fallback: treating encrypted cookie as plain text');
-          decryptedCookie = fullCookie;
-          logs.push('⚠️ Cookie decryption failed, using as plain text (fallback)');
+          
+          // Check if this looks like an encrypted string vs actual cookies
+          if (fullCookie.includes('li_at=') || fullCookie.includes('JSESSIONID=') || fullCookie.includes(';')) {
+            // Looks like actual cookies
+            decryptedCookie = fullCookie;
+            logs.push('⚠️ Cookie decryption failed, using as plain text (fallback)');
+          } else {
+            // Looks like encrypted data, not actual cookies
+            console.error('[PlaywrightConnection] Fallback failed: cookie string looks encrypted, not like cookies');
+            logs.push('❌ Cookie decryption failed and fallback failed - cookie appears encrypted');
+            return {
+              success: false,
+              message: 'Failed to decrypt LinkedIn cookie and fallback failed',
+              error: `Cookie appears to be encrypted data, not plain text cookies. Length: ${fullCookie.length}. Sample: ${fullCookie.substring(0, 100)}`,
+              logs
+            };
+          }
         } else {
           logs.push(`❌ Cookie decryption failed: ${decryptError.message}`);
           return {
@@ -182,9 +197,22 @@ export class PlaywrightConnectionService {
       });
       
       // Enhanced cookie injection with proper parsing (using decrypted cookie)
+      console.log('[PlaywrightConnection] About to parse cookies...');
+      console.log('- Decrypted cookie length:', decryptedCookie.length);
+      console.log('- First 200 chars of decrypted cookie:', decryptedCookie.substring(0, 200));
+      console.log('- Cookie contains semicolons:', decryptedCookie.includes(';'));
+      console.log('- Cookie contains equals:', decryptedCookie.includes('='));
+      
       const cookies = this.parseCookiesForPlaywright(decryptedCookie);
-      console.log('[PlaywrightConnection] Adding cookies:', cookies.length);
+      console.log('[PlaywrightConnection] Parsed cookies:', cookies.length);
+      console.log('[PlaywrightConnection] Cookie names:', cookies.map(c => c.name).join(', '));
       logs.push(`Injecting ${cookies.length} cookies for authentication`);
+      
+      if (cookies.length === 0) {
+        console.error('[PlaywrightConnection] ❌ CRITICAL: No cookies parsed!');
+        console.error('[PlaywrightConnection] Raw cookie string (full):', decryptedCookie);
+        logs.push('❌ CRITICAL: Cookie parsing failed - no cookies extracted from string');
+      }
       
       await context.addCookies(cookies);
       
