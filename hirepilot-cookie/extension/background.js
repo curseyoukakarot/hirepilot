@@ -1,8 +1,27 @@
 const API_BASE = 'http://localhost:8080/api';
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg.action === 'getFullCookie' || msg.action === 'scrapeSalesNav') {
-    // Forward to content script on active LinkedIn tab
+  if (msg.action === 'getFullCookie') {
+    // Use chrome.cookies API to get ALL cookies including HttpOnly ones
+    chrome.cookies.getAll({ domain: '.linkedin.com' }, (cookies) => {
+      console.log('[HirePilot Background] Found', cookies.length, 'LinkedIn cookies');
+      
+      // Convert cookies to document.cookie format
+      const cookieString = cookies
+        .map(cookie => `${cookie.name}=${cookie.value}`)
+        .join('; ');
+      
+      console.log('[HirePilot Background] Generated cookie string length:', cookieString.length);
+      console.log('[HirePilot Background] Has li_at:', cookieString.includes('li_at='));
+      console.log('[HirePilot Background] Has JSESSIONID:', cookieString.includes('JSESSIONID='));
+      
+      sendResponse({ fullCookie: cookieString });
+    });
+    return true;  // Keep channel open
+  }
+  
+  if (msg.action === 'scrapeSalesNav') {
+    // Forward scraping to content script (this stays the same)
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs[0]?.url?.includes('linkedin.com')) {
         chrome.tabs.sendMessage(tabs[0].id, msg, (response) => {

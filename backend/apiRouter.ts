@@ -42,6 +42,7 @@ import backfillCampaignAttribution from './api/backfillCampaignAttribution';
 import linkedinSend from './api/linkedinSend';
 import linkedinDailyCount from './api/linkedinDailyCount';
 import puppetLinkedInRequest from './api/linkedin/puppetRequest';
+import playwrightLinkedInRequest from './api/linkedin/playwrightRequest';
 import getUserCredits from './api/getUserCredits';
 import healthCheck from './api/health';
 // Import Decodo LinkedIn trigger
@@ -114,6 +115,7 @@ router.post('/scheduleMassMessage', scheduleMassMessage);
 // LinkedIn outreach endpoints
 router.post('/linkedin/send', requireAuth, linkedinSend);
 router.post('/linkedin/puppet-request', requireAuth, puppetLinkedInRequest);
+router.post('/linkedin/playwright-request', requireAuth, playwrightLinkedInRequest);
 router.get('/linkedin/daily-count', requireAuth, linkedinDailyCount);
 
 // Proxy assignment endpoints

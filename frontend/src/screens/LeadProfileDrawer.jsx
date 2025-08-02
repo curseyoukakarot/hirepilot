@@ -836,8 +836,8 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      // Use new Puppet endpoint (Prompt 8 enhancement)
-      const response = await fetch(`${API_BASE_URL}/linkedin/puppet-request`, {
+      // Use new Playwright endpoint for enhanced reliability
+      const response = await fetch(`${API_BASE_URL}/linkedin/playwright-request`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -880,23 +880,24 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
 
       const responseData = await response.json();
       const successMessage = rexMode === 'auto' 
-        ? `LinkedIn request queued automatically! Job ID: ${responseData.job?.id?.substring(0, 8)}...`
-        : `LinkedIn request queued for review! Job ID: ${responseData.job?.id?.substring(0, 8)}...`;
+        ? `✅ LinkedIn request sent successfully! Job ID: ${responseData.job_id?.substring(0, 8)}...`
+        : `✅ LinkedIn request queued for review! Job ID: ${responseData.job_id?.substring(0, 8)}...`;
       
-      showToast(`${successMessage} ${responseData.credits?.remaining || 0} credits remaining`);
+      showToast(`${successMessage} ${responseData.daily_remaining || 0} requests remaining today`);
       
       setShowLinkedInModal(false);
       setShowCreditConfirm(false);
       setLinkedInMessage('');
       setConsentAccepted(false); // Reset for next time
       
-      // Update daily count and credits
-      if (responseData.daily_stats?.connections_today !== undefined) {
-        setDailyLinkedInCount(responseData.daily_stats.connections_today);
+      // Update daily count based on remaining count
+      if (responseData.daily_remaining !== undefined) {
+        // If we know remaining, calculate current count (assuming 20 daily limit)
+        setDailyLinkedInCount(20 - responseData.daily_remaining);
       }
-      if (responseData.credits?.remaining !== undefined) {
-        setUserCredits(responseData.credits.remaining);
-      }
+      
+      // Refresh user credits
+      fetchUserCredits();
     } catch (error) {
       showToast(`Failed to queue LinkedIn request: ${error.message}`, 'error');
     } finally {
