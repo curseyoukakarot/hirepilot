@@ -112,9 +112,16 @@ export class PlaywrightConnectionService {
     try {
       // Launch browser with maximum stealth + proxy for 2025 LinkedIn anti-bot detection
       console.log('[PlaywrightConnection] Launching Chromium with enhanced stealth configuration...');
+      
+      // Auto-detect environment for headless mode
+      const isProduction = process.env.NODE_ENV === 'production' || process.env.RAILWAY_ENVIRONMENT_NAME || !process.env.DISPLAY;
+      const headlessMode = isProduction;
+      
+      console.log(`[PlaywrightConnection] Environment: ${isProduction ? 'Production/Server' : 'Development'}, Headless: ${headlessMode}`);
+      
       const launchOptions: any = {
-        headless: false,  // Visible for testing; set to true in production
-        slowMo: 100,     // Slow down for more human-like behavior
+        headless: headlessMode,  // Auto-detect: true for production/Railway, false for local dev
+        slowMo: headlessMode ? 50 : 100,     // Faster in headless mode
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
