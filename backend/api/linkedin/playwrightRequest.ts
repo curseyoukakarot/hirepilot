@@ -117,19 +117,10 @@ export default async function playwrightLinkedInRequestHandler(req: Request, res
         user_id: userId,
         campaign_id,
         linkedin_profile_url: linkedin_url,
-        message,
+        message: message || null,
         priority: priority || 5,
         scheduled_at: new Date().toISOString(),
-        status: 'processing',
-        // job_type: 'playwright_connection', // Column doesn't exist in production yet
-        result_data: {
-          job_type: 'playwright_connection', // Store in metadata instead
-          rex_mode,
-          lead_id,
-          initiated_via: 'playwright_api'
-        },
-        retry_count: 0,
-        max_retries: 3
+        status: 'pending'
       })
       .select()
       .single();
@@ -150,17 +141,10 @@ export default async function playwrightLinkedInRequestHandler(req: Request, res
       jobId: job.id
     });
 
-    // Update job with result
+    // Update job with result (using only confirmed columns)
     const jobUpdate = {
       status: connectionResult.success ? 'completed' : 'failed',
-      completed_at: new Date().toISOString(),
-      result: connectionResult,
-      error_message: connectionResult.error || null,
-      metadata: {
-        ...job.metadata,
-        logs: connectionResult.logs,
-        screenshots_count: connectionResult.screenshots?.length || 0
-      }
+      error_message: connectionResult.error || null
     };
 
     await supabase
