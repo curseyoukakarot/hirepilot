@@ -597,15 +597,32 @@ export class PlaywrightConnectionService {
           };
         }
         
-        // Log page content for debugging
+        // Log page content for debugging (with context destruction handling)
         try {
           const pageContent = await page.content();
           logs.push(`Page HTML length: ${pageContent.length} chars`);
-          logs.push('Available buttons: ' + await page.$$eval('button', buttons => 
-            buttons.slice(0, 10).map(b => b.textContent?.trim() || b.getAttribute('aria-label') || 'unnamed').join(', ')
-          ));
-        } catch (e) {
-          logs.push('Could not analyze page content');
+          
+          // Handle potential context destruction during button analysis
+          try {
+            const buttonInfo = await page.$$eval('button', buttons => 
+              buttons.slice(0, 10).map(b => b.textContent?.trim() || b.getAttribute('aria-label') || 'unnamed').join(', ')
+            );
+            logs.push('Available buttons: ' + buttonInfo);
+          } catch (evalError: any) {
+            if (evalError.message.includes('context') || evalError.message.includes('destroyed')) {
+              logs.push('⚠️ Page context destroyed during button analysis - LinkedIn SPA navigation detected');
+              // Attempt to wait and retry
+              await page.waitForTimeout(2000);
+              const retryButtonInfo = await page.$$eval('button', buttons => 
+                buttons.slice(0, 5).map(b => b.textContent?.trim() || 'unnamed').join(', ')
+              ).catch(() => 'Unable to analyze buttons due to context issues');
+              logs.push('Available buttons (retry): ' + retryButtonInfo);
+            } else {
+              logs.push('Could not analyze buttons: ' + evalError.message);
+            }
+          }
+        } catch (e: any) {
+          logs.push('Could not analyze page content: ' + e.message);
         }
         
         return {
@@ -615,18 +632,42 @@ export class PlaywrightConnectionService {
         };
       }
       
-      // Enhanced human-like connect button interaction
+      // Enhanced human-like connect button interaction with context destruction handling
       logs.push(`Preparing to click Connect button (${usedSelector})...`);
       
-      // Hover before clicking (human-like)
-      await page.hover(connectButton.selector!);
-      await page.waitForTimeout(400 + Math.random() * 300); // Random hover delay
-      logs.push('Hovering over Connect button...');
-      
-      // Click with human-like delay
-      logs.push('Clicking Connect button...');
-      await page.waitForTimeout(500 + Math.random() * 500); // Random delay before click
-      await connectButton.click();
+      try {
+        // Hover before clicking (human-like)
+        await page.hover(connectButton.selector!);
+        await page.waitForTimeout(400 + Math.random() * 300); // Random hover delay
+        logs.push('Hovering over Connect button...');
+        
+        // Click with human-like delay
+        logs.push('Clicking Connect button...');
+        await page.waitForTimeout(500 + Math.random() * 500); // Random delay before click
+        await connectButton.click();
+        
+      } catch (interactionError: any) {
+        if (interactionError.message.includes('context') || interactionError.message.includes('destroyed')) {
+          logs.push('⚠️ Context destroyed during button interaction - attempting recovery...');
+          // Wait for page to stabilize
+          await page.waitForTimeout(3000);
+          
+          // Try to find and click connect button again
+          try {
+            const newConnectButton = await page.waitForSelector('button[aria-label*="Connect"], button:has-text("Connect")', { timeout: 5000 });
+            if (newConnectButton) {
+              await newConnectButton.click();
+              logs.push('✅ Successfully clicked Connect button after context recovery');
+            } else {
+              throw new Error('Connect button not found after context recovery');
+            }
+          } catch (recoveryError) {
+            throw new Error(`Context destruction recovery failed: ${recoveryError.message}`);
+          }
+        } else {
+          throw interactionError;
+        }
+      }
       
       // Wait for modal or direct send
       await page.waitForTimeout(2000);
@@ -699,7 +740,7 @@ export class PlaywrightConnectionService {
       // Wait for success/error indicators
       await page.waitForTimeout(3000);
       
-      // Check for success indicators
+      // Check for success indicators (with context destruction handling)
       const successSelectors = [
         '.artdeco-toast-message:has-text("Invitation sent")',
         '.artdeco-toast:has-text("sent")',
@@ -711,12 +752,22 @@ export class PlaywrightConnectionService {
         try {
           const successElement = await page.waitForSelector(selector, { timeout: 2000 });
           if (successElement) {
-            const text = await successElement.textContent();
-            if (text && (text.includes('sent') || text.includes('Invitation'))) {
-              return {
-                success: true,
-                message: message ? 'Connection request sent with personal message' : 'Connection request sent'
-              };
+            try {
+              const text = await successElement.textContent();
+              if (text && (text.includes('sent') || text.includes('Invitation'))) {
+                return {
+                  success: true,
+                  message: message ? 'Connection request sent with personal message' : 'Connection request sent'
+                };
+              }
+            } catch (textError: any) {
+              if (textError.message.includes('context') || textError.message.includes('destroyed')) {
+                logs.push('⚠️ Context destroyed while reading success message - assuming success');
+                return {
+                  success: true,
+                  message: 'Connection request likely sent (context destroyed during verification)'
+                };
+              }
             }
           }
         } catch (e) {
