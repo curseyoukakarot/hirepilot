@@ -57,6 +57,14 @@ export class PlaywrightConnectionService {
     // Handle both encrypted and plain text cookies
     let decryptedCookie: string;
     
+    // Enhanced cookie handling with debugging
+    console.log('[PlaywrightConnection] Cookie analysis:');
+    console.log('- Cookie length:', fullCookie.length);
+    console.log('- Contains li_at=:', fullCookie.includes('li_at='));
+    console.log('- Contains semicolons:', fullCookie.includes(';'));
+    console.log('- First 100 chars:', fullCookie.substring(0, 100));
+    console.log('- Encryption key configured:', !!process.env.COOKIE_ENCRYPTION_KEY);
+    
     // Check if cookie looks like it's already decrypted (contains recognizable cookie names)
     if (fullCookie.includes('li_at=') || fullCookie.includes('JSESSIONID=') || fullCookie.includes(';')) {
       // Cookie is already in plain text format
@@ -66,18 +74,31 @@ export class PlaywrightConnectionService {
     } else {
       // Cookie needs decryption (from database)
       try {
+        console.log('[PlaywrightConnection] Attempting cookie decryption...');
         decryptedCookie = decrypt(fullCookie);
         console.log('[PlaywrightConnection] Cookie decrypted successfully');
+        console.log('- Decrypted length:', decryptedCookie.length);
+        console.log('- Decrypted contains li_at:', decryptedCookie.includes('li_at='));
         logs.push('LinkedIn cookie decrypted successfully');
       } catch (decryptError: any) {
-        console.error('[PlaywrightConnection] Failed to decrypt cookie:', decryptError.message);
-        logs.push(`❌ Cookie decryption failed: ${decryptError.message}`);
-        return {
-          success: false,
-          message: 'Failed to decrypt LinkedIn cookie',
-          error: decryptError.message,
-          logs
-        };
+        console.error('[PlaywrightConnection] Cookie decryption failed:', decryptError.message);
+        console.error('[PlaywrightConnection] Full error:', decryptError);
+        console.error('[PlaywrightConnection] Trying fallback: treating as plain text');
+        
+        // Fallback: try using the cookie as-is (might be already decrypted)
+        if (fullCookie.length > 50) { // Reasonable cookie length
+          console.log('[PlaywrightConnection] Using fallback: treating encrypted cookie as plain text');
+          decryptedCookie = fullCookie;
+          logs.push('⚠️ Cookie decryption failed, using as plain text (fallback)');
+        } else {
+          logs.push(`❌ Cookie decryption failed: ${decryptError.message}`);
+          return {
+            success: false,
+            message: 'Failed to decrypt LinkedIn cookie',
+            error: `Decryption failed: ${decryptError.message}. Cookie length: ${fullCookie.length}. Encryption key available: ${!!process.env.COOKIE_ENCRYPTION_KEY}`,
+            logs
+          };
+        }
       }
     }
     
