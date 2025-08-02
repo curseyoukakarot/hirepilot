@@ -96,12 +96,13 @@ export class PlaywrightConnectionService {
             logs.push('⚠️ Cookie decryption failed, using as plain text (fallback)');
           } else {
             // Looks like encrypted data, not actual cookies
-            console.error('[PlaywrightConnection] Fallback failed: cookie string looks encrypted, not like cookies');
-            logs.push('❌ Cookie decryption failed and fallback failed - cookie appears encrypted');
+            console.error('[PlaywrightConnection] Cookie decryption failed - missing COOKIE_ENCRYPTION_KEY on Railway');
+            console.error('[PlaywrightConnection] Encryption key available:', !!process.env.COOKIE_ENCRYPTION_KEY);
+            logs.push('❌ Missing COOKIE_ENCRYPTION_KEY environment variable on Railway');
             return {
               success: false,
-              message: 'Failed to decrypt LinkedIn cookie and fallback failed',
-              error: `Cookie appears to be encrypted data, not plain text cookies. Length: ${fullCookie.length}. Sample: ${fullCookie.substring(0, 100)}`,
+              message: 'Missing encryption key on Railway - cannot decrypt LinkedIn cookies',
+              error: `Add COOKIE_ENCRYPTION_KEY environment variable to Railway. Cookie is encrypted (${fullCookie.length} chars). Encryption key available: ${!!process.env.COOKIE_ENCRYPTION_KEY}`,
               logs
             };
           }
