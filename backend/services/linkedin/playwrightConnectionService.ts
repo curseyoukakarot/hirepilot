@@ -139,7 +139,7 @@ export class PlaywrightConnectionService {
         baseUrl = baseUrl.replace('wss://', 'https://');
         console.log('[PlaywrightConnection] Converted WebSocket URL to HTTP for /unblock API');
       }
-      const unblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&captcha=true&timeout=300000&waitForTimeout=10000`; // Increased timeout to 5min, wait 10s after load
+      const unblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&captcha=true&timeout=300&waitForTimeout=10000`; // 300 seconds (5 min), wait 10s after load
       
       console.log(`[PlaywrightConnection] Unblock URL: ${baseUrl}`);
       logs.push(`Using unblock endpoint: ${baseUrl}`);
@@ -324,7 +324,7 @@ export class PlaywrightConnectionService {
       console.log(`[PlaywrightConnection] Unblocking target profile: ${profileUrl}`);
       logs.push(`Unblocking target profile via /unblock API`);
       
-      const profileUnblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&captcha=true&timeout=300000&waitForSelector=button%5Baria-label%3D%22More%20actions%22%5D&waitForTimeout=10000`; // Wait for More button
+      const profileUnblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&captcha=true&timeout=300&waitForSelector=button%5Baria-label%3D%22More%20actions%22%5D&waitForTimeout=10000`; // 300 seconds, wait for More button
       
       // Create AbortController for fetch timeout
       const controller = new AbortController();
