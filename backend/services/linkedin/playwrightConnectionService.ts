@@ -201,16 +201,23 @@ export class PlaywrightConnectionService {
       console.log('- Cookie contains semicolons:', decryptedCookie.includes(';'));
       console.log('- Cookie contains equals:', decryptedCookie.includes('='));
       
-      // Parse and inject LinkedIn cookies for Puppeteer
+      // Parse and inject LinkedIn cookies for Puppeteer with enhanced format
       const cookies = decryptedCookie.split('; ').map(c => {
         const [name, ...valueParts] = c.split('=');
+        const cookieName = name?.trim() || '';
+        const cookieValue = valueParts.join('=') || '';
+        
+        // Puppeteer requires specific cookie format
         return { 
-          name: name?.trim() || '', 
-          value: valueParts.join('=') || '', 
-          domain: '.linkedin.com', 
-          path: '/' 
+          name: cookieName, 
+          value: cookieValue, 
+          domain: '.linkedin.com',
+          path: '/',
+          httpOnly: false, // Most LinkedIn cookies are not httpOnly when set via JS
+          secure: true,    // LinkedIn uses HTTPS
+          sameSite: 'Lax'  // Appropriate for LinkedIn
         };
-      }).filter(c => c.name && c.value); // Filter out invalid cookies
+      }).filter(c => c.name && c.value && c.name.length > 0 && c.value.length > 0); // Enhanced filtering
       
       console.log('[PlaywrightConnection] Parsed cookies for Puppeteer:', cookies.length);
       console.log('[PlaywrightConnection] Cookie names:', cookies.map(c => c.name).join(', '));
@@ -225,15 +232,39 @@ export class PlaywrightConnectionService {
       // Inject cookies using Puppeteer's setCookie method
       console.log('[PlaywrightConnection] About to inject cookies with setCookie...');
       console.log('[PlaywrightConnection] Sample cookies being injected:', cookies.slice(0, 3).map(c => `${c.name}=${c.value.substring(0, 20)}...`));
+      console.log('[PlaywrightConnection] Full cookie object sample:', JSON.stringify(cookies.slice(0, 2), null, 2));
+      logs.push(`Cookie objects to inject: ${JSON.stringify(cookies.slice(0, 2), null, 2)}`);
       
       try {
+        // Navigate to LinkedIn first before setting cookies
+        console.log('[PlaywrightConnection] Navigating to LinkedIn.com first to enable cookie domain...');
+        await page.goto('https://www.linkedin.com', { waitUntil: 'domcontentloaded', timeout: 30000 });
+        
+        // Now inject cookies
         await page.setCookie(...cookies);
-        console.log('[PlaywrightConnection] Cookies injected successfully');
-        logs.push('Cookies injected via setCookie method');
+        console.log('[PlaywrightConnection] Cookies injected successfully after navigation');
+        logs.push('Cookies injected via setCookie method after domain navigation');
       } catch (cookieError: any) {
         console.error('[PlaywrightConnection] Cookie injection failed:', cookieError.message);
         logs.push(`❌ Cookie injection failed: ${cookieError.message}`);
-        throw new Error(`Cookie injection failed: ${cookieError.message}`);
+        
+        // Try alternative approach: set cookies one by one
+        console.log('[PlaywrightConnection] Trying alternative: inject cookies one by one...');
+        let successCount = 0;
+        for (const cookie of cookies.slice(0, 5)) { // Test first 5 cookies
+          try {
+            await page.setCookie(cookie);
+            successCount++;
+          } catch (singleError: any) {
+            console.error(`[PlaywrightConnection] Failed to set cookie ${cookie.name}:`, singleError.message);
+          }
+        }
+        console.log(`[PlaywrightConnection] Successfully set ${successCount}/${Math.min(5, cookies.length)} test cookies individually`);
+        logs.push(`Alternative method: ${successCount}/${Math.min(5, cookies.length)} cookies set individually`);
+        
+        if (successCount === 0) {
+          throw new Error(`Cookie injection completely failed: ${cookieError.message}`);
+        }
       }
       
       // Verify critical LinkedIn auth cookies with enhanced debugging
