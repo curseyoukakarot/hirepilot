@@ -1,10 +1,11 @@
-import { chromium } from 'playwright-extra';
-import stealth from 'puppeteer-extra-plugin-stealth';
-import { BrowserContext, Page } from 'playwright';
+import { Browserless } from '@browserless.io/browserless';
+import puppeteer from 'puppeteer-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import * as crypto from 'crypto';
+import { Browser, Page } from 'puppeteer';
 
 // Enable stealth plugin for maximum anti-detection
-chromium.use(stealth());
+puppeteer.use(StealthPlugin());
 
 interface ConnectionRequest {
   profileUrl: string;
@@ -118,22 +119,31 @@ export class PlaywrightConnectionService {
       }
     }
     
-    // Build proxy configuration (using your existing proxy setup)
-    const proxyConfig = this.buildProxyConfig();
-    
-    let browser;
-    let context: BrowserContext;
+    let browser: Browser;
     let page: Page;
+
     
     try {
-      // Launch browser with maximum stealth + proxy for 2025 LinkedIn anti-bot detection
-      console.log('[PlaywrightConnection] Launching Chromium with enhanced stealth configuration...');
+      // Initialize Browserless.io connection for enhanced anti-detection
+      console.log('[PlaywrightConnection] Connecting to Browserless.io managed browser...');
+      logs.push('Connecting to Browserless.io managed browser with enterprise anti-detection');
       
-      // Enhanced anti-detection: Auto-detect environment for headless mode
-      const isProduction = process.env.NODE_ENV === 'production' || process.env.RAILWAY_ENVIRONMENT_NAME || !process.env.DISPLAY;
-      const headlessMode = isProduction; // Auto-detect: headless on servers, visible locally
+      if (!process.env.BROWSERLESS_TOKEN) {
+        throw new Error('BROWSERLESS_TOKEN environment variable is required');
+      }
+
+      const browserless = new Browserless({
+        token: process.env.BROWSERLESS_TOKEN,
+        timeout: 120000, // 2 minutes timeout for LinkedIn's delays
+      });
+
+      // Launch managed browser through browserless.io (includes stealth + residential proxies)
+      browser = await browserless.browser();
+      console.log('[PlaywrightConnection] Browserless.io browser launched successfully');
+      logs.push('Browserless.io managed browser launched with stealth configuration');
       
-      console.log(`[PlaywrightConnection] Environment: ${isProduction ? 'Production/Server' : 'Development'}, Headless: ${headlessMode} (auto-detected)`);
+      // Create new page with enhanced stealth
+      page = await browser.newPage();
       
       // Enhanced user agents rotation (2025 realistic)
       const userAgents = [
@@ -143,70 +153,24 @@ export class PlaywrightConnectionService {
       ];
       const randomUA = userAgents[Math.floor(Math.random() * userAgents.length)];
       
-      const launchOptions: any = {
-        headless: headlessMode,
-        slowMo: headlessMode ? 100 : 200, // Faster in headless, slower when visible for debugging
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-extensions',
-          '--disable-gpu',
-          '--no-first-run',
-          '--no-default-browser-check',
-          '--disable-blink-features=AutomationControlled',
-          '--disable-features=VizDisplayCompositor',
-          // Enhanced stealth args for 2025 LinkedIn detection  
-          '--disable-background-timer-throttling',
-          '--disable-backgrounding-occluded-windows',
-          '--disable-renderer-backgrounding',
-          '--disable-features=TranslateUI',
-          '--disable-ipc-flooding-protection',
-          '--disable-web-security', // Bypass CSP for anti-detection
-          '--disable-plugins',
-          '--disable-plugins-discovery',
-          `--user-agent=${randomUA}`,
-          '--window-size=1920,1080',
-          '--start-maximized',
-          // Add proxy if available
-          ...(proxyConfig.args || [])
-        ]
-      };
-
-      // Add Decodo proxy if configured
-      if (proxyConfig.creds) {
-        const host = process.env.DECODO_HOST || 'gate.decodo.com';
-        const port = process.env.DECODO_PORT || '10001';
-        launchOptions.proxy = { 
-          server: `http://${host}:${port}`,
-          username: proxyConfig.creds.username,
-          password: proxyConfig.creds.password
-        };
-        console.log(`[PlaywrightConnection] Using Decodo proxy: ${host}:${port}`);
-        logs.push('Using Decodo residential proxy for anti-detection');
-      }
-
-      browser = await chromium.launch(launchOptions);
+      // Set enhanced browser properties
+      await page.setUserAgent(randomUA);
+      await page.setViewport({ width: 1920, height: 1080 });
       
-      console.log('[PlaywrightConnection] Browser version:', await browser.version());
-      
-      // Create context with enhanced realistic fingerprinting for 2025
-      context = await browser.newContext({
-        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-        viewport: { width: 1920, height: 1080 },
-        locale: 'en-US',
-        timezoneId: 'America/New_York',
-        storageState: undefined,
-        extraHTTPHeaders: { 
-          'Accept-Language': 'en-US,en;q=0.9',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8'
-        },
-        bypassCSP: true, // Bypass LinkedIn CSP if blocking
-        // Add proxy credentials if available
-        ...(proxyConfig.creds && { 
-          httpCredentials: proxyConfig.creds 
-        })
+      // Add extra headers for realism
+      await page.setExtraHTTPHeaders({
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Upgrade-Insecure-Requests': '1'
       });
+
+      logs.push(`Browserless browser configured with stealth UA: ${randomUA.substring(0, 50)}...`);
       
       // Enhanced cookie injection with proper parsing (using decrypted cookie)
       console.log('[PlaywrightConnection] About to parse cookies...');
@@ -215,21 +179,32 @@ export class PlaywrightConnectionService {
       console.log('- Cookie contains semicolons:', decryptedCookie.includes(';'));
       console.log('- Cookie contains equals:', decryptedCookie.includes('='));
       
-      const cookies = this.parseCookiesForPlaywright(decryptedCookie);
-      console.log('[PlaywrightConnection] Parsed cookies:', cookies.length);
+      // Parse and inject LinkedIn cookies for Puppeteer
+      const cookies = decryptedCookie.split('; ').map(c => {
+        const [name, ...valueParts] = c.split('=');
+        return { 
+          name: name?.trim() || '', 
+          value: valueParts.join('=') || '', 
+          domain: '.linkedin.com', 
+          path: '/' 
+        };
+      }).filter(c => c.name && c.value); // Filter out invalid cookies
+      
+      console.log('[PlaywrightConnection] Parsed cookies for Puppeteer:', cookies.length);
       console.log('[PlaywrightConnection] Cookie names:', cookies.map(c => c.name).join(', '));
-      logs.push(`Injecting ${cookies.length} cookies for authentication`);
+      logs.push(`Injecting ${cookies.length} LinkedIn cookies for authentication`);
       
       if (cookies.length === 0) {
         console.error('[PlaywrightConnection] ❌ CRITICAL: No cookies parsed!');
-        console.error('[PlaywrightConnection] Raw cookie string (full):', decryptedCookie);
+        console.error('[PlaywrightConnection] Raw cookie string (first 500):', decryptedCookie.substring(0, 500));
         logs.push('❌ CRITICAL: Cookie parsing failed - no cookies extracted from string');
       }
       
-      await context.addCookies(cookies);
+      // Inject cookies using Puppeteer's setCookie method
+      await page.setCookie(...cookies);
       
       // Verify critical LinkedIn auth cookies
-      const setCookies = await context.cookies();
+      const setCookies = await page.cookies();
       const hasLiAt = setCookies.some(c => c.name === 'li_at');
       const hasJSession = setCookies.some(c => c.name === 'JSESSIONID');
       const hasLiap = setCookies.some(c => c.name === 'liap');
@@ -246,9 +221,6 @@ export class PlaywrightConnectionService {
         console.warn('[PlaywrightConnection] Warning: No li_at cookie found, proceeding with other session cookies');
         logs.push('⚠️ Warning: No li_at cookie found, proceeding with available session cookies');
       }
-      
-      // Create page with stealth scripts
-      page = await context.newPage();
       
       // Enhanced redirect loop detection and anti-bot monitoring
       let redirectCount = 0;
@@ -326,7 +298,7 @@ export class PlaywrightConnectionService {
           logs.push('⚠️ Feed redirect storm detected - attempting direct navigation');
           // Try direct navigation without waiting for full load
           await page.goto('https://www.linkedin.com/feed/', { 
-            waitUntil: 'commit',
+            waitUntil: 'load',
             timeout: 60000 
           });
         } else {
@@ -355,16 +327,16 @@ export class PlaywrightConnectionService {
       console.log(`[PlaywrightConnection] Navigating to profile: ${profileUrl}`);
       logs.push(`Navigating to target profile`);
       
-      // Set referer to look more natural
+      // Set referer to look more natural  
       await page.setExtraHTTPHeaders({ 'Referer': 'https://www.linkedin.com/feed/' });
       
       try {
         // Primary attempt: Enhanced network idle wait with massive timeout
         await page.goto(profileUrl, { 
-          waitUntil: 'networkidle',
+          waitUntil: 'networkidle0',
           timeout: 120000 // Massive timeout for LinkedIn's 2025 anti-bot delays
         });
-        logs.push('Profile navigation successful with networkidle');
+        logs.push('Profile navigation successful with networkidle0');
       } catch (err: any) {
         if (err.message.includes('net::ERR_TOO_MANY_REDIRECTS')) {
           console.warn('[PlaywrightConnection] Redirect storm detected on profile, trying multiple fallback strategies...');
@@ -373,7 +345,7 @@ export class PlaywrightConnectionService {
           // Wait for redirect storm to settle
           await page.waitForTimeout(5000);
           
-          // Fallback strategy 1: Use commit instead of networkidle
+          // Fallback strategy 1: Use domcontentloaded instead of networkidle
           try {
             await page.goto(profileUrl, { 
               waitUntil: 'domcontentloaded',
@@ -477,27 +449,7 @@ export class PlaywrightConnectionService {
     }
   }
   
-  /**
-   * Build proxy configuration (reusing your existing proxy logic from playwrightFetcher.ts)
-   */
-  private static buildProxyConfig() {
-    const host = process.env.DECODO_HOST || 'gate.decodo.com';
-    const port = process.env.DECODO_PORT || '10001';
-    const user = process.env.DECODO_USER || '';
-    const pass = process.env.DECODO_PASS || '';
-    
-    if (!user || !pass) {
-      console.log('[PlaywrightConnection] No Decodo proxy credentials configured');
-      return { args: [], creds: null };
-    }
-    
-    const proxyUrl = `http://${host}:${port}`;
-    const creds = { username: user, password: pass };
-    return { 
-      args: [`--proxy-server=${proxyUrl}`], 
-      creds 
-    };
-  }
+
   
   /**
    * Parse cookie string for Playwright format
