@@ -139,7 +139,7 @@ export class PlaywrightConnectionService {
         baseUrl = baseUrl.replace('wss://', 'https://');
         console.log('[PlaywrightConnection] Converted WebSocket URL to HTTP for /unblock API');
       }
-      const unblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&captcha=true&timeout=120000`;
+      const unblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&captcha=true&timeout=60000`;
       
       console.log(`[PlaywrightConnection] Unblock URL: ${baseUrl}`);
       logs.push(`Using unblock endpoint: ${baseUrl}`);
