@@ -375,8 +375,25 @@ export class PlaywrightConnectionService {
       console.log('[PlaywrightConnection] Waiting for profile to load...');
       await page.waitForTimeout(1000 + Math.random() * 1000); // Random delay 1-2s
       
-      // Scroll to actions section like a human would
-      await page.evaluate(() => window.scrollTo(0, 300 + Math.random() * 200)); // Scroll to profile actions
+      // Enhanced scrolling to find buttons that appear lower on the page
+      await page.evaluate(() => {
+        // First scroll to the profile actions area
+        window.scrollTo(0, 300 + Math.random() * 200);
+      });
+      await page.waitForTimeout(1000);
+      
+      // More aggressive scrolling to find More button - LinkedIn 2025 UI change
+      await page.evaluate(() => {
+        // Scroll down more to find the More button
+        window.scrollTo(0, 600 + Math.random() * 300);
+      });
+      await page.waitForTimeout(1500);
+      
+      // Additional scroll if needed to reveal hidden buttons
+      await page.evaluate(() => {
+        window.scrollTo(0, document.body.scrollHeight * 0.3); // Scroll to 30% of page
+      });
+      await page.waitForTimeout(1000);
       await page.waitForTimeout(500 + Math.random() * 500); // Random delay
       
       // Take screenshot for debugging
@@ -552,6 +569,30 @@ export class PlaywrightConnectionService {
       if (!connectButton) {
         logs.push('No direct Connect button found, trying "More" dropdown...');
         
+        // Enhanced debugging: log all visible buttons before searching for More
+        try {
+          const allButtonsInfo = await page.evaluate(() => {
+            const buttons = Array.from(document.querySelectorAll('button:visible, [role="button"]:visible'));
+            return buttons.slice(0, 10).map(btn => {
+              const text = btn.textContent?.trim() || '';
+              const ariaLabel = btn.getAttribute('aria-label') || '';
+              const className = btn.className || '';
+              return `"${text.substring(0, 20)}" [aria-label="${ariaLabel.substring(0, 30)}"] [class="${className.substring(0, 30)}"]`;
+            });
+          });
+          logs.push(`Available buttons on page: ${allButtonsInfo.join(' | ')}`);
+        } catch (debugError: any) {
+          logs.push(`Could not analyze available buttons: ${debugError.message}`);
+        }
+        
+        // Additional scrolling specifically to reveal More button (user feedback: appears after scrolling)
+        logs.push('Scrolling to reveal More button...');
+        await page.evaluate(() => {
+          // Scroll to the bottom of the main profile section
+          window.scrollTo(0, document.body.scrollHeight * 0.4); // Scroll to 40% of page
+        });
+        await page.waitForTimeout(1500);
+        
         // Enhanced More button selectors for 2025 - Fixed for Puppeteer
         const moreSelectors = [
           'button[aria-label="More actions"]',
@@ -564,12 +605,13 @@ export class PlaywrightConnectionService {
         let moreButton = null;
         for (const selector of moreSelectors) {
           try {
-            moreButton = await page.waitForSelector(selector, { timeout: 3000 });
+            moreButton = await page.waitForSelector(selector, { timeout: 5000, visible: true }); // Increased timeout
             if (moreButton && await moreButton.isVisible()) {
               logs.push(`✅ Found More button using: ${selector}`);
               break;
             }
           } catch (e) {
+            logs.push(`More button selector failed: ${selector}`);
             // Continue to next selector
           }
         }
