@@ -223,20 +223,41 @@ export class PlaywrightConnectionService {
       }
       
       // Inject cookies using Puppeteer's setCookie method
-      await page.setCookie(...cookies);
+      console.log('[PlaywrightConnection] About to inject cookies with setCookie...');
+      console.log('[PlaywrightConnection] Sample cookies being injected:', cookies.slice(0, 3).map(c => `${c.name}=${c.value.substring(0, 20)}...`));
       
-      // Verify critical LinkedIn auth cookies
+      try {
+        await page.setCookie(...cookies);
+        console.log('[PlaywrightConnection] Cookies injected successfully');
+        logs.push('Cookies injected via setCookie method');
+      } catch (cookieError: any) {
+        console.error('[PlaywrightConnection] Cookie injection failed:', cookieError.message);
+        logs.push(`❌ Cookie injection failed: ${cookieError.message}`);
+        throw new Error(`Cookie injection failed: ${cookieError.message}`);
+      }
+      
+      // Verify critical LinkedIn auth cookies with enhanced debugging
       const setCookies = await page.cookies();
       const hasLiAt = setCookies.some(c => c.name === 'li_at');
       const hasJSession = setCookies.some(c => c.name === 'JSESSIONID');
       const hasLiap = setCookies.some(c => c.name === 'liap');
       
+      // Debug: Log all cookie names that were actually set
+      console.log('[PlaywrightConnection] All cookies actually set on page:', setCookies.map(c => c.name).join(', '));
+      console.log('[PlaywrightConnection] Looking for: li_at, JSESSIONID, liap');
       console.log('[PlaywrightConnection] Cookie verification - li_at:', hasLiAt, 'JSESSIONID:', hasJSession, 'liap:', hasLiap);
       logs.push(`Cookie verification - li_at: ${hasLiAt}, JSESSIONID: ${hasJSession}, liap: ${hasLiap}`);
+      logs.push(`All cookies set: ${setCookies.map(c => c.name).slice(0, 10).join(', ')}${setCookies.length > 10 ? '...' : ''}`);
       
-      // For testing: proceed even without li_at if we have other session cookies
+      // For testing: more lenient verification while debugging
+      if (!hasLiAt && !hasJSession && !hasLiap && setCookies.length === 0) {
+        throw new Error('No cookies were set at all - authentication will fail');
+      }
+      
+      // Proceed with warning if we have any cookies
       if (!hasLiAt && !hasJSession && !hasLiap) {
-        throw new Error('Missing all essential LinkedIn cookies - authentication will likely fail');
+        console.warn('[PlaywrightConnection] ⚠️ Warning: Essential LinkedIn cookies not detected, but proceeding with available cookies for debugging');
+        logs.push(`⚠️ Warning: Essential cookies not detected, proceeding with ${setCookies.length} total cookies for debugging`);
       }
       
       if (!hasLiAt) {
