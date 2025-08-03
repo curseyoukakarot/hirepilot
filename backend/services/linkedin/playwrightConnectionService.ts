@@ -123,45 +123,66 @@ export class PlaywrightConnectionService {
 
     
     try {
-      // Connect to Browserless.io via WebSocket for enhanced anti-detection
-      console.log('[PlaywrightConnection] Connecting to Browserless.io managed browser...');
-      logs.push('Connecting to Browserless.io managed browser with enterprise anti-detection');
+      // Use Browserless.io /unblock API for enhanced LinkedIn anti-detection
+      console.log('[PlaywrightConnection] Using Browserless.io /unblock API for LinkedIn...');
+      logs.push('Using Browserless.io /unblock API for enterprise anti-detection');
       
       if (!process.env.BROWSERLESS_TOKEN) {
         throw new Error('BROWSERLESS_TOKEN environment variable is required');
       }
 
-      // Connect to browserless.io using WebSocket endpoint with stealth
-      const baseUrl = process.env.BROWSERLESS_URL || 'wss://chrome.browserless.io';
-      const browserlessUrl = `${baseUrl}?token=${process.env.BROWSERLESS_TOKEN}&stealth&blockAds`;
+      // Step 1: Unblock the feed for warmup using /unblock API
+      console.log('[PlaywrightConnection] Unblocking LinkedIn feed via /unblock API...');
+      const baseUrl = process.env.BROWSERLESS_URL || 'https://production-sfo.browserless.io';
+      const unblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&captcha=true&timeout=120000`;
       
-      console.log(`[PlaywrightConnection] Connecting to: ${baseUrl}`);
-      logs.push(`Connecting to Browserless endpoint: ${baseUrl}`);
+      console.log(`[PlaywrightConnection] Unblock URL: ${baseUrl}`);
+      logs.push(`Using unblock endpoint: ${baseUrl}`);
+
+      const unblockResponse = await fetch(unblockUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: 'https://www.linkedin.com/feed/',
+          browserWSEndpoint: true,  // Get WS for Puppeteer control
+          cookies: true,             // Return any new cookies
+          content: false,            // No need for HTML yet
+          screenshot: false,
+          ttl: 5000                  // Short TTL to save costs
+        })
+      });
+
+      if (!unblockResponse.ok) {
+        const errText = await unblockResponse.text();
+        console.error('[PlaywrightConnection] Unblock failed:', errText);
+        logs.push(`❌ Unblock failed: ${unblockResponse.status} - ${errText}`);
+        throw new Error(`Unblock failed: ${unblockResponse.status} - ${errText}`);
+      }
+
+      const unblockResult = await unblockResponse.json();
+      const { browserWSEndpoint } = unblockResult;
       
+      if (!browserWSEndpoint) {
+        console.error('[PlaywrightConnection] No browserWSEndpoint from /unblock:', unblockResult);
+        throw new Error('No browserWSEndpoint from /unblock API');
+      }
+
+      logs.push('✅ Unblocked feed - got clean browser endpoint');
+      console.log('[PlaywrightConnection] Got unblocked browserWSEndpoint:', browserWSEndpoint.substring(0, 50) + '...');
+
+      // Connect Puppeteer to the unblocked endpoint
       try {
-        browser = await puppeteer.connect({
-          browserWSEndpoint: browserlessUrl,
+        browser = await puppeteer.connect({ 
+          browserWSEndpoint,
           defaultViewport: { width: 1920, height: 1080 }
         });
         
-        console.log('[PlaywrightConnection] Browserless.io browser connected successfully');
-        logs.push('Browserless.io managed browser connected with stealth configuration');
+        console.log('[PlaywrightConnection] Connected to unblocked browser successfully');
+        logs.push('Connected to unblocked browser session');
       } catch (connectionError: any) {
-        console.error('[PlaywrightConnection] Browserless.io connection failed:', connectionError.message);
-        logs.push(`❌ Browserless.io connection failed: ${connectionError.message}`);
-        
-        // Provide helpful debugging info for 403 errors
-        if (connectionError.message.includes('403')) {
-          const debugInfo = {
-            url: baseUrl,
-            tokenLength: process.env.BROWSERLESS_TOKEN?.length || 0,
-            fullUrl: browserlessUrl.replace(process.env.BROWSERLESS_TOKEN || '', 'TOKEN_HIDDEN')
-          };
-          console.error('[PlaywrightConnection] 403 Debug info:', debugInfo);
-          logs.push(`❌ 403 Authentication Error - Check token validity. Using URL: ${baseUrl}`);
-        }
-        
-        throw new Error(`Browserless.io connection failed: ${connectionError.message}`);
+        console.error('[PlaywrightConnection] Failed to connect to unblocked endpoint:', connectionError.message);
+        logs.push(`❌ Failed to connect to unblocked endpoint: ${connectionError.message}`);
+        throw new Error(`Failed to connect to unblocked endpoint: ${connectionError.message}`);
       }
       
       // Create new page with enhanced stealth
@@ -194,107 +215,15 @@ export class PlaywrightConnectionService {
 
       logs.push(`Browserless browser configured with stealth UA: ${randomUA.substring(0, 50)}...`);
       
-      // Enhanced cookie injection with proper parsing (using decrypted cookie)
-      console.log('[PlaywrightConnection] About to parse cookies...');
+      // Parse cookies once for use in both unblocked sessions
+      console.log('[PlaywrightConnection] Parsing cookies for unblocked sessions...');
       console.log('- Decrypted cookie length:', decryptedCookie.length);
       console.log('- First 200 chars of decrypted cookie:', decryptedCookie.substring(0, 200));
-      console.log('- Cookie contains semicolons:', decryptedCookie.includes(';'));
-      console.log('- Cookie contains equals:', decryptedCookie.includes('='));
       
-      // Parse and inject LinkedIn cookies for Puppeteer with enhanced format
-      const cookies = decryptedCookie.split('; ').map(c => {
-        const [name, ...valueParts] = c.split('=');
-        const cookieName = name?.trim() || '';
-        const cookieValue = valueParts.join('=') || '';
-        
-        // Puppeteer requires specific cookie format
-        return { 
-          name: cookieName, 
-          value: cookieValue, 
-          domain: '.linkedin.com',
-          path: '/',
-          httpOnly: false, // Most LinkedIn cookies are not httpOnly when set via JS
-          secure: true,    // LinkedIn uses HTTPS
-          sameSite: 'Lax' as 'Strict' | 'Lax' | 'None'  // Appropriate for LinkedIn
-        };
-      }).filter(c => c.name && c.value && c.name.length > 0 && c.value.length > 0); // Enhanced filtering
-      
+      const cookies = this.parseCookiesForPlaywright(decryptedCookie);
       console.log('[PlaywrightConnection] Parsed cookies for Puppeteer:', cookies.length);
       console.log('[PlaywrightConnection] Cookie names:', cookies.map(c => c.name).join(', '));
-      logs.push(`Injecting ${cookies.length} LinkedIn cookies for authentication`);
-      
-      if (cookies.length === 0) {
-        console.error('[PlaywrightConnection] ❌ CRITICAL: No cookies parsed!');
-        console.error('[PlaywrightConnection] Raw cookie string (first 500):', decryptedCookie.substring(0, 500));
-        logs.push('❌ CRITICAL: Cookie parsing failed - no cookies extracted from string');
-      }
-      
-      // Inject cookies using Puppeteer's setCookie method
-      console.log('[PlaywrightConnection] About to inject cookies with setCookie...');
-      console.log('[PlaywrightConnection] Sample cookies being injected:', cookies.slice(0, 3).map(c => `${c.name}=${c.value.substring(0, 20)}...`));
-      console.log('[PlaywrightConnection] Full cookie object sample:', JSON.stringify(cookies.slice(0, 2), null, 2));
-      logs.push(`Cookie objects to inject: ${JSON.stringify(cookies.slice(0, 2), null, 2)}`);
-      
-      try {
-        // Navigate to LinkedIn first before setting cookies
-        console.log('[PlaywrightConnection] Navigating to LinkedIn.com first to enable cookie domain...');
-        await page.goto('https://www.linkedin.com', { waitUntil: 'domcontentloaded', timeout: 30000 });
-        
-        // Now inject cookies
-        await page.setCookie(...cookies);
-        console.log('[PlaywrightConnection] Cookies injected successfully after navigation');
-        logs.push('Cookies injected via setCookie method after domain navigation');
-      } catch (cookieError: any) {
-        console.error('[PlaywrightConnection] Cookie injection failed:', cookieError.message);
-        logs.push(`❌ Cookie injection failed: ${cookieError.message}`);
-        
-        // Try alternative approach: set cookies one by one
-        console.log('[PlaywrightConnection] Trying alternative: inject cookies one by one...');
-        let successCount = 0;
-        for (const cookie of cookies.slice(0, 5)) { // Test first 5 cookies
-          try {
-            await page.setCookie(cookie);
-            successCount++;
-          } catch (singleError: any) {
-            console.error(`[PlaywrightConnection] Failed to set cookie ${cookie.name}:`, singleError.message);
-          }
-        }
-        console.log(`[PlaywrightConnection] Successfully set ${successCount}/${Math.min(5, cookies.length)} test cookies individually`);
-        logs.push(`Alternative method: ${successCount}/${Math.min(5, cookies.length)} cookies set individually`);
-        
-        if (successCount === 0) {
-          throw new Error(`Cookie injection completely failed: ${cookieError.message}`);
-        }
-      }
-      
-      // Verify critical LinkedIn auth cookies with enhanced debugging
-      const setCookies = await page.cookies();
-      const hasLiAt = setCookies.some(c => c.name === 'li_at');
-      const hasJSession = setCookies.some(c => c.name === 'JSESSIONID');
-      const hasLiap = setCookies.some(c => c.name === 'liap');
-      
-      // Debug: Log all cookie names that were actually set
-      console.log('[PlaywrightConnection] All cookies actually set on page:', setCookies.map(c => c.name).join(', '));
-      console.log('[PlaywrightConnection] Looking for: li_at, JSESSIONID, liap');
-      console.log('[PlaywrightConnection] Cookie verification - li_at:', hasLiAt, 'JSESSIONID:', hasJSession, 'liap:', hasLiap);
-      logs.push(`Cookie verification - li_at: ${hasLiAt}, JSESSIONID: ${hasJSession}, liap: ${hasLiap}`);
-      logs.push(`All cookies set: ${setCookies.map(c => c.name).slice(0, 10).join(', ')}${setCookies.length > 10 ? '...' : ''}`);
-      
-      // For testing: more lenient verification while debugging
-      if (!hasLiAt && !hasJSession && !hasLiap && setCookies.length === 0) {
-        throw new Error('No cookies were set at all - authentication will fail');
-      }
-      
-      // Proceed with warning if we have any cookies
-      if (!hasLiAt && !hasJSession && !hasLiap) {
-        console.warn('[PlaywrightConnection] ⚠️ Warning: Essential LinkedIn cookies not detected, but proceeding with available cookies for debugging');
-        logs.push(`⚠️ Warning: Essential cookies not detected, proceeding with ${setCookies.length} total cookies for debugging`);
-      }
-      
-      if (!hasLiAt) {
-        console.warn('[PlaywrightConnection] Warning: No li_at cookie found, proceeding with other session cookies');
-        logs.push('⚠️ Warning: No li_at cookie found, proceeding with available session cookies');
-      }
+      logs.push(`Parsed ${cookies.length} LinkedIn cookies for unblocked sessions`);
       
       // Enhanced redirect loop detection and anti-bot monitoring
       let redirectCount = 0;
@@ -326,31 +255,23 @@ export class PlaywrightConnectionService {
         }
       });
       
-      // Browserless.io already provides comprehensive stealth capabilities
+      // Session already unblocked via /unblock API - proceed with cookie injection and warmup
       
-      // Step 1: Enhanced session warmup with longer timeouts for LinkedIn 2025 anti-bot
-      console.log('[PlaywrightConnection] Warming up LinkedIn session with enhanced timeouts...');
-      logs.push('Warming up session via LinkedIn feed');
+      // Inject cookies into the unblocked session
+      console.log('[PlaywrightConnection] Injecting cookies into unblocked session...');
+      await page.goto('https://www.linkedin.com', { waitUntil: 'domcontentloaded', timeout: 30000 }); // Enable domain
+      await page.setCookie(...cookies);
+      logs.push('Cookies injected into unblocked session');
       
-      try {
-        await page.goto('https://www.linkedin.com/feed/', { 
-          waitUntil: 'domcontentloaded',
-          timeout: 90000 // Massively increased timeout for LinkedIn's 2025 detection delays
-        });
-        logs.push('Feed navigation successful');
-      } catch (feedError: any) {
-        if (feedError.message.includes('ERR_TOO_MANY_REDIRECTS')) {
-          console.warn('[PlaywrightConnection] Feed redirect storm detected, attempting recovery...');
-          logs.push('⚠️ Feed redirect storm detected - attempting direct navigation');
-          // Try direct navigation without waiting for full load
-          await page.goto('https://www.linkedin.com/feed/', { 
-            waitUntil: 'load',
-            timeout: 60000 
-          });
-        } else {
-          throw feedError;
-        }
-      }
+      // Step 1: Warmup via unblocked feed (already accessible without redirects)
+      console.log('[PlaywrightConnection] Warming up via unblocked LinkedIn feed...');
+      logs.push('Warming up session via unblocked LinkedIn feed');
+      
+      await page.goto('https://www.linkedin.com/feed/', { 
+        waitUntil: 'networkidle0',
+        timeout: 90000 // The unblocked session should load cleanly
+      });
+      logs.push('Unblocked feed navigation successful');
       
       // Enhanced human-like behavior on feed
       await page.waitForTimeout(3000 + Math.random() * 2000); // Extended delay 3-5s
@@ -369,51 +290,64 @@ export class PlaywrightConnectionService {
         throw new Error('Session invalid - redirected to login during warmup');
       }
       
-      // Step 2: Navigate to target profile with enhanced fallback strategies
-      console.log(`[PlaywrightConnection] Navigating to profile: ${profileUrl}`);
-      logs.push(`Navigating to target profile`);
+      // Step 2: Unblock the target profile using second /unblock API call
+      console.log(`[PlaywrightConnection] Unblocking target profile: ${profileUrl}`);
+      logs.push(`Unblocking target profile via /unblock API`);
+      
+      const profileUnblockResponse = await fetch(unblockUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: profileUrl,
+          browserWSEndpoint: true,  // Get WS for Puppeteer control
+          cookies: true,             // Return any new cookies
+          content: false,            // No need for HTML yet
+          screenshot: false,
+          ttl: 5000                  // Short TTL to save costs
+        })
+      });
+
+      if (!profileUnblockResponse.ok) {
+        const errText = await profileUnblockResponse.text();
+        console.error('[PlaywrightConnection] Profile unblock failed:', errText);
+        logs.push(`❌ Profile unblock failed: ${profileUnblockResponse.status} - ${errText}`);
+        throw new Error(`Profile unblock failed: ${await profileUnblockResponse.text()}`);
+      }
+
+      const profileUnblockResult = await profileUnblockResponse.json();
+      const { browserWSEndpoint: profileEndpoint } = profileUnblockResult;
+      
+      if (!profileEndpoint) {
+        console.error('[PlaywrightConnection] No profile browserWSEndpoint from /unblock:', profileUnblockResult);
+        throw new Error('No profile browserWSEndpoint from /unblock API');
+      }
+
+      logs.push('✅ Unblocked profile - got clean browser endpoint');
+      console.log('[PlaywrightConnection] Got profile unblocked browserWSEndpoint:', profileEndpoint.substring(0, 50) + '...');
+
+      // Close previous browser, connect to new one for profile
+      await browser.close();
+      browser = await puppeteer.connect({ 
+        browserWSEndpoint: profileEndpoint,
+        defaultViewport: { width: 1920, height: 1080 }
+      });
+
+      page = await browser.newPage();
+      
+      // Re-inject cookies into the new unblocked profile session
+      await page.goto('https://www.linkedin.com', { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await page.setCookie(...cookies);
+      logs.push('Cookies re-injected into profile session');
       
       // Set referer to look more natural  
       await page.setExtraHTTPHeaders({ 'Referer': 'https://www.linkedin.com/feed/' });
       
-      try {
-        // Primary attempt: Enhanced network idle wait with massive timeout
-        await page.goto(profileUrl, { 
-          waitUntil: 'networkidle0',
-          timeout: 120000 // Massive timeout for LinkedIn's 2025 anti-bot delays
-        });
-        logs.push('Profile navigation successful with networkidle0');
-      } catch (err: any) {
-        if (err.message.includes('net::ERR_TOO_MANY_REDIRECTS')) {
-          console.warn('[PlaywrightConnection] Redirect storm detected on profile, trying multiple fallback strategies...');
-          logs.push('⚠️ Profile redirect storm detected, attempting enhanced fallback');
-          
-          // Wait for redirect storm to settle
-          await page.waitForTimeout(5000);
-          
-          // Fallback strategy 1: Use domcontentloaded instead of networkidle
-          try {
-            await page.goto(profileUrl, { 
-              waitUntil: 'domcontentloaded',
-              timeout: 90000 // Increased fallback timeout
-            });
-            logs.push('Fallback navigation successful with domcontentloaded');
-          } catch (fallbackErr: any) {
-            // Log page content for debugging
-            try {
-              const pageContent = await page.content();
-              console.log('[PlaywrightConnection] Page content on navigation error:', pageContent.substring(0, 1000));
-              logs.push(`Navigation failed. Page content length: ${pageContent.length} chars`);
-              logs.push(`Page content preview: ${pageContent.substring(0, 200)}...`);
-            } catch (contentErr) {
-              logs.push('Could not capture page content for debugging');
-            }
-            throw new Error(`Profile navigation failed: ${fallbackErr.message}`);
-          }
-        } else {
-          throw err;
-        }
-      }
+      // Navigate to the unblocked profile (should load without redirects)
+      await page.goto(profileUrl, { 
+        waitUntil: 'networkidle0',
+        timeout: 120000 // The unblocked profile should load cleanly
+      });
+      logs.push('Unblocked profile navigation successful');
       
       // Check for auth redirects
       const currentUrl = page.url();
