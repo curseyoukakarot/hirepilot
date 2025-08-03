@@ -600,7 +600,7 @@ export class PlaywrightConnectionService {
         // Enhanced debugging: log all visible buttons before searching for More
         try {
           const allButtonsInfo = await page.evaluate(() => {
-            const buttons = Array.from(document.querySelectorAll('button:visible, [role="button"]:visible'));
+            const buttons = Array.from(document.querySelectorAll('button'));
             return buttons.slice(0, 10).map(btn => {
               const text = btn.textContent?.trim() || '';
               const ariaLabel = btn.getAttribute('aria-label') || '';
