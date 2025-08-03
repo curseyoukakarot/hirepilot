@@ -139,7 +139,7 @@ export class PlaywrightConnectionService {
         baseUrl = baseUrl.replace('wss://', 'https://');
         console.log('[PlaywrightConnection] Converted WebSocket URL to HTTP for /unblock API');
       }
-      const unblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&captcha=true&timeout=180&waitForTimeout=3000`; // 180 seconds (3 min), wait 3s after load
+      const unblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&captcha=true&js_render=true&timeout=300&waitForTimeout=5000`; // Increased to 5min, 5s wait, with JS render
       
       console.log(`[PlaywrightConnection] Unblock URL: ${baseUrl}`);
       logs.push(`Using unblock endpoint: ${baseUrl}`);
@@ -148,35 +148,33 @@ export class PlaywrightConnectionService {
       console.log('[PlaywrightConnection] Request URL:', unblockUrl);
       logs.push(`Making /unblock API request to: ${unblockUrl}`);
 
-      // Create AbortController for fetch timeout
-      const feedController = new AbortController();
-      const feedTimeoutId = setTimeout(() => feedController.abort(), 200000); // 3.3min to be safe
-      
+      // Add retry logic for 408 timeouts (up to 3 attempts)
       let unblockResponse;
-      try {
-        unblockResponse = await fetch(unblockUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          signal: feedController.signal,
-          body: JSON.stringify({
-            url: 'https://www.linkedin.com/feed/',
-            browserWSEndpoint: true,  // Get WS for Puppeteer control
-            cookies: true,             // Return any new cookies
-            content: false,            // No need for HTML yet
-            screenshot: false,
-            ttl: 30000                  // Increased TTL to 30s for warmup
-          })
-        });
-      } catch (fetchError: any) {
-        clearTimeout(feedTimeoutId);
-        if (fetchError.name === 'AbortError') {
-          throw new Error('Feed unblock request timed out after 3.3 minutes');
+      let retryCount = 0;
+      const maxRetries = 3;
+      while (!unblockResponse && retryCount < maxRetries) {
+        try {
+          unblockResponse = await fetch(unblockUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              url: 'https://www.linkedin.com/feed/',
+              browserWSEndpoint: true,  // Get WS for Puppeteer control
+              cookies: true,             // Return any new cookies
+              content: false,            // No need for HTML yet
+              screenshot: false,
+              ttl: 30000                  // Increased TTL to 30s for warmup
+            })
+          });
+        } catch (fetchError: any) {
+          console.error('[PlaywrightConnection] Feed unblock fetch failed on attempt ' + (retryCount + 1) + ':', fetchError.message);
+          logs.push(`❌ Feed unblock fetch failed on attempt ${retryCount + 1}: ${fetchError.message}`);
+          retryCount++;
+          if (retryCount >= maxRetries) {
+            throw fetchError;
+          }
+          await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5s before retry
         }
-        console.error('[PlaywrightConnection] Fetch request failed:', fetchError.message);
-        logs.push(`❌ Fetch request failed: ${fetchError.message}`);
-        throw new Error(`Fetch request failed: ${fetchError.message}`);
-      } finally {
-        clearTimeout(feedTimeoutId);
       }
 
       if (!unblockResponse.ok) {
@@ -324,35 +322,34 @@ export class PlaywrightConnectionService {
       console.log(`[PlaywrightConnection] Unblocking target profile: ${profileUrl}`);
       logs.push(`Unblocking target profile via /unblock API`);
       
-      const profileUnblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&captcha=true&timeout=180&waitForSelector=button%5Baria-label%3D%22More%20actions%22%5D&waitForTimeout=3000`; // 180 seconds, wait for More button
-      
-      // Create AbortController for fetch timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 200000); // 3.3min to be safe
+      const profileUnblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&captcha=true&js_render=true&timeout=300&waitForSelector=button%5Baria-label%3D%22More%20actions%22%5D&waitForTimeout=5000`; // Increased to 5min, 5s wait for More button
       
       let profileUnblockResponse;
-      try {
-        profileUnblockResponse = await fetch(profileUnblockUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          signal: controller.signal,
-          body: JSON.stringify({
-            url: profileUrl,
-            browserWSEndpoint: true,  // Get WS for Puppeteer control
-            cookies: true,             // Return any new cookies
-            content: false,            // No need for HTML yet
-            screenshot: false,
-            ttl: 30000                  // Increased TTL for profile interactions
-          })
-        });
-      } catch (fetchError: any) {
-        clearTimeout(timeoutId);
-        if (fetchError.name === 'AbortError') {
-          throw new Error('Profile unblock request timed out after 3.3 minutes');
+      let profileRetryCount = 0;
+      const profileMaxRetries = 3;
+      while (!profileUnblockResponse && profileRetryCount < profileMaxRetries) {
+        try {
+          profileUnblockResponse = await fetch(profileUnblockUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              url: profileUrl,
+              browserWSEndpoint: true,  // Get WS for Puppeteer control
+              cookies: true,             // Return any new cookies
+              content: false,            // No need for HTML yet
+              screenshot: false,
+              ttl: 30000                  // Increased TTL for profile interactions
+            })
+          });
+        } catch (fetchError: any) {
+          console.error('[PlaywrightConnection] Profile unblock fetch failed on attempt ' + (profileRetryCount + 1) + ':', fetchError.message);
+          logs.push(`❌ Profile unblock fetch failed on attempt ${profileRetryCount + 1}: ${fetchError.message}`);
+          profileRetryCount++;
+          if (profileRetryCount >= profileMaxRetries) {
+            throw fetchError;
+          }
+          await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5s before retry
         }
-        throw new Error(`Profile unblock fetch failed: ${fetchError.message}`);
-      } finally {
-        clearTimeout(timeoutId);
       }
 
       if (!profileUnblockResponse.ok) {
