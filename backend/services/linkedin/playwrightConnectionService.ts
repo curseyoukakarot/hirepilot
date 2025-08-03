@@ -129,11 +129,11 @@ export class PlaywrightConnectionService {
       // Launch browser with maximum stealth + proxy for 2025 LinkedIn anti-bot detection
       console.log('[PlaywrightConnection] Launching Chromium with enhanced stealth configuration...');
       
-      // Enhanced anti-detection: Force headless: false for debugging redirect loops
+      // Enhanced anti-detection: Auto-detect environment for headless mode
       const isProduction = process.env.NODE_ENV === 'production' || process.env.RAILWAY_ENVIRONMENT_NAME || !process.env.DISPLAY;
-      const headlessMode = false; // Always visible for debugging LinkedIn detection
+      const headlessMode = isProduction; // Auto-detect: headless on servers, visible locally
       
-      console.log(`[PlaywrightConnection] Environment: ${isProduction ? 'Production/Server' : 'Development'}, Headless: ${headlessMode} (forced for debugging)`);
+      console.log(`[PlaywrightConnection] Environment: ${isProduction ? 'Production/Server' : 'Development'}, Headless: ${headlessMode} (auto-detected)`);
       
       // Enhanced user agents rotation (2025 realistic)
       const userAgents = [
@@ -145,7 +145,7 @@ export class PlaywrightConnectionService {
       
       const launchOptions: any = {
         headless: headlessMode,
-        slowMo: 200, // Slower for more human-like behavior
+        slowMo: headlessMode ? 100 : 200, // Faster in headless, slower when visible for debugging
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
