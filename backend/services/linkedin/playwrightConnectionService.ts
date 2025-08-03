@@ -139,7 +139,8 @@ export class PlaywrightConnectionService {
         baseUrl = baseUrl.replace('wss://', 'https://');
         console.log('[PlaywrightConnection] Converted WebSocket URL to HTTP for /unblock API');
       }
-      const unblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&captcha=true&timeout=60000`;
+      const API_TIMEOUT = 60000;          // hard upper-bound per Browserless docs
+      const unblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&captcha=true&timeout=${API_TIMEOUT}`;
       
       console.log(`[PlaywrightConnection] Unblock URL: ${baseUrl}`);
       logs.push(`Using unblock endpoint: ${baseUrl}`);
@@ -163,7 +164,7 @@ export class PlaywrightConnectionService {
               cookies: true,             // Return any new cookies
               content: false,            // No need for HTML yet
               screenshot: false,
-              ttl: 60000                  // Increased TTL to 60s
+              ttl: 30000                  // Max TTL per Browserless docs
             })
           });
         } catch (fetchError: any) {
@@ -324,7 +325,7 @@ export class PlaywrightConnectionService {
       
       const waitFor = encodeURIComponent('button[aria-label*="More"]');   // substring match
       const profileUnblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}` +
-                                `&proxy=residential&captcha=true&timeout=90000&waitFor=${waitFor}`;
+                                `&proxy=residential&captcha=true&timeout=${API_TIMEOUT}&waitFor=${waitFor}`;
       
       let profileUnblockResponse;
       let profileRetryCount = 0;
@@ -340,7 +341,7 @@ export class PlaywrightConnectionService {
               cookies: true,             // Return any new cookies
               content: false,            // No need for HTML yet
               screenshot: false,
-              ttl: 60000                  // Increased TTL to 60s
+              ttl: 30000                  // Max TTL per Browserless docs
             })
           });
         } catch (fetchError: any) {
