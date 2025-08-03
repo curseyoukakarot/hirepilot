@@ -132,15 +132,37 @@ export class PlaywrightConnectionService {
       }
 
       // Connect to browserless.io using WebSocket endpoint with stealth
-      const browserlessUrl = `wss://chrome.browserless.io?token=${process.env.BROWSERLESS_TOKEN}&stealth&blockAds`;
+      const baseUrl = process.env.BROWSERLESS_URL || 'wss://chrome.browserless.io';
+      const browserlessUrl = `${baseUrl}?token=${process.env.BROWSERLESS_TOKEN}&stealth&blockAds`;
       
-      browser = await puppeteer.connect({
-        browserWSEndpoint: browserlessUrl,
-        defaultViewport: { width: 1920, height: 1080 }
-      });
+      console.log(`[PlaywrightConnection] Connecting to: ${baseUrl}`);
+      logs.push(`Connecting to Browserless endpoint: ${baseUrl}`);
       
-      console.log('[PlaywrightConnection] Browserless.io browser connected successfully');
-      logs.push('Browserless.io managed browser connected with stealth configuration');
+      try {
+        browser = await puppeteer.connect({
+          browserWSEndpoint: browserlessUrl,
+          defaultViewport: { width: 1920, height: 1080 }
+        });
+        
+        console.log('[PlaywrightConnection] Browserless.io browser connected successfully');
+        logs.push('Browserless.io managed browser connected with stealth configuration');
+      } catch (connectionError: any) {
+        console.error('[PlaywrightConnection] Browserless.io connection failed:', connectionError.message);
+        logs.push(`❌ Browserless.io connection failed: ${connectionError.message}`);
+        
+        // Provide helpful debugging info for 403 errors
+        if (connectionError.message.includes('403')) {
+          const debugInfo = {
+            url: baseUrl,
+            tokenLength: process.env.BROWSERLESS_TOKEN?.length || 0,
+            fullUrl: browserlessUrl.replace(process.env.BROWSERLESS_TOKEN || '', 'TOKEN_HIDDEN')
+          };
+          console.error('[PlaywrightConnection] 403 Debug info:', debugInfo);
+          logs.push(`❌ 403 Authentication Error - Check token validity. Using URL: ${baseUrl}`);
+        }
+        
+        throw new Error(`Browserless.io connection failed: ${connectionError.message}`);
+      }
       
       // Create new page with enhanced stealth
       page = await browser.newPage();
