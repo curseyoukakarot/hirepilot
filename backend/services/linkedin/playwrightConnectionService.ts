@@ -322,7 +322,9 @@ export class PlaywrightConnectionService {
       console.log(`[PlaywrightConnection] Unblocking target profile: ${profileUrl}`);
       logs.push(`Unblocking target profile via /unblock API`);
       
-      const profileUnblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&captcha=true&timeout=60000&waitFor=button%5Baria-label%3D%22More%20actions%22%5D`;
+      const waitFor = encodeURIComponent('button[aria-label*="More"]');   // substring match
+      const profileUnblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}` +
+                                `&proxy=residential&captcha=true&timeout=90000&waitFor=${waitFor}`;
       
       let profileUnblockResponse;
       let profileRetryCount = 0;
