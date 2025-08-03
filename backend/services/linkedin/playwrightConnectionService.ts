@@ -531,11 +531,11 @@ export class PlaywrightConnectionService {
           
           if (textBasedConnect) {
             // Get a selector for this button
-            const buttonSelector = await page.evaluate((btn) => {
+            const buttonSelector = await page.evaluate((btn: Element) => {
               // Try to create a unique selector
               if (btn.id) return `#${btn.id}`;
               if (btn.className) return `button.${btn.className.split(' ')[0]}`;
-              const index = Array.from(document.querySelectorAll('button')).indexOf(btn);
+              const index = Array.from(document.querySelectorAll('button')).indexOf(btn as HTMLButtonElement);
               return `button:nth-of-type(${index + 1})`;
             }, textBasedConnect);
             
@@ -588,10 +588,10 @@ export class PlaywrightConnectionService {
             });
             
             if (textBasedMore) {
-              const buttonSelector = await page.evaluate((btn) => {
+              const buttonSelector = await page.evaluate((btn: Element) => {
                 if (btn.id) return `#${btn.id}`;
                 if (btn.className) return `button.${btn.className.split(' ')[0]}`;
-                const index = Array.from(document.querySelectorAll('button')).indexOf(btn);
+                const index = Array.from(document.querySelectorAll('button')).indexOf(btn as HTMLButtonElement);
                 return `button:nth-of-type(${index + 1})`;
               }, textBasedMore);
               
@@ -654,8 +654,8 @@ export class PlaywrightConnectionService {
               });
               
               if (textBasedDropdownConnect) {
-                const elementSelector = await page.evaluate((el) => {
-                  if (el.tagName === 'BUTTON') return `button:nth-of-type(${Array.from(document.querySelectorAll('button')).indexOf(el) + 1})`;
+                const elementSelector = await page.evaluate((el: Element) => {
+                  if (el.tagName === 'BUTTON') return `button:nth-of-type(${Array.from(document.querySelectorAll('button')).indexOf(el as HTMLButtonElement) + 1})`;
                   const button = el.closest('button');
                   if (button) return `button:nth-of-type(${Array.from(document.querySelectorAll('button')).indexOf(button) + 1})`;
                   if (el.id) return `#${el.id}`;
@@ -825,10 +825,10 @@ export class PlaywrightConnectionService {
           });
           
           if (textBasedSend) {
-            const buttonSelector = await page.evaluate((btn) => {
+            const buttonSelector = await page.evaluate((btn: Element) => {
               if (btn.id) return `#${btn.id}`;
               if (btn.className) return `button.${btn.className.split(' ')[0]}`;
-              const index = Array.from(document.querySelectorAll('button')).indexOf(btn);
+              const index = Array.from(document.querySelectorAll('button')).indexOf(btn as HTMLButtonElement);
               return `button:nth-of-type(${index + 1})`;
             }, textBasedSend);
             
