@@ -531,8 +531,8 @@ export class PlaywrightConnectionService {
    */
   private static async performConnectionFlow(page: Page, message: string, logs: string[]): Promise<{success: boolean, message: string, error?: string}> {
     try {
-      // Check if already connected first (if Message button exists but no Connect)
-      const messageButton = await page.$('button:has-text("Message")');
+      // Check if already connected first (if Message button exists but no Connect) - Fixed for Puppeteer
+      const messageButton = await page.$('button[aria-label*="Message"]');
       if (messageButton) {
         logs.push('Found Message button - checking if already connected...');
       }
@@ -540,16 +540,15 @@ export class PlaywrightConnectionService {
       let connectButton = null;
       let usedSelector = '';
       
-      // Enhanced selectors for 2025 LinkedIn UI
+      // Enhanced selectors for 2025 LinkedIn UI - Fixed for Puppeteer compatibility
       const directConnectSelectors = [
         'button[aria-label*="Invite"][aria-label*="connect"]',
         'button[aria-label*="Invite"][aria-label*="Connect"]', 
         'button[data-control-name="connect"]',
-        'button:has-text("Connect")',
-        '.pv-s-profile-actions button:has-text("Connect")',
-        '[data-tracking-control-name="connect"] button',
         'button[aria-label*="Connect"]',
-        'button.artdeco-button--secondary:has-text("Connect")'
+        '.pv-s-profile-actions button[aria-label*="Connect"]',
+        '[data-tracking-control-name="connect"] button',
+        'button.artdeco-button--secondary[aria-label*="Connect"]'
       ];
       
       // First try direct connect buttons (older UI or already visible)
@@ -564,6 +563,38 @@ export class PlaywrightConnectionService {
           }
         } catch (e) {
           // Continue to next selector
+        }
+      }
+      
+      // Fallback: use page.evaluate to find buttons by text content (Puppeteer-compatible)
+      if (!connectButton) {
+        logs.push('Trying text-based Connect button detection...');
+        try {
+          const textBasedConnect = await page.evaluate(() => {
+            const buttons = Array.from(document.querySelectorAll('button'));
+            return buttons.find(btn => {
+              const text = btn.textContent?.trim().toLowerCase() || '';
+              const ariaLabel = btn.getAttribute('aria-label')?.toLowerCase() || '';
+              return text.includes('connect') || ariaLabel.includes('connect');
+            });
+          });
+          
+          if (textBasedConnect) {
+            // Get a selector for this button
+            const buttonSelector = await page.evaluate((btn) => {
+              // Try to create a unique selector
+              if (btn.id) return `#${btn.id}`;
+              if (btn.className) return `button.${btn.className.split(' ')[0]}`;
+              const index = Array.from(document.querySelectorAll('button')).indexOf(btn);
+              return `button:nth-of-type(${index + 1})`;
+            }, textBasedConnect);
+            
+            connectButton = await page.$(buttonSelector);
+            usedSelector = 'text-based-detection';
+            logs.push(`✅ Found Connect button via text detection: ${buttonSelector}`);
+          }
+        } catch (evalError: any) {
+          logs.push(`Text-based detection failed: ${evalError.message}`);
         }
       }
       
@@ -704,9 +735,9 @@ export class PlaywrightConnectionService {
           // Wait for page to stabilize
           await page.waitForTimeout(3000);
           
-          // Try to find and click connect button again
+          // Try to find and click connect button again - Fixed for Puppeteer
           try {
-            const newConnectButton = await page.waitForSelector('button[aria-label*="Connect"], button:has-text("Connect")', { timeout: 5000 });
+            const newConnectButton = await page.waitForSelector('button[aria-label*="Connect"]', { timeout: 5000 });
             if (newConnectButton) {
               await newConnectButton.click();
               logs.push('✅ Successfully clicked Connect button after context recovery');
@@ -753,15 +784,14 @@ export class PlaywrightConnectionService {
         await page.waitForTimeout(500);
       }
       
-      // Find and click send button
+      // Find and click send button - Fixed for Puppeteer compatibility
       const sendSelectors = [
         'button[aria-label*="Send now"]',
         'button[aria-label*="Send invitation"]',
         'button[data-control-name="send_invitation"]',
         '.send-invite button[type="submit"]',
-        'button:has-text("Send invitation")',
-        'button:has-text("Send")',
-        '.artdeco-modal button[type="submit"]'
+        '.artdeco-modal button[type="submit"]',
+        'button[aria-label*="Send"]'
       ];
       
       let sendButton = null;
@@ -774,6 +804,35 @@ export class PlaywrightConnectionService {
           }
         } catch (e) {
           // Continue to next selector
+        }
+      }
+      
+      // Fallback: text-based Send button detection
+      if (!sendButton) {
+        logs.push('Trying text-based Send button detection...');
+        try {
+          const textBasedSend = await page.evaluate(() => {
+            const buttons = Array.from(document.querySelectorAll('button'));
+            return buttons.find(btn => {
+              const text = btn.textContent?.trim().toLowerCase() || '';
+              const ariaLabel = btn.getAttribute('aria-label')?.toLowerCase() || '';
+              return text.includes('send') || ariaLabel.includes('send');
+            });
+          });
+          
+          if (textBasedSend) {
+            const buttonSelector = await page.evaluate((btn) => {
+              if (btn.id) return `#${btn.id}`;
+              if (btn.className) return `button.${btn.className.split(' ')[0]}`;
+              const index = Array.from(document.querySelectorAll('button')).indexOf(btn);
+              return `button:nth-of-type(${index + 1})`;
+            }, textBasedSend);
+            
+            sendButton = await page.$(buttonSelector);
+            logs.push(`✅ Found Send button via text detection: ${buttonSelector}`);
+          }
+        } catch (evalError: any) {
+          logs.push(`Text-based Send detection failed: ${evalError.message}`);
         }
       }
       
@@ -792,10 +851,10 @@ export class PlaywrightConnectionService {
       // Wait for success/error indicators
       await page.waitForTimeout(3000);
       
-      // Check for success indicators (with context destruction handling)
+      // Check for success indicators (with context destruction handling) - Fixed for Puppeteer
       const successSelectors = [
-        '.artdeco-toast-message:has-text("Invitation sent")',
-        '.artdeco-toast:has-text("sent")',
+        '.artdeco-toast-message',
+        '.artdeco-toast',
         '[data-test-toast-message]',
         '.mercado-confirmation'
       ];
