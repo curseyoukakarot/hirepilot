@@ -133,24 +133,40 @@ export class PlaywrightConnectionService {
 
       // Step 1: Unblock the feed for warmup using /unblock API
       console.log('[PlaywrightConnection] Unblocking LinkedIn feed via /unblock API...');
-      const baseUrl = process.env.BROWSERLESS_URL || 'https://production-sfo.browserless.io';
+      // Convert WebSocket URL to HTTP URL for /unblock API
+      let baseUrl = process.env.BROWSERLESS_URL || 'https://production-sfo.browserless.io';
+      if (baseUrl.startsWith('wss://')) {
+        baseUrl = baseUrl.replace('wss://', 'https://');
+        console.log('[PlaywrightConnection] Converted WebSocket URL to HTTP for /unblock API');
+      }
       const unblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&captcha=true&timeout=120000`;
       
       console.log(`[PlaywrightConnection] Unblock URL: ${baseUrl}`);
       logs.push(`Using unblock endpoint: ${baseUrl}`);
 
-      const unblockResponse = await fetch(unblockUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url: 'https://www.linkedin.com/feed/',
-          browserWSEndpoint: true,  // Get WS for Puppeteer control
-          cookies: true,             // Return any new cookies
-          content: false,            // No need for HTML yet
-          screenshot: false,
-          ttl: 5000                  // Short TTL to save costs
-        })
-      });
+      console.log('[PlaywrightConnection] Making /unblock API request...');
+      console.log('[PlaywrightConnection] Request URL:', unblockUrl);
+      logs.push(`Making /unblock API request to: ${unblockUrl}`);
+
+      let unblockResponse;
+      try {
+        unblockResponse = await fetch(unblockUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: 'https://www.linkedin.com/feed/',
+            browserWSEndpoint: true,  // Get WS for Puppeteer control
+            cookies: true,             // Return any new cookies
+            content: false,            // No need for HTML yet
+            screenshot: false,
+            ttl: 5000                  // Short TTL to save costs
+          })
+        });
+      } catch (fetchError: any) {
+        console.error('[PlaywrightConnection] Fetch request failed:', fetchError.message);
+        logs.push(`❌ Fetch request failed: ${fetchError.message}`);
+        throw new Error(`Fetch request failed: ${fetchError.message}`);
+      }
 
       if (!unblockResponse.ok) {
         const errText = await unblockResponse.text();
