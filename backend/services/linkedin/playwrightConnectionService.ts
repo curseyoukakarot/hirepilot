@@ -139,7 +139,7 @@ export class PlaywrightConnectionService {
         baseUrl = baseUrl.replace('wss://', 'https://');
         console.log('[PlaywrightConnection] Converted WebSocket URL to HTTP for /unblock API');
       }
-      const unblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&captcha=true&timeout=60000`;
+      const unblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&captcha=true&timeout=300000&waitForTimeout=10000`; // Increased timeout to 5min, wait 10s after load
       
       console.log(`[PlaywrightConnection] Unblock URL: ${baseUrl}`);
       logs.push(`Using unblock endpoint: ${baseUrl}`);
@@ -150,7 +150,7 @@ export class PlaywrightConnectionService {
 
       // Create AbortController for fetch timeout
       const feedController = new AbortController();
-      const feedTimeoutId = setTimeout(() => feedController.abort(), 90000); // 90 second timeout
+      const feedTimeoutId = setTimeout(() => feedController.abort(), 330000); // 5.5min to be safe
       
       let unblockResponse;
       try {
@@ -164,13 +164,13 @@ export class PlaywrightConnectionService {
             cookies: true,             // Return any new cookies
             content: false,            // No need for HTML yet
             screenshot: false,
-            ttl: 15000                  // Increased TTL to allow for warmup
+            ttl: 30000                  // Increased TTL to 30s for warmup
           })
         });
       } catch (fetchError: any) {
         clearTimeout(feedTimeoutId);
         if (fetchError.name === 'AbortError') {
-          throw new Error('Feed unblock request timed out after 90 seconds');
+          throw new Error('Feed unblock request timed out after 5.5 minutes');
         }
         console.error('[PlaywrightConnection] Fetch request failed:', fetchError.message);
         logs.push(`❌ Fetch request failed: ${fetchError.message}`);
@@ -324,13 +324,15 @@ export class PlaywrightConnectionService {
       console.log(`[PlaywrightConnection] Unblocking target profile: ${profileUrl}`);
       logs.push(`Unblocking target profile via /unblock API`);
       
+      const profileUnblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&captcha=true&timeout=300000&waitForSelector=button%5Baria-label%3D%22More%20actions%22%5D&waitForTimeout=10000`; // Wait for More button
+      
       // Create AbortController for fetch timeout
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 330000); // 5.5min to be safe
       
       let profileUnblockResponse;
       try {
-        profileUnblockResponse = await fetch(unblockUrl, {
+        profileUnblockResponse = await fetch(profileUnblockUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           signal: controller.signal,
@@ -340,13 +342,13 @@ export class PlaywrightConnectionService {
             cookies: true,             // Return any new cookies
             content: false,            // No need for HTML yet
             screenshot: false,
-            ttl: 15000                  // Increased TTL for profile interactions
+            ttl: 30000                  // Increased TTL for profile interactions
           })
         });
       } catch (fetchError: any) {
         clearTimeout(timeoutId);
         if (fetchError.name === 'AbortError') {
-          throw new Error('Profile unblock request timed out after 90 seconds');
+          throw new Error('Profile unblock request timed out after 5.5 minutes');
         }
         throw new Error(`Profile unblock fetch failed: ${fetchError.message}`);
       } finally {
@@ -412,10 +414,9 @@ export class PlaywrightConnectionService {
       });
       await page.waitForTimeout(1000);
       
-      // More aggressive scrolling to find More button - LinkedIn 2025 UI change
+      // More aggressive scrolling to reveal More button
       await page.evaluate(() => {
-        // Scroll down more to find the More button
-        window.scrollTo(0, 600 + Math.random() * 300);
+        window.scrollTo(0, 600 + Math.random() * 300); // Scroll further
       });
       await page.waitForTimeout(1500);
       
