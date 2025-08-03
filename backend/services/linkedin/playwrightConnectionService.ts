@@ -1,4 +1,3 @@
-import { Browserless } from '@browserless.io/browserless';
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import * as crypto from 'crypto';
@@ -124,7 +123,7 @@ export class PlaywrightConnectionService {
 
     
     try {
-      // Initialize Browserless.io connection for enhanced anti-detection
+      // Connect to Browserless.io via WebSocket for enhanced anti-detection
       console.log('[PlaywrightConnection] Connecting to Browserless.io managed browser...');
       logs.push('Connecting to Browserless.io managed browser with enterprise anti-detection');
       
@@ -132,15 +131,16 @@ export class PlaywrightConnectionService {
         throw new Error('BROWSERLESS_TOKEN environment variable is required');
       }
 
-      const browserless = new Browserless({
-        token: process.env.BROWSERLESS_TOKEN,
-        timeout: 120000, // 2 minutes timeout for LinkedIn's delays
+      // Connect to browserless.io using WebSocket endpoint with stealth
+      const browserlessUrl = `wss://chrome.browserless.io?token=${process.env.BROWSERLESS_TOKEN}&stealth&blockAds`;
+      
+      browser = await puppeteer.connect({
+        browserWSEndpoint: browserlessUrl,
+        defaultViewport: { width: 1920, height: 1080 }
       });
-
-      // Launch managed browser through browserless.io (includes stealth + residential proxies)
-      browser = await browserless.browser();
-      console.log('[PlaywrightConnection] Browserless.io browser launched successfully');
-      logs.push('Browserless.io managed browser launched with stealth configuration');
+      
+      console.log('[PlaywrightConnection] Browserless.io browser connected successfully');
+      logs.push('Browserless.io managed browser connected with stealth configuration');
       
       // Create new page with enhanced stealth
       page = await browser.newPage();
@@ -252,35 +252,7 @@ export class PlaywrightConnectionService {
         }
       });
       
-      // Add comprehensive stealth script
-      await page.addInitScript(() => {
-        // Remove webdriver traces
-        Object.defineProperty(navigator, 'webdriver', {
-          get: () => undefined,
-        });
-        
-        // Mock realistic browser properties
-        Object.defineProperty(navigator, 'languages', {
-          get: () => ['en-US', 'en'],
-        });
-        
-        Object.defineProperty(navigator, 'plugins', {
-          get: () => [1, 2, 3, 4, 5],
-        });
-        
-        // Mock Chrome runtime
-        (window as any).chrome = {
-          runtime: {}
-        };
-        
-        // Override permission query
-        const originalQuery = window.navigator.permissions.query;
-        window.navigator.permissions.query = (parameters) => (
-          parameters.name === 'notifications' ?
-            Promise.resolve({ state: 'denied' } as PermissionStatus) :
-            originalQuery(parameters)
-        );
-      });
+      // Browserless.io already provides comprehensive stealth capabilities
       
       // Step 1: Enhanced session warmup with longer timeouts for LinkedIn 2025 anti-bot
       console.log('[PlaywrightConnection] Warming up LinkedIn session with enhanced timeouts...');
@@ -759,7 +731,7 @@ export class PlaywrightConnectionService {
           const successElement = await page.waitForSelector(selector, { timeout: 2000 });
           if (successElement) {
             try {
-              const text = await successElement.textContent();
+              const text = await successElement.evaluate(el => el.textContent);
               if (text && (text.includes('sent') || text.includes('Invitation'))) {
                 return {
                   success: true,
@@ -792,7 +764,7 @@ export class PlaywrightConnectionService {
         try {
           const errorElement = await page.waitForSelector(selector, { timeout: 1000 });
           if (errorElement) {
-            const errorText = await errorElement.textContent();
+            const errorText = await errorElement.evaluate(el => el.textContent);
             return {
               success: false,
               message: 'LinkedIn returned an error',

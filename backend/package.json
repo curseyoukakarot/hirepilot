@@ -32,7 +32,6 @@
         "skipDownload": true
     },
     "dependencies": {
-        "@browserless.io/browserless": "2.31.1",
         "@microsoft/microsoft-graph-client": "^3.0.7",
         "@modelcontextprotocol/sdk": "^1.13.1",
         "@prisma/client": "6.12.0",
