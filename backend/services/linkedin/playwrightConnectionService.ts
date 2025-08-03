@@ -148,24 +148,35 @@ export class PlaywrightConnectionService {
       console.log('[PlaywrightConnection] Request URL:', unblockUrl);
       logs.push(`Making /unblock API request to: ${unblockUrl}`);
 
+      // Create AbortController for fetch timeout
+      const feedController = new AbortController();
+      const feedTimeoutId = setTimeout(() => feedController.abort(), 90000); // 90 second timeout
+      
       let unblockResponse;
       try {
         unblockResponse = await fetch(unblockUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal: feedController.signal,
           body: JSON.stringify({
             url: 'https://www.linkedin.com/feed/',
             browserWSEndpoint: true,  // Get WS for Puppeteer control
             cookies: true,             // Return any new cookies
             content: false,            // No need for HTML yet
             screenshot: false,
-            ttl: 10000                  // Increased TTL to allow for warmup
+            ttl: 15000                  // Increased TTL to allow for warmup
           })
         });
       } catch (fetchError: any) {
+        clearTimeout(feedTimeoutId);
+        if (fetchError.name === 'AbortError') {
+          throw new Error('Feed unblock request timed out after 90 seconds');
+        }
         console.error('[PlaywrightConnection] Fetch request failed:', fetchError.message);
         logs.push(`❌ Fetch request failed: ${fetchError.message}`);
         throw new Error(`Fetch request failed: ${fetchError.message}`);
+      } finally {
+        clearTimeout(feedTimeoutId);
       }
 
       if (!unblockResponse.ok) {
@@ -306,28 +317,47 @@ export class PlaywrightConnectionService {
         throw new Error('Session invalid - redirected to login during warmup');
       }
       
+      // Small delay between unblock calls to prevent rate limiting
+      await page.waitForTimeout(2000);
+      
       // Step 2: Unblock the target profile using second /unblock API call
       console.log(`[PlaywrightConnection] Unblocking target profile: ${profileUrl}`);
       logs.push(`Unblocking target profile via /unblock API`);
       
-      const profileUnblockResponse = await fetch(unblockUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url: profileUrl,
-          browserWSEndpoint: true,  // Get WS for Puppeteer control
-          cookies: true,             // Return any new cookies
-          content: false,            // No need for HTML yet
-          screenshot: false,
-          ttl: 10000                  // Increased TTL for profile interactions
-        })
-      });
+      // Create AbortController for fetch timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 second timeout
+      
+      let profileUnblockResponse;
+      try {
+        profileUnblockResponse = await fetch(unblockUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({
+            url: profileUrl,
+            browserWSEndpoint: true,  // Get WS for Puppeteer control
+            cookies: true,             // Return any new cookies
+            content: false,            // No need for HTML yet
+            screenshot: false,
+            ttl: 15000                  // Increased TTL for profile interactions
+          })
+        });
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        if (fetchError.name === 'AbortError') {
+          throw new Error('Profile unblock request timed out after 90 seconds');
+        }
+        throw new Error(`Profile unblock fetch failed: ${fetchError.message}`);
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
       if (!profileUnblockResponse.ok) {
         const errText = await profileUnblockResponse.text();
         console.error('[PlaywrightConnection] Profile unblock failed:', errText);
         logs.push(`❌ Profile unblock failed: ${profileUnblockResponse.status} - ${errText}`);
-        throw new Error(`Profile unblock failed: ${await profileUnblockResponse.text()}`);
+        throw new Error(`Profile unblock failed: ${profileUnblockResponse.status} - ${errText}`);
       }
 
       const profileUnblockResult = await profileUnblockResponse.json();
