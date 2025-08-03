@@ -139,7 +139,7 @@ export class PlaywrightConnectionService {
         baseUrl = baseUrl.replace('wss://', 'https://');
         console.log('[PlaywrightConnection] Converted WebSocket URL to HTTP for /unblock API');
       }
-      const unblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&captcha=true&timeout=60000&waitForTimeout=5000`; // 1min timeout, 5s wait (in milliseconds)
+      const unblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&captcha=true&js_render=true&timeout=60000`; // Removed waitForTimeout
       
       console.log(`[PlaywrightConnection] Unblock URL: ${baseUrl}`);
       logs.push(`Using unblock endpoint: ${baseUrl}`);
@@ -150,9 +150,9 @@ export class PlaywrightConnectionService {
 
       // Add retry logic for 408 timeouts (up to 3 attempts)
       let unblockResponse;
-      let feedRetryCount = 0;
-      const feedMaxRetries = 3;
-      while (!unblockResponse && feedRetryCount < feedMaxRetries) {
+      let retryCount = 0;
+      const maxRetries = 3;
+      while (!unblockResponse && retryCount < maxRetries) {
         try {
           unblockResponse = await fetch(unblockUrl, {
             method: 'POST',
@@ -167,10 +167,10 @@ export class PlaywrightConnectionService {
             })
           });
         } catch (fetchError: any) {
-          console.error('[PlaywrightConnection] Feed unblock fetch failed on attempt ' + (feedRetryCount + 1) + ':', fetchError.message);
-          logs.push(`❌ Feed unblock fetch failed on attempt ${feedRetryCount + 1}: ${fetchError.message}`);
-          feedRetryCount++;
-          if (feedRetryCount >= feedMaxRetries) {
+          console.error('[PlaywrightConnection] Feed unblock fetch failed on attempt ' + (retryCount + 1) + ':', fetchError.message);
+          logs.push(`❌ Feed unblock fetch failed on attempt ${retryCount + 1}: ${fetchError.message}`);
+          retryCount++;
+          if (retryCount >= maxRetries) {
             throw fetchError;
           }
           await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5s before retry
@@ -322,7 +322,7 @@ export class PlaywrightConnectionService {
       console.log(`[PlaywrightConnection] Unblocking target profile: ${profileUrl}`);
       logs.push(`Unblocking target profile via /unblock API`);
       
-      const profileUnblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&captcha=true&timeout=60000&waitForSelector=button%5Baria-label%3D%22More%20actions%22%5D&waitForTimeout=5000`; // 1min timeout, 5s wait (in milliseconds)
+      const profileUnblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&captcha=true&js_render=true&timeout=60000`; // Removed invalid waitForTimeout
       
       let profileUnblockResponse;
       let profileRetryCount = 0;
