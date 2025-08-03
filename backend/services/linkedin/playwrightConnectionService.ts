@@ -215,7 +215,7 @@ export class PlaywrightConnectionService {
           path: '/',
           httpOnly: false, // Most LinkedIn cookies are not httpOnly when set via JS
           secure: true,    // LinkedIn uses HTTPS
-          sameSite: 'Lax'  // Appropriate for LinkedIn
+          sameSite: 'Lax' as 'Strict' | 'Lax' | 'None'  // Appropriate for LinkedIn
         };
       }).filter(c => c.name && c.value && c.name.length > 0 && c.value.length > 0); // Enhanced filtering
       
