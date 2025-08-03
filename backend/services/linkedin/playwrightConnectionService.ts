@@ -139,7 +139,7 @@ export class PlaywrightConnectionService {
         baseUrl = baseUrl.replace('wss://', 'https://');
         console.log('[PlaywrightConnection] Converted WebSocket URL to HTTP for /unblock API');
       }
-      const unblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&captcha=true&timeout=60000`; // Removed js_render and waitForTimeout
+      const unblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&captcha=true&timeout=60000`;
       
       console.log(`[PlaywrightConnection] Unblock URL: ${baseUrl}`);
       logs.push(`Using unblock endpoint: ${baseUrl}`);
@@ -163,7 +163,7 @@ export class PlaywrightConnectionService {
               cookies: true,             // Return any new cookies
               content: false,            // No need for HTML yet
               screenshot: false,
-              ttl: 30000                  // Increased TTL to 30s for warmup
+              ttl: 60000                  // Increased TTL to 60s
             })
           });
         } catch (fetchError: any) {
@@ -322,7 +322,7 @@ export class PlaywrightConnectionService {
       console.log(`[PlaywrightConnection] Unblocking target profile: ${profileUrl}`);
       logs.push(`Unblocking target profile via /unblock API`);
       
-      const profileUnblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&captcha=true&timeout=60000`; // Removed js_render and waitForTimeout
+      const profileUnblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&captcha=true&timeout=60000&waitFor=button%5Baria-label%3D%22More%20actions%22%5D`;
       
       let profileUnblockResponse;
       let profileRetryCount = 0;
@@ -338,7 +338,7 @@ export class PlaywrightConnectionService {
               cookies: true,             // Return any new cookies
               content: false,            // No need for HTML yet
               screenshot: false,
-              ttl: 30000                  // Increased TTL for profile interactions
+              ttl: 60000                  // Increased TTL to 60s
             })
           });
         } catch (fetchError: any) {
@@ -600,7 +600,7 @@ export class PlaywrightConnectionService {
         // Enhanced debugging: log all visible buttons before searching for More
         try {
           const allButtonsInfo = await page.evaluate(() => {
-            const buttons = Array.from(document.querySelectorAll('button'));
+            const buttons = Array.from(document.querySelectorAll('button, [role="button"]'));
             return buttons.slice(0, 10).map(btn => {
               const text = btn.textContent?.trim() || '';
               const ariaLabel = btn.getAttribute('aria-label') || '';
@@ -649,7 +649,7 @@ export class PlaywrightConnectionService {
           logs.push('Trying text-based More button detection...');
           try {
             const textBasedMore = await page.evaluate(() => {
-              const buttons = Array.from(document.querySelectorAll('button'));
+              const buttons = Array.from(document.querySelectorAll('button, [role="button"]'));
               return buttons.find(btn => {
                 const text = btn.textContent?.trim().toLowerCase() || '';
                 const ariaLabel = btn.getAttribute('aria-label')?.toLowerCase() || '';
@@ -660,9 +660,9 @@ export class PlaywrightConnectionService {
             if (textBasedMore) {
               const buttonSelector = await page.evaluate((btn: Element) => {
                 if (btn.id) return `#${btn.id}`;
-                if (btn.className) return `button.${btn.className.split(' ')[0]}`;
-                const index = Array.from(document.querySelectorAll('button')).indexOf(btn as HTMLButtonElement);
-                return `button:nth-of-type(${index + 1})`;
+                if (btn.className) return `.${btn.className.split(' ')[0]}`;
+                const index = Array.from(document.querySelectorAll('button, [role="button"]')).indexOf(btn as HTMLButtonElement);
+                return `button:nth-of-type(${index + 1}), [role="button"]:nth-of-type(${index + 1})`;
               }, textBasedMore);
               
               moreButton = await page.$(buttonSelector);
@@ -718,7 +718,7 @@ export class PlaywrightConnectionService {
                 return elements.find(el => {
                   const text = el.textContent?.trim().toLowerCase() || '';
                   const ariaLabel = el.getAttribute?.('aria-label')?.toLowerCase() || '';
-                  return (text.includes('connect') || ariaLabel.includes('connect')) && 
+                  return (text.includes('connect') || ariaLabel.includes('connect') || ariaLabel.includes('invite')) && 
                          (el.tagName === 'BUTTON' || el.closest('button') || el.getAttribute('role') === 'button');
                 });
               });
@@ -761,7 +761,7 @@ export class PlaywrightConnectionService {
           
           // Handle potential context destruction during button analysis
           try {
-            const buttonInfo = await page.$$eval('button', buttons => 
+            const buttonInfo = await page.$$eval('button, [role="button"]', buttons => 
               buttons.slice(0, 10).map(b => b.textContent?.trim() || b.getAttribute('aria-label') || 'unnamed').join(', ')
             );
             logs.push('Available buttons: ' + buttonInfo);
@@ -770,7 +770,7 @@ export class PlaywrightConnectionService {
               logs.push('⚠️ Page context destroyed during button analysis - LinkedIn SPA navigation detected');
               // Attempt to wait and retry
               await page.waitForTimeout(2000);
-              const retryButtonInfo = await page.$$eval('button', buttons => 
+              const retryButtonInfo = await page.$$eval('button, [role="button"]', buttons => 
                 buttons.slice(0, 5).map(b => b.textContent?.trim() || 'unnamed').join(', ')
               ).catch(() => 'Unable to analyze buttons due to context issues');
               logs.push('Available buttons (retry): ' + retryButtonInfo);
