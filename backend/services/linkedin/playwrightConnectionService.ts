@@ -159,7 +159,7 @@ export class PlaywrightConnectionService {
             cookies: true,             // Return any new cookies
             content: false,            // No need for HTML yet
             screenshot: false,
-            ttl: 5000                  // Short TTL to save costs
+            ttl: 10000                  // Increased TTL to allow for warmup
           })
         });
       } catch (fetchError: any) {
@@ -319,7 +319,7 @@ export class PlaywrightConnectionService {
           cookies: true,             // Return any new cookies
           content: false,            // No need for HTML yet
           screenshot: false,
-          ttl: 5000                  // Short TTL to save costs
+          ttl: 10000                  // Increased TTL for profile interactions
         })
       });
 
@@ -552,16 +552,13 @@ export class PlaywrightConnectionService {
       if (!connectButton) {
         logs.push('No direct Connect button found, trying "More" dropdown...');
         
-        // Enhanced More button selectors for 2025
+        // Enhanced More button selectors for 2025 - Fixed for Puppeteer
         const moreSelectors = [
           'button[aria-label="More actions"]',
           'button[aria-label*="More"]',
-          'button:has-text("More")',
-          '.pv-s-profile-actions button:has-text("More")',
-          'button.artdeco-button:has-text("More")',
           'button.artdeco-dropdown-trigger',
           '[data-control-name="overflow_menu"]',
-          'button[aria-expanded="false"]:has-text("More")'
+          'button[aria-expanded="false"]'
         ];
         
         let moreButton = null;
@@ -574,6 +571,35 @@ export class PlaywrightConnectionService {
             }
           } catch (e) {
             // Continue to next selector
+          }
+        }
+        
+        // Fallback: text-based More button detection
+        if (!moreButton) {
+          logs.push('Trying text-based More button detection...');
+          try {
+            const textBasedMore = await page.evaluate(() => {
+              const buttons = Array.from(document.querySelectorAll('button'));
+              return buttons.find(btn => {
+                const text = btn.textContent?.trim().toLowerCase() || '';
+                const ariaLabel = btn.getAttribute('aria-label')?.toLowerCase() || '';
+                return text.includes('more') || ariaLabel.includes('more');
+              });
+            });
+            
+            if (textBasedMore) {
+              const buttonSelector = await page.evaluate((btn) => {
+                if (btn.id) return `#${btn.id}`;
+                if (btn.className) return `button.${btn.className.split(' ')[0]}`;
+                const index = Array.from(document.querySelectorAll('button')).indexOf(btn);
+                return `button:nth-of-type(${index + 1})`;
+              }, textBasedMore);
+              
+              moreButton = await page.$(buttonSelector);
+              logs.push(`✅ Found More button via text detection: ${buttonSelector}`);
+            }
+          } catch (evalError: any) {
+            logs.push(`Text-based More detection failed: ${evalError.message}`);
           }
         }
         
@@ -590,18 +616,14 @@ export class PlaywrightConnectionService {
           // Wait for dropdown to appear with animation
           await page.waitForTimeout(800 + Math.random() * 400);
           
-          // Enhanced dropdown selectors for 2025
+          // Enhanced dropdown selectors for 2025 - Fixed for Puppeteer
           const dropdownConnectSelectors = [
-            'div[role="button"]:has-text("Connect")',
             'li[aria-label*="Invite"]',
-            'span:has-text("Connect")',
-            '[role="menu"] button:has-text("Connect")',
-            '.artdeco-dropdown__content button:has-text("Connect")',
             '[data-control-name="connect"]',
             'button[aria-label*="connect" i]:visible',
-            '.pv-s-profile-actions__overflow-menu button:has-text("Connect")',
-            'ul[role="menu"] li button:has-text("Connect")',
-            'div[role="menuitem"]:has-text("Connect")'
+            'button[aria-label*="Connect"]',
+            '[role="menu"] button[aria-label*="Connect"]',
+            '.artdeco-dropdown__content button[aria-label*="Connect"]'
           ];
           
           for (const selector of dropdownConnectSelectors) {
@@ -614,6 +636,38 @@ export class PlaywrightConnectionService {
               }
             } catch (e) {
               // Continue to next selector
+            }
+          }
+          
+          // Fallback: text-based dropdown Connect detection
+          if (!connectButton) {
+            logs.push('Trying text-based dropdown Connect detection...');
+            try {
+              const textBasedDropdownConnect = await page.evaluate(() => {
+                const elements = Array.from(document.querySelectorAll('[role="menu"] *, .artdeco-dropdown__content *, li *, div[role="menuitem"] *'));
+                return elements.find(el => {
+                  const text = el.textContent?.trim().toLowerCase() || '';
+                  const ariaLabel = el.getAttribute?.('aria-label')?.toLowerCase() || '';
+                  return (text.includes('connect') || ariaLabel.includes('connect')) && 
+                         (el.tagName === 'BUTTON' || el.closest('button') || el.getAttribute('role') === 'button');
+                });
+              });
+              
+              if (textBasedDropdownConnect) {
+                const elementSelector = await page.evaluate((el) => {
+                  if (el.tagName === 'BUTTON') return `button:nth-of-type(${Array.from(document.querySelectorAll('button')).indexOf(el) + 1})`;
+                  const button = el.closest('button');
+                  if (button) return `button:nth-of-type(${Array.from(document.querySelectorAll('button')).indexOf(button) + 1})`;
+                  if (el.id) return `#${el.id}`;
+                  return `*:nth-child(${Array.from(el.parentNode?.children || []).indexOf(el) + 1})`;
+                }, textBasedDropdownConnect);
+                
+                connectButton = await page.$(elementSelector);
+                usedSelector = `More dropdown -> text-based-detection`;
+                logs.push(`✅ Found Connect in dropdown via text detection: ${elementSelector}`);
+              }
+            } catch (evalError: any) {
+              logs.push(`Text-based dropdown Connect detection failed: ${evalError.message}`);
             }
           }
         }
