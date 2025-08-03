@@ -131,42 +131,50 @@ export class PlaywrightConnectionService {
         throw new Error('BROWSERLESS_TOKEN environment variable is required');
       }
 
-      // Simplified approach: Single /unblock call directly to the profile
-      console.log('[PlaywrightConnection] Using single /unblock API call directly to profile...');
+      // Step 1: Unblock the feed for warmup using /unblock API with increased timeout
+      console.log('[PlaywrightConnection] Unblocking LinkedIn feed via /unblock API...');
       // Convert WebSocket URL to HTTP URL for /unblock API
       let baseUrl = process.env.BROWSERLESS_URL || 'https://production-sfo.browserless.io';
       if (baseUrl.startsWith('wss://')) {
         baseUrl = baseUrl.replace('wss://', 'https://');
         console.log('[PlaywrightConnection] Converted WebSocket URL to HTTP for /unblock API');
       }
-      const unblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&timeout=60`; // Minimal - just 60 seconds
+      const unblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&captcha=true&js_render=true&timeout=300000&waitForTimeout=10000`; // Increased to 5min
       
       console.log(`[PlaywrightConnection] Unblock URL: ${baseUrl}`);
       logs.push(`Using unblock endpoint: ${baseUrl}`);
 
-      console.log('[PlaywrightConnection] Making /unblock API request directly to profile...');
+      console.log('[PlaywrightConnection] Making /unblock API request...');
       console.log('[PlaywrightConnection] Request URL:', unblockUrl);
       logs.push(`Making /unblock API request to: ${unblockUrl}`);
 
-      // Single unblock call directly to the profile
+      // Add retry logic for 408 timeouts (up to 3 attempts)
       let unblockResponse;
-      try {
-        unblockResponse = await fetch(unblockUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            url: profileUrl, // Go directly to the profile
-            browserWSEndpoint: true,  // Get WS for Puppeteer control
-            cookies: true,             // Return any new cookies
-            content: false,            // No need for HTML yet
-            screenshot: false,
-            ttl: 10000                  // Reduced TTL to 10s for simplicity
-          })
-        });
-      } catch (fetchError: any) {
-        console.error('[PlaywrightConnection] Unblock fetch failed:', fetchError.message);
-        logs.push(`❌ Unblock fetch failed: ${fetchError.message}`);
-        throw fetchError;
+      let feedRetryCount = 0;
+      const feedMaxRetries = 3;
+      while (!unblockResponse && feedRetryCount < feedMaxRetries) {
+        try {
+          unblockResponse = await fetch(unblockUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              url: 'https://www.linkedin.com/feed/',
+              browserWSEndpoint: true,  // Get WS for Puppeteer control
+              cookies: true,             // Return any new cookies
+              content: false,            // No need for HTML yet
+              screenshot: false,
+              ttl: 30000                  // Increased TTL to 30s for warmup
+            })
+          });
+        } catch (fetchError: any) {
+          console.error('[PlaywrightConnection] Feed unblock fetch failed on attempt ' + (feedRetryCount + 1) + ':', fetchError.message);
+          logs.push(`❌ Feed unblock fetch failed on attempt ${feedRetryCount + 1}: ${fetchError.message}`);
+          feedRetryCount++;
+          if (feedRetryCount >= feedMaxRetries) {
+            throw fetchError;
+          }
+          await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5s before retry
+        }
       }
 
       if (!unblockResponse.ok) {
@@ -184,7 +192,7 @@ export class PlaywrightConnectionService {
         throw new Error('No browserWSEndpoint from /unblock API');
       }
 
-      logs.push('✅ Unblocked profile directly - got clean browser endpoint');
+      logs.push('✅ Unblocked feed - got clean browser endpoint');
       console.log('[PlaywrightConnection] Got unblocked browserWSEndpoint:', browserWSEndpoint.substring(0, 50) + '...');
 
       // Connect Puppeteer to the unblocked endpoint
@@ -202,43 +210,189 @@ export class PlaywrightConnectionService {
         throw new Error(`Failed to connect to unblocked endpoint: ${connectionError.message}`);
       }
       
-      // Create new page with minimal setup
+      // Create new page with enhanced stealth
       page = await browser.newPage();
       
-      // Simple user agent
-      await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36');
+      // Enhanced user agents rotation (2025 realistic)
+      const userAgents = [
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+      ];
+      const randomUA = userAgents[Math.floor(Math.random() * userAgents.length)];
       
-      logs.push('Browser configured with minimal stealth settings');
+      // Set enhanced browser properties
+      await page.setUserAgent(randomUA);
+      await page.setViewport({ width: 1920, height: 1080 });
       
-      // Parse cookies for injection
-      console.log('[PlaywrightConnection] Parsing cookies...');
+      // Add extra headers for realism
+      await page.setExtraHTTPHeaders({
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Upgrade-Insecure-Requests': '1'
+      });
+
+      logs.push(`Browserless browser configured with stealth UA: ${randomUA.substring(0, 50)}...`);
+      
+      // Parse cookies once for use in both unblocked sessions
+      console.log('[PlaywrightConnection] Parsing cookies for unblocked sessions...');
       console.log('- Decrypted cookie length:', decryptedCookie.length);
+      console.log('- First 200 chars of decrypted cookie:', decryptedCookie.substring(0, 200));
       
       const cookies = this.parseCookiesForPlaywright(decryptedCookie);
       console.log('[PlaywrightConnection] Parsed cookies for Puppeteer:', cookies.length);
-      logs.push(`Parsed ${cookies.length} LinkedIn cookies`);
+      console.log('[PlaywrightConnection] Cookie names:', cookies.map(c => c.name).join(', '));
+      logs.push(`Parsed ${cookies.length} LinkedIn cookies for unblocked sessions`);
       
-      // Simple redirect monitoring
+      // Enhanced redirect loop detection and anti-bot monitoring
+      let redirectCount = 0;
+      const redirectLoop = new Set<string>();
       page.on('response', response => {
         if (response.status() >= 300 && response.status() < 400) {
+          redirectCount++;
           const location = response.headers()['location'] || 'unknown';
-          console.log(`[PlaywrightConnection] Redirect: ${response.status()} → ${location}`);
+          
+          console.log(`[PlaywrightConnection] Redirect ${redirectCount}: ${response.status()} from ${response.url()} to ${location}`);
           logs.push(`Redirect: ${response.status()} → ${location}`);
+          
+          // Detect redirect loops (same URL redirecting multiple times)
+          if (redirectLoop.has(location)) {
+            console.warn(`[PlaywrightConnection] ⚠️ Redirect loop detected to: ${location}`);
+            logs.push(`⚠️ Redirect loop detected to: ${location}`);
+          }
+          redirectLoop.add(location);
+          
+          // Break infinite redirect loops (LinkedIn anti-bot behavior)
+          if (redirectCount > 15) {
+            console.error(`[PlaywrightConnection] ❌ Breaking redirect loop after ${redirectCount} redirects - LinkedIn bot detection active`);
+            logs.push(`❌ Breaking redirect loop after ${redirectCount} redirects - LinkedIn bot detection active`);
+          }
+        }
+        if (response.url().includes('challenge') || response.url().includes('checkpoint')) {
+          console.warn(`[PlaywrightConnection] Challenge/Checkpoint detected: ${response.url()}`);
+          logs.push(`⚠️ LinkedIn challenge detected: ${response.url()}`);
         }
       });
       
+      // Session already unblocked via /unblock API - proceed with cookie injection and warmup
+      
       // Inject cookies into the unblocked session
-      console.log('[PlaywrightConnection] Injecting cookies...');
+      console.log('[PlaywrightConnection] Injecting cookies into unblocked session...');
+      await page.goto('https://www.linkedin.com', { waitUntil: 'domcontentloaded', timeout: 30000 }); // Enable domain
+      await page.setCookie(...cookies);
+      logs.push('Cookies injected into unblocked session');
+      
+      // Step 1: Warmup via unblocked feed (already accessible without redirects)
+      console.log('[PlaywrightConnection] Warming up via unblocked LinkedIn feed...');
+      logs.push('Warming up session via unblocked LinkedIn feed');
+      
+      await page.goto('https://www.linkedin.com/feed/', { 
+        waitUntil: 'networkidle0',
+        timeout: 90000 // The unblocked session should load cleanly
+      });
+      logs.push('Unblocked feed navigation successful');
+      
+      // Enhanced human-like behavior on feed
+      await page.waitForTimeout(3000 + Math.random() * 2000); // Extended delay 3-5s
+      
+      // Multiple human-like interactions
+      await page.evaluate(() => {
+        // Random scroll pattern
+        window.scrollTo(0, 150 + Math.random() * 300);
+        setTimeout(() => window.scrollTo(0, 50 + Math.random() * 100), 500);
+      });
+      
+      await page.waitForTimeout(1000 + Math.random() * 1000); // Additional delay
+      
+      const feedUrl = page.url();
+      if (feedUrl.includes('/login') || feedUrl.includes('/challenge')) {
+        throw new Error('Session invalid - redirected to login during warmup');
+      }
+      
+      // Small delay between unblock calls to prevent rate limiting
+      await page.waitForTimeout(2000);
+      
+      // Step 2: Unblock the target profile using second /unblock API call with retry
+      console.log(`[PlaywrightConnection] Unblocking target profile: ${profileUrl}`);
+      logs.push(`Unblocking target profile via /unblock API`);
+      
+      const profileUnblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&captcha=true&js_render=true&timeout=300000&waitForSelector=button%5Baria-label%3D%22More%20actions%22%5D&waitForTimeout=5000`; // Increased to 5min
+      
+      let profileUnblockResponse;
+      let profileRetryCount = 0;
+      const profileMaxRetries = 3;
+      while (!profileUnblockResponse && profileRetryCount < profileMaxRetries) {
+        try {
+          profileUnblockResponse = await fetch(profileUnblockUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              url: profileUrl,
+              browserWSEndpoint: true,  // Get WS for Puppeteer control
+              cookies: true,             // Return any new cookies
+              content: false,            // No need for HTML yet
+              screenshot: false,
+              ttl: 30000                  // Increased TTL for profile interactions
+            })
+          });
+        } catch (fetchError: any) {
+          console.error('[PlaywrightConnection] Profile unblock fetch failed on attempt ' + (profileRetryCount + 1) + ':', fetchError.message);
+          logs.push(`❌ Profile unblock fetch failed on attempt ${profileRetryCount + 1}: ${fetchError.message}`);
+          profileRetryCount++;
+          if (profileRetryCount >= profileMaxRetries) {
+            throw fetchError;
+          }
+          await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5s before retry
+        }
+      }
+
+      if (!profileUnblockResponse.ok) {
+        const errText = await profileUnblockResponse.text();
+        console.error('[PlaywrightConnection] Profile unblock failed:', errText);
+        logs.push(`❌ Profile unblock failed: ${profileUnblockResponse.status} - ${errText}`);
+        throw new Error(`Profile unblock failed: ${profileUnblockResponse.status} - ${errText}`);
+      }
+
+      const profileUnblockResult = await profileUnblockResponse.json();
+      const { browserWSEndpoint: profileEndpoint } = profileUnblockResult;
+      
+      if (!profileEndpoint) {
+        console.error('[PlaywrightConnection] No profile browserWSEndpoint from /unblock:', profileUnblockResult);
+        throw new Error('No profile browserWSEndpoint from /unblock API');
+      }
+
+      logs.push('✅ Unblocked profile - got clean browser endpoint');
+      console.log('[PlaywrightConnection] Got profile unblocked browserWSEndpoint:', profileEndpoint.substring(0, 50) + '...');
+
+      // Close previous browser, connect to new one for profile
+      await browser.close();
+      browser = await puppeteer.connect({ 
+        browserWSEndpoint: profileEndpoint,
+        defaultViewport: { width: 1920, height: 1080 }
+      });
+
+      page = await browser.newPage();
+      
+      // Re-inject cookies into the new unblocked profile session
       await page.goto('https://www.linkedin.com', { waitUntil: 'domcontentloaded', timeout: 30000 });
       await page.setCookie(...cookies);
-      logs.push('Cookies injected');
+      logs.push('Cookies re-injected into profile session');
       
-      // Navigate to the unblocked profile (should already be unblocked)
+      // Set referer to look more natural  
+      await page.setExtraHTTPHeaders({ 'Referer': 'https://www.linkedin.com/feed/' });
+      
+      // Navigate to the unblocked profile (should load without redirects)
       await page.goto(profileUrl, { 
-        waitUntil: 'domcontentloaded',
-        timeout: 60000 
+        waitUntil: 'networkidle0',
+        timeout: 120000 // The unblocked profile should load cleanly
       });
-      logs.push('Profile navigation successful');
+      logs.push('Unblocked profile navigation successful');
       
       // Check for auth redirects
       const currentUrl = page.url();
@@ -246,21 +400,35 @@ export class PlaywrightConnectionService {
         throw new Error(`Redirected to ${currentUrl} - profile requires authentication or blocked by LinkedIn`);
       }
       
-      // Simple wait for profile to load
+      // Step 3: Human-like behavior on profile page
       console.log('[PlaywrightConnection] Waiting for profile to load...');
-      await page.waitForTimeout(2000); // Simple 2-second wait
+      await page.waitForTimeout(1000 + Math.random() * 1000); // Random delay 1-2s
       
-      // Simple scrolling to find buttons
+      // Enhanced scrolling to find buttons that appear lower on the page
       await page.evaluate(() => {
-        window.scrollTo(0, 400); // Simple scroll down
+        // First scroll to the profile actions area
+        window.scrollTo(0, 300 + Math.random() * 200);
       });
       await page.waitForTimeout(1000);
+      
+      // More aggressive scrolling to reveal More button
+      await page.evaluate(() => {
+        window.scrollTo(0, 600 + Math.random() * 300); // Scroll further
+      });
+      await page.waitForTimeout(1500);
+      
+      // Additional scroll if needed to reveal hidden buttons
+      await page.evaluate(() => {
+        window.scrollTo(0, document.body.scrollHeight * 0.3); // Scroll to 30% of page
+      });
+      await page.waitForTimeout(1000);
+      await page.waitForTimeout(500 + Math.random() * 500); // Random delay
       
       // Take screenshot for debugging
       const initialScreenshotBuffer = await page.screenshot();
       screenshots.push(initialScreenshotBuffer.toString('base64'));
       
-      // Attempt to find and click connect button
+      // Step 4: Attempt to find and click connect button
       const connectionResult = await this.performConnectionFlow(page, message, logs);
       
       if (connectionResult.success) {
