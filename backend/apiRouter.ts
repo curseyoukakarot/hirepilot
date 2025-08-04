@@ -43,6 +43,8 @@ import linkedinSend from './api/linkedinSend';
 import linkedinDailyCount from './api/linkedinDailyCount';
 import puppetLinkedInRequest from './api/linkedin/puppetRequest';
 import playwrightLinkedInRequest from './api/linkedin/playwrightRequest';
+import sendLinkedInConnect from './api/linkedin/sendConnect';
+import n8nLinkedInConnect from './api/n8n/linkedinConnect';
 import getUserCredits from './api/getUserCredits';
 import healthCheck from './api/health';
 // Import Decodo LinkedIn trigger
@@ -117,6 +119,10 @@ router.post('/linkedin/send', requireAuth, linkedinSend);
 router.post('/linkedin/puppet-request', requireAuth, puppetLinkedInRequest);
 router.post('/linkedin/playwright-request', requireAuth, playwrightLinkedInRequest);
 router.get('/linkedin/daily-count', requireAuth, linkedinDailyCount);
+
+// n8n automation endpoints
+router.post('/linkedin/send-connect', requireAuth, sendLinkedInConnect);
+router.post('/n8n/linkedin-connect', n8nLinkedInConnect); // Public webhook for n8n
 
 // Proxy assignment endpoints
 import { 

@@ -836,8 +836,8 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      // Use new Playwright endpoint for enhanced reliability
-      const response = await fetch(`${API_BASE_URL}/linkedin/playwright-request`, {
+      // Use new n8n automation endpoint for LinkedIn connections
+      const response = await fetch(`${API_BASE_URL}/linkedin/send-connect`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -846,10 +846,8 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
         body: JSON.stringify({
           linkedin_url: localLead.linkedin_url,
           message: linkedInMessage.trim(),
-          rex_mode: rexMode,
-          consent_accepted: consentAccepted,
-          campaign_id: localLead.campaign_id || null,
-          priority: 5
+          lead_id: localLead.id || null,
+          campaign_id: localLead.campaign_id || null
         }),
       });
 
@@ -857,20 +855,20 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
         const errorData = await response.json();
         
         // Handle specific error types
-        if (errorData.consent_required) {
-          showToast('Please accept the consent checkbox to proceed', 'error');
+        if (errorData.action_required === 'refresh_linkedin_cookies') {
+          showToast('LinkedIn authentication required. Please refresh your LinkedIn session in Settings.', 'error');
           return;
-        } else if (errorData.insufficient_credits) {
-          showToast(`Insufficient credits: Need ${errorData.required} credits, have ${errorData.available}`, 'error');
+        } else if (errorData.action_required === 'use_regular_linkedin_url') {
+          showToast('This lead has a Sales Navigator URL which cannot be used for connection requests. Please update the LinkedIn URL to a regular profile format.', 'error');
           return;
-        } else if (errorData.daily_limit_reached) {
+        } else if (errorData.error?.includes('Daily connection limit')) {
           showToast(errorData.error || 'Daily connection limit reached', 'error');
           return;
-        } else if (errorData.duplicate_request) {
-          showToast(errorData.error || 'Request already exists for this profile', 'error');
+        } else if (errorData.error?.includes('Invalid LinkedIn URL')) {
+          showToast('Invalid LinkedIn profile URL format', 'error');
           return;
-        } else if (errorData.setup_required) {
-          showToast('LinkedIn integration setup required. Please configure your LinkedIn cookie first.', 'error');
+        } else if (errorData.error?.includes('exceed 300 characters')) {
+          showToast('Message cannot exceed 300 characters', 'error');
           return;
         } else {
           showToast(errorData.error || 'Failed to queue LinkedIn request', 'error');
@@ -879,22 +877,23 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       }
 
       const responseData = await response.json();
-      const successMessage = rexMode === 'auto' 
-        ? `✅ LinkedIn request sent successfully! Job ID: ${responseData.job_id?.substring(0, 8)}...`
-        : `✅ LinkedIn request queued for review! Job ID: ${responseData.job_id?.substring(0, 8)}...`;
       
-      showToast(`${successMessage} ${responseData.daily_remaining || 0} requests remaining today`);
+      // Show success message with automation details
+      const successMessage = `🤖 LinkedIn connection request queued for automation! Workflow ID: ${responseData.workflow_id?.substring(0, 8)}...`;
+      showToast(successMessage);
+      
+      // Additional success notification about automation timing
+      setTimeout(() => {
+        showToast('⏱️ Automation will complete within 30-60 seconds', 'info');
+      }, 2000);
       
       setShowLinkedInModal(false);
       setShowCreditConfirm(false);
       setLinkedInMessage('');
       setConsentAccepted(false); // Reset for next time
       
-      // Update daily count based on remaining count
-      if (responseData.daily_remaining !== undefined) {
-        // If we know remaining, calculate current count (assuming 20 daily limit)
-        setDailyLinkedInCount(20 - responseData.daily_remaining);
-      }
+      // Refresh daily count by fetching current count
+      await fetchDailyLinkedInCount();
       
       // Refresh user credits
       fetchUserCredits();
@@ -1794,7 +1793,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
 
               <div className="text-xs text-gray-500">
                 <p>💡 Credits are charged when the request is successfully sent via LinkedIn</p>
-                <p className="mt-1">⏱️ Requests are processed automatically every 5 minutes</p>
+                <p className="mt-1">🤖 Automation will complete within 30-60 seconds via n8n</p>
               </div>
             </div>
 
@@ -1833,10 +1832,10 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
               Send a connection request to <strong>{localLead.name}</strong> on LinkedIn.
             </p>
             
-            {/* REX Auto/Manual Mode Toggle */}
-            <div className="mb-4 p-3 bg-purple-50 rounded-lg border border-purple-200">
-              <label className="block text-sm font-medium text-purple-800 mb-2">
-                REX Mode Selection
+            {/* Automation Info */}
+            <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <label className="block text-sm font-medium text-blue-800 mb-2">
+                🤖 Automated LinkedIn Connection
               </label>
               <div className="flex gap-3">
                 <label className="flex items-center">
@@ -1948,12 +1947,12 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
                     </svg>
-                    Queuing Request...
+                    Starting Automation...
                   </>
                 ) : (
                   <>
                     <i className="fa-brands fa-linkedin mr-2"></i>
-                    {rexMode === 'auto' ? 'Queue Automatically' : 'Queue for Review'}
+                    Send LinkedIn Connect
                   </>
                 )}
               </button>
