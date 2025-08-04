@@ -430,7 +430,11 @@ export class PlaywrightConnectionService {
       }
       
       // CRITICAL: Detect LinkedIn WAF challenge page early
-      const isChallenge = await page.$('button.blue-button, button:has-text("Reload"), [class*="reload"], [class*="error"]');
+      // Split CSS selectors and XPath for cross-browser compatibility
+      const cssChallenge = await page.$('button.blue-button, [class*="reload"], [class*="error"]');
+      const textChallenge = await page.$x('//button[normalize-space()="Reload"]');
+      
+      const isChallenge = cssChallenge || (textChallenge.length > 0 ? textChallenge[0] : null);
       if (isChallenge) {
         logs.push('❌ LinkedIn WAF challenge detected - got error page instead of profile');
         const challengeText = await isChallenge.evaluate(el => el.textContent).catch(() => 'unknown');
