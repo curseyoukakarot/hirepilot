@@ -140,7 +140,7 @@ export class PlaywrightConnectionService {
         console.log('[PlaywrightConnection] Converted WebSocket URL to HTTP for /unblock API');
       }
       const API_TIMEOUT = 60000;          // hard upper-bound per Browserless docs
-      const unblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&captcha=true&timeout=${API_TIMEOUT}`;
+      const unblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&proxySticky=true&timeout=${API_TIMEOUT}`;
       
       console.log(`[PlaywrightConnection] Unblock URL: ${baseUrl}`);
       logs.push(`Using unblock endpoint: ${baseUrl}`);
@@ -369,13 +369,13 @@ export class PlaywrightConnectionService {
       // Step 2: Unblock the target profile using second /unblock API call with retry
       console.log(`[PlaywrightConnection] Unblocking target profile: ${profileUrl}`);
       
-      // CRITICAL: Rotate fingerprint to avoid burned proxy+fingerprint pairs
-      const fingerprintId = `fp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      logs.push(`Unblocking target profile via /unblock API with fingerprint: ${fingerprintId}`);
+      // CRITICAL: Use proxySticky for session consistency (fingerprint param removed by Browserless)
+      const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      logs.push(`Unblocking target profile via /unblock API with sticky proxy session: ${sessionId}`);
       
-      const waitFor = encodeURIComponent('button[aria-label*="More"]');   // substring match
+      // Only use officially supported query parameters: timeout, proxy, proxyCountry, proxySticky, token
       const profileUnblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}` +
-                                `&proxy=residential&captcha=true&timeout=${API_TIMEOUT}&waitFor=${waitFor}&fingerprint=${fingerprintId}`;
+                                `&proxy=residential&proxySticky=true&timeout=${API_TIMEOUT}`;
       
       let profileUnblockResponse;
       let profileRetryCount = 0;
@@ -469,9 +469,9 @@ export class PlaywrightConnectionService {
         
         if (cssChallenge || textChallenge.length > 0) {
           logs.push('❌ LinkedIn WAF challenge detected via fast-fail detection');
-          logs.push(`🔥 Burned fingerprint: ${fingerprintId} - do not reuse this proxy+fingerprint combination`);
-          console.error(`[PlaywrightConnection] WAF_CHALLENGE: Fingerprint ${fingerprintId} is burned, rotate immediately`);
-          throw new Error('WAF_CHALLENGE - LinkedIn returned "Something went wrong" page. Fingerprint burned, recycle proxy+fingerprint.');
+          logs.push(`🔥 Burned session: ${sessionId} - proxy IP likely flagged, rotate immediately`);
+          console.error(`[PlaywrightConnection] WAF_CHALLENGE: Session ${sessionId} is burned, rotate proxy immediately`);
+          throw new Error('WAF_CHALLENGE - LinkedIn returned "Something went wrong" page. Proxy burned, recycle to fresh proxy.');
         }
         
         logs.push('✅ Profile loaded successfully - no WAF challenge detected');
@@ -479,9 +479,9 @@ export class PlaywrightConnectionService {
       } catch (error: any) {
         if (error.message === 'PROFILE_TIMEOUT') {
           logs.push('❌ Profile loading timed out after 12s');
-          logs.push(`🔥 Likely burned fingerprint: ${fingerprintId} - timeout suggests WAF blocking`);
-          console.error(`[PlaywrightConnection] PROFILE_TIMEOUT: Fingerprint ${fingerprintId} likely burned (timeout)`);
-          throw new Error('WAF_CHALLENGE - Profile timeout, likely WAF blocking. Retry with fresh proxy/fingerprint.');
+          logs.push(`🔥 Likely burned session: ${sessionId} - timeout suggests WAF blocking proxy IP`);
+          console.error(`[PlaywrightConnection] PROFILE_TIMEOUT: Session ${sessionId} likely burned (timeout)`);
+          throw new Error('WAF_CHALLENGE - Profile timeout, likely WAF blocking. Retry with fresh proxy.');
         }
         throw error; // Re-throw other errors
       }
