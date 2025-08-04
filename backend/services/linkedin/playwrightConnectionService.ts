@@ -214,19 +214,15 @@ export class PlaywrightConnectionService {
       // Create new page with enhanced stealth
       page = await browser.newPage();
       
-      // Enhanced user agents rotation (2025 realistic)
-      const userAgents = [
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
-      ];
-      const randomUA = userAgents[Math.floor(Math.random() * userAgents.length)];
+      // CRITICAL: Use realistic UA that matches cookie creation (avoid fingerprint drift)
+      // Most LinkedIn cookies are created on macOS Chrome - match that fingerprint
+      const realisticUA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
       
       // Set enhanced browser properties
-      await page.setUserAgent(randomUA);
+      await page.setUserAgent(realisticUA);
       await page.setViewport({ width: 1920, height: 1080 });
       
-      // Add extra headers for realism
+      // CRITICAL: Enhanced fingerprint stability - match cookie creation environment
       await page.setExtraHTTPHeaders({
         'Accept-Language': 'en-US,en;q=0.9',
         'Accept-Encoding': 'gzip, deflate, br',
@@ -236,10 +232,23 @@ export class PlaywrightConnectionService {
         'Sec-Fetch-Dest': 'document',
         'Sec-Fetch-Mode': 'navigate',
         'Sec-Fetch-Site': 'none',
-        'Upgrade-Insecure-Requests': '1'
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="126", "Google Chrome";v="126"',
+        'Sec-Ch-Ua-Mobile': '?0',
+        'Sec-Ch-Ua-Platform': '"macOS"'
+      });
+      
+      // Set realistic timezone and language to match macOS/US fingerprint
+      await page.evaluateOnNewDocument(() => {
+        Object.defineProperty(navigator, 'languages', {
+          get: () => ['en-US', 'en']
+        });
+        Object.defineProperty(navigator, 'language', {
+          get: () => 'en-US'
+        });
       });
 
-      logs.push(`Browserless browser configured with stealth UA: ${randomUA.substring(0, 50)}...`);
+      logs.push(`Browserless browser configured with realistic UA: ${realisticUA.substring(0, 50)}...`);
       
       // Parse cookies once for use in both unblocked sessions
       console.log('[PlaywrightConnection] Parsing cookies for unblocked sessions...');
@@ -316,8 +325,25 @@ export class PlaywrightConnectionService {
         throw new Error('Session invalid - redirected to login during warmup');
       }
       
-      // Small delay between unblock calls to prevent rate limiting
-      await page.waitForTimeout(2000);
+      // CRITICAL: Staggered navigation to avoid scraper detection
+      // Pattern: feed → notifications → profile (not direct feed → profile)
+      console.log('[PlaywrightConnection] Staggered navigation: visiting notifications first...');
+      logs.push('Staggered navigation: feed → notifications → profile');
+      
+      // Step 1.5: Visit notifications page to establish realistic browsing pattern
+      await page.waitForTimeout(2000 + Math.random() * 2000); // Random 2-4s delay
+      await page.goto('https://www.linkedin.com/notifications/', { 
+        waitUntil: 'domcontentloaded',
+        timeout: 60000 
+      });
+      logs.push('Visited notifications page for realistic browsing pattern');
+      
+      // Human-like behavior on notifications
+      await page.waitForTimeout(1500 + Math.random() * 1500); // Random 1.5-3s delay
+      await page.evaluate(() => {
+        window.scrollTo(0, 200 + Math.random() * 100); // Light scroll
+      });
+      await page.waitForTimeout(1000 + Math.random() * 1000); // Random 1-2s delay
       
       // Step 2: Unblock the target profile using second /unblock API call with retry
       console.log(`[PlaywrightConnection] Unblocking target profile: ${profileUrl}`);
@@ -401,6 +427,15 @@ export class PlaywrightConnectionService {
       const currentUrl = page.url();
       if (currentUrl.includes('/login') || currentUrl.includes('/authwall') || currentUrl.includes('/challenge')) {
         throw new Error(`Redirected to ${currentUrl} - profile requires authentication or blocked by LinkedIn`);
+      }
+      
+      // CRITICAL: Detect LinkedIn WAF challenge page early
+      const isChallenge = await page.$('button.blue-button, button:has-text("Reload"), [class*="reload"], [class*="error"]');
+      if (isChallenge) {
+        logs.push('❌ LinkedIn WAF challenge detected - got error page instead of profile');
+        const challengeText = await isChallenge.textContent().catch(() => 'unknown');
+        logs.push(`Challenge button text: "${challengeText}"`);
+        throw new Error('WAF_CHALLENGE - LinkedIn returned "Something went wrong" page instead of profile. Retry with fresh proxy/fingerprint.');
       }
       
       // Step 3: Human-like behavior on profile page
@@ -741,6 +776,21 @@ export class PlaywrightConnectionService {
               }
             } catch (evalError: any) {
               logs.push(`Text-based dropdown Connect detection failed: ${evalError.message}`);
+            }
+          }
+          
+          // RESILIENT: XPath fallback for any button with visible "Connect" text
+          if (!connectButton) {
+            logs.push('Trying XPath resilient Connect detection...');
+            try {
+              const xpathConnectButtons = await page.$x('//button[contains(normalize-space(text()), "Connect") or contains(@aria-label, "Connect") or contains(@aria-label, "Invite")]');
+              if (xpathConnectButtons.length > 0) {
+                connectButton = xpathConnectButtons[0];
+                usedSelector = 'XPath resilient detection';
+                logs.push(`✅ Found Connect button via XPath resilient detection`);
+              }
+            } catch (xpathError: any) {
+              logs.push(`XPath Connect detection failed: ${xpathError.message}`);
             }
           }
         }
