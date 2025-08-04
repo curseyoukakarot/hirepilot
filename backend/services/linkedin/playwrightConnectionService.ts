@@ -433,7 +433,7 @@ export class PlaywrightConnectionService {
       const isChallenge = await page.$('button.blue-button, button:has-text("Reload"), [class*="reload"], [class*="error"]');
       if (isChallenge) {
         logs.push('❌ LinkedIn WAF challenge detected - got error page instead of profile');
-        const challengeText = await isChallenge.textContent().catch(() => 'unknown');
+        const challengeText = await isChallenge.evaluate(el => el.textContent).catch(() => 'unknown');
         logs.push(`Challenge button text: "${challengeText}"`);
         throw new Error('WAF_CHALLENGE - LinkedIn returned "Something went wrong" page instead of profile. Retry with fresh proxy/fingerprint.');
       }
