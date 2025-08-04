@@ -156,7 +156,7 @@ async function getUserLinkedInCookies(userId: string): Promise<LinkedInCookieDat
     let decryptedCookie = cookieData.session_cookie;
     if (cookieData.encrypted_cookie && !decryptedCookie) {
       try {
-        const { decryptLegacyAesCookie } = await import('../../utils/encryption');
+        const { decryptLegacyAesCookie } = await import('../../src/utils/encryption');
         decryptedCookie = decryptLegacyAesCookie(cookieData.encrypted_cookie);
       } catch (decryptError) {
         console.warn('[N8N-LinkedInConnect] Cookie decryption failed:', decryptError);
