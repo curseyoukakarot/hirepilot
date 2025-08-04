@@ -223,8 +223,9 @@ export class PlaywrightConnectionService {
       await page.setViewport({ width: 1920, height: 1080 });
       
       // CRITICAL: Enhanced fingerprint stability - match cookie creation environment
+      // TODO: In production, match Accept-Language to proxy IP geolocation
       await page.setExtraHTTPHeaders({
-        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Language': 'en-US,en;q=0.9',  // Should match proxy IP geo in production
         'Accept-Encoding': 'gzip, deflate, br',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Cache-Control': 'no-cache',
@@ -235,7 +236,7 @@ export class PlaywrightConnectionService {
         'Upgrade-Insecure-Requests': '1',
         'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="126", "Google Chrome";v="126"',
         'Sec-Ch-Ua-Mobile': '?0',
-        'Sec-Ch-Ua-Platform': '"macOS"'
+        'Sec-Ch-Ua-Platform': '"macOS"'  // Sync with viewport and UA
       });
       
       // Set realistic timezone and language to match macOS/US fingerprint
@@ -330,28 +331,51 @@ export class PlaywrightConnectionService {
       console.log('[PlaywrightConnection] Staggered navigation: visiting notifications first...');
       logs.push('Staggered navigation: feed → notifications → profile');
       
-      // Step 1.5: Visit notifications page to establish realistic browsing pattern
-      await page.waitForTimeout(2000 + Math.random() * 2000); // Random 2-4s delay
+      // Step 1.5: Enhanced human-like browsing pattern
+      logs.push('Starting realistic browsing pattern: feed → notifications → profile');
+      
+      // Enhanced scroll behavior on feed (mimic quick skim)
+      await page.evaluate(() => {
+        const maxScroll = Math.min(2000, document.body.scrollHeight);
+        const steps = 6;
+        const stepSize = maxScroll / steps;
+        
+        for (let i = 0; i < steps; i++) {
+          setTimeout(() => {
+            window.scrollTo(0, stepSize * i);
+          }, i * 200); // 200ms between scroll steps
+        }
+      });
+      
+      await page.waitForTimeout(1200 + Math.random() * 1300); // Random 1.2-2.5s total
+      
+      // Visit notifications page
       await page.goto('https://www.linkedin.com/notifications/', { 
         waitUntil: 'domcontentloaded',
         timeout: 60000 
       });
       logs.push('Visited notifications page for realistic browsing pattern');
       
-      // Human-like behavior on notifications
+      // Human-like behavior on notifications (longer engagement)
       await page.waitForTimeout(1500 + Math.random() * 1500); // Random 1.5-3s delay
+      
+      // Full page scroll on notifications to appear engaged
       await page.evaluate(() => {
-        window.scrollTo(0, 200 + Math.random() * 100); // Light scroll
+        window.scrollTo(0, document.body.scrollHeight);
       });
-      await page.waitForTimeout(1000 + Math.random() * 1000); // Random 1-2s delay
+      
+      await page.waitForTimeout(800 + Math.random() * 800); // Random 0.8-1.6s delay
       
       // Step 2: Unblock the target profile using second /unblock API call with retry
       console.log(`[PlaywrightConnection] Unblocking target profile: ${profileUrl}`);
-      logs.push(`Unblocking target profile via /unblock API`);
+      
+      // CRITICAL: Rotate fingerprint to avoid burned proxy+fingerprint pairs
+      const fingerprintId = `fp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      logs.push(`Unblocking target profile via /unblock API with fingerprint: ${fingerprintId}`);
       
       const waitFor = encodeURIComponent('button[aria-label*="More"]');   // substring match
       const profileUnblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}` +
-                                `&proxy=residential&captcha=true&timeout=${API_TIMEOUT}&waitFor=${waitFor}`;
+                                `&proxy=residential&captcha=true&timeout=${API_TIMEOUT}&waitFor=${waitFor}&fingerprint=${fingerprintId}`;
       
       let profileUnblockResponse;
       let profileRetryCount = 0;
@@ -362,7 +386,7 @@ export class PlaywrightConnectionService {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              url: profileUrl,
+              url: profileUrl.replace('http://', 'https://'),  // CRITICAL: Always use HTTPS
               browserWSEndpoint: true,  // Get WS for Puppeteer control
               cookies: true,             // Return any new cookies
               content: false,            // No need for HTML yet
@@ -416,30 +440,56 @@ export class PlaywrightConnectionService {
       // Set referer to look more natural  
       await page.setExtraHTTPHeaders({ 'Referer': 'https://www.linkedin.com/feed/' });
       
-      // Navigate to the unblocked profile (should load without redirects)
-      await page.goto(profileUrl, { 
-        waitUntil: 'networkidle0',
-        timeout: 120000 // The unblocked profile should load cleanly
+      // Navigate to the unblocked profile (should load without redirects)  
+      await page.goto(profileUrl.replace('http://', 'https://'), { 
+        waitUntil: 'domcontentloaded',  // Faster than networkidle0
+        timeout: 60000 
       });
-      logs.push('Unblocked profile navigation successful');
+      logs.push('Profile navigation initiated');
+      
+      // CRITICAL: Fast-fail WAF detection with Promise.race (12s max)
+      const PROFILE_TIMEOUT = 12000; // 12 seconds
+      console.log('[PlaywrightConnection] Fast-fail WAF detection starting...');
+      
+      try {
+        const result = await Promise.race([
+          // Good: Profile loaded successfully
+          page.waitForSelector('main [data-profile-section], main .pv-text-details__left-panel', { timeout: PROFILE_TIMEOUT }),
+          
+          // Bad: WAF challenge page (using CSS only)
+          page.waitForSelector('button.blue-button, [class*="error"], [class*="reload"]', { timeout: PROFILE_TIMEOUT }),
+          
+          // Timeout: Page taking too long
+          new Promise((_, reject) => setTimeout(() => reject(new Error('PROFILE_TIMEOUT')), PROFILE_TIMEOUT))
+        ]);
+        
+        // Check if we got the challenge page (split CSS + XPath approach)
+        const cssChallenge = await page.$('button.blue-button, [class*="error"], [class*="reload"]').catch(() => null);
+        const textChallenge = await page.$x('//h1[contains(text(), "Something went wrong")] | //button[contains(text(), "Reload")]').catch(() => []);
+        
+        if (cssChallenge || textChallenge.length > 0) {
+          logs.push('❌ LinkedIn WAF challenge detected via fast-fail detection');
+          logs.push(`🔥 Burned fingerprint: ${fingerprintId} - do not reuse this proxy+fingerprint combination`);
+          console.error(`[PlaywrightConnection] WAF_CHALLENGE: Fingerprint ${fingerprintId} is burned, rotate immediately`);
+          throw new Error('WAF_CHALLENGE - LinkedIn returned "Something went wrong" page. Fingerprint burned, recycle proxy+fingerprint.');
+        }
+        
+        logs.push('✅ Profile loaded successfully - no WAF challenge detected');
+        
+      } catch (error: any) {
+        if (error.message === 'PROFILE_TIMEOUT') {
+          logs.push('❌ Profile loading timed out after 12s');
+          logs.push(`🔥 Likely burned fingerprint: ${fingerprintId} - timeout suggests WAF blocking`);
+          console.error(`[PlaywrightConnection] PROFILE_TIMEOUT: Fingerprint ${fingerprintId} likely burned (timeout)`);
+          throw new Error('WAF_CHALLENGE - Profile timeout, likely WAF blocking. Retry with fresh proxy/fingerprint.');
+        }
+        throw error; // Re-throw other errors
+      }
       
       // Check for auth redirects
       const currentUrl = page.url();
       if (currentUrl.includes('/login') || currentUrl.includes('/authwall') || currentUrl.includes('/challenge')) {
         throw new Error(`Redirected to ${currentUrl} - profile requires authentication or blocked by LinkedIn`);
-      }
-      
-      // CRITICAL: Detect LinkedIn WAF challenge page early
-      // Split CSS selectors and XPath for cross-browser compatibility
-      const cssChallenge = await page.$('button.blue-button, [class*="reload"], [class*="error"]');
-      const textChallenge = await page.$x('//button[normalize-space()="Reload"]');
-      
-      const isChallenge = cssChallenge || (textChallenge.length > 0 ? textChallenge[0] : null);
-      if (isChallenge) {
-        logs.push('❌ LinkedIn WAF challenge detected - got error page instead of profile');
-        const challengeText = await isChallenge.evaluate(el => el.textContent).catch(() => 'unknown');
-        logs.push(`Challenge button text: "${challengeText}"`);
-        throw new Error('WAF_CHALLENGE - LinkedIn returned "Something went wrong" page instead of profile. Retry with fresh proxy/fingerprint.');
       }
       
       // Step 3: Human-like behavior on profile page
