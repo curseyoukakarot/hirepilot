@@ -158,56 +158,153 @@ export async function enrichLeadProfile({
     const firstName = nameParts[0];
     const lastName = nameParts.slice(1).join(' ');
 
-    // Build query to find lead
-    let query = supabaseDb
-      .from('leads')
-      .select('*')
-      .eq('user_id', userId);
-
-    // Try to match by LinkedIn URL first (most reliable)
+    // Normalize LinkedIn URL for better matching
+    let normalizedUrl = '';
     if (linkedinUrl) {
-      const cleanUrl = linkedinUrl.replace(/\/$/, ''); // Remove trailing slash
-      query = query.or(`linkedin_url.eq.${cleanUrl},linkedin_url.eq.${cleanUrl}/`);
+      normalizedUrl = linkedinUrl
+        .toLowerCase()
+        .replace(/\/$/, '') // Remove trailing slash
+        .replace(/\?.*$/, '') // Remove query parameters
+        .replace(/^https?:\/\/(www\.)?/, '') // Remove protocol and www
+        .replace(/linkedin\.com\//, '') // Remove base domain
+        .replace(/sales\/lead\//, 'in/') // Normalize Sales Navigator to regular format
+        .replace(/sales\/people\//, 'in/'); // Handle other Sales Navigator formats
     }
+    
+    console.log(`[REX] Searching for lead: name="${name}", firstName="${firstName}", lastName="${lastName}", normalizedUrl="${normalizedUrl}"`);
 
-    let { data: leads, error: searchError } = await query;
+    let leads = null;
+    let searchError = null;
 
-    // If no leads found by LinkedIn URL, try name matching
-    if (!leads || leads.length === 0) {
-      query = supabaseDb
+    // Strategy 1: Try to find by LinkedIn URL (exact and fuzzy match)
+    if (linkedinUrl) {
+      console.log(`[REX] Strategy 1: Searching by LinkedIn URL`);
+      
+      // Try exact URL match first
+      let { data, error } = await supabaseDb
         .from('leads')
         .select('*')
         .eq('user_id', userId)
-        .ilike('first_name', `%${firstName}%`)
-        .ilike('last_name', `%${lastName}%`);
+        .eq('linkedin_url', linkedinUrl);
+      
+      // If no exact match, try with trailing slash
+      if (!data || data.length === 0) {
+        const result = await supabaseDb
+          .from('leads')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('linkedin_url', `${linkedinUrl}/`);
+        data = result.data;
+        error = result.error;
+      }
+      
+      // If still no match, try fuzzy matching with normalized URL
+      if ((!data || data.length === 0) && normalizedUrl) {
+        const result = await supabaseDb
+          .from('leads')
+          .select('*')
+          .eq('user_id', userId)
+          .ilike('linkedin_url', `%${normalizedUrl}%`);
+        data = result.data;
+        error = result.error;
+      }
+      
+      leads = data;
+      searchError = error;
+      console.log(`[REX] Strategy 1 results: ${leads?.length || 0} leads found`);
+    }
 
+    // Strategy 2: If no URL match, try name matching
+    if (!leads || leads.length === 0) {
+      console.log(`[REX] Strategy 2: Searching by name`);
+      let nameQuery = supabaseDb
+        .from('leads')
+        .select('*')
+        .eq('user_id', userId)
+        .ilike('first_name', `%${firstName}%`);
+      
+      if (lastName) {
+        nameQuery = nameQuery.ilike('last_name', `%${lastName}%`);
+      }
+      
       if (email) {
-        query = query.eq('email', email);
+        nameQuery = nameQuery.eq('email', email);
       }
 
-      const result = await query;
-      leads = result.data;
-      searchError = result.error;
+      const { data, error } = await nameQuery;
+      leads = data;
+      searchError = error;
+      console.log(`[REX] Strategy 2 results: ${leads?.length || 0} leads found`);
+    }
+
+    // Strategy 3: If we have both name and URL, try very broad search
+    if ((!leads || leads.length === 0) && firstName) {
+      console.log(`[REX] Strategy 3: Broad fuzzy search`);
+      
+      // Try searching for any lead with similar first name
+      const { data, error } = await supabaseDb
+        .from('leads')
+        .select('*')
+        .eq('user_id', userId)
+        .ilike('first_name', `%${firstName}%`);
+
+      leads = data;
+      searchError = error;
+      console.log(`[REX] Strategy 3 results: ${leads?.length || 0} leads found`);
+      
+      // If we found leads and have a URL, filter by URL similarity
+      if (leads && leads.length > 0 && normalizedUrl) {
+        const urlFilteredLeads = leads.filter(lead => 
+          lead.linkedin_url && 
+          (lead.linkedin_url.toLowerCase().includes(normalizedUrl) || 
+           normalizedUrl.includes(lead.linkedin_url.toLowerCase().replace(/^https?:\/\/(www\.)?linkedin\.com\//, '')))
+        );
+        
+        if (urlFilteredLeads.length > 0) {
+          leads = urlFilteredLeads;
+          console.log(`[REX] Strategy 3 URL filtered results: ${leads.length} leads found`);
+        }
+      }
     }
 
     if (searchError) {
+      console.error(`[REX] Database search error:`, searchError);
       throw new Error(`Database search failed: ${searchError.message}`);
     }
 
     if (!leads || leads.length === 0) {
-      throw new Error(`No lead found matching: ${name}${email ? ` (${email})` : ''} with LinkedIn: ${linkedinUrl}`);
+      console.log(`[REX] No leads found. Tried searching for name="${name}", email="${email || 'none'}", linkedinUrl="${linkedinUrl}"`);
+      
+      // Provide helpful debugging info
+      const { data: allUserLeads } = await supabaseDb
+        .from('leads')
+        .select('first_name, last_name, linkedin_url')
+        .eq('user_id', userId)
+        .limit(5);
+      
+      console.log(`[REX] User has ${allUserLeads?.length || 0} total leads. Sample:`, allUserLeads?.slice(0, 3));
+      
+      throw new Error(`No lead found matching: "${name}" with LinkedIn: ${linkedinUrl}. Please ensure the lead exists in your database and the name/URL are correct.`);
     }
 
-    // If multiple leads found, prefer exact name match or take first one
+    // If multiple leads found, prefer exact name match or URL match
     let targetLead = leads[0];
     if (leads.length > 1) {
-      const exactMatch = leads.find(lead => 
+      console.log(`[REX] Multiple leads found (${leads.length}), selecting best match`);
+      
+      // Prefer exact name match
+      const exactNameMatch = leads.find(lead => 
         lead.first_name?.toLowerCase() === firstName.toLowerCase() && 
         lead.last_name?.toLowerCase() === lastName.toLowerCase()
       );
-      if (exactMatch) {
-        targetLead = exactMatch;
-      }
+      
+      // Prefer exact URL match
+      const exactUrlMatch = leads.find(lead => 
+        lead.linkedin_url === linkedinUrl
+      );
+      
+      targetLead = exactNameMatch || exactUrlMatch || leads[0];
+      console.log(`[REX] Selected lead: ${targetLead.first_name} ${targetLead.last_name} (${targetLead.linkedin_url})`);
     }
 
     console.log(`[REX] Found lead: ${targetLead.first_name} ${targetLead.last_name} (ID: ${targetLead.id})`);
