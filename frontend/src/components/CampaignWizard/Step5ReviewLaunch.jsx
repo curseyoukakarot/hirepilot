@@ -383,7 +383,19 @@ export default function Step5ReviewLaunch({ onBack, onEdit }) {
         </button>
         <button
           type="button"
-          onClick={handleLaunch}
+          onClick={() => {
+            if (isSalesNavigatorCampaign) {
+              // For Sales Navigator: Open the search URL in a new tab with campaign ID
+              const searchUrl = campaign?.lead_source_payload?.linkedin_search_url;
+              if (searchUrl) {
+                const urlWithCampaign = searchUrl + (searchUrl.includes('?') ? '&' : '?') + `campaign_id=${campaign.id}`;
+                window.open(urlWithCampaign, '_blank');
+              }
+            } else {
+              // For Apollo: Use existing launch logic
+              handleLaunch();
+            }
+          }}
           disabled={isLaunching || (!isSalesNavigatorCampaign && !selectedLeads.length)}
           className={`
             inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white
@@ -398,7 +410,7 @@ export default function Step5ReviewLaunch({ onBack, onEdit }) {
           ) : (
             <>
               <Rocket className="mr-2 h-4 w-4" />
-              Launch Campaign
+              {isSalesNavigatorCampaign ? 'Get Leads' : 'Launch Campaign'}
             </>
           )}
         </button>
