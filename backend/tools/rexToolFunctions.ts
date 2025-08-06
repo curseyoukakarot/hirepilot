@@ -151,6 +151,7 @@ export async function enrichLeadProfile({
   email?: string;
   linkedinUrl: string;
 }) {
+  console.log(`[REX enrichLeadProfile] Starting enrichment for: ${name}, email: ${email}, linkedinUrl: ${linkedinUrl}`);
   try {
     // Step 1: Find the lead in the database
     const nameParts = name.trim().split(' ');
@@ -246,7 +247,8 @@ export async function enrichLeadProfile({
 
   } catch (error) {
     console.error('[REX enrichLeadProfile] Error:', error);
-    throw error;
+    console.error('[REX enrichLeadProfile] Error stack:', (error as Error).stack);
+    throw new Error(`Lead enrichment failed: ${(error as Error).message}`);
   }
 }
 
