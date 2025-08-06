@@ -7,6 +7,7 @@ import sgMail from '@sendgrid/mail';
 const {
   sourceLeads,
   enrichLead: enrichLeadTool,
+  enrichLeadProfile,
   sendMessage,
   getPipelineStats,
   moveCandidate,
@@ -294,6 +295,20 @@ server.registerCapabilities({
         const creditInfo = await fetchCreditsTool({ userId });
         if (creditInfo.creditsRemaining <= 0) throw new Error('Insufficient credits to enrich lead.');
         return await enrichLeadTool({ userId, leadId, fields });
+      }
+    },
+    enrich_lead_profile: {
+      parameters: { 
+        userId: { type: 'string' },
+        name: { type: 'string' },
+        email: { type: 'string', optional: true },
+        linkedinUrl: { type: 'string' }
+      },
+      handler: async ({ userId, name, email, linkedinUrl }) => {
+        await assertPremium(userId);
+        const creditInfo = await fetchCreditsTool({ userId });
+        if (creditInfo.creditsRemaining <= 0) throw new Error('Insufficient credits to enrich lead.');
+        return await enrichLeadProfile({ userId, name, email, linkedinUrl });
       }
     },
     send_message: {

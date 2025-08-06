@@ -140,6 +140,223 @@ export async function enrichLead({
   }
 }
 
+export async function enrichLeadProfile({
+  userId,
+  name,
+  email,
+  linkedinUrl
+}: {
+  userId: string;
+  name: string;
+  email?: string;
+  linkedinUrl: string;
+}) {
+  try {
+    // Step 1: Find the lead in the database
+    const nameParts = name.trim().split(' ');
+    const firstName = nameParts[0];
+    const lastName = nameParts.slice(1).join(' ');
+
+    // Build query to find lead
+    let query = supabaseDb
+      .from('leads')
+      .select('*')
+      .eq('user_id', userId);
+
+    // Try to match by LinkedIn URL first (most reliable)
+    if (linkedinUrl) {
+      const cleanUrl = linkedinUrl.replace(/\/$/, ''); // Remove trailing slash
+      query = query.or(`linkedin_url.eq.${cleanUrl},linkedin_url.eq.${cleanUrl}/`);
+    }
+
+    let { data: leads, error: searchError } = await query;
+
+    // If no leads found by LinkedIn URL, try name matching
+    if (!leads || leads.length === 0) {
+      query = supabaseDb
+        .from('leads')
+        .select('*')
+        .eq('user_id', userId)
+        .ilike('first_name', `%${firstName}%`)
+        .ilike('last_name', `%${lastName}%`);
+
+      if (email) {
+        query = query.eq('email', email);
+      }
+
+      const result = await query;
+      leads = result.data;
+      searchError = result.error;
+    }
+
+    if (searchError) {
+      throw new Error(`Database search failed: ${searchError.message}`);
+    }
+
+    if (!leads || leads.length === 0) {
+      throw new Error(`No lead found matching: ${name}${email ? ` (${email})` : ''} with LinkedIn: ${linkedinUrl}`);
+    }
+
+    // If multiple leads found, prefer exact name match or take first one
+    let targetLead = leads[0];
+    if (leads.length > 1) {
+      const exactMatch = leads.find(lead => 
+        lead.first_name?.toLowerCase() === firstName.toLowerCase() && 
+        lead.last_name?.toLowerCase() === lastName.toLowerCase()
+      );
+      if (exactMatch) {
+        targetLead = exactMatch;
+      }
+    }
+
+    console.log(`[REX] Found lead: ${targetLead.first_name} ${targetLead.last_name} (ID: ${targetLead.id})`);
+
+    // Step 2: Call the existing Apollo enrichment service directly
+    const { enrichWithApollo } = await import('../src/services/apollo/enrichLead');
+    
+    console.log(`[REX] Starting Apollo enrichment for: ${targetLead.first_name} ${targetLead.last_name}`);
+    
+    const enrichmentResult = await enrichWithApollo({
+      leadId: targetLead.id,
+      userId,
+      firstName: targetLead.first_name,
+      lastName: targetLead.last_name,
+      company: targetLead.company,
+      linkedinUrl: targetLead.linkedin_url
+    });
+
+    if (!enrichmentResult.success) {
+      const errorMsg = enrichmentResult.errors?.join(', ') || 'Apollo enrichment failed';
+      throw new Error(`Enrichment failed: ${errorMsg}`);
+    }
+
+    // Fetch the updated lead data from database
+    const { data: enrichedLead, error: fetchError } = await supabaseDb
+      .from('leads')
+      .select('*')
+      .eq('id', targetLead.id)
+      .single();
+
+    if (fetchError) {
+      throw new Error(`Failed to fetch enriched lead data: ${fetchError.message}`);
+    }
+
+    // Step 3: Format the results for conversational presentation
+    return formatEnrichmentResults(targetLead, enrichedLead);
+
+  } catch (error) {
+    console.error('[REX enrichLeadProfile] Error:', error);
+    throw error;
+  }
+}
+
+function formatEnrichmentResults(originalLead: any, enrichedData: any) {
+  const enrichmentData = enrichedData.enrichment_data || {};
+  
+  let result = `🚀 **Lead Enrichment Results for ${originalLead.first_name} ${originalLead.last_name}**\n\n`;
+
+  // Basic Information
+  result += `**📋 Basic Information:**\n`;
+  result += `• Name: ${originalLead.first_name} ${originalLead.last_name}\n`;
+  result += `• Title: ${originalLead.title || 'Not specified'}\n`;
+  result += `• Company: ${originalLead.company || 'Not specified'}\n`;
+
+  // Contact Information
+  result += `\n**📞 Contact Information:**\n`;
+  
+  // Check for enriched email
+  const emailSources = [];
+  if (enrichmentData.hunter?.email) emailSources.push(`Hunter.io: ${enrichmentData.hunter.email}`);
+  if (enrichmentData.skrapp?.email) emailSources.push(`Skrapp.io: ${enrichmentData.skrapp.email}`);
+  if (enrichmentData.apollo?.email) emailSources.push(`Apollo: ${enrichmentData.apollo.email}`);
+  if (originalLead.email) emailSources.push(`Direct: ${originalLead.email}`);
+  
+  if (emailSources.length > 0) {
+    result += `• Email: ${emailSources[0]}\n`;
+    if (emailSources.length > 1) {
+      result += `  Additional emails: ${emailSources.slice(1).join(', ')}\n`;
+    }
+  } else {
+    result += `• Email: Not found\n`;
+  }
+
+  // Phone
+  if (enrichedData.phone || originalLead.phone) {
+    result += `• Phone: ${enrichedData.phone || originalLead.phone}\n`;
+  }
+
+  // Location
+  if (enrichmentData.apollo?.location) {
+    const loc = enrichmentData.apollo.location;
+    const locationParts = [];
+    if (loc.city) locationParts.push(loc.city);
+    if (loc.state) locationParts.push(loc.state);
+    if (loc.country && loc.country !== 'United States') locationParts.push(loc.country);
+    result += `• Location: ${locationParts.join(', ')}\n`;
+  } else if (originalLead.location) {
+    result += `• Location: ${originalLead.location}\n`;
+  }
+
+  // Professional Details
+  if (enrichmentData.apollo) {
+    result += `\n**💼 Professional Details:**\n`;
+    
+    if (enrichmentData.apollo.department) {
+      result += `• Department: ${enrichmentData.apollo.department}\n`;
+    }
+    
+    if (enrichmentData.apollo.seniority) {
+      result += `• Seniority: ${enrichmentData.apollo.seniority}\n`;
+    }
+    
+    if (enrichmentData.apollo.subdepartments?.length > 0) {
+      result += `• Functions: ${enrichmentData.apollo.subdepartments.join(', ')}\n`;
+    }
+  }
+
+  // Social Profiles
+  const socialProfiles = [];
+  if (enrichmentData.apollo?.twitter_url) socialProfiles.push(`Twitter: ${enrichmentData.apollo.twitter_url}`);
+  if (enrichmentData.apollo?.github_url) socialProfiles.push(`GitHub: ${enrichmentData.apollo.github_url}`);
+  if (enrichmentData.apollo?.facebook_url) socialProfiles.push(`Facebook: ${enrichmentData.apollo.facebook_url}`);
+  
+  if (socialProfiles.length > 0) {
+    result += `\n**🌐 Social Profiles:**\n`;
+    socialProfiles.forEach(profile => result += `• ${profile}\n`);
+  }
+
+  // Work History
+  if (enrichmentData.apollo?.employment_history?.length > 0) {
+    result += `\n**📈 Work History:**\n`;
+    enrichmentData.apollo.employment_history.slice(0, 3).forEach((job: any) => {
+      result += `• ${job.title || 'Position'} at ${job.organization_name || job.company || 'Company'}`;
+      if (job.start_date) {
+        const startYear = new Date(job.start_date).getFullYear();
+        const endYear = job.end_date ? new Date(job.end_date).getFullYear() : 'Present';
+        result += ` (${startYear} - ${endYear})`;
+      }
+      result += `\n`;
+    });
+  }
+
+  // Enrichment Sources
+  result += `\n**🔍 Data Sources:**\n`;
+  const sources = [];
+  if (enrichmentData.hunter) sources.push('Hunter.io');
+  if (enrichmentData.skrapp) sources.push('Skrapp.io');
+  if (enrichmentData.apollo) sources.push('Apollo');
+  if (enrichmentData.decodo) sources.push('Decodo');
+  
+  result += `• Enriched via: ${sources.join(', ') || 'Direct input'}\n`;
+  
+  if (enrichedData.enriched_at) {
+    const enrichedDate = new Date(enrichedData.enriched_at).toLocaleDateString();
+    result += `• Last enriched: ${enrichedDate}\n`;
+  }
+
+  return result;
+}
+
 export async function sendMessage({
   userId,
   leadId,

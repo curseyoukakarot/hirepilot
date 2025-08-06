@@ -27,6 +27,21 @@
     ]
   },
   {
+    "name": "enrichLeadProfile",
+    "description": "Find and enrich a lead's profile using name and LinkedIn URL to get comprehensive information including contact details, professional background, and more.",
+    "parameters": {
+      "name": "string",
+      "email": "string (optional)",
+      "linkedinUrl": "string"
+    },
+    "examples": [
+      "REX, enrich John Smith's profile. LinkedIn: linkedin.com/in/johnsmith",
+      "REX, enrich Jane Doe's profile with LinkedIn: linkedin.com/in/jane-doe and email: jane@company.com",
+      "REX, enrich this candidate's profile: Sales Navigator: linkedin.com/sales/lead/123456",
+      "REX, find and enrich Mike Johnson's profile from LinkedIn: linkedin.com/in/mikejohnson"
+    ]
+  },
+  {
     "name": "sendMessage",
     "description": "Send or draft a personalized outreach message for a candidate.",
     "parameters": {
