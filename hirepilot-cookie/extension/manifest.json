@@ -1,11 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "HirePilot Cookie & Lead Helper",
-  "short_name": "HirePilot Helper",
-  "version": "1.1.0",
-  "description": "1-click upload of full LinkedIn cookie & auto-scrape Sales Nav leads into HirePilot.",
+  "name": "HirePilot LinkedIn Assistant",
+  "short_name": "HirePilot Assistant",
+  "version": "2.1.0",
+  "description": "Seamlessly export LinkedIn Sales Navigator leads and authenticate with HirePilot for streamlined recruitment workflows.",
   "action": {
-    "default_title": "HirePilot Helper",
+    "default_title": "HirePilot LinkedIn Assistant",
     "default_popup": "popup.html",
     "default_icon": {
       "16":  "img/icon16.png",
@@ -20,12 +20,13 @@
     "48":  "img/icon48.png",
     "128": "img/icon128.png"
   },
-  "permissions": [ "cookies", "storage", "tabs", "activeTab", "webRequest" ],
+  "permissions": [ "cookies", "storage", "activeTab" ],
   "host_permissions": [
     "https://api.thehirepilot.com/*",
     "https://*.linkedin.com/*",
     "https://linkedin.com/*",
-    "http://localhost:8080/*"
+    "http://localhost:8080/*",
+    "http://localhost:9999/*"
   ],
   "background": {
     "service_worker": "background.js"
