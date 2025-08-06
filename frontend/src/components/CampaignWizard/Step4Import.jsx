@@ -602,32 +602,55 @@ export default function Step4Import({ onBack, onNext }) {
                   defaultLocation={wizard.campaign?.location}
                 />
               ) : selectedSource === 'linkedin' ? (
-                <div className="bg-white rounded-lg border p-6">
+                <div className="bg-white rounded-lg border p-6 space-y-6">
+                  {/* URL Input */}
                   <div>
-                    <label className="block text-base font-semibold text-gray-700 mb-2">LinkedIn Sales Navigator Search URL</label>
-                    <input type="text" className="w-full rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500" placeholder="https://www.linkedin.com/sales/search/..." value={linkedinUrl} onChange={e => setLinkedinUrl(e.target.value)} />
+                    <label className="block text-base font-semibold text-gray-700 mb-2">Paste your Sales Navigator search URL</label>
+                    <input 
+                      type="text" 
+                      className="w-full rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500" 
+                      placeholder="https://www.linkedin.com/sales/search/..." 
+                      value={linkedinUrl} 
+                      onChange={e => setLinkedinUrl(e.target.value)} 
+                    />
                   </div>
-                  <div>
-                    <label className="block text-base font-semibold text-gray-700 mb-2">Account to use</label>
-                    <select
-                      className="w-full rounded-lg border-2 border-blue-500 px-4 py-2 text-base font-semibold focus:border-blue-700 focus:ring-blue-500"
-                      value={linkedinAccountType}
-                      onChange={e => setLinkedinAccountType(e.target.value)}
-                    >
-                      <option value="session">Use your LinkedIn session cookie</option>
-                      {/* <option value="phantombuster">Use your PhantomBuster account (coming soon)</option> */}
-                    </select>
-                    {linkedinCookieStatus === 'valid' && (
-                      <div className="mt-2 text-green-600 font-medium">Valid Cookie Stored</div>
-                    )}
-                    {linkedinCookieStatus === 'invalid' && (
-                      <div className="mt-2 text-red-600 font-medium">Please connect your LinkedIn session cookie on the Integrations page before importing leads.</div>
-                    )}
+                  
+                  {/* Chrome Extension CTA */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-gray-700 mb-4">
+                      To pull leads from Sales Navigator, install our Chrome Extension. 
+                      After launching your campaign, you'll use the extension to sync leads from your saved LinkedIn search.
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <a
+                        href="https://chromewebstore.google.com/detail/hirepilot-cookie-helper/iiegpolacomfhkfcdgppbgkgkdbfemce?pli=1"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-center font-medium inline-flex items-center justify-center"
+                      >
+                        <i className="fab fa-chrome mr-2"></i>
+                        Install Extension
+                      </a>
+                      <a
+                        href="/chromeextension"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-white text-blue-600 border border-blue-600 px-4 py-2 rounded-lg hover:bg-blue-50 text-center font-medium inline-flex items-center justify-center"
+                      >
+                        <i className="fas fa-question-circle mr-2"></i>
+                        How It Works
+                      </a>
+                    </div>
                   </div>
-                  <div className="mt-2 text-blue-600 font-medium">
-                    This will use 50 credits per campaign. You have {creditsLoading ? '...' : userCredits.remainingCredits.toLocaleString()} credits available.
-                  </div>
-                  <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 w-full text-base font-semibold" onClick={handleSaveLeadSource} disabled={linkedinCookieStatus !== 'valid'}>Save Lead Source</button>
+
+                  {/* Save Button */}
+                  <button 
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 w-full text-base font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed" 
+                    onClick={handleSaveLeadSource}
+                    disabled={!linkedinUrl}
+                  >
+                    Save Lead Source
+                  </button>
                 </div>
               ) : (
                 <CsvStep onLeadsSelected={handleLeadsSelected} />

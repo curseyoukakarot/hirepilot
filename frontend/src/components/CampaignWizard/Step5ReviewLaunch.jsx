@@ -10,12 +10,14 @@ import {
   Linkedin,
   Globe,
   Users,
+  ExternalLink,
 } from 'lucide-react';
 import WizardStepHeader from './WizardStepHeader';
 import { useWizard } from '../../context/WizardContext';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { apiPost } from '../../lib/api';
+import { Dialog, DialogHeader, DialogTitle, DialogContent, DialogFooter } from '../ui/dialog';
 
 const LEAD_SOURCE_LABELS = {
   linkedin: 'Sales Navigator',
@@ -31,6 +33,7 @@ export default function Step5ReviewLaunch({ onBack, onEdit }) {
   const [campaign, setCampaign] = useState(null);
   const [showDiscardModal, setShowDiscardModal] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [showSalesNavModal, setShowSalesNavModal] = useState(false);
   const [isLaunching, setIsLaunching] = useState(false);
   const [editingJobDesc, setEditingJobDesc] = useState(false);
   const [jobDescDraft, setJobDescDraft] = useState('');
@@ -105,7 +108,8 @@ export default function Step5ReviewLaunch({ onBack, onEdit }) {
           })
           .eq('id', campaign.id);
 
-        toast.success('Sales Navigator search started! Processing takes ~10 minutes. You\'ll receive email and Slack notifications when your leads are ready.');
+        // Show the Sales Navigator modal instead of just a toast
+        setShowSalesNavModal(true);
       } else {
         // For Apollo/CSV campaigns, use the existing lead import logic
       const leadsToInsert = selectedLeads.map(lead => {
@@ -261,8 +265,8 @@ export default function Step5ReviewLaunch({ onBack, onEdit }) {
             </div>
             <div className="mt-4 p-4 bg-blue-50 rounded-lg">
               <p className="text-sm text-blue-800">
-                <strong>Note:</strong> When you launch this campaign, we'll automatically search LinkedIn Sales Navigator 
-                using your provided URL and import the found leads. The leads will be enriched with email addresses 
+                <strong>Note:</strong> When you launch this campaign, you'll use our Chrome Extension to manually sync 
+                leads from your LinkedIn Sales Navigator search. The leads will be enriched with email addresses 
                 using Apollo and made available in your campaign dashboard.
               </p>
             </div>
@@ -342,16 +346,16 @@ export default function Step5ReviewLaunch({ onBack, onEdit }) {
               </h3>
               <div className="mt-2 space-y-2">
                 <p className="text-sm text-blue-800">
-                  <strong>Processing Time:</strong> Your LinkedIn Sales Navigator search will take approximately <strong>10 minutes</strong> to complete.
+                  <strong>Manual Sync:</strong> Use the Chrome Extension to sync leads from your LinkedIn Sales Navigator search results.
                 </p>
                 <p className="text-sm text-blue-800">
-                  <strong>Automatic Processing:</strong> Our system will scrape LinkedIn in the background and import leads directly to your campaign.
+                  <strong>Chrome Extension:</strong> Install our extension to easily pull leads from LinkedIn into this campaign.
                 </p>
                 <p className="text-sm text-blue-800">
-                  <strong>Notifications:</strong> You'll receive both email and Slack notifications when your leads are ready for review.
+                  <strong>Enrichment:</strong> Leads will be automatically enriched with email addresses using Apollo after import.
                 </p>
                 <p className="text-sm text-blue-800">
-                  <strong>Credit Usage:</strong> This campaign will use 50 credits for LinkedIn scraping.
+                  <strong>Campaign Control:</strong> You control when and which leads to import from your search results.
                 </p>
               </div>
               <div className="mt-3 flex items-center">
@@ -359,7 +363,7 @@ export default function Step5ReviewLaunch({ onBack, onEdit }) {
                   <CheckCircle className="h-4 w-4 text-green-500" />
                 </div>
                 <p className="ml-2 text-xs text-blue-700">
-                  You can safely close this page - the search will continue in the background
+                  Campaign is ready - you can close this page and return to sync leads anytime
                 </p>
             </div>
           </div>
@@ -394,11 +398,88 @@ export default function Step5ReviewLaunch({ onBack, onEdit }) {
           ) : (
             <>
               <Rocket className="mr-2 h-4 w-4" />
-              {isSalesNavigatorCampaign ? 'Start LinkedIn Search' : 'Launch Campaign'}
+              Launch Campaign
             </>
           )}
         </button>
       </div>
+
+      {/* Sales Navigator Post-Launch Modal */}
+      <Dialog isOpen={showSalesNavModal} onClose={() => setShowSalesNavModal(false)} className="max-w-lg">
+        <DialogHeader onClose={() => setShowSalesNavModal(false)}>
+          <DialogTitle>Next Step: Pull Your Leads</DialogTitle>
+        </DialogHeader>
+        <DialogContent>
+          <div className="space-y-4">
+            <p className="text-gray-600">
+              We've saved your LinkedIn search. Open it now and use the Chrome Extension to sync leads into this campaign.
+            </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-blue-800">
+                    Need the Chrome Extension?
+                  </h3>
+                  <div className="mt-2 text-sm text-blue-700">
+                    <p>If you haven't installed it yet, you can download it from the Chrome Web Store.</p>
+                  </div>
+                  <div className="mt-3">
+                    <a
+                      href="https://chromewebstore.google.com/detail/hirepilot-cookie-helper/iiegpolacomfhkfcdgppbgkgkdbfemce?pli=1"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm bg-blue-100 text-blue-800 hover:bg-blue-200 px-3 py-1 rounded-md inline-flex items-center"
+                    >
+                      <i className="fab fa-chrome mr-1"></i>
+                      Install Extension
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+        <DialogFooter>
+          <button
+            type="button"
+            onClick={() => setShowSalesNavModal(false)}
+            className="px-4 py-2 text-gray-600 hover:text-gray-800"
+          >
+            Close
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const searchUrl = campaign?.lead_source_payload?.linkedin_search_url;
+              if (searchUrl) {
+                // Add campaign ID to the URL for Chrome Extension integration
+                const urlWithCampaign = searchUrl + (searchUrl.includes('?') ? '&' : '?') + `campaign_id=${campaign.id}`;
+                window.open(urlWithCampaign, '_blank');
+              }
+              setShowSalesNavModal(false);
+            }}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 inline-flex items-center"
+          >
+            <ExternalLink className="mr-2 h-4 w-4" />
+            Open Search in New Tab
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setShowSalesNavModal(false);
+              window.location.href = `/campaigns/${campaign?.id}`;
+            }}
+            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+          >
+            Go to Campaign Dashboard
+          </button>
+        </DialogFooter>
+      </Dialog>
     </div>
   );
 } 
