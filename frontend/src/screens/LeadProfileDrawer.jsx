@@ -368,11 +368,15 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
 
   // Helper to get work history from Apollo data
   const getWorkHistory = (lead) => {
+    console.log('getWorkHistory called for:', getDisplayName(lead));
+    console.log('Checking apollo employment_history:', lead.enrichment_data?.apollo?.employment_history);
+    
     if (
       lead.enrichment_data?.apollo?.employment_history &&
       Array.isArray(lead.enrichment_data.apollo.employment_history) &&
       lead.enrichment_data.apollo.employment_history.length > 0
     ) {
+      console.log('✅ Found Apollo employment_history:', lead.enrichment_data.apollo.employment_history.length, 'items');
       // Map Apollo employment_history to a common format
       return lead.enrichment_data.apollo.employment_history.map(exp => ({
         company: exp.organization_name || exp.company,
@@ -400,6 +404,10 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
 
   // Helper to get skills (from Apollo data)
   const getSkills = (lead) => {
+    console.log('getSkills called for:', getDisplayName(lead));
+    console.log('Apollo functions:', lead.enrichment_data?.apollo?.functions);
+    console.log('Apollo departments:', lead.enrichment_data?.apollo?.departments);
+    
     // Note: Apollo data structure doesn't include a skills field
     // Check for fallback data sources
     if (lead.skills && lead.skills.length > 0) return lead.skills;
@@ -409,13 +417,19 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     const enrichmentData = lead.enrichment_data || {};
     const skillsFromApollo = [];
     if (enrichmentData.apollo?.functions) {
+      console.log('✅ Found Apollo functions:', enrichmentData.apollo.functions);
       skillsFromApollo.push(...enrichmentData.apollo.functions);
     }
     if (enrichmentData.apollo?.departments) {
+      console.log('✅ Found Apollo departments:', enrichmentData.apollo.departments);
       skillsFromApollo.push(...enrichmentData.apollo.departments);
     }
-    if (skillsFromApollo.length > 0) return skillsFromApollo;
+    if (skillsFromApollo.length > 0) {
+      console.log('✅ Returning skills from Apollo:', skillsFromApollo);
+      return skillsFromApollo;
+    }
     
+    console.log('❌ No skills found');
     return [];
   };
 
@@ -423,6 +437,29 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   const isEnriched = Boolean(
     localLead.enrichment_data && Object.keys(localLead.enrichment_data).length > 0
   );
+
+  // Debug logging for enrichment data
+  React.useEffect(() => {
+    if (localLead.enrichment_data) {
+      console.log('=== ENRICHMENT DATA DEBUG ===');
+      console.log('Lead ID:', localLead.id);
+      console.log('Lead Name:', getDisplayName(localLead));
+      console.log('Raw enrichment_data type:', typeof localLead.enrichment_data);
+      console.log('Raw enrichment_data:', localLead.enrichment_data);
+      console.log('isEnriched:', isEnriched);
+      
+      if (localLead.enrichment_data.apollo) {
+        console.log('Apollo data found:', localLead.enrichment_data.apollo);
+        console.log('Apollo employment_history:', localLead.enrichment_data.apollo.employment_history);
+        console.log('Apollo functions:', localLead.enrichment_data.apollo.functions);
+        console.log('Apollo departments:', localLead.enrichment_data.apollo.departments);
+      } else {
+        console.log('❌ No Apollo data found in enrichment_data');
+        console.log('Available keys:', Object.keys(localLead.enrichment_data));
+      }
+      console.log('==============================');
+    }
+  }, [localLead.enrichment_data, localLead.id]);
 
   // NEW: Helper to detect enrichment sources and get metadata
   const getEnrichmentSources = (lead) => {
