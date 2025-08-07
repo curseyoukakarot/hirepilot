@@ -76,11 +76,61 @@ export default function ActivityLogSection({ lead, onActivityAdded }) {
     const diffInHours = (now - date) / (1000 * 60 * 60);
 
     if (diffInHours < 24) {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } else if (diffInHours < 24 * 7) {
-      return date.toLocaleDateString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+      // Today: Show "Aug 7, 3:14 PM"
+      return date.toLocaleDateString([], { 
+        month: 'short', 
+        day: 'numeric',
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+    } else if (diffInHours < 24 * 365) {
+      // This year: Show "Aug 7, 3:14 PM"
+      return date.toLocaleDateString([], { 
+        month: 'short', 
+        day: 'numeric',
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
     } else {
-      return date.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+      // Previous years: Show "Aug 7, 2024, 3:14 PM"
+      return date.toLocaleDateString([], { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric',
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+    }
+  };
+
+  const handleDeleteActivity = async (activityId) => {
+    if (!confirm('Are you sure you want to delete this activity?')) {
+      return;
+    }
+
+    try {
+      const headers = await getAuthHeaders();
+      const response = await fetch(`${API_BASE_URL}/lead-activities/${activityId}`, {
+        method: 'DELETE',
+        headers,
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete activity: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        // Remove the activity from the list
+        setActivities(prev => prev.filter(activity => activity.id !== activityId));
+      } else {
+        throw new Error(data.message || 'Failed to delete activity');
+      }
+    } catch (err) {
+      console.error('Error deleting activity:', err);
+      alert('Failed to delete activity. Please try again.');
     }
   };
 
@@ -175,11 +225,11 @@ export default function ActivityLogSection({ lead, onActivityAdded }) {
               </button>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {activities.map((activity) => (
-                <div key={activity.id} className="flex items-start space-x-3 p-3 rounded-lg bg-gray-50 border">
+                <div key={activity.id} className="flex items-start space-x-3 p-2.5 rounded-lg bg-gray-50 border hover:bg-gray-100 transition-colors group">
                   {/* Activity Icon */}
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm border ${getActivityColor(activity.activity_type)}`}>
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs border ${getActivityColor(activity.activity_type)}`}>
                     {getActivityIcon(activity.activity_type)}
                   </div>
                   
@@ -187,7 +237,7 @@ export default function ActivityLogSection({ lead, onActivityAdded }) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
-                        <span className="font-medium text-gray-900">{activity.activity_type}</span>
+                        <span className="font-medium text-gray-900 text-sm">{activity.activity_type}</span>
                         {activity.tags && activity.tags.length > 0 && (
                           <div className="flex space-x-1">
                             {activity.tags.map((tag, idx) => (
@@ -201,7 +251,16 @@ export default function ActivityLogSection({ lead, onActivityAdded }) {
                           </div>
                         )}
                       </div>
-                      <span className="text-xs text-gray-500">{formatDate(activity.activity_timestamp)}</span>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs text-gray-500">{formatDate(activity.activity_timestamp)}</span>
+                        <button
+                          onClick={() => handleDeleteActivity(activity.id)}
+                          className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all duration-200 p-1"
+                          title="Delete activity"
+                        >
+                          <i className="fa-solid fa-trash text-xs"></i>
+                        </button>
+                      </div>
                     </div>
                     
                     {activity.notes && (
