@@ -57,14 +57,10 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
         const numericKeys = keys.filter(key => !isNaN(key) && key !== 'last_enrichment_attempt');
         
         if (numericKeys.length > 10 && numericKeys.length > keys.length * 0.8) {
-          console.log('🔧 Detected corrupted array-like object, attempting to reconstruct');
-          console.log('Numeric keys count:', numericKeys.length, 'Total keys:', keys.length);
-          
           try {
             // Sort numeric keys and reconstruct the JSON string
             const sortedNumericKeys = numericKeys.sort((a, b) => parseInt(a) - parseInt(b));
             const reconstructed = sortedNumericKeys.map(key => lead.enrichment_data[key]).join('');
-            console.log('Reconstructed string:', reconstructed);
             
             const parsedEnrichment = JSON.parse(reconstructed);
             
@@ -78,9 +74,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
             
             const finalEnrichment = { ...parsedEnrichment, ...preservedFields };
             parsed = { ...lead, enrichment_data: finalEnrichment };
-            console.log('✅ Successfully fixed corrupted enrichment_data:', finalEnrichment);
           } catch (e) {
-            console.log('❌ Failed to fix corrupted enrichment_data:', e);
             parsed = { ...lead, enrichment_data: {} };
           }
         }
@@ -461,72 +455,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     localLead.enrichment_data && Object.keys(localLead.enrichment_data).length > 0
   );
 
-  // Debug logging for enrichment data
-  React.useEffect(() => {
-    if (localLead.enrichment_data) {
-      console.log('=== ENRICHMENT DATA DEBUG ===');
-      console.log('Lead ID:', localLead.id);
-      console.log('Lead Name:', getDisplayName(localLead));
-      console.log('Raw enrichment_data type:', typeof localLead.enrichment_data);
-      console.log('Raw enrichment_data:', localLead.enrichment_data);
-      
-      // Check if it's a string that needs parsing
-      let parsedData = localLead.enrichment_data;
-      if (typeof localLead.enrichment_data === 'string') {
-        console.log('🔧 Attempting to parse string enrichment_data');
-        try {
-          parsedData = JSON.parse(localLead.enrichment_data);
-          console.log('✅ Successfully parsed enrichment_data:', parsedData);
-        } catch (e) {
-          console.log('❌ Failed to parse enrichment_data:', e);
-        }
-      } else {
-        // Check if this is a corrupted array-like object for debugging
-        const keys = Object.keys(localLead.enrichment_data);
-        const numericKeys = keys.filter(key => !isNaN(key) && key !== 'last_enrichment_attempt');
-        
-        if (numericKeys.length > 10 && numericKeys.length > keys.length * 0.8) {
-          console.log('🔧 Detected corrupted array-like object in debug, attempting to reconstruct');
-          console.log('Numeric keys count:', numericKeys.length, 'Total keys:', keys.length);
-          
-          try {
-            const sortedNumericKeys = numericKeys.sort((a, b) => parseInt(a) - parseInt(b));
-            const reconstructed = sortedNumericKeys.map(key => localLead.enrichment_data[key]).join('');
-            console.log('Reconstructed string:', reconstructed);
-            
-            parsedData = JSON.parse(reconstructed);
-            
-            // Preserve non-numeric fields
-            const preservedFields = {};
-            keys.forEach(key => {
-              if (isNaN(key)) {
-                preservedFields[key] = localLead.enrichment_data[key];
-              }
-            });
-            
-            parsedData = { ...parsedData, ...preservedFields };
-            console.log('✅ Successfully parsed reconstructed data in debug:', parsedData);
-          } catch (e) {
-            console.log('❌ Failed to parse reconstructed data in debug:', e);
-          }
-        }
-      }
-      
-      console.log('isEnriched:', isEnriched);
-      
-      if (parsedData.apollo) {
-        console.log('✅ Apollo data found:', parsedData.apollo);
-        console.log('Apollo employment_history:', parsedData.apollo.employment_history);
-        console.log('Apollo functions:', parsedData.apollo.functions);
-        console.log('Apollo departments:', parsedData.apollo.departments);
-      } else {
-        console.log('❌ No Apollo data found in enrichment_data');
-        console.log('Available keys:', Object.keys(parsedData));
-        console.log('Parsed data:', parsedData);
-      }
-      console.log('==============================');
-    }
-  }, [localLead.enrichment_data, localLead.id]);
+  // Debug logging removed for performance
 
   // NEW: Helper to detect enrichment sources and get metadata
   const getEnrichmentSources = (lead) => {
