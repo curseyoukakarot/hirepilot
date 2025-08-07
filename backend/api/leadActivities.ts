@@ -28,18 +28,49 @@ router.get('/', requireAuth, async (req: ApiRequest, res: Response) => {
       });
     }
 
+    // Debug logging
+    console.log('GET /lead-activities - Debug info:', {
+      lead_id,
+      userId,
+      requestUser: req.user
+    });
+
     // Verify user owns the lead
     const { data: lead, error: leadError } = await supabase
       .from('leads')
-      .select('id')
+      .select('id, user_id')
       .eq('id', lead_id)
-      .eq('user_id', userId)
       .single();
 
-    if (leadError || !lead) {
+    console.log('Lead lookup result:', {
+      lead,
+      leadError,
+      leadUserId: lead?.user_id,
+      requestUserId: userId,
+      match: lead?.user_id === userId
+    });
+
+    if (leadError) {
+      console.error('Lead lookup error:', leadError);
       return res.status(404).json({ 
         success: false, 
-        message: 'Lead not found or access denied' 
+        message: 'Lead not found',
+        debug: { leadError }
+      });
+    }
+
+    if (!lead) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Lead not found' 
+      });
+    }
+
+    if (lead.user_id !== userId) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Access denied - lead belongs to different user',
+        debug: { leadUserId: lead.user_id, requestUserId: userId }
       });
     }
 
@@ -119,18 +150,50 @@ router.post('/', requireAuth, async (req: ApiRequest, res: Response) => {
       });
     }
 
+    // Debug logging
+    console.log('POST /lead-activities - Debug info:', {
+      lead_id,
+      userId,
+      requestUser: req.user,
+      activity_type
+    });
+
     // Verify user owns the lead
     const { data: lead, error: leadError } = await supabase
       .from('leads')
-      .select('id, first_name, last_name')
+      .select('id, user_id, first_name, last_name')
       .eq('id', lead_id)
-      .eq('user_id', userId)
       .single();
 
-    if (leadError || !lead) {
+    console.log('Lead lookup result (POST):', {
+      lead,
+      leadError,
+      leadUserId: lead?.user_id,
+      requestUserId: userId,
+      match: lead?.user_id === userId
+    });
+
+    if (leadError) {
+      console.error('Lead lookup error (POST):', leadError);
       return res.status(404).json({ 
         success: false, 
-        message: 'Lead not found or access denied' 
+        message: 'Lead not found',
+        debug: { leadError }
+      });
+    }
+
+    if (!lead) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Lead not found' 
+      });
+    }
+
+    if (lead.user_id !== userId) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Access denied - lead belongs to different user',
+        debug: { leadUserId: lead.user_id, requestUserId: userId }
       });
     }
 
