@@ -41,13 +41,26 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   const [tempTwitter, setTempTwitter] = useState('');
 
   useEffect(() => {
-    // Parse enrichment_data if it's a string
+    // Parse enrichment_data if it's a string or array-like object
     let parsed = lead;
-    if (lead && typeof lead.enrichment_data === 'string') {
-      try {
-        parsed = { ...lead, enrichment_data: JSON.parse(lead.enrichment_data) };
-      } catch (e) {
-        parsed = { ...lead, enrichment_data: {} };
+    if (lead && lead.enrichment_data) {
+      if (typeof lead.enrichment_data === 'string') {
+        try {
+          parsed = { ...lead, enrichment_data: JSON.parse(lead.enrichment_data) };
+        } catch (e) {
+          parsed = { ...lead, enrichment_data: {} };
+        }
+      } else if (Array.isArray(Object.keys(lead.enrichment_data)) && Object.keys(lead.enrichment_data).every(key => !isNaN(key))) {
+        // Handle array-like object that should be a JSON string
+        try {
+          const reconstructed = Object.values(lead.enrichment_data).join('');
+          const parsedEnrichment = JSON.parse(reconstructed);
+          parsed = { ...lead, enrichment_data: parsedEnrichment };
+          console.log('🔧 Fixed array-like enrichment_data for:', getDisplayName(lead));
+        } catch (e) {
+          console.log('❌ Failed to fix array-like enrichment_data:', e);
+          parsed = { ...lead, enrichment_data: {} };
+        }
       }
     }
     setLocalLead(parsed);
@@ -446,16 +459,40 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       console.log('Lead Name:', getDisplayName(localLead));
       console.log('Raw enrichment_data type:', typeof localLead.enrichment_data);
       console.log('Raw enrichment_data:', localLead.enrichment_data);
+      
+      // Check if it's a string that needs parsing
+      let parsedData = localLead.enrichment_data;
+      if (typeof localLead.enrichment_data === 'string') {
+        console.log('🔧 Attempting to parse string enrichment_data');
+        try {
+          parsedData = JSON.parse(localLead.enrichment_data);
+          console.log('✅ Successfully parsed enrichment_data:', parsedData);
+        } catch (e) {
+          console.log('❌ Failed to parse enrichment_data:', e);
+        }
+      } else if (Array.isArray(Object.keys(localLead.enrichment_data)) && Object.keys(localLead.enrichment_data).every(key => !isNaN(key))) {
+        console.log('🔧 Detected array-like object, attempting to reconstruct string');
+        const reconstructed = Object.values(localLead.enrichment_data).join('');
+        console.log('Reconstructed string:', reconstructed);
+        try {
+          parsedData = JSON.parse(reconstructed);
+          console.log('✅ Successfully parsed reconstructed data:', parsedData);
+        } catch (e) {
+          console.log('❌ Failed to parse reconstructed data:', e);
+        }
+      }
+      
       console.log('isEnriched:', isEnriched);
       
-      if (localLead.enrichment_data.apollo) {
-        console.log('Apollo data found:', localLead.enrichment_data.apollo);
-        console.log('Apollo employment_history:', localLead.enrichment_data.apollo.employment_history);
-        console.log('Apollo functions:', localLead.enrichment_data.apollo.functions);
-        console.log('Apollo departments:', localLead.enrichment_data.apollo.departments);
+      if (parsedData.apollo) {
+        console.log('✅ Apollo data found:', parsedData.apollo);
+        console.log('Apollo employment_history:', parsedData.apollo.employment_history);
+        console.log('Apollo functions:', parsedData.apollo.functions);
+        console.log('Apollo departments:', parsedData.apollo.departments);
       } else {
         console.log('❌ No Apollo data found in enrichment_data');
-        console.log('Available keys:', Object.keys(localLead.enrichment_data));
+        console.log('Available keys:', Object.keys(parsedData));
+        console.log('Parsed data:', parsedData);
       }
       console.log('==============================');
     }
@@ -717,13 +754,26 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       });
       if (!response.ok) return;
       const latest = await response.json();
-      // Parse enrichment_data if it's a string
+      // Parse enrichment_data if it's a string or array-like object
       let parsed = latest;
-      if (latest && typeof latest.enrichment_data === 'string') {
-        try {
-          parsed = { ...latest, enrichment_data: JSON.parse(latest.enrichment_data) };
-        } catch (e) {
-          parsed = { ...latest, enrichment_data: {} };
+      if (latest && latest.enrichment_data) {
+        if (typeof latest.enrichment_data === 'string') {
+          try {
+            parsed = { ...latest, enrichment_data: JSON.parse(latest.enrichment_data) };
+          } catch (e) {
+            parsed = { ...latest, enrichment_data: {} };
+          }
+        } else if (Array.isArray(Object.keys(latest.enrichment_data)) && Object.keys(latest.enrichment_data).every(key => !isNaN(key))) {
+          // Handle array-like object that should be a JSON string
+          try {
+            const reconstructed = Object.values(latest.enrichment_data).join('');
+            const parsedEnrichment = JSON.parse(reconstructed);
+            parsed = { ...latest, enrichment_data: parsedEnrichment };
+            console.log('🔧 Fixed array-like enrichment_data in fetchLatestLead');
+          } catch (e) {
+            console.log('❌ Failed to fix array-like enrichment_data in fetchLatestLead:', e);
+            parsed = { ...latest, enrichment_data: {} };
+          }
         }
       }
       setLocalLead(parsed);
