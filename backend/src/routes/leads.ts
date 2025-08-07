@@ -1335,4 +1335,101 @@ export const getLeadById = async (req: ApiRequest, res: Response) => {
 // Add PATCH route for lead updates
 router.patch('/:id', requireAuth, updateLead);
 
+// Attach leads to campaign endpoint
+router.post('/attach-to-campaign', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const { leadIds, campaignId } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User authentication required'
+      });
+    }
+
+    if (!leadIds || !Array.isArray(leadIds) || leadIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Lead IDs are required'
+      });
+    }
+
+    if (!campaignId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Campaign ID is required'
+      });
+    }
+
+    // Verify that the user owns the campaign
+    const { data: campaign, error: campaignError } = await supabase
+      .from('campaigns')
+      .select('id, name, title')
+      .eq('id', campaignId)
+      .eq('user_id', userId)
+      .single();
+
+    if (campaignError || !campaign) {
+      return res.status(404).json({
+        success: false,
+        error: 'Campaign not found or access denied'
+      });
+    }
+
+    // Verify that the user owns all the leads
+    const { data: userLeads, error: leadsError } = await supabase
+      .from('leads')
+      .select('id')
+      .in('id', leadIds)
+      .eq('user_id', userId);
+
+    if (leadsError) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to verify lead ownership'
+      });
+    }
+
+    if (!userLeads || userLeads.length !== leadIds.length) {
+      return res.status(403).json({
+        success: false,
+        error: 'Some leads not found or access denied'
+      });
+    }
+
+    // Update the campaign_id for all the leads
+    const { error: updateError } = await supabase
+      .from('leads')
+      .update({ 
+        campaign_id: campaignId,
+        updated_at: new Date().toISOString()
+      })
+      .in('id', leadIds)
+      .eq('user_id', userId);
+
+    if (updateError) {
+      console.error('Error updating leads:', updateError);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to attach leads to campaign'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `Successfully attached ${leadIds.length} lead(s) to campaign`,
+      campaignName: campaign.name || campaign.title,
+      attachedLeads: leadIds.length
+    });
+
+  } catch (error) {
+    console.error('Error in attach-to-campaign endpoint:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error'
+    });
+  }
+});
+
 export default router; 

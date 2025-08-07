@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import LeadProfileDrawer from './LeadProfileDrawer';
 import { getLeads } from '../services/leadsService';
-import { FaPlus, FaFileExport, FaEllipsisV, FaSearch, FaEdit, FaEnvelope, FaUserPlus, FaTrash, FaTimes, FaCheck, FaExclamationTriangle } from 'react-icons/fa';
+import { FaPlus, FaFileExport, FaEllipsisV, FaSearch, FaEdit, FaEnvelope, FaUserPlus, FaTrash, FaTimes, FaCheck, FaExclamationTriangle, FaLink as FaLinkIcon } from 'react-icons/fa';
 import { FaWandMagicSparkles, FaGoogle, FaMicrosoft, FaCircle } from 'react-icons/fa6';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import CsvImportButton from '../components/leads/CsvImportButton';
+import AttachToCampaignModal from '../components/AttachToCampaignModal';
 import { supabase } from '../lib/supabase';
 import { downloadCSV } from '../utils/csvExport';
 import { FaInbox, FaPaperPlane, FaFile, FaStar, FaTrash as FaTrashAlt, FaPenToSquare, FaFileLines, FaFilter, FaSort, FaAddressBook, FaBold, FaItalic, FaUnderline, FaListUl, FaListOl, FaLink, FaPaperclip, FaPuzzlePiece, FaChevronDown, FaClock, FaRegStar, FaRegBell } from 'react-icons/fa6';
@@ -89,6 +90,10 @@ function LeadManagement() {
   // Scheduling state for bulk messaging
   const [showBulkSchedule, setShowBulkSchedule] = useState(false);
   const [bulkScheduledDate, setBulkScheduledDate] = useState(null);
+
+  // Attach to Campaign modal state
+  const [showAttachToCampaignModal, setShowAttachToCampaignModal] = useState(false);
+  const [attachLeadIds, setAttachLeadIds] = useState([]);
 
   useEffect(() => {
     async function loadLeads() {
@@ -493,6 +498,28 @@ function LeadManagement() {
   // Handle message edit for a lead
   const handleBulkMessageEdit = (leadId, value) => {
     setBulkMessages(prev => ({ ...prev, [leadId]: value }));
+  };
+
+  // Handle attach to campaign for single lead
+  const handleAttachSingleLead = (leadId) => {
+    setAttachLeadIds([leadId]);
+    setShowAttachToCampaignModal(true);
+    setShowActionsMenu(null); // Close the actions menu
+  };
+
+  // Handle attach to campaign for multiple leads
+  const handleAttachMultipleLeads = () => {
+    if (selectedLeadIds.length === 0) return;
+    setAttachLeadIds(selectedLeadIds);
+    setShowAttachToCampaignModal(true);
+  };
+
+  // Handle success after attaching leads to campaign
+  const handleAttachSuccess = () => {
+    // Refresh the leads to show updated campaign information
+    loadLeads();
+    // Clear selected leads
+    setSelectedLeadIds([]);
   };
 
   // Handle send all
@@ -1049,6 +1076,13 @@ function LeadManagement() {
             Convert to Candidate
           </button>
           <button
+            className={`border px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-50 text-indigo-700 border-indigo-500 disabled:opacity-50 ${selectedLeadIds.length === 0 ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+            disabled={selectedLeadIds.length === 0}
+            onClick={handleAttachMultipleLeads}
+          >
+            <FaLinkIcon /> Attach to Campaign
+          </button>
+          <button
             className={`border px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-50 text-blue-700 border-blue-500 disabled:opacity-50 ${selectedLeadIds.length < 2 ? 'cursor-not-allowed' : 'cursor-pointer'}`}
             disabled={selectedLeadIds.length < 2}
             onClick={() => setShowBulkExportDialog(true)}
@@ -1248,6 +1282,12 @@ function LeadManagement() {
                               onClick={(e) => { e.stopPropagation(); handleIndividualConvert(lead); }}
                             >
                               <FaUserPlus className="mr-3" /> Convert to Candidate
+                            </button>
+                            <button
+                              className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                              onClick={(e) => { e.stopPropagation(); handleAttachSingleLead(lead.id); }}
+                            >
+                              <FaLinkIcon className="mr-3" /> Attach to Campaign
                             </button>
                             <button
                               className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
@@ -2051,6 +2091,14 @@ function LeadManagement() {
           </div>
         </div>
       )}
+
+      {/* Attach to Campaign Modal */}
+      <AttachToCampaignModal
+        isOpen={showAttachToCampaignModal}
+        onClose={() => setShowAttachToCampaignModal(false)}
+        leadIds={attachLeadIds}
+        onSuccess={handleAttachSuccess}
+      />
     </div>
   );
 }
