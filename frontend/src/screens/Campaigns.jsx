@@ -213,23 +213,19 @@ function Campaigns() {
                 <h3 className="text-lg font-bold text-gray-900 mb-1 truncate" title={campaign.name || campaign.title}>
                   {campaign.name || campaign.title || 'Untitled Campaign'}
                 </h3>
-                {campaign.status === 'active' || campaign.status === 'live' ? (
-                  <>
-                    <p className="text-gray-500 mb-3 line-clamp-2 min-h-[40px]">{campaign.role || campaign.description || ''}</p>
-                    <div className="flex gap-4 items-center text-sm text-gray-400 mt-auto pt-2">
-                      <span className="flex items-center gap-1">
-                        <FaUsers /> {campaign.total_leads || 0} leads
-                      </span>
+                <>
+                  <p className="text-gray-500 mb-3 line-clamp-2 min-h-[40px]">{campaign.role || campaign.description || ''}</p>
+                  <div className="flex gap-4 items-center text-sm text-gray-400 mt-auto pt-2">
+                    <span className="flex items-center gap-1">
+                      <FaUsers /> {campaign.total_leads || 0} leads
+                    </span>
+                    {(campaign.status === 'active' || campaign.status === 'live') && (
                       <span className="flex items-center gap-1">
                         <FaChartBar /> {campaign.enriched_leads || 0} outreach
                       </span>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-gray-500 mb-3 line-clamp-2 min-h-[40px]">{campaign.role || campaign.description || ''}</p>
-                  </>
-                )}
+                    )}
+                  </div>
+                </>
               </div>
             ))}
           </div>

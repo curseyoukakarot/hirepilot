@@ -95,46 +95,48 @@ function LeadManagement() {
   const [showAttachToCampaignModal, setShowAttachToCampaignModal] = useState(false);
   const [attachLeadIds, setAttachLeadIds] = useState([]);
 
-  useEffect(() => {
-    async function loadLeads() {
-      try {
-        const data = await getLeads();
-        const mapped = data.map((lead) => {
-          const enrichment =
-            typeof lead.enrichment_data === 'string'
-              ? JSON.parse(lead.enrichment_data)
-              : lead.enrichment_data || {};
+  // Load leads function (moved outside useEffect to make it accessible)
+  const loadLeads = async () => {
+    try {
+      const data = await getLeads();
+      const mapped = data.map((lead) => {
+        const enrichment =
+          typeof lead.enrichment_data === 'string'
+            ? JSON.parse(lead.enrichment_data)
+            : lead.enrichment_data || {};
 
-          return {
-          id: lead.id,
-          name: lead.name,
-          title: lead.title,
-          company: lead.company,
-          email: lead.email,
-            linkedin_url: lead.linkedin_url,
-            enrichment,
-          status: lead.status,
-          createdAt: lead.created_at,
-          updatedAt: lead.updated_at,
-          avatar: getAvatarUrl(lead.name),
-          tags: lead.tags || [],
-          campaign: lead.campaign,
-          phone: lead.phone,
-            source: enrichment.source || 'Unknown',
-            location: enrichment.location || 'Unknown',
-            workHistory: enrichment.workHistory || [],
-            gptNotes: enrichment.gptNotes || '',
-          skills: [],
-          twitter: '',
-          outreachHistory: [],
-          };
-        });
-        console.log('✅ Leads loaded:', mapped);
-        setLeads(mapped);
-      } catch (error) {
-        console.error('Failed to load leads', error);
-      }
+        return {
+        id: lead.id,
+        name: lead.name,
+        title: lead.title,
+        company: lead.company,
+        email: lead.email,
+          linkedin_url: lead.linkedin_url,
+          enrichment,
+        status: lead.status,
+        createdAt: lead.created_at,
+        updatedAt: lead.updated_at,
+        avatar: getAvatarUrl(lead.name),
+        tags: lead.tags || [],
+        campaign: lead.campaign,
+        phone: lead.phone,
+          source: enrichment.source || 'Unknown',
+          location: enrichment.location || 'Unknown',
+          workHistory: enrichment.workHistory || [],
+          gptNotes: enrichment.gptNotes || '',
+        skills: [],
+        twitter: '',
+        outreachHistory: [],
+        };
+      });
+      console.log('✅ Leads loaded:', mapped);
+      setLeads(mapped);
+    } catch (error) {
+      console.error('Failed to load leads', error);
     }
+  };
+
+  useEffect(() => {
     loadLeads();
   }, []);
 
