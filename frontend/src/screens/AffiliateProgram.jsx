@@ -81,7 +81,7 @@ export default function AffiliateProgram() {
                 <div className="flex items-center space-x-6 text-sm text-gray-600">
                   <span className="flex items-center">
                     <i className="fa-solid fa-users mr-2 text-blue-600"></i>
-                    Used by 300+ recruiters
+                    Used by forward thinking recruiters
                   </span>
                   <span className="flex items-center">
                     <i className="fa-solid fa-dollar-sign mr-2 text-yellow-500"></i>
