@@ -12,6 +12,8 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
 
     // Get campaign filter from query params
     const campaignId = req.query.campaignId as string;
+    console.log('🔍 [Backend] getLeads called with campaignId:', campaignId);
+    console.log('🔍 [Backend] Query params:', req.query);
 
     // Build query with optional campaign filter
     let query = supabaseDb
@@ -21,12 +23,20 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
     
     // Add campaign filter if provided
     if (campaignId && campaignId !== 'all') {
+      console.log('🎯 [Backend] Adding campaign filter for:', campaignId);
       query = query.eq('campaign_id', campaignId);
+    } else {
+      console.log('📋 [Backend] No campaign filter (showing all leads)');
     }
 
     const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) throw error;
+
+    console.log('✅ [Backend] Returning', (data || []).length, 'leads for user:', req.user.id);
+    if (campaignId && campaignId !== 'all') {
+      console.log('🎯 [Backend] Should be filtered for campaign:', campaignId);
+    }
 
     // Return the actual data from Supabase
     res.status(200).json(data || []);
