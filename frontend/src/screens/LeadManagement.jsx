@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import LeadProfileDrawer from './LeadProfileDrawer';
 import { getLeads } from '../services/leadsService';
 import { FaPlus, FaFileExport, FaEllipsisV, FaSearch, FaEdit, FaEnvelope, FaUserPlus, FaTrash, FaTimes, FaCheck, FaExclamationTriangle, FaLink as FaLinkIcon } from 'react-icons/fa';
@@ -13,6 +14,7 @@ import { FaInbox, FaPaperPlane, FaFile, FaStar, FaTrash as FaTrashAlt, FaPenToSq
 import { replaceTokens } from '../utils/tokenReplace';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import { useCampaignOptions } from '../hooks/useCampaignOptions';
 
 const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
 
@@ -20,13 +22,16 @@ const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
 const getAvatarUrl = (name) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
 
 function LeadManagement() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [leads, setLeads] = useState([]);
   const [selectedLead, setSelectedLead] = useState(null);
   const [showDrawer, setShowDrawer] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedCampaign, setSelectedCampaign] = useState('all');
+  const [selectedCampaignName, setSelectedCampaignName] = useState('');
   const [selectedTags, setSelectedTags] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const { options: campaignOptions, loading: campaignsLoading, error: campaignsError } = useCampaignOptions();
   const [showActionsMenu, setShowActionsMenu] = useState(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [leadToDelete, setLeadToDelete] = useState(null);
@@ -95,11 +100,28 @@ function LeadManagement() {
   const [showAttachToCampaignModal, setShowAttachToCampaignModal] = useState(false);
   const [attachLeadIds, setAttachLeadIds] = useState([]);
 
-  // Load leads function (moved outside useEffect to make it accessible)
-  const loadLeads = async () => {
+  // Load leads function with campaign filtering support
+  const loadLeads = async (campaignId = selectedCampaign) => {
     try {
-      const data = await getLeads();
-      const mapped = data.map((lead) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      // Build query with optional campaign filter
+      let query = supabase
+        .from('leads')
+        .select('*')
+        .eq('user_id', session.user.id);
+      
+      // Add campaign filter if a specific campaign is selected
+      if (campaignId && campaignId !== 'all') {
+        query = query.eq('campaign_id', campaignId);
+      }
+      
+      const { data, error } = await query.order('created_at', { ascending: false });
+      
+      if (error) throw error;
+
+      const mapped = (data || []).map((lead) => {
         const enrichment =
           typeof lead.enrichment_data === 'string'
             ? JSON.parse(lead.enrichment_data)
@@ -119,6 +141,7 @@ function LeadManagement() {
         avatar: getAvatarUrl(lead.name),
         tags: lead.tags || [],
         campaign: lead.campaign,
+        campaign_id: lead.campaign_id,
         phone: lead.phone,
           source: enrichment.source || 'Unknown',
           location: enrichment.location || 'Unknown',
@@ -136,9 +159,64 @@ function LeadManagement() {
     }
   };
 
+  // Initialize state from URL params on mount
   useEffect(() => {
-    loadLeads();
-  }, []);
+    const campaignId = searchParams.get('campaignId');
+    const campaignName = searchParams.get('campaignName');
+    
+    if (campaignId && campaignId !== 'all') {
+      setSelectedCampaign(campaignId);
+      if (campaignName) {
+        setSelectedCampaignName(decodeURIComponent(campaignName));
+      }
+    } else {
+      setSelectedCampaign('all');
+      setSelectedCampaignName('');
+    }
+  }, [searchParams]);
+
+  // Load leads when campaign selection changes
+  useEffect(() => {
+    loadLeads(selectedCampaign);
+  }, [selectedCampaign]);
+
+  // Validate campaign ID after campaign options load
+  useEffect(() => {
+    if (!campaignsLoading && campaignOptions.length > 0 && selectedCampaign !== 'all') {
+      const isValidCampaign = campaignOptions.some(c => c.id === selectedCampaign);
+      if (!isValidCampaign) {
+        // Campaign ID is invalid or inaccessible, fall back to "All Campaigns"
+        console.warn('Invalid or inaccessible campaign ID, falling back to All Campaigns');
+        handleCampaignChange('all');
+      }
+    }
+  }, [campaignsLoading, campaignOptions, selectedCampaign]);
+
+  // Handle campaign filter change
+  const handleCampaignChange = (campaignId) => {
+    setSelectedCampaign(campaignId);
+    
+    // Update URL params
+    const newSearchParams = new URLSearchParams(searchParams);
+    
+    if (campaignId === 'all') {
+      // Remove campaign params for "All Campaigns"
+      newSearchParams.delete('campaignId');
+      newSearchParams.delete('campaignName');
+      setSelectedCampaignName('');
+    } else {
+      // Set campaign params for specific campaign
+      const campaign = campaignOptions.find(c => c.id === campaignId);
+      newSearchParams.set('campaignId', campaignId);
+      if (campaign?.name) {
+        newSearchParams.set('campaignName', encodeURIComponent(campaign.name));
+        setSelectedCampaignName(campaign.name);
+      }
+    }
+    
+    // Update URL (replace, not push, to avoid adding to history)
+    setSearchParams(newSearchParams, { replace: true });
+  };
 
   const handleLeadClick = (lead, event) => {
     if (event.target.closest('.actions-menu')) {
@@ -387,7 +465,7 @@ function LeadManagement() {
     return Array.from(tagSet).sort();
   };
 
-  // Update the filteredLeads function to handle tag filtering
+  // Filter leads by search, status, and tags (campaign filtering is done at database level)
   const filteredLeads = leads.filter(lead => {
     const searchLower = searchQuery.toLowerCase();
     const matchesSearch = (
@@ -399,10 +477,9 @@ function LeadManagement() {
     );
 
     const matchesStatus = selectedStatus === 'all' || lead.status?.toLowerCase() === selectedStatus.toLowerCase();
-    const matchesCampaign = selectedCampaign === 'all' || lead.campaign === selectedCampaign;
     const matchesTags = selectedTags === 'all' || (lead.tags || []).includes(selectedTags);
 
-    return matchesSearch && matchesStatus && matchesCampaign && matchesTags;
+    return matchesSearch && matchesStatus && matchesTags;
   });
 
   // Form validation
@@ -519,7 +596,7 @@ function LeadManagement() {
   // Handle success after attaching leads to campaign
   const handleAttachSuccess = () => {
     // Refresh the leads to show updated campaign information
-    loadLeads();
+    loadLeads(selectedCampaign);
     // Clear selected leads
     setSelectedLeadIds([]);
   };
@@ -1018,13 +1095,26 @@ function LeadManagement() {
               <select 
                 className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                 value={selectedCampaign}
-                onChange={(e) => setSelectedCampaign(e.target.value)}
+                onChange={(e) => handleCampaignChange(e.target.value)}
+                disabled={campaignsLoading}
               >
-                <option value="all">All Campaigns</option>
-                <option value="frontend">Frontend Outreach</option>
-                <option value="backend">Backend Outreach</option>
-                <option value="product">Product Manager</option>
+                <option value="all">
+                  {campaignsLoading ? 'Loading campaigns...' : 'All Campaigns'}
+                </option>
+                {!campaignsLoading && campaignOptions.map((campaign) => (
+                  <option key={campaign.id} value={campaign.id}>
+                    {campaign.name}
+                    {campaign.status && (
+                      <span className="text-gray-500"> ({campaign.status})</span>
+                    )}
+                  </option>
+                ))}
               </select>
+              {campaignsError && (
+                <p className="mt-1 text-sm text-red-600">
+                  Error loading campaigns: {campaignsError}
+                </p>
+              )}
               <select 
                 className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                 value={selectedTags}
