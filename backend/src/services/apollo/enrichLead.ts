@@ -225,23 +225,34 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
     console.log('[Enrichment] Starting Apollo enrichment as fallback...');
     enrichment_source = 'apollo';
 
-    // Get user's Apollo API key
-    const { data: settings, error: settingsError } = await supabase
-      .from('user_settings')
-      .select('apollo_api_key')
-      .eq('user_id', userId)
-      .single();
+    // Get Apollo API key - prioritize super admin key for ALL users to ensure rich data
+    let apolloApiKey: string | undefined;
+    
+    // 1. First priority: Use super admin key (has highest permissions)
+    if (process.env.SUPER_ADMIN_APOLLO_API_KEY) {
+      apolloApiKey = process.env.SUPER_ADMIN_APOLLO_API_KEY;
+      console.log('[Apollo] Using SUPER_ADMIN_APOLLO_API_KEY for enrichment');
+    } else {
+      // 2. Fallback: Use user's personal Apollo API key
+      const { data: settings, error: settingsError } = await supabase
+        .from('user_settings')
+        .select('apollo_api_key')
+        .eq('user_id', userId)
+        .single();
 
-    if (settingsError || !settings?.apollo_api_key) {
-      const errorMsg = 'Apollo API key not found - enrichment cannot proceed';
-      console.error('[Enrichment] Apollo API key error:', settingsError);
-      errors.push(errorMsg);
-      return {
-        success: false,
-        provider: 'none',
-        errors,
-        fallbacks_used
-      };
+      if (settingsError || !settings?.apollo_api_key) {
+        const errorMsg = 'No Apollo API key available - enrichment cannot proceed';
+        console.error('[Enrichment] Apollo API key error:', settingsError);
+        errors.push(errorMsg);
+        return {
+          success: false,
+          provider: 'none',
+          errors,
+          fallbacks_used
+        };
+      }
+      apolloApiKey = settings.apollo_api_key;
+      console.log('[Apollo] Using personal Apollo API key for enrichment');
     }
 
     // Prepare search parameters - clean name fields for better Apollo matching
@@ -268,7 +279,7 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
     }
 
     // Add API key to params (Apollo expects it as query param)
-    searchParams.api_key = settings.apollo_api_key;
+    searchParams.api_key = apolloApiKey;
 
     console.log('[Apollo] Search parameters:', {
       originalName: `${firstName} ${lastName}`,
@@ -282,7 +293,7 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
     try {
       // Prepare match parameters for enrichment API
       const matchParams: any = {
-        api_key: settings.apollo_api_key,
+        api_key: apolloApiKey,
         reveal_personal_emails: true // Key parameter to get email addresses
         // Note: reveal_phone_number requires webhook_url configuration
       };
