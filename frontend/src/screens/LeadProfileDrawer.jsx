@@ -28,6 +28,10 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   const [rexMode, setRexMode] = useState('manual'); // 'auto' or 'manual'
   const [consentAccepted, setConsentAccepted] = useState(false);
 
+  // User role state for feature gating
+  const [userRole, setUserRole] = useState(null);
+  const [showComingSoonModal, setShowComingSoonModal] = useState(false);
+
   // Edit states for contact fields
   const [editingEmail, setEditingEmail] = useState(false);
   const [editingPhone, setEditingPhone] = useState(false);
@@ -53,12 +57,19 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       fetchLatestLead(lead.id);
       fetchDailyLinkedInCount();
       fetchUserCredits();
+      fetchUserRole();
     }
   }, [lead, isOpen]);
 
   // Toast helper (replace with your own toast if needed)
   const showToast = (msg, type = 'success') => {
     window.alert(msg); // Replace with your toast system
+  };
+
+  // Helper function to check if user role should see "Coming Soon!" modal
+  const shouldShowComingSoon = () => {
+    const restrictedRoles = ['member', 'admin', 'team_admin', 'RecruitPro'];
+    return restrictedRoles.includes(userRole);
   };
 
   // Fetch daily LinkedIn request count
@@ -107,6 +118,31 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       }
     } catch (error) {
       console.error('Failed to fetch user credits:', error);
+    }
+  };
+
+  // Fetch user role
+  const fetchUserRole = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Try to fetch from users table first
+      const { data, error } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      if (data && data.role) {
+        setUserRole(data.role);
+      } else if (user.user_metadata?.role) {
+        setUserRole(user.user_metadata.role);
+      } else if (user.user_metadata?.account_type) {
+        setUserRole(user.user_metadata.account_type);
+      }
+    } catch (error) {
+      console.error('Failed to fetch user role:', error);
     }
   };
 
@@ -1012,14 +1048,19 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                         : 'bg-linkedin hover:bg-blue-700'
                     } text-white`}
                     onClick={() => {
-                      fetchUserCredits();
-                      setShowCreditConfirm(true);
+                      if (shouldShowComingSoon()) {
+                        setShowComingSoonModal(true);
+                      } else {
+                        fetchUserCredits();
+                        setShowCreditConfirm(true);
+                      }
                     }}
                     disabled={!localLead?.linkedin_url || dailyLinkedInCount >= 20}
                     style={{backgroundColor: (!localLead?.linkedin_url || dailyLinkedInCount >= 20) ? undefined : '#0077B5'}}
                     title={
                       !localLead?.linkedin_url ? 'No LinkedIn URL available' : 
                       dailyLinkedInCount >= 20 ? 'Daily LinkedIn request limit reached (20/20)' :
+                      shouldShowComingSoon() ? 'LinkedIn requests coming soon for your role!' :
                       `Send LinkedIn connection request (${dailyLinkedInCount}/20 used today)`
                     }
                   >
@@ -1955,6 +1996,30 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                     Send LinkedIn Connect
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Coming Soon Modal */}
+      {showComingSoonModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 mb-4">
+                <i className="fa-brands fa-linkedin text-2xl text-blue-600"></i>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Coming Soon!</h3>
+              <p className="text-gray-600 mb-6">
+                LinkedIn automation features are being enhanced and will be available for your role soon. 
+                Stay tuned for updates!
+              </p>
+              <button
+                onClick={() => setShowComingSoonModal(false)}
+                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                Got it
               </button>
             </div>
           </div>
