@@ -91,7 +91,7 @@ export default function AffiliateProgram() {
               </div>
             </div>
             <div className="relative">
-              <img className="w-full h-96 object-cover rounded-2xl shadow-2xl" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/400c793d5a-31a43ac6d2b2c756521e.png" alt="modern dashboard interface with AI hiring analytics and Slack notifications, professional tech aesthetic" />
+              <img className="w-full h-96 object-cover rounded-2xl shadow-2xl" src="/affiliate-hero.png" alt="modern dashboard interface with AI hiring analytics and Slack notifications, professional tech aesthetic" />
               <div className="absolute -bottom-4 -right-4 bg-white rounded-lg shadow-lg p-4">
                 <div className="flex items-center space-x-2">
                   <i className="fa-solid fa-chart-line text-green-500"></i>
