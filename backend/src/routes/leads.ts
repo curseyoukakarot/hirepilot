@@ -861,21 +861,32 @@ router.post('/csv/parse', async (req: Request, res: Response) => {
 
 // OLD APOLLO ROUTE REMOVED - Now using Decodo-first compatibility route above
 
-// GET /api/leads/:id - fetch a single lead by ID
-router.get('/:id', async (req: Request, res: Response) => {
+// GET /api/leads/:id - fetch a single lead by ID (with user ownership verification)
+router.get('/:id', requireAuth, async (req: ApiRequest, res: Response) => {
   try {
     const { id } = req.params;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
     const { data: lead, error } = await supabase
       .from('leads')
       .select('*')
       .eq('id', id)
+      .eq('user_id', userId)  // Security: ensure user owns this lead
       .single();
+    
     if (error || !lead) {
-      res.status(404).json({ error: 'Lead not found' });
+      res.status(404).json({ error: 'Lead not found or access denied' });
       return;
     }
+    
     res.json(lead);
   } catch (err) {
+    console.error('Error fetching lead:', err);
     res.status(500).json({ error: 'Failed to fetch lead' });
   }
 });
