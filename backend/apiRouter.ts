@@ -269,4 +269,8 @@ router.use('/cookies/linkedin', linkedInCookieRouter);
 
 router.use('/admin', requireAuth, linkedinSessionAdmin);
 
+// Lead Activities endpoints
+import leadActivitiesRouter from './api/leadActivities';
+router.use('/lead-activities', requireAuth, leadActivitiesRouter);
+
 export default router;

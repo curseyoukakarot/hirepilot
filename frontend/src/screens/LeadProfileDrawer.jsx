@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { FiX } from "react-icons/fi";
 import { FaWandMagicSparkles } from 'react-icons/fa6';
 import { supabase } from '../lib/supabase';
+import ActivityLogSection from '../components/ActivityLogSection';
 
 const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
 
@@ -1748,6 +1749,16 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                     </div>
                   </div>
                 </div>
+
+                {/* Activity Log Section */}
+                <ActivityLogSection 
+                  lead={localLead} 
+                  onActivityAdded={(activity) => {
+                    // Optionally refresh lead data or update UI
+                    console.log('New activity added:', activity);
+                  }}
+                />
+
                 {/* Blur the rest if not enriched */}
                 <div className={isEnriched ? '' : 'relative pointer-events-none select-none'}>
                   <div className={isEnriched ? '' : 'blur-sm'}>
