@@ -728,8 +728,6 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
           const numericKeys = keys.filter(key => !isNaN(key) && key !== 'last_enrichment_attempt');
           
           if (numericKeys.length > 10 && numericKeys.length > keys.length * 0.8) {
-            console.log('🔧 Detected corrupted array-like object in fetchLatestLead');
-            
             try {
               // Sort numeric keys and reconstruct the JSON string
               const sortedNumericKeys = numericKeys.sort((a, b) => parseInt(a) - parseInt(b));
@@ -746,9 +744,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
               
               const finalEnrichment = { ...parsedEnrichment, ...preservedFields };
               parsed = { ...latest, enrichment_data: finalEnrichment };
-              console.log('✅ Successfully fixed corrupted enrichment_data in fetchLatestLead');
             } catch (e) {
-              console.log('❌ Failed to fix corrupted enrichment_data in fetchLatestLead:', e);
               parsed = { ...latest, enrichment_data: {} };
             }
           }
@@ -1312,7 +1308,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                               {phantomStatus.canRetrigger && (
                                 <button 
                                   className="mt-2 text-xs bg-yellow-600 text-white px-2 py-1 rounded hover:bg-yellow-700"
-                                  onClick={() => console.log('TODO: Trigger PhantomBuster re-run')}
+                                  onClick={() => {/* TODO: Trigger PhantomBuster re-run */}}
                                 >
                                   Re-trigger PhantomBuster
                                 </button>
@@ -1684,7 +1680,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                   lead={localLead} 
                   onActivityAdded={(activity) => {
                     // Optionally refresh lead data or update UI
-                    console.log('New activity added:', activity);
+                    // Activity added successfully
                   }}
                 />
 
@@ -1793,7 +1789,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                                 </p>
                                 <button 
                                   className="mt-3 text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
-                                  onClick={() => console.log('TODO: Trigger PhantomBuster run')}
+                                  onClick={() => {/* TODO: Trigger PhantomBuster run */}}
                                 >
                                   Run PhantomBuster Enrichment
                                 </button>
