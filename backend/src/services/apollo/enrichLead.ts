@@ -21,8 +21,8 @@ interface EnrichmentResult {
   fallbacks_used?: string[];
   // Track API key usage for billing/analytics
   api_key_info?: {
-    using_personal_key: boolean;
-    key_type: 'personal' | 'super_admin';
+    using_personal_key: boolean;          // true = NO credits charged (user's Apollo)
+    key_type: 'personal' | 'super_admin'; // personal = free, super_admin = charge credits
   };
 }
 
@@ -230,11 +230,11 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
     console.log('[Enrichment] Starting Apollo enrichment as fallback...');
     enrichment_source = 'apollo';
 
-    // Get Apollo API key - prioritize user's personal key for monetization
+    // Get Apollo API key - prioritize user's personal key (no credits charged)
     let apolloApiKey: string | undefined;
     let usingPersonalKey = false;
     
-    // 1. First priority: Use user's personal Apollo API key (for billing/tracking)
+    // 1. First priority: Use user's personal Apollo API key (NO CREDITS CHARGED - their own Apollo account)
     const { data: settings, error: settingsError } = await supabase
       .from('user_settings')
       .select('apollo_api_key')
@@ -244,12 +244,12 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
     if (!settingsError && settings?.apollo_api_key) {
       apolloApiKey = settings.apollo_api_key;
       usingPersonalKey = true;
-      console.log('[Apollo] Using personal Apollo API key for enrichment');
+      console.log('[Apollo] Using personal Apollo API key - NO CREDITS CHARGED (user\'s own account)');
     } else {
-      // 2. Graceful fallback: Use super admin key (free tier)
+      // 2. Fallback: Use super admin key (CREDITS CHARGED - platform's Apollo account)
       if (process.env.SUPER_ADMIN_APOLLO_API_KEY) {
         apolloApiKey = process.env.SUPER_ADMIN_APOLLO_API_KEY;
-        console.log('[Apollo] Using SUPER_ADMIN_APOLLO_API_KEY as fallback (user has no personal key)');
+        console.log('[Apollo] Using SUPER_ADMIN_APOLLO_API_KEY - CREDITS WILL BE CHARGED (platform account)');
       } else {
         const errorMsg = 'No Apollo API key available - enrichment cannot proceed';
         console.error('[Enrichment] No Apollo API key found (personal or super admin)');
@@ -474,7 +474,7 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
       fallbacks_used: fallbacks_used.length > 0 ? fallbacks_used : undefined,
       // Track API key usage for billing/analytics
       api_key_info: {
-        using_personal_key: usingPersonalKey,
+        using_personal_key: usingPersonalKey,  // true = NO credits, false = CHARGE credits
         key_type: usingPersonalKey ? 'personal' : 'super_admin'
       }
     };
