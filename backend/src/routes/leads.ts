@@ -186,10 +186,17 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
       }
     }
 
-    // STEP 4: Final fallback to Apollo (only if no email found)
-    if (!enrichmentData.decodo?.email && !enrichmentData.hunter?.email && !enrichmentData.skrapp?.email) {
+    // STEP 4: Apollo enrichment - run if no email found OR if Apollo data is incomplete
+    const hasCompleteApolloData = lead.enrichment_data?.apollo?.employment_history || 
+                                  lead.enrichment_data?.apollo?.functions || 
+                                  lead.enrichment_data?.apollo?.departments;
+    
+    if (!enrichmentData.decodo?.email && !enrichmentData.hunter?.email && !enrichmentData.skrapp?.email || 
+        !hasCompleteApolloData) {
       try {
-        console.log('[LeadEnrich] Step 4: Using Apollo as final fallback...');
+        console.log(!hasCompleteApolloData ? 
+          '[LeadEnrich] Step 4: Running Apollo enrichment for complete profile data...' : 
+          '[LeadEnrich] Step 4: Using Apollo as final fallback...');
         const apolloResult = await enrichWithApollo({
           leadId: leadId,
           userId: userId,
