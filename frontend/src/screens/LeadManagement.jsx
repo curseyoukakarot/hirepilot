@@ -103,11 +103,8 @@ function LeadManagement() {
   // Load leads function with campaign filtering support
   const loadLeads = async (campaignId = selectedCampaign) => {
     try {
-      console.log('🔍 LoadLeads called with campaignId:', campaignId);
-      
       // Use the backend API for all cases (with or without campaign filtering)
       const rawLeads = await getLeads(campaignId);
-      console.log('📋 Leads loaded via backend API:', rawLeads.length, campaignId !== 'all' ? `for campaign: ${campaignId}` : '(all campaigns)');
 
       const mapped = rawLeads.map((lead) => {
         const enrichment =
@@ -140,16 +137,6 @@ function LeadManagement() {
         outreachHistory: [],
         };
       });
-      console.log('✅ Leads loaded:', mapped.length);
-      
-      // Debug: Show campaign_id values in loaded leads
-      const campaignIdCounts = {};
-      mapped.forEach(lead => {
-        const cid = lead.campaign_id || 'null';
-        campaignIdCounts[cid] = (campaignIdCounts[cid] || 0) + 1;
-      });
-      console.log('📊 Campaign ID distribution in leads:', campaignIdCounts);
-      
       setLeads(mapped);
     } catch (error) {
       console.error('Failed to load leads', error);
@@ -191,7 +178,6 @@ function LeadManagement() {
 
   // Handle campaign filter change
   const handleCampaignChange = (campaignId) => {
-    console.log('🎯 Campaign changed to:', campaignId);
     setSelectedCampaign(campaignId);
     
     // Update URL params
@@ -202,7 +188,6 @@ function LeadManagement() {
       newSearchParams.delete('campaignId');
       newSearchParams.delete('campaignName');
       setSelectedCampaignName('');
-      console.log('📋 Reset to All Campaigns');
     } else {
       // Set campaign params for specific campaign
       const campaign = campaignOptions.find(c => c.id === campaignId);
@@ -210,7 +195,6 @@ function LeadManagement() {
       if (campaign?.name) {
         newSearchParams.set('campaignName', encodeURIComponent(campaign.name));
         setSelectedCampaignName(campaign.name);
-        console.log('🎯 Selected campaign:', campaign.name, 'ID:', campaignId);
       }
     }
     

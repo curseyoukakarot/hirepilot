@@ -340,8 +340,6 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
 
     // Get campaign filter from query params
     const campaignId = req.query.campaignId as string;
-    console.log('🔍 [Backend] CORRECT getLeads called with campaignId:', campaignId);
-    console.log('🔍 [Backend] Query params:', req.query);
 
     // Build query with optional campaign filter
     let query = supabase
@@ -351,10 +349,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     
     // Add campaign filter if provided
     if (campaignId && campaignId !== 'all') {
-      console.log('🎯 [Backend] Adding campaign filter for:', campaignId);
       query = query.eq('campaign_id', campaignId);
-    } else {
-      console.log('📋 [Backend] No campaign filter (showing all leads)');
     }
 
     const { data: leads, error } = await query.order('created_at', { ascending: false });
@@ -362,11 +357,6 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     if (error) {
       res.status(500).json({ error: error.message });
       return;
-    }
-
-    console.log('✅ [Backend] Returning', (leads || []).length, 'leads for user:', userId);
-    if (campaignId && campaignId !== 'all') {
-      console.log('🎯 [Backend] Should be filtered for campaign:', campaignId);
     }
 
     res.json(leads || []);
