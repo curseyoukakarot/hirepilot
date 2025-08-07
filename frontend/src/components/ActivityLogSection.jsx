@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import LogActivityModal from './LogActivityModal';
 import { supabase } from '../lib/supabase';
 
@@ -10,8 +10,8 @@ export default function ActivityLogSection({ lead, onActivityAdded }) {
   const [showModal, setShowModal] = useState(false);
   const [error, setError] = useState('');
 
-  // Helper to get auth headers
-  const getAuthHeaders = async () => {
+  // Helper to get auth headers - memoized to prevent recreating on every render
+  const getAuthHeaders = useCallback(async () => {
     const { data: { session }, error } = await supabase.auth.getSession();
     if (error || !session) {
       throw new Error('Not authenticated');
@@ -20,16 +20,12 @@ export default function ActivityLogSection({ lead, onActivityAdded }) {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${session.access_token}`
     };
-  };
+  }, []);
 
-  // Fetch activities for the lead
-  useEffect(() => {
-    if (lead?.id) {
-      fetchActivities();
-    }
-  }, [lead?.id]);
-
-  const fetchActivities = async () => {
+  // Fetch activities for the lead - memoized to prevent unnecessary API calls
+  const fetchActivities = useCallback(async () => {
+    if (!lead?.id) return;
+    
     try {
       setLoading(true);
       setError('');
@@ -57,7 +53,12 @@ export default function ActivityLogSection({ lead, onActivityAdded }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [lead?.id, getAuthHeaders]);
+
+  // Fetch activities when lead changes
+  useEffect(() => {
+    fetchActivities();
+  }, [fetchActivities]);
 
   const handleActivityAdded = (newActivity) => {
     // Add the new activity to the top of the list
@@ -103,7 +104,7 @@ export default function ActivityLogSection({ lead, onActivityAdded }) {
     }
   };
 
-  const handleDeleteActivity = async (activityId) => {
+  const handleDeleteActivity = useCallback(async (activityId) => {
     if (!confirm('Are you sure you want to delete this activity?')) {
       return;
     }
@@ -132,7 +133,7 @@ export default function ActivityLogSection({ lead, onActivityAdded }) {
       console.error('Error deleting activity:', err);
       alert('Failed to delete activity. Please try again.');
     }
-  };
+  }, [getAuthHeaders]);
 
   const getActivityIcon = (activityType) => {
     switch (activityType) {

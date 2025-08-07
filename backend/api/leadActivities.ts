@@ -28,13 +28,6 @@ router.get('/', requireAuth, async (req: ApiRequest, res: Response) => {
       });
     }
 
-    // Debug logging
-    console.log('GET /lead-activities - Debug info:', {
-      lead_id,
-      userId,
-      requestUser: req.user
-    });
-
     // Verify user owns the lead
     const { data: lead, error: leadError } = await supabase
       .from('leads')
@@ -42,20 +35,10 @@ router.get('/', requireAuth, async (req: ApiRequest, res: Response) => {
       .eq('id', lead_id)
       .single();
 
-    console.log('Lead lookup result:', {
-      lead,
-      leadError,
-      leadUserId: lead?.user_id,
-      requestUserId: userId,
-      match: lead?.user_id === userId
-    });
-
     if (leadError) {
-      console.error('Lead lookup error:', leadError);
       return res.status(404).json({ 
         success: false, 
-        message: 'Lead not found',
-        debug: { leadError }
+        message: 'Lead not found'
       });
     }
 
@@ -69,8 +52,7 @@ router.get('/', requireAuth, async (req: ApiRequest, res: Response) => {
     if (lead.user_id !== userId) {
       return res.status(403).json({ 
         success: false, 
-        message: 'Access denied - lead belongs to different user',
-        debug: { leadUserId: lead.user_id, requestUserId: userId }
+        message: 'Access denied - lead belongs to different user'
       });
     }
 
@@ -150,14 +132,6 @@ router.post('/', requireAuth, async (req: ApiRequest, res: Response) => {
       });
     }
 
-    // Debug logging
-    console.log('POST /lead-activities - Debug info:', {
-      lead_id,
-      userId,
-      requestUser: req.user,
-      activity_type
-    });
-
     // Verify user owns the lead
     const { data: lead, error: leadError } = await supabase
       .from('leads')
@@ -165,20 +139,10 @@ router.post('/', requireAuth, async (req: ApiRequest, res: Response) => {
       .eq('id', lead_id)
       .single();
 
-    console.log('Lead lookup result (POST):', {
-      lead,
-      leadError,
-      leadUserId: lead?.user_id,
-      requestUserId: userId,
-      match: lead?.user_id === userId
-    });
-
     if (leadError) {
-      console.error('Lead lookup error (POST):', leadError);
       return res.status(404).json({ 
         success: false, 
-        message: 'Lead not found',
-        debug: { leadError }
+        message: 'Lead not found'
       });
     }
 
@@ -192,8 +156,7 @@ router.post('/', requireAuth, async (req: ApiRequest, res: Response) => {
     if (lead.user_id !== userId) {
       return res.status(403).json({ 
         success: false, 
-        message: 'Access denied - lead belongs to different user',
-        debug: { leadUserId: lead.user_id, requestUserId: userId }
+        message: 'Access denied - lead belongs to different user'
       });
     }
 
