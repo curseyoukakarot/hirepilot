@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { supabase } from '../lib/supabase';
 
 const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
 
@@ -21,6 +22,18 @@ export default function LogActivityModal({ lead, onClose, onActivityAdded }) {
     { value: 'Note', label: 'Note', icon: '📝' },
     { value: 'Other', label: 'Other', icon: '📋' }
   ];
+
+  // Helper to get auth headers
+  const getAuthHeaders = async () => {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error || !session) {
+      throw new Error('Not authenticated');
+    }
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`
+    };
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -50,11 +63,10 @@ export default function LogActivityModal({ lead, onClose, onActivityAdded }) {
         activity_timestamp: new Date(formData.activity_timestamp).toISOString()
       };
 
+      const headers = await getAuthHeaders();
       const response = await fetch(`${API_BASE_URL}/lead-activities`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         credentials: 'include',
         body: JSON.stringify(activityData)
       });

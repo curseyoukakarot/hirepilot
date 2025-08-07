@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import LogActivityModal from './LogActivityModal';
+import { supabase } from '../lib/supabase';
 
 const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
 
@@ -8,6 +9,18 @@ export default function ActivityLogSection({ lead, onActivityAdded }) {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [error, setError] = useState('');
+
+  // Helper to get auth headers
+  const getAuthHeaders = async () => {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error || !session) {
+      throw new Error('Not authenticated');
+    }
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`
+    };
+  };
 
   // Fetch activities for the lead
   useEffect(() => {
@@ -21,7 +34,9 @@ export default function ActivityLogSection({ lead, onActivityAdded }) {
       setLoading(true);
       setError('');
       
+      const headers = await getAuthHeaders();
       const response = await fetch(`${API_BASE_URL}/lead-activities?lead_id=${lead.id}`, {
+        headers,
         credentials: 'include',
       });
 
