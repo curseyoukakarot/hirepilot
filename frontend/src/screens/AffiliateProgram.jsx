@@ -292,41 +292,63 @@ export default function AffiliateProgram() {
       </section>
 
       {/* Testimonials */}
-      <section id="testimonials" className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Real Results</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <div className="bg-gray-50 rounded-xl p-6">
-              <div className="flex items-center mb-4">
-                <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg" alt="Ashley" className="w-12 h-12 rounded-full mr-4" />
+      <section id="testimonials" className="py-20 bg-gray-50">
+        <div className="max-w-6xl mx-auto px-6">
+          <h2 className="text-3xl font-semibold text-center mb-4">What Our Customers Say</h2>
+          <p className="text-gray-600 text-center mb-12 max-w-2xl mx-auto">Join thousands of satisfied customers who have transformed their hiring process</p>
+          <div className="grid md:grid-cols-3 gap-8">
+            <div id="testimonial-1" className="bg-white p-8 rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-200">
+              <div className="flex items-center gap-4 mb-6">
+                <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg" alt="Sarah Johnson" className="w-12 h-12 rounded-full" />
                 <div>
-                  <h4 className="font-semibold text-gray-900">Ashley</h4>
-                  <p className="text-sm text-gray-600">Head of Talent, Series B SaaS</p>
+                  <div className="font-medium">Sarah J.</div>
+                  <div className="text-sm text-gray-500">Freelance Tech Recruiter</div>
                 </div>
               </div>
-              <p className="text-gray-700 italic">"HirePilot helped us fill two roles in weeks. Total game-changer."</p>
+              <p className="text-gray-700 italic">"I landed my first client in 3 weeks with HirePilot!"</p>
+              <div className="mt-6 text-yellow-400 flex gap-1">
+                <i className="fa-solid fa-star"></i>
+                <i className="fa-solid fa-star"></i>
+                <i className="fa-solid fa-star"></i>
+                <i className="fa-solid fa-star"></i>
+                <i className="fa-solid fa-star"></i>
+              </div>
             </div>
-            <div className="bg-gray-50 rounded-xl p-6">
-              <div className="flex items-center mb-4">
-                <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" alt="Cameron" className="w-12 h-12 rounded-full mr-4" />
+
+            <div id="testimonial-2" className="bg-white p-8 rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-200">
+              <div className="flex items-center gap-4 mb-6">
+                <img src="/dejanira.jpeg" alt="Dejanira (Dej) L." className="w-12 h-12 rounded-full" />
                 <div>
-                  <h4 className="font-semibold text-gray-900">Cameron</h4>
-                  <p className="text-sm text-gray-600">Recruiting Agency Owner</p>
+                  <div className="font-medium">Dejanira (Dej) L.</div>
+                  <div className="text-sm text-gray-500">Freelance Tech Recruiter</div>
                 </div>
               </div>
-              <p className="text-gray-700 italic">"This saves 10 hours a week and actually works. It's my go-to sourcing engine."</p>
+              <p className="text-gray-700 italic">"I made 8k in my first 6 weeks"</p>
+              <div className="mt-6 text-yellow-400 flex gap-1">
+                <i className="fa-solid fa-star"></i>
+                <i className="fa-solid fa-star"></i>
+                <i className="fa-solid fa-star"></i>
+                <i className="fa-solid fa-star"></i>
+                <i className="fa-solid fa-star"></i>
+              </div>
             </div>
-            <div className="bg-gray-50 rounded-xl p-6">
-              <div className="flex items-center mb-4">
-                <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-3.jpg" alt="Marcus" className="w-12 h-12 rounded-full mr-4" />
+
+            <div id="testimonial-3" className="bg-white p-8 rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-200">
+              <div className="flex items-center gap-4 mb-6">
+                <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-5.jpg" alt="Emily Rodriguez" className="w-12 h-12 rounded-full" />
                 <div>
-                  <h4 className="font-semibold text-gray-900">Marcus</h4>
-                  <p className="text-sm text-gray-600">VP Engineering</p>
+                  <div className="font-medium">Emily R.</div>
+                  <div className="text-sm text-gray-500">Talent Lead</div>
                 </div>
               </div>
-              <p className="text-gray-700 italic">"Finally found quality candidates without the endless screening calls."</p>
+              <p className="text-gray-700 italic">"The automated scheduling and engagement features have saved countless hours of manual work."</p>
+              <div className="mt-6 text-yellow-400 flex gap-1">
+                <i className="fa-solid fa-star"></i>
+                <i className="fa-solid fa-star"></i>
+                <i className="fa-solid fa-star"></i>
+                <i className="fa-solid fa-star"></i>
+                <i className="fa-solid fa-star"></i>
+              </div>
             </div>
           </div>
         </div>
