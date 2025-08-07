@@ -92,7 +92,7 @@ function Campaigns() {
     if (campaign.status === 'draft') {
       navigate(`/campaigns/new/job-description?campaign_id=${campaign.id}`);
     } else if (campaign.status === 'active' || campaign.status === 'live') {
-      navigate(`/leads?campaign_id=${campaign.id}`);
+      navigate(`/leads?campaignId=${campaign.id}&campaignName=${encodeURIComponent(campaign.name || campaign.title || 'Campaign')}`);
     }
   };
 

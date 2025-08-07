@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase';
 import { Toaster, toast } from 'react-hot-toast';
 import { FaPlus, FaSearch, FaFilter, FaDownload } from 'react-icons/fa';
 import { downloadCSV } from '../utils/csvExport';
+import { useCampaignOptions } from '../hooks/useCampaignOptions';
 
 // LinkedIn Status Pill Component
 function LinkedInStatusPill({ lead }) {
@@ -79,11 +80,17 @@ function LinkedInStatusPill({ lead }) {
 export default function Leads() {
   console.log('Leads component rendered');
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedLeads, setSelectedLeads] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+
+  // Campaign filtering state
+  const [selectedCampaignId, setSelectedCampaignId] = useState('all');
+  const [selectedCampaignName, setSelectedCampaignName] = useState('');
+  const { options: campaignOptions, loading: campaignsLoading, error: campaignsError } = useCampaignOptions();
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -100,16 +107,23 @@ export default function Leads() {
     return dismissed !== 'true';
   });
 
-  const fetchLeads = async () => {
+  const fetchLeads = async (campaignId = selectedCampaignId) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      // Fetch leads first
-      const { data: leadsData, error: leadsError } = await supabase
+      // Build query with optional campaign filter
+      let query = supabase
         .from('leads')
         .select('*')
-        .eq('user_id', session.user.id)
+        .eq('user_id', session.user.id);
+      
+      // Add campaign filter if a specific campaign is selected
+      if (campaignId && campaignId !== 'all') {
+        query = query.eq('campaign_id', campaignId);
+      }
+      
+      const { data: leadsData, error: leadsError } = await query
         .order('created_at', { ascending: false });
 
       if (leadsError) throw leadsError;
@@ -145,20 +159,75 @@ export default function Leads() {
     }
   };
 
+  // Initialize state from URL params on mount
   useEffect(() => {
-    fetchLeads();
-  }, []);
+    const campaignId = searchParams.get('campaignId');
+    const campaignName = searchParams.get('campaignName');
+    
+    if (campaignId && campaignId !== 'all') {
+      setSelectedCampaignId(campaignId);
+      if (campaignName) {
+        setSelectedCampaignName(decodeURIComponent(campaignName));
+      }
+    } else {
+      setSelectedCampaignId('all');
+      setSelectedCampaignName('');
+    }
+  }, [searchParams]);
+
+  // Fetch leads when campaign selection changes
+  useEffect(() => {
+    fetchLeads(selectedCampaignId);
+  }, [selectedCampaignId]);
+
+  // Validate campaign ID after campaign options load
+  useEffect(() => {
+    if (!campaignsLoading && campaignOptions.length > 0 && selectedCampaignId !== 'all') {
+      const isValidCampaign = campaignOptions.some(c => c.id === selectedCampaignId);
+      if (!isValidCampaign) {
+        // Campaign ID is invalid or inaccessible, fall back to "All Campaigns"
+        console.warn('Invalid or inaccessible campaign ID, falling back to All Campaigns');
+        handleCampaignChange('all');
+      }
+    }
+  }, [campaignsLoading, campaignOptions, selectedCampaignId]);
 
   // Auto-refresh leads every 30 seconds to show LinkedIn status updates
   useEffect(() => {
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
-        fetchLeads();
+        fetchLeads(selectedCampaignId);
       }
     }, 30000); // 30 seconds
 
     return () => clearInterval(interval);
-  }, []);
+  }, [selectedCampaignId]);
+
+  // Handle campaign filter change
+  const handleCampaignChange = (campaignId) => {
+    setSelectedCampaignId(campaignId);
+    
+    // Update URL params
+    const newSearchParams = new URLSearchParams(searchParams);
+    
+    if (campaignId === 'all') {
+      // Remove campaign params for "All Campaigns"
+      newSearchParams.delete('campaignId');
+      newSearchParams.delete('campaignName');
+      setSelectedCampaignName('');
+    } else {
+      // Set campaign params for specific campaign
+      const campaign = campaignOptions.find(c => c.id === campaignId);
+      newSearchParams.set('campaignId', campaignId);
+      if (campaign?.name) {
+        newSearchParams.set('campaignName', encodeURIComponent(campaign.name));
+        setSelectedCampaignName(campaign.name);
+      }
+    }
+    
+    // Update URL (replace, not push, to avoid adding to history)
+    setSearchParams(newSearchParams, { replace: true });
+  };
 
   const handleMessageAgain = (lead) => {
     localStorage.setItem('selectedLead', JSON.stringify(lead));
@@ -324,6 +393,55 @@ export default function Leads() {
             </button>
             <CsvImportButton onImportComplete={fetchLeads} />
           </div>
+        </div>
+
+        {/* Campaign Filter */}
+        <div className="bg-white p-4 rounded-lg shadow-sm border mb-6">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <FaFilter className="text-gray-500" />
+              <label className="text-sm font-medium text-gray-700">Filter by Campaign:</label>
+            </div>
+            <div className="flex-1 max-w-md">
+              <select
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                value={selectedCampaignId}
+                onChange={(e) => handleCampaignChange(e.target.value)}
+                disabled={campaignsLoading}
+              >
+                <option value="all">
+                  {campaignsLoading ? 'Loading campaigns...' : 'All Campaigns'}
+                </option>
+                {!campaignsLoading && campaignOptions.map((campaign) => (
+                  <option key={campaign.id} value={campaign.id}>
+                    {campaign.name}
+                    {campaign.status && (
+                      <span className="text-gray-500"> ({campaign.status})</span>
+                    )}
+                  </option>
+                ))}
+              </select>
+              {campaignsError && (
+                <p className="mt-1 text-sm text-red-600">
+                  Error loading campaigns: {campaignsError}
+                </p>
+              )}
+            </div>
+            {selectedCampaignId !== 'all' && (
+              <button
+                onClick={() => handleCampaignChange('all')}
+                className="px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 flex items-center gap-1"
+              >
+                <i className="fa-solid fa-times"></i>
+                Clear Filter
+              </button>
+            )}
+          </div>
+          {selectedCampaignId !== 'all' && selectedCampaignName && (
+            <div className="mt-2 text-sm text-gray-600">
+              Showing leads for: <span className="font-medium">{selectedCampaignName}</span>
+            </div>
+          )}
         </div>
 
         {/* LinkedIn Guidance Banner */}
