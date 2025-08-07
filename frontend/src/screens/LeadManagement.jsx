@@ -103,25 +103,28 @@ function LeadManagement() {
   // Load leads function with campaign filtering support
   const loadLeads = async (campaignId = selectedCampaign) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      // Build query with optional campaign filter
-      let query = supabase
-        .from('leads')
-        .select('*')
-        .eq('user_id', session.user.id);
+      let rawLeads = [];
       
-      // Add campaign filter if a specific campaign is selected
-      if (campaignId && campaignId !== 'all') {
-        query = query.eq('campaign_id', campaignId);
+      if (campaignId === 'all') {
+        // Use the original getLeads function for "All Campaigns"
+        rawLeads = await getLeads();
+      } else {
+        // Use direct Supabase query for campaign filtering
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        const { data, error } = await supabase
+          .from('leads')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .eq('campaign_id', campaignId)
+          .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        rawLeads = data || [];
       }
-      
-      const { data, error } = await query.order('created_at', { ascending: false });
-      
-      if (error) throw error;
 
-      const mapped = (data || []).map((lead) => {
+      const mapped = rawLeads.map((lead) => {
         const enrichment =
           typeof lead.enrichment_data === 'string'
             ? JSON.parse(lead.enrichment_data)
