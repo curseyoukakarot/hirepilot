@@ -103,12 +103,16 @@ function LeadManagement() {
   // Load leads function with campaign filtering support
   const loadLeads = async (campaignId = selectedCampaign) => {
     try {
+      console.log('🔍 LoadLeads called with campaignId:', campaignId);
       let rawLeads = [];
       
       if (campaignId === 'all') {
+        console.log('📋 Loading ALL leads via getLeads()');
         // Use the original getLeads function for "All Campaigns"
         rawLeads = await getLeads();
+        console.log('📋 All leads loaded:', rawLeads.length);
       } else {
+        console.log('🎯 Loading leads for specific campaign:', campaignId);
         // Use direct Supabase query for campaign filtering
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
@@ -120,8 +124,17 @@ function LeadManagement() {
           .eq('campaign_id', campaignId)
           .order('created_at', { ascending: false });
         
-        if (error) throw error;
+        if (error) {
+          console.error('❌ Supabase query error:', error);
+          throw error;
+        }
         rawLeads = data || [];
+        console.log('🎯 Filtered leads loaded:', rawLeads.length, 'for campaign:', campaignId);
+        
+        // Also log a sample of leads to see their campaign_id values
+        if (rawLeads.length > 0) {
+          console.log('📝 Sample lead campaign_ids:', rawLeads.slice(0, 3).map(l => ({ id: l.id, campaign_id: l.campaign_id, name: l.name })));
+        }
       }
 
       const mapped = rawLeads.map((lead) => {
@@ -155,7 +168,16 @@ function LeadManagement() {
         outreachHistory: [],
         };
       });
-      console.log('✅ Leads loaded:', mapped);
+      console.log('✅ Leads loaded:', mapped.length);
+      
+      // Debug: Show campaign_id values in loaded leads
+      const campaignIdCounts = {};
+      mapped.forEach(lead => {
+        const cid = lead.campaign_id || 'null';
+        campaignIdCounts[cid] = (campaignIdCounts[cid] || 0) + 1;
+      });
+      console.log('📊 Campaign ID distribution in leads:', campaignIdCounts);
+      
       setLeads(mapped);
     } catch (error) {
       console.error('Failed to load leads', error);
@@ -197,6 +219,7 @@ function LeadManagement() {
 
   // Handle campaign filter change
   const handleCampaignChange = (campaignId) => {
+    console.log('🎯 Campaign changed to:', campaignId);
     setSelectedCampaign(campaignId);
     
     // Update URL params
@@ -207,6 +230,7 @@ function LeadManagement() {
       newSearchParams.delete('campaignId');
       newSearchParams.delete('campaignName');
       setSelectedCampaignName('');
+      console.log('📋 Reset to All Campaigns');
     } else {
       // Set campaign params for specific campaign
       const campaign = campaignOptions.find(c => c.id === campaignId);
@@ -214,6 +238,7 @@ function LeadManagement() {
       if (campaign?.name) {
         newSearchParams.set('campaignName', encodeURIComponent(campaign.name));
         setSelectedCampaignName(campaign.name);
+        console.log('🎯 Selected campaign:', campaign.name, 'ID:', campaignId);
       }
     }
     
