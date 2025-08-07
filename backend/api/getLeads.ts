@@ -10,19 +10,27 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
       return;
     }
 
-    const { data, error } = await supabaseDb
+    // Get campaign filter from query params
+    const campaignId = req.query.campaignId as string;
+
+    // Build query with optional campaign filter
+    let query = supabaseDb
       .from('leads')
       .select('*')
-      .eq('user_id', req.user.id)
-      .order('created_at', { ascending: false });
+      .eq('user_id', req.user.id);
+    
+    // Add campaign filter if provided
+    if (campaignId && campaignId !== 'all') {
+      query = query.eq('campaign_id', campaignId);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) throw error;
 
-    const { status, data: responseData } = res as any;
-    if (status === 200) {
-      res.status(200).json({ leads: responseData as Lead[] });
-      return;
-    }
+    // Return the actual data from Supabase
+    res.status(200).json(data || []);
+    return;
   } catch (error) {
     console.error('Error fetching leads:', error);
     const errorResponse: ErrorResponse = {

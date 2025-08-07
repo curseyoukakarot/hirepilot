@@ -104,38 +104,10 @@ function LeadManagement() {
   const loadLeads = async (campaignId = selectedCampaign) => {
     try {
       console.log('🔍 LoadLeads called with campaignId:', campaignId);
-      let rawLeads = [];
       
-      if (campaignId === 'all') {
-        console.log('📋 Loading ALL leads via getLeads()');
-        // Use the original getLeads function for "All Campaigns"
-        rawLeads = await getLeads();
-        console.log('📋 All leads loaded:', rawLeads.length);
-      } else {
-        console.log('🎯 Loading leads for specific campaign:', campaignId);
-        // Use direct Supabase query for campaign filtering
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
-
-        const { data, error } = await supabase
-          .from('leads')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .eq('campaign_id', campaignId)
-          .order('created_at', { ascending: false });
-        
-        if (error) {
-          console.error('❌ Supabase query error:', error);
-          throw error;
-        }
-        rawLeads = data || [];
-        console.log('🎯 Filtered leads loaded:', rawLeads.length, 'for campaign:', campaignId);
-        
-        // Also log a sample of leads to see their campaign_id values
-        if (rawLeads.length > 0) {
-          console.log('📝 Sample lead campaign_ids:', rawLeads.slice(0, 3).map(l => ({ id: l.id, campaign_id: l.campaign_id, name: l.name })));
-        }
-      }
+      // Use the backend API for all cases (with or without campaign filtering)
+      const rawLeads = await getLeads(campaignId);
+      console.log('📋 Leads loaded via backend API:', rawLeads.length, campaignId !== 'all' ? `for campaign: ${campaignId}` : '(all campaigns)');
 
       const mapped = rawLeads.map((lead) => {
         const enrichment =
