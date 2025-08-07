@@ -50,16 +50,38 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
         } catch (e) {
           parsed = { ...lead, enrichment_data: {} };
         }
-      } else if (Array.isArray(Object.keys(lead.enrichment_data)) && Object.keys(lead.enrichment_data).every(key => !isNaN(key))) {
-        // Handle array-like object that should be a JSON string
-        try {
-          const reconstructed = Object.values(lead.enrichment_data).join('');
-          const parsedEnrichment = JSON.parse(reconstructed);
-          parsed = { ...lead, enrichment_data: parsedEnrichment };
-          console.log('🔧 Fixed array-like enrichment_data for:', getDisplayName(lead));
-        } catch (e) {
-          console.log('❌ Failed to fix array-like enrichment_data:', e);
-          parsed = { ...lead, enrichment_data: {} };
+      } else {
+        // Check if this is a corrupted array-like object (has many numeric keys)
+        const keys = Object.keys(lead.enrichment_data);
+        const numericKeys = keys.filter(key => !isNaN(key) && key !== 'last_enrichment_attempt');
+        
+        if (numericKeys.length > 10 && numericKeys.length > keys.length * 0.8) {
+          console.log('🔧 Detected corrupted array-like object, attempting to reconstruct');
+          console.log('Numeric keys count:', numericKeys.length, 'Total keys:', keys.length);
+          
+          try {
+            // Sort numeric keys and reconstruct the JSON string
+            const sortedNumericKeys = numericKeys.sort((a, b) => parseInt(a) - parseInt(b));
+            const reconstructed = sortedNumericKeys.map(key => lead.enrichment_data[key]).join('');
+            console.log('Reconstructed string:', reconstructed);
+            
+            const parsedEnrichment = JSON.parse(reconstructed);
+            
+            // Preserve non-numeric fields like last_enrichment_attempt
+            const preservedFields = {};
+            keys.forEach(key => {
+              if (isNaN(key)) {
+                preservedFields[key] = lead.enrichment_data[key];
+              }
+            });
+            
+            const finalEnrichment = { ...parsedEnrichment, ...preservedFields };
+            parsed = { ...lead, enrichment_data: finalEnrichment };
+            console.log('✅ Successfully fixed corrupted enrichment_data:', finalEnrichment);
+          } catch (e) {
+            console.log('❌ Failed to fix corrupted enrichment_data:', e);
+            parsed = { ...lead, enrichment_data: {} };
+          }
         }
       }
     }
@@ -470,15 +492,35 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
         } catch (e) {
           console.log('❌ Failed to parse enrichment_data:', e);
         }
-      } else if (Array.isArray(Object.keys(localLead.enrichment_data)) && Object.keys(localLead.enrichment_data).every(key => !isNaN(key))) {
-        console.log('🔧 Detected array-like object, attempting to reconstruct string');
-        const reconstructed = Object.values(localLead.enrichment_data).join('');
-        console.log('Reconstructed string:', reconstructed);
-        try {
-          parsedData = JSON.parse(reconstructed);
-          console.log('✅ Successfully parsed reconstructed data:', parsedData);
-        } catch (e) {
-          console.log('❌ Failed to parse reconstructed data:', e);
+      } else {
+        // Check if this is a corrupted array-like object for debugging
+        const keys = Object.keys(localLead.enrichment_data);
+        const numericKeys = keys.filter(key => !isNaN(key) && key !== 'last_enrichment_attempt');
+        
+        if (numericKeys.length > 10 && numericKeys.length > keys.length * 0.8) {
+          console.log('🔧 Detected corrupted array-like object in debug, attempting to reconstruct');
+          console.log('Numeric keys count:', numericKeys.length, 'Total keys:', keys.length);
+          
+          try {
+            const sortedNumericKeys = numericKeys.sort((a, b) => parseInt(a) - parseInt(b));
+            const reconstructed = sortedNumericKeys.map(key => localLead.enrichment_data[key]).join('');
+            console.log('Reconstructed string:', reconstructed);
+            
+            parsedData = JSON.parse(reconstructed);
+            
+            // Preserve non-numeric fields
+            const preservedFields = {};
+            keys.forEach(key => {
+              if (isNaN(key)) {
+                preservedFields[key] = localLead.enrichment_data[key];
+              }
+            });
+            
+            parsedData = { ...parsedData, ...preservedFields };
+            console.log('✅ Successfully parsed reconstructed data in debug:', parsedData);
+          } catch (e) {
+            console.log('❌ Failed to parse reconstructed data in debug:', e);
+          }
         }
       }
       
@@ -763,16 +805,35 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
           } catch (e) {
             parsed = { ...latest, enrichment_data: {} };
           }
-        } else if (Array.isArray(Object.keys(latest.enrichment_data)) && Object.keys(latest.enrichment_data).every(key => !isNaN(key))) {
-          // Handle array-like object that should be a JSON string
-          try {
-            const reconstructed = Object.values(latest.enrichment_data).join('');
-            const parsedEnrichment = JSON.parse(reconstructed);
-            parsed = { ...latest, enrichment_data: parsedEnrichment };
-            console.log('🔧 Fixed array-like enrichment_data in fetchLatestLead');
-          } catch (e) {
-            console.log('❌ Failed to fix array-like enrichment_data in fetchLatestLead:', e);
-            parsed = { ...latest, enrichment_data: {} };
+        } else {
+          // Check if this is a corrupted array-like object (has many numeric keys)
+          const keys = Object.keys(latest.enrichment_data);
+          const numericKeys = keys.filter(key => !isNaN(key) && key !== 'last_enrichment_attempt');
+          
+          if (numericKeys.length > 10 && numericKeys.length > keys.length * 0.8) {
+            console.log('🔧 Detected corrupted array-like object in fetchLatestLead');
+            
+            try {
+              // Sort numeric keys and reconstruct the JSON string
+              const sortedNumericKeys = numericKeys.sort((a, b) => parseInt(a) - parseInt(b));
+              const reconstructed = sortedNumericKeys.map(key => latest.enrichment_data[key]).join('');
+              const parsedEnrichment = JSON.parse(reconstructed);
+              
+              // Preserve non-numeric fields
+              const preservedFields = {};
+              keys.forEach(key => {
+                if (isNaN(key)) {
+                  preservedFields[key] = latest.enrichment_data[key];
+                }
+              });
+              
+              const finalEnrichment = { ...parsedEnrichment, ...preservedFields };
+              parsed = { ...latest, enrichment_data: finalEnrichment };
+              console.log('✅ Successfully fixed corrupted enrichment_data in fetchLatestLead');
+            } catch (e) {
+              console.log('❌ Failed to fix corrupted enrichment_data in fetchLatestLead:', e);
+              parsed = { ...latest, enrichment_data: {} };
+            }
           }
         }
       }
