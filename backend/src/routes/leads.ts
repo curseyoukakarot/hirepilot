@@ -889,16 +889,30 @@ router.get('/:id', requireAuth, async (req: ApiRequest, res: Response) => {
       return;
     }
 
-    const { data: lead, error } = await supabase
+    // Fetch the lead first
+    const { data: lead, error: leadErr } = await supabase
       .from('leads')
-      .select('*')
+      .select('*, user_id')
       .eq('id', id)
-      .eq('user_id', userId)  // Security: ensure user owns this lead
       .single();
-    
-    if (error || !lead) {
+
+    if (leadErr || !lead) {
       res.status(404).json({ error: 'Lead not found or access denied' });
       return;
+    }
+
+    // Allow if owner
+    if (lead.user_id !== userId) {
+      // Check team-based access for team_admin or super_admin
+      const { data: me } = await supabase.from('users').select('id, role, team_id').eq('id', userId).single();
+      const { data: owner } = await supabase.from('users').select('id, team_id').eq('id', lead.user_id).single();
+      const role = (me as any)?.role;
+      const sameTeam = (me as any)?.team_id && owner?.team_id && (me as any).team_id === owner.team_id;
+      const isPrivileged = role === 'team_admin' || role === 'super_admin' || role === 'SuperAdmin';
+      if (!(isPrivileged && sameTeam)) {
+        res.status(404).json({ error: 'Lead not found or access denied' });
+        return;
+      }
     }
     
     res.json(lead);

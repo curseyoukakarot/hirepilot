@@ -28,32 +28,26 @@ router.get('/', requireAuth, async (req: ApiRequest, res: Response) => {
       });
     }
 
-    // Verify user owns the lead
+    // Verify user can access the lead (owner or same-team admin)
     const { data: lead, error: leadError } = await supabase
       .from('leads')
       .select('id, user_id')
       .eq('id', lead_id)
       .single();
 
-    if (leadError) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Lead not found'
-      });
-    }
-
-    if (!lead) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Lead not found' 
-      });
+    if (leadError || !lead) {
+      return res.status(404).json({ success: false, message: 'Lead not found' });
     }
 
     if (lead.user_id !== userId) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Access denied - lead belongs to different user'
-      });
+      const { data: me } = await supabase.from('users').select('id, role, team_id').eq('id', userId).single();
+      const { data: owner } = await supabase.from('users').select('id, team_id').eq('id', lead.user_id).single();
+      const role = (me as any)?.role;
+      const sameTeam = (me as any)?.team_id && owner?.team_id && (me as any).team_id === owner.team_id;
+      const isPrivileged = role === 'team_admin' || role === 'super_admin' || role === 'SuperAdmin';
+      if (!(isPrivileged && sameTeam)) {
+        return res.status(403).json({ success: false, message: 'Access denied' });
+      }
     }
 
     // Get activities for the lead

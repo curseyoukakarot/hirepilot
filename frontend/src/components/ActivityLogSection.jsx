@@ -24,14 +24,15 @@ export default function ActivityLogSection({ lead, onActivityAdded }) {
 
   // Fetch activities for the lead - memoized to prevent unnecessary API calls
   const fetchActivities = useCallback(async () => {
-    if (!lead?.id) return;
+    const resolvedLeadId = lead?.lead_id || lead?.id;
+    if (!resolvedLeadId) return;
     
     try {
       setLoading(true);
       setError('');
       
       const headers = await getAuthHeaders();
-      const response = await fetch(`${API_BASE_URL}/lead-activities?lead_id=${lead.id}`, {
+      const response = await fetch(`${API_BASE_URL}/lead-activities?lead_id=${resolvedLeadId}`, {
         headers,
         credentials: 'include',
       });
