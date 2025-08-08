@@ -87,7 +87,14 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
       .eq('id', currentUser.id)
       .single();
 
-    const isSuperAdmin = currentUserRow?.role === 'super_admin' || currentUserRow?.role === 'SuperAdmin';
+    const inviterRole = currentUserRow?.role;
+    const isSuperAdmin = inviterRole === 'super_admin' || inviterRole === 'SuperAdmin';
+
+    // Permission: only admin, team_admin, or super_admin can invite members
+    if (!['admin', 'team_admin', 'super_admin', 'SuperAdmin'].includes(inviterRole)) {
+      res.status(403).json({ message: 'Only admins can invite team members' });
+      return;
+    }
 
     if (!isSuperAdmin) {
       // ===== Seat-limit enforcement =====

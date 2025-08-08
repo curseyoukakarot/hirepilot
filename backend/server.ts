@@ -57,6 +57,7 @@ import deleteJobRequisitions from './api/deleteJobRequisitions';
 import teamRouter from './routes/team';
 import slackRouter from './routes/slack';
 import billingRouter from './routes/billing';
+import creditsRouter from './routes/credits';
 import cronProcessorRouter from './routes/cronProcessor';
 import cookieParser from 'cookie-parser';
 import listEndpoints from 'express-list-endpoints';
@@ -205,6 +206,7 @@ app.delete('/api/deleteJobRequisitions', deleteJobRequisitions);
 app.use('/api/team', teamRouter);
 app.use('/api', slackRouter);
 app.use('/api/billing', billingRouter);
+app.use('/api/credits', creditsRouter);
 app.use('/api/cron', cronProcessorRouter);
 app.use('/api/admin', adminUsersRouter);
 app.get('/api/campaigns/all/performance', (req, res) => {

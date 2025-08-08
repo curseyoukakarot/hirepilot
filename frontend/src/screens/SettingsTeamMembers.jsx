@@ -228,8 +228,11 @@ export default function SettingsTeamMembers() {
     }
   };
 
+  // derive UI gating by role (Starter=member; Pro=admin; Team=team_admin; super_admin)
+  const userRole = currentUser?.user_metadata?.role || currentUser?.user_metadata?.account_type;
+  const roleAllowsInvite = ['admin', 'team_admin', 'super_admin'].includes(userRole);
   const isStarter = (planTier === 'starter');
-  const canInvite = !isStarter;
+  const canInvite = roleAllowsInvite && !isStarter;
 
   return (
     <div className="p-6">

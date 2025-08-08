@@ -8,6 +8,8 @@ export default function SettingsCredits() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showMoreModal, setShowMoreModal] = useState(false);
+  const [selectedLargePack, setSelectedLargePack] = useState('1000');
 
   const stripePromise = useMemo(() => {
     const key = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
@@ -100,12 +102,15 @@ export default function SettingsCredits() {
           <div className="flex items-center justify-between mb-3">
             <div className="text-xl font-semibold text-gray-900">Buy More Credits</div>
             <div className="flex gap-2">
-              <button className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-5 py-2" onClick={() => handleBuyCredits('light-boost')}>+100</button>
-              <button className="border border-gray-300 hover:bg-gray-50 rounded-xl px-5 py-2 text-gray-700" onClick={() => handleBuyCredits('power-pack')}>+300</button>
-              <button className="border border-gray-300 hover:bg-gray-50 rounded-xl px-5 py-2 text-gray-700" onClick={() => handleBuyCredits('growth-bundle')}>+600</button>
+              <button className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-5 py-2" onClick={() => handleBuyCredits('light-boost')}>100 Credits – $25</button>
+              <button className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-5 py-2" onClick={() => handleBuyCredits('power-pack')}>300 Credits – $75</button>
+              <button className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-5 py-2" onClick={() => handleBuyCredits('growth-bundle')}>600 Credits – $150</button>
             </div>
           </div>
-          <div className="text-sm text-gray-600">Checkout opens in Stripe. Credits are applied automatically on success.</div>
+          <div className="text-sm text-gray-600 flex items-center gap-2">
+            <span>Checkout opens in Stripe. Credits are applied automatically on success.</span>
+            <button className="text-indigo-600 underline" onClick={() => setShowMoreModal(true)}>Need More?</button>
+          </div>
         </div>
 
         <div className="mt-6 bg-white rounded-2xl shadow border p-4">
@@ -137,6 +142,35 @@ export default function SettingsCredits() {
           </div>
         </div>
       </div>
+      {showMoreModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-lg w-full max-w-lg p-6">
+            <div className="mb-2">
+              <div className="text-xl font-semibold text-gray-900">Purchase Additional Credits</div>
+              <div className="text-sm text-gray-600">Choose a larger credit package for high-volume sourcing and outreach.</div>
+            </div>
+            <div className="mt-4 space-y-3">
+              {[
+                { id: '1000', label: '1000 Credits – $220' },
+                { id: '2500', label: '2500 Credits – $500' },
+                { id: '5000', label: '5000 Credits – $900' },
+              ].map(opt => (
+                <label key={opt.id} className="flex items-center gap-3 p-3 border rounded-xl cursor-pointer">
+                  <input type="radio" name="largePack" checked={selectedLargePack===opt.id} onChange={()=>setSelectedLargePack(opt.id)} />
+                  <span className="text-gray-800">{opt.label}</span>
+                </label>
+              ))}
+            </div>
+            <div className="mt-6 flex items-center justify-between">
+              <div className="text-sm text-gray-700">Selected: {selectedLargePack} Credits</div>
+              <div className="flex gap-2">
+                <button className="border border-gray-300 rounded-xl px-5 py-2" onClick={()=>setShowMoreModal(false)}>Cancel</button>
+                <button className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-5 py-2" onClick={() => handleBuyCredits(selectedLargePack)}>Confirm & Checkout</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
