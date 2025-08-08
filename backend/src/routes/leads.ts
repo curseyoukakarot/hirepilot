@@ -901,15 +901,26 @@ router.get('/:id', requireAuth, async (req: ApiRequest, res: Response) => {
       return;
     }
 
-    // Allow if owner
+    // Allow if owner; otherwise allow if same team privileged OR if this user owns a candidate linked to this lead
     if (lead.user_id !== userId) {
-      // Check team-based access for team_admin or super_admin
       const { data: me } = await supabase.from('users').select('id, role, team_id').eq('id', userId).single();
       const { data: owner } = await supabase.from('users').select('id, team_id').eq('id', lead.user_id).single();
       const role = (me as any)?.role;
       const sameTeam = (me as any)?.team_id && owner?.team_id && (me as any).team_id === owner.team_id;
       const isPrivileged = role === 'team_admin' || role === 'super_admin' || role === 'SuperAdmin';
-      if (!(isPrivileged && sameTeam)) {
+
+      let hasCandidateAccess = false;
+      if (!isPrivileged || !sameTeam) {
+        const { data: candidate } = await supabase
+          .from('candidates')
+          .select('id')
+          .eq('lead_id', id)
+          .eq('user_id', userId)
+          .single();
+        hasCandidateAccess = Boolean(candidate);
+      }
+
+      if (!(isPrivileged && sameTeam) && !hasCandidateAccess) {
         res.status(404).json({ error: 'Lead not found or access denied' });
         return;
       }

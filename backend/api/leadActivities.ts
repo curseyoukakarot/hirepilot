@@ -45,7 +45,19 @@ router.get('/', requireAuth, async (req: ApiRequest, res: Response) => {
       const role = (me as any)?.role;
       const sameTeam = (me as any)?.team_id && owner?.team_id && (me as any).team_id === owner.team_id;
       const isPrivileged = role === 'team_admin' || role === 'super_admin' || role === 'SuperAdmin';
+
+      let hasCandidateAccess = false;
       if (!(isPrivileged && sameTeam)) {
+        const { data: candidate } = await supabase
+          .from('candidates')
+          .select('id')
+          .eq('lead_id', lead_id)
+          .eq('user_id', userId)
+          .single();
+        hasCandidateAccess = Boolean(candidate);
+      }
+
+      if (!(isPrivileged && sameTeam) && !hasCandidateAccess) {
         return res.status(403).json({ success: false, message: 'Access denied' });
       }
     }
