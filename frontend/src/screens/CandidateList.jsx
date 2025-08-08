@@ -226,17 +226,14 @@ export default function CandidateList() {
 
     try {
       const authHeader = await getAuthHeader();
-      const response = await fetch(
-        `${BACKEND_URL}/api/candidates/${editedCandidate.id}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            ...authHeader,
-          },
-          body: JSON.stringify(editedCandidate),
-        }
-      );
+      const response = await fetch(`${BACKEND_URL}/api/candidates/${editedCandidate.id}` ,{
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeader,
+        },
+        body: JSON.stringify(editedCandidate),
+      });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -544,8 +541,22 @@ export default function CandidateList() {
                                   onClick={async () => {
                                     const newStatus = prompt('New status: sourced/contacted/responded/interviewing/hired/rejected', candidate.status || 'sourced');
                                     if (!newStatus) return;
-                                    const { error } = await supabase.from('candidates').update({ status: newStatus }).eq('id', candidate.id);
-                                    if (!error) setCandidates(prev => prev.map(c => c.id === candidate.id ? { ...c, status: newStatus } : c));
+                                    try {
+                                      const headers = await getAuthHeader();
+                                      const resp = await fetch(`${BACKEND_URL}/api/candidates/${candidate.id}`, {
+                                        method: 'PUT',
+                                        headers: { 'Content-Type': 'application/json', ...headers },
+                                        body: JSON.stringify({ status: newStatus })
+                                      });
+                                      if (resp.ok) {
+                                        setCandidates(prev => prev.map(c => c.id === candidate.id ? { ...c, status: newStatus } : c));
+                                      } else {
+                                        const err = await resp.json().catch(()=>({}));
+                                        alert(err.error || 'Failed to update status');
+                                      }
+                                    } catch (e) {
+                                      alert(e.message || 'Failed to update status');
+                                    }
                                     setShowActionsMenu(null);
                                   }}
                                   className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -556,8 +567,21 @@ export default function CandidateList() {
                                 <button
                                   onClick={async () => {
                                     if (!confirm('Delete candidate?')) return;
-                                    const { error } = await supabase.from('candidates').delete().eq('id', candidate.id);
-                                    if (!error) setCandidates(prev => prev.filter(c => c.id !== candidate.id));
+                                    try {
+                                      const headers = await getAuthHeader();
+                                      const resp = await fetch(`${BACKEND_URL}/api/candidates/${candidate.id}`, {
+                                        method: 'DELETE',
+                                        headers: { ...headers }
+                                      });
+                                      if (resp.ok) {
+                                        setCandidates(prev => prev.filter(c => c.id !== candidate.id));
+                                      } else {
+                                        const err = await resp.json().catch(()=>({}));
+                                        alert(err.error || 'Failed to delete');
+                                      }
+                                    } catch (e) {
+                                      alert(e.message || 'Failed to delete');
+                                    }
                                     setShowActionsMenu(null);
                                   }}
                                   className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
