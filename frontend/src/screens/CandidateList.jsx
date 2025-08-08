@@ -591,7 +591,7 @@ export default function CandidateList() {
           isOpen={showDrawer}
           onClose={() => setShowDrawer(false)}
           lead={{
-            id: selectedCandidate.id,
+            id: selectedCandidate.lead_id || selectedCandidate.id,
             first_name: selectedCandidate.first_name,
             last_name: selectedCandidate.last_name,
             name: `${selectedCandidate.first_name || ''} ${selectedCandidate.last_name || ''}`.trim(),
