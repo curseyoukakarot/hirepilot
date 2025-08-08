@@ -83,8 +83,8 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     setLocalLead(parsed);
 
     // When drawer opens, pull the freshest lead data from backend
-    if (isOpen && lead?.id) {
-      fetchLatestLead(lead.id);
+    if (isOpen && (lead?.lead_id || lead?.id)) {
+      fetchLatestLead(lead.lead_id || lead.id);
       fetchDailyLinkedInCount();
       fetchUserCredits();
       fetchUserRole();

@@ -38,6 +38,12 @@ export default function ActivityLogSection({ lead, onActivityAdded }) {
       });
 
       if (!response.ok) {
+        if (response.status === 404) {
+          // Graceful fallback: treat as no activities available
+          setActivities([]);
+          setError('');
+          return;
+        }
         throw new Error(`Failed to fetch activities: ${response.status}`);
       }
 
