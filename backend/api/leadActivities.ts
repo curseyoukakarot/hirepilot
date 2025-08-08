@@ -63,7 +63,7 @@ router.get('/', requireAuth, async (req: ApiRequest, res: Response) => {
     }
 
     // Get activities for the lead
-    const { data: activities, error } = await supabase
+    const { data: leadActivities, error } = await supabase
       .from('lead_activities')
       .select(`
         id,
@@ -85,9 +85,53 @@ router.get('/', requireAuth, async (req: ApiRequest, res: Response) => {
       });
     }
 
+    // Also include candidate activities for the current user's candidates linked to this lead
+    let combinedActivities: any[] = (leadActivities || []).map(a => ({
+      ...a,
+      origin: 'lead'
+    }));
+
+    try {
+      const { data: candidateRows } = await supabase
+        .from('candidates')
+        .select('id, user_id')
+        .eq('lead_id', lead_id);
+
+      const userCandidateIds = (candidateRows || [])
+        .filter(c => c.user_id === userId)
+        .map(c => c.id);
+
+      if (userCandidateIds.length > 0) {
+        const { data: candActs, error: candErr } = await supabase
+          .from('candidate_activities')
+          .select('id, candidate_id, job_id, status, notes, created_at, created_by')
+          .in('candidate_id', userCandidateIds)
+          .order('created_at', { ascending: false });
+
+        if (!candErr && candActs) {
+          const normalized = candActs.map(a => ({
+            id: `cand-${a.id}`,
+            activity_type: 'Candidate',
+            tags: a.status ? [a.status] : [],
+            notes: a.notes || null,
+            activity_timestamp: a.created_at,
+            created_at: a.created_at,
+            updated_at: a.created_at,
+            origin: 'candidate'
+          }));
+          combinedActivities = combinedActivities.concat(normalized);
+        }
+      }
+    } catch (e) {
+      console.warn('Candidate activities merge warning:', e);
+    }
+
+    // Sort combined by timestamp desc
+    combinedActivities.sort((a, b) => new Date(b.activity_timestamp).getTime() - new Date(a.activity_timestamp).getTime());
+
     res.json({
       success: true,
-      activities: activities || []
+      activities: combinedActivities
     });
 
   } catch (error) {
