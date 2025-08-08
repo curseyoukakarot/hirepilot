@@ -5,6 +5,7 @@ import SettingsIntegrations from './SettingsIntegrations';
 import SettingsTeamMembers from './SettingsTeamMembers';
 import SettingsNotifications from './SettingsNotifications';
 import SettingsApiKeys from './SettingsApiKeys';
+import SettingsCredits from './SettingsCredits';
 import { supabase } from '../lib/supabase';
 
 export default function Settings() {
@@ -21,6 +22,7 @@ export default function Settings() {
     { id: 'integrations', label: 'Integrations', path: '/settings/integrations' },
     { id: 'team', label: 'Team Settings', path: '/settings/team' },
     { id: 'notifications', label: 'Notifications', path: '/settings/notifications' },
+    { id: 'credits', label: 'Credits', path: '/settings/credits' },
     { id: 'api', label: 'API Keys', path: '/settings/api' }
   ];
 
@@ -30,10 +32,15 @@ export default function Settings() {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       const role = user?.user_metadata?.role || user?.user_metadata?.account_type;
+      let filtered = [...baseTabs];
       if (role === 'RecruitPro') {
-        setTabs(baseTabs.filter(t => t.id !== 'team' && t.id !== 'api'));
-        if (activeTab === 'team' || activeTab === 'api') setActiveTab('profile');
+        filtered = filtered.filter(t => t.id !== 'team' && t.id !== 'api');
       }
+      if (role !== 'super_admin') {
+        filtered = filtered.filter(t => t.id !== 'api');
+        if (activeTab === 'api') setActiveTab('profile');
+      }
+      setTabs(filtered);
     })();
   }, []);
 
@@ -52,6 +59,8 @@ export default function Settings() {
         return <SettingsTeamMembers />;
       case 'notifications':
         return <SettingsNotifications />;
+      case 'credits':
+        return <SettingsCredits />;
       case 'api':
         return <SettingsApiKeys />;
       default:

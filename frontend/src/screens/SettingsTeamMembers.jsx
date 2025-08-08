@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaCrown, FaUser, FaEye, FaPlus, FaTrash, FaEnvelope, FaUserPlus, FaClock, FaGear, FaXmark, FaKey } from 'react-icons/fa6';
+import { FaCrown, FaUser, FaEye, FaPlus, FaTrash, FaEnvelope, FaUserPlus, FaClock, FaGear, FaXmark, FaKey, FaBolt, FaRobot } from 'react-icons/fa6';
 import InviteTeamMemberModal from '../components/InviteTeamMemberModal';
 import { supabase } from '../lib/supabase';
 import { format } from 'date-fns';
@@ -16,6 +16,8 @@ export default function SettingsTeamMembers() {
   const [pendingInvites, setPendingInvites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
+  const [planTier, setPlanTier] = useState(null);
+  const [requireCheckout, setRequireCheckout] = useState(false);
 
   const handleOpenInviteModal = () => setIsInviteModalOpen(true);
   const handleCloseInviteModal = () => setIsInviteModalOpen(false);
@@ -80,6 +82,17 @@ export default function SettingsTeamMembers() {
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       setCurrentUser(user);
+
+      // Fetch subscription to determine plan tier and seats
+      const { data: subscription } = await supabase
+        .from('subscriptions')
+        .select('plan_tier, seat_count, included_seats')
+        .eq('user_id', user.id)
+        .single();
+      setPlanTier(subscription?.plan_tier || null);
+      if (subscription) {
+        setRequireCheckout((subscription.seat_count || 0) >= (subscription.included_seats || 1));
+      }
 
       // Fetch current user only (team owner until team concept implemented)
       const { data: users, error: usersError } = await supabase
@@ -215,6 +228,9 @@ export default function SettingsTeamMembers() {
     }
   };
 
+  const isStarter = (planTier === 'starter');
+  const canInvite = !isStarter;
+
   return (
     <div className="p-6">
       <div className="max-w-3xl mx-auto">
@@ -223,12 +239,14 @@ export default function SettingsTeamMembers() {
             <h2 className="text-xl font-semibold text-gray-900">Team Members</h2>
             <p className="text-sm text-gray-500 mt-1">Manage your team members and their roles</p>
           </div>
-          <button 
-            onClick={handleOpenInviteModal}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 flex items-center"
-          >
-            <FaPlus className="mr-2" /> Invite Member
-          </button>
+          {canInvite && (
+            <button 
+              onClick={handleOpenInviteModal}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-5 py-2 text-sm font-medium flex items-center"
+            >
+              <FaPlus className="mr-2" /> Invite Member
+            </button>
+          )}
         </div>
 
         {/* Role Permissions */}
@@ -336,11 +354,17 @@ export default function SettingsTeamMembers() {
                             <span className="px-2 py-0.5 text-xs rounded-full bg-yellow-100 text-yellow-800">
                               Pending
                             </span>
+                            {/* Integration icons (visual only) */}
+                            <span className="inline-flex items-center gap-1 ml-2 text-gray-500">
+                              <FaRobot title="REX" />
+                              <FaBolt title="Zapier/Make" />
+                            </span>
                           </div>
                           <p className="text-sm text-gray-500">{invite.email}</p>
-                          <p className="text-xs text-gray-400 mt-1">
-                            Invited {format(new Date(invite.created_at), 'MMM d, yyyy')}
-                          </p>
+                          <div className="text-xs text-gray-400 mt-1 flex items-center gap-3">
+                            <span>Invited {format(new Date(invite.created_at), 'MMM d, yyyy')}</span>
+                            <span className="text-gray-500">Credits: {invite.role === 'member' ? 350 : invite.role === 'admin' ? 1000 : 500}</span>
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center space-x-3">
@@ -420,6 +444,7 @@ export default function SettingsTeamMembers() {
           isOpen={isInviteModalOpen}
           onClose={handleCloseInviteModal}
           onInviteSuccess={fetchTeamData}
+          requireCheckout={requireCheckout}
         />
 
         {/* Role Change Modal */}

@@ -9,7 +9,7 @@ const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
 
 // You may want to use react-icons for FontAwesome icons, or keep <i> tags if you have FontAwesome loaded globally
 
-export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated }) {
+export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated, extraHeaderActions }) {
   const navigate = useNavigate();
   const [isConverting, setIsConverting] = useState(false);
   const [isEnriching, setIsEnriching] = useState(false);
@@ -1055,6 +1055,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                 </div>
               </div>
               <div className="flex items-center space-x-3">
+                {extraHeaderActions}
                 <button className="text-gray-400 hover:text-gray-500">
                   <i className="fa-solid fa-pen-to-square text-lg"></i>
                 </button>

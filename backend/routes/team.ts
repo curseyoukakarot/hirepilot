@@ -7,6 +7,7 @@ import { sendTeamInviteEmail } from '../services/emailService';
 import { sendTeamNotify } from '../lib/notifications';
 import Stripe from 'stripe';
 import { CreditService } from '../services/creditService';
+import { notifySlack } from '../lib/slack';
 
 const router = Router();
 
@@ -310,6 +311,13 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
     await sendTeamNotify('member_joined', invite.invited_by, {
       memberName: `${invite.first_name} ${invite.last_name}`
     });
+
+    // Slack alert to super_admin channel/webhook (global)
+    try {
+      await notifySlack(`👥 New team invite sent by ${inviter.email} → ${invite.email} (${invite.role})`);
+    } catch (e) {
+      console.warn('Slack notify failed', e);
+    }
 
     console.log('Invitation process completed successfully');
     res.json({ 

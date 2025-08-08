@@ -2,7 +2,8 @@ import express from 'express';
 import Stripe from 'stripe';
 import { BillingService } from '../services/billingService';
 import { CreditService } from '../services/creditService';
-import { PRICING_CONFIG, A_LA_CARTE_PACKAGES, SUBSCRIPTION_PLANS } from '../config/pricing';
+import { PRICING_CONFIG, A_LA_CARTE_PACKAGES, SUBSCRIPTION_PLANS, getCreditsForPlan } from '../config/pricing';
+import { createClient } from '@supabase/supabase-js';
 
 const router = express.Router();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -10,6 +11,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 });
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
 // Stripe webhook handler
 router.post('/', express.raw({ type: 'application/json' }), async (req, res) => {
@@ -91,6 +93,24 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
           status: 'paid',
           paidAt: new Date(invoice.status_transitions.paid_at! * 1000)
         });
+
+        // Add monthly allocation credits on subscription renewals (rollover enabled)
+        try {
+          if (invoice.subscription) {
+            const stripeSubId = typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription.id;
+            const { data: subRow } = await supabase.from('subscriptions').select('plan_tier, user_id').eq('stripe_subscription_id', stripeSubId as string).single();
+            const planTier = (subRow as any)?.plan_tier;
+            if (planTier) {
+              const credits = getCreditsForPlan(planTier);
+              if (credits > 0) {
+                await CreditService.addCredits(userId, credits);
+                console.log(`[StripeWebhook] Added ${credits} credits for monthly renewal (${planTier}) to user ${userId}`);
+              }
+            }
+          }
+        } catch (e) {
+          console.error('[StripeWebhook] Failed to add monthly credits:', e);
+        }
 
         break;
       }

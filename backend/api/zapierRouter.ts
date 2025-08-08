@@ -14,6 +14,7 @@ const router = Router();
  */
 router.post('/leads', apiKeyAuth, async (req: ApiRequest, res: Response) => {
   try {
+    console.log('[Zapier] Incoming /leads payload:', req.body);
     const userId = req.user!.id;
     const lead = req.body;
 
@@ -58,6 +59,9 @@ router.post('/leads', apiKeyAuth, async (req: ApiRequest, res: Response) => {
  * enrichment logic used internally and returns the enriched data.
  */
 router.post('/enrich', apiKeyAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    console.log('[Zapier] Incoming /enrich payload:', req.body);
+  } catch {}
   // Reuse existing enrichLead handler for DRYness
   return enrichLead(req as any, res);
 });
@@ -68,6 +72,7 @@ router.post('/enrich', apiKeyAuth, async (req: ApiRequest, res: Response) => {
  */
 router.get('/triggers/new-leads', apiKeyAuth, async (req: ApiRequest, res: Response) => {
   try {
+    console.log('[Zapier] Poll /triggers/new-leads since=', req.query.since);
     const userId = req.user!.id;
     const since = req.query.since as string | undefined;
     const sinceDate = since ? new Date(since) : new Date(Date.now() - 15 * 60 * 1000);
@@ -96,6 +101,7 @@ router.get('/triggers/new-leads', apiKeyAuth, async (req: ApiRequest, res: Respo
  */
 router.get('/triggers/events', apiKeyAuth, async (req: ApiRequest, res: Response) => {
   try {
+    console.log('[Zapier] Poll /triggers/events query=', req.query);
     const userId = req.user!.id;
     const eventType = req.query.event_type as string | undefined;
     const since = req.query.since as string | undefined;

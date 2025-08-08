@@ -35,6 +35,7 @@ export default function CandidateList() {
   const [loading, setLoading] = useState(true);
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [showDrawer, setShowDrawer] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(new Set());
   const [showActionsMenu, setShowActionsMenu] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editedCandidate, setEditedCandidate] = useState(null);
@@ -63,6 +64,51 @@ export default function CandidateList() {
 
     if (!token) throw new Error('No active session – please sign in again.');
     return { Authorization: `Bearer ${token}` };
+  };
+
+  const openDrawerFor = (candidate) => {
+    setSelectedCandidate(candidate);
+    setShowDrawer(true);
+  };
+
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAllOnPage = (ids) => {
+    setSelectedIds(new Set(ids));
+  };
+
+  const bulkChangeStatus = async (status) => {
+    try {
+      const ids = Array.from(selectedIds);
+      if (ids.length === 0) return;
+      const { error } = await supabase.from('candidates').update({ status }).in('id', ids);
+      if (error) throw error;
+      setCandidates(prev => prev.map(c => ids.includes(c.id) ? { ...c, status } : c));
+      setSelectedIds(new Set());
+      alert('Status updated');
+    } catch (e) {
+      alert(e.message || 'Bulk update failed');
+    }
+  };
+
+  const bulkDelete = async () => {
+    try {
+      const ids = Array.from(selectedIds);
+      if (ids.length === 0) return;
+      const { error } = await supabase.from('candidates').delete().in('id', ids);
+      if (error) throw error;
+      setCandidates(prev => prev.filter(c => !ids.includes(c.id)));
+      setSelectedIds(new Set());
+      alert('Deleted');
+    } catch (e) {
+      alert(e.message || 'Bulk delete failed');
+    }
   };
 
   /** ------------------------------------------------------------------
@@ -336,10 +382,30 @@ export default function CandidateList() {
 
       {/* --- Table --- */}
       <div className="max-w-7xl mx-auto px-4">
+        {selectedIds.size > 0 && (
+          <div className="mb-3 bg-indigo-50 border border-indigo-200 rounded-lg p-3 flex items-center justify-between">
+            <div className="text-sm text-gray-700">{selectedIds.size} selected</div>
+            <div className="flex gap-2">
+              <select className="px-3 py-2 border rounded-lg" onChange={(e) => { if (e.target.value) bulkChangeStatus(e.target.value); e.target.value=''; }}>
+                <option value="">Change Status…</option>
+                <option value="sourced">Sourced</option>
+                <option value="contacted">Contacted</option>
+                <option value="responded">Responded</option>
+                <option value="interviewing">Interviewing</option>
+                <option value="hired">Hired</option>
+                <option value="rejected">Rejected</option>
+              </select>
+              <button className="border border-gray-300 hover:bg-gray-50 rounded-lg px-4 py-2" onClick={bulkDelete}>Delete</button>
+            </div>
+          </div>
+        )}
         <div className="bg-white shadow rounded-lg overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-6 py-3">
+                  <input type="checkbox" onChange={(e) => selectAllOnPage(candidates.map(c => c.id))} />
+                </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Name
                 </th>
@@ -390,7 +456,12 @@ export default function CandidateList() {
                   }
 
                   return (
-                    <tr key={candidate.id}>
+                    <tr key={candidate.id} className="cursor-pointer hover:bg-gray-50" onClick={(e) => {
+                      const tag = (e.target.tagName || '').toLowerCase();
+                      if (['button','svg','path','input','select'].includes(tag)) return;
+                      openDrawerFor(candidate);
+                    }}>
+                      <td className="px-6 py-4"><input type="checkbox" checked={selectedIds.has(candidate.id)} onChange={() => toggleSelect(candidate.id)} onClick={(e)=>e.stopPropagation()} /></td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="h-10 w-10 flex-shrink-0">
@@ -470,6 +541,31 @@ export default function CandidateList() {
                                   Edit
                                 </button>
                                 <button
+                                  onClick={async () => {
+                                    const newStatus = prompt('New status: sourced/contacted/responded/interviewing/hired/rejected', candidate.status || 'sourced');
+                                    if (!newStatus) return;
+                                    const { error } = await supabase.from('candidates').update({ status: newStatus }).eq('id', candidate.id);
+                                    if (!error) setCandidates(prev => prev.map(c => c.id === candidate.id ? { ...c, status: newStatus } : c));
+                                    setShowActionsMenu(null);
+                                  }}
+                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                  role="menuitem"
+                                >
+                                  Change Status
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    if (!confirm('Delete candidate?')) return;
+                                    const { error } = await supabase.from('candidates').delete().eq('id', candidate.id);
+                                    if (!error) setCandidates(prev => prev.filter(c => c.id !== candidate.id));
+                                    setShowActionsMenu(null);
+                                  }}
+                                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                                  role="menuitem"
+                                >
+                                  Delete
+                                </button>
+                                <button
                                   onClick={() => handleAddToPipelineClick(candidate)}
                                   className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                                   role="menuitem"
@@ -489,7 +585,25 @@ export default function CandidateList() {
         </div>
       </div>
 
-      {/* --- Rest of the original JSX (modals, etc.) remains unchanged --- */}
+      {/* Drawer using LeadProfileDrawer */}
+      {showDrawer && selectedCandidate && (
+        <LeadProfileDrawer
+          isOpen={showDrawer}
+          onClose={() => setShowDrawer(false)}
+          lead={{
+            id: selectedCandidate.id,
+            first_name: selectedCandidate.first_name,
+            last_name: selectedCandidate.last_name,
+            name: `${selectedCandidate.first_name || ''} ${selectedCandidate.last_name || ''}`.trim(),
+            email: selectedCandidate.email,
+            phone: selectedCandidate.phone,
+            enrichment_data: selectedCandidate.enrichment_data,
+            title: selectedCandidate.title,
+            company: selectedCandidate.company,
+            linkedin_url: selectedCandidate.linkedin_url,
+          }}
+        />
+      )}
     </div>
   );
 }
