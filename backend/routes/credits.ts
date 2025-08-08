@@ -2,20 +2,33 @@ import express from 'express';
 import { CreditService } from '../services/creditService';
 import { A_LA_CARTE_PACKAGES } from '../config/pricing';
 import Stripe from 'stripe';
+import { createClient } from '@supabase/supabase-js';
 
 const router = express.Router();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2022-11-15'
 });
 
+// Supabase service client for auth and DB operations
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+async function getUserIdFromAuthHeader(req: express.Request): Promise<string | null> {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+  const token = authHeader.split(' ')[1];
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+  if (error || !user) return null;
+  return user.id;
+}
+
 // Get user's credit status
 router.get('/status', async (req, res) => {
   try {
-    const userId = req.user?.id;
-    if (!userId) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
+    const userId = await getUserIdFromAuthHeader(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
     const creditStatus = await CreditService.checkCreditStatus(userId);
     if (!creditStatus) {
@@ -33,18 +46,34 @@ router.get('/status', async (req, res) => {
 // Create checkout session for à la carte credit purchase
 router.post('/purchase', async (req, res) => {
   try {
-    const userId = req.user?.id;
-    if (!userId) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
+    const userId = await getUserIdFromAuthHeader(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
     const { packageId } = req.body;
-    const creditPackage = Object.values(A_LA_CARTE_PACKAGES).find(p => p.id === packageId);
+    // Map known small packs to requested pricing per UI spec
+    const SMALL_PACK_OVERRIDES: Record<string, { name: string; credits: number; price: number; description: string }> = {
+      'light-boost': { name: '100 Credits', credits: 100, price: 25, description: '100 credits pack' },
+      'power-pack': { name: '300 Credits', credits: 300, price: 75, description: '300 credits pack' },
+      'growth-bundle': { name: '600 Credits', credits: 600, price: 150, description: '600 credits pack' },
+    };
+    const LARGE_PACKS: Record<string, { name: string; credits: number; price: number; description: string }> = {
+      '1000': { name: '1000 Credits', credits: 1000, price: 220, description: 'Large 1000 credits pack' },
+      '2500': { name: '2500 Credits', credits: 2500, price: 500, description: 'Large 2500 credits pack' },
+      '5000': { name: '5000 Credits', credits: 5000, price: 900, description: 'Large 5000 credits pack' },
+    };
+
+    let creditPackage = Object.values(A_LA_CARTE_PACKAGES).find(p => p.id === packageId) as any;
+    // Override with UI pricing if small pack
+    if (SMALL_PACK_OVERRIDES[packageId]) {
+      creditPackage = SMALL_PACK_OVERRIDES[packageId];
+    }
+    // Or support large packs
+    if (!creditPackage && LARGE_PACKS[packageId]) {
+      creditPackage = LARGE_PACKS[packageId];
+    }
 
     if (!creditPackage) {
-      res.status(400).json({ error: 'Invalid package ID' });
-      return;
+      return res.status(400).json({ error: 'Invalid package ID' });
     }
 
     const session = await stripe.checkout.sessions.create({
@@ -58,7 +87,7 @@ router.post('/purchase', async (req, res) => {
               name: creditPackage.name,
               description: `${creditPackage.credits} credits - ${creditPackage.description}`
             },
-            unit_amount: creditPackage.price * 100 // Convert to cents
+            unit_amount: creditPackage.price * 100 // in cents
           },
           quantity: 1
         }
@@ -67,8 +96,8 @@ router.post('/purchase', async (req, res) => {
         userId,
         packageId
       },
-      success_url: `${process.env.CLIENT_URL}/dashboard?success=true`,
-      cancel_url: `${process.env.CLIENT_URL}/dashboard?canceled=true`
+      success_url: `${process.env.FRONTEND_URL || process.env.CLIENT_URL}/settings/credits?purchase=success`,
+      cancel_url: `${process.env.FRONTEND_URL || process.env.CLIENT_URL}/settings/credits?purchase=canceled`
     });
 
     res.json({ sessionId: session.id });
@@ -81,11 +110,8 @@ router.post('/purchase', async (req, res) => {
 // Check if user has sufficient credits
 router.post('/check', async (req, res) => {
   try {
-    const userId = req.user?.id;
-    if (!userId) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
+    const userId = await getUserIdFromAuthHeader(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
     const { requiredCredits } = req.body;
     if (typeof requiredCredits !== 'number' || requiredCredits <= 0) {
@@ -110,11 +136,8 @@ router.post('/check', async (req, res) => {
 // Use credits for a service
 router.post('/use', async (req, res) => {
   try {
-    const userId = req.user?.id;
-    if (!userId) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
+    const userId = await getUserIdFromAuthHeader(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
     const { credits } = req.body;
     if (typeof credits !== 'number' || credits <= 0) {
@@ -140,11 +163,8 @@ router.post('/use', async (req, res) => {
 // Get team members sharing credits with the current team admin
 router.get('/team-members', async (req, res) => {
   try {
-    const userId = req.user?.id;
-    if (!userId) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
+    const userId = await getUserIdFromAuthHeader(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
     const teamMembers = await CreditService.getTeamMembersForAdmin(userId);
     res.json(teamMembers);
@@ -157,11 +177,8 @@ router.get('/team-members', async (req, res) => {
 // Add a team member to credit sharing
 router.post('/team-members', async (req, res) => {
   try {
-    const userId = req.user?.id;
-    if (!userId) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
+    const userId = await getUserIdFromAuthHeader(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
     const { teamMemberId } = req.body;
     if (!teamMemberId) {
@@ -185,11 +202,8 @@ router.post('/team-members', async (req, res) => {
 // Remove a team member from credit sharing
 router.delete('/team-members/:teamMemberId', async (req, res) => {
   try {
-    const userId = req.user?.id;
-    if (!userId) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
+    const userId = await getUserIdFromAuthHeader(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
     const { teamMemberId } = req.params;
     const success = await CreditService.removeTeamMemberFromCreditSharing(userId, teamMemberId);
