@@ -299,17 +299,61 @@ router.post('/move-candidate', apiKeyAuth, async (req: ApiRequest, res: Response
       .single();
     if (candErr || !cand || cand.user_id !== userId) return res.status(403).json({ error: 'Forbidden' });
 
+    // Resolve stage_id from title if provided
+    let resolvedStageId: string | null = null;
+    if (stage_title && !dest_stage_id) {
+      // Prefer pipeline_id path if available
+      const { data: jobRow } = await supabaseDb
+        .from('job_requisitions')
+        .select('pipeline_id')
+        .eq('id', cjRow.job_id)
+        .maybeSingle();
+      // Helper to attempt resolution by various strategies
+      const tryResolve = async (filterCol: 'pipeline_id' | 'job_id', filterVal: string) => {
+        // Exact ilike on title
+        let q = await supabaseDb
+          .from('pipeline_stages')
+          .select('id, title, name')
+          .eq(filterCol, filterVal)
+          .ilike('title', stage_title)
+          .maybeSingle();
+        if (q.data?.id) return q.data.id as string;
+        // Exact ilike on name
+        q = await supabaseDb
+          .from('pipeline_stages')
+          .select('id, title, name')
+          .eq(filterCol, filterVal)
+          .ilike('name', stage_title)
+          .maybeSingle();
+        if (q.data?.id) return q.data.id as string;
+        // Contains match on title/name
+        const all = await supabaseDb
+          .from('pipeline_stages')
+          .select('id, title, name')
+          .eq(filterCol, filterVal);
+        const lc = String(stage_title).toLowerCase();
+        const hit = (all.data || []).find((s: any) => (s.title || s.name || '').toLowerCase().includes(lc));
+        return hit?.id || null;
+      };
+      if (jobRow?.pipeline_id) {
+        resolvedStageId = await tryResolve('pipeline_id', jobRow.pipeline_id);
+      }
+      if (!resolvedStageId) {
+        resolvedStageId = await tryResolve('job_id', cjRow.job_id);
+      }
+    }
+
     // Try stage_id first
     const now = new Date().toISOString();
     let updErr = null;
-    if (dest_stage_id) {
+    if (dest_stage_id || resolvedStageId) {
       const { error } = await supabaseDb
         .from('candidate_jobs')
-        .update({ stage_id: dest_stage_id, updated_at: now })
+        .update({ stage_id: dest_stage_id || resolvedStageId, updated_at: now })
         .eq('id', cjRow.id);
       updErr = error;
     }
-    if (!dest_stage_id || (updErr && (updErr as any).code === '42703')) {
+    if (!(dest_stage_id || resolvedStageId) || (updErr && (updErr as any).code === '42703')) {
       // Fallback to status enum mapping from stage_title
       const canonicalFrom = (title: string) => {
         const t = String(title || '').toLowerCase();
