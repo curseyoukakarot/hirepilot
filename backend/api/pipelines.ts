@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import { supabaseDb } from '../lib/supabase';
+import { requireAuth } from '../middleware/authMiddleware';
 
 const router = express.Router();
 
@@ -86,3 +87,86 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 export default router; 
+
+// --- New: Move candidate between stages (service role; validates ownership) ---
+router.post('/move-candidate', requireAuth as any, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id;
+    const { candidate_job_id, candidate_id, job_id, dest_stage_id, stage_title } = req.body || {};
+
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    if (!dest_stage_id && !stage_title) return res.status(400).json({ error: 'Missing destination stage' });
+    if (!candidate_job_id && !(candidate_id && job_id)) return res.status(400).json({ error: 'Missing candidate reference' });
+
+    // Resolve candidate_jobs row
+    let cjRow: any = null;
+    if (candidate_job_id) {
+      const { data, error } = await supabaseDb
+        .from('candidate_jobs')
+        .select('id, candidate_id, job_id')
+        .eq('id', candidate_job_id)
+        .maybeSingle();
+      if (error || !data) return res.status(404).json({ error: 'Candidate job not found' });
+      cjRow = data;
+    } else {
+      const { data, error } = await supabaseDb
+        .from('candidate_jobs')
+        .select('id, candidate_id, job_id')
+        .eq('candidate_id', candidate_id)
+        .eq('job_id', job_id)
+        .maybeSingle();
+      if (error || !data) return res.status(404).json({ error: 'Candidate job not found' });
+      cjRow = data;
+    }
+
+    // Validate ownership via candidates.user_id
+    const { data: cand, error: candErr } = await supabaseDb
+      .from('candidates')
+      .select('user_id, first_name, last_name, email')
+      .eq('id', cjRow.candidate_id)
+      .single();
+    if (candErr || !cand || cand.user_id !== userId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    // Attempt update via stage_id; fallback to status (enum) mapping
+    let updErr = null;
+    const now = new Date().toISOString();
+    if (dest_stage_id) {
+      const { error } = await supabaseDb
+        .from('candidate_jobs')
+        .update({ stage_id: dest_stage_id, updated_at: now })
+        .eq('id', cjRow.id);
+      updErr = error;
+    }
+    if (updErr && (updErr as any).code === '42703') {
+      // stage_id column missing; use status text
+      // Derive canonical enum from provided stage_title if present
+      const canonicalFrom = (title: string) => {
+        const t = String(title || '').toLowerCase();
+        if (['sourced','contacted','interviewed','offered','hired','rejected'].includes(t)) return t;
+        if (t.includes('offer')) return 'offered';
+        if (t.includes('hire')) return 'hired';
+        if (t.includes('reject')) return 'rejected';
+        if (t.includes('contact')) return 'contacted';
+        if (t.includes('interview')) return 'interviewed';
+        return 'interviewed';
+      };
+      const canonical = canonicalFrom(stage_title || 'Interviewed');
+      const { error } = await supabaseDb
+        .from('candidate_jobs')
+        .update({ status: canonical, updated_at: now })
+        .eq('id', cjRow.id);
+      updErr = error;
+    }
+    if (updErr) {
+      console.error('[move-candidate] update error', updErr);
+      return res.status(500).json({ error: 'Failed to move candidate' });
+    }
+
+    return res.json({ success: true, candidate_job_id: cjRow.id, dest_stage_id, stage_title: stage_title || null });
+  } catch (e: any) {
+    console.error('[move-candidate] unexpected', e);
+    return res.status(500).json({ error: e.message || 'Internal error' });
+  }
+});
