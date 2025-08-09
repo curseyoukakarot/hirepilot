@@ -67,23 +67,16 @@ router.get('/users/:id', requireAuth, requireSuperAdmin, async (req: Request, re
 router.get('/users/:id/features', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
   const { id } = req.params;
   try {
-    const { data: userRow, error: userErr } = await supabaseDb
-      .from('users')
-      .select('rex_enabled')
-      .eq('id', id)
-      .single();
-    if (userErr) return res.status(500).json({ error: userErr.message });
-
     const { data: settingsRow, error: settingsErr } = await supabaseDb
       .from('user_settings')
-      .select('zapier_enabled')
+      .select('rex_enabled, zapier_enabled')
       .eq('user_id', id)
       .maybeSingle();
     if (settingsErr) return res.status(500).json({ error: settingsErr.message });
 
     res.json({
-      rex_enabled: Boolean(userRow?.rex_enabled),
-      zapier_enabled: Boolean(settingsRow?.zapier_enabled)
+      rex_enabled: Boolean((settingsRow as any)?.rex_enabled),
+      zapier_enabled: Boolean((settingsRow as any)?.zapier_enabled)
     });
   } catch (e: any) {
     res.status(500).json({ error: e.message || 'Failed to load feature flags' });
@@ -95,19 +88,15 @@ router.patch('/users/:id/features', requireAuth, requireSuperAdmin, async (req: 
   const { id } = req.params;
   const { rex_enabled, zapier_enabled } = req.body || {};
   try {
-    if (typeof rex_enabled === 'boolean') {
-      const { error: rexErr } = await supabaseDb
-        .from('users')
-        .update({ rex_enabled })
-        .eq('id', id);
-      if (rexErr) return res.status(500).json({ error: rexErr.message });
-    }
-
-    if (typeof zapier_enabled === 'boolean') {
-      const { error: zErr } = await supabaseDb
+    // Upsert both flags into user_settings (single source of truth)
+    const upsertPayload: any = { user_id: id };
+    if (typeof rex_enabled === 'boolean') upsertPayload.rex_enabled = rex_enabled;
+    if (typeof zapier_enabled === 'boolean') upsertPayload.zapier_enabled = zapier_enabled;
+    if (Object.keys(upsertPayload).length > 1) {
+      const { error: upsertErr } = await supabaseDb
         .from('user_settings')
-        .upsert({ user_id: id, zapier_enabled }, { onConflict: 'user_id' });
-      if (zErr) return res.status(500).json({ error: zErr.message });
+        .upsert(upsertPayload, { onConflict: 'user_id' });
+      if (upsertErr) return res.status(500).json({ error: upsertErr.message });
     }
 
     res.json({ success: true, user_id: id, rex_enabled, zapier_enabled });

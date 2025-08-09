@@ -290,8 +290,7 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
           credits_used: 0,
           credits_available: 0,
           is_in_cooldown: false,
-          team_id: (req as any).teamId,
-          rex_enabled: permissions.rexAccess === true
+          team_id: (req as any).teamId
         }])
         .select()
         .single();
@@ -311,7 +310,7 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
       try {
         await supabaseDb
           .from('user_settings')
-          .insert([{ user_id: userData.user.id, email, zapier_enabled: permissions.zapierAccess === true }]);
+          .insert([{ user_id: userData.user.id, email, zapier_enabled: permissions.zapierAccess === true, rex_enabled: permissions.rexAccess === true }]);
       } catch (settingsErr) {
         console.warn('[TEAM INVITE] Failed to create default user_settings', settingsErr);
         // do not fail the whole flow on settings init error
@@ -490,8 +489,7 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
           credits_used: 0,
           credits_available: 0,
           is_in_cooldown: false,
-          team_id: (req as any).teamId,
-          rex_enabled: true
+          team_id: (req as any).teamId
         }]);
 
       if (publicUserError) {
@@ -509,7 +507,7 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
       try {
         await supabaseDb
           .from('user_settings')
-          .insert([{ user_id: userData.user.id, email: invite.email, zapier_enabled: true }]);
+          .insert([{ user_id: userData.user.id, email: invite.email, zapier_enabled: true, rex_enabled: true }]);
       } catch (settingsErr) {
         console.warn('[TEAM INVITE][RESEND] Failed to create default user_settings', settingsErr);
       }
