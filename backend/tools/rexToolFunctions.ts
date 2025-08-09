@@ -647,22 +647,7 @@ export async function moveCandidate({
   // Attempt to map stage to enum; otherwise delegate to stage-by-title
   const ALLOWED_STATUS = ['sourced','contacted','interviewed','offered','hired','rejected'];
   const lc = newStage.toLowerCase().trim();
-  const synonymMap: Record<string,string> = {
-    'peer interview':'interviewed',
-    'phone interview':'interviewed',
-    'phone screen':'interviewed',
-    'screen':'interviewed',
-    'interview':'interviewed',
-    'offer':'offered',
-    'offering':'offered',
-    'hire':'hired',
-    'hiring':'hired',
-    'reject':'rejected',
-    'rejection':'rejected',
-    'contact':'contacted'
-  };
-  const mapped = ALLOWED_STATUS.includes(lc) ? lc : (synonymMap[lc] || '');
-  if (!mapped) {
+  if (!ALLOWED_STATUS.includes(lc)) {
     // If we cannot map to enum, try the job pipeline stage flow (requires userId)
     if (userId) {
       return await moveCandidateToStageId({ userId, candidate: resolvedId, stage: newStage });
@@ -673,7 +658,7 @@ export async function moveCandidate({
   // Update the status in candidate_jobs (all linked jobs) using enum
   const { data: updatedRows, error } = await supabaseDb
     .from('candidate_jobs')
-    .update({ status: mapped, updated_at: new Date().toISOString() })
+    .update({ status: lc, updated_at: new Date().toISOString() })
     .eq('candidate_id', resolvedId)
     .select();
 
@@ -692,13 +677,13 @@ export async function moveCandidate({
         .single();
 
   const name = candErr || !candidate ? candidateId : `${candidate.first_name} ${candidate.last_name}`;
-  await notifySlack(`🛫 Candidate *${name}* moved to *${mapped || newStage}*`);
+  await notifySlack(`🛫 Candidate *${name}* moved to *${newStage}*`);
     } catch (e) {
       console.warn('[moveCandidate] Slack notify failed', e);
     }
   }
 
-  return { candidateId: resolvedId, movedTo: mapped || newStage, success: true };
+  return { candidateId: resolvedId, movedTo: newStage, success: true };
 }
 
 /**

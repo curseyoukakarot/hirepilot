@@ -364,11 +364,20 @@ export default function JobPipeline() {
       const destCandidates = Array.from(candidates[destStage] || []);
       const [removed] = sourceCandidates.splice(source.index, 1);
       if (removed) {
-        // Update in DB
-        await supabase
+        // Update in DB (support both stage_id and status backends)
+        let { error } = await supabase
           .from('candidate_jobs')
           .update({ stage_id: destStage })
           .eq('id', removed.id);
+        if (error && error.code === '42703') {
+          // stage_id column not present (legacy backend). Update status by stage title text.
+          const title = (pipelines.find(p=>String(p.id)===String(jobId))?.stages||[]).find(s=>String(s.id)===String(destStage))?.title || 'interviewed';
+          ({ error } = await supabase
+            .from('candidate_jobs')
+            .update({ status: title })
+            .eq('id', removed.id));
+        }
+        if (error) console.error('Pipeline update error', error);
         destCandidates.splice(destination.index, 0, removed);
         setCandidates({
           ...candidates,
