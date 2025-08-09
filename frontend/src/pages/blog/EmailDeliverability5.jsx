@@ -24,15 +24,16 @@ export default function EmailDeliverability5() {
         #inline-cta-2 h3, #inline-cta-2 p { color: #ffffff !important; }
         #spam-triggers table th { color: #ffffff !important; }
         .token-sample, .token-sample code { color: #ffffff !important; }
+        #complete-series h3, #complete-series p { color: #ffffff !important; }
       `}</style>
 
       {/* Breadcrumb */}
       <div id="breadcrumb" className="bg-gray-800 py-4">
         <div className="max-w-6xl mx-auto px-6">
-          <span className="text-gray-300 hover:text-white transition-colors flex items-center cursor-pointer">
+          <a href="/blog" className="text-gray-300 hover:text-white transition-colors flex items-center">
             <i className="fa-solid fa-arrow-left mr-2" />
             Back to Blog
-          </span>
+          </a>
         </div>
       </div>
 
@@ -328,8 +329,8 @@ export default function EmailDeliverability5() {
             <article className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300">
               <div className="p-6">
                 <span className="bg-red-600 text-white px-2 py-1 rounded text-xs font-medium">Part 1</span>
-                <h3 className="text-lg font-semibold mt-2 mb-2">The #1 Mistake</h3>
-                <p className="text-gray-400 text-sm">
+                <h3 className="text-lg font-semibold mt-2 mb-2"><a href="/blog/email-deliverability-1" className="hover:underline">The #1 Mistake</a></h3>
+                <p className="text-sm">
                   Why Gmail/Outlook fail at scale
                 </p>
                 <a href="/blog/email-deliverability-1" className="text-blue-400 text-sm hover:underline block mt-3">Read Part 1 →</a>
@@ -339,8 +340,8 @@ export default function EmailDeliverability5() {
             <article className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300">
               <div className="p-6">
                 <span className="bg-green-600 text-white px-2 py-1 rounded text-xs font-medium">Part 2</span>
-                <h3 className="text-lg font-semibold mt-2 mb-2">Domain Reputation</h3>
-                <p className="text-gray-400 text-sm">
+                <h3 className="text-lg font-semibold mt-2 mb-2"><a href="/blog/email-deliverability-2" className="hover:underline">Domain Reputation</a></h3>
+                <p className="text-sm">
                   SPF, DKIM, DMARC setup
                 </p>
                 <a href="/blog/email-deliverability-2" className="text-blue-400 text-sm hover:underline block mt-3">Read Part 2 →</a>
@@ -350,8 +351,8 @@ export default function EmailDeliverability5() {
             <article className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300">
               <div className="p-6">
                 <span className="bg-orange-600 text-white px-2 py-1 rounded text-xs font-medium">Part 3</span>
-                <h3 className="text-lg font-semibold mt-2 mb-2">Free Providers</h3>
-                <p className="text-gray-400 text-sm">
+                <h3 className="text-lg font-semibold mt-2 mb-2"><a href="/blog/email-deliverability-3" className="hover:underline">Free Providers</a></h3>
+                <p className="text-sm">
                   Hidden limits & throttling
                 </p>
                 <a href="/blog/email-deliverability-3" className="text-blue-400 text-sm hover:underline block mt-3">Read Part 3 →</a>
@@ -361,8 +362,8 @@ export default function EmailDeliverability5() {
             <article className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300">
               <div className="p-6">
                 <span className="bg-purple-600 text-white px-2 py-1 rounded text-xs font-medium">Part 4</span>
-                <h3 className="text-lg font-semibold mt-2 mb-2">SendGrid Setup</h3>
-                <p className="text-gray-400 text-sm">
+                <h3 className="text-lg font-semibold mt-2 mb-2"><a href="/blog/email-deliverability-4" className="hover:underline">SendGrid Setup</a></h3>
+                <p className="text-sm">
                   Best practices & monitoring
                 </p>
                 <a href="/blog/email-deliverability-4" className="text-blue-400 text-sm hover:underline block mt-3">Read Part 4 →</a>
@@ -373,7 +374,7 @@ export default function EmailDeliverability5() {
               <div className="p-6">
                 <span className="bg-teal-600 text-white px-2 py-1 rounded text-xs font-medium">Part 5</span>
                 <h3 className="text-lg font-semibold mt-2 mb-2">Avoid Spam Filters</h3>
-                <p className="text-gray-400 text-sm">
+                <p className="text-sm">
                   Copy & formatting tips
                 </p>
                 <span className="text-teal-400 text-sm block mt-3">You're here! ✓</span>
