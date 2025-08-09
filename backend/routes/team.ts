@@ -250,7 +250,7 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
       const { data: userData, error: createError } = await supabaseDb.auth.admin.createUser({
         email: email,
         password: tempPassword!,
-        email_confirm: false,
+        email_confirm: true,
         user_metadata: {
           first_name: firstName,
           last_name: lastName,
@@ -443,7 +443,7 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
       const { data: userData, error: createError } = await supabaseDb.auth.admin.createUser({
         email: invite.email,
         password: tempPassword!,
-        email_confirm: false,
+        email_confirm: true,
         user_metadata: {
           first_name: invite.first_name,
           last_name: invite.last_name,
