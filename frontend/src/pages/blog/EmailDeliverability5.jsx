@@ -20,6 +20,10 @@ export default function EmailDeliverability5() {
         .prose th { background: #374151; color: #f9fafb; font-weight: 600; }
         .prose td { color: #d1d5db; }
         .toc-active { color: #3b82f6; }
+        /* Force white text for specific elements */
+        #inline-cta-2 h3, #inline-cta-2 p { color: #ffffff !important; }
+        #spam-triggers table th { color: #ffffff !important; }
+        .token-sample, .token-sample code { color: #ffffff !important; }
       `}</style>
 
       {/* Breadcrumb */}
@@ -184,7 +188,7 @@ export default function EmailDeliverability5() {
             <p><strong>Rules:</strong></p>
             <ul>
               <li>Mention something relevant (job title, company event, funding round)</li>
-              <li>
+              <li className="token-sample">
                 Use personalization tokens (
                 <code>{"{{firstName}}"}</code>
                 ,
