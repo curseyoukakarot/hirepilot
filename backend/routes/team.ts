@@ -59,33 +59,61 @@ router.get('/test-connection', async (req: Request, res: Response) => {
   }
 });
 
+// Helper to resolve current user from multiple possible middleware styles
+async function resolveCurrentUser(req: Request): Promise<User | null> {
+  try {
+    const authUser = (req as any).auth?.user as User | undefined;
+    if (authUser) return authUser;
+    const plainUser = (req as any).user as { id: string; email?: string } | undefined;
+    if (plainUser && plainUser.id) {
+      // Build a minimal User-like object for downstream usage
+      return {
+        id: plainUser.id,
+        email: (plainUser as any).email || undefined,
+      } as unknown as User;
+    }
+    const bearer = req.headers.authorization?.split(' ')[1];
+    if (bearer) {
+      const { data, error } = await supabase.auth.getUser(bearer);
+      if (error) {
+        console.warn('[team] resolveCurrentUser getUser error', error);
+        return null;
+      }
+      return (data as any)?.user || null;
+    }
+    return null;
+  } catch (e) {
+    console.warn('[team] resolveCurrentUser exception', e);
+    return null;
+  }
+}
+
 // POST /api/team/invite
 router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    console.log('Starting invite process with request:', {
-      body: req.body,
-      user: req.auth?.user?.id,
-      headers: req.headers,
-      supabaseConfig: {
-        hasUrl: !!process.env.SUPABASE_URL,
-        hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY
-      }
-    });
+    console.log('Starting invite process...');
 
-    if (!req.auth?.user) {
+    const currentUserResolved = await resolveCurrentUser(req as Request);
+    if (!currentUserResolved) {
       res.status(401).json({ message: 'Unauthorized' });
       return;
     }
 
     const { firstName, lastName, email, company, role } = req.body as TeamInviteRequest;
-    const currentUser = req.auth?.user;
+    const currentUser = currentUserResolved;
 
     // If current user is a super admin, bypass seat-limit checks entirely
-    const { data: currentUserRow } = await supabase
+    const { data: currentUserRow, error: currentUserRowError } = await supabase
       .from('users')
       .select('role')
       .eq('id', currentUser.id)
       .single();
+
+    if (currentUserRowError) {
+      console.error('[team invite] failed to load inviter user row', currentUserRowError);
+      res.status(500).json({ message: 'Failed to load inviter', error: currentUserRowError });
+      return;
+    }
 
     const inviterRole = currentUserRow?.role;
     const isSuperAdmin = inviterRole === 'super_admin' || inviterRole === 'SuperAdmin';
@@ -171,7 +199,8 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
     const inviteToken = uuidv4();
 
     // Generate the invite link with token
-    const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL}/join?token=${inviteToken}`;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.FRONTEND_URL || '';
+    const inviteLink = `${appUrl}/join?token=${inviteToken}`;
 
     console.log('Checking if user exists in auth system:', email);
     const { data: authUsers, error: authCheckError } = await supabase.auth.admin.listUsers();

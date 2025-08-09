@@ -77,7 +77,7 @@ export default function InviteTeamMemberModal({ isOpen, onClose, onInviteSuccess
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('You must be logged in to invite team members');
 
-      const response = await fetch(`/api/team/invite`, {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/team/invite`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

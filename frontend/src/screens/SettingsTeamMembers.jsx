@@ -130,7 +130,7 @@ export default function SettingsTeamMembers() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
-      const response = await fetch(`/api/team/invite/resend`, {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/team/invite/resend`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -171,7 +171,7 @@ export default function SettingsTeamMembers() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
-      const response = await fetch(`/api/team/invite/${selectedInvite.id}`, {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/team/invite/${selectedInvite.id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
