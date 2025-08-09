@@ -709,30 +709,80 @@ export async function moveCandidateToStageId({
   }
 
   // 3) Resolve stage by title in this job
-  const { data: stageRow } = await supabaseDb
+  // Try schema A: pipeline_stages.job_id
+  let { data: stageRow } = await supabaseDb
     .from('pipeline_stages')
     .select('id, title')
     .eq('job_id', resolvedJobId)
     .ilike('title', stage)
     .maybeSingle();
+  // If missing, try schema B: job has pipeline_id and pipeline_stages.pipeline_id
   if (!stageRow?.id) {
-    // Help the user by listing available titles
-    const { data: allStages } = await supabaseDb
+    const { data: jobRow } = await supabaseDb
+      .from('job_requisitions')
+      .select('pipeline_id')
+      .eq('id', resolvedJobId)
+      .maybeSingle();
+    if (jobRow?.pipeline_id) {
+      const res = await supabaseDb
+        .from('pipeline_stages')
+        .select('id, title')
+        .eq('pipeline_id', jobRow.pipeline_id)
+        .ilike('title', stage)
+        .maybeSingle();
+      stageRow = res.data as any;
+    }
+  }
+  if (!stageRow?.id) {
+    // Help the user by listing available titles (try both schemas)
+    let { data: allStages } = await supabaseDb
       .from('pipeline_stages')
       .select('title')
       .eq('job_id', resolvedJobId)
       .order('position', { ascending: true });
-    const titles = (allStages || []).map(s => s.title).join(', ');
+    if (!allStages || allStages.length === 0) {
+      const { data: jobRow } = await supabaseDb
+        .from('job_requisitions')
+        .select('pipeline_id')
+        .eq('id', resolvedJobId)
+        .maybeSingle();
+      if (jobRow?.pipeline_id) {
+        const res = await supabaseDb
+          .from('pipeline_stages')
+          .select('title')
+          .eq('pipeline_id', jobRow.pipeline_id)
+          .order('position', { ascending: true });
+        allStages = res.data as any;
+      }
+    }
+    const titles = (allStages || []).map((s: any) => s.title).join(', ');
     throw new Error(`Stage '${stage}' not found for this job. Available stages: ${titles || 'none'}`);
   }
 
   // 4) Update candidate_jobs row(s) for this candidate + job
-  const { data: updated, error } = await supabaseDb
+  // 4) Update candidate_jobs row(s) for this candidate + job
+  let updated: any[] | null = null;
+  let error: any = null;
+  // Try modern schema: stage_id column
+  let upd = await supabaseDb
     .from('candidate_jobs')
     .update({ stage_id: stageRow.id, updated_at: new Date().toISOString() })
     .eq('candidate_id', candidateId)
     .eq('job_id', resolvedJobId)
     .select();
+  updated = upd.data as any;
+  error = upd.error;
+  if (error && error.code === '42703') {
+    // Column does not exist; fallback to legacy schema: status text
+    const fallback = await supabaseDb
+      .from('candidate_jobs')
+      .update({ status: stageRow.title, updated_at: new Date().toISOString() })
+      .eq('candidate_id', candidateId)
+      .eq('job_id', resolvedJobId)
+      .select();
+    updated = fallback.data as any;
+    error = fallback.error;
+  }
   if (error) {
     console.error('[moveCandidateToStageId] Supabase error', error);
     throw new Error('Failed to move candidate');
