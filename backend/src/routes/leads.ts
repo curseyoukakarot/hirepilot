@@ -305,6 +305,7 @@ router.use('/', enrichmentRouter);
 // GET /api/leads/candidates - fetch all candidates for the authenticated user
 router.get('/candidates', requireAuth, async (req: Request, res: Response) => {
   try {
+    console.log('GET /api/leads/candidates');
     const userId = (req as ApiRequest).user?.id;
     if (!userId) {
       res.status(401).json({ error: 'Unauthorized' });

@@ -87,10 +87,22 @@ export default function CandidateList() {
     try {
       const ids = Array.from(selectedIds);
       if (ids.length === 0) return;
-      const { error } = await supabase.from('candidates').update({ status }).in('id', ids);
-      if (error) throw error;
+      const headers = await getAuthHeader();
+      const url = `${BACKEND_URL}/api/leads/candidates/bulk-status`;
+      console.log('[BULK STATUS] →', url, { ids, status });
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({ ids, status })
+      });
+      console.log('[BULK STATUS] status', resp.status);
+      if (!resp.ok) {
+        const err = await resp.json().catch(()=>({ error: `HTTP ${resp.status}` }));
+        throw new Error(err.error || 'Bulk update failed');
+      }
       setCandidates(prev => prev.map(c => ids.includes(c.id) ? { ...c, status } : c));
       setSelectedIds(new Set());
+      refreshCandidates();
       alert('Status updated');
     } catch (e) {
       alert(e.message || 'Bulk update failed');
@@ -101,10 +113,22 @@ export default function CandidateList() {
     try {
       const ids = Array.from(selectedIds);
       if (ids.length === 0) return;
-      const { error } = await supabase.from('candidates').delete().in('id', ids);
-      if (error) throw error;
+      const headers = await getAuthHeader();
+      const url = `${BACKEND_URL}/api/leads/candidates/bulk-delete`;
+      console.log('[BULK DELETE] →', url, { ids });
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({ ids })
+      });
+      console.log('[BULK DELETE] status', resp.status);
+      if (!resp.ok) {
+        const err = await resp.json().catch(()=>({ error: `HTTP ${resp.status}` }));
+        throw new Error(err.error || 'Bulk delete failed');
+      }
       setCandidates(prev => prev.filter(c => !ids.includes(c.id)));
       setSelectedIds(new Set());
+      refreshCandidates();
       alert('Deleted');
     } catch (e) {
       alert(e.message || 'Bulk delete failed');
