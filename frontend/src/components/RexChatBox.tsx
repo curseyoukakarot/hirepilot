@@ -247,14 +247,17 @@ export default function RexChatBox() {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       let userType = (user?.user_metadata as any)?.user_type || (user?.user_metadata as any)?.role || (user?.user_metadata as any)?.account_type;
+      let rexEnabled = false;
 
-      if (!userType && user) {
+      if (user) {
         // Fallback: fetch from users table
-        const { data } = await supabase.from('users').select('role').eq('id', user.id).single();
+        const { data } = await supabase.from('users').select('role, rex_enabled').eq('id', user.id).single();
         if (data?.role) userType = data.role;
+        if (typeof data?.rex_enabled === 'boolean') rexEnabled = Boolean(data.rex_enabled);
       }
 
-      setEligible(["RecruitPro","TeamAdmin","SuperAdmin","super_admin","admin"].includes(userType));
+      const roleLc = (userType || '').toLowerCase();
+      setEligible(["recruitpro","teamadmin","team_admin","superadmin","super_admin","admin"].includes(roleLc) || rexEnabled);
     })();
   }, []);
 

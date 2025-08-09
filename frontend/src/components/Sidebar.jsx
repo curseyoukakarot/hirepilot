@@ -19,21 +19,21 @@ export default function Sidebar() {
     const fetchRole = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       let role = null;
+      let rexEnabled = false;
       if (user) {
         // Try to fetch from users table
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('users')
-          .select('role')
+          .select('role, rex_enabled')
           .eq('id', user.id)
           .single();
-        if (data && data.role) {
-          role = data.role;
-        } else if (user.user_metadata?.role) {
-          role = user.user_metadata.role;
-        }
+        if (data && data.role) role = data.role;
+        if (typeof data?.rex_enabled === 'boolean') rexEnabled = Boolean(data.rex_enabled);
+        if (!role && user.user_metadata?.role) role = user.user_metadata.role;
       }
-      const premiumRoles = ['RecruitPro','TeamAdmin','SuperAdmin','super_admin','admin'];
-      setIsPremium(premiumRoles.includes(role));
+      const roleLc = (role || '').toLowerCase();
+      const premiumRoles = ['recruitpro','teamadmin','team_admin','superadmin','super_admin','admin'];
+      setIsPremium(premiumRoles.includes(roleLc) || rexEnabled);
       setIsSuperAdmin(role === 'super_admin');
     };
     fetchRole();
