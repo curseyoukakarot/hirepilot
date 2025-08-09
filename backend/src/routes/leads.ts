@@ -332,6 +332,7 @@ router.get('/candidates', requireAuth, async (req: Request, res: Response) => {
 // PUT /api/leads/candidates/:id - update candidate via leads router (for compatibility)
 router.put('/candidates/:id', requireAuth, async (req: ApiRequest, res: Response) => {
   try {
+    console.log('[PUT /api/leads/candidates/:id] body=', req.body);
     const userId = req.user?.id;
     const { id } = req.params;
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
@@ -375,6 +376,7 @@ router.put('/candidates/:id', requireAuth, async (req: ApiRequest, res: Response
 // DELETE /api/leads/candidates/:id - delete candidate via leads router (for compatibility)
 router.delete('/candidates/:id', requireAuth, async (req: ApiRequest, res: Response) => {
   try {
+    console.log('[DELETE /api/leads/candidates/:id] id=', req.params.id);
     const userId = req.user?.id;
     const { id } = req.params;
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }

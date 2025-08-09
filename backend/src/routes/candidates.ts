@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 
 const router = express.Router();
 
-const ALLOWED_STATUS = ['sourced','contacted','interviewed','offered','hired','rejected'];
+const ALLOWED_STATUS = ['sourced','contacted','responded','interviewed','offered','hired','rejected'];
 
 // Verify ownership helper
 async function ensureCandidateOwnership(candidateId: string, userId: string) {
@@ -22,6 +22,7 @@ async function ensureCandidateOwnership(candidateId: string, userId: string) {
 // PUT /api/candidates/:id - update candidate fields (limited)
 router.put('/:id', requireAuth, async (req: ApiRequest, res: Response) => {
   try {
+    console.log('[PUT /api/candidates/:id] body=', req.body);
     const userId = req.user?.id;
     const { id } = req.params;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
@@ -69,6 +70,7 @@ router.put('/:id', requireAuth, async (req: ApiRequest, res: Response) => {
 // DELETE /api/candidates/:id - delete candidate
 router.delete('/:id', requireAuth, async (req: ApiRequest, res: Response) => {
   try {
+    console.log('[DELETE /api/candidates/:id] id=', req.params.id);
     const userId = req.user?.id;
     const { id } = req.params;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
