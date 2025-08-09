@@ -381,12 +381,28 @@ export default function JobPipeline() {
           if (t.includes('interview')) return 'interviewed';
           return 'interviewed';
         };
-        let { error } = await supabase
+        // Prefer using backend endpoint to handle schema differences and ownership
+        const { data: { session } } = await supabase.auth.getSession();
+        const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/pipelines/move-candidate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token}`
+          },
+          body: JSON.stringify({ candidate_job_id: removed.id, job_id: jobId, dest_stage_id: destStage, stage_title: (stages||[]).find(s=>String(s.id)===String(destStage))?.title })
+        });
+        if (!resp.ok) {
+          const txt = await resp.text();
+          console.error('Pipeline move API error', txt);
+          toast.error('Failed to update candidate stage');
+          return;
+        }
+        // Local fallback (legacy direct update) if API is unreachable
+        /* let { error } = await supabase
           .from('candidate_jobs')
           .update({ stage_id: destStage })
           .eq('id', removed.id);
         if (error && error.code === '42703') {
-          // stage_id column not present (legacy backend). Update status by stage title text (canonicalized)
           const title = (stages || []).find(s=>String(s.id)===String(destStage))?.title || 'Interviewed';
           const canonical = toCanonicalStatus(title);
           ({ error } = await supabase
@@ -398,7 +414,7 @@ export default function JobPipeline() {
           console.error('Pipeline update error', error);
           toast.error('Failed to update candidate stage');
           return;
-        }
+        } */
         destCandidates.splice(destination.index, 0, removed);
         setCandidates({
           ...candidates,
