@@ -45,17 +45,19 @@ export default async function rexChat(req: Request, res: Response) {
       userType = (authUser?.user?.user_metadata as any)?.role || (authUser?.user?.user_metadata as any)?.account_type || null;
     }
 
-    // Check rex_enabled feature flag in user_settings
-    const { data: settings } = await supabase
-      .from('user_settings')
-      .select('rex_enabled')
+    // Check rex feature flag in integrations
+    const { data: integ } = await supabase
+      .from('integrations')
+      .select('status')
       .eq('user_id', userId)
+      .eq('provider', 'rex')
       .maybeSingle();
 
-    console.log('rexChat role check', { userType, rex_enabled: settings?.rex_enabled });
+    const rexEnabled = ['enabled', 'connected', 'on', 'true'].includes(String(integ?.status || '').toLowerCase());
+    console.log('rexChat role check', { userType, rexEnabled });
     const roleLc = (userType || '').toLowerCase();
     const allowedRoles = ['recruitpro','recruiter','user','teamadmin','team_admin','superadmin','super_admin','admin','member'];
-    const allowed = Boolean(settings?.rex_enabled) || !userType || allowedRoles.includes(roleLc);
+    const allowed = rexEnabled || !userType || allowedRoles.includes(roleLc);
     if (!allowed) {
       return res.status(403).json({ error: 'REX access forbidden for this user' });
     }

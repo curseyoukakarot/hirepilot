@@ -67,16 +67,19 @@ router.get('/users/:id', requireAuth, requireSuperAdmin, async (req: Request, re
 router.get('/users/:id/features', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
   const { id } = req.params;
   try {
-    const { data: settingsRow, error: settingsErr } = await supabaseDb
-      .from('user_settings')
-      .select('rex_enabled, zapier_enabled')
-      .eq('user_id', id)
-      .maybeSingle();
-    if (settingsErr) return res.status(500).json({ error: settingsErr.message });
+    // Use integrations table as source of truth
+    const { data: integ, error: integErr } = await supabaseDb
+      .from('integrations')
+      .select('provider,status')
+      .eq('user_id', id);
+    if (integErr) return res.status(500).json({ error: integErr.message });
 
+    const rexRow = (integ || []).find((r: any) => r.provider === 'rex');
+    const zapRow = (integ || []).find((r: any) => r.provider === 'zapier');
+    const enabledStatuses = new Set(['enabled','connected','on','true']);
     res.json({
-      rex_enabled: Boolean((settingsRow as any)?.rex_enabled),
-      zapier_enabled: Boolean((settingsRow as any)?.zapier_enabled)
+      rex_enabled: enabledStatuses.has((rexRow?.status || '').toLowerCase()),
+      zapier_enabled: enabledStatuses.has((zapRow?.status || '').toLowerCase())
     });
   } catch (e: any) {
     res.status(500).json({ error: e.message || 'Failed to load feature flags' });
@@ -88,15 +91,13 @@ router.patch('/users/:id/features', requireAuth, requireSuperAdmin, async (req: 
   const { id } = req.params;
   const { rex_enabled, zapier_enabled } = req.body || {};
   try {
-    // Upsert both flags into user_settings (single source of truth)
-    const upsertPayload: any = { user_id: id };
-    if (typeof rex_enabled === 'boolean') upsertPayload.rex_enabled = rex_enabled;
-    if (typeof zapier_enabled === 'boolean') upsertPayload.zapier_enabled = zapier_enabled;
-    if (Object.keys(upsertPayload).length > 1) {
-      const { error: upsertErr } = await supabaseDb
-        .from('user_settings')
-        .upsert(upsertPayload, { onConflict: 'user_id' });
-      if (upsertErr) return res.status(500).json({ error: upsertErr.message });
+    // Store feature flags in integrations table
+    const rows: any[] = [];
+    if (typeof rex_enabled === 'boolean') rows.push({ user_id: id, provider: 'rex', status: rex_enabled ? 'enabled' : 'disabled' });
+    if (typeof zapier_enabled === 'boolean') rows.push({ user_id: id, provider: 'zapier', status: zapier_enabled ? 'enabled' : 'disabled' });
+    if (rows.length > 0) {
+      const { error: upErr } = await supabaseDb.from('integrations').upsert(rows, { onConflict: 'user_id,provider' });
+      if (upErr) return res.status(500).json({ error: upErr.message });
     }
 
     res.json({ success: true, user_id: id, rex_enabled, zapier_enabled });

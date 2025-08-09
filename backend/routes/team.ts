@@ -308,9 +308,11 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
 
       // Create default user_settings row for the new user
       try {
-        await supabaseDb
-          .from('user_settings')
-          .insert([{ user_id: userData.user.id, email, zapier_enabled: permissions.zapierAccess === true, rex_enabled: permissions.rexAccess === true }]);
+        // Initialize integrations table flags as well
+        await supabaseDb.from('integrations').upsert([
+          { user_id: userData.user.id, provider: 'rex', status: permissions.rexAccess ? 'enabled' : 'disabled' },
+          { user_id: userData.user.id, provider: 'zapier', status: permissions.zapierAccess ? 'enabled' : 'disabled' }
+        ], { onConflict: 'user_id,provider' });
       } catch (settingsErr) {
         console.warn('[TEAM INVITE] Failed to create default user_settings', settingsErr);
         // do not fail the whole flow on settings init error
