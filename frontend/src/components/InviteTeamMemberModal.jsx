@@ -214,7 +214,9 @@ export default function InviteTeamMemberModal({ isOpen, onClose, onInviteSuccess
             </div>
             <div className="flex justify-between pt-2">
               <button className="border border-gray-300 hover:bg-gray-50 rounded-xl px-5 py-2 text-gray-700" onClick={() => setStep(1)}>Back</button>
-              <button className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-5 py-2" onClick={() => setStep(requireCheckout ? 3 : 4)}>Next</button>
+              <button className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-5 py-2" onClick={() => (requireCheckout ? setStep(3) : submitInvite())} disabled={isLoading}>
+                {isLoading ? 'Sending...' : 'Next'}
+              </button>
             </div>
           </div>
         )}

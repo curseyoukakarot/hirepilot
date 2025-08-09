@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseDb } from '../lib/supabase';
 import { User } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
@@ -183,7 +183,7 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
     }
 
     // Get current user's details for the invite
-    const { data: inviter, error: inviterError } = await supabase
+    const { data: inviter, error: inviterError } = await supabaseDb
       .from('users')
       .select('*')
       .eq('id', currentUser.id)
@@ -215,7 +215,7 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
 
     // Create team invite record first
     console.log('Creating team invite for:', email);
-    const { data: invite, error: inviteError } = await supabase
+    const { data: invite, error: inviteError } = await supabaseDb
       .from('team_invites')
       .insert([{
         id: inviteToken,
@@ -279,7 +279,7 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
 
       // Create a record in the public.users table
       console.log('Creating public user record for:', email);
-      const { data: publicUserData, error: publicUserError } = await supabase
+      const { data: publicUserData, error: publicUserError } = await supabaseDb
         .from('users')
         .insert([{
           id: userData.user.id,
