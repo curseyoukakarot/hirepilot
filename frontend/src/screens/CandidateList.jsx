@@ -177,7 +177,39 @@ export default function CandidateList() {
     }
 
     fetchCandidates();
+    // expose a refresh helper
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    refreshCandidates = fetchCandidates;
   }, [BACKEND_URL]);
+
+  // Refresh helper (assigned on mount)
+  let refreshCandidates = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No active session');
+      const res = await fetch(`${BACKEND_URL}/api/leads/candidates`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+      if (!res.ok) throw new Error((await res.json().catch(()=>({}))).error || `HTTP ${res.status}`);
+      let fetched = await res.json();
+      if (!Array.isArray(fetched) && fetched?.candidates) fetched = fetched.candidates;
+      const normalize = (data) => {
+        if (!data) return {};
+        if (typeof data === 'object' && !Array.isArray(data)) return data;
+        if (typeof data === 'string') { try { return JSON.parse(data); } catch { return {}; } }
+        return {};
+      };
+      setCandidates((fetched||[]).map(c => ({ ...c, enrichment_data: normalize(c.enrichment_data) })));
+    } catch (e) {
+      setError(e.message || 'Failed to refresh');
+    } finally { setLoading(false); }
+  };
 
   /** ------------------------------------------------------------------
    * Fetch pipeline list when modal opens
@@ -246,6 +278,8 @@ export default function CandidateList() {
       );
       setShowEditModal(false);
       setEditedCandidate(null);
+      // Ensure persistence by refetching
+      refreshCandidates();
     } catch (err) {
       alert(err.message || 'Failed to update candidate');
     } finally {
@@ -550,6 +584,7 @@ export default function CandidateList() {
                                       });
                                       if (resp.ok) {
                                         setCandidates(prev => prev.map(c => c.id === candidate.id ? { ...c, status: newStatus } : c));
+                                        refreshCandidates();
                                       } else {
                                         const err = await resp.json().catch(()=>({}));
                                         alert(err.error || 'Failed to update status');
@@ -575,6 +610,7 @@ export default function CandidateList() {
                                       });
                                       if (resp.ok) {
                                         setCandidates(prev => prev.filter(c => c.id !== candidate.id));
+                                        refreshCandidates();
                                       } else {
                                         const err = await resp.json().catch(()=>({}));
                                         alert(err.error || 'Failed to delete');

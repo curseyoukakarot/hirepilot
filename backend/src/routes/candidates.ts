@@ -53,6 +53,12 @@ router.put('/:id', requireAuth, async (req: ApiRequest, res: Response) => {
       .single();
 
     if (error) return res.status(500).json({ error: 'Failed to update candidate' });
+
+    try {
+      const { emitZapEvent, ZAP_EVENT_TYPES } = await import('../../lib/zapEventEmitter');
+      await emitZapEvent({ userId, eventType: ZAP_EVENT_TYPES.CANDIDATE_UPDATED, eventData: data, sourceTable: 'candidates', sourceId: data.id });
+    } catch {}
+
     return res.json(data);
   } catch (e) {
     console.error('Update candidate error:', e);
@@ -78,6 +84,12 @@ router.delete('/:id', requireAuth, async (req: ApiRequest, res: Response) => {
       .eq('user_id', userId);
 
     if (error) return res.status(500).json({ error: 'Failed to delete candidate' });
+
+    try {
+      const { emitZapEvent, ZAP_EVENT_TYPES } = await import('../../lib/zapEventEmitter');
+      await emitZapEvent({ userId, eventType: ZAP_EVENT_TYPES.CANDIDATE_UPDATED, eventData: { id, action: 'deleted' }, sourceTable: 'candidates', sourceId: id });
+    } catch {}
+
     return res.json({ success: true });
   } catch (e) {
     console.error('Delete candidate error:', e);
