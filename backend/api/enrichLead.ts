@@ -1,26 +1,49 @@
 import { Request, Response } from 'express';
 import { supabaseDb as supabase } from '../lib/supabase';
 import axios from 'axios';
+import { ApiRequest } from '../types/api';
 
 const APOLLO_API_URL = 'https://api.apollo.io/v1';
 
 export default async function enrichLead(req: Request, res: Response) {
-  const { lead_id, user_id } = req.body;
+  // Support deriving user from API key auth; allow lead selection by id or email
+  const body: any = req.body || {};
+  let { lead_id, user_id, email } = body as { lead_id?: string; user_id?: string; email?: string };
+  const apiUserId = (req as any)?.user?.id as string | undefined;
+  user_id = user_id || apiUserId;
 
-  if (!lead_id || !user_id) {
-    res.status(400).json({ error: 'Missing required fields' });
+  if (!user_id) {
+    res.status(401).json({ error: 'Unauthorized: missing user context' });
+    return;
+  }
+
+  if (!lead_id && !email) {
+    res.status(400).json({ error: 'Missing required fields: provide lead_id or email' });
     return;
   }
 
   try {
-    // Get the lead data
-    const { data: lead, error: leadError } = await supabase
-      .from('leads')
-      .select('*')
-      .eq('id', lead_id)
-      .single();
-
-    if (leadError) throw leadError;
+    // Resolve the lead by id or email (scoped to user)
+    let lead: any = null;
+    if (lead_id) {
+      const { data, error } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('id', lead_id)
+        .single();
+      if (error) throw error;
+      lead = data;
+    } else if (email) {
+      const { data, error } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('user_id', user_id)
+        .eq('email', email)
+        .single();
+      if (error) throw error;
+      lead = data;
+      lead_id = lead.id;
+    }
 
     // Get user settings to check Apollo API key
     const { data: settings, error: settingsError } = await supabase
@@ -57,11 +80,11 @@ export default async function enrichLead(req: Request, res: Response) {
     // Prepare Apollo API request
     const searchParams = {
       api_key: apolloApiKey,
-      q_organization_domains: lead.company ? [lead.company.toLowerCase()] : [],
+      q_organization_domains: lead.company ? [String(lead.company).toLowerCase()] : [],
       q_organization_titles: lead.title ? [lead.title.toLowerCase()] : [],
-      q_organization_name: lead.company ? [lead.company.toLowerCase()] : [],
-      q_people_name: lead.name ? [lead.name.toLowerCase()] : [],
-      q_people_email: lead.email ? [lead.email.toLowerCase()] : []
+      q_organization_name: lead.company ? [String(lead.company).toLowerCase()] : [],
+      q_people_name: lead.name ? [String(lead.name).toLowerCase()] : [],
+      q_people_email: lead.email ? [String(lead.email).toLowerCase()] : []
     };
 
     // Call Apollo API
@@ -128,7 +151,13 @@ export default async function enrichLead(req: Request, res: Response) {
     });
     return;
   } catch (err: any) {
-    console.error('[enrichLead] Error:', err);
+    console.error('[enrichLead] Error:', err?.response?.data || err);
+    if (axios.isAxiosError(err)) {
+      return res.status(err.response?.status || 500).json({
+        error: err.message,
+        details: err.response?.data
+      });
+    }
     res.status(500).json({ error: err.message || 'Internal Server Error' });
     return;
   }
