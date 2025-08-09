@@ -243,12 +243,25 @@ export default function JobPipeline() {
 
       // Group candidates by stage (support legacy rows that only have status)
       const groupedCandidates = {};
+      const defaultStageId = (stagesData || [])[0]?.id;
       (candidatesData || []).forEach(row => {
         let stageId = row.stage_id;
         if (!stageId) {
-          // Map legacy status text to a stage id by title
-          const match = (stagesData || []).find(s => (s.title || '').toLowerCase() === String(row.status || '').toLowerCase());
-          stageId = match?.id || 'unassigned';
+          // Map legacy status text to a stage id by title or by fuzzy synonyms
+          const statusLc = String(row.status || '').toLowerCase();
+          let match = (stagesData || []).find(s => (s.title || '').toLowerCase() === statusLc);
+          if (!match && statusLc) {
+            const includes = (needle) => (s) => (s.title || '').toLowerCase().includes(needle);
+            if (statusLc === 'interviewed') match = (stagesData || []).find(includes('interview'));
+            else if (statusLc === 'offered') match = (stagesData || []).find(includes('offer'));
+            else if (statusLc === 'hired') match = (stagesData || []).find(includes('hire'));
+            else if (statusLc === 'contacted') match = (stagesData || []).find(s => {
+              const t = (s.title || '').toLowerCase();
+              return t.includes('contact') || t.includes('phone') || t.includes('screen');
+            });
+            else if (statusLc === 'sourced') match = (stagesData || []).find(includes('source')) || (stagesData || [])[0];
+          }
+          stageId = match?.id || defaultStageId || row.stage_id || 'unassigned';
         }
         if (!groupedCandidates[stageId]) groupedCandidates[stageId] = [];
         groupedCandidates[stageId].push({
