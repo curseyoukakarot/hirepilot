@@ -299,8 +299,54 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
   }
 });
 
-// Mount the new Decodo enrichment router
-router.use('/', enrichmentRouter);
+// POST /api/leads/candidates/bulk-status - update multiple candidates' status (owner only)
+router.post('/candidates/bulk-status', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const { ids, status } = req.body || {};
+    console.log('[POST /api/leads/candidates/bulk-status]', { idsCount: Array.isArray(ids) ? ids.length : 0, status });
+    const ALLOWED_STATUS = ['sourced','contacted','responded','interviewed','offered','hired','rejected'];
+    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    if (!Array.isArray(ids) || ids.length === 0) { res.status(400).json({ error: 'Missing ids' }); return; }
+    if (!ALLOWED_STATUS.includes(status)) { res.status(400).json({ error: 'Invalid status' }); return; }
+
+    const { error } = await supabase
+      .from('candidates')
+      .update({ status })
+      .in('id', ids)
+      .eq('user_id', userId);
+    if (error) { res.status(500).json({ error: 'Failed to update status' }); return; }
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Bulk status (leads router) error:', e);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/leads/candidates/bulk-delete - delete multiple candidates (owner only)
+router.post('/candidates/bulk-delete', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const { ids } = req.body || {};
+    console.log('[POST /api/leads/candidates/bulk-delete]', { idsCount: Array.isArray(ids) ? ids.length : 0 });
+    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    if (!Array.isArray(ids) || ids.length === 0) { res.status(400).json({ error: 'Missing ids' }); return; }
+
+    const { error } = await supabase
+      .from('candidates')
+      .delete()
+      .in('id', ids)
+      .eq('user_id', userId);
+    if (error) { res.status(500).json({ error: 'Failed to delete candidates' }); return; }
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Bulk delete (leads router) error:', e);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Mount the Decodo enrichment router under a scoped path to avoid route conflicts
+router.use('/decodo', enrichmentRouter);
 
 // GET /api/leads/candidates - fetch all candidates for the authenticated user
 router.get('/candidates', requireAuth, async (req: Request, res: Response) => {
