@@ -17,6 +17,15 @@ router.post('/leads', apiKeyAuth, async (req: ApiRequest, res: Response) => {
     console.log('[Zapier] Incoming /leads payload:', req.body);
     const userId = req.user!.id;
     const lead = req.body;
+    // Normalize and validate status to satisfy DB check constraint
+    const ALLOWED_STATUS = ['sourced','contacted','responded','interviewed','offered','hired','rejected'];
+    if (lead.status) {
+      const s = String(lead.status).toLowerCase();
+      if (!ALLOWED_STATUS.includes(s)) {
+        return res.status(400).json({ error: `Invalid status. Allowed: ${ALLOWED_STATUS.join(', ')}` });
+      }
+      lead.status = s;
+    }
 
     if (!lead || !lead.email) {
       return res.status(400).json({ error: 'Lead email is required' });
