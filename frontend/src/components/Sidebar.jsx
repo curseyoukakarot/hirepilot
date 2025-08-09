@@ -28,21 +28,13 @@ export default function Sidebar() {
           .eq('id', user.id)
           .single();
         if (data && data.role) role = data.role;
-        // rex_enabled lives in user_settings or integrations; check both
-        const { data: settings } = await supabase
-          .from('user_settings')
-          .select('rex_enabled')
-          .eq('user_id', user.id)
-          .maybeSingle();
-        if (typeof settings?.rex_enabled === 'boolean') rexEnabled = Boolean(settings.rex_enabled);
-        if (!rexEnabled) {
-          const { data: integ } = await supabase
-            .from('integrations')
-            .select('provider,status')
-            .eq('user_id', user.id);
-          const rexRow = (integ || []).find(r => r.provider === 'rex');
-          rexEnabled = ['enabled','connected','on','true'].includes(String(rexRow?.status || '').toLowerCase());
-        }
+        // Determine REX flag from integrations table only (source of truth)
+        const { data: integ } = await supabase
+          .from('integrations')
+          .select('provider,status')
+          .eq('user_id', user.id);
+        const rexRow = (integ || []).find(r => r.provider === 'rex');
+        rexEnabled = ['enabled','connected','on','true'].includes(String(rexRow?.status || '').toLowerCase());
         if (!role && user.user_metadata?.role) role = user.user_metadata.role;
       }
       const roleLc = (role || '').toLowerCase();
