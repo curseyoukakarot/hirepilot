@@ -184,7 +184,13 @@ export default function EmailDeliverability5() {
             <p><strong>Rules:</strong></p>
             <ul>
               <li>Mention something relevant (job title, company event, funding round)</li>
-              <li>Use personalization tokens ({{firstName}}, {{companyName}})</li>
+              <li>
+                Use personalization tokens (
+                <code>{"{{firstName}}"}</code>
+                ,
+                <code>{"{{companyName}}"}</code>
+                )
+              </li>
               <li>Get to the point fast</li>
             </ul>
           </div>
