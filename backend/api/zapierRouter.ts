@@ -194,6 +194,88 @@ router.get('/triggers/pipeline-stage-changes', apiKeyAuth, async (req: ApiReques
   }
 });
 
+/**
+ * Move a candidate to a pipeline stage (Zapier/Make action)
+ * Body can include either candidate_job_id OR (candidate_id + job_id)
+ * Destination can be dest_stage_id OR stage_title (we'll map to enum if needed)
+ */
+router.post('/move-candidate', apiKeyAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { candidate_job_id, candidate_id, job_id, dest_stage_id, stage_title } = req.body || {};
+    if (!dest_stage_id && !stage_title) return res.status(400).json({ error: 'Missing destination stage' });
+    if (!candidate_job_id && !(candidate_id && job_id)) return res.status(400).json({ error: 'Missing candidate reference' });
+
+    // Resolve candidate_jobs row
+    let cjRow: any = null;
+    if (candidate_job_id) {
+      const { data, error } = await supabaseDb
+        .from('candidate_jobs')
+        .select('id, candidate_id, job_id')
+        .eq('id', candidate_job_id)
+        .maybeSingle();
+      if (error || !data) return res.status(404).json({ error: 'Candidate job not found' });
+      cjRow = data;
+    } else {
+      const { data, error } = await supabaseDb
+        .from('candidate_jobs')
+        .select('id, candidate_id, job_id')
+        .eq('candidate_id', candidate_id)
+        .eq('job_id', job_id)
+        .maybeSingle();
+      if (error || !data) return res.status(404).json({ error: 'Candidate job not found' });
+      cjRow = data;
+    }
+
+    // Validate ownership
+    const { data: cand, error: candErr } = await supabaseDb
+      .from('candidates')
+      .select('user_id')
+      .eq('id', cjRow.candidate_id)
+      .single();
+    if (candErr || !cand || cand.user_id !== userId) return res.status(403).json({ error: 'Forbidden' });
+
+    // Try stage_id first
+    const now = new Date().toISOString();
+    let updErr = null;
+    if (dest_stage_id) {
+      const { error } = await supabaseDb
+        .from('candidate_jobs')
+        .update({ stage_id: dest_stage_id, updated_at: now })
+        .eq('id', cjRow.id);
+      updErr = error;
+    }
+    if (!dest_stage_id || (updErr && (updErr as any).code === '42703')) {
+      // Fallback to status enum mapping from stage_title
+      const canonicalFrom = (title: string) => {
+        const t = String(title || '').toLowerCase();
+        if (['sourced','contacted','interviewed','offered','hired','rejected'].includes(t)) return t;
+        if (t.includes('offer')) return 'offered';
+        if (t.includes('hire')) return 'hired';
+        if (t.includes('reject')) return 'rejected';
+        if (t.includes('contact')) return 'contacted';
+        if (t.includes('interview')) return 'interviewed';
+        return 'interviewed';
+      };
+      const canonical = canonicalFrom(stage_title || 'Interviewed');
+      const { error } = await supabaseDb
+        .from('candidate_jobs')
+        .update({ status: canonical, updated_at: now })
+        .eq('id', cjRow.id);
+      updErr = error;
+    }
+    if (updErr) {
+      console.error('[Zapier] move-candidate error', updErr);
+      return res.status(500).json({ error: 'Failed to move candidate' });
+    }
+
+    return res.json({ success: true, candidate_job_id: cjRow.id, dest_stage_id, stage_title: stage_title || null });
+  } catch (err: any) {
+    console.error('[Zapier] /move-candidate error:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+});
+
 // Mount test endpoints
 router.use('/', zapierTestRouter);
 
