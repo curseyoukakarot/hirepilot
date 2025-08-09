@@ -62,7 +62,7 @@ export default async function rexChat(req: Request, res: Response) {
       return res.status(403).json({ error: 'REX access forbidden for this user' });
     }
 
-    // Tool definitions (sync with server capabilities)
+    // Tool definitions (sync with server capabilities). Add new tools here so the model knows they exist.
     const tools: any = [
       {
         type: 'function',
@@ -73,7 +73,10 @@ export default async function rexChat(req: Request, res: Response) {
       },
       { type:'function',function:{name:'send_email',parameters:{ type:'object', properties:{ userId:{type:'string'}, to:{type:'string'}, subject:{type:'string'}, body:{type:'string'}}, required:['userId','to','subject','body']}}},
       { type:'function',function:{name:'enrich_lead',parameters:{ type:'object', properties:{ userId:{type:'string'}, linkedin_url:{type:'string'}}, required:['userId','linkedin_url']}}},
-      { type:'function',function:{name:'get_campaign_metrics',parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'}}, required:['userId','campaign_id']}}}
+      { type:'function',function:{name:'get_campaign_metrics',parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'}}, required:['userId','campaign_id']}}},
+      // New pipeline tools
+      { type:'function',function:{name:'move_candidate',parameters:{ type:'object', properties:{ userId:{type:'string'}, candidateId:{type:'string'}, newStage:{type:'string'} }, required:['userId','candidateId','newStage']}}},
+      { type:'function',function:{name:'move_candidate_to_stage',parameters:{ type:'object', properties:{ userId:{type:'string'}, candidate:{type:'string'}, stage:{type:'string'}, jobId:{type:'string'} }, required:['userId','candidate','stage']}}}
     ];
 
     const contextMessage = {
