@@ -26,15 +26,17 @@ export default function AutomateRecruiting5() {
         #inline-cta-2 h3, #inline-cta-2 p { color: #ffffff !important; }
         #comparison table th, #comparison table td { color: #ffffff !important; }
         #related-articles h2, #related-articles h3 { color: #ffffff !important; }
+        /* Force black for specific comparison rows */
+        .force-black, .force-black td, .force-black th, .force-black * { color: #000000 !important; }
       `}</style>
 
       {/* Breadcrumb */}
       <div id="breadcrumb" className="bg-gray-800 py-4">
         <div className="max-w-6xl mx-auto px-6">
-          <span className="text-gray-300 hover:text-white transition-colors flex items-center cursor-pointer">
+          <a href="/blog" className="text-gray-300 hover:text-white transition-colors flex items-center">
             <i className="fa-solid fa-arrow-left mr-2" />
             Back to Blog
-          </span>
+          </a>
         </div>
       </div>
 
@@ -237,7 +239,7 @@ export default function AutomateRecruiting5() {
                 </tr>
               </thead>
               <tbody>
-                <tr>
+                <tr className="force-black">
                   <td>Client updates</td>
                   <td>❌ Emails & screenshots</td>
                   <td>✅ Weekly summaries</td>
@@ -247,7 +249,7 @@ export default function AutomateRecruiting5() {
                   <td>❌ Multiple tools</td>
                   <td>✅ All in one command</td>
                 </tr>
-                <tr>
+                <tr className="force-black">
                   <td>Team coordination</td>
                   <td>❌ Shared docs + Slack</td>
                   <td>✅ Automations via REX</td>
@@ -257,7 +259,7 @@ export default function AutomateRecruiting5() {
                   <td>❌ Hard to monitor</td>
                   <td>✅ Real-time via chat</td>
                 </tr>
-                <tr>
+                <tr className="force-black">
                   <td>Client reporting</td>
                   <td>❌ Manual exports</td>
                   <td>✅ Live dashboards or Slack alerts</td>
@@ -317,7 +319,7 @@ export default function AutomateRecruiting5() {
               />
               <div className="p-5">
                 <span className="text-blue-400 text-sm font-medium">Part 1</span>
-                <h3 className="text-lg font-semibold mt-2 mb-2">The Vision</h3>
+                <h3 className="text-lg font-semibold mt-2 mb-2"><a href="/blog/AutomateRecruiting1" className="hover:underline">The Vision</a></h3>
                 <p className="text-gray-400 text-sm mb-3">
                   How REX turns recruiting into a scalable, automated growth engine.
                 </p>
@@ -335,7 +337,7 @@ export default function AutomateRecruiting5() {
               />
               <div className="p-5">
                 <span className="text-blue-400 text-sm font-medium">Part 2</span>
-                <h3 className="text-lg font-semibold mt-2 mb-2">Lead Sourcing</h3>
+                <h3 className="text-lg font-semibold mt-2 mb-2"><a href="/blog/AutomateRecruiting2" className="hover:underline">Lead Sourcing</a></h3>
                 <p className="text-gray-400 text-sm mb-3">
                   Automate job intake to candidate discovery with Apollo and LinkedIn.
                 </p>
@@ -353,7 +355,7 @@ export default function AutomateRecruiting5() {
               />
               <div className="p-5">
                 <span className="text-blue-400 text-sm font-medium">Part 3</span>
-                <h3 className="text-lg font-semibold mt-2 mb-2">AI Messaging</h3>
+                <h3 className="text-lg font-semibold mt-2 mb-2"><a href="/blog/AutomateRecruiting3" className="hover:underline">AI Messaging</a></h3>
                 <p className="text-gray-400 text-sm mb-3">
                   Smart, personalized outreach sequences delivered at scale.
                 </p>
@@ -371,7 +373,7 @@ export default function AutomateRecruiting5() {
               />
               <div className="p-5">
                 <span className="text-blue-400 text-sm font-medium">Part 4</span>
-                <h3 className="text-lg font-semibold mt-2 mb-2">Pipeline Automation</h3>
+                <h3 className="text-lg font-semibold mt-2 mb-2"><a href="/blog/AutomateRecruiting4" className="hover:underline">Pipeline Automation</a></h3>
                 <p className="text-gray-400 text-sm mb-3">
                   Workflow automation and integrations across your entire stack.
                 </p>
