@@ -245,8 +245,14 @@ function LeadManagement() {
   const handleDeleteConfirm = async () => {
     try {
       setIsSubmitting(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
       const response = await fetch(`${API_BASE_URL}/leads/${leadToDelete.id}`, {
         method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
         credentials: 'include'
       });
 
