@@ -221,13 +221,14 @@ export default function JobPipeline() {
       console.log('Fetched stagesData:', stagesData);
       setStages(stagesData);
 
-      // Fetch candidates for the job, including their stage_id and candidate info
+      // Fetch candidates for the job, including their stage_id/status and candidate info
       const { data: candidatesData, error: candidatesError } = await supabase
         .from('candidate_jobs')
         .select(`
           id,
           candidate_id,
           stage_id,
+          status,
           candidates (
             id,
             first_name,
@@ -240,10 +241,15 @@ export default function JobPipeline() {
       if (candidatesError) throw candidatesError;
       console.log('Fetched candidatesData:', candidatesData);
 
-      // Group candidates by stage_id
+      // Group candidates by stage (support legacy rows that only have status)
       const groupedCandidates = {};
       (candidatesData || []).forEach(row => {
-        const stageId = row.stage_id;
+        let stageId = row.stage_id;
+        if (!stageId) {
+          // Map legacy status text to a stage id by title
+          const match = (stagesData || []).find(s => (s.title || '').toLowerCase() === String(row.status || '').toLowerCase());
+          stageId = match?.id || 'unassigned';
+        }
         if (!groupedCandidates[stageId]) groupedCandidates[stageId] = [];
         groupedCandidates[stageId].push({
           id: row.id,
@@ -371,7 +377,8 @@ export default function JobPipeline() {
           .eq('id', removed.id);
         if (error && error.code === '42703') {
           // stage_id column not present (legacy backend). Update status by stage title text.
-          const title = (pipelines.find(p=>String(p.id)===String(jobId))?.stages||[]).find(s=>String(s.id)===String(destStage))?.title || 'interviewed';
+          // Derive title from loaded stagesData
+          const title = (stages || []).find(s=>String(s.id)===String(destStage))?.title || 'interviewed';
           ({ error } = await supabase
             .from('candidate_jobs')
             .update({ status: title })
