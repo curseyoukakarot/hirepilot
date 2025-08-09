@@ -395,7 +395,7 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
   try {
     console.log('Starting resend invite process...');
     const { inviteId } = req.body;
-    const currentUser = req.auth?.user;
+    const currentUser = await resolveCurrentUser(req as Request);
 
     if (!currentUser) {
       res.status(401).json({ message: 'Unauthorized' });
@@ -403,7 +403,7 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
     }
 
     // Get the invite details
-    const { data: invite, error: inviteError } = await supabase
+    const { data: invite, error: inviteError } = await supabaseDb
       .from('team_invites')
       .select('*')
       .eq('id', inviteId)
@@ -416,7 +416,7 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
     }
 
     // Get current user's details for the invite
-    const { data: inviter, error: inviterError } = await supabase
+    const { data: inviter, error: inviterError } = await supabaseDb
       .from('users')
       .select('*')
       .eq('id', currentUser.id)
