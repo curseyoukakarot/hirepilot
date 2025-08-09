@@ -241,10 +241,10 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
 
     console.log('Team invite created successfully:', invite);
 
-    // Create a temporary password for new users
-    const tempPassword = existingAuthUser ? undefined : randomUUID();
+    // Always generate a temporary password; update for existing users too
+    const tempPassword = randomUUID();
 
-    // If user doesn't exist, create their account
+    // If user doesn't exist, create their account; otherwise confirm + set temp password
     if (!existingAuthUser) {
       console.log('Creating user account for:', email);
       const { data: userData, error: createError } = await supabaseDb.auth.admin.createUser({
@@ -325,6 +325,17 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
       }
 
       // seat count increment will be handled in separate service to avoid linter issues
+    } else {
+      console.log('User already exists; confirming email and setting temp password');
+      const { error: updateErr } = await supabaseDb.auth.admin.updateUserById((existingAuthUser as any).id, {
+        email_confirm: true,
+        password: tempPassword
+      } as any);
+      if (updateErr) {
+        console.error('Error updating existing auth user:', updateErr);
+        res.status(503).json({ message: 'Failed to update existing user account', error: updateErr });
+        return;
+      }
     }
 
     // Send invite email using SendGrid
@@ -435,9 +446,9 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
     console.log('Generated invite link:', inviteLink);
 
     // Create a temporary password for new users
-    const tempPassword = existingAuthUser ? undefined : randomUUID();
+      const tempPassword = randomUUID();
 
-    // If user doesn't exist, create their account
+    // If user doesn't exist, create their account; otherwise confirm + set temp password
     if (!existingAuthUser) {
       console.log('Creating user account for:', invite.email);
       const { data: userData, error: createError } = await supabaseDb.auth.admin.createUser({
@@ -498,6 +509,17 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
           .insert([{ user_id: userData.user.id, email: invite.email }]);
       } catch (settingsErr) {
         console.warn('[TEAM INVITE][RESEND] Failed to create default user_settings', settingsErr);
+      }
+    } else {
+      console.log('User already exists; confirming email and setting temp password (resend)');
+      const { error: updateErr } = await supabaseDb.auth.admin.updateUserById((existingAuthUser as any).id, {
+        email_confirm: true,
+        password: tempPassword
+      } as any);
+      if (updateErr) {
+        console.error('Error updating existing auth user (resend):', updateErr);
+        res.status(503).json({ message: 'Failed to update existing user account', error: updateErr });
+        return;
       }
     }
 
