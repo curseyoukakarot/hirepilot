@@ -203,7 +203,7 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
     const inviteLink = `${appUrl}/join?token=${inviteToken}`;
 
     console.log('Checking if user exists in auth system:', email);
-    const { data: authUsers, error: authCheckError } = await supabase.auth.admin.listUsers();
+    const { data: authUsers, error: authCheckError } = await supabaseDb.auth.admin.listUsers();
     const users = authUsers?.users as { id: string; email: string }[];
     const existingAuthUser = users.find(user => user.email === email);
 
@@ -247,7 +247,7 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
     // If user doesn't exist, create their account
     if (!existingAuthUser) {
       console.log('Creating user account for:', email);
-      const { data: userData, error: createError } = await supabase.auth.admin.createUser({
+      const { data: userData, error: createError } = await supabaseDb.auth.admin.createUser({
         email: email,
         password: tempPassword!,
         email_confirm: false,
@@ -297,7 +297,7 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
       if (publicUserError) {
         console.error('Error creating public user record:', publicUserError);
         // Clean up the auth user since we couldn't create the public record
-        await supabase.auth.admin.deleteUser(userData.user.id);
+        await supabaseDb.auth.admin.deleteUser(userData.user.id);
         res.status(503).json({ 
           message: 'Failed to create user record', 
           error: publicUserError
@@ -410,7 +410,7 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
     console.log('Found invite:', { email: invite.email, id: invite.id });
 
     // Check if user exists in auth system
-    const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
+    const { data: authUsers, error: authError } = await supabaseDb.auth.admin.listUsers();
     const users = authUsers?.users as { id: string; email: string }[];
     const existingAuthUser = users.find(u => u.email === invite.email);
 
@@ -430,7 +430,7 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
     // If user doesn't exist, create their account
     if (!existingAuthUser) {
       console.log('Creating user account for:', invite.email);
-      const { data: userData, error: createError } = await supabase.auth.admin.createUser({
+      const { data: userData, error: createError } = await supabaseDb.auth.admin.createUser({
         email: invite.email,
         password: tempPassword!,
         email_confirm: false,
@@ -457,7 +457,7 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
 
       // Create a record in the public.users table
       console.log('Creating public user record for:', invite.email);
-      const { error: publicUserError } = await supabase
+      const { error: publicUserError } = await supabaseDb
         .from('users')
         .insert([{
           id: userData.user.id,
@@ -473,7 +473,7 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
       if (publicUserError) {
         console.error('Error creating public user record:', publicUserError);
         // Clean up the auth user since we couldn't create the public record
-        await supabase.auth.admin.deleteUser(userData.user.id);
+        await supabaseDb.auth.admin.deleteUser(userData.user.id);
         res.status(503).json({ 
           message: 'Failed to create user record', 
           error: publicUserError
@@ -510,7 +510,7 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
 
     // Update invite status and timestamp
     console.log('Updating invite status...');
-    await supabase
+    await supabaseDb
       .from('team_invites')
       .update({ 
         updated_at: new Date().toISOString(),
