@@ -577,16 +577,20 @@ export default function CandidateList() {
                                     if (!newStatus) return;
                                     try {
                                       const headers = await getAuthHeader();
-                                      const resp = await fetch(`${BACKEND_URL}/api/candidates/${candidate.id}`, {
+                                      const url = `${BACKEND_URL}/api/candidates/${candidate.id}`;
+                                      console.log('[UPDATE Candidate Status] →', url, { status: newStatus });
+                                      const resp = await fetch(url, {
                                         method: 'PUT',
                                         headers: { 'Content-Type': 'application/json', ...headers },
                                         body: JSON.stringify({ status: newStatus })
                                       });
+                                      console.log('[UPDATE Candidate Status] status', resp.status);
                                       if (resp.ok) {
                                         setCandidates(prev => prev.map(c => c.id === candidate.id ? { ...c, status: newStatus } : c));
                                         refreshCandidates();
                                       } else {
-                                        const err = await resp.json().catch(()=>({}));
+                                        const err = await resp.json().catch(()=>({ error: `HTTP ${resp.status}` }));
+                                        console.error('[UPDATE Candidate Status] error', err);
                                         alert(err.error || 'Failed to update status');
                                       }
                                     } catch (e) {
@@ -604,15 +608,19 @@ export default function CandidateList() {
                                     if (!confirm('Delete candidate?')) return;
                                     try {
                                       const headers = await getAuthHeader();
-                                      const resp = await fetch(`${BACKEND_URL}/api/candidates/${candidate.id}`, {
+                                      const url = `${BACKEND_URL}/api/candidates/${candidate.id}`;
+                                      console.log('[DELETE Candidate] →', url);
+                                      const resp = await fetch(url, {
                                         method: 'DELETE',
                                         headers: { ...headers }
                                       });
+                                      console.log('[DELETE Candidate] status', resp.status);
                                       if (resp.ok) {
                                         setCandidates(prev => prev.filter(c => c.id !== candidate.id));
                                         refreshCandidates();
                                       } else {
-                                        const err = await resp.json().catch(()=>({}));
+                                        const err = await resp.json().catch(()=>({ error: `HTTP ${resp.status}` }));
+                                        console.error('[DELETE Candidate] error', err);
                                         alert(err.error || 'Failed to delete');
                                       }
                                     } catch (e) {
