@@ -642,6 +642,125 @@ export async function moveCandidate({
   return { candidateId, movedTo: newStage, success: true };
 }
 
+/**
+ * Move a candidate to a pipeline stage by stage title (resolves candidate and stage ids).
+ * Accepts human-friendly inputs so REX can act on natural language like
+ * "move Michael Kwan to Peer Interview".
+ */
+export async function moveCandidateToStageId({
+  userId,
+  candidate,
+  stage,
+  jobId
+}: {
+  userId: string;
+  candidate: string; // id, email, or "First Last"
+  stage: string;     // stage title text
+  jobId?: string;    // optional disambiguation when candidate is in multiple jobs
+}) {
+  // 1) Resolve candidate id
+  let candidateId = candidate.trim();
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(candidateId);
+  if (!isUUID) {
+    // Try email first
+    let row = null as any;
+    if (candidate.includes('@')) {
+      const { data } = await supabaseDb
+        .from('candidates')
+        .select('id, first_name, last_name, email')
+        .eq('email', candidate)
+        .maybeSingle();
+      row = data;
+    }
+    // Fallback to name search (split by space)
+    if (!row) {
+      const parts = candidate.split(/\s+/);
+      const first = parts[0];
+      const last = parts.slice(1).join(' ');
+      let q = supabaseDb
+        .from('candidates')
+        .select('id, first_name, last_name, email')
+        .ilike('first_name', `%${first}%`);
+      if (last) q = q.ilike('last_name', `%${last}%`);
+      const { data } = await q.limit(5);
+      if (data && data.length > 0) row = data[0];
+    }
+    if (!row) {
+      throw new Error(`Candidate '${candidate}' not found`);
+    }
+    candidateId = row.id;
+  }
+
+  // 2) Determine job context via candidate_jobs
+  let resolvedJobId = jobId || '';
+  if (!resolvedJobId) {
+    const { data: cj } = await supabaseDb
+      .from('candidate_jobs')
+      .select('id, job_id')
+      .eq('candidate_id', candidateId);
+    const jobIds = Array.from(new Set((cj || []).map(r => r.job_id))).filter(Boolean);
+    if (jobIds.length === 0) {
+      throw new Error('Candidate is not attached to any job');
+    }
+    if (jobIds.length > 1) {
+      throw new Error('Candidate is attached to multiple jobs. Please specify jobId.');
+    }
+    resolvedJobId = jobIds[0];
+  }
+
+  // 3) Resolve stage by title in this job
+  const { data: stageRow } = await supabaseDb
+    .from('pipeline_stages')
+    .select('id, title')
+    .eq('job_id', resolvedJobId)
+    .ilike('title', stage)
+    .maybeSingle();
+  if (!stageRow?.id) {
+    // Help the user by listing available titles
+    const { data: allStages } = await supabaseDb
+      .from('pipeline_stages')
+      .select('title')
+      .eq('job_id', resolvedJobId)
+      .order('position', { ascending: true });
+    const titles = (allStages || []).map(s => s.title).join(', ');
+    throw new Error(`Stage '${stage}' not found for this job. Available stages: ${titles || 'none'}`);
+  }
+
+  // 4) Update candidate_jobs row(s) for this candidate + job
+  const { data: updated, error } = await supabaseDb
+    .from('candidate_jobs')
+    .update({ stage_id: stageRow.id, updated_at: new Date().toISOString() })
+    .eq('candidate_id', candidateId)
+    .eq('job_id', resolvedJobId)
+    .select();
+  if (error) {
+    console.error('[moveCandidateToStageId] Supabase error', error);
+    throw new Error('Failed to move candidate');
+  }
+
+  // 5) Slack notify (best effort)
+  try {
+    const { data: cand } = await supabaseDb
+      .from('candidates')
+      .select('first_name, last_name')
+      .eq('id', candidateId)
+      .single();
+    const name = cand ? `${cand.first_name || ''} ${cand.last_name || ''}`.trim() : candidateId;
+    await notifySlack(`🧭 Candidate *${name}* moved to *${stageRow.title}*`);
+  } catch (e) {
+    console.warn('[moveCandidateToStageId] Slack notify failed', e);
+  }
+
+  return {
+    candidateId,
+    jobId: resolvedJobId,
+    stageId: stageRow.id,
+    stageTitle: stageRow.title,
+    rowsUpdated: updated?.length || 0,
+    success: true
+  };
+}
+
 // -----------------------------------------------------------------------------
 // Tranche 3: Automations & utilities
 // -----------------------------------------------------------------------------

@@ -11,6 +11,7 @@ const {
   sendMessage,
   getPipelineStats,
   moveCandidate,
+  moveCandidateToStageId,
   triggerZapier,
   triggerMakeWorkflow,
   fetchCredits: fetchCreditsTool,
@@ -363,6 +364,18 @@ server.registerCapabilities({
       handler: async ({ userId, candidateId, newStage }) => {
         await assertPremium(userId);
         return await moveCandidate({ candidateId, newStage });
+      }
+    },
+    move_candidate_to_stage: {
+      parameters: { 
+        userId:{type:'string'}, 
+        candidate:{type:'string'}, 
+        stage:{type:'string'}, 
+        jobId:{type:'string', optional:true} 
+      },
+      handler: async ({ userId, candidate, stage, jobId }) => {
+        await assertPremium(userId);
+        return await moveCandidateToStageId({ userId, candidate, stage, jobId });
       }
     },
     trigger_zapier: {
