@@ -329,6 +329,77 @@ router.get('/candidates', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
+// PUT /api/leads/candidates/:id - update candidate via leads router (for compatibility)
+router.put('/candidates/:id', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const { id } = req.params;
+    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    if (!id) { res.status(400).json({ error: 'Missing candidate id' }); return; }
+
+    const { data: existing, error: ownErr } = await supabase
+      .from('candidates')
+      .select('id, user_id')
+      .eq('id', id)
+      .single();
+    if (ownErr || !existing || existing.user_id !== userId) { res.status(404).json({ error: 'Candidate not found' }); return; }
+
+    const ALLOWED_STATUS = ['sourced','contacted','interviewed','offered','hired','rejected'];
+    const { status, first_name, last_name, email, phone, notes } = req.body || {};
+    const update: any = {};
+    if (status) {
+      if (!ALLOWED_STATUS.includes(status)) { res.status(400).json({ error: 'Invalid status' }); return; }
+      update.status = status;
+    }
+    if (first_name !== undefined) update.first_name = first_name;
+    if (last_name !== undefined) update.last_name = last_name;
+    if (email !== undefined) update.email = email;
+    if (phone !== undefined) update.phone = phone;
+    if (notes !== undefined) update.notes = notes;
+
+    const { data, error } = await supabase
+      .from('candidates')
+      .update(update)
+      .eq('id', id)
+      .eq('user_id', userId)
+      .select('*')
+      .single();
+    if (error) { res.status(500).json({ error: 'Failed to update candidate' }); return; }
+    res.json(data);
+  } catch (e) {
+    console.error('Update candidate (leads router) error:', e);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// DELETE /api/leads/candidates/:id - delete candidate via leads router (for compatibility)
+router.delete('/candidates/:id', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const { id } = req.params;
+    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    if (!id) { res.status(400).json({ error: 'Missing candidate id' }); return; }
+
+    const { data: existing, error: ownErr } = await supabase
+      .from('candidates')
+      .select('id, user_id')
+      .eq('id', id)
+      .single();
+    if (ownErr || !existing || existing.user_id !== userId) { res.status(404).json({ error: 'Candidate not found' }); return; }
+
+    const { error } = await supabase
+      .from('candidates')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', userId);
+    if (error) { res.status(500).json({ error: 'Failed to delete candidate' }); return; }
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Delete candidate (leads router) error:', e);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // GET /api/leads - list leads for the authenticated user (mirrors candidate logic)
 router.get('/', requireAuth, async (req: Request, res: Response) => {
   try {

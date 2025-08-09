@@ -577,7 +577,7 @@ export default function CandidateList() {
                                     if (!newStatus) return;
                                     try {
                                       const headers = await getAuthHeader();
-                                      const url = `${BACKEND_URL}/api/candidates/${candidate.id}`;
+                                      const url = `${BACKEND_URL}/api/leads/candidates/${candidate.id}`;
                                       console.log('[UPDATE Candidate Status] →', url, { status: newStatus });
                                       const resp = await fetch(url, {
                                         method: 'PUT',
@@ -608,7 +608,7 @@ export default function CandidateList() {
                                     if (!confirm('Delete candidate?')) return;
                                     try {
                                       const headers = await getAuthHeader();
-                                      const url = `${BACKEND_URL}/api/candidates/${candidate.id}`;
+                                      const url = `${BACKEND_URL}/api/leads/candidates/${candidate.id}`;
                                       console.log('[DELETE Candidate] →', url);
                                       const resp = await fetch(url, {
                                         method: 'DELETE',
