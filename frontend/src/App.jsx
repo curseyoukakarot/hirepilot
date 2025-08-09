@@ -229,7 +229,7 @@ export default function App() {
 
 function InnerApp() {
   const location = useLocation();
-  const landingPages = ["/", "/signup", "/login", "/copilot", "/handsfree", "/pricing", "/rex", "/chromeextension", "/chromeextension/privacy", "/terms", "/apidoc", "/test-gmail", "/affiliates", "/zapierguide"];
+  const landingPages = ["/", "/signup", "/login", "/copilot", "/handsfree", "/pricing", "/rex", "/chromeextension", "/chromeextension/privacy", "/terms", "/apidoc", "/test-gmail", "/affiliates", "/blog/zapierguide"];
   // Treat blog landing and article pages as public landing pages (no dashboard UI)
   const isAuthPage = landingPages.includes(location.pathname) || location.pathname.startsWith('/blog') || location.pathname.startsWith('/rex');
   const navigate = useNavigate();
@@ -367,7 +367,7 @@ function InnerApp() {
               <Route path="/blog/PipelineBestPractices" element={<PipelineBestPracticesGuide />} />
               <Route path="/blog/email-troubleshooting" element={<EmailTroubleshootingGuide />} />
               <Route path="/blog/CreditsGuide" element={<CreditsGuide />} />
-              <Route path="/zapierguide" element={<ZapierGuide />} />
+              <Route path="/blog/zapierguide" element={<ZapierGuide />} />
               {/* Email Deliverability Series */}
               <Route path="/blog/email-deliverability-1" element={<EmailDeliverability1 />} />
               <Route path="/blog/email-deliverability-2" element={<EmailDeliverability2 />} />

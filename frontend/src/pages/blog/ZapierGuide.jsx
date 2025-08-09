@@ -18,6 +18,9 @@ export default function ZapierGuide() {
         .prose figure { margin: 1.25rem 0 1.5rem; }
         .prose figcaption { color: #9ca3af; font-size: 0.875rem; margin-top: 0.5rem; text-align: center; }
         .toc-active { color: #3b82f6; }
+        /* Force-white utility for key code/text blocks */
+        .force-white, .force-white * { color: #ffffff !important; }
+        #related-articles h3 { color: #ffffff !important; }
       `}</style>
 
       {/* Breadcrumb */}
@@ -100,7 +103,7 @@ export default function ZapierGuide() {
               Think of your API key like your VIP pass — it’s what lets Zapier/Make talk securely to your HirePilot account. In HirePilot, go to <strong>Settings → Integrations → Zapier/Make</strong>, click <strong>Generate API Key</strong>, and copy it somewhere safe — you’ll paste this into your automations later.
             </p>
             <p>You’ll use it in an HTTP header like this:</p>
-            <pre>
+            <pre className="force-white">
               <code>{`Header name: X-API-Key\nHeader value: YOUR_API_KEY`}</code>
             </pre>
             <figure>
@@ -114,17 +117,17 @@ export default function ZapierGuide() {
             <h2>Step 2 – What You Can Automate</h2>
             <p>HirePilot sends events and accepts actions so you can build almost any recruiting workflow you can imagine.</p>
             <h3>Leads & Candidates</h3>
-            <ul>
+            <ul className="force-white">
               <li><code>lead_created</code>, <code>lead_updated</code>, <code>lead_converted</code>, <code>lead_enriched</code></li>
               <li><code>candidate_created</code>, <code>candidate_hired</code>, <code>candidate_rejected</code></li>
             </ul>
             <h3>Pipeline Stages</h3>
-            <ul>
+            <ul className="force-white">
               <li><code>candidate_pipeline_stage_changed</code></li>
               <li>Auto events like <code>candidate_moved_to_phone_screen</code>, <code>candidate_interviewed</code>, <code>candidate_offered</code></li>
             </ul>
             <h3>Messaging & Email Signals</h3>
-            <ul>
+            <ul className="force-white">
               <li><code>message_sent</code>, <code>message_reply</code></li>
               <li><code>email_opened</code>, <code>email_clicked</code>, <code>email_bounced</code></li>
             </ul>
@@ -134,11 +137,11 @@ export default function ZapierGuide() {
             <h2>Step 3 – Trigger Endpoints</h2>
             <p>Zapier and Make can “poll” HirePilot for new events.</p>
             <h3>Universal Events (recommended)</h3>
-            <pre>
+            <pre className="force-white">
               <code>{`GET https://api.thehirepilot.com/api/zapier/triggers/events`}</code>
             </pre>
             <p>Optional filters:</p>
-            <pre>
+            <pre className="force-white">
               <code>{`?event_type=lead_created\n?since=2025-01-01T00:00:00Z`}</code>
             </pre>
             <p>Always include your API key in the header.</p>
@@ -148,27 +151,27 @@ export default function ZapierGuide() {
             <h2>Step 4 – Action Endpoints</h2>
             <p>Want to make HirePilot do something from your automation?</p>
             <h3>Create/Update Lead</h3>
-            <pre>
+            <pre className="force-white">
               <code>{`POST https://api.thehirepilot.com/api/zapier/leads`}</code>
             </pre>
             <p>Headers:</p>
-            <pre>
+            <pre className="force-white">
               <code>{`Content-Type: application/json\nX-API-Key: YOUR_API_KEY`}</code>
             </pre>
             <p>Body:</p>
-            <pre>
+            <pre className="force-white">
               <code>{`{ "email": "alex@acme.com", "first_name": "Alex", "last_name": "Chen", "company": "Acme" }`}</code>
             </pre>
             <h3>Enrich Lead (Apollo)</h3>
-            <pre>
+            <pre className="force-white">
               <code>{`POST https://api.thehirepilot.com/api/zapier/enrich`}</code>
             </pre>
             <p>Body:</p>
-            <pre>
+            <pre className="force-white">
               <code>{`{ "lead_id": "LEAD_UUID" }`}</code>
             </pre>
             <p>Or:</p>
-            <pre>
+            <pre className="force-white">
               <code>{`{ "email": "alex@acme.com" }`}</code>
             </pre>
           </div>
@@ -191,7 +194,7 @@ export default function ZapierGuide() {
               <li>Choose <strong>Retrieve Poll</strong> for polling GET requests.</li>
               <li>Paste the universal events URL:</li>
             </ol>
-            <pre>
+            <pre className="force-white">
               <code>{`https://api.thehirepilot.com/api/zapier/triggers/events?event_type=lead_created&since={{zap_meta_human_now}}`}</code>
             </pre>
             <p>Add your API key to the Headers section (<code>X-API-Key</code>).</p>
@@ -239,7 +242,7 @@ export default function ZapierGuide() {
           <div id="step-10">
             <h2>Step 10 – Let REX Do the Heavy Lifting</h2>
             <p>Don’t want to build it all yourself? Ask REX in your HirePilot chat:</p>
-            <pre>
+            <pre className="force-white">
               <code>{`"Test my lead_created Zap"\n"Send an event to my Zapier webhook"`}</code>
             </pre>
             <p>REX can fire events to your Zaps or Make scenarios, enrich leads, post summaries to Slack, and chain multi-step actions automatically.</p>
@@ -249,7 +252,7 @@ export default function ZapierGuide() {
           <div className="bg-blue-600 rounded-lg p-6 my-8 text-center">
             <h3 className="text-xl font-semibold mb-2 text-white">Build your recruiting engine — no code required</h3>
             <p className="mb-4 text-blue-100">Connect HirePilot to Zapier or Make and automate your hiring pipeline today.</p>
-            <a href="/signup" className="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors inline-block">Start Free</a>
+            <a href="/pricing" className="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors inline-block">Start Free</a>
           </div>
 
           <div id="conclusion">
@@ -274,7 +277,7 @@ export default function ZapierGuide() {
               />
               <div className="p-6">
                 <span className="text-blue-400 text-sm font-medium">Automation</span>
-                <h3 className="text-xl font-semibold mt-2 mb-3">5 Automation Recipes for Talent Teams</h3>
+                <h3 className="text-xl font-semibold mt-2 mb-3 force-white"><a href="/blog/AutomateRecruiting1" className="hover:underline">5 Automation Recipes for Talent Teams</a></h3>
                 <p className="text-gray-400 mb-4">Steal these plug-and-play workflows to accelerate your recruiting ops.</p>
                 <div className="flex items-center text-sm text-gray-500">
                   <span>April 2, 2025</span>
@@ -291,7 +294,7 @@ export default function ZapierGuide() {
               />
               <div className="p-6">
                 <span className="text-blue-400 text-sm font-medium">Analytics</span>
-                <h3 className="text-xl font-semibold mt-2 mb-3">Build an Engagement Dashboard in Sheets</h3>
+                <h3 className="text-xl font-semibold mt-2 mb-3 force-white"><a href="/blog/AutomateRecruiting5" className="hover:underline">Build an Engagement Dashboard in Sheets</a></h3>
                 <p className="text-gray-400 mb-4">Pipe your events into Sheets or BI tools for instant visibility.</p>
                 <div className="flex items-center text-sm text-gray-500">
                   <span>March 28, 2025</span>
@@ -308,7 +311,7 @@ export default function ZapierGuide() {
               />
               <div className="p-6">
                 <span className="text-blue-400 text-sm font-medium">Best Practices</span>
-                <h3 className="text-xl font-semibold mt-2 mb-3">Automating Interview Prep with Checklists</h3>
+                <h3 className="text-xl font-semibold mt-2 mb-3 force-white"><a href="/blog/AutomateRecruiting4" className="hover:underline">Automating Interview Prep with Checklists</a></h3>
                 <p className="text-gray-400 mb-4">Turn pipeline stage changes into organized interview prep.</p>
                 <div className="flex items-center text-sm text-gray-500">
                   <span>March 22, 2025</span>

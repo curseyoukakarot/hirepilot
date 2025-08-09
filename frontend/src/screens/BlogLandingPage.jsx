@@ -11,7 +11,7 @@ export default function BlogLandingPage() {
   const articles = [
     {
       id: 21,
-      href: '/zapierguide',
+      href: '/blog/zapierguide',
       title: 'HirePilot + Zapier/Make: Your No-Code Recruiting Superpowers',
       summary: 'Connect HirePilot to Slack, Google Sheets, HubSpot, Trello, and more — automate recruiting workflows in minutes without code.',
       tag: 'Integrations',
