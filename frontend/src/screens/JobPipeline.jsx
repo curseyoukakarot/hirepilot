@@ -291,6 +291,28 @@ export default function JobPipeline() {
     fetchStagesAndCandidates();
   }, [jobId, navigate]);
 
+  // Realtime sync: reflect external moves (REX/Zapier/other clients)
+  useEffect(() => {
+    if (!jobId) return;
+    const channel = supabase
+      .channel(`pipeline-realtime-${jobId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'candidate_jobs', filter: `job_id=eq.${jobId}` }, () => {
+        fetchStagesAndCandidates();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pipeline_stages' }, () => {
+        fetchStagesAndCandidates();
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          // Initial subscription established
+        }
+      });
+
+    return () => {
+      try { supabase.removeChannel(channel); } catch {}
+    };
+  }, [jobId]);
+
   useEffect(() => {
     const fetchPipelines = async () => {
       try {
