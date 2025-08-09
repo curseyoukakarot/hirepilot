@@ -1507,6 +1507,8 @@ export const getLeadById = async (req: ApiRequest, res: Response) => {
 
 // Add PATCH route for lead updates
 router.patch('/:id', requireAuth, updateLead);
+// Add DELETE route for single-lead deletion
+router.delete('/:id', requireAuth, deleteLead);
 
 // Attach leads to campaign endpoint
 router.post('/attach-to-campaign', requireAuth, async (req: ApiRequest, res: Response) => {
