@@ -611,11 +611,42 @@ export async function moveCandidate({
   candidateId: string;
   newStage: string;
 }) {
+  // Resolve candidate id if a name/email was provided
+  let resolvedId = candidateId?.trim();
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(resolvedId);
+  if (!isUUID) {
+    let row = null as any;
+    if (resolvedId.includes('@')) {
+      const { data } = await supabaseDb
+        .from('candidates')
+        .select('id, first_name, last_name, email')
+        .eq('email', resolvedId)
+        .maybeSingle();
+      row = data;
+    }
+    if (!row) {
+      const parts = resolvedId.split(/\s+/);
+      const first = parts[0];
+      const last = parts.slice(1).join(' ');
+      let q = supabaseDb
+        .from('candidates')
+        .select('id, first_name, last_name, email')
+        .ilike('first_name', `%${first}%`);
+      if (last) q = q.ilike('last_name', `%${last}%`);
+      const { data } = await q.limit(5);
+      if (data && data.length > 0) row = data[0];
+    }
+    if (!row) {
+      throw new Error(`Candidate '${candidateId}' not found`);
+    }
+    resolvedId = row.id;
+  }
+
   // Update the status in candidate_jobs (all linked jobs)
   const { data: updatedRows, error } = await supabaseDb
     .from('candidate_jobs')
     .update({ status: newStage, updated_at: new Date().toISOString() })
-    .eq('candidate_id', candidateId)
+    .eq('candidate_id', resolvedId)
     .select();
 
   if (error) {
@@ -629,7 +660,7 @@ export async function moveCandidate({
       const { data: candidate, error: candErr } = await supabaseDb
         .from('candidates')
         .select('first_name, last_name')
-        .eq('id', candidateId)
+        .eq('id', resolvedId)
         .single();
 
       const name = candErr || !candidate ? candidateId : `${candidate.first_name} ${candidate.last_name}`;
@@ -639,7 +670,7 @@ export async function moveCandidate({
     }
   }
 
-  return { candidateId, movedTo: newStage, success: true };
+  return { candidateId: resolvedId, movedTo: newStage, success: true };
 }
 
 /**
