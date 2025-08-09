@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FiX } from "react-icons/fi";
+import { FaCog } from 'react-icons/fa';
 import { FaWandMagicSparkles } from 'react-icons/fa6';
 import { supabase } from '../lib/supabase';
 import ActivityLogSection from '../components/ActivityLogSection';
+import MetadataModal from '../components/MetadataModal';
 
 const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
 
@@ -24,6 +26,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   const [dailyLinkedInCount, setDailyLinkedInCount] = useState(0);
   const [isLoadingLinkedInCount, setIsLoadingLinkedInCount] = useState(false);
   const [userCredits, setUserCredits] = useState(0);
+  const [showMetadata, setShowMetadata] = useState(false);
   
   // REX Mode state (Prompt 8 enhancement)
   const [rexMode, setRexMode] = useState('manual'); // 'auto' or 'manual'
@@ -1056,6 +1059,10 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
               </div>
               <div className="flex items-center space-x-3">
                 {extraHeaderActions}
+                {/* Metadata icon to open developer IDs */}
+                <button className="text-gray-400 hover:text-gray-600" title="Developer metadata" onClick={() => setShowMetadata(true)}>
+                  <FaCog />
+                </button>
                 <button className="text-gray-400 hover:text-gray-500">
                   <i className="fa-solid fa-pen-to-square text-lg"></i>
                 </button>
@@ -2096,6 +2103,15 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
             </div>
           </div>
         </div>
+      )}
+
+      {showMetadata && (
+        <MetadataModal
+          isOpen={showMetadata}
+          onClose={() => setShowMetadata(false)}
+          entity="lead"
+          leadId={localLead?.id}
+        />
       )}
     </div>
   );

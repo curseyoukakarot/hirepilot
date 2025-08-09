@@ -9,6 +9,7 @@ import {
   FaDownload,
 } from 'react-icons/fa';
 import LeadProfileDrawer from './LeadProfileDrawer';
+import MetadataModal from '../components/MetadataModal';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { downloadCSV } from '../utils/csvExport';
@@ -46,6 +47,8 @@ export default function CandidateList() {
   const [selectedPipelineId, setSelectedPipelineId] = useState('');
   const [candidateToAdd, setCandidateToAdd] = useState(null);
   const [addingToPipeline, setAddingToPipeline] = useState(false);
+  const [showMetadata, setShowMetadata] = useState(false);
+  const [metadataContext, setMetadataContext] = useState(null);
   const navigate = useNavigate();
 
   /** ------------------------------------------------------------------
@@ -664,6 +667,17 @@ export default function CandidateList() {
                                 >
                                   Add to Pipeline
                                 </button>
+                                <button
+                                  onClick={() => {
+                                    setMetadataContext({ candidateId: candidate.id, leadId: candidate.lead_id });
+                                    setShowMetadata(true);
+                                    setShowActionsMenu(null);
+                                  }}
+                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                  role="menuitem"
+                                >
+                                  Metadata
+                                </button>
                               </div>
                             </div>
                           )}
@@ -694,6 +708,16 @@ export default function CandidateList() {
             company: selectedCandidate.company,
             linkedin_url: selectedCandidate.linkedin_url,
           }}
+        />
+      )}
+
+      {showMetadata && (
+        <MetadataModal
+          isOpen={showMetadata}
+          onClose={() => setShowMetadata(false)}
+          entity="candidate"
+          candidateId={metadataContext?.candidateId}
+          leadId={metadataContext?.leadId}
         />
       )}
     </div>
