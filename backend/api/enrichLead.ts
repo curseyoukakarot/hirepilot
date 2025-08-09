@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { supabase } from '../lib/supabase';
+import { supabaseDb as supabase } from '../lib/supabase';
 import axios from 'axios';
 
 const APOLLO_API_URL = 'https://api.apollo.io/v1';
