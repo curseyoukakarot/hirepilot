@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { FaUserPlus, FaEdit, FaTrash, FaCoins, FaKey, FaGear } from 'react-icons/fa';
+import { FaUserPlus, FaEdit, FaTrash, FaCoins, FaKey, FaCog } from 'react-icons/fa';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 
@@ -269,7 +269,7 @@ export default function AdminUserManagement() {
                       setFeatures({ rex_enabled: !!data.rex_enabled, zapier_enabled: !!data.zapier_enabled });
                       setFeatureUser(user);
                     }
-                  }} title="Features"><FaGear /></button>
+                  }} title="Features"><FaCog /></button>
                   <button className="p-2 bg-red-100 hover:bg-red-200 rounded" onClick={() => handleDelete(user.id)}><FaTrash /></button>
                 </td>
               </tr>
