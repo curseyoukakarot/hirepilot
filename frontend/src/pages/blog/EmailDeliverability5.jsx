@@ -174,7 +174,7 @@ export default function EmailDeliverability5() {
           <div id="inline-cta-1" className="bg-teal-600 rounded-lg p-6 my-8 text-center">
             <h3 className="text-xl font-semibold mb-2">Need Help Writing Better Subject Lines?</h3>
             <p className="mb-4">HirePilot's message templates include proven subject lines that bypass spam filters.</p>
-            <button className="bg-white text-teal-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors">Browse Templates</button>
+            <a href="https://thehirepilot.com/messages" className="bg-white text-teal-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors inline-block">Browse Templates</a>
           </div>
 
           <div id="opening-lines">
@@ -272,7 +272,7 @@ export default function EmailDeliverability5() {
           <div id="inline-cta-2" className="bg-gray-800 border border-gray-700 rounded-lg p-6 my-8 text-center">
             <h3 className="text-xl font-semibold mb-2">Ready to Put It All Together?</h3>
             <p className="mb-4">Use HirePilot's campaign builder with built-in deliverability best practices and personalization tokens.</p>
-            <button className="bg-teal-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-teal-700 transition-colors">Start Campaign</button>
+            <a href="https://thehirepilot.com/campaigns" className="bg-teal-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-teal-700 transition-colors inline-block">Start Campaign</a>
           </div>
 
           <div id="final-thoughts">
