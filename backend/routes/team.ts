@@ -100,6 +100,7 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
     }
 
     const { firstName, lastName, email, company, role } = req.body as TeamInviteRequest;
+    const permissions = (req.body as any).permissions || {};
     const currentUser = currentUserResolved;
 
     // If current user is a super admin, bypass seat-limit checks entirely
@@ -289,7 +290,8 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
           credits_used: 0,
           credits_available: 0,
           is_in_cooldown: false,
-          team_id: (req as any).teamId
+          team_id: (req as any).teamId,
+          rex_enabled: permissions.rexAccess === true
         }])
         .select()
         .single();
@@ -309,7 +311,7 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
       try {
         await supabaseDb
           .from('user_settings')
-          .insert([{ user_id: userData.user.id, email }]);
+          .insert([{ user_id: userData.user.id, email, zapier_enabled: permissions.zapierAccess === true }]);
       } catch (settingsErr) {
         console.warn('[TEAM INVITE] Failed to create default user_settings', settingsErr);
         // do not fail the whole flow on settings init error
@@ -488,7 +490,8 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
           credits_used: 0,
           credits_available: 0,
           is_in_cooldown: false,
-          team_id: (req as any).teamId
+          team_id: (req as any).teamId,
+          rex_enabled: true
         }]);
 
       if (publicUserError) {
@@ -506,7 +509,7 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
       try {
         await supabaseDb
           .from('user_settings')
-          .insert([{ user_id: userData.user.id, email: invite.email }]);
+          .insert([{ user_id: userData.user.id, email: invite.email, zapier_enabled: true }]);
       } catch (settingsErr) {
         console.warn('[TEAM INVITE][RESEND] Failed to create default user_settings', settingsErr);
       }
