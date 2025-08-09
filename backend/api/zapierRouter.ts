@@ -217,13 +217,77 @@ router.post('/move-candidate', apiKeyAuth, async (req: ApiRequest, res: Response
       if (error || !data) return res.status(404).json({ error: 'Candidate job not found' });
       cjRow = data;
     } else {
-      const { data, error } = await supabaseDb
+      let { data, error } = await supabaseDb
         .from('candidate_jobs')
         .select('id, candidate_id, job_id')
         .eq('candidate_id', candidate_id)
         .eq('job_id', job_id)
         .maybeSingle();
-      if (error || !data) return res.status(404).json({ error: 'Candidate job not found' });
+      if (error) return res.status(500).json({ error: error.message });
+      // If candidate is not attached to the job yet, create the link
+      if (!data) {
+        // Validate ownership first
+        const { data: candOwn, error: ownErr } = await supabaseDb
+          .from('candidates')
+          .select('user_id')
+          .eq('id', candidate_id)
+          .single();
+        if (ownErr || !candOwn || candOwn.user_id !== userId) return res.status(403).json({ error: 'Forbidden' });
+
+        // Attempt to resolve stage_id from stage_title using pipeline_id or job_id
+        let resolvedStageId: string | null = null;
+        if (stage_title) {
+          const { data: jobRow } = await supabaseDb
+            .from('job_requisitions')
+            .select('pipeline_id')
+            .eq('id', job_id)
+            .maybeSingle();
+          if (jobRow?.pipeline_id) {
+            const resId = await supabaseDb
+              .from('pipeline_stages')
+              .select('id')
+              .eq('pipeline_id', jobRow.pipeline_id)
+              .ilike('title', stage_title)
+              .maybeSingle();
+            resolvedStageId = (resId.data as any)?.id || null;
+          }
+          if (!resolvedStageId) {
+            const resId = await supabaseDb
+              .from('pipeline_stages')
+              .select('id')
+              .eq('job_id', job_id)
+              .ilike('title', stage_title)
+              .maybeSingle();
+            resolvedStageId = (resId.data as any)?.id || null;
+          }
+        }
+
+        const canonicalFrom = (title: string) => {
+          const t = String(title || '').toLowerCase();
+          if (['sourced','contacted','interviewed','offered','hired','rejected'].includes(t)) return t;
+          if (t.includes('offer')) return 'offered';
+          if (t.includes('hire')) return 'hired';
+          if (t.includes('reject')) return 'rejected';
+          if (t.includes('contact')) return 'contacted';
+          if (t.includes('interview')) return 'interviewed';
+          return 'sourced';
+        };
+
+        const insertPayload: any = {
+          candidate_id,
+          job_id
+        };
+        if (resolvedStageId || dest_stage_id) insertPayload.stage_id = dest_stage_id || resolvedStageId;
+        else if (stage_title) insertPayload.status = canonicalFrom(stage_title);
+
+        const { data: inserted, error: insErr } = await supabaseDb
+          .from('candidate_jobs')
+          .insert(insertPayload)
+          .select('id, candidate_id, job_id')
+          .single();
+        if (insErr || !inserted) return res.status(500).json({ error: insErr?.message || 'Failed to attach candidate to job' });
+        data = inserted;
+      }
       cjRow = data;
     }
 
