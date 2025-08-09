@@ -371,26 +371,42 @@ export default function JobPipeline() {
       const [removed] = sourceCandidates.splice(source.index, 1);
       if (removed) {
         // Update in DB (support both stage_id and status backends)
+        const toCanonicalStatus = (title) => {
+          const t = String(title || '').toLowerCase();
+          if (['sourced','contacted','interviewed','offered','hired','rejected'].includes(t)) return t;
+          if (t.includes('offer')) return 'offered';
+          if (t.includes('hire')) return 'hired';
+          if (t.includes('reject')) return 'rejected';
+          if (t.includes('contact')) return 'contacted';
+          if (t.includes('interview')) return 'interviewed';
+          return 'interviewed';
+        };
         let { error } = await supabase
           .from('candidate_jobs')
           .update({ stage_id: destStage })
           .eq('id', removed.id);
         if (error && error.code === '42703') {
-          // stage_id column not present (legacy backend). Update status by stage title text.
-          // Derive title from loaded stagesData
-          const title = (stages || []).find(s=>String(s.id)===String(destStage))?.title || 'interviewed';
+          // stage_id column not present (legacy backend). Update status by stage title text (canonicalized)
+          const title = (stages || []).find(s=>String(s.id)===String(destStage))?.title || 'Interviewed';
+          const canonical = toCanonicalStatus(title);
           ({ error } = await supabase
             .from('candidate_jobs')
-            .update({ status: title })
+            .update({ status: canonical })
             .eq('id', removed.id));
         }
-        if (error) console.error('Pipeline update error', error);
+        if (error) {
+          console.error('Pipeline update error', error);
+          toast.error('Failed to update candidate stage');
+          return;
+        }
         destCandidates.splice(destination.index, 0, removed);
         setCandidates({
           ...candidates,
           [sourceStage]: sourceCandidates,
           [destStage]: destCandidates
         });
+        // Re-sync from DB to guarantee persistence on refresh
+        try { await fetchStagesAndCandidates(); } catch {}
       }
     }
   };
