@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { FaUserPlus, FaEdit, FaTrash, FaCoins, FaKey } from 'react-icons/fa';
+import { FaUserPlus, FaEdit, FaTrash, FaCoins, FaKey, FaGear } from 'react-icons/fa';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 
@@ -20,6 +20,9 @@ export default function AdminUserManagement() {
   const [newPassword, setNewPassword] = useState('');
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [backfillLoading, setBackfillLoading] = useState(false);
+  const [featureUser, setFeatureUser] = useState(null);
+  const [features, setFeatures] = useState({ rex_enabled: false, zapier_enabled: false });
+  const [featuresLoading, setFeaturesLoading] = useState(false);
   const navigate = useNavigate();
 
   /* ----------------------------------------------
@@ -258,6 +261,15 @@ export default function AdminUserManagement() {
                   <button className="p-2 bg-yellow-100 hover:bg-yellow-200 rounded" onClick={() => { setEditUser(user); setEditForm({ firstName: user.firstName, lastName: user.lastName, role: user.role }); }}><FaEdit /></button>
                   <button className="p-2 bg-blue-100 hover:bg-blue-200 rounded" onClick={() => { setCreditUser(user); setCreditAmount(1000); }}><FaCoins /></button>
                   <button className="p-2 bg-purple-100 hover:bg-purple-200 rounded" onClick={() => { setPasswordUser(user); setNewPassword(''); }}><FaKey /></button>
+                  <button className="p-2 bg-gray-100 hover:bg-gray-200 rounded" onClick={async () => {
+                    const token = (await supabase.auth.getSession()).data.session?.access_token;
+                    const res = await fetch(`${BACKEND_URL}/api/admin/users/${user.id}/features`, { headers: { 'Authorization': `Bearer ${token}` }});
+                    if (res.ok) {
+                      const data = await res.json();
+                      setFeatures({ rex_enabled: !!data.rex_enabled, zapier_enabled: !!data.zapier_enabled });
+                      setFeatureUser(user);
+                    }
+                  }} title="Features"><FaGear /></button>
                   <button className="p-2 bg-red-100 hover:bg-red-200 rounded" onClick={() => handleDelete(user.id)}><FaTrash /></button>
                 </td>
               </tr>
@@ -343,6 +355,48 @@ export default function AdminUserManagement() {
                 <button type="submit" className="px-4 py-2 rounded bg-blue-600 text-white" disabled={passwordLoading}>{passwordLoading ? 'Saving...' : 'Save'}</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Feature Flags Modal */}
+      {featureUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 w-full max-w-md shadow-lg border border-gray-200">
+            <h2 className="text-xl font-bold mb-4 text-gray-800">Features for {featureUser.email}</h2>
+            <div className="space-y-4">
+              <label className="flex items-center justify-between">
+                <span className="text-gray-700">REX Access</span>
+                <input type="checkbox" checked={features.rex_enabled} onChange={(e) => setFeatures(f => ({ ...f, rex_enabled: e.target.checked }))} />
+              </label>
+              <label className="flex items-center justify-between">
+                <span className="text-gray-700">Zapier/Make Access</span>
+                <input type="checkbox" checked={features.zapier_enabled} onChange={(e) => setFeatures(f => ({ ...f, zapier_enabled: e.target.checked }))} />
+              </label>
+              <div className="flex gap-2 justify-end pt-2">
+                <button className="px-4 py-2 rounded bg-gray-200 text-gray-700" onClick={() => setFeatureUser(null)}>Cancel</button>
+                <button className="px-4 py-2 rounded bg-blue-600 text-white" disabled={featuresLoading} onClick={async () => {
+                  setFeaturesLoading(true);
+                  const token = (await supabase.auth.getSession()).data.session?.access_token;
+                  const res = await fetch(`${BACKEND_URL}/api/admin/users/${featureUser.id}/features`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify(features)
+                  });
+                  setFeaturesLoading(false);
+                  if (res.ok) {
+                    setFeatureUser(null);
+                    setSuccess('Features updated');
+                    // Force refresh list to reflect sidebar visibility elsewhere
+                    const refresh = await fetch(`${BACKEND_URL}/api/admin/users`, { headers: { 'Authorization': `Bearer ${token}` }});
+                    if (refresh.ok) setUsers(await refresh.json());
+                  } else {
+                    const err = await res.text();
+                    setError(err || 'Failed to update features');
+                  }
+                }}>{featuresLoading ? 'Saving...' : 'Save'}</button>
+              </div>
+            </div>
           </div>
         </div>
       )}

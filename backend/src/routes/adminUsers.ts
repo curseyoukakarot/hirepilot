@@ -63,6 +63,59 @@ router.get('/users/:id', requireAuth, requireSuperAdmin, async (req: Request, re
   return res.json(data);
 });
 
+// GET /api/admin/users/:id/features - Get feature flags (rex, zapier)
+router.get('/users/:id/features', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
+  const { id } = req.params;
+  try {
+    const { data: userRow, error: userErr } = await supabaseDb
+      .from('users')
+      .select('rex_enabled')
+      .eq('id', id)
+      .single();
+    if (userErr) return res.status(500).json({ error: userErr.message });
+
+    const { data: settingsRow, error: settingsErr } = await supabaseDb
+      .from('user_settings')
+      .select('zapier_enabled')
+      .eq('user_id', id)
+      .maybeSingle();
+    if (settingsErr) return res.status(500).json({ error: settingsErr.message });
+
+    res.json({
+      rex_enabled: Boolean(userRow?.rex_enabled),
+      zapier_enabled: Boolean(settingsRow?.zapier_enabled)
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message || 'Failed to load feature flags' });
+  }
+});
+
+// PATCH /api/admin/users/:id/features - Update feature flags (rex, zapier)
+router.patch('/users/:id/features', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { rex_enabled, zapier_enabled } = req.body || {};
+  try {
+    if (typeof rex_enabled === 'boolean') {
+      const { error: rexErr } = await supabaseDb
+        .from('users')
+        .update({ rex_enabled })
+        .eq('id', id);
+      if (rexErr) return res.status(500).json({ error: rexErr.message });
+    }
+
+    if (typeof zapier_enabled === 'boolean') {
+      const { error: zErr } = await supabaseDb
+        .from('user_settings')
+        .upsert({ user_id: id, zapier_enabled }, { onConflict: 'user_id' });
+      if (zErr) return res.status(500).json({ error: zErr.message });
+    }
+
+    res.json({ success: true, user_id: id, rex_enabled, zapier_enabled });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message || 'Failed to update feature flags' });
+  }
+});
+
 // POST /api/admin/users - Create/invite a user
 router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
   try {
