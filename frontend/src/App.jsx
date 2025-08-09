@@ -55,6 +55,7 @@ const EmailDeliverability3 = lazy(() => import("./pages/blog/EmailDeliverability
 const EmailDeliverability4 = lazy(() => import("./pages/blog/EmailDeliverability4"));
 const EmailDeliverability5 = lazy(() => import("./pages/blog/EmailDeliverability5"));
 const CreditsGuide = lazy(() => import("./pages/blog/CreditsGuide"));
+const ZapierGuide = lazy(() => import("./pages/blog/ZapierGuide"));
 // AutomateRecruiting Series
 const AutomateRecruiting1 = lazy(() => import("./pages/blog/AutomateRecruiting1"));
 const AutomateRecruiting2 = lazy(() => import("./pages/blog/AutomateRecruiting2"));
@@ -228,7 +229,7 @@ export default function App() {
 
 function InnerApp() {
   const location = useLocation();
-  const landingPages = ["/", "/signup", "/login", "/copilot", "/handsfree", "/pricing", "/rex", "/chromeextension", "/chromeextension/privacy", "/terms", "/apidoc", "/test-gmail", "/affiliates"];
+  const landingPages = ["/", "/signup", "/login", "/copilot", "/handsfree", "/pricing", "/rex", "/chromeextension", "/chromeextension/privacy", "/terms", "/apidoc", "/test-gmail", "/affiliates", "/zapierguide"];
   // Treat blog landing and article pages as public landing pages (no dashboard UI)
   const isAuthPage = landingPages.includes(location.pathname) || location.pathname.startsWith('/blog') || location.pathname.startsWith('/rex');
   const navigate = useNavigate();
@@ -366,6 +367,7 @@ function InnerApp() {
               <Route path="/blog/PipelineBestPractices" element={<PipelineBestPracticesGuide />} />
               <Route path="/blog/email-troubleshooting" element={<EmailTroubleshootingGuide />} />
               <Route path="/blog/CreditsGuide" element={<CreditsGuide />} />
+              <Route path="/zapierguide" element={<ZapierGuide />} />
               {/* Email Deliverability Series */}
               <Route path="/blog/email-deliverability-1" element={<EmailDeliverability1 />} />
               <Route path="/blog/email-deliverability-2" element={<EmailDeliverability2 />} />

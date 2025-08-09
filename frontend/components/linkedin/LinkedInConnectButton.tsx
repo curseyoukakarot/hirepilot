@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Loader2, Send, CheckCircle, AlertCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { supabase } from '../../lib/supabaseClient';
 
 interface LinkedInConnectButtonProps {
   linkedin_url: string;
@@ -59,11 +60,18 @@ export const LinkedInConnectButton: React.FC<LinkedInConnectButtonProps> = ({
     setStatus('sending');
 
     try {
-      const response = await fetch('/api/linkedin/send-connect', {
+      // Get auth token from Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Not authenticated');
+      }
+
+      const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || '';
+      const response = await fetch(`${API_BASE_URL}/api/linkedin/send-connect`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}` // Adjust based on your auth
+          'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify({
           linkedin_url,

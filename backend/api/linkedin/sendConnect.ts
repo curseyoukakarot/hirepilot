@@ -12,11 +12,8 @@ interface SendLinkedInConnectRequest {
 
 interface N8nWebhookPayload {
   profileUrl: string;
-  message: string;
   user_id: string;
-  lead_id?: string;
-  campaign_id?: string;
-  timestamp: string;
+  message: string;
 }
 
 /**
@@ -93,12 +90,9 @@ export default async function sendLinkedInConnectHandler(req: ApiRequest, res: R
 
     // Trigger n8n webhook
     const n8nResult = await triggerN8nWorkflow({
-      profileUrl: linkedin_url, // n8n expects profileUrl but we pass the linkedin_url value
-      message,
+      profileUrl: linkedin_url,
       user_id: userId,
-      lead_id,
-      campaign_id,
-      timestamp: new Date().toISOString()
+      message
     });
 
     if (!n8nResult.success) {

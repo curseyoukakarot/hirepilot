@@ -250,7 +250,7 @@ function createBrowserlessPayload(profileUrl: string, message: string, cookies: 
       cookies,
       userAgent: userAgent || defaultUserAgent
     },
-    code: `async ({ page, context }) => {
+    code: `export default async ({ page, context }) => {
       try {
         // Set user agent
         await page.setUserAgent(context.userAgent);
@@ -425,7 +425,7 @@ async function executeBrowserlessFunction(payload: any): Promise<{
     }
 
     const browserlessUrl = process.env.BROWSERLESS_URL || 'https://production-sfo.browserless.io';
-    const functionUrl = `${browserlessUrl}/function?token=${process.env.BROWSERLESS_TOKEN}`;
+    const functionUrl = `${browserlessUrl}/chromium/function?token=${process.env.BROWSERLESS_TOKEN}`;
 
     console.log('[N8N-LinkedInConnect] Executing Browserless function...');
     

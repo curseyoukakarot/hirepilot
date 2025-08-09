@@ -1,5 +1,6 @@
 import React from 'react';
 import LinkedInConnectButton from './LinkedInConnectButton';
+import { supabase } from '../../lib/supabaseClient';
 
 /**
  * Example usage of LinkedInConnectButton component
@@ -39,7 +40,7 @@ export const LeadTableRowExample = ({ lead }: { lead: any }) => {
       <td className="px-6 py-4">
         {lead.linkedin_url && (
           <LinkedInConnectButton
-            profileUrl={lead.linkedin_url}
+            linkedin_url={lead.linkedin_url}
             leadId={lead.id}
             campaignId={lead.campaign_id}
             defaultMessage={`Hi ${lead.first_name}! I came across your profile and would love to connect. Your experience at ${lead.company} looks really interesting!`}
@@ -77,7 +78,7 @@ export const LeadDetailExample = ({ lead }: { lead: any }) => {
           {lead.linkedin_url && (
             <div className="space-y-4">
               <LinkedInConnectButton
-                profileUrl={lead.linkedin_url}
+                linkedin_url={lead.linkedin_url}
                 leadId={lead.id}
                 campaignId={lead.campaign_id}
                 defaultMessage={`Hi ${lead.first_name}! I noticed you're ${lead.title} at ${lead.company}. I'd love to connect and learn more about your work in ${lead.industry || 'your field'}!`}
@@ -144,14 +145,19 @@ export const CampaignLeadActionsExample = ({ leads, campaignId }: { leads: any[]
         return new Promise(resolve => {
           setTimeout(async () => {
             try {
-              const response = await fetch('/api/linkedin/send-connect', {
+              // Get auth token from Supabase
+              const { data: { session } } = await supabase.auth.getSession();
+              if (!session) throw new Error('Not authenticated');
+
+              const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || '';
+              const response = await fetch(`${API_BASE_URL}/api/linkedin/send-connect`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                  'Authorization': `Bearer ${session.access_token}`
                 },
                 body: JSON.stringify({
-                  profileUrl: lead.linkedin_url,
+                  linkedin_url: lead.linkedin_url,
                   message: `Hi ${lead.first_name}! I'm reaching out about potential opportunities at ${lead.company}. Would love to connect!`,
                   lead_id: lead.id,
                   campaign_id: campaignId
@@ -219,7 +225,7 @@ export const CampaignLeadActionsExample = ({ leads, campaignId }: { leads: any[]
               {lead.linkedin_url && (
                 <div className="flex-shrink-0">
                   <LinkedInConnectButton
-                    profileUrl={lead.linkedin_url}
+                    linkedin_url={lead.linkedin_url}
                     leadId={lead.id}
                     campaignId={campaignId}
                     defaultMessage={`Hi ${lead.first_name}! I'm reaching out about exciting opportunities. Would love to connect and share more details!`}
@@ -249,9 +255,14 @@ export const LinkedInSettingsExample = () => {
     // Check LinkedIn cookie status
     const checkLinkedInStatus = async () => {
       try {
-        const response = await fetch('/api/linkedinCheckCookie', {
+        // Get auth token from Supabase
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error('Not authenticated');
+
+        const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || '';
+        const response = await fetch(`${API_BASE_URL}/api/linkedin/check-cookie`, {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+            'Authorization': `Bearer ${session.access_token}`
           }
         });
         const data = await response.json();

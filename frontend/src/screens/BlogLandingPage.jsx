@@ -10,6 +10,16 @@ export default function BlogLandingPage() {
 
   const articles = [
     {
+      id: 21,
+      href: '/zapierguide',
+      title: 'HirePilot + Zapier/Make: Your No-Code Recruiting Superpowers',
+      summary: 'Connect HirePilot to Slack, Google Sheets, HubSpot, Trello, and more — automate recruiting workflows in minutes without code.',
+      tag: 'Integrations',
+      gradient: 'from-purple-500 to-pink-600',
+      icon: 'fa-plug',
+      date: 'Aug 9, 2025',
+    },
+    {
       id: 16,
       href: '/blog/email-deliverability-1',
       title: 'The #1 Mistake Recruiters Make When Sending Emails at Scale',
