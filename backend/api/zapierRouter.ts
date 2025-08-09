@@ -22,22 +22,38 @@ router.post('/leads', apiKeyAuth, async (req: ApiRequest, res: Response) => {
       return res.status(400).json({ error: 'Lead email is required' });
     }
 
-    // Upsert (based on email + user_id composite)
-    const { data, error } = await supabaseDb
+    // Manual upsert by (user_id, email) to avoid DB constraint requirement
+    const { data: existing, error: findErr } = await supabaseDb
       .from('leads')
-      .upsert({
-        ...lead,
-        user_id: userId,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'email,user_id' })
-      .select()
-      .single();
+      .select('id, created_at')
+      .eq('user_id', userId)
+      .eq('email', lead.email)
+      .maybeSingle();
+    if (findErr) throw findErr;
 
-    if (error) throw error;
+    let data: any;
+    if (existing && existing.id) {
+      const { data: upd, error: updErr } = await supabaseDb
+        .from('leads')
+        .update({ ...lead, user_id: userId, updated_at: new Date().toISOString() })
+        .eq('id', existing.id)
+        .select('*')
+        .single();
+      if (updErr) throw updErr;
+      data = upd;
+    } else {
+      const { data: ins, error: insErr } = await supabaseDb
+        .from('leads')
+        .insert([{ ...lead, user_id: userId }])
+        .select('*')
+        .single();
+      if (insErr) throw insErr;
+      data = ins;
+    }
 
     // Emit events to both new and legacy systems
     await import('../lib/zapEventEmitter').then(({ emitZapEvent, ZAP_EVENT_TYPES, createLeadEventData }) => {
-      const eventType = data.created_at === data.updated_at ? ZAP_EVENT_TYPES.LEAD_CREATED : ZAP_EVENT_TYPES.LEAD_UPDATED;
+      const eventType = existing ? ZAP_EVENT_TYPES.LEAD_UPDATED : ZAP_EVENT_TYPES.LEAD_CREATED;
       emitZapEvent({
         userId,
         eventType,
