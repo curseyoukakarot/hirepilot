@@ -77,15 +77,15 @@ export default async function enrichLead(req: Request, res: Response) {
       return;
     }
 
-    // Prepare Apollo API request
-    const searchParams = {
-      api_key: apolloApiKey,
-      q_organization_domains: lead.company ? [String(lead.company).toLowerCase()] : [],
-      q_organization_titles: lead.title ? [lead.title.toLowerCase()] : [],
-      q_organization_name: lead.company ? [String(lead.company).toLowerCase()] : [],
-      q_people_name: lead.name ? [String(lead.name).toLowerCase()] : [],
-      q_people_email: lead.email ? [String(lead.email).toLowerCase()] : []
-    };
+    // Prepare Apollo API request (use strings for fields Apollo expects as strings)
+    const searchParams: any = { api_key: apolloApiKey };
+    if (lead.email) searchParams.q_people_email = String(lead.email).toLowerCase();
+    const firstName = lead.first_name || lead.firstName;
+    const lastName = lead.last_name || lead.lastName;
+    const fullName = lead.name || [firstName, lastName].filter(Boolean).join(' ');
+    if (fullName) searchParams.q_people_name = String(fullName).toLowerCase();
+    if (lead.title) searchParams.q_organization_titles = String(lead.title).toLowerCase();
+    if (lead.company) searchParams.q_organization_name = String(lead.company).toLowerCase();
 
     // Call Apollo API
     const response = await axios.get(`${APOLLO_API_URL}/people/search`, {
