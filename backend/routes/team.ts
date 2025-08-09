@@ -305,6 +305,16 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
         return;
       }
 
+      // Create default user_settings row for the new user
+      try {
+        await supabaseDb
+          .from('user_settings')
+          .insert([{ user_id: userData.user.id, email }]);
+      } catch (settingsErr) {
+        console.warn('[TEAM INVITE] Failed to create default user_settings', settingsErr);
+        // do not fail the whole flow on settings init error
+      }
+
       // Initialize credits based on role for new team member
       try {
         await CreditService.allocateCreditsBasedOnRole(userData.user.id, role, 'admin_grant');
@@ -479,6 +489,15 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
           error: publicUserError
         });
         return;
+      }
+
+      // Create default user_settings for the new user
+      try {
+        await supabaseDb
+          .from('user_settings')
+          .insert([{ user_id: userData.user.id, email: invite.email }]);
+      } catch (settingsErr) {
+        console.warn('[TEAM INVITE][RESEND] Failed to create default user_settings', settingsErr);
       }
     }
 
