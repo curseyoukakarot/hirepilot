@@ -2026,6 +2026,102 @@ export async function linkedin_connect({
   }
 }
 
+// -----------------------------------------------------------------------------
+// Lead → Candidate Conversion
+// -----------------------------------------------------------------------------
+export async function convertLeadToCandidate({
+  userId,
+  leadId
+}: {
+  userId: string;
+  leadId: string;
+}) {
+  // 1) Fetch the lead (must exist and be owned by user)
+  const { data: lead, error: leadError } = await supabaseDb
+    .from('leads')
+    .select('*')
+    .eq('id', leadId)
+    .single();
+
+  if (leadError || !lead) {
+    throw new Error('Lead not found');
+  }
+
+  // Ownership check where possible
+  if (lead.user_id && lead.user_id !== userId) {
+    throw new Error('Access denied: you do not own this lead');
+  }
+
+  // 2) Derive first/last name if only name is present
+  let firstName = lead.first_name as string | null;
+  let lastName = lead.last_name as string | null;
+  if ((!firstName || !lastName) && lead.name) {
+    const parts = String(lead.name).trim().split(/\s+/);
+    firstName = firstName || parts[0] || '';
+    lastName = lastName || parts.slice(1).join(' ') || '';
+  }
+
+  // 3) Insert candidate
+  const { data: candidate, error: candidateError } = await supabaseDb
+    .from('candidates')
+    .insert({
+      lead_id: lead.id,
+      user_id: userId,
+      first_name: firstName || '',
+      last_name: lastName || '',
+      email: lead.email || null,
+      phone: lead.phone || null,
+      avatar_url: (lead as any).avatar_url || null,
+      status: 'sourced',
+      enrichment_data: {
+        ...(lead.enrichment_data || {}),
+        current_title: lead.title || null
+      },
+      resume_url: null,
+      notes: null,
+      title: lead.title || null,
+      linkedin_url: lead.linkedin_url || null
+    })
+    .select()
+    .single();
+
+  if (candidateError) {
+    throw new Error('Failed to create candidate');
+  }
+
+  // 4) Record conversion event (best effort)
+  try {
+    const { EmailEventService } = await import('../services/emailEventService');
+    await EmailEventService.storeEvent({
+      user_id: userId,
+      campaign_id: (lead as any).campaign_id,
+      lead_id: lead.id,
+      provider: 'system',
+      message_id: `conversion_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+      event_type: 'conversion',
+      metadata: {
+        candidate_id: candidate.id,
+        lead_name: `${firstName || ''} ${lastName || ''}`.trim(),
+        lead_email: lead.email,
+        lead_title: lead.title,
+        lead_company: lead.company,
+        converted_at: new Date().toISOString()
+      }
+    });
+  } catch (e) {
+    // Do not fail conversion if analytics logging fails
+  }
+
+  // 5) Delete lead (best effort, but if it fails return candidate anyway)
+  try {
+    await supabaseDb.from('leads').delete().eq('id', leadId);
+  } catch (e) {
+    // ignore
+  }
+
+  return { success: true, candidate };
+}
+
 /**
  * Generate human-readable summary of an event
  */

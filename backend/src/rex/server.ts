@@ -27,7 +27,8 @@ const {
   setupIntegrationGuide,
   troubleshootIntegration,
   getRecentAutomationEvents,
-  linkedin_connect
+  linkedin_connect,
+  convertLeadToCandidate
 } = require('../../tools/rexToolFunctions');
 
 // Resolve SDK root then require specific compiled files to sidestep export mapping quirks
@@ -512,6 +513,14 @@ server.registerCapabilities({
       handler: async ({ userId, linkedin_urls, message, scheduled_at }) => {
         await assertPremium(userId);
         return await linkedin_connect({ userId, linkedin_urls, message, scheduled_at });
+      }
+    }
+    ,
+    convert_lead_to_candidate: {
+      parameters: { userId: {type:'string'}, leadId: {type:'string'} },
+      handler: async ({ userId, leadId }) => {
+        await assertPremium(userId);
+        return await convertLeadToCandidate({ userId, leadId });
       }
     }
   }

@@ -1,5 +1,17 @@
 [
   {
+    "name": "convert_lead_to_candidate",
+    "description": "Convert a lead to a candidate and remove the original lead.",
+    "parameters": {
+      "userId": "string",
+      "leadId": "string"
+    },
+    "examples": [
+      "REX, convert this lead to a candidate.",
+      "REX, convert lead 123e4567-e89b-12d3-a456-426614174000 to a candidate."
+    ]
+  },
+  {
     "name": "sourceLeads",
     "description": "Source leads from Apollo or LinkedIn into a specific campaign.",
     "parameters": {
