@@ -22,15 +22,20 @@ export default function AutomateRecruiting4() {
         .prose th, .prose td { border: 1px solid #374151; padding: 0.75rem; text-align: left; }
         .prose th { background: #1f2937; font-weight: 600; }
         .prose tr:nth-child(even) { background: #1f2937; }
+        /* Force white text for requested sections */
+        #inline-cta-2 h3, #inline-cta-2 p { color: #ffffff !important; }
+        #comparison table th { color: #ffffff !important; }
+        .force-white-row td { color: #ffffff !important; }
+        #related-articles h2, #related-articles h3 { color: #ffffff !important; }
       `}</style>
 
       {/* Breadcrumb */}
       <div id="breadcrumb" className="bg-gray-800 py-4">
         <div className="max-w-6xl mx-auto px-6">
-          <span className="text-gray-300 hover:text-white transition-colors flex items-center cursor-pointer">
+          <a href="/blog" className="text-gray-300 hover:text-white transition-colors flex items-center">
             <i className="fa-solid fa-arrow-left mr-2" />
             Back to Blog
-          </span>
+          </a>
         </div>
       </div>
 
@@ -188,7 +193,7 @@ export default function AutomateRecruiting4() {
           <div id="inline-cta-2" className="bg-gray-800 border border-gray-700 rounded-lg p-6 my-8 text-center">
             <h3 className="text-xl font-semibold mb-2">Want to See Pipeline Automation?</h3>
             <p className="mb-4">Chat with REX and watch it manage candidates and trigger workflows automatically.</p>
-            <button className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors">Chat with REX</button>
+            <a href="/login" className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors inline-block">Chat with REX</a>
           </div>
 
           <div id="smart-notifications">
@@ -222,7 +227,7 @@ export default function AutomateRecruiting4() {
                   <td>❌ Drag or update manually</td>
                   <td>✅ "REX, move to Interview"</td>
                 </tr>
-                <tr>
+                <tr className="force-white-row">
                   <td>Converting replies</td>
                   <td>❌ Manual data entry</td>
                   <td>✅ One-click convert</td>
@@ -232,7 +237,7 @@ export default function AutomateRecruiting4() {
                   <td>❌ Set up in Zapier separately</td>
                   <td>✅ REX triggers pre-wired hooks</td>
                 </tr>
-                <tr>
+                <tr className="force-white-row">
                   <td>Automations</td>
                   <td>❌ Custom per client</td>
                   <td>✅ Triggered by stage or reply</td>
@@ -273,7 +278,7 @@ export default function AutomateRecruiting4() {
         <div className="max-w-6xl mx-auto px-6">
           <h2 className="text-3xl font-bold text-center mb-12">Continue the Series</h2>
           <div className="grid md:grid-cols-3 gap-8">
-            <article className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300">
+            <a href="/blog/AutomateRecruiting2" className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block" style={{color: '#ffffff', textDecoration: 'none'}}>
               <img
                 className="w-full h-48 object-cover"
                 src="https://storage.googleapis.com/uxpilot-auth.appspot.com/a38d6691dc-92163dbe18bd3d5afa0e.png"
@@ -291,9 +296,9 @@ export default function AutomateRecruiting4() {
                   <span>8 min read</span>
                 </div>
               </div>
-            </article>
+            </a>
 
-            <article className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300">
+            <a href="/blog/AutomateRecruiting3" className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block" style={{color: '#ffffff', textDecoration: 'none'}}>
               <img
                 className="w-full h-48 object-cover"
                 src="https://storage.googleapis.com/uxpilot-auth.appspot.com/ae9ba539d4-75ea5d607595907901a7.png"
@@ -311,9 +316,9 @@ export default function AutomateRecruiting4() {
                   <span>7 min read</span>
                 </div>
               </div>
-            </article>
+            </a>
 
-            <article className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300">
+            <a href="/blog/AutomateRecruiting5" className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block" style={{color: '#ffffff', textDecoration: 'none'}}>
               <img
                 className="w-full h-48 object-cover"
                 src="https://storage.googleapis.com/uxpilot-auth.appspot.com/22f7736434-ea460dbdda56f2c78643.png"
@@ -326,12 +331,12 @@ export default function AutomateRecruiting4() {
                   Run your entire recruiting agency from one command center with reporting, collaboration, and scaling.
                 </p>
                 <div className="flex items-center text-sm text-gray-500">
-                  <span>Coming Soon</span>
+                  <span>Jan 19, 2025</span>
                   <span className="mx-2">•</span>
                   <span>10 min read</span>
                 </div>
               </div>
-            </article>
+            </a>
           </div>
         </div>
       </div>
