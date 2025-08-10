@@ -13,13 +13,14 @@ export default function EmailDeliverability2() {
         .prose ul { color: #d1d5db; margin: 1.5rem 0; }
         .prose li { margin-bottom: 0.5rem; }
         .prose blockquote { border-left: 4px solid #3b82f6; padding-left: 1rem; margin: 2rem 0; font-style: italic; color: #9ca3af; }
-        .prose code { background: #374151; color: #ffffff; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.875rem; }
+        .prose code { background: #374151; color: #ffffff !important; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.875rem; }
         .prose pre { background: #1f2937; padding: 1.5rem; border-radius: 0.5rem; overflow-x: auto; margin: 2rem 0; }
         .prose table { width: 100%; border-collapse: collapse; margin: 2rem 0; }
         .prose th, .prose td { border: 1px solid #374151; padding: 0.75rem; text-align: left; }
         .prose th { background: #374151; color: #f9fafb; font-weight: 600; }
         .prose td { color: #d1d5db; }
         .toc-active { color: #3b82f6; }
+        #related-articles h2, #related-articles h3 { color: #ffffff !important; }
       `}</style>
 
       {/* Breadcrumb */}
