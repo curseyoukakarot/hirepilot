@@ -74,86 +74,98 @@ export default function MessageCenterSetup() {
           {/* Why Connect */}
           <div id="why">
             <h2>✉️ Message Center Setup: Connect Gmail, Outlook, and SendGrid to HirePilot</h2>
-            <p>HirePilot's <strong>Message Center</strong> gives you the power to send personalized outreach messages to leads and candidates — at scale — using your own email address.</p>
-            <p>This guide walks you through how to:</p>
+            <p>HirePilot’s Message Center lets you send personalized outreach to leads and candidates — at scale — using your own email address, all while keeping deliverability high and your brand front-and-center.</p>
+            <p>This guide will walk you through:</p>
             <ul>
-              <li>Connect Gmail or Outlook</li>
-              <li>Set up SendGrid for transactional messaging</li>
-              <li>Troubleshoot common issues (especially with Gmail permissions)</li>
+              <li>Connecting Gmail or Outlook</li>
+              <li>Setting up SendGrid for transactional or high-volume sending</li>
+              <li>Testing and optimizing your connection for best results</li>
             </ul>
+            <hr className="my-6 border-gray-700" />
           </div>
 
           {/* Step 1 provider */}
           <div id="choose-provider">
             <h2>🔐 Step 1: Choose Your Email Provider</h2>
-            <p>When you open the Message Center for the first time, you'll be asked to choose:</p>
+            <p>When you first open the Message Center, you’ll be prompted to choose your sending method:</p>
             <ul>
-              <li><strong>Gmail</strong> (Google Workspace or personal)</li>
-              <li><strong>Outlook</strong> (Microsoft 365 or Outlook.com)</li>
+              <li>Gmail (Google Workspace or personal Gmail)</li>
+              <li>Outlook (Microsoft 365 or Outlook.com)</li>
             </ul>
-            <p>Click <em>Connect Account</em>, and follow the OAuth prompt to authorize access.</p>
-            <blockquote>✅ HirePilot never stores your email credentials — we use secure OAuth scopes to send on your behalf.</blockquote>
+            <p>Click <em>Connect Account</em> and follow the OAuth prompt to authorize HirePilot.</p>
+            <blockquote>✅ Security note: HirePilot never stores your email credentials. We use secure, fully verified OAuth scopes to send on your behalf.</blockquote>
+            <hr className="my-6 border-gray-700" />
           </div>
 
-          {/* Gmail issue */}
-          <div id="gmail-issue">
-            <h2>💡 Gmail Permissions Issue? Read This.</h2>
-            <p>Sometimes Google flags HirePilot's Gmail connection as "unverified." This is temporary and only affects apps in testing or early deployment phases.</p>
-            <p>If you see:</p>
-            <blockquote>"Google hasn't verified this app"</blockquote>
-            <p>
-              Click <em>Advanced</em> → "<em>Go to thehirepilot.com (unsafe)</em>" → proceed anyway.
-            </p>
-            <p>🛠 We're working with Google to get fully verified. In the meantime, this is safe and common for new apps using Gmail APIs.</p>
-            <p className="italic">🔗 (Video walkthrough coming soon – you'll be able to view it here)</p>
+          {/* Gmail verified */}
+          <div id="gmail-verified">
+            <h2>💡 No More Gmail Warnings</h2>
+            <p>HirePilot’s Gmail connection is now Google-verified, meaning you’ll see the standard Google permissions screen — no “unverified app” warnings, no advanced click-throughs. Just connect and start sending.</p>
+            <hr className="my-6 border-gray-700" />
           </div>
 
           {/* Step 2 SendGrid */}
           <div id="sendgrid">
             <h2>📨 Step 2: (Optional) Connect SendGrid</h2>
-            <p>HirePilot can also send messages through your <strong>SendGrid</strong> account for better deliverability and faster sending — especially useful for:</p>
+            <p>For high-volume outreach or transactional emails (e.g., confirmations, reminders), you can send via your own SendGrid account. This is especially helpful for:</p>
             <ul>
-              <li>High-volume outreach</li>
-              <li>Transactional emails (like confirmations or reminders)</li>
-              <li>Done-for-you outreach services</li>
+              <li>Large-scale cold outreach</li>
+              <li>Automated transactional notifications</li>
+              <li>HirePilot’s done-for-you outreach service</li>
             </ul>
             <p>To connect:</p>
             <ol>
-              <li>Go to the <strong>Integrations</strong> tab in <em>Settings</em></li>
+              <li>Go to <strong>Settings</strong> → <strong>Integrations</strong> → <strong>SendGrid</strong></li>
               <li>Paste your <strong>SendGrid API Key</strong></li>
               <li>Set your default sending domain</li>
             </ol>
             <p>
-              Need help generating a SendGrid API key?
-              <br />→ <a href="https://docs.sendgrid.com/for-developers/sending-email/api-getting-started" target="_blank" rel="noopener noreferrer" className="text-blue-400 underline">Official SendGrid Docs</a>
+              Need help creating a SendGrid API key? → <a href="https://docs.sendgrid.com/for-developers/sending-email/api-getting-started" target="_blank" rel="noopener noreferrer" className="text-blue-400 underline">Official SendGrid Docs</a>
             </p>
+            <hr className="my-6 border-gray-700" />
           </div>
 
           {/* Step 3 test */}
           <div id="test">
             <h2>⚙️ Step 3: Test Your Connection</h2>
-            <p>Once connected, go to the <strong>Message Center</strong>:</p>
-            <ul>
-              <li>Compose a test message to yourself</li>
-              <li>Try sending from your connected Gmail/Outlook account</li>
+            <p>Once connected:</p>
+            <ol>
+              <li>Open the Message Center</li>
+              <li>Compose a quick test email to yourself</li>
+              <li>Send from your connected Gmail, Outlook, or SendGrid account</li>
               <li>Check for delivery, open tracking, and reply handling</li>
-            </ul>
-            <p>You're now ready to use personalized templates and automated sequences tied to your Campaigns!</p>
+            </ol>
+            <p>You’re now ready to use personalized templates and automated sequences inside your campaigns.</p>
+            <hr className="my-6 border-gray-700" />
           </div>
 
-          {/* Pro tips */}
-          <div id="pro-tips">
-            <h2>💬 Pro Tips</h2>
+          {/* Security + Pro tips */}
+          <div id="security">
+            <h2>🛡 What Happens Under the Hood</h2>
+            <p>We know connecting your email is a big trust decision — here’s how we protect it:</p>
             <ul>
-              <li>✅ You can switch between Gmail, Outlook, or SendGrid anytime in your Settings</li>
-              <li>✉️ Always warm up your email account before high-volume outreach (use tools like Mailflow or Instantly)</li>
-              <li>🤖 <strong>REX</strong> can help you craft messages or troubleshoot connection issues</li>
+              <li><strong>OAuth-Only Authentication</strong> — Your credentials never touch our servers. Instead, Gmail/Outlook give us a secure access token.</li>
+              <li><strong>Scoped Access</strong> — We only request the minimum permissions needed to send messages, read replies, and track opens.</li>
+              <li><strong>Automatic Token Refresh</strong> — Tokens are securely renewed before they expire, so your connection stays live without re-entering passwords.</li>
+              <li><strong>No Password Storage</strong> — We physically cannot see, log, or store your email password.</li>
+              <li><strong>Revocable Anytime</strong> — You can revoke access instantly from HirePilot or directly inside your Google/Microsoft account security settings.</li>
+            </ul>
+            <p>This means you stay in control of your account at all times.</p>
+            <hr className="my-6 border-gray-700" />
+          </div>
+
+          <div id="pro-tips">
+            <h2>💬 Pro Tips for Best Results</h2>
+            <ul>
+              <li>✅ Switch between Gmail, Outlook, or SendGrid anytime in Settings</li>
+              <li>✉️ Warm up any new sending domain before high-volume outreach (tools like Mailflow or Instantly work great)</li>
+              <li>🤖 Ask REX for help crafting outreach or troubleshooting issues</li>
             </ul>
             <p>Ask REX:</p>
             <ul>
-              <li>"How do I fix the Gmail permissions error?"</li>
-              <li>"What's the best time to send cold outreach emails?"</li>
-              <li>"Generate a 3-step outreach sequence for my campaign."</li>
+              <li>“How do I improve deliverability for cold outreach?”</li>
+              <li>“What’s the best time of day to send?”</li>
+              <li>“Write me a 3-step outreach sequence for a SaaS founder.”</li>
             </ul>
           </div>
         </article>
