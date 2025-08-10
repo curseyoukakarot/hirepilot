@@ -77,6 +77,7 @@ function LeadManagement() {
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const LEADS_PER_PAGE = 50;
   const [currentPage, setCurrentPage] = useState(1);
+  const [showSelectMenu, setShowSelectMenu] = useState(false);
 
   // Bulk tagging state
   const [showBulkTagModal, setShowBulkTagModal] = useState(false);
@@ -1186,18 +1187,76 @@ function LeadManagement() {
             <thead className="bg-gray-50">
               <tr>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  <input
-                    type="checkbox"
-                    className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                    checked={selectedLeadIds.length === filteredLeads.length && filteredLeads.length > 0}
-                    onChange={e => {
-                      if (e.target.checked) {
-                        setSelectedLeadIds(filteredLeads.map(l => l.id));
-                      } else {
-                        setSelectedLeadIds([]);
-                      }
-                    }}
-                  />
+                  <div className="relative inline-flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                      checked={selectedLeadIds.length > 0 && selectedLeadIds.length === filteredLeads.length}
+                      onChange={e => {
+                        if (e.target.checked) {
+                          // Default behavior: select all in current filter (existing behavior)
+                          setSelectedLeadIds(filteredLeads.map(l => l.id));
+                        } else {
+                          setSelectedLeadIds([]);
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="text-gray-500 hover:text-gray-700 text-xs border border-gray-300 rounded px-2 py-1"
+                      onClick={(e) => { e.stopPropagation(); setShowSelectMenu(v => !v); }}
+                      title="Selection options"
+                    >
+                      Select ▾
+                    </button>
+                    {showSelectMenu && (
+                      <div className="absolute z-20 mt-32 left-0 w-64 bg-white border border-gray-200 rounded-md shadow-lg" onMouseLeave={() => setShowSelectMenu(false)}>
+                        <div className="py-1 text-sm">
+                          <button
+                            className="w-full text-left px-3 py-2 hover:bg-gray-50"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedLeadIds(paginatedLeads.map(l => l.id));
+                              setShowSelectMenu(false);
+                            }}
+                          >
+                            Select this page ({paginatedLeads.length})
+                          </button>
+                          <button
+                            className="w-full text-left px-3 py-2 hover:bg-gray-50"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedLeadIds(filteredLeads.map(l => l.id));
+                              setShowSelectMenu(false);
+                            }}
+                          >
+                            Select all in view (filtered) ({filteredLeads.length})
+                          </button>
+                          <button
+                            className="w-full text-left px-3 py-2 hover:bg-gray-50"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedLeadIds(leads.map(l => l.id));
+                              setShowSelectMenu(false);
+                            }}
+                          >
+                            Select all in account ({leads.length})
+                          </button>
+                          <div className="my-1 border-t border-gray-200" />
+                          <button
+                            className="w-full text-left px-3 py-2 hover:bg-gray-50"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedLeadIds([]);
+                              setShowSelectMenu(false);
+                            }}
+                          >
+                            Clear selection
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Lead
