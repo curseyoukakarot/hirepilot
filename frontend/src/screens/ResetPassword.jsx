@@ -13,14 +13,15 @@ export default function ResetPassword() {
 
   useEffect(() => {
     let active = true;
-    // Check if a session exists (either normal or recovery). Recovery is required to update without current password
+    // Only allow reset if there's a recovery session (from the magic link)
     supabase.auth.getSession().then(({ data }) => {
       if (!active) return;
+      // Supabase sets a session on recovery links as well, so allow the form when a session exists
       setCanReset(!!data.session);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!active) return;
-      if (event === 'PASSWORD_RECOVERY' || session) {
+      if (event === 'PASSWORD_RECOVERY') {
         setCanReset(true);
       }
     });
