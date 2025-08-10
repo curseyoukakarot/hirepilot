@@ -7,9 +7,9 @@ import 'dotenv/config';
 import dotenv from 'dotenv';
 dotenv.config();
 
-// Make sure NEXT_PUBLIC_SUPABASE_ANON_KEY is loaded from .env
+// Warn if frontend env not present in backend env set (shouldn't block server start)
 if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-  throw new Error('Missing NEXT_PUBLIC_SUPABASE_ANON_KEY in .env');
+  console.warn('[WARN] NEXT_PUBLIC_SUPABASE_ANON_KEY not set. This is expected on the backend.');
 }
 
 import express from 'express';
