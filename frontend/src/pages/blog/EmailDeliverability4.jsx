@@ -17,18 +17,20 @@ export default function EmailDeliverability4() {
         .prose pre { background: #1f2937; padding: 1.5rem; border-radius: 0.5rem; overflow-x: auto; margin: 2rem 0; }
         .prose table { width: 100%; border-collapse: collapse; margin: 2rem 0; }
         .prose th, .prose td { border: 1px solid #374151; padding: 0.75rem; text-align: left; }
-        .prose th { background: #374151; color: #f9fafb; font-weight: 600; }
+        .prose th { background: #374151; color: #ffffff !important; font-weight: 600; }
         .prose td { color: #d1d5db; }
         .toc-active { color: #3b82f6; }
+        #related-articles h2, #related-articles h3 { color: #ffffff !important; }
+        #inline-cta-2 h3, #inline-cta-2 p { color: #ffffff !important; }
       `}</style>
 
       {/* Breadcrumb */}
       <div id="breadcrumb" className="bg-gray-800 py-4">
         <div className="max-w-6xl mx-auto px-6">
-          <span className="text-gray-300 hover:text-white transition-colors flex items-center cursor-pointer">
+          <a href="/blog" className="text-gray-300 hover:text-white transition-colors flex items-center">
             <i className="fa-solid fa-arrow-left mr-2" />
             Back to Blog
-          </span>
+          </a>
         </div>
       </div>
 
@@ -256,7 +258,7 @@ export default function EmailDeliverability4() {
           <div id="inline-cta-2" className="bg-gray-800 border border-gray-700 rounded-lg p-6 my-8 text-center">
             <h3 className="text-xl font-semibold mb-2">Need Help Monitoring Your SendGrid Metrics?</h3>
             <p className="mb-4">Chat with REX for personalized guidance on interpreting deliverability data and optimizing performance.</p>
-            <button className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors">Chat with REX</button>
+            <a href="/login" className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors inline-block">Chat with REX</a>
           </div>
 
           <div id="pro-tips">
@@ -313,7 +315,7 @@ export default function EmailDeliverability4() {
         <div className="max-w-6xl mx-auto px-6">
           <h2 className="text-3xl font-bold text-center mb-12">Email Deliverability Series</h2>
           <div className="grid md:grid-cols-3 gap-8">
-            <article className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300">
+            <a href="/blog/email-deliverability-3" className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block" style={{color: '#ffffff', textDecoration: 'none'}}>
               <img
                 className="w-full h-48 object-cover"
                 src="https://storage.googleapis.com/uxpilot-auth.appspot.com/ae9ba539d4-75ea5d607595907901a7.png"
@@ -331,9 +333,9 @@ export default function EmailDeliverability4() {
                   <span>Part 3 of 5</span>
                 </div>
               </div>
-            </article>
+            </a>
 
-            <article className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300">
+            <a href="/blog/email-deliverability-5" className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block" style={{color: '#ffffff', textDecoration: 'none'}}>
               <img
                 className="w-full h-48 object-cover"
                 src="https://storage.googleapis.com/uxpilot-auth.appspot.com/22f7736434-ea460dbdda56f2c78643.png"
@@ -346,14 +348,14 @@ export default function EmailDeliverability4() {
                   Advanced tactics for bypassing spam filters and increasing response rates.
                 </p>
                 <div className="flex items-center text-sm text-gray-500">
-                  <span>Coming soon</span>
+                  <span>July 24, 2025</span>
                   <span className="mx-2">•</span>
                   <span>Part 5 of 5</span>
                 </div>
               </div>
-            </article>
+            </a>
 
-            <article className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300">
+            <a href="/blog/email-deliverability-2" className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block" style={{color: '#ffffff', textDecoration: 'none'}}>
               <img
                 className="w-full h-48 object-cover"
                 src="https://storage.googleapis.com/uxpilot-auth.appspot.com/a38d6691dc-92163dbe18bd3d5afa0e.png"
@@ -371,7 +373,7 @@ export default function EmailDeliverability4() {
                   <span>Part 2 of 5</span>
                 </div>
               </div>
-            </article>
+            </a>
           </div>
         </div>
       </div>
