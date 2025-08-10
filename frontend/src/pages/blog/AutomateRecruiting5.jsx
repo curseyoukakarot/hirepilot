@@ -26,8 +26,8 @@ export default function AutomateRecruiting5() {
         #inline-cta-2 h3, #inline-cta-2 p { color: #ffffff !important; }
         #comparison table th, #comparison table td { color: #ffffff !important; }
         #related-articles h2, #related-articles h3 { color: #ffffff !important; }
-        /* Force black for specific comparison rows */
-        .force-black, .force-black td, .force-black th, .force-black * { color: #000000 !important; }
+        /* Force black for specific comparison rows (override ID-based white rule) */
+        #comparison tr.force-black td, #comparison tr.force-black th { color: #000000 !important; }
       `}</style>
 
       {/* Breadcrumb */}
