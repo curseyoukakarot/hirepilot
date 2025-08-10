@@ -8,7 +8,8 @@
     },
     "examples": [
       "REX, convert this lead to a candidate.",
-      "REX, convert lead 123e4567-e89b-12d3-a456-426614174000 to a candidate."
+      "REX, convert lead 123e4567-e89b-12d3-a456-426614174000 to a candidate.",
+      "Convert e005171f-cdb2-4f53-9973-de44767297da to a candidate"
     ]
   },
   {
