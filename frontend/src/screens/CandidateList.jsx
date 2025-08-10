@@ -457,8 +457,8 @@ export default function CandidateList() {
             </div>
           </div>
         )}
-        <div className="bg-white shadow rounded-lg overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
+        <div className="bg-white shadow rounded-lg overflow-visible">
+          <table className="min-w-full divide-y divide-gray-200 table-fixed">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3">
@@ -520,8 +520,8 @@ export default function CandidateList() {
                       openDrawerFor(candidate);
                     }}>
                       <td className="px-6 py-4"><input type="checkbox" checked={selectedIds.has(candidate.id)} onChange={() => toggleSelect(candidate.id)} onClick={(e)=>e.stopPropagation()} /></td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center min-w-0">
                           <div className="h-10 w-10 flex-shrink-0">
                             {candidate.avatar_url ? (
                               <img
@@ -538,11 +538,11 @@ export default function CandidateList() {
                               </div>
                             )}
                           </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
+                          <div className="ml-4 min-w-0">
+                            <div className="text-sm font-medium text-gray-900 max-w-[220px] truncate" title={`${candidate.first_name || ''} ${candidate.last_name || ''}`.trim()}>
                               {candidate.first_name} {candidate.last_name}
                             </div>
-                            <div className="text-sm text-gray-500">
+                            <div className="text-sm text-gray-500 max-w-[240px] truncate" title={candidate.title || (typeof candidate.enrichment_data === 'string' ? parseEnrichmentTitle(candidate.enrichment_data) : candidate.enrichment_data?.current_title) || 'No title'}>
                               {candidate.title ||
                                 (typeof candidate.enrichment_data === 'string'
                                   ? parseEnrichmentTitle(candidate.enrichment_data)
@@ -552,10 +552,10 @@ export default function CandidateList() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{candidate.email}</div>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-900 max-w-[260px] truncate" title={candidate.email}>{candidate.email}</div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
                           ${candidate.status === 'sourced' ? 'bg-yellow-100 text-yellow-800' :
                             candidate.status === 'contacted' ? 'bg-blue-100 text-blue-800' :
@@ -566,11 +566,15 @@ export default function CandidateList() {
                           {candidate.status || 'Unknown'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {candidate.candidate_jobs?.[0]?.job_requisitions?.title || 'No job assigned'}
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        <div className="max-w-[240px] truncate" title={candidate.candidate_jobs?.[0]?.job_requisitions?.title || 'No job assigned'}>
+                          {candidate.candidate_jobs?.[0]?.job_requisitions?.title || 'No job assigned'}
+                        </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {location || 'Unknown'}
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        <div className="max-w-[240px] truncate" title={location || 'Unknown'}>
+                          {location || 'Unknown'}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="relative">
@@ -582,7 +586,7 @@ export default function CandidateList() {
                           </button>
                           
                           {showActionsMenu === candidate.id && (
-                            <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
+                            <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
                               <div className="py-1" role="menu">
                                 <button
                                   onClick={() => handleMessageCandidate(candidate)}

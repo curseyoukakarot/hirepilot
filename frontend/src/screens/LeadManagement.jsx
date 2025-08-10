@@ -1182,8 +1182,8 @@ function LeadManagement() {
         </div>
 
         {/* Leads Table */}
-        <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
+        <div className="bg-white rounded-lg shadow-sm border overflow-visible">
+          <table className="min-w-full divide-y divide-gray-200 table-fixed">
             <thead className="bg-gray-50">
               <tr>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1306,22 +1306,22 @@ function LeadManagement() {
                       onClick={e => e.stopPropagation()}
                     />
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
+                  <td className="px-6 py-4">
+                    <div className="flex items-center min-w-0">
                       <img
                         src={lead.avatar}
                         alt={lead.name}
                         className="h-10 w-10 rounded-full"
                       />
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{lead.name}</div>
-                        <div className="text-sm text-gray-500">{lead.title}</div>
+                      <div className="ml-4 min-w-0">
+                        <div className="text-sm font-medium text-gray-900 max-w-[220px] truncate" title={lead.name}>{lead.name}</div>
+                        <div className="text-sm text-gray-500 max-w-[240px] truncate" title={lead.title}>{lead.title}</div>
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{lead.email}</div>
-                    <div className="text-sm text-gray-500">{lead.phone}</div>
+                  <td className="px-6 py-4">
+                    <div className="text-sm text-gray-900 max-w-[260px] truncate" title={lead.email}>{lead.email}</div>
+                    <div className="text-sm text-gray-500 max-w-[200px] truncate" title={lead.phone}>{lead.phone}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -1334,8 +1334,8 @@ function LeadManagement() {
                       {lead.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex flex-wrap gap-1 items-center">
+                  <td className="px-6 py-4">
+                    <div className="flex flex-wrap gap-1 items-center max-w-[360px] overflow-hidden">
                       {(lead.tags || []).map((tag) => (
                         <span
                           key={tag}
@@ -1371,11 +1371,11 @@ function LeadManagement() {
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">{lead.location || 'Unknown'}</td>
+                  <td className="px-6 py-4"><div className="max-w-[240px] truncate" title={lead.location || 'Unknown'}>{lead.location || 'Unknown'}</div></td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{lead.source || 'Unknown'}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 text-sm text-gray-500">
                     {new Date(lead.updatedAt).toLocaleDateString()}
-                    <div className="text-xs text-gray-400">{lead.campaign}</div>
+                    <div className="text-xs text-gray-400 max-w-[220px] truncate" title={lead.campaign}>{lead.campaign}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="relative actions-menu flex items-center justify-end gap-2">
@@ -1404,7 +1404,7 @@ function LeadManagement() {
                         <FaEllipsisV />
                       </button>
                       {showActionsMenu === lead.id && (
-                        <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
+                        <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
                           <div className="py-1" role="menu" aria-orientation="vertical">
                             <button
                               className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
