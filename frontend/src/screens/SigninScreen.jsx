@@ -7,6 +7,11 @@ import { useNavigate } from 'react-router-dom';
 export default function SigninScreen() {
   const [error, setError] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState('');
+  const [resetSent, setResetSent] = useState(false);
   const navigate = useNavigate();
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -85,6 +90,15 @@ const handleMicrosoftSignin = async () => {
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">Password</label>
               <input id="password" name="password" type="password" required placeholder="••••••••" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition text-sm bg-gray-50" />
+              <div className="mt-2 text-right">
+                <button
+                  type="button"
+                  onClick={() => setShowResetModal(true)}
+                  className="text-sm text-indigo-600 hover:text-indigo-500 underline"
+                >
+                  Forgot password?
+                </button>
+              </div>
             </div>
 
             <button type="submit" className="w-full flex justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus:ring-2 focus:ring-indigo-500 transition">
@@ -117,6 +131,80 @@ const handleMicrosoftSignin = async () => {
           )}
         </div>
       </div>
+
+      {showResetModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowResetModal(false)} />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-semibold text-gray-900">Reset your password</h3>
+            <p className="mt-1 text-sm text-gray-600">Enter your account email. We'll send a secure link to reset your password.</p>
+
+            {!resetSent ? (
+              <form
+                className="mt-4 space-y-4"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setResetError('');
+                  setResetLoading(true);
+                  try {
+                    const { error: resetErr } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+                      redirectTo: `${window.location.origin}/reset-password`,
+                    });
+                    if (resetErr) {
+                      setResetError(resetErr.message || 'Failed to send reset email.');
+                    } else {
+                      setResetSent(true);
+                    }
+                  } finally {
+                    setResetLoading(false);
+                  }
+                }}
+              >
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="reset-email">Email</label>
+                  <input
+                    id="reset-email"
+                    type="email"
+                    required
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    placeholder="you@company.com"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition text-sm bg-gray-50"
+                  />
+                </div>
+                {resetError && (
+                  <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{resetError}</div>
+                )}
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button type="button" className="text-sm text-gray-600 hover:text-gray-800" onClick={() => setShowResetModal(false)}>Cancel</button>
+                  <button
+                    type="submit"
+                    disabled={resetLoading}
+                    className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                  >
+                    {resetLoading ? 'Sending…' : 'Send reset link'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="mt-4 space-y-4">
+                <div className="rounded-md bg-green-50 p-3 text-sm text-green-700">
+                  We sent a password reset link to {resetEmail}. Check your inbox.
+                </div>
+                <div className="flex items-center justify-end">
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus:ring-2 focus:ring-indigo-500"
+                    onClick={() => setShowResetModal(false)}
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

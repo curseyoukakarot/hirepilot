@@ -66,6 +66,7 @@ const TestGmail = lazy(() => import("./pages/TestGmail"));
 
 // Lazy load screens
 const SigninScreen = lazy(() => import("./screens/SigninScreen"));
+const ResetPassword = lazy(() => import("./screens/ResetPassword"));
 const SignupScreen = lazy(() => import("./screens/SignupScreen"));
 const OnboardingWizard = lazy(() => import("./screens/OnboardingWizard"));
 const Dashboard = lazy(() => import("./screens/Dashboard"));
@@ -229,7 +230,7 @@ export default function App() {
 
 function InnerApp() {
   const location = useLocation();
-  const landingPages = ["/", "/signup", "/login", "/copilot", "/handsfree", "/pricing", "/rex", "/chromeextension", "/chromeextension/privacy", "/terms", "/apidoc", "/test-gmail", "/affiliates", "/blog/zapierguide"];
+  const landingPages = ["/", "/signup", "/login", "/reset-password", "/copilot", "/handsfree", "/pricing", "/rex", "/chromeextension", "/chromeextension/privacy", "/terms", "/apidoc", "/test-gmail", "/affiliates", "/blog/zapierguide"];
   // Treat blog landing and article pages as public landing pages (no dashboard UI)
   const isAuthPage = landingPages.includes(location.pathname) || location.pathname.startsWith('/blog') || location.pathname.startsWith('/rex');
   const navigate = useNavigate();
@@ -318,6 +319,7 @@ function InnerApp() {
               <Route path="/" element={<HomePage />} />
               <Route path="/signup" element={<SignupScreen />} />
               <Route path="/login" element={<SigninScreen />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/onboarding" element={<OnboardingWizard />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/campaigns" element={<Campaigns />} />
