@@ -13,13 +13,17 @@ export default function EmailDeliverability3() {
         .prose ul { color: #d1d5db; margin: 1.5rem 0; }
         .prose li { margin-bottom: 0.5rem; }
         .prose blockquote { border-left: 4px solid #3b82f6; padding-left: 1rem; margin: 2rem 0; font-style: italic; color: #9ca3af; }
-        .prose code { background: #374151; color: #f9fafb; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.875rem; }
+        .prose code { background: #374151; color: #ffffff !important; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.875rem; }
         .prose pre { background: #1f2937; padding: 1.5rem; border-radius: 0.5rem; overflow-x: auto; margin: 2rem 0; }
         .prose table { width: 100%; border-collapse: collapse; margin: 2rem 0; }
         .prose th, .prose td { border: 1px solid #374151; padding: 0.75rem; text-align: left; }
         .prose th { background: #374151; color: #f9fafb; font-weight: 600; }
         .prose td { color: #d1d5db; }
         .toc-active { color: #3b82f6; }
+        /* Force-white for specific sections */
+        #hidden-send-limits table th { color: #ffffff !important; }
+        #inline-cta-2 h3, #inline-cta-2 p { color: #ffffff !important; }
+        #related-articles h2, #related-articles h3 { color: #ffffff !important; }
       `}</style>
 
       {/* Breadcrumb */}
@@ -226,7 +230,7 @@ export default function EmailDeliverability3() {
           <div id="inline-cta-2" className="bg-gray-800 border border-gray-700 rounded-lg p-6 my-8 text-center">
             <h3 className="text-xl font-semibold mb-2">Ready to Switch to SendGrid?</h3>
             <p className="mb-4">Chat with REX for step-by-step guidance on migrating from Gmail/Outlook to professional email.</p>
-            <button className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors">Chat with REX</button>
+            <a href="/login" className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors inline-block">Chat with REX</a>
           </div>
 
           <div id="gmail-smtp-vs-ui">
@@ -270,7 +274,7 @@ export default function EmailDeliverability3() {
         <div className="max-w-6xl mx-auto px-6">
           <h2 className="text-3xl font-bold text-center mb-12">Email Deliverability Series</h2>
           <div className="grid md:grid-cols-3 gap-8">
-            <article className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300">
+            <a href="/blog/email-deliverability-2" className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block" style={{color: '#ffffff', textDecoration: 'none'}}>
               <img
                 className="w-full h-48 object-cover"
                 src="https://storage.googleapis.com/uxpilot-auth.appspot.com/a38d6691dc-92163dbe18bd3d5afa0e.png"
@@ -288,9 +292,9 @@ export default function EmailDeliverability3() {
                   <span>Part 2 of 5</span>
                 </div>
               </div>
-            </article>
+            </a>
 
-            <article className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300">
+            <a href="/blog/email-deliverability-4" className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block" style={{color: '#ffffff', textDecoration: 'none'}}>
               <img
                 className="w-full h-48 object-cover"
                 src="https://storage.googleapis.com/uxpilot-auth.appspot.com/75caae2492-c87687c0aa429fc7491c.png"
@@ -303,14 +307,14 @@ export default function EmailDeliverability3() {
                   Advanced configuration, monitoring, and optimization strategies for HirePilot users.
                 </p>
                 <div className="flex items-center text-sm text-gray-500">
-                  <span>Coming soon</span>
+                  <span>July 24, 2025</span>
                   <span className="mx-2">•</span>
                   <span>Part 4 of 5</span>
                 </div>
               </div>
-            </article>
+            </a>
 
-            <article className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300">
+            <a href="/blog/email-deliverability-5" className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block" style={{color: '#ffffff', textDecoration: 'none'}}>
               <img
                 className="w-full h-48 object-cover"
                 src="https://storage.googleapis.com/uxpilot-auth.appspot.com/22f7736434-ea460dbdda56f2c78643.png"
@@ -323,12 +327,12 @@ export default function EmailDeliverability3() {
                   How to diagnose deliverability issues and recover from blacklists and penalties.
                 </p>
                 <div className="flex items-center text-sm text-gray-500">
-                  <span>Coming soon</span>
+                  <span>July 24, 2025</span>
                   <span className="mx-2">•</span>
                   <span>Part 5 of 5</span>
                 </div>
               </div>
-            </article>
+            </a>
           </div>
         </div>
       </div>
