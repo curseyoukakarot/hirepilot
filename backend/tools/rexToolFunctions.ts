@@ -2069,7 +2069,8 @@ export async function convertLeadToCandidate({
       user_id: userId,
       first_name: firstName || '',
       last_name: lastName || '',
-      email: lead.email || null,
+      // Some environments require non-null email; fall back to empty string
+      email: lead.email || '',
       phone: lead.phone || null,
       avatar_url: (lead as any).avatar_url || null,
       status: 'sourced',
@@ -2086,6 +2087,7 @@ export async function convertLeadToCandidate({
     .single();
 
   if (candidateError) {
+    console.error('[convertLeadToCandidate] Insert error:', candidateError);
     throw new Error('Failed to create candidate');
   }
 
