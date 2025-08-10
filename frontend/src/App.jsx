@@ -39,6 +39,8 @@ import TermsPage from './screens/TermsPage';
 import RexSupport from './screens/RexSupport';
 import ApiDocs from './screens/ApiDocs';
 import AffiliateProgram from './screens/AffiliateProgram';
+import PartnersDashboard from './pages/PartnersDashboard';
+import { setRefCookie } from './lib/affiliate';
 // Blog article pages
 const FlowOfHirePilot = lazy(() => import("./pages/blog/FlowOfHirePilot"));
 const MessageCenterSetup = lazy(() => import("./pages/blog/MessageCenterSetup"));
@@ -94,6 +96,13 @@ function CampaignWizard() {
   const navigate = useNavigate();
   const location = useLocation();
   const { wizard, setWizard } = useWizard();
+
+  // set hp_ref cookie if present
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const ref = params.get('ref');
+    if (ref) setRefCookie(ref);
+  }, [location.search]);
 
   // Update wizard step based on route
   useEffect(() => {
@@ -240,6 +249,13 @@ function InnerApp() {
   const [isSuspended, setIsSuspended] = useState(false);
   useGAPageViews();
 
+  // set hp_ref cookie if present on any public route
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const ref = params.get('ref');
+    if (ref) setRefCookie(ref);
+  }, [location.search]);
+
   useEffect(() => {
     const fetchRole = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -357,6 +373,7 @@ function InnerApp() {
               <Route path="/rexsupport" element={<RexSupport />} />
               <Route path="/apidoc" element={<ApiDocs />} />
               <Route path="/affiliates" element={<AffiliateProgram />} />
+              <Route path="/partners/dashboard" element={<PartnersDashboard />} />
               <Route path="/test-gmail" element={<TestGmail />} />
               {/* Blog articles */}
               <Route path="/blog/flow-of-hirepilot" element={<FlowOfHirePilot />} />

@@ -79,6 +79,13 @@ import appHealth from './api/appHealth';
 import { incrementApiCalls, incrementFailedCalls } from './metrics/appMetrics';
 import userCreatedWebhook from './api/webhooks/userCreated';
 import stripeRouter from './routes/stripe';
+import affiliatesRouter from './src/routes/affiliates';
+import payoutsRouter from './src/routes/payouts';
+import checkoutRouter from './src/routes/checkout';
+import partnerPassRouter from './src/routes/partnerPass';
+import commissionLockerRouter from './src/routes/commissionLocker';
+import stripeWebhookRouter, { stripeWebhookHandler } from './src/routes/stripeWebhook';
+import { requireAuth } from './middleware/authMiddleware';
 import trackingRouter from './api/tracking';
 // Boot REX MCP server immediately so it's ready in Railway prod
 import './src/rex/server';
@@ -133,7 +140,10 @@ app.options('*', cors());
 // Parse cookies
 app.use(cookieParser());
 
-// Parse JSON bodies
+// Mount Stripe affiliate webhook BEFORE any body parsers to preserve raw body
+app.post('/api/stripe/webhook', bodyParser.raw({ type: 'application/json' }), stripeWebhookHandler);
+
+// Parse JSON bodies for all other routes
 app.use(express.json());
 
 // Parse URL-encoded bodies
@@ -181,8 +191,8 @@ app.get('/api/getCampaigns', getCampaigns);
 app.delete('/api/deleteCampaign', deleteCampaign);
 app.use('/api/sendgrid', sendgridValidateRouter);
 app.use('/api/sendgrid', sendgridSaveRouter);
-app.use('/api', sendgridWebhookRouter);
-app.use('/api', emailMetricsRouter);
+  app.use('/api', sendgridWebhookRouter);
+  app.use('/api', emailMetricsRouter);
 app.use('/api/message', messageRouter);
 app.use('/api/phantombuster', phantombusterValidateRouter);
 app.use('/api/email', emailTemplatesRouter);
@@ -193,7 +203,7 @@ app.use('/api/campaigns', saveLeadSourceRouter);
 app.use('/api/campaigns', leadSourceRouter);
 app.use('/api/campaigns', launchDataRouter);
 app.use('/api/pipelines', pipelinesRouter);
-app.use('/api', apiRouter);
+  app.use('/api', apiRouter);
 app.use('/api/admin', linkedinSessionAdminRouter);
 app.get('/api/advanced-info', getAdvancedInfo);
 app.get('/api/health/overview', appHealth);
@@ -205,12 +215,13 @@ app.use('/api/phantom', phantomStatusUpdate);
 app.use('/api/phantom', phantomPoll);
 app.delete('/api/deleteJobRequisitions', deleteJobRequisitions);
 app.use('/api/team', teamRouter);
-app.use('/api', slackRouter);
-app.use('/api/billing', billingRouter);
-app.use('/api/credits', creditsRouter);
-app.use('/api/candidates', candidatesRouter);
-app.use('/api/cron', cronProcessorRouter);
-app.use('/api/admin', adminUsersRouter);
+  app.use('/api', slackRouter);
+  app.use('/api/billing', billingRouter);
+  app.use('/api/credits', creditsRouter);
+  app.use('/api/candidates', candidatesRouter);
+  app.use('/api/cron', cronProcessorRouter);
+  app.use('/api/admin', adminUsersRouter);
+  // (webhook route mounted earlier before body parsers)
 app.get('/api/campaigns/all/performance', (req, res) => {
   (req.params as any).id = 'all';
   return campaignPerformance(req, res);
@@ -225,9 +236,20 @@ app.delete('/api/slack/disconnect', slackDisconnect);
 app.post('/api/slack/test-post', slackTestPost);
 app.post('/api/slack/slash', slackSlash);
 app.post('/webhooks/user-created', userCreatedWebhook);
-app.use('/api/stripe', stripeRouter);
-app.use('/api/tracking', trackingRouter);
-app.use('/api', attachTeam);
+  app.use('/api/stripe', stripeRouter);
+  // Affiliates + payouts APIs (require auth)
+  app.use('/api/affiliates', requireAuth as any, affiliatesRouter);
+  app.use('/api/payouts', requireAuth as any, payoutsRouter);
+  app.use('/api/checkout', requireAuth as any, checkoutRouter);
+  app.use('/api/partner-pass', requireAuth as any, partnerPassRouter);
+  app.use('/api/commissions/lock', requireAuth as any, commissionLockerRouter);
+// Mount Stripe affiliate webhook with raw body parsing for this route only
+app.post('/api/stripe/webhook', bodyParser.raw({ type: 'application/json' }), stripeWebhookHandler);
+// Affiliates + payouts APIs (require auth)
+app.use('/api/affiliates', requireAuth as any, affiliatesRouter);
+app.use('/api/payouts', requireAuth as any, payoutsRouter);
+  app.use('/api/tracking', trackingRouter);
+  app.use('/api', attachTeam);
 
 // Log all endpoints before starting the server
 console.table(

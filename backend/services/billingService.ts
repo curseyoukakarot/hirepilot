@@ -170,7 +170,12 @@ export class BillingService {
   /**
    * Create Stripe checkout session
    */
-  static async createCheckoutSession(userId: string, priceId: string, planTier: string) {
+  static async createCheckoutSession(
+    userId: string,
+    priceId: string,
+    planTier: string,
+    opts?: { metadata?: Record<string, any>; clientReferenceId?: string }
+  ) {
     // Get or create Stripe customer
     const { data: userData } = await supabase
       .from('users')
@@ -231,7 +236,8 @@ export class BillingService {
       mode: 'subscription',
       success_url: `${process.env.FRONTEND_URL}/billing/success`,
       cancel_url: `${process.env.FRONTEND_URL}/billing/cancel`,
-      metadata: { userId, planTier }
+      metadata: { userId, planTier, ...(opts?.metadata || {}) },
+      client_reference_id: opts?.clientReferenceId || userId
     });
 
     return session;

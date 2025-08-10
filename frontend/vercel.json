@@ -1,5 +1,15 @@
 {
   "rewrites": [
+    { "source": "/affiliates", "destination": "/index.html" },
+    { "source": "/partners/:path*", "destination": "/index.html" },
     { "source": "/(.*)", "destination": "/" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" }
+      ]
+    }
   ]
-} 
+}

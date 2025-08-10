@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { BillingService } from '../services/billingService';
+import { supabaseAdmin } from '../src/services/supabase';
 import { CreditService } from '../services/creditService';
 import { PRICING_CONFIG } from '../config/pricing';
 
@@ -75,7 +76,39 @@ export class BillingController {
         return;
       }
 
-      const session = await BillingService.createCheckoutSession(userId, priceId, planId);
+      // Build affiliate metadata from hp_ref cookie (if present)
+      let affiliateMeta: Record<string, any> | undefined = undefined;
+      const refCode = (req as any).cookies?.hp_ref as string | undefined;
+      if (refCode) {
+        const { data: aff } = await supabaseAdmin
+          .from('affiliates')
+          .select('id, referral_code')
+          .eq('referral_code', refCode)
+          .maybeSingle();
+        if (aff) {
+          affiliateMeta = {
+            affiliate_id: aff.id,
+            referral_code: aff.referral_code,
+            plan_type: 'DIY'
+          };
+        }
+      }
+
+      const session = await BillingService.createCheckoutSession(
+        userId,
+        priceId,
+        planId,
+        {
+          metadata: {
+            user_id: userId,
+            plan_tier: planId,
+            plan_type: 'DIY',
+            price_id: priceId,
+            ...(affiliateMeta || {})
+          },
+          clientReferenceId: userId
+        }
+      );
       res.json({ sessionId: session.id });
     } catch (error) {
       console.error('Error creating checkout session:', error);
