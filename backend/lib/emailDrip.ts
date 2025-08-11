@@ -36,7 +36,8 @@ export async function sendAffiliateWelcomeEmail(userId: string) {
 
   const msg = {
     to: user.email,
-    from: process.env.SENDGRID_FROM_EMAIL!,
+    from: process.env.SENDGRID_FROM_AFFILIATES || process.env.SENDGRID_FROM_EMAIL!,
+    replyTo: process.env.SENDGRID_REPLY_TO_AFFILIATES || process.env.SENDGRID_SUPPORT_EMAIL || undefined,
     templateId,
     dynamic_template_data: {
       first_name: user.firstName || '',
