@@ -29,6 +29,7 @@ export default function PublicFooter() {
             <h4 className="font-semibold text-lg mb-4">Company</h4>
             <ul className="space-y-3 text-gray-400">
               <li><a href="/blog" className="hover:text-white">Blog</a></li>
+              <li><a href="/affiliates" className="hover:text-white">Earn Money</a></li>
             </ul>
           </div>
           <div>
