@@ -39,7 +39,7 @@ import TermsPage from './screens/TermsPage';
 import RexSupport from './screens/RexSupport';
 import ApiDocs from './screens/ApiDocs';
 import AffiliateProgram from './screens/AffiliateProgram';
-import PartnersDashboard from './pages/PartnersDashboard';
+import PartnersDashboard from './pages/partners/AffiliateDashboard';
 import { setRefCookie } from './lib/affiliate';
 // Blog article pages
 const FlowOfHirePilot = lazy(() => import("./pages/blog/FlowOfHirePilot"));
@@ -241,7 +241,8 @@ function InnerApp() {
   const location = useLocation();
   const landingPages = ["/", "/signup", "/login", "/reset-password", "/copilot", "/handsfree", "/pricing", "/rex", "/chromeextension", "/chromeextension/privacy", "/terms", "/apidoc", "/test-gmail", "/affiliates", "/blog/zapierguide"];
   // Treat blog landing and article pages as public landing pages (no dashboard UI)
-  const isAuthPage = landingPages.includes(location.pathname) || location.pathname.startsWith('/blog') || location.pathname.startsWith('/rex');
+  const isPartnerArea = location.pathname.startsWith('/partners');
+  const isAuthPage = landingPages.includes(location.pathname) || location.pathname.startsWith('/blog') || location.pathname.startsWith('/rex') || isPartnerArea;
   const navigate = useNavigate();
   const [userLoaded, setUserLoaded] = useState(false);
   const [dbRole, setDbRole] = useState(null);
@@ -316,7 +317,7 @@ function InnerApp() {
           }}>Update payment</button>
         </div>
       )}
-      {!isAuthPage && <div className="fixed top-0 left-0 right-0 z-50"><Navbar /></div>}
+      {!isAuthPage && !isPartnerArea && <div className="fixed top-0 left-0 right-0 z-50"><Navbar /></div>}
       <Toaster
         position="top-right"
         toastOptions={{
@@ -328,8 +329,8 @@ function InnerApp() {
         }}
       />
       <div className={`flex flex-1 ${!isAuthPage ? 'pt-[72px]' : ''}`}>
-        {!isAuthPage && <div className="fixed left-0 top-[72px] bottom-0 w-64"><Sidebar /></div>}
-        <main className={`flex-1 ${!isAuthPage ? 'ml-64 p-6 min-h-0 overflow-y-auto' : ''}`}>
+        {!isAuthPage && !isPartnerArea && <div className="fixed left-0 top-[72px] bottom-0 w-64"><Sidebar /></div>}
+        <main className={`flex-1 ${!isAuthPage && !isPartnerArea ? 'ml-64 p-6 min-h-0 overflow-y-auto' : ''}`}>
           <Suspense fallback={<div className="text-center p-6">Loading...</div>}>
             <Routes>
               <Route path="/" element={<HomePage />} />
