@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { supabaseAdmin } from '../services/supabase';
 import { ensureConnectAccount, connectOnboardingLink } from '../services/stripe';
+import { sendAffiliateWelcomeEmail } from '../../lib/emailDrip';
 
 const r = Router();
 
@@ -14,6 +15,8 @@ r.post('/register', async (req, res) => {
     .select()
     .single();
   if (error) return res.status(400).json({ error: error.message });
+  // Fire-and-forget affiliate welcome email
+  try { await sendAffiliateWelcomeEmail(userId); } catch {}
   res.json(data);
 });
 
