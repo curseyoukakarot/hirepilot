@@ -110,32 +110,55 @@ function LeadManagement() {
       const mapped = rawLeads.map((lead) => {
         const enrichment =
           typeof lead.enrichment_data === 'string'
-            ? JSON.parse(lead.enrichment_data)
+            ? (() => { try { return JSON.parse(lead.enrichment_data); } catch { return {}; } })()
             : lead.enrichment_data || {};
 
+        // Prefer stable DB columns first, then enrichment fallbacks
+        const computedLocation = [lead.city, lead.state, lead.country]
+          .filter(Boolean)
+          .join(', ')
+          || lead.campaign_location
+          || lead.location
+          || enrichment.location
+          || 'Unknown';
+
+        const normalizeSource = (val) => {
+          if (!val) return null;
+          const v = String(val).trim().toLowerCase();
+          if (v === 'apollo') return 'Apollo';
+          if (v === 'sales navigator' || v === 'sales_navigator' || v === 'phantombuster' || v === 'phantom') return 'Sales Navigator';
+          if (v === 'chrome extension') return 'Chrome Extension';
+          return val; // keep original case if already human-readable
+        };
+
+        const computedSource = normalizeSource(lead.enrichment_source)
+          || normalizeSource(lead.source)
+          || normalizeSource(enrichment.source)
+          || 'Unknown';
+
         return {
-        id: lead.id,
-        name: lead.name,
-        title: lead.title,
-        company: lead.company,
-        email: lead.email,
+          id: lead.id,
+          name: lead.name,
+          title: lead.title,
+          company: lead.company,
+          email: lead.email,
           linkedin_url: lead.linkedin_url,
           enrichment,
-        status: lead.status,
-        createdAt: lead.created_at,
-        updatedAt: lead.updated_at,
-        avatar: getAvatarUrl(lead.name),
-        tags: lead.tags || [],
-        campaign: lead.campaign,
-        campaign_id: lead.campaign_id,
-        phone: lead.phone,
-          source: enrichment.source || 'Unknown',
-          location: enrichment.location || 'Unknown',
+          status: lead.status,
+          createdAt: lead.created_at,
+          updatedAt: lead.updated_at,
+          avatar: getAvatarUrl(lead.name),
+          tags: lead.tags || [],
+          campaign: lead.campaign,
+          campaign_id: lead.campaign_id,
+          phone: lead.phone,
+          source: computedSource,
+          location: computedLocation,
           workHistory: enrichment.workHistory || [],
           gptNotes: enrichment.gptNotes || '',
-        skills: [],
-        twitter: '',
-        outreachHistory: [],
+          skills: [],
+          twitter: '',
+          outreachHistory: [],
         };
       });
       setLeads(mapped);
@@ -1788,14 +1811,36 @@ function LeadManagement() {
           onLeadUpdated={(updatedLead) => {
             const enrichment =
               typeof updatedLead.enrichment_data === 'string'
-                ? JSON.parse(updatedLead.enrichment_data)
+                ? (() => { try { return JSON.parse(updatedLead.enrichment_data); } catch { return {}; } })()
                 : updatedLead.enrichment_data || {};
+
+            const computedLocation = [updatedLead.city, updatedLead.state, updatedLead.country]
+              .filter(Boolean)
+              .join(', ')
+              || updatedLead.campaign_location
+              || updatedLead.location
+              || enrichment.location
+              || 'Unknown';
+
+            const normalizeSource = (val) => {
+              if (!val) return null;
+              const v = String(val).trim().toLowerCase();
+              if (v === 'apollo') return 'Apollo';
+              if (v === 'sales navigator' || v === 'sales_navigator' || v === 'phantombuster' || v === 'phantom') return 'Sales Navigator';
+              if (v === 'chrome extension') return 'Chrome Extension';
+              return val;
+            };
+
+            const computedSource = normalizeSource(updatedLead.enrichment_source)
+              || normalizeSource(updatedLead.source)
+              || normalizeSource(enrichment.source)
+              || 'Unknown';
 
             const mappedLead = {
               ...updatedLead,
               enrichment,
-              source: enrichment.source || 'Unknown',
-              location: enrichment.location || 'Unknown',
+              source: computedSource,
+              location: computedLocation,
               workHistory: enrichment.workHistory || [],
               gptNotes: enrichment.gptNotes || '',
             };
