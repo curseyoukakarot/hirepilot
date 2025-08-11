@@ -504,7 +504,32 @@ router.post('/apollo/search', requireAuth, async (req: Request, res: Response) =
       booleanSearch
     });
 
-    // 1. Check for active Apollo integration
+    // 1) Prefer the shared SUPER_ADMIN_APOLLO_API_KEY for ALL users (centralized credits)
+    if (process.env.SUPER_ADMIN_APOLLO_API_KEY) {
+      console.log('[Apollo Search] Using SUPER_ADMIN_APOLLO_API_KEY (global first)');
+
+      const { searchAndEnrichPeople } = await import('../../utils/apolloApi');
+
+      const searchParams: any = {
+        api_key: process.env.SUPER_ADMIN_APOLLO_API_KEY,
+        person_locations: location ? [location] : undefined,
+        page: 1,
+        per_page: 100,
+      };
+
+      if (booleanSearch && keywords) {
+        searchParams.person_titles = [keywords.trim()];
+      } else {
+        if (jobTitle) searchParams.person_titles = [jobTitle];
+        if (keywords) searchParams.q_keywords = keywords;
+      }
+
+      const { leads } = await searchAndEnrichPeople(searchParams);
+      res.json({ leads });
+      return;
+    }
+
+    // 2) Next, try OAuth integration token if connected
     const { data: integration } = await supabase
       .from('integrations')
       .select('*')
@@ -513,7 +538,6 @@ router.post('/apollo/search', requireAuth, async (req: Request, res: Response) =
       .eq('status', 'connected')
       .single();
 
-    // 2. If integration found, try to use OAuth token
     if (integration) {
       const { data: apolloTokens } = await supabase
         .from('apollo_accounts')
@@ -528,91 +552,23 @@ router.post('/apollo/search', requireAuth, async (req: Request, res: Response) =
           keywords,
           location,
           page: 1,
-          per_page: 10
+          per_page: 10,
         };
 
         const response = await fetch('https://api.apollo.io/v1/mixed_people/search', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${apolloTokens.access_token}`,
-            'Content-Type': 'application/json'
+            Authorization: `Bearer ${apolloTokens.access_token}`,
+            'Content-Type': 'application/json',
           },
-          body: JSON.stringify(apolloPayload)
+          body: JSON.stringify(apolloPayload),
         });
 
-        const data = await response.json() as { people?: any[]; contacts?: any[] };
+        const data = (await response.json()) as { people?: any[]; contacts?: any[] };
         const leads = data.people || data.contacts || [];
         res.json({ leads });
-        return; // CRITICAL: Early return to prevent double response
+        return;
       }
-    }
-
-    // 3. Check if user has privileged role access to SUPER_ADMIN_APOLLO_API_KEY
-    const { data: userRecord, error: userErr } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', userId)
-      .single();
-
-    // Check user metadata as fallback
-    let authMetadata = null;
-    try {
-      const { data: authUser } = await supabase.auth.admin.getUserById(userId);
-      authMetadata = authUser?.user?.user_metadata;
-    } catch (authError) {
-      console.error('Error fetching auth metadata:', authError);
-    }
-
-    // Check if user is privileged (RecruitPro, TeamAdmin, admin, member) - includes admin for REX and Apollo access
-    const privilegedTypes = ['RecruitPro', 'TeamAdmin', 'admin', 'member'];
-    const userRole = userRecord?.role || authMetadata?.role || authMetadata?.account_type;
-    const isPrivileged = privilegedTypes.includes(userRole);
-
-    console.log('[Apollo Search] Privilege check:', {
-      userRole,
-      isPrivileged,
-      privilegedTypes
-    });
-
-    // If privileged user, use SUPER_ADMIN_APOLLO_API_KEY
-    if (isPrivileged && process.env.SUPER_ADMIN_APOLLO_API_KEY) {
-      console.log('[Apollo Search] Using SUPER_ADMIN_APOLLO_API_KEY for privileged user');
-      
-      // Use the CORRECT Apollo API format that actually works
-      const { searchAndEnrichPeople } = await import('../../utils/apolloApi');
-      
-      const searchParams: any = {
-        api_key: process.env.SUPER_ADMIN_APOLLO_API_KEY,
-        person_locations: location ? [location] : undefined, // ✅ Correct parameter name
-        page: 1,
-        per_page: 100
-      };
-
-      // Handle Boolean search mode
-      if (booleanSearch && keywords) {
-        // Boolean mode: Put Boolean job title search in person_titles, not q_keywords
-        // Apollo supports Boolean syntax in person_titles field
-        searchParams.person_titles = [keywords.trim()];
-        console.log('[Apollo Search] Boolean mode enabled - using person_titles with Boolean syntax:', searchParams.person_titles);
-      } else {
-        // Regular mode: Use person_titles for job title and q_keywords for additional keywords
-        if (jobTitle) {
-          searchParams.person_titles = [jobTitle];
-        }
-        if (keywords) {
-          searchParams.q_keywords = keywords;
-        }
-        console.log('[Apollo Search] Regular mode - using person_titles and q_keywords separately');
-      }
-
-      console.log('[Apollo Search] PRIVILEGED USER - Using WORKING Apollo implementation:', {
-        ...searchParams,
-        api_key: '***'
-      });
-
-      const { leads } = await searchAndEnrichPeople(searchParams);
-      res.json({ leads });
-      return;
     }
 
     // 4. Fallback: Use API key from user_settings
@@ -662,48 +618,8 @@ router.post('/apollo/search', requireAuth, async (req: Request, res: Response) =
       return;
     }
 
-    // 5. Final global fallback to SUPER_ADMIN_APOLLO_API_KEY (for non-privileged users)
-    const superKey = process.env.SUPER_ADMIN_APOLLO_API_KEY;
-
-    if (superKey) {
-      console.log('[Apollo Search] Using SUPER_ADMIN_APOLLO_API_KEY final fallback');
-      
-      // Use the CORRECT Apollo API format that actually works
-      const { searchAndEnrichPeople } = await import('../../utils/apolloApi');
-      
-      const searchParams: any = {
-        api_key: superKey,
-        person_locations: location ? [location] : undefined, // ✅ Correct parameter name
-        page: 1,
-        per_page: 100
-      };
-
-      // Handle Boolean search mode
-      if (booleanSearch && keywords) {
-        // Boolean mode: Put Boolean job title search in person_titles, not q_keywords
-        // Apollo supports Boolean syntax in person_titles field
-        searchParams.person_titles = [keywords.trim()];
-        console.log('[Apollo Search] Boolean mode enabled - using person_titles with Boolean syntax:', searchParams.person_titles);
-      } else {
-        // Regular mode: Use person_titles for job title and q_keywords for additional keywords
-        if (jobTitle) {
-          searchParams.person_titles = [jobTitle];
-        }
-        if (keywords) {
-          searchParams.q_keywords = keywords;
-        }
-        console.log('[Apollo Search] Regular mode - using person_titles and q_keywords separately');
-      }
-
-      console.log('[Apollo Search] FINAL FALLBACK - Using WORKING Apollo implementation:', {
-        ...searchParams,
-        api_key: '***'
-      });
-
-      const { leads } = await searchAndEnrichPeople(searchParams);
-      res.json({ leads });
-      return;
-    }
+    // 4) If no shared key or OAuth, fallback to user's personal API key
+    // (handled above already); if none, error out
 
     res.status(400).json({ 
       error: 'No Apollo integration or API key found. Please connect your Apollo account or add an API key in the settings.' 
