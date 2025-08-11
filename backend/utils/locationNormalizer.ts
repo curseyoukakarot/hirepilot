@@ -49,7 +49,10 @@ export function normalizeLocation(input: string): string {
 }
 
 export function toApolloGeoString(location: string): string {
-  return normalizeLocation(location);
+  // Preserve "City, ST" granularity; don't broaden to state-only,
+  // to avoid wide-radius matches in Apollo.
+  const normalized = normalizeLocation(location);
+  return normalized;
 }
 
 export function parseApolloLocation(person: any): NormalizedLocation {

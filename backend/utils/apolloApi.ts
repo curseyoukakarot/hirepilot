@@ -142,32 +142,53 @@ function expandTitleVariants(title: string): string[] {
 
 // Helper function to normalize location variants  
 function normalizeLocationVariants(location: string): string[] {
-  const variants = [];
-  
-  // Handle common formats like "Miami, FL" -> proper Apollo format
-  if (location.includes(',')) {
-    const parts = location.split(',').map(p => p.trim());
-    
-    if (parts.length === 2) {
-      const [city, state] = parts;
-      
+  const variants: string[] = [];
+
+  // Normalize whitespace and casing
+  const raw = location.trim();
+
+  // Handle formats like "Dallas, TX" or "Dallas, Texas"
+  if (raw.includes(',')) {
+    const parts = raw.split(',').map(p => p.trim()).filter(Boolean);
+
+    // If user provided City, State[, Country] → constrain strictly to that city
+    if (parts.length >= 2) {
+      const city = parts[0];
+      const stateInput = parts[1];
+      const countryInput = parts[2] || 'US';
+
       // Map common state abbreviations
       const stateMap: { [key: string]: string } = {
-        'FL': 'Florida', 'CA': 'California', 'NY': 'New York', 'TX': 'Texas',
-        'IL': 'Illinois', 'WA': 'Washington', 'MA': 'Massachusetts'
+        FL: 'Florida', CA: 'California', NY: 'New York', TX: 'Texas',
+        IL: 'Illinois', WA: 'Washington', MA: 'Massachusetts', GA: 'Georgia',
+        PA: 'Pennsylvania', NC: 'North Carolina', CO: 'Colorado', AZ: 'Arizona',
+        VA: 'Virginia', MI: 'Michigan', OH: 'Ohio', OR: 'Oregon', MN: 'Minnesota',
       };
-      
-      const fullState = stateMap[state] || state;
-      
-      // Add both city and state level variants
-      variants.push(`${city}, ${fullState}, US`);
-      variants.push(`${fullState}, US`);
+
+      const stateFull = stateMap[stateInput.toUpperCase()] || stateInput;
+      const country = countryInput.toUpperCase() === 'UNITED STATES' ? 'US' : countryInput;
+
+      // Only include the city-level variant. Including the state-level variant
+      // caused broad matches (e.g., Dallas search returning Houston/Austin).
+      variants.push(`${city}, ${stateFull}, ${country}`);
+
+      // Metro aliases for tighter-but-inclusive coverage where Apollo expects them
+      const metroAliasMap: Record<string, string> = {
+        'Dallas': 'Dallas-Fort Worth',
+        'San Francisco': 'San Francisco Bay Area',
+        'NYC': 'New York',
+        'Los Angeles': 'Los Angeles',
+      };
+      const alias = metroAliasMap[city];
+      if (alias) {
+        variants.push(`${alias}, ${stateFull}, ${country}`);
+      }
+      return variants;
     }
-  } else {
-    // Single location, assume it's a state or city
-    variants.push(`${location}, US`);
   }
-  
+
+  // Single token: assume state or city; append US by default
+  variants.push(`${raw}, US`);
   return variants;
 }
 
