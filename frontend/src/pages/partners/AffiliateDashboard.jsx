@@ -218,8 +218,8 @@ export default function AffiliateDashboard() {
       <div id="floating-link" className="fixed bottom-6 right-6 bg-white rounded-lg shadow-lg p-4 border border-gray-200">
         <div className="text-xs text-gray-500 mb-1">Quick Copy</div>
         <div className="flex items-center space-x-2">
-          <code className="text-xs bg-gray-100 px-2 py-1 rounded">hirepilot.com/ref/sarah123</code>
-          <button className="text-blue-500 hover:text-blue-600" onClick={() => navigator.clipboard.writeText('hirepilot.com/ref/sarah123')}>
+          <code className="text-xs bg-gray-100 px-2 py-1 rounded">{referralLink || '—'}</code>
+          <button className="text-blue-500 hover:text-blue-600" onClick={() => referralLink && navigator.clipboard.writeText(referralLink)}>
             <i className="fa-regular fa-copy" />
           </button>
         </div>
