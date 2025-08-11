@@ -40,6 +40,9 @@ import RexSupport from './screens/RexSupport';
 import ApiDocs from './screens/ApiDocs';
 import AffiliateProgram from './screens/AffiliateProgram';
 import PartnersDashboard from './pages/partners/AffiliateDashboard';
+import AffiliatePayouts from './pages/partners/AffiliatePayouts';
+import AffiliateSettings from './pages/partners/AffiliateSettings';
+import AffiliateActivity from './pages/partners/AffiliateActivity';
 import { setRefCookie } from './lib/affiliate';
 // Blog article pages
 const FlowOfHirePilot = lazy(() => import("./pages/blog/FlowOfHirePilot"));
@@ -375,6 +378,9 @@ function InnerApp() {
               <Route path="/apidoc" element={<ApiDocs />} />
               <Route path="/affiliates" element={<AffiliateProgram />} />
               <Route path="/partners/dashboard" element={<PartnersDashboard />} />
+              <Route path="/partners/payouts" element={<AffiliatePayouts />} />
+              <Route path="/partners/settings" element={<AffiliateSettings />} />
+              <Route path="/partners/activity" element={<AffiliateActivity />} />
               <Route path="/test-gmail" element={<TestGmail />} />
               {/* Blog articles */}
               <Route path="/blog/flow-of-hirepilot" element={<FlowOfHirePilot />} />
