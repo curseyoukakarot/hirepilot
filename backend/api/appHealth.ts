@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { supabase } from '../lib/supabase';
+import { supabaseAdmin } from '../src/services/supabase';
 import { getMetrics } from '../metrics/appMetrics';
 
 export default async function appHealth(req: Request, res: Response) {
@@ -35,6 +36,16 @@ export default async function appHealth(req: Request, res: Response) {
     }
   } catch {
     result.phantom = { status: 'unknown' };
+  }
+
+  // Affiliates (service role count)
+  try {
+    const { error: affErr, count } = await supabaseAdmin
+      .from('affiliates')
+      .select('id', { head: true, count: 'exact' });
+    result.affiliates = { total: affErr ? 0 : (count || 0) };
+  } catch {
+    result.affiliates = { total: 0 };
   }
 
   // Slack integration

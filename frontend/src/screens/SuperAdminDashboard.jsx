@@ -61,14 +61,14 @@ export default function SuperAdminDashboard() {
               </div>
               <div className="bg-gray-700 p-3 rounded-md">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-200">Phantom Tasks</span>
+                  <span className="text-sm text-gray-200">Affiliate Partners</span>
                   <span className="text-blue-600">
-                    <i className="fa-solid fa-robot"></i>
+                    <i className="fa-solid fa-handshake"></i>
                   </span>
                 </div>
                 <div className="mt-2">
-                  <span className="text-2xl font-bold text-gray-100">{health?.phantom?.queued ?? '-'}</span>
-                  <span className="text-gray-400 text-xs ml-2">Queued</span>
+                  <span className="text-2xl font-bold text-gray-100">{health?.affiliates?.total ?? 0}</span>
+                  <span className="text-gray-400 text-xs ml-2">Total</span>
                 </div>
               </div>
               <div className="bg-gray-700 p-3 rounded-md">
