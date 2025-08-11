@@ -18,6 +18,8 @@ export async function notifySlack(message: string) {
 export const SlackMessages = {
   campaignLaunched: (title: string, email: string) => 
     `🚀 New campaign **${title}** launched by ${email}`,
+  affiliateSignedUp: (email: string, referral: string) =>
+    `🤝 New Affiliate Signup\n• Email: ${email}\n• Referral Code: ${referral}`,
   
   leadsScraped: (title: string, count: number) =>
     `📥 ${count} leads scraped for campaign **${title}**`,

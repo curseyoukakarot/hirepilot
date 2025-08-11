@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { supabaseAdmin } from '../services/supabase';
 import { ensureConnectAccount, connectOnboardingLink } from '../services/stripe';
 import { sendAffiliateWelcomeEmail } from '../../lib/emailDrip';
+import { notifySlack } from '../../lib/slack';
 
 const r = Router();
 
@@ -9,14 +10,42 @@ const r = Router();
 r.post('/register', async (req, res) => {
   const userId = (req as any).user.id;
   const code = 'hp_' + userId.slice(0, 8);
+
+  // Detect if this is a first-time affiliate registration to avoid duplicate Slack pings
+  const { data: existing } = await supabaseAdmin
+    .from('affiliates')
+    .select('id')
+    .eq('user_id', userId)
+    .maybeSingle();
+
   const { data, error } = await supabaseAdmin
     .from('affiliates')
     .upsert({ user_id: userId, referral_code: code }, { onConflict: 'user_id' })
     .select()
     .single();
+
   if (error) return res.status(400).json({ error: error.message });
+
   // Fire-and-forget affiliate welcome email
   try { await sendAffiliateWelcomeEmail(userId); } catch {}
+
+  // Notify Super Admins in Slack for NEW signups only
+  if (!existing) {
+    try {
+      const { data: userRow } = await supabaseAdmin
+        .from('users')
+        .select('email')
+        .eq('id', userId)
+        .maybeSingle();
+      const email = userRow?.email || 'unknown@unknown';
+      const message = `🤝 New Affiliate Signup\n• Email: ${email}\n• Referral Code: ${data?.referral_code}\n• User ID: ${userId}`;
+      await notifySlack(message);
+    } catch (e) {
+      // best-effort only
+      console.warn('Affiliate Slack notify failed', e);
+    }
+  }
+
   res.json(data);
 });
 
