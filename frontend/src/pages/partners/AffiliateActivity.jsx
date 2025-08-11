@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AffiliateHeader from './AffiliateHeader';
-import { supabase } from '../../lib/supabase';
+import { partnersSupabase } from '../../lib/partnersSupabase';
 
 export default function AffiliateActivity() {
   const [rows, setRows] = useState([]);
@@ -11,7 +11,7 @@ export default function AffiliateActivity() {
   useEffect(() => {
     let mounted = true; let t;
     (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await partnersSupabase.auth.getSession();
       const token = session?.access_token; if (!token) return;
       const fetchRows = async () => {
         setLoading(true);

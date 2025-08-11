@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { supabase } from '../../lib/supabase';
+import { partnersSupabase } from '../../lib/partnersSupabase';
 
 function NavLink({ to, children }) {
   const location = useLocation();
@@ -20,8 +20,8 @@ function NavLink({ to, children }) {
 export default function AffiliateHeader() {
   const navigate = useNavigate();
   const signOut = async () => {
-    await supabase.auth.signOut();
-    navigate('/login');
+    await partnersSupabase.auth.signOut();
+    navigate('/partners/login');
   };
 
   return (

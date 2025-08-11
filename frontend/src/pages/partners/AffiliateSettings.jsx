@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import AffiliateHeader from './AffiliateHeader';
-import { supabase } from '../../lib/supabase';
+import { partnersSupabase } from '../../lib/partnersSupabase';
 
 export default function AffiliateSettings() {
   const [profile, setProfile] = useState({ referral_link: '', tier: '', joined_at: '' });
@@ -9,7 +9,7 @@ export default function AffiliateSettings() {
 
   useEffect(() => {
     (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await partnersSupabase.auth.getSession();
       const token = session?.access_token;
       if (!token) return;
       const [linkRes, overviewRes] = await Promise.all([
@@ -23,7 +23,7 @@ export default function AffiliateSettings() {
   }, []);
 
   const connectStripe = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await partnersSupabase.auth.getSession();
     const token = session?.access_token;
     const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/affiliates/connect/onboarding`, {
       method: 'POST', headers: { Authorization: `Bearer ${token}` }, credentials: 'include'

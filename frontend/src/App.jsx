@@ -43,7 +43,10 @@ import PartnersDashboard from './pages/partners/AffiliateDashboard';
 import AffiliatePayouts from './pages/partners/AffiliatePayouts';
 import AffiliateSettings from './pages/partners/AffiliateSettings';
 import AffiliateActivity from './pages/partners/AffiliateActivity';
+import PartnersLogin from './pages/partners/Login';
 import { setRefCookie } from './lib/affiliate';
+import PartnersRouteGuard from './pages/partners/PartnersRouteGuard';
+const RequirePartnersAuth = ({ children }) => <PartnersRouteGuard>{children}</PartnersRouteGuard>;
 // Blog article pages
 const FlowOfHirePilot = lazy(() => import("./pages/blog/FlowOfHirePilot"));
 const MessageCenterSetup = lazy(() => import("./pages/blog/MessageCenterSetup"));
@@ -377,10 +380,11 @@ function InnerApp() {
               <Route path="/rexsupport" element={<RexSupport />} />
               <Route path="/apidoc" element={<ApiDocs />} />
               <Route path="/affiliates" element={<AffiliateProgram />} />
-              <Route path="/partners/dashboard" element={<PartnersDashboard />} />
-              <Route path="/partners/payouts" element={<AffiliatePayouts />} />
-              <Route path="/partners/settings" element={<AffiliateSettings />} />
-              <Route path="/partners/activity" element={<AffiliateActivity />} />
+              <Route path="/partners/login" element={<PartnersLogin />} />
+              <Route path="/partners/dashboard" element={<RequirePartnersAuth><PartnersDashboard /></RequirePartnersAuth>} />
+              <Route path="/partners/payouts" element={<RequirePartnersAuth><AffiliatePayouts /></RequirePartnersAuth>} />
+              <Route path="/partners/settings" element={<RequirePartnersAuth><AffiliateSettings /></RequirePartnersAuth>} />
+              <Route path="/partners/activity" element={<RequirePartnersAuth><AffiliateActivity /></RequirePartnersAuth>} />
               <Route path="/test-gmail" element={<TestGmail />} />
               {/* Blog articles */}
               <Route path="/blog/flow-of-hirepilot" element={<FlowOfHirePilot />} />

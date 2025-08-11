@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AffiliateHeader from './AffiliateHeader';
-import { supabase } from '../../lib/supabase';
+import { partnersSupabase } from '../../lib/partnersSupabase';
 
 const Badge = ({ children, color = 'gray' }) => (
   <span className={`px-2 py-1 text-xs rounded-full bg-${color}-100 text-${color}-700`}>{children}</span>
@@ -18,7 +18,7 @@ export default function AffiliatePayouts() {
     let timer;
     (async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session } } = await partnersSupabase.auth.getSession();
         const token = session?.access_token;
         if (!token) return;
         const fetchAll = async () => {
