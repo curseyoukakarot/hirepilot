@@ -74,6 +74,9 @@ export default async function rexChat(req: Request, res: Response) {
       { type:'function',function:{name:'send_email',parameters:{ type:'object', properties:{ userId:{type:'string'}, to:{type:'string'}, subject:{type:'string'}, body:{type:'string'}}, required:['userId','to','subject','body']}}},
       { type:'function',function:{name:'enrich_lead',parameters:{ type:'object', properties:{ userId:{type:'string'}, linkedin_url:{type:'string'}}, required:['userId','linkedin_url']}}},
       { type:'function',function:{name:'get_campaign_metrics',parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'}}, required:['userId','campaign_id']}}},
+      // Lead sourcing and filtering
+      { type:'function',function:{name:'source_leads',parameters:{ type:'object', properties:{ userId:{type:'string'}, campaignId:{type:'string'}, source:{type:'string'}, filters:{type:'object'}}, required:['userId','campaignId','source']}}},
+      { type:'function',function:{name:'filter_leads',parameters:{ type:'object', properties:{ userId:{type:'string'}, campaignId:{type:'string'}, filters:{type:'object'}}, required:['userId']}}},
       // Lead → Candidate conversion
       { type:'function',function:{name:'convert_lead_to_candidate',parameters:{ type:'object', properties:{ userId:{type:'string'}, leadId:{type:'string'}}, required:['userId','leadId']}}},
       // New pipeline tools

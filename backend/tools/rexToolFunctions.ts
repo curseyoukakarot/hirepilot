@@ -42,11 +42,16 @@ export async function sourceLeads({
   const searchParams: any = {
     api_key: apolloApiKey,
     page: 1,
-    per_page: 25
+    per_page: Math.max(1, Math.min(100, Number(filters?.count || filters?.limit || filters?.per_page || 25)))
   };
-  if (filters?.title) searchParams.person_titles = [filters.title];
+  if (filters?.booleanSearch && filters?.keywords) {
+    // Boolean mode: put Boolean expression into person_titles so Apollo ORs terms natively
+    searchParams.person_titles = [String(filters.keywords).trim()];
+  } else {
+    if (filters?.title) searchParams.person_titles = [filters.title];
+    if (filters?.keywords) searchParams.q_keywords = filters.keywords;
+  }
   if (filters?.location) searchParams.person_locations = [filters.location];
-  if (filters?.keywords) searchParams.q_keywords = filters.keywords;
 
   // 3. Search & enrich people
   const { leads } = await searchAndEnrichPeople(searchParams as any);
@@ -100,6 +105,89 @@ export async function sourceLeads({
   await notifySlack(`📥 Imported ${insertedLeads.length} leads into campaign ${campaignId}`);
 
   return { imported: insertedLeads.length };
+}
+
+/**
+ * Filter existing leads for a user/campaign by simple criteria
+ * Supported filters:
+ *  - has_email: boolean
+ *  - verified_only: boolean (checks enrichment_data.apollo.email_status === 'verified')
+ *  - personal_email_only: boolean (heuristic: common personal domains)
+ *  - limit: number (default 25)
+ */
+export async function filterLeads({
+  userId,
+  campaignId,
+  filters
+}: {
+  userId: string;
+  campaignId?: string;
+  filters?: Record<string, any>;
+}) {
+  // Resolve target campaign if a sentinel like 'latest' is provided
+  let targetCampaignId = campaignId;
+  if (campaignId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(campaignId)) {
+    const { data: ctx } = await supabaseDb
+      .from('rex_user_context')
+      .select('latest_campaign_id')
+      .eq('supabase_user_id', userId)
+      .maybeSingle();
+    targetCampaignId = ctx?.latest_campaign_id || undefined;
+  }
+
+  const limit = Math.max(1, Math.min(200, Number(filters?.limit || 25)));
+
+  let query = supabaseDb
+    .from('leads')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (targetCampaignId) {
+    query = query.eq('campaign_id', targetCampaignId);
+  }
+
+  if (filters?.has_email) {
+    query = query.not('email', 'is', null).neq('email', '');
+  }
+
+  if (filters?.verified_only) {
+    // JSON path filter: enrichment_data->apollo->>email_status = 'verified'
+    query = query.filter('enrichment_data->apollo->>email_status', 'eq', 'verified');
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    throw new Error(`Failed to filter leads: ${error.message}`);
+  }
+
+  let leads = data || [];
+
+  if (filters?.personal_email_only) {
+    const personalDomains = new Set([
+      'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com', 'me.com', 'aol.com', 'live.com', 'pm.me', 'proton.me', 'protonmail.com'
+    ]);
+    leads = leads.filter((l: any) => {
+      const email: string | null = l.email || null;
+      if (!email || !email.includes('@')) return false;
+      const domain = email.split('@').pop()!.toLowerCase();
+      return personalDomains.has(domain);
+    });
+  }
+
+  // Shape a compact response suitable for chat summaries
+  const shaped = leads.map((l: any) => ({
+    id: l.id,
+    name: `${l.first_name || ''} ${l.last_name || ''}`.trim() || l.name || null,
+    title: l.title || null,
+    company: l.company || null,
+    email: l.email || null,
+    email_status: l.enrichment_data?.apollo?.email_status || null,
+    linkedin_url: l.linkedin_url || null
+  }));
+
+  return { count: shaped.length, leads: shaped };
 }
 
 export async function enrichLead({

@@ -16,7 +16,21 @@ export default function PartnersSignup() {
     try {
       const { data, error } = await partnersSupabase.auth.signUp({ email, password });
       if (error) throw error;
-      navigate('/partners/dashboard');
+      // If email confirmations are disabled, we may already have a session
+      const { data: sess } = await partnersSupabase.auth.getSession();
+      const token = sess?.session?.access_token;
+      if (token) {
+        // Create affiliate profile on backend
+        await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/affiliates/register`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          credentials: 'include'
+        }).catch(()=>{});
+        navigate('/partners/dashboard');
+        return;
+      }
+      // Otherwise ask user to log in (email confirm flow)
+      navigate('/partners/login');
     } catch (e) {
       setError(e.message || 'Signup failed');
     } finally {

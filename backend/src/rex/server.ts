@@ -6,6 +6,7 @@ import sgMail from '@sendgrid/mail';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const {
   sourceLeads,
+  filterLeads,
   enrichLead: enrichLeadTool,
   enrichLeadProfile,
   sendMessage,
@@ -315,6 +316,17 @@ server.registerCapabilities({
         const creditInfo = await fetchCreditsTool({ userId });
         if (creditInfo.creditsRemaining <= 0) throw new Error('Insufficient credits to source leads.');
         return await sourceLeads({ userId, campaignId, source, filters });
+      }
+    },
+    filter_leads: {
+      parameters: {
+        userId: { type:'string' },
+        campaignId: { type:'string', optional: true },
+        filters: { type:'object', optional: true }
+      },
+      handler: async ({ userId, campaignId, filters }) => {
+        await assertPremium(userId);
+        return await filterLeads({ userId, campaignId, filters });
       }
     },
     enrich_lead_advanced: {
