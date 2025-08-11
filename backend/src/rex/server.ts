@@ -77,8 +77,16 @@ server.registerCapabilities({
       }
     },
     send_email: {
-      parameters: { userId:{type:'string'}, to:{type:'string'}, subject:{type:'string'}, body:{type:'string'}, provider:{type:'string', optional:true} },
-      handler: async ({ userId, to, subject, body, provider }) => {
+      parameters: {
+        userId:{type:'string'},
+        to:{type:'string'},
+        subject:{type:'string', optional:true},
+        body:{type:'string', optional:true},
+        provider:{type:'string', optional:true},
+        template_name:{type:'string', optional:true},
+        template_id:{type:'string', optional:true}
+      },
+      handler: async ({ userId, to, subject, body, provider, template_name, template_id }) => {
         await assertPremium(userId);
         const { listSenders } = require('../../tools/rexToolFunctions');
         const availableSenders = await listSenders({ userId });
@@ -103,15 +111,70 @@ server.registerCapabilities({
           }
         }
         
+        // If a template is specified or subject/body missing, fetch and personalize template
+        let finalSubject: string | undefined = subject;
+        let finalBody: string | undefined = body;
+
+        if (template_id || template_name || !finalSubject || !finalBody) {
+          // Resolve lead by recipient email (for personalization)
+          const { data: leadRow } = await supabase
+            .from('leads')
+            .select('*')
+            .eq('user_id', userId)
+            .ilike('email', to)
+            .maybeSingle();
+
+          if (template_id || template_name) {
+            let template: any = null;
+            if (template_id) {
+              const { data, error } = await supabase
+                .from('email_templates')
+                .select('id, name, subject, content')
+                .eq('id', template_id)
+                .eq('user_id', userId)
+                .single();
+              if (error) throw new Error(`Template not found: ${error.message}`);
+              template = data;
+            } else if (template_name) {
+              const { data: exact } = await supabase
+                .from('email_templates')
+                .select('id, name, subject, content')
+                .eq('user_id', userId)
+                .ilike('name', template_name)
+                .maybeSingle();
+              if (exact) {
+                template = exact;
+              } else {
+                const { data, error } = await supabase
+                  .from('email_templates')
+                  .select('id, name, subject, content')
+                  .eq('user_id', userId)
+                  .ilike('name', `%${template_name}%`);
+                if (error) throw new Error(`Template search failed: ${error.message}`);
+                if (!data || data.length === 0) throw new Error(`Template '${template_name}' not found`);
+                if (data.length > 1) throw new Error(`Multiple templates matched '${template_name}'. Please specify exact name or template_id.`);
+                template = data[0];
+              }
+            }
+            if (template) {
+              finalSubject = personalizeMessage(template.subject || finalSubject || 'Message', leadRow || {});
+              finalBody = personalizeMessage(template.content || finalBody || '', leadRow || {});
+            }
+          }
+
+          if (!finalSubject) finalSubject = 'Message';
+          if (!finalBody) finalBody = '';
+        }
+
         // Convert line breaks to HTML breaks for proper email formatting
-        const htmlBody = body.replace(/\n/g, '<br/>');
+        const htmlBody = finalBody.replace(/\n/g, '<br/>');
         
         // Send via the selected provider
         if (selectedSender.provider === 'sendgrid') {
           const { data } = await supabase.from('user_sendgrid_keys').select('api_key, default_sender').eq('user_id', userId).single();
           if (!data?.api_key || !data?.default_sender) throw new Error('SendGrid configuration incomplete');
           sgMail.setApiKey(data.api_key);
-          const [resp] = await sgMail.send({ to, from: data.default_sender, subject, html: htmlBody });
+          const [resp] = await sgMail.send({ to, from: data.default_sender, subject: finalSubject, html: htmlBody });
           return { messageId: resp.headers['x-message-id'], provider: 'sendgrid', from: data.default_sender };
                  } else if (selectedSender.provider === 'google') {
            // Use Gmail API directly
@@ -123,9 +186,9 @@ server.registerCapabilities({
            oauth2client.setCredentials({ access_token: accessToken });
            const gmail = google.gmail({ version: 'v1', auth: oauth2client });
            
-           const raw = Buffer.from(
-             `To: ${to}\r\n` +
-             `Subject: ${subject}\r\n` +
+            const raw = Buffer.from(
+              `To: ${to}\r\n` +
+              `Subject: ${finalSubject}\r\n` +
              'Content-Type: text/html; charset=utf-8\r\n' +
              '\r\n' +
              htmlBody
@@ -149,9 +212,9 @@ server.registerCapabilities({
              }
            });
            
-           const message = {
+            const message = {
              message: {
-               subject,
+                subject: finalSubject,
                body: {
                  contentType: 'HTML',
                  content: htmlBody
@@ -168,7 +231,7 @@ server.registerCapabilities({
            return { messageId: 'outlook_sent', provider: 'outlook', from: selectedSender.from };
          } else {
            throw new Error(`Unsupported provider: ${selectedSender.provider}`);
-         }
+          }
       }
     },
     list_email_templates: {
