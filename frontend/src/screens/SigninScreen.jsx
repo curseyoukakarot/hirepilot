@@ -129,6 +129,12 @@ const handleMicrosoftSignin = async () => {
               </div>
             </div>
           )}
+
+          {/* Affiliate partners CTA */}
+          <div className="mt-6 text-center text-sm text-gray-600">
+            <span>Affiliate Partners: </span>
+            <a href="/partners/login" className="text-indigo-600 hover:text-indigo-500 underline">Sign in here</a>
+          </div>
         </div>
       </div>
 
