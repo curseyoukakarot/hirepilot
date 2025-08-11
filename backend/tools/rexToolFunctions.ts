@@ -124,6 +124,63 @@ export async function filterLeads({
   campaignId?: string;
   filters?: Record<string, any>;
 }) {
+  function normalize(text: string): string {
+    return (text || '').toLowerCase().trim();
+  }
+
+  function inferSeniority(titleLower: string): 'c_level' | 'evp' | 'svp' | 'vp' | 'director' | 'manager' | 'lead' | 'senior' | 'mid' | 'junior' | 'unknown' {
+    if (!titleLower) return 'unknown';
+    if (/chief|cxo|c-level|cto|ceo|cfo|coo/.test(titleLower)) return 'c_level';
+    if (/(exec|executive)\s*vice\s*president|\bevps?\b/.test(titleLower)) return 'evp';
+    if (/senior\s*vice\s*president|\bsvps?\b/.test(titleLower)) return 'svp';
+    if (/\bvp\b|vice\s*president/.test(titleLower)) return 'vp';
+    if (/director|head\s+of/.test(titleLower)) return 'director';
+    if (/manager/.test(titleLower)) return 'manager';
+    if (/lead\b/.test(titleLower)) return 'lead';
+    if (/\bsenior\b|\bsr\b/.test(titleLower)) return 'senior';
+    if (/associate|specialist|representative|coordinator/.test(titleLower)) return 'mid';
+    if (/junior|jr\b|entry/.test(titleLower)) return 'junior';
+    return 'unknown';
+  }
+
+  function expandTitleSynonyms(raw: string): string[] {
+    const t = normalize(raw);
+    const out = new Set<string>();
+    out.add(t);
+    // Account Executive family
+    if (/account\s+executive|\bae\b/.test(t)) {
+      ['account executive','ae','sales executive','account exec','account rep'].forEach(s => out.add(s));
+    }
+    // Talent leadership family
+    if (/vp.*talent|vice.*talent/.test(t)) {
+      ['vp of talent','vp talent','vice president talent','vp talent acquisition','vp people','vp people operations','vp hr','vice president human resources'].forEach(s => out.add(s));
+    }
+    // Generic cleanups
+    out.add(t.replace('of ', '')); // e.g., vp of talent -> vp talent
+    return Array.from(out);
+  }
+
+  function titleMatches(targetTitle: string, opts: { titles?: string[]; strictLevel?: boolean }): boolean {
+    const tl = normalize(targetTitle);
+    if (!opts.titles || opts.titles.length === 0) return true;
+
+    // Must match one of the synonyms via substring
+    const anyMatch = opts.titles.some(s => tl.includes(normalize(s)));
+    if (!anyMatch) return false;
+
+    if (opts.strictLevel) {
+      // Compare seniority of requested titles vs candidate
+      const requestedLevels = new Set(opts.titles.map(s => inferSeniority(normalize(s))));
+      const candidateLevel = inferSeniority(tl);
+      // If any requested level is specific (not unknown/mid/junior/senior), require exact match
+      const concrete = Array.from(requestedLevels).filter(l => ['vp','director','manager','c_level','evp','svp','lead'].includes(l as string));
+      if (concrete.length > 0) {
+        return concrete.includes(candidateLevel);
+      }
+    }
+    return true;
+  }
+
   // Resolve target campaign if a sentinel like 'latest' is provided
   let targetCampaignId = campaignId;
   if (campaignId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(campaignId)) {
@@ -135,7 +192,7 @@ export async function filterLeads({
     targetCampaignId = ctx?.latest_campaign_id || undefined;
   }
 
-  const limit = Math.max(1, Math.min(200, Number(filters?.limit || 25)));
+  const limit = Math.max(1, Math.min(200, Number(filters?.limit || filters?.count || 25)));
 
   let query = supabaseDb
     .from('leads')
@@ -157,6 +214,19 @@ export async function filterLeads({
     query = query.filter('enrichment_data->apollo->>email_status', 'eq', 'verified');
   }
 
+  // Pre-filter by title tokens/synonyms at the DB level, then refine in-memory
+  let requestedTitles: string[] | undefined;
+  if (filters?.title) {
+    const baseTitles: string[] = Array.isArray(filters.title) ? filters.title : [String(filters.title)];
+    requestedTitles = (filters?.synonyms === false ? baseTitles : baseTitles.flatMap(expandTitleSynonyms));
+    // Build OR list for PostgREST .or() helper
+    const orParts = requestedTitles.map(s => `title.ilike.%${s.replace(/[,]/g, ' ')}%`);
+    if (orParts.length > 0) {
+      // Supabase .or applies across existing AND constraints
+      query = query.or(orParts.join(','));
+    }
+  }
+
   const { data, error } = await query;
   if (error) {
     throw new Error(`Failed to filter leads: ${error.message}`);
@@ -174,6 +244,12 @@ export async function filterLeads({
       const domain = email.split('@').pop()!.toLowerCase();
       return personalDomains.has(domain);
     });
+  }
+
+  // Refine title accuracy in-memory with optional strict seniority matching
+  if (requestedTitles && requestedTitles.length > 0) {
+    const strictLevel = Boolean(filters?.strict_level);
+    leads = leads.filter((l: any) => titleMatches(l.title || '', { titles: requestedTitles, strictLevel: strictLevel }));
   }
 
   // Shape a compact response suitable for chat summaries

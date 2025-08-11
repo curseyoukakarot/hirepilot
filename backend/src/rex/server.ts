@@ -322,7 +322,20 @@ server.registerCapabilities({
       parameters: {
         userId: { type:'string' },
         campaignId: { type:'string', optional: true },
-        filters: { type:'object', optional: true }
+        filters: { 
+          type:'object', 
+          optional: true,
+          properties: {
+            title: { type:'string' },
+            synonyms: { type:'boolean' },
+            strict_level: { type:'boolean' },
+            has_email: { type:'boolean' },
+            verified_only: { type:'boolean' },
+            personal_email_only: { type:'boolean' },
+            limit: { type:'number' },
+            count: { type:'number' }
+          }
+        }
       },
       handler: async ({ userId, campaignId, filters }) => {
         await assertPremium(userId);
