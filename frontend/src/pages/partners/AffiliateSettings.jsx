@@ -9,7 +9,7 @@ export default function AffiliateSettings() {
 
   useEffect(() => {
     (async () => {
-      const { data: { session } } = await partnersSupabase.auth.getSession();
+      const { data: { session, user } } = await partnersSupabase.auth.getSession();
       const token = session?.access_token;
       if (!token) return;
       const [linkRes, overviewRes] = await Promise.all([
@@ -18,7 +18,10 @@ export default function AffiliateSettings() {
       ]);
       const linkData = linkRes.ok ? await linkRes.json() : {};
       const overview = overviewRes.ok ? await overviewRes.json() : {};
-      setProfile({ referral_link: linkData.url || '', tier: overview?.tier || 'starter', joined_at: '' });
+      const marketingBase = import.meta.env.VITE_MARKETING_BASE_URL || 'https://thehirepilot.com';
+      const code = linkData.code || linkData.referral_code || '';
+      const built = code ? `${marketingBase}/?ref=${code}` : '';
+      setProfile({ referral_link: built, tier: overview?.tier || 'starter', joined_at: '' });
     })();
   }, []);
 

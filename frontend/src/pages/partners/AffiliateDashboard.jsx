@@ -1,10 +1,46 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import AffiliateHeader from './AffiliateHeader';
+import { partnersSupabase } from '../../lib/partnersSupabase';
 
 export default function AffiliateDashboard() {
+  const [userName, setUserName] = useState('');
+  const [referralLink, setReferralLink] = useState('');
+  const [overview, setOverview] = useState({ lifetime_cents: 0, this_month_cents: 0, next_payout_cents: 0, tier: 'starter' });
+  const [totalReferrals, setTotalReferrals] = useState(0);
+
   useEffect(() => {
-    // Load external libs used by the provided HTML (optional if already globally available)
-    // FontAwesome, Highcharts can be included via index.html; Tailwind is already present in app
+    (async () => {
+      const { data: { user } } = await partnersSupabase.auth.getUser();
+      if (user) {
+        const name = (user.user_metadata?.first_name || user.user_metadata?.firstName || user.email?.split('@')[0] || '').toString();
+        setUserName(name ? name.charAt(0).toUpperCase() + name.slice(1) : 'Partner');
+      }
+
+      const { data: { session } } = await partnersSupabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) return;
+
+      const marketingBase = import.meta.env.VITE_MARKETING_BASE_URL || 'https://thehirepilot.com';
+
+      // Fetch referral code and build link
+      const linkRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/affiliates/link`, { headers: { Authorization: `Bearer ${token}` }, credentials: 'include' });
+      if (linkRes.ok) {
+        const linkData = await linkRes.json();
+        const code = linkData.code || linkData.referral_code;
+        if (code) setReferralLink(`${marketingBase}/?ref=${code}`);
+      }
+
+      // Overview (lifetime/this month/next payout)
+      const ovRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/affiliates/overview`, { headers: { Authorization: `Bearer ${token}` }, credentials: 'include' });
+      if (ovRes.ok) setOverview(await ovRes.json());
+
+      // Count referrals
+      const refRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/affiliates/referrals`, { headers: { Authorization: `Bearer ${token}` }, credentials: 'include' });
+      if (refRes.ok) {
+        const rows = await refRes.json();
+        setTotalReferrals(Array.isArray(rows) ? rows.length : 0);
+      }
+    })();
   }, []);
 
   return (
@@ -18,7 +54,7 @@ export default function AffiliateDashboard() {
               <div className="flex items-center space-x-4">
                 <img className="h-16 w-16 rounded-full border-4 border-white/20" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg" alt="Profile" />
                 <div>
-                  <h2 className="text-2xl font-bold">Welcome back, Sarah!</h2>
+                  <h2 className="text-2xl font-bold">Welcome back{userName ? `, ${userName}` : ''}!</h2>
                   <div className="flex items-center space-x-2 mt-1">
                     <span className="bg-white/20 px-3 py-1 rounded-full text-sm font-medium">Pro Partner</span>
                     <span className="text-white/80 text-sm">Member since Jan 2025</span>
@@ -29,8 +65,8 @@ export default function AffiliateDashboard() {
                 <div className="bg-white/10 rounded-lg p-4 backdrop-blur-sm">
                   <div className="text-sm text-white/80 mb-1">Your Referral Link</div>
                   <div className="flex items-center space-x-2">
-                    <code className="text-sm bg-white/20 px-3 py-1 rounded">hirepilot.com/ref/sarah123</code>
-                    <button className="bg-white/20 hover:bg-white/30 p-2 rounded" onClick={() => navigator.clipboard.writeText('hirepilot.com/ref/sarah123')}>
+                    <code className="text-sm bg-white/20 px-3 py-1 rounded">{referralLink || '—'}</code>
+                    <button className="bg-white/20 hover:bg-white/30 p-2 rounded" onClick={() => referralLink && navigator.clipboard.writeText(referralLink)}>
                       <i className="fa-regular fa-copy" />
                     </button>
                     <button className="bg-white/20 hover:bg-white/30 p-2 rounded">
@@ -51,32 +87,32 @@ export default function AffiliateDashboard() {
                 <h3 className="text-lg font-semibold text-gray-900">Lifetime Earnings</h3>
                 <i className="fa-solid fa-chart-line text-emerald-500 text-xl" />
               </div>
-              <div className="text-4xl font-bold text-gray-900 mb-2">$12,450.00</div>
-              <div className="text-sm text-emerald-500 font-medium">+15% from last month</div>
+              <div className="text-4xl font-bold text-gray-900 mb-2">${(overview.lifetime_cents/100).toFixed(2)}</div>
+              <div className="text-sm text-emerald-500 font-medium">Lifetime</div>
             </div>
             <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-medium text-gray-600">This Month</h3>
                 <i className="fa-solid fa-calendar-days text-blue-500" />
               </div>
-              <div className="text-2xl font-bold text-gray-900">$2,100</div>
-              <div className="text-xs text-emerald-500">+8% vs last month</div>
+              <div className="text-2xl font-bold text-gray-900">${(overview.this_month_cents/100).toFixed(0)}</div>
+              <div className="text-xs text-emerald-500">This Month</div>
             </div>
             <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-medium text-gray-600">Total Referrals</h3>
                 <i className="fa-solid fa-users text-amber-500" />
               </div>
-              <div className="text-2xl font-bold text-gray-900">47</div>
-              <div className="text-xs text-gray-500">5 this month</div>
+              <div className="text-2xl font-bold text-gray-900">{totalReferrals}</div>
+              <div className="text-xs text-gray-500">Total Referrals</div>
             </div>
             <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-medium text-gray-600">Next Payout</h3>
                 <i className="fa-regular fa-calendar text-blue-500" />
               </div>
-              <div className="text-lg font-bold text-gray-900">Aug 15</div>
-              <div className="text-xs text-gray-500">$850 pending</div>
+              <div className="text-lg font-bold text-gray-900">${(overview.next_payout_cents/100).toFixed(0)}</div>
+              <div className="text-xs text-gray-500">Next Payout (est.)</div>
             </div>
           </div>
         </section>
@@ -123,44 +159,13 @@ export default function AffiliateDashboard() {
               </div>
             </div>
             <div className="space-y-4">
-              {[
-                { email: 'john@example.com', sub: 'DIY - Pro ($249/mo)', amt: '$100', status: 'Active', statusColor: 'text-emerald-500' },
-                { email: 'sarah@company.com', sub: 'DFY - Enterprise', amt: '$500', status: 'Trial', statusColor: 'text-amber-500' }
-              ].map((r, i) => (
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg" key={i}>
-                  <div>
-                    <div className="font-medium text-gray-900">{r.email}</div>
-                    <div className="text-sm text-gray-500">{r.sub}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className={`text-sm font-medium ${r.statusColor}`}>{r.amt}</div>
-                    <div className="text-xs text-gray-500">{r.status}</div>
-                  </div>
-                </div>
-              ))}
+              <div className="text-sm text-gray-500">Recent activity will appear here as referrals come in.</div>
             </div>
           </section>
           <section id="payout-history" className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
             <h3 className="text-lg font-semibold text-gray-900 mb-6">Payouts</h3>
             <div className="space-y-4">
-              {[
-                { date: 'Aug 4, 2025', method: 'PayPal', amt: '$1,200.00', statusIcon: 'fa-check-circle', statusLabel: 'Paid', statusColor: 'text-emerald-500' },
-                { date: 'Jul 25, 2025', method: 'ACH Transfer', amt: '$850.00', statusIcon: 'fa-clock', statusLabel: 'Pending', statusColor: 'text-amber-500' }
-              ].map((p, i) => (
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg" key={i}>
-                  <div>
-                    <div className="font-medium text-gray-900">{p.date}</div>
-                    <div className="text-sm text-gray-500">{p.method}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-medium text-gray-900">{p.amt}</div>
-                    <div className={`flex items-center text-xs ${p.statusColor}`}>
-                      <i className={`fa-solid ${p.statusIcon} mr-1`} />
-                      {p.statusLabel}
-                    </div>
-                  </div>
-                </div>
-              ))}
+              <div className="text-sm text-gray-500">Your payout history will appear here after your first transfer.</div>
             </div>
           </section>
         </div>
