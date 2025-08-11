@@ -75,9 +75,9 @@ export default function AffiliateProgram() {
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-4">
-                <button className="bg-blue-600 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-blue-700 transition-colors">
+                <a href="https://affiliates.thehirepilot.com/partners/signup" className="bg-blue-600 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-blue-700 transition-colors text-center">
                   Join the Program
-                </button>
+                </a>
                 <div className="flex items-center space-x-6 text-sm text-gray-600">
                   <span className="flex items-center">
                     <i className="fa-solid fa-users mr-2 text-blue-600"></i>
@@ -359,9 +359,9 @@ export default function AffiliateProgram() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-4xl font-bold text-white mb-6">Ready to Partner With the Future of Hiring?</h2>
           <p className="text-xl text-blue-100 mb-8">Start referring in under 2 minutes. No approval needed. Your audience will thank you.</p>
-          <button className="bg-white text-blue-600 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-100 transition-colors">
+          <a href="https://affiliates.thehirepilot.com/partners/signup" className="bg-white text-blue-600 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-100 transition-colors inline-block">
             Join Now
-          </button>
+          </a>
         </div>
       </section>
 

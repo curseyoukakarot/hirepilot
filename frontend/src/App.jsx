@@ -44,6 +44,7 @@ import AffiliatePayouts from './pages/partners/AffiliatePayouts';
 import AffiliateSettings from './pages/partners/AffiliateSettings';
 import AffiliateActivity from './pages/partners/AffiliateActivity';
 import PartnersLogin from './pages/partners/Login';
+import PartnersSignup from './pages/partners/Signup';
 import { setRefCookie } from './lib/affiliate';
 import PartnersRouteGuard from './pages/partners/PartnersRouteGuard';
 const RequirePartnersAuth = ({ children }) => <PartnersRouteGuard>{children}</PartnersRouteGuard>;
@@ -390,6 +391,7 @@ function InnerApp() {
               <Route path="/apidoc" element={<ApiDocs />} />
               <Route path="/affiliates" element={<AffiliateProgram />} />
               <Route path="/partners/login" element={<PartnersLogin />} />
+              <Route path="/partners/signup" element={<PartnersSignup />} />
               <Route path="/partners/dashboard" element={<RequirePartnersAuth><PartnersDashboard /></RequirePartnersAuth>} />
               <Route path="/partners/payouts" element={<RequirePartnersAuth><AffiliatePayouts /></RequirePartnersAuth>} />
               <Route path="/partners/settings" element={<RequirePartnersAuth><AffiliateSettings /></RequirePartnersAuth>} />
