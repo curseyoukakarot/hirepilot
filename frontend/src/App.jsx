@@ -249,6 +249,15 @@ function InnerApp() {
   // Treat blog landing and article pages as public landing pages (no dashboard UI)
   const isPartnerArea = location.pathname.startsWith('/partners');
   const isAuthPage = landingPages.includes(location.pathname) || location.pathname.startsWith('/blog') || location.pathname.startsWith('/rex') || isPartnerArea;
+
+  // If partners routes are hit on the main domain, redirect to affiliates subdomain
+  useEffect(() => {
+    const host = window.location.host;
+    if (isPartnerArea && host !== 'affiliates.thehirepilot.com') {
+      const dest = `https://affiliates.thehirepilot.com${location.pathname}${location.search}${location.hash}`;
+      window.location.replace(dest);
+    }
+  }, [isPartnerArea, location.pathname, location.search, location.hash]);
   const navigate = useNavigate();
   const [userLoaded, setUserLoaded] = useState(false);
   const [dbRole, setDbRole] = useState(null);
