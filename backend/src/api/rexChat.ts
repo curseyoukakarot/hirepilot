@@ -71,7 +71,44 @@ export default async function rexChat(req: Request, res: Response) {
           parameters: { type: 'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'}, send_time:{type:'string'} }, required:['userId','campaign_id','send_time'] }
         }
       },
-      { type:'function',function:{name:'send_email',parameters:{ type:'object', properties:{ userId:{type:'string'}, to:{type:'string'}, subject:{type:'string'}, body:{type:'string'}}, required:['userId','to','subject','body']}}},
+      {
+        type:'function',
+        function:{
+          name:'send_email',
+          parameters:{
+            type:'object',
+            properties:{
+              userId:{type:'string'},
+              to:{type:'string'},
+              subject:{type:'string'},
+              body:{type:'string'},
+              provider:{type:'string'},
+              template_name:{type:'string'},
+              template_id:{type:'string'}
+            },
+            // Only require userId and to; subject/body are optional because a template may be used
+            required:['userId','to']
+          }
+        }
+      },
+      {
+        type:'function',
+        function:{
+          name:'list_email_templates',
+          parameters:{ type:'object', properties:{ userId:{type:'string'}, query:{type:'string'} }, required:['userId'] }
+        }
+      },
+      {
+        type:'function',
+        function:{
+          name:'send_template_email',
+          parameters:{
+            type:'object',
+            properties:{ userId:{type:'string'}, lead:{type:'string'}, template_name:{type:'string'}, template_id:{type:'string'}, provider:{type:'string'} },
+            required:['userId','lead']
+          }
+        }
+      },
       { type:'function',function:{name:'enrich_lead',parameters:{ type:'object', properties:{ userId:{type:'string'}, linkedin_url:{type:'string'}}, required:['userId','linkedin_url']}}},
       { type:'function',function:{name:'get_campaign_metrics',parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'}}, required:['userId','campaign_id']}}},
       // Lead sourcing and filtering
