@@ -105,6 +105,7 @@ const allowed = [
   'https://thehirepilot.com',
   'https://www.thehirepilot.com',
   'https://hirepilot.vercel.app',
+  'https://affiliates.thehirepilot.com',
   'chrome-extension://hocopaaojddfommlkiegnflimmmppbnk',  // HirePilot Chrome Extension
   /^chrome-extension:\/\/.*$/  // Allow any Chrome extension for development
 ];
