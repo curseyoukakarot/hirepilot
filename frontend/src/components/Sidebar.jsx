@@ -14,8 +14,6 @@ export default function Sidebar() {
   const navigate = useNavigate();
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
-  const [hasAffiliate, setHasAffiliate] = useState(false);
-  const [registering, setRegistering] = useState(false);
 
   useEffect(() => {
     const fetchRole = async () => {
@@ -39,13 +37,6 @@ export default function Sidebar() {
         rexEnabled = ['enabled','connected','on','true'].includes(String(rexRow?.status || '').toLowerCase());
         if (!role && user.user_metadata?.role) role = user.user_metadata.role;
 
-        // Check affiliate row
-        const { data: aff } = await supabase
-          .from('affiliates')
-          .select('id')
-          .eq('user_id', user.id)
-          .maybeSingle();
-        setHasAffiliate(Boolean(aff?.id));
       }
       const roleLc = (role || '').toLowerCase();
       const premiumRoles = ['recruitpro','teamadmin','team_admin','superadmin','super_admin','admin'];
@@ -54,23 +45,6 @@ export default function Sidebar() {
     };
     fetchRole();
   }, []);
-
-  const handleRegisterAffiliate = async () => {
-    try {
-      setRegistering(true);
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) return;
-      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/affiliates/register`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        credentials: 'include'
-      });
-      if (resp.ok) setHasAffiliate(true);
-    } finally {
-      setRegistering(false);
-    }
-  };
 
   const handleSignOut = async () => {
     try {
@@ -106,34 +80,7 @@ export default function Sidebar() {
                 </NavLink>
               </li>
             ))}
-            {hasAffiliate ? (
-              <li>
-                <NavLink
-                  to="/partners/dashboard"
-                  className={({ isActive }) =>
-                    `flex items-center px-4 py-2 text-base rounded-lg font-medium transition-colors cursor-pointer ${
-                      isActive
-                        ? 'bg-indigo-50 text-indigo-700 font-semibold dark:bg-gray-700 dark:text-indigo-300'
-                        : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
-                    }`
-                  }
-                >
-                  <span className="mr-3 text-lg">💸</span>
-                  Affiliate Dashboard
-                </NavLink>
-              </li>
-            ) : (
-              <li>
-                <button
-                  onClick={handleRegisterAffiliate}
-                  disabled={registering}
-                  className="w-full text-left flex items-center px-4 py-2 text-base rounded-lg font-medium transition-colors cursor-pointer border border-dashed border-gray-300 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
-                >
-                  <span className="mr-3 text-lg">➕</span>
-                  {registering ? 'Joining…' : 'Join Affiliate Program'}
-                </button>
-              </li>
-            )}
+            {/* Affiliate nav removed from main dashboard */}
             {isPremium && (
               <li>
                 <NavLink
