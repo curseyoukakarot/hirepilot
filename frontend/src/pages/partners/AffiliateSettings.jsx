@@ -3,7 +3,9 @@ import AffiliateHeader from './AffiliateHeader';
 import { partnersSupabase } from '../../lib/partnersSupabase';
 
 export default function AffiliateSettings() {
-  const [profile, setProfile] = useState({ referral_link: '', tier: '', joined_at: '' });
+  const [profile, setProfile] = useState({ referral_link: '', tier: 'starter', joined_at: '' });
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [uploading, setUploading] = useState(false);
   const [connectId, setConnectId] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -22,6 +24,7 @@ export default function AffiliateSettings() {
       const code = linkData.code || linkData.referral_code || '';
       const built = code ? `${marketingBase}/?ref=${code}` : '';
       setProfile({ referral_link: built, tier: overview?.tier || 'starter', joined_at: '' });
+      setAvatarUrl(user?.user_metadata?.avatar_url || '');
     })();
   }, []);
 
@@ -42,10 +45,46 @@ export default function AffiliateSettings() {
     await navigator.clipboard.writeText(profile.referral_link);
   };
 
+  const onUploadAvatar = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setUploading(true);
+      const ext = file.name.split('.').pop();
+      const fileName = `avatars/${Date.now()}.${ext}`;
+      const { data, error } = await partnersSupabase.storage.from('public').upload(fileName, file, { upsert: true, cacheControl: '3600' });
+      if (error) throw error;
+      const publicUrl = partnersSupabase.storage.from('public').getPublicUrl(fileName).data.publicUrl;
+      setAvatarUrl(publicUrl);
+      // persist to user metadata so dashboard sees it
+      const { data: userData } = await partnersSupabase.auth.getUser();
+      if (userData?.user) {
+        await partnersSupabase.auth.updateUser({ data: { avatar_url: publicUrl } });
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <div className="bg-gray-50 min-h-screen">
       <AffiliateHeader />
       <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Profile Photo</h2>
+          <div className="flex items-center gap-4">
+            <img src={avatarUrl || 'https://api.dicebear.com/7.x/initials/svg?seed=' + encodeURIComponent('P')}
+                 alt="Avatar"
+                 className="h-16 w-16 rounded-full object-cover border"/>
+            <label className="px-3 py-2 bg-gray-100 rounded-lg cursor-pointer">
+              <input type="file" accept="image/*" className="hidden" onChange={onUploadAvatar} disabled={uploading} />
+              {uploading ? 'Uploading…' : 'Upload new'}
+            </label>
+          </div>
+        </div>
+
         <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 mb-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Payout Method</h2>
           <p className="text-sm text-gray-600 mb-3">Connect your Stripe account to receive payouts.</p>

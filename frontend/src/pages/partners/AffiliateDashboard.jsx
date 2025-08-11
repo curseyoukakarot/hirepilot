@@ -7,6 +7,7 @@ export default function AffiliateDashboard() {
   const [referralLink, setReferralLink] = useState('');
   const [overview, setOverview] = useState({ lifetime_cents: 0, this_month_cents: 0, next_payout_cents: 0, tier: 'starter' });
   const [totalReferrals, setTotalReferrals] = useState(0);
+  const [avatarUrl, setAvatarUrl] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -14,6 +15,7 @@ export default function AffiliateDashboard() {
       if (user) {
         const name = (user.user_metadata?.first_name || user.user_metadata?.firstName || user.email?.split('@')[0] || '').toString();
         setUserName(name ? name.charAt(0).toUpperCase() + name.slice(1) : 'Partner');
+        setAvatarUrl(user.user_metadata?.avatar_url || '');
       }
 
       const { data: { session } } = await partnersSupabase.auth.getSession();
@@ -52,11 +54,18 @@ export default function AffiliateDashboard() {
           <div className="bg-gradient-to-r from-blue-500 to-emerald-500 rounded-2xl p-6 text-white">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <img className="h-16 w-16 rounded-full border-4 border-white/20" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg" alt="Profile" />
+                <img className="h-16 w-16 rounded-full border-4 border-white/20 object-cover"
+                  src={avatarUrl || 'https://api.dicebear.com/7.x/initials/svg?seed=' + encodeURIComponent(userName || 'P')}
+                  alt="Profile" />
                 <div>
                   <h2 className="text-2xl font-bold">Welcome back{userName ? `, ${userName}` : ''}!</h2>
                   <div className="flex items-center space-x-2 mt-1">
-                    <span className="bg-white/20 px-3 py-1 rounded-full text-sm font-medium">Pro Partner</span>
+                    <span className="bg-white/20 px-3 py-1 rounded-full text-sm font-medium">
+                      {(() => {
+                        const label = (overview?.tier || 'starter');
+                        return `${label.charAt(0).toUpperCase()}${label.slice(1)} Partner`;
+                      })()}
+                    </span>
                     <span className="text-white/80 text-sm">Member since Jan 2025</span>
                   </div>
                 </div>
@@ -120,16 +129,21 @@ export default function AffiliateDashboard() {
         {/* Tier Progress */}
         <section id="tier-progress" className="mb-8">
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 mb-6">Your Partner Tier: Pro Partner</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-6">Your Partner Tier: {`${(overview?.tier || 'starter').charAt(0).toUpperCase()}${(overview?.tier || 'starter').slice(1)} Partner`}</h3>
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <div className="flex space-x-8">
-                  {[
-                    { icon: 'fa-check', label: 'Starter', sub: '0-2 referrals', active: true },
-                    { icon: 'fa-star', label: 'Pro', sub: '3-9 referrals', active: true },
-                    { icon: 'fa-crown', label: 'Elite', sub: '10+ referrals', active: false },
-                    { icon: 'fa-trophy', label: 'Legend', sub: '25+ referrals', active: false }
-                  ].map((t, i) => (
+                  {(() => {
+                    const tier = (overview?.tier || 'starter').toLowerCase();
+                    const tierIndex = { starter: 0, pro: 1, elite: 2, legend: 3 }[tier] ?? 0;
+                    const stages = [
+                      { icon: 'fa-check', label: 'Starter', sub: '0-2 referrals' },
+                      { icon: 'fa-star', label: 'Pro', sub: '3-9 referrals' },
+                      { icon: 'fa-crown', label: 'Elite', sub: '10+ referrals' },
+                      { icon: 'fa-trophy', label: 'Legend', sub: '25+ referrals' }
+                    ];
+                    return stages.map((s, i) => ({ ...s, active: i <= tierIndex }));
+                  })().map((t, i) => (
                     <div className="text-center" key={i}>
                       <div className={`w-12 h-12 ${t.active ? 'bg-emerald-500' : 'bg-gray-200'} rounded-full flex items-center justify-center mb-2`}>
                         <i className={`fa-solid ${t.icon} ${t.active ? 'text-white' : 'text-gray-400'}`} />
@@ -141,7 +155,11 @@ export default function AffiliateDashboard() {
                 </div>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
-                <div className="bg-emerald-500 h-2 rounded-full" style={{ width: '70%' }} />
+                {(() => {
+                  const tier = (overview?.tier || 'starter').toLowerCase();
+                  const width = tier === 'legend' ? '100%' : tier === 'elite' ? '75%' : tier === 'pro' ? '45%' : '15%';
+                  return <div className="bg-emerald-500 h-2 rounded-full" style={{ width }} />;
+                })()}
               </div>
               <div className="text-sm text-gray-600">3 more referrals to unlock Elite tier</div>
             </div>
