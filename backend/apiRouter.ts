@@ -31,6 +31,7 @@ import deleteApiKey from './api/deleteApiKey';
 import userIntegrationsRouter from './api/userIntegrations';
 import webhooksRouter from './api/webhooksRouter';
 import bulkScheduleMessages from './api/bulkScheduleMessages';
+import sequencesRouter from './api/sequences';
 import testBackfill from './api/testBackfill';
 import debugMessageCenter from './api/debugMessageCenter';
 import testAnalytics from './api/testAnalytics';
@@ -236,6 +237,7 @@ router.use('/user-integrations', userIntegrationsRouter);
 router.use('/webhooks', webhooksRouter);
 
 router.post('/messages/bulk-schedule', requireAuth, bulkScheduleMessages);
+router.use('/sequences', requireAuth, sequencesRouter);
 
 // Temporary test endpoint for debugging backfill
 router.get('/test/backfill', testBackfill);

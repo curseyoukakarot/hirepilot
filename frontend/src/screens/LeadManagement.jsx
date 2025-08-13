@@ -48,6 +48,11 @@ function LeadManagement() {
   const [showBulkMessageModal, setShowBulkMessageModal] = useState(false);
   const [bulkTemplates, setBulkTemplates] = useState([]);
   const [bulkSelectedTemplate, setBulkSelectedTemplate] = useState(null);
+  const [showSequencePicker, setShowSequencePicker] = useState(false);
+  const [sequences, setSequences] = useState([]);
+  const [selectedSequenceId, setSelectedSequenceId] = useState('');
+  const [sequenceStart, setSequenceStart] = useState(new Date());
+  const [sequenceTz, setSequenceTz] = useState('America/Chicago');
   const [bulkMessages, setBulkMessages] = useState({});
   const [bulkIsSending, setBulkIsSending] = useState(false);
   const [bulkIsSavingTemplate, setBulkIsSavingTemplate] = useState(false);
@@ -553,6 +558,24 @@ function LeadManagement() {
     setBulkSelectedTemplate(null);
     setBulkMessages({});
     setShowBulkMessageModal(true);
+  };
+
+  const openSequencePicker = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const res = await fetch(`${API_BASE_URL}/sequences?include_steps=1`, {
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        credentials: 'include'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSequences(data || []);
+        setShowSequencePicker(true);
+      }
+    } catch (e) {
+      // ignore
+    }
   };
 
   // Replace tokens in template for a lead
@@ -1187,6 +1210,13 @@ function LeadManagement() {
             onClick={handleAttachMultipleLeads}
           >
             <FaLinkIcon /> Attach to Campaign
+          </button>
+          <button
+            className={`border px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-purple-50 text-purple-700 border-purple-500 disabled:opacity-50 ${selectedLeadIds.length === 0 ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+            disabled={selectedLeadIds.length === 0}
+            onClick={openSequencePicker}
+          >
+            Tiered Template
           </button>
           <button
             className={`border px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-50 text-blue-700 border-blue-500 disabled:opacity-50 ${selectedLeadIds.length < 2 ? 'cursor-not-allowed' : 'cursor-pointer'}`}
@@ -2017,6 +2047,67 @@ function LeadManagement() {
                 disabled={!bulkScheduledDate}
               >
                 Schedule Messages
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sequence Picker Modal */}
+      {showSequencePicker && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-lg w-full shadow-lg">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Enroll in Tiered Template</h3>
+              <button className="text-gray-400 hover:text-gray-600" onClick={() => setShowSequencePicker(false)}><FaTimes /></button>
+            </div>
+            <div className="mb-3">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Select Sequence</label>
+              <select className="border rounded px-3 py-2 w-full" value={selectedSequenceId} onChange={e => setSelectedSequenceId(e.target.value)}>
+                <option value="">-- Select --</option>
+                {sequences.map(s => (
+                  <option key={s.id} value={s.id}>{s.name} ({(s.steps||[]).length} steps)</option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Start</label>
+                <DatePicker selected={sequenceStart} onChange={setSequenceStart} showTimeSelect timeIntervals={15} dateFormat="MMM d, yyyy h:mm aa" className="border rounded px-3 py-2 w-full" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Timezone</label>
+                <select className="border rounded px-3 py-2 w-full" value={sequenceTz} onChange={e => setSequenceTz(e.target.value)}>
+                  <option value="America/Chicago">America/Chicago</option>
+                  <option value="UTC">UTC</option>
+                </select>
+              </div>
+            </div>
+            <div className="text-sm text-gray-600 mb-4">
+              {selectedSequenceId ? `This will enroll ${selectedLeadIds.length} lead(s) into the selected sequence.` : 'Pick a sequence to see details.'}
+            </div>
+            <div className="flex justify-end gap-3">
+              <button className="px-4 py-2 border rounded-lg hover:bg-gray-50" onClick={() => setShowSequencePicker(false)}>Cancel</button>
+              <button
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                disabled={!selectedSequenceId}
+                onClick={async ()=>{
+                  try{
+                    const { data: { session } } = await supabase.auth.getSession();
+                    const token = session?.access_token;
+                    const res = await fetch(`${API_BASE_URL}/sequences/${selectedSequenceId}/enroll`,{
+                      method:'POST',
+                      headers:{ 'Content-Type':'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {})},
+                      credentials:'include',
+                      body: JSON.stringify({ leadIds: selectedLeadIds, startTimeLocal: sequenceStart.toISOString(), timezone: sequenceTz })
+                    });
+                    if(!res.ok) throw new Error('Failed to enroll');
+                    setShowSequencePicker(false);
+                    toast.success('Leads enrolled');
+                  }catch(e){ toast.error(e.message||'Failed'); }
+                }}
+              >
+                Enroll
               </button>
             </div>
           </div>

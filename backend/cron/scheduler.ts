@@ -1,6 +1,8 @@
 import { resetStuckPhantoms } from './resetStuckPhantoms';
 import { monitorCampaignExecutions } from './monitorCampaignExecutions';
 import { supabaseDb } from '../lib/supabase';
+import { personalizeMessage } from '../utils/messageUtils';
+import { DateTime } from 'luxon';
 
 // Import phantom helper functions
 import {
@@ -140,6 +142,156 @@ export async function processScheduledMessages(){
   }
 }
 
+// -----------------------------------------------------------------------------
+// Sequence Step Dispatcher
+// -----------------------------------------------------------------------------
+export async function processSequenceStepRuns(){
+  const nowIso = new Date().toISOString();
+  // Fetch due runs
+  const { data: runs } = await supabaseDb
+    .from('sequence_step_runs')
+    .select('id,enrollment_id,sequence_id,step_id,step_order,send_at,status,retry_count')
+    .eq('status','pending')
+    .lte('send_at', nowIso)
+    .order('send_at', { ascending: true });
+
+  if (!runs || !runs.length) return;
+
+  // Prefetch enrollments and sequences for throttle/window rules
+  const enrollmentIds = Array.from(new Set(runs.map((r:any)=>r.enrollment_id)));
+  const { data: enrollments } = await supabaseDb
+    .from('sequence_enrollments')
+    .select('id,sequence_id,lead_id,status,current_step_order')
+    .in('id', enrollmentIds);
+  const enrollmentById: Record<string, any> = {};
+  for (const e of enrollments || []) enrollmentById[e.id]=e;
+
+  const sequenceIds = Array.from(new Set((enrollments||[]).map((e:any)=>e.sequence_id)));
+  const { data: sequences } = await supabaseDb
+    .from('message_sequences')
+    .select('id,team_id,throttle_per_hour,send_window_start,send_window_end')
+    .in('id', sequenceIds);
+  const seqById: Record<string, any> = {};
+  for (const s of sequences || []) seqById[s.id]=s;
+
+  // Throttle per team if needed
+  const teamThrottle: Record<string, { limit:number, sentLastHour:number }> = {};
+  const teamIds = Array.from(new Set((sequences||[]).map((s:any)=>s.team_id).filter(Boolean)));
+  if (teamIds.length){
+    const oneHourAgo = new Date(Date.now()-60*60*1000).toISOString();
+    const { data: sent } = await supabaseDb
+      .from('messages')
+      .select('id, user_id, sent_at')
+      .gte('sent_at', oneHourAgo);
+    // Without a direct team mapping in messages, conservatively apply throttle after per-run check below.
+    for (const s of sequences||[]) {
+      const lim = Number(s.throttle_per_hour||0);
+      if (lim>0) teamThrottle[s.team_id||`seq-${s.id}`] = { limit: lim, sentLastHour: 0 };
+    }
+  }
+
+  for (const run of runs){
+    try{
+      const enrollment = enrollmentById[run.enrollment_id];
+      if (!enrollment || enrollment.status !== 'active') {
+        await supabaseDb.from('sequence_step_runs').update({ status: 'skipped', updated_at: new Date().toISOString() }).eq('id', run.id);
+        continue;
+      }
+      const seq = seqById[enrollment.sequence_id];
+
+      // Throttle: if limit hit, delay +15 min
+      if (seq && seq.throttle_per_hour){
+        const key = seq.team_id || `seq-${seq.id}`;
+        const bucket = teamThrottle[key];
+        if (bucket && bucket.limit>0 && bucket.sentLastHour >= bucket.limit){
+          await supabaseDb.from('sequence_step_runs').update({ send_at: new Date(Date.now()+15*60*1000).toISOString() }).eq('id', run.id);
+          continue;
+        }
+      }
+
+      // Get step and lead
+      const { data: step } = await supabaseDb
+        .from('message_sequence_steps')
+        .select('*')
+        .eq('id', run.step_id)
+        .maybeSingle();
+      if (!step){
+        await supabaseDb.from('sequence_step_runs').update({ status:'failed', error_text:'step not found' }).eq('id', run.id);
+        continue;
+      }
+      const { data: leadRes } = await supabaseDb.from('leads').select('*').eq('id', enrollment.lead_id).maybeSingle();
+      if (!leadRes){
+        await supabaseDb.from('sequence_step_runs').update({ status:'failed', error_text:'lead not found' }).eq('id', run.id);
+        continue;
+      }
+
+      // Render content
+      const body = personalizeMessage(step.body || '', leadRes);
+      const subject = step.subject ? personalizeMessage(step.subject, leadRes) : undefined;
+
+      // Send via existing provider service (fallback to default service)
+      const sendProvider = require('../services/emailProviderService');
+      const sent = await sendProvider.sendEmail(leadRes, body, leadRes.user_id);
+
+      if (!sent){
+        const retryCount = Number(run.retry_count || 0);
+        if (retryCount < 2) {
+          await supabaseDb.from('sequence_step_runs').update({ retry_count: retryCount + 1, send_at: new Date(Date.now()+15*60*1000).toISOString(), updated_at: new Date().toISOString() }).eq('id', run.id);
+        } else {
+          await supabaseDb.from('sequence_step_runs').update({ status:'failed', updated_at: new Date().toISOString(), error_text: 'send failed' }).eq('id', run.id);
+        }
+        continue;
+      }
+
+      // Mark sent and update enrollment
+      await supabaseDb.from('sequence_step_runs').update({ status:'sent', sent_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', run.id);
+      await supabaseDb.from('sequence_enrollments').update({ last_sent_at: new Date().toISOString(), current_step_order: run.step_order }).eq('id', enrollment.id);
+
+      // Schedule next step if any
+      const { data: nextStep } = await supabaseDb
+        .from('message_sequence_steps')
+        .select('*')
+        .eq('sequence_id', enrollment.sequence_id)
+        .gt('step_order', run.step_order)
+        .order('step_order', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (nextStep){
+        const sentLocal = DateTime.fromISO(new Date().toISOString()).setZone('America/Chicago');
+        // Add delay
+        let base = sentLocal.plus({ days: nextStep.delay_days||0, hours: nextStep.delay_hours||0 });
+        // Business-day rule
+        if (nextStep.send_only_business_days) {
+          while (base.weekday > 5) {
+            base = base.plus({ days: 1 }).set({ hour: 9, minute: 0, second: 0, millisecond: 0 });
+          }
+        }
+        const [sH, sM] = (seq?.send_window_start || '00:00').split(':').map(Number);
+        const [eH, eM] = (seq?.send_window_end || '23:59').split(':').map(Number);
+        let local = base;
+        const startLocal = local.set({ hour: sH, minute: sM, second: 0, millisecond: 0 });
+        const endLocal = local.set({ hour: eH, minute: eM, second: 59, millisecond: 0 });
+        if (local < startLocal) local = startLocal;
+        if (local > endLocal) local = startLocal.plus({ days: 1 });
+        const sendAtUtc = local.toUTC().toISO();
+        await supabaseDb.from('sequence_step_runs').insert({
+          enrollment_id: enrollment.id,
+          sequence_id: enrollment.sequence_id,
+          step_id: nextStep.id,
+          step_order: nextStep.step_order,
+          send_at: sendAtUtc,
+          status: 'pending'
+        });
+      } else {
+        await supabaseDb.from('sequence_enrollments').update({ status:'completed', completed_at: new Date().toISOString() }).eq('id', enrollment.id);
+      }
+
+    }catch(e:any){
+      await supabaseDb.from('sequence_step_runs').update({ status:'failed', error_text: e.message||'error' }).eq('id', run.id);
+    }
+  }
+}
+
 export function startCronJobs() {
   console.log('[cron] Starting cron jobs...');
 
@@ -149,6 +301,7 @@ export function startCronJobs() {
     await generateDailyPhantomJobs();
     await processPhantomJobQueue();
     await processScheduledMessages();
+    await processSequenceStepRuns();
     const nextInterval = randomIntervalMs();
     console.log(`[cron] Next run in ${nextInterval / 60000} minutes`);
     setTimeout(runAndReschedule, nextInterval);

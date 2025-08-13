@@ -43,6 +43,10 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   const [tempEmail, setTempEmail] = useState('');
   const [tempPhone, setTempPhone] = useState('');
   const [tempTwitter, setTempTwitter] = useState('');
+  // Sequence enrollment UI state
+  const [enrollment, setEnrollment] = useState(null);
+  const [enrollmentRuns, setEnrollmentRuns] = useState([]);
+  const [loadingEnrollment, setLoadingEnrollment] = useState(false);
 
   useEffect(() => {
     // Parse enrichment_data if it's a string or array-like object
@@ -91,12 +95,38 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       fetchDailyLinkedInCount();
       fetchUserCredits();
       fetchUserRole();
+      fetchSequenceEnrollment(lead.lead_id || lead.id);
     }
   }, [lead, isOpen]);
 
   // Toast helper (replace with your own toast if needed)
   const showToast = (msg, type = 'success') => {
     window.alert(msg); // Replace with your toast system
+  };
+
+  const fetchSequenceEnrollment = async (leadId) => {
+    try {
+      setLoadingEnrollment(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const res = await fetch(`${API_BASE_URL}/sequence-enrollments/by-lead/${leadId}`, {
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        credentials: 'include'
+      });
+      if (res.ok){
+        const json = await res.json();
+        setEnrollment(json.enrollment || null);
+        setEnrollmentRuns(json.runs || []);
+      } else {
+        setEnrollment(null);
+        setEnrollmentRuns([]);
+      }
+    } catch {
+      setEnrollment(null);
+      setEnrollmentRuns([]);
+    } finally {
+      setLoadingEnrollment(false);
+    }
   };
 
   // Helper function to check if user role should see "Coming Soon!" modal
@@ -1691,6 +1721,60 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                     // Activity added successfully
                   }}
                 />
+
+                {/* Sequence Enrollment Section */}
+                <div className="bg-white border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-lg font-semibold">Sequence Enrollment</h3>
+                    <button className="text-sm text-gray-500 hover:text-gray-700" onClick={()=>fetchSequenceEnrollment(localLead.id)} disabled={loadingEnrollment}>Refresh</button>
+                  </div>
+                  {loadingEnrollment ? (
+                    <div className="text-sm text-gray-500">Loading...</div>
+                  ) : !enrollment ? (
+                    <div className="text-sm text-gray-500">Not enrolled. Enroll from Leads list or Sequences tab.</div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="text-sm">
+                        <span className="font-medium">Status:</span> <span className="px-2 py-0.5 rounded bg-gray-100 text-gray-700">{enrollment.status}</span>
+                      </div>
+                      <div className="text-sm">
+                        <span className="font-medium">Current step:</span> {enrollment.current_step_order}
+                      </div>
+                      <div className="text-sm">
+                        <span className="font-medium">Next ETA:</span> {(() => {
+                          const next = (enrollmentRuns || []).find(r=>r.status==='pending');
+                          return next ? new Date(next.send_at).toLocaleString() : '—';
+                        })()}
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        {enrollment.status === 'active' && (
+                          <button className="px-3 py-1 border rounded hover:bg-gray-50" onClick={async()=>{
+                            const { data:{session} } = await supabase.auth.getSession();
+                            const token = session?.access_token;
+                            await fetch(`${API_BASE_URL}/enrollments/${enrollment.id}/pause`, { method:'POST', headers:{ ...(token?{Authorization:`Bearer ${token}`}:{}) }, credentials:'include' });
+                            fetchSequenceEnrollment(localLead.id);
+                          }}>Pause</button>
+                        )}
+                        {enrollment.status === 'paused' && (
+                          <button className="px-3 py-1 border rounded hover:bg-gray-50" onClick={async()=>{
+                            const { data:{session} } = await supabase.auth.getSession();
+                            const token = session?.access_token;
+                            await fetch(`${API_BASE_URL}/enrollments/${enrollment.id}/resume`, { method:'POST', headers:{ ...(token?{Authorization:`Bearer ${token}`}:{}) }, credentials:'include' });
+                            fetchSequenceEnrollment(localLead.id);
+                          }}>Resume</button>
+                        )}
+                        {['active','paused'].includes(enrollment.status) && (
+                          <button className="px-3 py-1 border rounded hover:bg-red-50 text-red-600 border-red-300" onClick={async()=>{
+                            const { data:{session} } = await supabase.auth.getSession();
+                            const token = session?.access_token;
+                            await fetch(`${API_BASE_URL}/enrollments/${enrollment.id}/cancel`, { method:'POST', headers:{ ...(token?{Authorization:`Bearer ${token}`}:{}) }, credentials:'include' });
+                            fetchSequenceEnrollment(localLead.id);
+                          }}>Cancel</button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 {/* Blur the rest if not enriched */}
                 <div className={isEnriched ? '' : 'relative pointer-events-none select-none'}>

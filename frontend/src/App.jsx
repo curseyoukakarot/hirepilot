@@ -358,6 +358,7 @@ function InnerApp() {
               <Route path="/campaigns" element={<Campaigns />} />
               <Route path="/campaigns/new/*" element={<CampaignWizard />} />
               <Route path="/messages" element={<MessagingCenter />} />
+              <Route path="/sequences/:id" element={React.createElement(require('./pages/sequences/SequenceDetail').default)} />
               <Route path="/settings/*" element={<Settings />} />
               <Route path="/billing" element={<BillingScreen />} />
               <Route path="/rex-chat" element={<RexChatPage />} />
