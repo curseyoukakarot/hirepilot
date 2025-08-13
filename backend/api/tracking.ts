@@ -117,6 +117,14 @@ router.post('/outlook/webhook', async (req, res) => {
           messageId: notification.resourceData.id
         });
       }
+      // Call sequences reply hook for auto-stop
+      try {
+        await fetch(`${process.env.BACKEND_URL || ''}/api/sequences/reply-hook`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ leadId: notification.resourceData?.lead_id || null, occurredAt: new Date().toISOString() })
+        });
+      } catch {}
     }
 
     res.status(202).end();

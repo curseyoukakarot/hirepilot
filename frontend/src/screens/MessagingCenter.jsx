@@ -8,6 +8,8 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../lib/supabase';
 import { replaceTokens } from '../utils/tokenReplace';
+import SequencesTab from '../components/sequences/SequencesTab';
+import SequenceBuilderModal from '../components/sequences/SequenceBuilderModal';
 
 // Backend base URL (same env var used elsewhere)
 const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
@@ -56,6 +58,9 @@ export default function MessagingCenter() {
   const [templates, setTemplates] = useState([]);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [selectedLead, setSelectedLead] = useState(null);
+  const [activeSubtab, setActiveSubtab] = useState('Templates');
+  const [showSequenceBuilder, setShowSequenceBuilder] = useState(false);
+  const [editingSequence, setEditingSequence] = useState(null);
   
   // Template management state
   const [editingTemplate, setEditingTemplate] = useState(null);
@@ -992,7 +997,7 @@ export default function MessagingCenter() {
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-800">
             {activeFolder === 'Templates' 
-              ? 'Templates' 
+              ? (activeSubtab === 'Sequences' ? 'Sequences' : 'Templates')
               : showComposer 
                 ? 'New Message' 
                 : selectedMessage 
@@ -1009,77 +1014,70 @@ export default function MessagingCenter() {
         </div>
         <div className="flex-1 overflow-y-auto p-6">
           {activeFolder === 'Templates' ? (
-            // Templates View
             <div>
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-semibold text-gray-800">Email Templates</h3>
-                <button
-                  onClick={handleCreateTemplate}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
-                >
-                  <FaPlus className="mr-2" />
-                  New Template
-                </button>
-              </div>
-              <div className="grid gap-4">
-                {templates.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
-                    <FaFileLines className="mx-auto text-4xl mb-4" />
-                    <h3 className="text-lg font-medium mb-2">No templates yet</h3>
-                    <p className="mb-4">Create your first email template to get started</p>
-                    <button
-                      onClick={handleCreateTemplate}
-                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
-                    >
-                      <FaPlus className="mr-2" />
-                      Create Template
-                    </button>
-                  </div>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex gap-2">
+                  <button className={`px-3 py-2 rounded-lg text-sm ${activeSubtab==='Templates'?'bg-gray-900 text-white':'bg-gray-100 text-gray-700'}`} onClick={()=>setActiveSubtab('Templates')}>Templates</button>
+                  <button className={`px-3 py-2 rounded-lg text-sm ${activeSubtab==='Sequences'?'bg-gray-900 text-white':'bg-gray-100 text-gray-700'}`} onClick={()=>setActiveSubtab('Sequences')}>Sequences</button>
+                </div>
+                {activeSubtab==='Templates' ? (
+                  <button
+                    onClick={handleCreateTemplate}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+                  >
+                    <FaPlus className="mr-2" />
+                    New Template
+                  </button>
                 ) : (
-                  templates.map(template => (
-                    <div key={template.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-lg font-medium text-gray-900 truncate">{template.name}</h4>
-                          <p className="text-sm text-gray-600 mt-1">{template.subject}</p>
-                          <div 
-                            className="text-sm text-gray-500 mt-2 line-clamp-2" 
-                            dangerouslySetInnerHTML={{ 
-                              __html: (template.content || '').replace(/<[^>]+>/g, '').slice(0, 150) + '...' 
-                            }} 
-                          />
-                          <p className="text-xs text-gray-400 mt-2">
-                            Created {new Date(template.created_at).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <div className="flex items-center space-x-2 ml-4">
-                          <button
-                            onClick={() => handleEditTemplate(template)}
-                            className="text-blue-600 hover:text-blue-800 p-2"
-                            title="Edit template"
-                          >
-                            <FaPenToSquare />
-                          </button>
-                          <button
-                            onClick={() => handleDuplicateTemplate(template)}
-                            className="text-green-600 hover:text-green-800 p-2"
-                            title="Duplicate template"
-                          >
-                            <FaPlus />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteTemplate(template.id)}
-                            className="text-red-600 hover:text-red-800 p-2"
-                            title="Delete template"
-                          >
-                            <FaTrash />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))
+                  <button
+                    onClick={() => { setEditingSequence(null); setShowSequenceBuilder(true); }}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700"
+                  >
+                    <FaPlus className="mr-2" />
+                    New Tiered Template
+                  </button>
                 )}
               </div>
+              {activeSubtab==='Templates' ? (
+                <div className="grid gap-4">
+                  {templates.length === 0 ? (
+                    <div className="text-center py-12 text-gray-500">
+                      <FaFileLines className="mx-auto text-4xl mb-4" />
+                      <h3 className="text-lg font-medium mb-2">No templates yet</h3>
+                      <p className="mb-4">Create your first email template to get started</p>
+                      <button
+                        onClick={handleCreateTemplate}
+                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+                      >
+                        <FaPlus className="mr-2" />
+                        Create Template
+                      </button>
+                    </div>
+                  ) : (
+                    templates.map(template => (
+                      <div key={template.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-lg font-medium text-gray-900 truncate">{template.name}</h4>
+                            <p className="text-sm text-gray-600 mt-1">{template.subject}</p>
+                            <div className="text-sm text-gray-500 mt-2 line-clamp-2">
+                              {(template.content || '').replace(/<[^>]+>/g, '').slice(0, 150)}...
+                            </div>
+                            <p className="text-xs text-gray-400 mt-2">Created {new Date(template.created_at).toLocaleDateString()}</p>
+                          </div>
+                          <div className="flex items-center space-x-2 ml-4">
+                            <button onClick={() => handleEditTemplate(template)} className="text-blue-600 hover:text-blue-800 p-2" title="Edit template"><FaPenToSquare /></button>
+                            <button onClick={() => handleDuplicateTemplate(template)} className="text-green-600 hover:text-green-800 p-2" title="Duplicate template"><FaPlus /></button>
+                            <button onClick={() => handleDeleteTemplate(template.id)} className="text-red-600 hover:text-red-800 p-2" title="Delete template"><FaTrash /></button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              ) : (
+                <SequencesTab onEditSequence={(seq)=>{ setEditingSequence(seq); setShowSequenceBuilder(true); }} />
+              )}
             </div>
           ) : showComposer && !selectedMessage ? (
             <form key="compose-form">
@@ -1307,6 +1305,14 @@ export default function MessagingCenter() {
           )}
         </div>
       </section>
+      {showSequenceBuilder && (
+        <SequenceBuilderModal
+          isOpen={showSequenceBuilder}
+          onClose={()=>setShowSequenceBuilder(false)}
+          initialSequence={editingSequence}
+          onSaved={()=>{ setShowSequenceBuilder(false); }}
+        />
+      )}
     </div>
   );
 } 

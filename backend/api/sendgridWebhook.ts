@@ -77,6 +77,33 @@ router.post('/sendgrid/webhook', async (req, res) => {
         if (updateError) {
           console.error('❌ Error updating message status:', updateError);
         }
+
+        // If bounced/dropped, mark related enrollments as bounced and skip pending runs
+        if (eventType === 'bounce' || eventType === 'dropped') {
+          try {
+            if (lead_id) {
+              const { data: enrollments } = await supabase
+                .from('sequence_enrollments')
+                .select('id,status')
+                .eq('lead_id', lead_id)
+                .in('status', ['active','paused']);
+              const ids = (enrollments || []).map((e: any) => e.id);
+              if (ids.length) {
+                await supabase
+                  .from('sequence_enrollments')
+                  .update({ status: 'bounced', updated_at: new Date().toISOString() })
+                  .in('id', ids);
+                await supabase
+                  .from('sequence_step_runs')
+                  .update({ status: 'skipped', updated_at: new Date().toISOString() })
+                  .in('enrollment_id', ids)
+                  .eq('status','pending');
+              }
+            }
+          } catch (err) {
+            console.error('❌ Error marking enrollment bounced:', err);
+          }
+        }
       }
     }
 
