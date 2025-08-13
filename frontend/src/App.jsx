@@ -72,6 +72,7 @@ const AutomateRecruiting3 = lazy(() => import("./pages/blog/AutomateRecruiting3"
 const AutomateRecruiting4 = lazy(() => import("./pages/blog/AutomateRecruiting4"));
 const AutomateRecruiting5 = lazy(() => import("./pages/blog/AutomateRecruiting5"));
 const TestGmail = lazy(() => import("./pages/TestGmail"));
+const SequenceDetail = lazy(() => import("./pages/sequences/SequenceDetail"));
 
 // Lazy load screens
 const SigninScreen = lazy(() => import("./screens/SigninScreen"));
@@ -358,6 +359,7 @@ function InnerApp() {
               <Route path="/campaigns" element={<Campaigns />} />
               <Route path="/campaigns/new/*" element={<CampaignWizard />} />
               <Route path="/messages" element={<MessagingCenter />} />
+              <Route path="/sequences/:id" element={<SequenceDetail />} />
               <Route path="/sequences/:id" element={React.createElement(require('./pages/sequences/SequenceDetail').default)} />
               <Route path="/settings/*" element={<Settings />} />
               <Route path="/billing" element={<BillingScreen />} />
