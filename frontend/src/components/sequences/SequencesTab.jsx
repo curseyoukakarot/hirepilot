@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { supabase } from '../../lib/supabase';
 
 const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
 
@@ -9,7 +10,8 @@ export default function SequencesTab({ onEditSequence }) {
   const load = async () => {
     setLoading(true);
     try {
-      const token = (await window?.supabase?.auth?.getSession?.())?.data?.session?.access_token;
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
       const res = await fetch(`${API_BASE_URL}/sequences?include_steps=1`, {
         headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         credentials: 'include'
@@ -29,7 +31,8 @@ export default function SequencesTab({ onEditSequence }) {
 
   const toggleArchive = async (seq) => {
     try {
-      const token = (await window?.supabase?.auth?.getSession?.())?.data?.session?.access_token;
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
       const res = await fetch(`${API_BASE_URL}/sequences/${seq.id}/archive`, {
         method: 'POST',
         headers: { 'Content-Type':'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },

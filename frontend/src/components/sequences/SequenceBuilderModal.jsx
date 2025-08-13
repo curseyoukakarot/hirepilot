@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { FaPlus, FaTrash, FaArrowUp, FaArrowDown } from 'react-icons/fa';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import { supabase } from '../../lib/supabase';
 
 const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
 
@@ -93,7 +94,8 @@ export default function SequenceBuilderModal({ isOpen, onClose, initialSequence,
     if (!name.trim()) return;
     setSaving(true);
     try {
-      const token = (await window?.supabase?.auth?.getSession?.())?.data?.session?.access_token;
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
       const payload = {
         name: name.trim(),
         description,
