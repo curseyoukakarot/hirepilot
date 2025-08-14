@@ -171,6 +171,12 @@ export default function BillingScreen() {
         throw new Error('No active session');
       }
 
+      // Resolve priceId from frontend config (ensures correct live/test ID is sent)
+      const priceId = PRICING_CONFIG?.[planId]?.priceIds?.[interval];
+      if (!priceId) {
+        throw new Error(`Missing priceId for ${planId}/${interval}. Check VITE_STRIPE_PRICE_ID_* envs in frontend build.`);
+      }
+
       const response = await fetch(`${BACKEND}/api/billing/checkout`, {
         method: 'POST',
         headers: {
@@ -179,7 +185,7 @@ export default function BillingScreen() {
           'Authorization': `Bearer ${session.access_token}`
         },
         credentials: 'include',
-        body: JSON.stringify({ planId, interval })
+        body: JSON.stringify({ planId, interval, priceId })
       });
       
       if (!response.ok) {

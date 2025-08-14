@@ -58,7 +58,7 @@ export class BillingController {
   static async createCheckoutSession(req: Request, res: Response) {
     try {
       const userId = req.user!.id;
-      const { planId, interval } = req.body;
+      const { planId, interval, priceId: priceIdFromClient } = req.body;
 
       if (!planId || !interval || !PRICING_CONFIG[planId]) {
         res.status(400).json({ error: 'Invalid plan or interval' });
@@ -70,8 +70,11 @@ export class BillingController {
         return;
       }
 
-      const priceId = PRICING_CONFIG[planId].priceIds[interval as BillingInterval];
-      if (!priceId) {
+      // Prefer explicit priceId from client (frontend holds VITE_ values). Fallback to server config.
+      const resolvedPriceId = (typeof priceIdFromClient === 'string' && priceIdFromClient.startsWith('price_'))
+        ? priceIdFromClient
+        : PRICING_CONFIG[planId].priceIds[interval as BillingInterval];
+      if (!resolvedPriceId) {
         res.status(400).json({ error: 'Price ID not configured' });
         return;
       }
@@ -96,14 +99,14 @@ export class BillingController {
 
       const session = await BillingService.createCheckoutSession(
         userId,
-        priceId,
+        resolvedPriceId,
         planId,
         {
           metadata: {
             user_id: userId,
             plan_tier: planId,
             plan_type: 'DIY',
-            price_id: priceId,
+            price_id: resolvedPriceId,
             ...(affiliateMeta || {})
           },
           clientReferenceId: userId
