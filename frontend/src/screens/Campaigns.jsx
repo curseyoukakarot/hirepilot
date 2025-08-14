@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaPlus, FaCheck, FaTrash, FaRocket, FaPause } from 'react-icons/fa6';
+import { FaPlus, FaCheck, FaTrash, FaRocket, FaPause, FaGear } from 'react-icons/fa6';
 import { FaSearch, FaChartBar, FaUsers, FaRegFileAlt, FaTimes } from 'react-icons/fa';
 import { supabase } from '../lib/supabase';
 import { apiDelete, apiPost } from '../lib/api';
@@ -14,6 +14,7 @@ function Campaigns() {
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [showTemplates, setShowTemplates] = useState(null);
+  const [showMeta, setShowMeta] = useState(null); // campaign id for meta modal
 
   useEffect(() => {
     const fetchUserAndCampaigns = async () => {
@@ -192,6 +193,13 @@ function Campaigns() {
                 <div className="flex items-center justify-between mb-2">
                   <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusBadge(campaign.status)}`}>{campaign.status}</span>
                   <div className="flex gap-2">
+                    <button
+                      onClick={e => { e.stopPropagation(); setShowMeta(campaign.id); }}
+                      className="p-2 rounded hover:bg-gray-50 text-gray-600"
+                      title="Campaign Settings"
+                    >
+                      <FaGear />
+                    </button>
                     {campaign.status === 'draft' && (
                       <button
                         onClick={e => { e.stopPropagation(); handleLaunchCampaign(campaign.id); }}
@@ -258,6 +266,51 @@ function Campaigns() {
                 ))}
               </ul>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Campaign Metadata Modal */}
+      {showMeta && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6 relative">
+            <button
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
+              onClick={() => setShowMeta(null)}
+              title="Close"
+            >
+              <FaTimes size={20} />
+            </button>
+            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+              <FaGear className="text-gray-700" /> Campaign Settings
+            </h2>
+            {(() => {
+              const cm = campaigns.find(c => c.id === showMeta) || {};
+              return (
+                <div className="space-y-3">
+                  <div>
+                    <div className="text-xs text-gray-500">Campaign ID</div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <code className="px-2 py-1 bg-gray-100 rounded text-sm break-all">{cm.id}</code>
+                      <button
+                        className="px-2 py-1 text-sm border rounded hover:bg-gray-50"
+                        onClick={() => navigator.clipboard.writeText(cm.id || '')}
+                      >Copy</button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-xs text-gray-500">Status</div>
+                      <div className="text-sm text-gray-800">{cm.status || '—'}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500">Leads</div>
+                      <div className="text-sm text-gray-800">{cm.total_leads ?? 0}</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
