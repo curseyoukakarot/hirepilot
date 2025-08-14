@@ -86,6 +86,55 @@ export default async function campaignPerformance(req: Request, res: Response) {
       return;
     }
 
+    // Lead counts (overall or per campaign)
+    let total_leads = 0;
+    let converted_candidates = 0;
+
+    if (id === 'all') {
+      // All campaigns: all user leads and candidates
+      try {
+        const { count } = await supabaseDb
+          .from('leads')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', userId);
+        total_leads = count || 0;
+      } catch {}
+
+      try {
+        const { count } = await supabaseDb
+          .from('candidates')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', userId);
+        converted_candidates = count || 0;
+      } catch {}
+    } else {
+      // Specific campaign: leads under this campaign and their converted candidates
+      try {
+        const { data: leadRows, error: leadsErr } = await supabaseDb
+          .from('leads')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('campaign_id', id);
+        if (!leadsErr) {
+          total_leads = (leadRows || []).length;
+          const leadIds = (leadRows || []).map((l: any) => l.id);
+          if (leadIds.length) {
+            const { count } = await supabaseDb
+              .from('candidates')
+              .select('id', { count: 'exact', head: true })
+              .eq('user_id', userId)
+              .in('lead_id', leadIds);
+            converted_candidates = count || 0;
+          }
+        }
+      } catch {}
+    }
+    if (conversionError) {
+      console.error('[campaignPerformance] Conversions count error:', conversionError);
+      res.status(500).json({ error: conversionError.message });
+      return;
+    }
+
     // Calculate rates
     const open_rate = sent ? ((opens || 0) / sent) * 100 : 0;
     const reply_rate = sent ? ((replies || 0) / sent) * 100 : 0;
@@ -98,7 +147,9 @@ export default async function campaignPerformance(req: Request, res: Response) {
       replies: replies || 0,
       reply_rate,
       conversions: conversions || 0,
-      conversion_rate
+      conversion_rate,
+      total_leads,
+      converted_candidates
     });
   } catch (error: any) {
     console.error('[campaignPerformance] Error:', error);

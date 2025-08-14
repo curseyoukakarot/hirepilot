@@ -124,6 +124,10 @@ export default async function analyticsTimeSeries(req: Request, res: Response) {
             periodData.conversions.add(event.lead_id);
           }
           break;
+        // Treat sequence step sends as 'sent' as well so they contribute to Leads Messaged
+        case 'sequence_sent':
+          periodData.sent.add(event.message_id || `${event.lead_id}-${event.event_timestamp}`);
+          break;
       }
     });
 
