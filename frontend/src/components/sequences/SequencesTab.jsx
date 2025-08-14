@@ -40,10 +40,11 @@ export default function SequencesTab({ onEditSequence }) {
         credentials: 'include'
       });
       if (!res.ok) throw new Error('Failed to update');
-      await load();
+                  await load();
+                  // Toast on archive/unarchive
+                  try { (await import('react-hot-toast')).toast.success(seq.is_archived ? 'Sequence unarchived' : 'Sequence archived'); } catch {}
     } catch (e) {
-      // eslint-disable-next-line no-alert
-      alert(e.message || 'Failed');
+                  try { (await import('react-hot-toast')).toast.error(e.message || 'Failed'); } catch { /* no-op */ }
     }
   };
 

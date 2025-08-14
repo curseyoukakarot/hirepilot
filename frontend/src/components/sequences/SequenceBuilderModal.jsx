@@ -3,6 +3,7 @@ import { FaPlus, FaTrash, FaArrowUp, FaArrowDown } from 'react-icons/fa';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { supabase } from '../../lib/supabase';
+import { toast } from 'react-hot-toast';
 
 const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
 
@@ -120,10 +121,10 @@ export default function SequenceBuilderModal({ isOpen, onClose, initialSequence,
       if (!res.ok) throw new Error('Failed to save sequence');
       const data = await res.json();
       onSaved?.(data);
+      toast.success(method === 'POST' ? 'Tiered Template created' : 'Tiered Template updated');
       onClose?.();
     } catch (e) {
-      // eslint-disable-next-line no-alert
-      alert(e.message || 'Failed to save');
+      toast.error(e.message || 'Failed to save Tiered Template');
     } finally {
       setSaving(false);
     }
