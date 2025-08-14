@@ -11,21 +11,7 @@ export default function ZapierIntegrationCard({ user }) {
   const [copied, setCopied] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
 
-  const metaRole = user?.user_metadata?.role || user?.user_metadata?.account_type;
-  const roleValue = user?.user_type || user?.role || metaRole;
-  const hasAccess = [
-    'SuperAdmin',
-    'RecruitPro',
-    'TeamAdmin',
-    'admin',
-    'team_admin',
-    'member',
-    'recruiter',
-    'Recruiter',
-    'super_admin',
-  ].includes(roleValue);
-
-  if (!hasAccess) return null;
+  // Expose Zapier/Make integration to all authenticated users regardless of role
 
   const fetchExistingKey = async () => {
     if (!user) return;
