@@ -61,7 +61,13 @@ export default function SettingsCredits() {
         body: JSON.stringify({ packageId })
       });
       if (!res.ok) throw new Error('Failed to start checkout');
-      const { sessionId } = await res.json();
+      const { sessionId, livemode } = await res.json();
+      // Ensure publishable key mode matches the Checkout Session mode, otherwise Stripe returns 401
+      const pk = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '';
+      const keyIsLive = pk.startsWith('pk_live_');
+      if (typeof livemode === 'boolean' && keyIsLive !== livemode) {
+        throw new Error('Stripe configuration mismatch (publishable key mode vs. checkout session mode). Please update your environment keys.');
+      }
       const stripe = await stripePromise;
       await stripe.redirectToCheckout({ sessionId });
     } catch (e) {
