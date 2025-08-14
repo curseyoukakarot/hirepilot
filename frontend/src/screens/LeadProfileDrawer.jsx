@@ -47,6 +47,8 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   const [enrollment, setEnrollment] = useState(null);
   const [enrollmentRuns, setEnrollmentRuns] = useState([]);
   const [loadingEnrollment, setLoadingEnrollment] = useState(false);
+  const enrollmentLastFetchRef = React.useRef({ leadId: null, at: 0 });
+  const enrollmentAbortRef = React.useRef(null);
 
   useEffect(() => {
     // Parse enrichment_data if it's a string or array-like object
@@ -91,11 +93,17 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
 
     // When drawer opens, pull the freshest lead data from backend
     if (isOpen && (lead?.lead_id || lead?.id)) {
-      fetchLatestLead(lead.lead_id || lead.id);
+      const lid = lead.lead_id || lead.id;
+      fetchLatestLead(lid);
       fetchDailyLinkedInCount();
       fetchUserCredits();
       fetchUserRole();
-      fetchSequenceEnrollment(lead.lead_id || lead.id);
+      // Debounce enrollment fetch to avoid rapid prop churn flicker
+      const now = Date.now();
+      if (!enrollmentLastFetchRef.current || enrollmentLastFetchRef.current.leadId !== lid || now - enrollmentLastFetchRef.current.at > 800) {
+        enrollmentLastFetchRef.current = { leadId: lid, at: now };
+        fetchSequenceEnrollment(lid);
+      }
     }
   }, [lead, isOpen]);
 
@@ -106,12 +114,19 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
 
   const fetchSequenceEnrollment = async (leadId) => {
     try {
+      // Abort any in-flight request to prevent race/flicker
+      if (enrollmentAbortRef.current) {
+        try { enrollmentAbortRef.current.abort(); } catch {}
+      }
+      const controller = new AbortController();
+      enrollmentAbortRef.current = controller;
       setLoadingEnrollment(true);
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
       const res = await fetch(`${API_BASE_URL}/sequence-enrollments/by-lead/${leadId}`, {
         headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        credentials: 'include'
+        credentials: 'include',
+        signal: controller.signal
       });
       if (res.ok){
         const json = await res.json();
