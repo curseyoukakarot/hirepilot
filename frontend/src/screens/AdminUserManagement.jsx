@@ -290,6 +290,7 @@ export default function AdminUserManagement() {
               <select className="w-full border border-gray-300 px-3 py-2 rounded text-gray-800 bg-gray-50" value={inviteForm.role} onChange={e => setInviteForm(f => ({ ...f, role: e.target.value }))}>
                 <option value="member">Member</option>
                 <option value="admin">Admin</option>
+                <option value="team_admin">Team Admin</option>
                 <option value="viewer">Viewer</option>
                 <option value="super_admin">Super Admin</option>
                 <option value="RecruitPro">RecruitPro</option>
@@ -314,6 +315,7 @@ export default function AdminUserManagement() {
               <select className="w-full border border-gray-300 px-3 py-2 rounded text-gray-800 bg-gray-50" value={editForm.role} onChange={e => setEditForm(f => ({ ...f, role: e.target.value }))}>
                 <option value="member">Member</option>
                 <option value="admin">Admin</option>
+                <option value="team_admin">Team Admin</option>
                 <option value="viewer">Viewer</option>
                 <option value="super_admin">Super Admin</option>
                 <option value="RecruitPro">RecruitPro</option>
