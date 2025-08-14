@@ -428,56 +428,106 @@ server.registerCapabilities({
       handler: async (rawArgs: any) => {
         const { userId } = rawArgs;
         // Accept multiple possible keys for identifier
-        const identifier: string | undefined = rawArgs.identifier || rawArgs.linkedin_identifier || rawArgs.linkedin_url || rawArgs.lead_id;
+        const identifier: string | undefined = rawArgs.identifier || rawArgs.linkedin_identifier || rawArgs.linkedin_url || rawArgs.lead_id || rawArgs.email || rawArgs.name;
 
         await assertPremium(userId);
 
-        if (!identifier) throw new Error('Missing LinkedIn identifier');
+        if (!identifier) throw new Error('Missing lead identifier (id, email, name or LinkedIn URL)');
 
-        let url = identifier.trim();
-        let leadData = null;
+        let queryText = String(identifier).trim();
+        let leadData: any = null;
 
-        // Helper to check UUID v4
-        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(url);
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(queryText);
+        const isEmail = queryText.includes('@');
+        const isLinkedIn = /linkedin\.com\//i.test(queryText);
 
-        // If UUID or clearly not a LinkedIn URL, look up lead by id/slug
-        if (isUUID || !/linkedin\.com\//i.test(url)) {
-          const { data, error } = await supabase
+        // Helper to normalize LinkedIn URLs for fuzzy matching
+        const normalizeLinkedIn = (u: string) => u
+          .toLowerCase()
+          .replace(/\?.*$/, '')
+          .replace(/\/$/, '')
+          .replace(/^https?:\/\/(www\.)?/, '');
+
+        if (isUUID) {
+          const { data } = await supabase
             .from('leads')
             .select('*')
-            .eq('id', url)
-            .single();
-          if (error) throw error;
-          if (!data?.linkedin_url) throw new Error('Lead does not have a LinkedIn URL');
-          url = data.linkedin_url as string;
+            .eq('id', queryText)
+            .maybeSingle();
+          leadData = data;
+        } else if (isEmail) {
+          const { data } = await supabase
+            .from('leads')
+            .select('*')
+            .eq('user_id', userId)
+            .ilike('email', queryText)
+            .maybeSingle();
+          leadData = data;
+        } else if (isLinkedIn) {
+          // Try exact and fuzzy LinkedIn URL matches
+          const normalized = normalizeLinkedIn(queryText);
+          let { data } = await supabase
+            .from('leads')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('linkedin_url', queryText)
+            .maybeSingle();
+          if (!data) {
+            const res2 = await supabase
+              .from('leads')
+              .select('*')
+              .eq('user_id', userId)
+              .eq('linkedin_url', `${queryText}/`)
+              .maybeSingle();
+            data = res2.data as any;
+          }
+          if (!data) {
+            const res3 = await supabase
+              .from('leads')
+              .select('*')
+              .eq('user_id', userId)
+              .ilike('linkedin_url', `%${normalized}%`)
+              .maybeSingle();
+            data = res3.data as any;
+          }
           leadData = data;
         } else {
-          // Look up lead by LinkedIn URL
-          const { data, error } = await supabase
+          // Treat as a name search: split into first + last and search
+          const parts = queryText.split(/\s+/).filter(Boolean);
+          const first = parts[0];
+          const last = parts.slice(1).join(' ');
+          let q = supabase
             .from('leads')
             .select('*')
-            .eq('linkedin_url', url)
             .eq('user_id', userId)
-            .single();
-          if (error && error.code !== 'PGRST116') throw error;
-          leadData = data;
+            .ilike('first_name', `%${first}%`);
+          if (last) q = q.ilike('last_name', `%${last}%`);
+          const { data } = await q.limit(5);
+          if (data && data.length === 1) leadData = data[0];
+          if (data && data.length > 1) {
+            // Prefer exact case-insensitive match
+            const exact = data.find(l => l.first_name?.toLowerCase() === first.toLowerCase() && l.last_name?.toLowerCase() === last.toLowerCase());
+            leadData = exact || data[0];
+          }
         }
 
         if (!leadData) {
-          throw new Error('Lead not found. Please provide a valid lead ID or ensure the lead exists in your database.');
+          throw new Error('Lead not found. Please provide a valid lead identifier or ensure the lead exists in your database.');
         }
 
-        // Use the existing Apollo enrichment via our new function
-        const name = `${leadData.first_name || ''} ${leadData.last_name || ''}`.trim();
-        if (!name) {
-          throw new Error('Lead name is required for enrichment');
+        const finalLinkedIn = leadData.linkedin_url || (isLinkedIn ? queryText : null);
+        if (!finalLinkedIn) {
+          throw new Error('Lead does not have a LinkedIn URL');
         }
+
+        const name = `${leadData.first_name || ''} ${leadData.last_name || ''}`.trim();
+        if (!name) throw new Error('Lead name is required for enrichment');
 
         return await enrichLeadProfile({
           userId,
           name,
           email: leadData.email,
-          linkedinUrl: url
+          linkedinUrl: finalLinkedIn
         });
       }
     },
