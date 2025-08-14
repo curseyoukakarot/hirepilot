@@ -16,6 +16,22 @@ export interface PricingConfig {
   [key: string]: PlanConfig;
 }
 
+function resolvePriceId(planKey: 'STARTER' | 'PRO' | 'TEAM', interval: 'MONTHLY' | 'ANNUAL'): string {
+  const candidates = [
+    `STRIPE_PRICE_ID_${planKey}_${interval}`,
+    `VITE_STRIPE_PRICE_ID_${planKey}_${interval}`,
+    `STRIPE_${planKey}_${interval}_PRICE_ID`,
+    `${planKey}_${interval}_STRIPE_PRICE_ID`,
+    `PRICE_ID_${planKey}_${interval}`,
+    `STRIPE_${planKey}_${interval}`,
+  ];
+  for (const key of candidates) {
+    const val = (process.env as Record<string, string | undefined>)[key];
+    if (val && val.trim().length > 0) return val.trim();
+  }
+  return '';
+}
+
 export const PRICING_CONFIG: PricingConfig = {
   starter: {
     name: 'Starter',
@@ -27,8 +43,8 @@ export const PRICING_CONFIG: PricingConfig = {
       'Up to 2 team members'
     ],
     priceIds: {
-      monthly: process.env.STRIPE_PRICE_ID_STARTER_MONTHLY || '',
-      annual: process.env.STRIPE_PRICE_ID_STARTER_ANNUAL || ''
+      monthly: resolvePriceId('STARTER', 'MONTHLY'),
+      annual: resolvePriceId('STARTER', 'ANNUAL')
     },
     prices: {
       monthly: 49,
@@ -46,8 +62,8 @@ export const PRICING_CONFIG: PricingConfig = {
       'Custom templates'
     ],
     priceIds: {
-      monthly: process.env.STRIPE_PRICE_ID_PRO_MONTHLY || '',
-      annual: process.env.STRIPE_PRICE_ID_PRO_ANNUAL || ''
+      monthly: resolvePriceId('PRO', 'MONTHLY'),
+      annual: resolvePriceId('PRO', 'ANNUAL')
     },
     prices: {
       monthly: 99,
@@ -66,8 +82,8 @@ export const PRICING_CONFIG: PricingConfig = {
       'Custom integrations'
     ],
     priceIds: {
-      monthly: process.env.STRIPE_PRICE_ID_TEAM_MONTHLY || '',
-      annual: process.env.STRIPE_PRICE_ID_TEAM_ANNUAL || ''
+      monthly: resolvePriceId('TEAM', 'MONTHLY'),
+      annual: resolvePriceId('TEAM', 'ANNUAL')
     },
     prices: {
       monthly: 199,
