@@ -100,6 +100,70 @@ export default function Leads() {
   const [showBulkTagModal, setShowBulkTagModal] = useState(false);
   const [bulkTagInput, setBulkTagInput] = useState('');
   const [isBulkTagging, setIsBulkTagging] = useState(false);
+  // Sorting state
+  const [sortBy, setSortBy] = useState('lastUpdated'); // lead | contact | status | tags | location | source | lastUpdated
+  const [sortDir, setSortDir] = useState('desc'); // asc | desc
+
+  const getLocationString = (lead) => {
+    const parts = [lead.city, lead.state, lead.country].filter(Boolean);
+    if (parts.length > 0) return parts.join(', ');
+    if (lead.campaign_location) return lead.campaign_location;
+    return '';
+  };
+
+  const getLeadName = (lead) => {
+    // Try enrichment names if base fields are missing
+    let enrichment = lead.enrichment_data;
+    if (typeof enrichment === 'string') {
+      try { enrichment = JSON.parse(enrichment); } catch { enrichment = {}; }
+    }
+    const first = lead.first_name || enrichment?.first_name || '';
+    const last = lead.last_name || enrichment?.last_name || '';
+    return `${first} ${last}`.trim();
+  };
+
+  const valueForSort = (lead, field) => {
+    switch (field) {
+      case 'lead':
+        return (getLeadName(lead) || '').toLowerCase();
+      case 'contact':
+        return (lead.email || '').toLowerCase();
+      case 'status':
+        return (lead.status || '').toLowerCase();
+      case 'tags':
+        return Array.isArray(lead.tags) ? lead.tags.join(', ').toLowerCase() : '';
+      case 'location':
+        return getLocationString(lead).toLowerCase();
+      case 'source':
+        return (lead.enrichment_source || '').toLowerCase();
+      case 'lastUpdated':
+        return new Date(lead.updated_at || lead.created_at || 0).getTime();
+      default:
+        return '';
+    }
+  };
+
+  const handleSort = (field) => {
+    setSortBy((prev) => {
+      if (prev === field) {
+        setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+        return prev;
+      }
+      // Default direction: text asc, dates desc
+      setSortDir(field === 'lastUpdated' ? 'desc' : 'asc');
+      return field;
+    });
+  };
+
+  const sortIndicator = (field) => {
+    if (sortBy !== field) return (
+      <span className="ml-1 text-gray-300">↕</span>
+    );
+    return (
+      <span className="ml-1">{sortDir === 'asc' ? '▲' : '▼'}</span>
+    );
+  };
+
 
   // LinkedIn guidance state - remember user preference
   const [showLinkedInGuidance, setShowLinkedInGuidance] = useState(() => {
@@ -258,10 +322,27 @@ export default function Leads() {
     });
   };
 
-  // Calculate current page leads
+  // Sort then paginate
+  const sortedLeads = (() => {
+    const arr = [...leads];
+    arr.sort((a, b) => {
+      const va = valueForSort(a, sortBy);
+      const vb = valueForSort(b, sortBy);
+      if (typeof va === 'number' && typeof vb === 'number') {
+        return sortDir === 'asc' ? va - vb : vb - va;
+      }
+      const sa = String(va);
+      const sb = String(vb);
+      if (sa < sb) return sortDir === 'asc' ? -1 : 1;
+      if (sa > sb) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return arr;
+  })();
+
   const startIndex = (currentPage - 1) * LEADS_PER_PAGE;
   const endIndex = startIndex + LEADS_PER_PAGE;
-  const currentPageLeads = leads.slice(startIndex, endIndex);
+  const currentPageLeads = sortedLeads.slice(startIndex, endIndex);
   const totalPages = Math.ceil(leads.length / LEADS_PER_PAGE);
 
   // Check if all leads on current page are selected
@@ -587,13 +668,13 @@ export default function Leads() {
                       onChange={handleSelectAll}
                     />
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">LinkedIn</th>
+                  <th onClick={() => handleSort('lead')} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none">Lead {sortIndicator('lead')}</th>
+                  <th onClick={() => handleSort('contact')} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none">Contact {sortIndicator('contact')}</th>
+                  <th onClick={() => handleSort('status')} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none">Status {sortIndicator('status')}</th>
+                  <th onClick={() => handleSort('tags')} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none">Tags {sortIndicator('tags')}</th>
+                  <th onClick={() => handleSort('location')} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none">Location {sortIndicator('location')}</th>
+                  <th onClick={() => handleSort('source')} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none">Source {sortIndicator('source')}</th>
+                  <th onClick={() => handleSort('lastUpdated')} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none">Last Updated {sortIndicator('lastUpdated')}</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
@@ -602,14 +683,8 @@ export default function Leads() {
                   // Parse enrichment_data if it's a string
                   let enrichment = lead.enrichment_data;
                   if (typeof enrichment === 'string') {
-                    try {
-                      enrichment = JSON.parse(enrichment);
-                    } catch {
-                      enrichment = {};
-                    }
+                    try { enrichment = JSON.parse(enrichment); } catch { enrichment = {}; }
                   }
-                  // Debug log
-                  console.log('Lead enrichment_data:', enrichment);
                   return (
                     <tr key={lead.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -621,39 +696,25 @@ export default function Leads() {
                         />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
-                          {((lead.first_name || enrichment?.first_name || '') + ' ' + (lead.last_name || enrichment?.last_name || '')).trim()}
-                        </div>
+                        <div className="text-sm font-medium text-gray-900">{getLeadName(lead)}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{lead.company}</div>
+                        <div className="text-sm text-gray-900">{lead.email || ''}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{lead.title}</div>
+                        <div className="text-sm text-gray-900">{lead.status || ''}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{lead.email}</div>
+                        <div className="text-sm text-gray-900">{Array.isArray(lead.tags) ? lead.tags.join(', ') : ''}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {(() => {
-                            // Combine city, state, country if present
-                            const locationParts = [lead.city, lead.state, lead.country].filter(Boolean);
-                            if (locationParts.length > 0) return locationParts.join(', ');
-                            // Fallback to campaign_location if present
-                            if (lead.campaign_location) return lead.campaign_location;
-                            // Otherwise show Unknown
-                            return 'Unknown';
-                          })()}
-                        </div>
+                        <div className="text-sm text-gray-900">{getLocationString(lead) || 'Unknown'}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {lead.enrichment_source || 'Unknown'}
-                        </div>
+                        <div className="text-sm text-gray-900">{lead.enrichment_source || 'Unknown'}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <LinkedInStatusPill lead={lead} />
+                        <div className="text-sm text-gray-900">{new Date(lead.updated_at || lead.created_at).toLocaleString()}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button
