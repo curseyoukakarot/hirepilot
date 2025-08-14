@@ -501,6 +501,64 @@ function LeadManagement() {
     return matchesSearch && matchesStatus && matchesTags;
   });
 
+  // Sorting -------------------------------------------------------------
+  const [sortBy, setSortBy] = useState('lastUpdated'); // lead | contact | status | tags | location | source | lastUpdated
+  const [sortDir, setSortDir] = useState('desc'); // asc | desc
+
+  const valueForSort = (lead, field) => {
+    switch (field) {
+      case 'lead':
+        return (lead.name || '').toLowerCase();
+      case 'contact':
+        return (lead.email || '').toLowerCase();
+      case 'status':
+        return (lead.status || '').toLowerCase();
+      case 'tags':
+        return Array.isArray(lead.tags) ? lead.tags.join(', ').toLowerCase() : '';
+      case 'location':
+        return (lead.location || '').toLowerCase();
+      case 'source':
+        return (lead.source || '').toLowerCase();
+      case 'lastUpdated':
+        return new Date(lead.updatedAt || lead.updated_at || lead.created_at || 0).getTime();
+      default:
+        return '';
+    }
+  };
+
+  const handleSort = (field) => {
+    setSortBy(prev => {
+      if (prev === field) {
+        setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+        return prev;
+      }
+      setSortDir(field === 'lastUpdated' ? 'desc' : 'asc');
+      return field;
+    });
+  };
+
+  const sortIndicator = (field) => {
+    if (sortBy !== field) return <span className="ml-1 text-gray-300">↕</span>;
+    return <span className="ml-1">{sortDir === 'asc' ? '▲' : '▼'}</span>;
+  };
+
+  const sortedLeads = React.useMemo(() => {
+    const arr = [...filteredLeads];
+    arr.sort((a, b) => {
+      const va = valueForSort(a, sortBy);
+      const vb = valueForSort(b, sortBy);
+      if (typeof va === 'number' && typeof vb === 'number') {
+        return sortDir === 'asc' ? va - vb : vb - va;
+      }
+      const sa = String(va);
+      const sb = String(vb);
+      if (sa < sb) return sortDir === 'asc' ? -1 : 1;
+      if (sa > sb) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return arr;
+  }, [filteredLeads, sortBy, sortDir]);
+
   // Form validation
   const validateForm = (lead) => {
     const errors = {};
@@ -1017,7 +1075,7 @@ function LeadManagement() {
     }
   };
 
-  const paginatedLeads = filteredLeads.slice((currentPage - 1) * LEADS_PER_PAGE, currentPage * LEADS_PER_PAGE);
+  const paginatedLeads = sortedLeads.slice((currentPage - 1) * LEADS_PER_PAGE, currentPage * LEADS_PER_PAGE);
   const totalPages = Math.ceil(filteredLeads.length / LEADS_PER_PAGE);
 
   // -------------------------------------------------------
@@ -1311,26 +1369,26 @@ function LeadManagement() {
                     )}
                   </div>
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Lead
+                <th scope="col" onClick={() => handleSort('lead')} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none">
+                  <span className="inline-flex items-center">Lead {sortIndicator('lead')}</span>
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Contact
+                <th scope="col" onClick={() => handleSort('contact')} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none">
+                  <span className="inline-flex items-center">Contact {sortIndicator('contact')}</span>
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
+                <th scope="col" onClick={() => handleSort('status')} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none">
+                  <span className="inline-flex items-center">Status {sortIndicator('status')}</span>
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Tags
+                <th scope="col" onClick={() => handleSort('tags')} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none">
+                  <span className="inline-flex items-center">Tags {sortIndicator('tags')}</span>
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Location
+                <th scope="col" onClick={() => handleSort('location')} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none">
+                  <span className="inline-flex items-center">Location {sortIndicator('location')}</span>
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Source
+                <th scope="col" onClick={() => handleSort('source')} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none">
+                  <span className="inline-flex items-center">Source {sortIndicator('source')}</span>
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Last Updated
+                <th scope="col" onClick={() => handleSort('lastUpdated')} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none">
+                  <span className="inline-flex items-center">Last Updated {sortIndicator('lastUpdated')}</span>
                 </th>
                 <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
