@@ -250,10 +250,17 @@ export default function RexChatBox() {
       let rexEnabled = false;
 
       if (user) {
-        // Fallback: fetch from users table
-        const { data } = await supabase.from('users').select('role, rex_enabled').eq('id', user.id).single();
-        if (data?.role) userType = data.role;
-        if (typeof data?.rex_enabled === 'boolean') rexEnabled = Boolean(data.rex_enabled);
+        // Fetch role from users table
+        const { data: roleRow } = await supabase.from('users').select('role').eq('id', user.id).single();
+        if (roleRow?.role) userType = roleRow.role;
+
+        // Determine REX flag from integrations table (source of truth)
+        const { data: integ } = await supabase
+          .from('integrations')
+          .select('provider,status')
+          .eq('user_id', user.id);
+        const rexRow = (integ || []).find((r: any) => r.provider === 'rex');
+        rexEnabled = ['enabled','connected','on','true'].includes(String(rexRow?.status || '').toLowerCase());
       }
 
       const roleLc = (userType || '').toLowerCase();
