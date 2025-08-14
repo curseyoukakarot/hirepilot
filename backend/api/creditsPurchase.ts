@@ -76,7 +76,7 @@ export default async function creditsPurchase(req: Request, res: Response) {
       cancel_url: `${successUrlBase}/settings/credits?purchase=canceled`,
     });
 
-    res.json({ sessionId: session.id, livemode: session.livemode });
+    res.json({ sessionId: session.id, url: session.url, livemode: session.livemode });
   } catch (e: any) {
     console.error('[creditsPurchase] error:', e);
     res.status(500).json({ error: e.message || 'Failed to create checkout session' });
