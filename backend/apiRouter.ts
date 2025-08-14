@@ -47,6 +47,7 @@ import playwrightLinkedInRequest from './api/linkedin/playwrightRequest';
 import sendLinkedInConnect from './api/linkedin/sendConnect';
 import n8nLinkedInConnect from './api/n8n/linkedinConnect';
 import getUserCredits from './api/getUserCredits';
+import creditsPurchase from './api/creditsPurchase';
 import healthCheck from './api/health';
 // Import Decodo LinkedIn trigger
 import linkedinTriggerRouter from './src/routes/campaigns/linkedin/trigger';
@@ -202,6 +203,7 @@ router.use('/puppet', requireAuth, puppetHealthStatsRouter);
 
 // User account endpoints
 router.get('/user/credits', requireAuth, getUserCredits);
+router.post('/credits/purchase', requireAuth, creditsPurchase);
 
 // Add debug trial emails endpoint
 router.get('/debug-trial-emails', debugTrialEmails);
