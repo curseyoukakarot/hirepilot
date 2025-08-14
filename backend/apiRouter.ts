@@ -237,7 +237,7 @@ router.use('/user-integrations', userIntegrationsRouter);
 router.use('/webhooks', webhooksRouter);
 
 router.post('/messages/bulk-schedule', requireAuth, bulkScheduleMessages);
-router.use('/sequences', requireAuth, sequencesRouter);
+router.use('/', sequencesRouter);
 
 // Temporary test endpoint for debugging backfill
 router.get('/test/backfill', testBackfill);
