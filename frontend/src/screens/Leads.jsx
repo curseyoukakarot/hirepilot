@@ -112,45 +112,58 @@ export default function Leads() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      // Build query with optional campaign filter
-      let query = supabase
-        .from('leads')
-        .select('*')
-        .eq('user_id', session.user.id);
-      
-      // Add campaign filter if a specific campaign is selected
-      if (campaignId && campaignId !== 'all') {
-        query = query.eq('campaign_id', campaignId);
-      }
-      
-      const { data: leadsData, error: leadsError } = await query
-        .order('created_at', { ascending: false });
+      const BATCH_SIZE = 1000; // Supabase default max per request
+      const MAX_TOTAL = 10000; // Safety ceiling
 
-      if (leadsError) throw leadsError;
+      const makeLeadsQuery = () => {
+        let q = supabase
+          .from('leads')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .order('created_at', { ascending: false });
+        if (campaignId && campaignId !== 'all') q = q.eq('campaign_id', campaignId);
+        return q;
+      };
 
-      // Fetch LinkedIn outreach statuses for this user
-      const { data: linkedinData, error: linkedinError } = await supabase
+      const fetchAll = async (makeQueryFn) => {
+        const all = [];
+        for (let from = 0; from < MAX_TOTAL; from += BATCH_SIZE) {
+          const to = Math.min(from + BATCH_SIZE - 1, MAX_TOTAL - 1);
+          const { data, error } = await makeQueryFn().range(from, to);
+          if (error) throw error;
+          if (!data || data.length === 0) break;
+          all.push(...data);
+          if (data.length < BATCH_SIZE) break;
+        }
+        return all;
+      };
+
+      const leadsData = await fetchAll(makeLeadsQuery);
+
+      // Fetch LinkedIn outreach statuses for this user (batched as well)
+      const makeLinkedInQuery = () => supabase
         .from('linkedin_outreach_queue')
         .select('linkedin_url, status, scheduled_at, sent_at, created_at')
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: false });
 
-      if (linkedinError) throw linkedinError;
+      const linkedinData = await fetchAll(makeLinkedInQuery);
+
+      // Group LinkedIn requests by url for O(1) lookup
+      const byUrl = new Map();
+      for (const row of linkedinData) {
+        const key = row.linkedin_url || '';
+        if (!byUrl.has(key)) byUrl.set(key, []);
+        byUrl.get(key).push(row);
+      }
 
       // Merge LinkedIn status into leads data
-      const leadsWithLinkedInStatus = leadsData.map(lead => {
-        // Find LinkedIn outreach requests for this lead's LinkedIn URL
-        const linkedinRequests = linkedinData.filter(req => 
-          req.linkedin_url === lead.linkedin_url
-        );
-        
-        return {
-          ...lead,
-          linkedin_outreach_queue: linkedinRequests
-        };
-      });
+      const leadsWithLinkedInStatus = leadsData.map(lead => ({
+        ...lead,
+        linkedin_outreach_queue: byUrl.get(lead.linkedin_url || '') || []
+      }));
 
-      console.log('Fetched leads with LinkedIn status:', leadsWithLinkedInStatus);
+      console.log(`Fetched ${leadsWithLinkedInStatus.length} leads (batched)`);
       setLeads(leadsWithLinkedInStatus || []);
     } catch (err) {
       console.error('Error fetching leads:', err);
