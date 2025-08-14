@@ -112,7 +112,7 @@ export class BillingController {
           clientReferenceId: userId
         }
       );
-      res.json({ sessionId: session.id });
+      res.json({ sessionId: session.id, url: (session as any).url, livemode: (session as any).livemode });
     } catch (error) {
       console.error('Error creating checkout session:', error);
       res.status(500).json({ error: 'Failed to create checkout session' });

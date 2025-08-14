@@ -193,14 +193,17 @@ export default function BillingScreen() {
         throw new Error(`Failed to create checkout session: ${errorText}`);
       }
 
-      const { sessionId } = await response.json();
-      
+      const { sessionId, url, livemode } = await response.json();
+
+      // Prefer hosted Checkout URL redirect to avoid SDK init CSP/401 issues
+      if (url) {
+        window.location.href = url;
+        return;
+      }
+
       const stripe = await stripePromise;
       const { error } = await stripe.redirectToCheckout({ sessionId });
-      
-      if (error) {
-        throw new Error(error.message);
-      }
+      if (error) throw new Error(error.message);
     } catch (err) {
       console.error('Error creating checkout session:', err);
       setError(err.message);
