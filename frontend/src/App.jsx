@@ -250,7 +250,8 @@ function InnerApp() {
   const landingPages = ["/", "/signup", "/login", "/reset-password", "/copilot", "/handsfree", "/pricing", "/rex", "/chromeextension", "/chromeextension/privacy", "/terms", "/apidoc", "/test-gmail", "/affiliates", "/blog/zapierguide"];
   // Treat blog landing and article pages as public landing pages (no dashboard UI)
   const isPartnerArea = location.pathname.startsWith('/partners');
-  const isAuthPage = landingPages.includes(location.pathname) || location.pathname.startsWith('/blog') || location.pathname.startsWith('/rex') || isPartnerArea;
+  // Only the marketing page "/rex" should be treated as public; do NOT blanket-match all "/rex*" paths
+  const isAuthPage = landingPages.includes(location.pathname) || location.pathname.startsWith('/blog') || isPartnerArea;
 
   // If partners routes are hit on the main domain, redirect to affiliates subdomain
   useEffect(() => {
