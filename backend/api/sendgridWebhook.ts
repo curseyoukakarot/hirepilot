@@ -5,6 +5,7 @@ const router = express.Router();
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
 // SendGrid sends events as an array
+// Legacy unsecured webhook (kept for backward compatibility). Prefer /api/sendgrid/events with signature verification.
 router.post('/sendgrid/webhook', async (req, res) => {
   console.log('📧 SendGrid webhook received:', JSON.stringify(req.body, null, 2));
   

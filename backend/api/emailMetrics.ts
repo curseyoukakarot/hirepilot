@@ -34,10 +34,10 @@ router.get('/email-metrics', async (req, res) => {
     // Get all email events for the user in the time range
     const { data: events, error } = await supabase
       .from('email_events')
-      .select('*')
+      .select('message_id, event_type, sg_message_id, event_timestamp, campaign_id, lead_id, metadata')
       .eq('user_id', user_id)
-      .gte('timestamp', startDate.toISOString())
-      .order('timestamp', { ascending: false });
+      .gte('event_timestamp', startDate.toISOString())
+      .order('event_timestamp', { ascending: false });
 
     if (error) throw error;
 
@@ -64,7 +64,7 @@ router.get('/email-metrics', async (req, res) => {
     const repliedMessages = new Set();
 
     events.forEach(event => {
-      const messageId = event.sg_message_id;
+      const messageId = event.message_id || event.sg_message_id;
       
       // Only process each message once for sent/delivered/bounced/dropped
       if (!processedMessages.has(messageId)) {
@@ -92,8 +92,8 @@ router.get('/email-metrics', async (req, res) => {
         metrics.clicked++;
       }
 
-      // Track replies (using SendGrid's inbound parse webhook)
-      if (event.event_type === 'inbound' && !repliedMessages.has(messageId)) {
+      // Track replies (via Inbound Parse writes or unified 'reply' event)
+      if (event.event_type === 'reply' && !repliedMessages.has(messageId)) {
         repliedMessages.add(messageId);
         metrics.replied++;
       }
@@ -102,8 +102,8 @@ router.get('/email-metrics', async (req, res) => {
       if (metrics.recent_activity.length < 10) {
         metrics.recent_activity.push({
           type: event.event_type,
-          email: event.email,
-          timestamp: event.timestamp,
+          email: event.metadata?.email,
+          timestamp: event.event_timestamp,
           campaign_id: event.campaign_id,
           lead_id: event.lead_id
         });

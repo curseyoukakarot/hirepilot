@@ -26,6 +26,10 @@ import deleteCampaign from './api/deleteCampaign';
 import { createClient } from '@supabase/supabase-js';
 import axios from 'axios';
 import sendgridWebhookRouter from './api/sendgridWebhook';
+import analyticsSummaryRouter from './api/analyticsSummary';
+import sendgridInboundRouter from './api/sendgridInbound';
+import { sendgridEventsHandler } from './api/sendgridEventsVerified';
+import type expressNs from 'express';
 import sendgridValidateRouter from './api/sendgridValidate';
 import sendgridSaveRouter from './api/sendgridSave';
 import emailMetricsRouter from './api/emailMetrics';
@@ -144,6 +148,11 @@ app.use(cookieParser());
 // Mount Stripe affiliate webhook BEFORE any body parsers to preserve raw body
 app.post('/api/stripe/webhook', bodyParser.raw({ type: 'application/json' }), stripeWebhookHandler);
 
+// Signed SendGrid Event Webhook must receive raw body for signature verification
+app.post('/api/sendgrid/events', bodyParser.raw({ type: 'application/json' }), (req: expressNs.Request, res: expressNs.Response) => {
+  return sendgridEventsHandler(req, res);
+});
+
 // Parse JSON bodies for all other routes
 app.use(express.json());
 
@@ -194,6 +203,8 @@ app.use('/api/sendgrid', sendgridValidateRouter);
 app.use('/api/sendgrid', sendgridSaveRouter);
   app.use('/api', sendgridWebhookRouter);
   app.use('/api', emailMetricsRouter);
+  app.use('/api', analyticsSummaryRouter);
+  app.use('/api', sendgridInboundRouter);
 app.use('/api/message', messageRouter);
 app.use('/api/phantombuster', phantombusterValidateRouter);
 app.use('/api/email', emailTemplatesRouter);

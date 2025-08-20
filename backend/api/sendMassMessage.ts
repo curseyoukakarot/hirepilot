@@ -4,6 +4,7 @@ import { personalizeMessage } from '../utils/messageUtils';
 import { getGoogleAccessToken } from '../services/googleTokenHelper';
 import { google } from 'googleapis';
 import sgMail from '@sendgrid/mail';
+import crypto from 'crypto';
 import { sendEmail } from '../services/emailProviderService';
 import { GmailTrackingService } from '../services/gmailTrackingService';
 import { OutlookTrackingService } from '../services/outlookTrackingService';
@@ -90,8 +91,11 @@ async function sendViaSendGrid(lead: any, content: string, userId: string, templ
     // Configure SendGrid with user's API key
     sgMail.setApiKey(data.api_key);
 
+    // Generate tracking message id for VERP Reply-To and event correlation
+    const trackingMessageId = crypto.randomUUID();
+
     // Prepare the email
-    const msg = {
+    const msg: any = {
       to: lead.email,
       from: data.default_sender,
       subject,
@@ -103,8 +107,10 @@ async function sendViaSendGrid(lead: any, content: string, userId: string, templ
       custom_args: {
         user_id: userId,
         campaign_id: lead.campaign_id,
-        lead_id: lead.id
-      }
+        lead_id: lead.id,
+        message_id: trackingMessageId
+      },
+      replyTo: `msg_${trackingMessageId}.u_${userId}.c_${lead.campaign_id}@${process.env.INBOUND_PARSE_DOMAIN || 'reply.thehirepilot.com'}`
     };
 
     console.log(`[sendViaSendGrid] Sending email to ${lead.email} from ${data.default_sender} with subject: ${subject}`);
@@ -143,7 +149,7 @@ async function sendViaSendGrid(lead: any, content: string, userId: string, templ
     }
 
     // Add analytics tracking - store sent event
-    const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const messageId = trackingMessageId;
     const { error: analyticsError } = await supabaseDb.from('email_events').insert({
       user_id: userId,
       campaign_id: lead.campaign_id, // Include campaign attribution
@@ -155,6 +161,7 @@ async function sendViaSendGrid(lead: any, content: string, userId: string, templ
       metadata: {
         subject,
         sg_message_id: response.headers['x-message-id'],
+        reply_to: msg.replyTo,
         source: 'bulk_messaging',
         to_email: lead.email,
         database_message_id: messageRecord?.id,

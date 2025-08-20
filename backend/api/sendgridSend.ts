@@ -1,6 +1,7 @@
 import express from 'express';
 import { createClient } from '@supabase/supabase-js';
 import sgMail from '@sendgrid/mail';
+import crypto from 'crypto';
 
 const router = express.Router();
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -36,7 +37,8 @@ router.post('/sendgrid/send', async (req, res) => {
     sgMail.setApiKey(data.api_key);
 
     // 3. Prepare the email
-    const msg = {
+    const trackingMessageId = crypto.randomUUID();
+    const msg: any = {
       to,
       from: data.default_sender,
       subject,
@@ -48,8 +50,10 @@ router.post('/sendgrid/send', async (req, res) => {
       custom_args: {
         user_id,
         campaign_id: req.body.campaign_id || null,
-        lead_id: req.body.lead_id || null
-      }
+        lead_id: req.body.lead_id || null,
+        message_id: trackingMessageId
+      },
+      replyTo: `msg_${trackingMessageId}.u_${user_id}.c_${req.body.campaign_id || 'none'}@${process.env.INBOUND_PARSE_DOMAIN || 'reply.thehirepilot.com'}`
     };
 
     // 4. Send the email
