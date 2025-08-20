@@ -489,7 +489,10 @@ export default function SettingsIntegrations() {
         name: s.name || s.from_name || s.nickname || ''
       }));
       setChangeSenderOptions(normalized);
-      setChangeSenderSelected(data.current_sender ?? '');
+      const defaultSelected = (data.current_sender && data.current_sender.length > 0)
+        ? data.current_sender
+        : (normalized[0]?.email || '');
+      setChangeSenderSelected(defaultSelected);
     } catch (error) {
       console.error('Error loading senders:', error);
       setChangeSenderError(error.message || 'Failed to load senders');
@@ -897,7 +900,7 @@ export default function SettingsIntegrations() {
                     <>
                       {integration.id === 'sendgrid' && (
                         <button
-                          onClick={() => setShowChangeSenderModal(true)}
+                          onClick={openChangeSenderModal}
                           className="p-2 text-gray-600 hover:text-gray-900"
                         >
                           <FaGear className="text-lg" />

@@ -561,6 +561,33 @@ app.post('/api/sendgrid/get-senders', async (req, res) => {
   }
 });
 
+// Change default SendGrid sender without disconnecting
+app.patch('/api/sendgrid/update-sender', async (req, res) => {
+  try {
+    const { user_id, default_sender } = req.body as { user_id?: string; default_sender?: string };
+    if (!user_id || !default_sender) {
+      res.status(400).json({ error: 'Missing required fields' });
+      return;
+    }
+
+    const { error } = await supabase
+      .from('user_sendgrid_keys')
+      .update({ default_sender })
+      .eq('user_id', user_id);
+
+    if (error) {
+      console.error('Failed to update default sender:', error);
+      res.status(500).json({ error: 'Failed to update default sender' });
+      return;
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error updating SendGrid sender:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Start the server
 app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`Server is running on http://localhost:${PORT}`);
