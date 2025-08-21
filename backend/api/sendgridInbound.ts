@@ -10,9 +10,10 @@ function extractTokenAddress(toValue: string | undefined) {
   if (!toValue) return null;
   // to may include multiple addresses separated by commas
   const first = toValue.split(',')[0].trim();
-  const match = first.match(/msg_([0-9a-fA-F-]{36})\.u_([0-9a-fA-F-]{36})\.c_([0-9a-fA-F-]{36})@/);
+  const match = first.match(/msg_([0-9a-fA-F-]{36})\.u_([0-9a-fA-F-]{36})\.c_([0-9a-fA-F-]+|none)@/);
   if (!match) return null;
-  return { messageId: match[1], userId: match[2], campaignId: match[3] };
+  const campaignId = match[3] === 'none' ? null : match[3];
+  return { messageId: match[1], userId: match[2], campaignId };
 }
 
 function basicAuthOk(req: express.Request): boolean {
