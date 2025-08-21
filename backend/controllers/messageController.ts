@@ -530,7 +530,7 @@ async function sendViaSendGrid(integration: any, { to, subject, html, attachment
         clickTracking: { enable: true },
         openTracking: { enable: true }
       },
-      custom_args: {
+      customArgs: {
         user_id: integration.user_id,
         message_id: trackingMessageId
       },

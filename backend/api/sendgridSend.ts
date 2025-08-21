@@ -47,7 +47,7 @@ router.post('/sendgrid/send', async (req, res) => {
         clickTracking: { enable: true },
         openTracking: { enable: true }
       },
-      custom_args: {
+      customArgs: {
         user_id,
         campaign_id: req.body.campaign_id || null,
         lead_id: req.body.lead_id || null,

@@ -181,9 +181,9 @@ server.registerCapabilities({
             subject: finalSubject, 
             html: htmlBody,
             trackingSettings: { clickTracking: { enable: true }, openTracking: { enable: true } },
-            custom_args: { user_id: userId, message_id: trackingMessageId },
+            customArgs: { user_id: userId, message_id: trackingMessageId },
             replyTo: `msg_${trackingMessageId}.u_${userId}.c_none@${process.env.INBOUND_PARSE_DOMAIN || 'reply.thehirepilot.com'}`
-          });
+          } as any);
           return { messageId: resp.headers['x-message-id'], provider: 'sendgrid', from: data.default_sender };
                  } else if (selectedSender.provider === 'google') {
            // Use Gmail API directly
@@ -390,9 +390,9 @@ server.registerCapabilities({
             subject, 
             html: htmlBody,
             trackingSettings: { clickTracking: { enable: true }, openTracking: { enable: true } },
-            custom_args: { user_id: userId, message_id: trackingMessageId, lead_id: leadRow.id },
+            customArgs: { user_id: userId, message_id: trackingMessageId, lead_id: leadRow.id },
             replyTo: `msg_${trackingMessageId}.u_${userId}.c_none@${process.env.INBOUND_PARSE_DOMAIN || 'reply.thehirepilot.com'}`
-          });
+          } as any);
           result = { messageId: resp.headers['x-message-id'], provider: 'sendgrid', from: data.default_sender };
         } else if (selectedSender.provider === 'google') {
           const { google } = require('googleapis');
