@@ -27,23 +27,29 @@ router.get('/analytics/summary', async (req, res) => {
 
     const delivered = new Set<string>();
     const opens = new Set<string>();
+    const replies = new Set<string>();
 
     for (const ev of events || []) {
       if (ev.event_type === 'delivered') delivered.add(ev.message_id);
       if (ev.event_type === 'open') opens.add(ev.message_id);
+      if (ev.event_type === 'reply') replies.add(ev.message_id);
     }
 
+    // Also check email_replies table for additional reply data
     const { data: repliesData, error: rerr } = await supabase
       .from('email_replies')
       .select('message_id')
       .match(replyFilters);
     if (rerr) throw rerr;
 
-    const replies = new Set<string>((repliesData || []).map(r => r.message_id as string));
+    // Add replies from email_replies table
+    for (const r of repliesData || []) {
+      if (r.message_id) replies.add(r.message_id);
+    }
 
     const deliveredCount = delivered.size;
     const uniqueOpens = [...opens].filter(mid => delivered.has(mid)).length;
-    const repliedCount = [...replies].filter(mid => delivered.has(mid)).length;
+    const repliedCount = replies.size;
 
     const open_rate = deliveredCount ? uniqueOpens / deliveredCount : 0;
     const reply_rate = deliveredCount ? repliedCount / deliveredCount : 0;
