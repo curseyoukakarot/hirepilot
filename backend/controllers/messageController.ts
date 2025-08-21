@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { google } from 'googleapis';
 import { Client } from '@microsoft/microsoft-graph-client';
 import sgMail from '@sendgrid/mail';
+import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 import { GmailTrackingService } from '../services/gmailTrackingService';
 import { OutlookTrackingService } from '../services/outlookTrackingService';
@@ -517,11 +518,23 @@ async function sendViaSendGrid(integration: any, { to, subject, html, attachment
   sgMail.setApiKey(sendgridKey.api_key);
   
   try {
-    const msg = {
+    // Generate tracking message id for VERP Reply-To and event correlation
+    const trackingMessageId = crypto.randomUUID();
+
+    const msg: any = {
       to,
       from: sendgridKey.default_sender,
       subject,
       html,
+      trackingSettings: {
+        clickTracking: { enable: true },
+        openTracking: { enable: true }
+      },
+      custom_args: {
+        user_id: integration.user_id,
+        message_id: trackingMessageId
+      },
+      replyTo: `msg_${trackingMessageId}.u_${integration.user_id}.c_none@${process.env.INBOUND_PARSE_DOMAIN || 'reply.thehirepilot.com'}`,
       attachments: attachments?.map(attachment => ({
         content: attachment.content.toString('base64'),
         filename: attachment.filename,

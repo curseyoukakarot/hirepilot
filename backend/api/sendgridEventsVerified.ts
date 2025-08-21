@@ -6,6 +6,10 @@ const router = express.Router();
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
 export async function sendgridEventsHandler(req: express.Request, res: express.Response) {
+  console.log('🔥 SendGrid Events Webhook HIT:', { 
+    headers: req.headers, 
+    bodySize: req.body?.length 
+  });
   try {
     const signature = (req.headers['x-twilio-email-event-webhook-signature'] ?? '').toString();
     const timestamp = (req.headers['x-twilio-email-event-webhook-timestamp'] ?? '').toString();

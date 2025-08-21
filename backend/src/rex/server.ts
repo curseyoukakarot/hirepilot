@@ -174,7 +174,16 @@ server.registerCapabilities({
           const { data } = await supabase.from('user_sendgrid_keys').select('api_key, default_sender').eq('user_id', userId).single();
           if (!data?.api_key || !data?.default_sender) throw new Error('SendGrid configuration incomplete');
           sgMail.setApiKey(data.api_key);
-          const [resp] = await sgMail.send({ to, from: data.default_sender, subject: finalSubject, html: htmlBody });
+          const trackingMessageId = require('crypto').randomUUID();
+          const [resp] = await sgMail.send({ 
+            to, 
+            from: data.default_sender, 
+            subject: finalSubject, 
+            html: htmlBody,
+            trackingSettings: { clickTracking: { enable: true }, openTracking: { enable: true } },
+            custom_args: { user_id: userId, message_id: trackingMessageId },
+            replyTo: `msg_${trackingMessageId}.u_${userId}.c_none@${process.env.INBOUND_PARSE_DOMAIN || 'reply.thehirepilot.com'}`
+          });
           return { messageId: resp.headers['x-message-id'], provider: 'sendgrid', from: data.default_sender };
                  } else if (selectedSender.provider === 'google') {
            // Use Gmail API directly
@@ -374,7 +383,16 @@ server.registerCapabilities({
             .single();
           if (!data?.api_key || !data?.default_sender) throw new Error('SendGrid configuration incomplete');
           sgMail.setApiKey(data.api_key);
-          const [resp] = await sgMail.send({ to: leadRow.email, from: data.default_sender, subject, html: htmlBody });
+          const trackingMessageId = require('crypto').randomUUID();
+          const [resp] = await sgMail.send({ 
+            to: leadRow.email, 
+            from: data.default_sender, 
+            subject, 
+            html: htmlBody,
+            trackingSettings: { clickTracking: { enable: true }, openTracking: { enable: true } },
+            custom_args: { user_id: userId, message_id: trackingMessageId, lead_id: leadRow.id },
+            replyTo: `msg_${trackingMessageId}.u_${userId}.c_none@${process.env.INBOUND_PARSE_DOMAIN || 'reply.thehirepilot.com'}`
+          });
           result = { messageId: resp.headers['x-message-id'], provider: 'sendgrid', from: data.default_sender };
         } else if (selectedSender.provider === 'google') {
           const { google } = require('googleapis');

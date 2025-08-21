@@ -25,6 +25,11 @@ function basicAuthOk(req: express.Request): boolean {
 }
 
 router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
+  console.log('📬 SendGrid Inbound Parse HIT:', { 
+    to: req.body.to, 
+    from: req.body.from, 
+    subject: req.body.subject 
+  });
   try {
     if (!basicAuthOk(req)) {
       res.status(401).send('unauthorized');
