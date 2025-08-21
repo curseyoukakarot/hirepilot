@@ -1,6 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import { createClient } from '@supabase/supabase-js';
+import sgMail from '@sendgrid/mail';
 
 const upload = multer();
 const router = express.Router();
@@ -25,6 +26,153 @@ function basicAuthOk(req: express.Request): boolean {
   return token === Buffer.from(basic).toString('base64');
 }
 
+async function computeForwardRecipients(userId: string): Promise<string[]> {
+  try {
+    // Get user's primary email
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('primary_email, email')
+      .eq('id', userId)
+      .single();
+    
+    if (userError || !user) {
+      console.error('[computeForwardRecipients] User not found:', userError);
+      return [];
+    }
+
+    // Use primary_email if available, fallback to email
+    const primaryEmail = user.primary_email || user.email;
+    if (!primaryEmail) {
+      console.error('[computeForwardRecipients] No email found for user:', userId);
+      return [];
+    }
+
+    // Check forwarding preferences
+    const { data: prefs, error: prefsError } = await supabase
+      .from('user_reply_forwarding_prefs')
+      .select('enabled, cc_recipients')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (prefsError) {
+      console.error('[computeForwardRecipients] Error fetching prefs:', prefsError);
+      // Default to enabled if no prefs found
+    }
+
+    // If explicitly disabled, return empty
+    if (prefs && prefs.enabled === false) {
+      console.log('[computeForwardRecipients] Forwarding disabled for user:', userId);
+      return [];
+    }
+
+    // Build recipient list
+    const recipients = [primaryEmail];
+    
+    // Add CC recipients if configured
+    if (prefs?.cc_recipients && Array.isArray(prefs.cc_recipients)) {
+      recipients.push(...prefs.cc_recipients.filter(email => 
+        email && !email.includes('@reply.thehirepilot.com')
+      ));
+    }
+
+    // Filter out any reply.thehirepilot.com addresses to prevent loops
+    return recipients.filter(email => !email.includes('@reply.thehirepilot.com'));
+  } catch (error) {
+    console.error('[computeForwardRecipients] Error:', error);
+    return [];
+  }
+}
+
+async function forwardReply({
+  recipients,
+  originalFrom,
+  originalSubject,
+  textBody,
+  htmlBody,
+  messageId,
+  campaignId,
+  userId,
+  attachments = []
+}: {
+  recipients: string[];
+  originalFrom: string;
+  originalSubject: string;
+  textBody: string;
+  htmlBody: string;
+  messageId: string;
+  campaignId: string | null;
+  userId: string;
+  attachments?: any[];
+}) {
+  try {
+    if (recipients.length === 0) {
+      console.log('[forwardReply] No recipients, skipping forward');
+      return;
+    }
+
+    // Configure SendGrid with system API key
+    const systemApiKey = process.env.SENDGRID_API_KEY;
+    if (!systemApiKey) {
+      console.error('[forwardReply] SENDGRID_API_KEY not configured');
+      return;
+    }
+    sgMail.setApiKey(systemApiKey);
+
+    const forwardFromEmail = process.env.FORWARD_FROM_EMAIL || 'replies@thehirepilot.com';
+    const forwardFromName = process.env.FORWARD_FROM_NAME || 'HirePilot Replies';
+    
+    // Build enhanced subject
+    const enhancedSubject = `[HirePilot Reply] ${originalSubject} — ${originalFrom}`;
+    
+    // Build enhanced body with metadata
+    const metadataText = `\n\n--- HirePilot Metadata ---\nMessage ID: ${messageId}\nCampaign ID: ${campaignId || 'none'}\nCandidate Email: ${originalFrom}\n`;
+    const metadataHtml = `<br><br><hr><small><strong>HirePilot Metadata</strong><br>Message ID: ${messageId}<br>Campaign ID: ${campaignId || 'none'}<br>Candidate Email: ${originalFrom}</small>`;
+    
+    const enhancedTextBody = textBody + metadataText;
+    const enhancedHtmlBody = htmlBody ? htmlBody + metadataHtml : `<p>${textBody.replace(/\n/g, '<br>')}</p>${metadataHtml}`;
+
+    // Prepare message
+    const msg: any = {
+      to: recipients,
+      from: {
+        email: forwardFromEmail,
+        name: forwardFromName
+      },
+      replyTo: originalFrom, // Critical: replies go back to candidate
+      subject: enhancedSubject,
+      text: enhancedTextBody,
+      html: enhancedHtmlBody,
+      customArgs: {
+        hp_message_id: messageId,
+        hp_campaign_id: campaignId || 'none',
+        hp_user_id: userId,
+        hp_forwarded: '1'
+      },
+      headers: {
+        'X-HirePilot-Forwarded': 'true'
+      }
+    };
+
+    // Add attachments if present
+    if (attachments && attachments.length > 0) {
+      msg.attachments = attachments.map((att: any) => ({
+        content: att.content || '',
+        filename: att.filename || 'attachment',
+        type: att.type || 'application/octet-stream',
+        disposition: 'attachment'
+      }));
+    }
+
+    console.log(`[forwardReply] Forwarding to ${recipients.length} recipients:`, recipients);
+    const [response] = await sgMail.send(msg);
+    console.log(`[forwardReply] Successfully forwarded reply, message ID:`, response.headers['x-message-id']);
+    
+  } catch (error) {
+    console.error('[forwardReply] Error forwarding reply:', error);
+    // Don't throw - forwarding failure shouldn't break inbound processing
+  }
+}
+
 router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
   console.log('📬 SendGrid Inbound Parse HIT:', { 
     to: req.body.to, 
@@ -34,6 +182,14 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
   try {
     if (!basicAuthOk(req)) {
       res.status(401).send('unauthorized');
+      return;
+    }
+
+    // Loop protection: check if this is already a forwarded email
+    const headers = (req.body.headers as string) || '';
+    if (headers.includes('X-HirePilot-Forwarded: true')) {
+      console.log('[sendgrid/inbound] Skipping forwarded email to prevent loop');
+      res.status(204).end();
       return;
     }
 
@@ -62,6 +218,7 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
       lead_id = msgRow?.lead_id ?? null;
     } catch {}
 
+    // Save reply to database
     await supabase.from('email_replies').insert({
       user_id: userId,
       campaign_id: campaignId,
@@ -85,6 +242,40 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
       event_timestamp: new Date().toISOString(),
       metadata: { from, subject }
     });
+
+    console.log(`[sendgrid/inbound] Saved reply from ${from} for message ${messageId}`);
+
+    // Forward reply to user's inbox
+    try {
+      const recipients = await computeForwardRecipients(userId);
+      if (recipients.length > 0) {
+        console.log(`[sendgrid/inbound] Forwarding reply to ${recipients.length} recipients`);
+        
+        // Handle attachments from multipart data
+        const attachments = (req.files as any[])?.map((file: any) => ({
+          content: file.buffer ? file.buffer.toString('base64') : '',
+          filename: file.originalname || file.filename || 'attachment',
+          type: file.mimetype || 'application/octet-stream'
+        })) || [];
+
+        await forwardReply({
+          recipients,
+          originalFrom: from,
+          originalSubject: subject,
+          textBody: text,
+          htmlBody: html,
+          messageId,
+          campaignId,
+          userId,
+          attachments
+        });
+      } else {
+        console.log(`[sendgrid/inbound] No forward recipients for user ${userId}`);
+      }
+    } catch (forwardError) {
+      console.error('[sendgrid/inbound] Forward error (non-blocking):', forwardError);
+      // Continue processing even if forwarding fails
+    }
 
     res.status(204).end();
   } catch (err) {
