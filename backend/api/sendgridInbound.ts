@@ -2,6 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import { createClient } from '@supabase/supabase-js';
 import sgMail from '@sendgrid/mail';
+import { simpleParser } from 'mailparser';
 
 const upload = multer();
 const router = express.Router();
@@ -15,6 +16,67 @@ function extractTokenAddress(toValue: string | undefined) {
   if (!match) return null;
   const campaignId = match[3] === 'none' ? null : match[3];
   return { messageId: match[1], userId: match[2], campaignId };
+}
+
+type ParsedReply = {
+  from: string | null;
+  subject: string | null;
+  text: string | null;
+  html: string | null;
+  attachments: Array<{ filename: string; type?: string; content: string }>;
+};
+
+async function parseInbound(req: express.Request): Promise<ParsedReply> {
+  // Start with SendGrid's parsed fields if present
+  let parsed: ParsedReply = {
+    from: req.body.from || null,
+    subject: req.body.subject || null,
+    text: req.body.text || null,
+    html: req.body.html || null,
+    attachments: [],
+  };
+
+  const rawMime: string | undefined = req.body.email; // present when "POST raw MIME" is ON
+  if (!rawMime) return parsed;
+
+  try {
+    const mail = await simpleParser(rawMime);
+
+    // From
+    const fromAddr =
+      mail.from?.value?.[0]?.address ||
+      (parsed.from?.match(/<([^>]+)>/)?.[1] || parsed.from) ||
+      null;
+
+    // Bodies
+    const text = (mail.text && mail.text.trim()) ? mail.text : (parsed.text || null);
+
+    let html: string | null = null;
+    if (typeof mail.html === 'string') html = mail.html;
+    else if (mail.textAsHtml) html = mail.textAsHtml; // fallback: render text as HTML
+    else if (parsed.html) html = parsed.html;
+
+    // Attachments to base64 for SendGrid forwarder
+    const attachments = (mail.attachments || []).map(a => ({
+      filename: a.filename || 'attachment',
+      type: a.contentType || 'application/octet-stream',
+      content: Buffer.isBuffer(a.content)
+        ? a.content.toString('base64')
+        : Buffer.from(a.content as any).toString('base64'),
+    }));
+
+    parsed = { 
+      from: fromAddr, 
+      subject: mail.subject || parsed.subject || null, 
+      text, 
+      html, 
+      attachments 
+    };
+  } catch (e) {
+    console.error('[parseInbound] MIME parse failed; using fallback fields', e);
+  }
+
+  return parsed;
 }
 
 function basicAuthOk(req: express.Request): boolean {
@@ -194,10 +256,11 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
     }
 
     const to = (req.body.to as string) || '';
-    const from = (req.body.from as string) || '';
-    const subject = (req.body.subject as string) || '';
-    const text = (req.body.text as string) || '';
-    const html = (req.body.html as string) || '';
+    
+    // Parse MIME data to get real email bodies and attachments
+    console.log('[sendgrid/inbound] Content-Type:', req.headers['content-type']);
+    const parsed = await parseInbound(req);
+    console.log('[sendgrid/inbound] MIME present:', Boolean(req.body.email), 'text.len:', parsed.text?.length || 0, 'html.len:', parsed.html?.length || 0);
 
     const token = extractTokenAddress(to);
     if (!token) {
@@ -218,16 +281,16 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
       lead_id = msgRow?.lead_id ?? null;
     } catch {}
 
-    // Save reply to database
+    // Save reply to database using parsed data
     await supabase.from('email_replies').insert({
       user_id: userId,
       campaign_id: campaignId,
       lead_id,
       message_id: messageId,
-      from_email: from,
-      subject,
-      text_body: text,
-      html_body: html,
+      from_email: parsed.from,
+      subject: parsed.subject,
+      text_body: parsed.text,
+      html_body: parsed.html,
       raw: req.body
     });
 
@@ -240,10 +303,10 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
       message_id: messageId,
       event_type: 'reply',
       event_timestamp: new Date().toISOString(),
-      metadata: { from, subject }
+      metadata: { from: parsed.from, subject: parsed.subject }
     });
 
-    console.log(`[sendgrid/inbound] Saved reply from ${from} for message ${messageId}`);
+    console.log(`[sendgrid/inbound] Saved reply from ${parsed.from} for message ${messageId}`);
 
     // Forward reply to user's inbox
     try {
@@ -251,19 +314,22 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
       if (recipients.length > 0) {
         console.log(`[sendgrid/inbound] Forwarding reply to ${recipients.length} recipients`);
         
-        // Handle attachments from multipart data
-        const attachments = (req.files as any[])?.map((file: any) => ({
-          content: file.buffer ? file.buffer.toString('base64') : '',
-          filename: file.originalname || file.filename || 'attachment',
-          type: file.mimetype || 'application/octet-stream'
-        })) || [];
+        // Use parsed attachments from MIME data, fallback to multipart files
+        let attachments = parsed.attachments;
+        if (attachments.length === 0 && req.files) {
+          attachments = (req.files as any[]).map((file: any) => ({
+            content: file.buffer ? file.buffer.toString('base64') : '',
+            filename: file.originalname || file.filename || 'attachment',
+            type: file.mimetype || 'application/octet-stream'
+          }));
+        }
 
         await forwardReply({
           recipients,
-          originalFrom: from,
-          originalSubject: subject,
-          textBody: text,
-          htmlBody: html,
+          originalFrom: parsed.from || 'unknown@unknown.com',
+          originalSubject: parsed.subject || '(no subject)',
+          textBody: parsed.text,
+          htmlBody: parsed.html,
           messageId,
           campaignId,
           userId,
