@@ -84,6 +84,19 @@ PROXYCURL_API_KEY=your_proxycurl_api_key_here
 NEVERBOUNCE_API_KEY=your_neverbounce_api_key_here
 ```
 
+## 🔴 Redis Configuration (Required for AI Agents)
+```
+REDIS_URL=redis://default:<password>@<host>:<port>
+```
+
+## 🤖 AI Agents Configuration
+```
+FRONTEND_BASE_URL=https://app.yourdomain.com
+BACKEND_BASE_URL=https://api.yourdomain.com
+AGENTS_API_TOKEN=<short-lived JWT for REX to call API>
+APOLLO_API_BASE=https://api.apollo.io/v1
+```
+
 ## 🔐 Security
 ```
 COOKIE_ENCRYPTION_KEY=your_32_byte_encryption_key_here_123456

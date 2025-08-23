@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import path from 'path';
+import fetch from 'node-fetch';
 import { supabase } from '../lib/supabase';
 import { launchQueue } from '../../api/campaigns/launch';
 import sgMail from '@sendgrid/mail';
@@ -41,6 +42,46 @@ const sdkRoot = path.dirname(require.resolve('@modelcontextprotocol/sdk/package.
 const { Server } = require(path.join(sdkRoot, 'server/index.js'));
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { StdioServerTransport } = require(path.join(sdkRoot, 'server/stdio.js'));
+
+// ---------------------------------------------------------------------------------
+// API utility function for making requests to backend
+// ---------------------------------------------------------------------------------
+async function api(endpoint: string, options: { method: string; body?: string } = { method: 'GET' }) {
+  const baseUrl = process.env.BACKEND_BASE_URL || 'http://localhost:8080';
+  const url = `${baseUrl}${endpoint}`;
+  
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json'
+  };
+  
+  // Add authentication token if available
+  if (process.env.AGENTS_API_TOKEN) {
+    headers['Authorization'] = `Bearer ${process.env.AGENTS_API_TOKEN}`;
+  }
+  
+  try {
+    const response = await fetch(url, {
+      method: options.method,
+      headers,
+      body: options.body
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+    
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      return await response.json();
+    } else {
+      return await response.text();
+    }
+  } catch (error: any) {
+    console.error(`API request to ${endpoint} failed:`, error);
+    throw new Error(`Failed to call ${endpoint}: ${error.message}`);
+  }
+}
 
 // ---------------------------------------------------------------------------------
 // Minimal REX MCP server (stdio transport)
@@ -867,6 +908,105 @@ server.registerCapabilities({
       handler: async ({ userId, leadId }) => {
         await assertPremium(userId);
         return await convertLeadToCandidate({ userId, leadId });
+      }
+    },
+    // ==================== SOURCING AGENT TOOLS ====================
+    sourcing_create_campaign: {
+      parameters: { 
+        userId: {type:'string'}, 
+        title: {type:'string'}, 
+        audience_tag: {type:'string', optional: true}, 
+        sender_id: {type:'string', optional: true} 
+      },
+      handler: async ({ userId, title, audience_tag, sender_id }) => {
+        await assertPremium(userId);
+        return await api('/api/sourcing/campaigns', {
+          method: 'POST',
+          body: JSON.stringify({ title, audience_tag, sender_id, created_by: userId })
+        });
+      }
+    },
+    sourcing_save_sequence: {
+      parameters: {
+        userId: {type:'string'},
+        campaign_id: {type:'string'}, 
+        title_groups: {type:'array'}, 
+        industry: {type:'string', optional: true},
+        product_name: {type:'string', optional: true}, 
+        spacing_business_days: {type:'number', optional: true}
+      },
+      handler: async ({ userId, campaign_id, title_groups, industry, product_name, spacing_business_days }) => {
+        await assertPremium(userId);
+        return await api(`/api/sourcing/campaigns/${campaign_id}/sequence`, {
+          method: 'POST',
+          body: JSON.stringify({ title_groups, industry, product_name, spacing_business_days })
+        });
+      }
+    },
+    sourcing_add_leads: {
+      parameters: { 
+        userId: {type:'string'}, 
+        campaign_id: {type:'string'}, 
+        leads: {type:'array'} 
+      },
+      handler: async ({ userId, campaign_id, leads }) => {
+        await assertPremium(userId);
+        return await api(`/api/sourcing/campaigns/${campaign_id}/leads`, {
+          method: 'POST',
+          body: JSON.stringify({ leads })
+        });
+      }
+    },
+    sourcing_schedule_sends: {
+      parameters: { 
+        userId: {type:'string'}, 
+        campaign_id: {type:'string'} 
+      },
+      handler: async ({ userId, campaign_id }) => {
+        await assertPremium(userId);
+        return await api(`/api/sourcing/campaigns/${campaign_id}/schedule`, {
+          method: 'POST'
+        });
+      }
+    },
+    sourcing_get_campaign: {
+      parameters: { 
+        userId: {type:'string'}, 
+        campaign_id: {type:'string'} 
+      },
+      handler: async ({ userId, campaign_id }) => {
+        await assertPremium(userId);
+        return await api(`/api/sourcing/campaigns/${campaign_id}`, {
+          method: 'GET'
+        });
+      }
+    },
+    sourcing_list_campaigns: {
+      parameters: { 
+        userId: {type:'string'}, 
+        status: {type:'string', optional: true}, 
+        search: {type:'string', optional: true},
+        limit: {type:'number', optional: true}
+      },
+      handler: async ({ userId, status, search, limit }) => {
+        await assertPremium(userId);
+        const params = new URLSearchParams();
+        if (status) params.append('status', status);
+        if (search) params.append('search', search);
+        if (limit) params.append('limit', limit.toString());
+        params.append('created_by', userId);
+        
+        const queryString = params.toString();
+        const url = queryString ? `/api/sourcing/campaigns?${queryString}` : '/api/sourcing/campaigns';
+        
+        return await api(url, { method: 'GET' });
+      }
+    },
+    sourcing_get_senders: {
+      parameters: { userId: {type:'string'} },
+      handler: async ({ userId }) => {
+        await assertPremium(userId);
+        return await api('/api/sourcing/senders', { method: 'GET' });
       }
     }
   }
