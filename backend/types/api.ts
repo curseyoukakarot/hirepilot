@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 
 export interface CustomUser {
   id: string;
-  email: string;
+  email?: string; // Make email optional for flexibility
   role?: string;
   first_name?: string;
   last_name?: string;

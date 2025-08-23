@@ -3,13 +3,10 @@ import { z } from 'zod';
 import { pushNotification, CardSchema, recordInteraction, getUserNotifications, markNotificationRead, markAllNotificationsRead } from '../lib/notifications';
 import { supabase } from '../lib/supabase';
 import { requireAuth } from '../../middleware/authMiddleware';
+import { ApiRequest } from '../../types/api';
 import fetch from 'node-fetch';
 
 const router = express.Router();
-
-interface ApiRequest extends Request {
-  user?: { id: string };
-}
 
 function getUserId(req: ApiRequest): string | null {
   // Get user ID from authenticated user or fallback to header for testing
