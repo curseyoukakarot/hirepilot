@@ -21,14 +21,17 @@ interface ApiOptions extends RequestInit {
 export async function api(endpoint: string, options: ApiOptions = {}) {
   const { requireAuth = true, ...fetchOptions } = options;
   
-  // Get user ID if auth is required
+  // Get user and access token if auth is required
   let userId: string | undefined;
+  let accessToken: string | undefined;
   if (requireAuth) {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      throw new Error('User not authenticated');
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!user || !session?.access_token) {
+      throw new Error('Missing or invalid bearer token');
     }
     userId = user.id;
+    accessToken = session.access_token;
   }
 
   // Prepare headers
@@ -36,9 +39,8 @@ export async function api(endpoint: string, options: ApiOptions = {}) {
   if (!headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
-  if (userId) {
-    headers.set('x-user-id', userId);
-  }
+  if (userId) headers.set('x-user-id', userId);
+  if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
 
   // Make the request
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
