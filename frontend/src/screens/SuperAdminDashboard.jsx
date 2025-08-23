@@ -111,13 +111,13 @@ export default function SuperAdminDashboard() {
                 <i className="fa-solid fa-user-shield text-blue-600 text-xl mb-2"></i>
                 <span className="text-sm text-gray-200">User Management</span>
               </button>
-              <button className="flex flex-col items-center justify-center p-4 bg-gray-700 rounded-md hover:bg-gray-600 transition-colors" onClick={() => navigate('/phantom/config')}>
-                <i className="fa-solid fa-tasks text-blue-600 text-xl mb-2"></i>
-                <span className="text-sm text-gray-200">Phantom Tasks</span>
+              <button className="flex flex-col items-center justify-center p-4 bg-gray-700 rounded-md hover:bg-gray-600 transition-colors" onClick={() => navigate('/super-admin/sourcing')}>
+                <i className="fa-solid fa-diagram-project text-blue-600 text-xl mb-2"></i>
+                <span className="text-sm text-gray-200">Sourcing Campaigns</span>
               </button>
-              <button className="flex flex-col items-center justify-center p-4 bg-gray-700 rounded-md hover:bg-gray-600 transition-colors">
-                <i className="fa-solid fa-database text-blue-600 text-xl mb-2"></i>
-                <span className="text-sm text-gray-200">DB Console</span>
+              <button className="flex flex-col items-center justify-center p-4 bg-gray-700 rounded-md hover:bg-gray-600 transition-colors" onClick={() => navigate('/super-admin/inbox')}>
+                <i className="fa-solid fa-inbox text-blue-600 text-xl mb-2"></i>
+                <span className="text-sm text-gray-200">Action Inbox</span>
               </button>
               <button className="flex flex-col items-center justify-center p-4 bg-red-900/30 rounded-md hover:bg-red-900/50 transition-colors col-span-2">
                 <i className="fa-solid fa-power-off text-red-500 text-xl mb-2"></i>
