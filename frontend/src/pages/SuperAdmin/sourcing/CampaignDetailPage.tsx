@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
+import { api } from '../../../lib/api';
 
 type CampaignData = {
   campaign: {
@@ -46,21 +47,7 @@ export default function CampaignDetailPage() {
     try {
       setLoading(true);
       setError(null);
-
-      const token = (await supabase.auth.getSession()).data.session?.access_token;
-      const response = await fetch(`/api/sourcing/campaigns/${id}`, {
-        credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to load campaign: ${response.status}`);
-      }
-
-      const campaignData = await response.json();
+      const campaignData = await api(`/api/sourcing/campaigns/${id}`);
       setData(campaignData);
     } catch (err) {
       console.error('Error loading campaign:', err);
@@ -81,8 +68,6 @@ export default function CampaignDetailPage() {
     
     try {
       setActionLoading(action);
-      const token = (await supabase.auth.getSession()).data.session?.access_token;
-      
       let endpoint = '';
       let method = 'POST';
       
@@ -100,18 +85,7 @@ export default function CampaignDetailPage() {
           throw new Error(`Unknown action: ${action}`);
       }
 
-      const response = await fetch(endpoint, {
-        method,
-        credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to ${action} campaign: ${response.status}`);
-      }
+      await api(endpoint, { method });
 
       // Reload campaign data
       await loadCampaign();

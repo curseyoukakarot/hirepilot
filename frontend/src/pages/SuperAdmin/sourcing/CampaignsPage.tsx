@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
+import { api } from '../../../lib/api';
 
 type Campaign = {
   id: string;
@@ -30,38 +31,14 @@ export default function CampaignsPage() {
     try {
       setLoading(true);
       setError(null);
-
-      const token = (await supabase.auth.getSession()).data.session?.access_token;
-      const response = await fetch('/api/sourcing/campaigns', {
-        credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to load campaigns: ${response.status}`);
-      }
-
-      const campaigns = await response.json();
+      const campaigns = await api('/api/sourcing/campaigns');
       setRows(campaigns);
 
       // Load stats for each campaign
       const statsPromises = campaigns.map(async (campaign: Campaign) => {
         try {
-          const statsResponse = await fetch(`/api/sourcing/campaigns/${campaign.id}/stats`, {
-            credentials: 'include',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
-          });
-          
-          if (statsResponse.ok) {
-            const campaignStats = await statsResponse.json();
-            return { id: campaign.id, stats: campaignStats };
-          }
+          const campaignStats = await api(`/api/sourcing/campaigns/${campaign.id}/stats`);
+          return { id: campaign.id, stats: campaignStats };
         } catch (err) {
           console.warn(`Failed to load stats for campaign ${campaign.id}:`, err);
         }

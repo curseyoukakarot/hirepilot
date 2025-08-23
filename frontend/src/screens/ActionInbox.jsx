@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 
 export default function ActionInbox() {
   const [cards, setCards] = useState([]);
@@ -21,7 +22,6 @@ export default function ActionInbox() {
       setLoading(true);
       setError(null);
 
-      const token = (await supabase.auth.getSession()).data.session?.access_token;
       const queryParams = new URLSearchParams();
       
       if (filter === 'unread') {
@@ -29,20 +29,8 @@ export default function ActionInbox() {
       }
       queryParams.append('limit', '50');
 
-      const response = await fetch(`/api/notifications?${queryParams}`, {
-        credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to load notifications: ${response.status}`);
-      }
-
-      const data = await response.json();
-      setCards(data.notifications || []);
+      const data = await api(`/api/notifications?${queryParams.toString()}`);
+      setCards(data.notifications || data);
     } catch (err) {
       console.error('Error loading notifications:', err);
       setError(err.message);
@@ -54,19 +42,8 @@ export default function ActionInbox() {
   // Load notification statistics
   const loadStats = useCallback(async () => {
     try {
-      const token = (await supabase.auth.getSession()).data.session?.access_token;
-      const response = await fetch('/api/notifications/stats', {
-        credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
-      }
+      const data = await api('/api/notifications/stats');
+      setStats(data);
     } catch (err) {
       console.error('Error loading stats:', err);
     }
@@ -75,8 +52,6 @@ export default function ActionInbox() {
   // Handle user interaction with notification actions
   const interact = async (card, action, data = {}) => {
     try {
-      const token = (await supabase.auth.getSession()).data.session?.access_token;
-      
       // Prepare interaction data
       const interactionData = {
         user_id: getCurrentUserId(),
@@ -92,29 +67,10 @@ export default function ActionInbox() {
       };
 
       // Send interaction to backend
-      const response = await fetch('/api/agent-interactions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify(interactionData)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to record interaction: ${response.status}`);
-      }
+      await api('/api/agent-interactions', { method: 'POST', body: JSON.stringify(interactionData) });
 
       // Mark notification as read
-      await fetch(`/api/notifications/${card.id}/read`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include'
-      });
+      await api(`/api/notifications/${card.id}/read`, { method: 'PATCH' });
 
       // Optimistically remove card from UI
       setCards(prev => prev.filter(c => c.id !== card.id));
@@ -147,15 +103,7 @@ export default function ActionInbox() {
   // Mark all as read
   const markAllAsRead = async () => {
     try {
-      const token = (await supabase.auth.getSession()).data.session?.access_token;
-      await fetch('/api/notifications/read-all', {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include'
-      });
+      await api('/api/notifications/read-all', { method: 'PATCH' });
 
       // Refresh notifications
       loadNotifications();

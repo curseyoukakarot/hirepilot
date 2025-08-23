@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
+import { api } from '../../../lib/api';
 
 type Reply = {
   id: string;
@@ -35,21 +36,7 @@ export default function RepliesPage() {
     try {
       setLoading(true);
       setError(null);
-
-      const token = (await supabase.auth.getSession()).data.session?.access_token;
-      const response = await fetch(`/api/sourcing/campaigns/${id}/replies`, {
-        credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to load replies: ${response.status}`);
-      }
-
-      const repliesData = await response.json();
+      const repliesData = await api(`/api/sourcing/campaigns/${id}/replies`);
       setReplies(repliesData);
     } catch (err) {
       console.error('Error loading replies:', err);
@@ -69,16 +56,8 @@ export default function RepliesPage() {
     try {
       setActionLoading(`${reply.id}-${actionId}`);
       
-      const token = (await supabase.auth.getSession()).data.session?.access_token;
-      
-      // Record the interaction
-      const interactionResponse = await fetch('/api/agent-interactions', {
+      await api('/api/agent-interactions', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
         body: JSON.stringify({
           user_id: 'current-user', // TODO: Replace with actual user ID
           source: 'inapp',
@@ -93,36 +72,18 @@ export default function RepliesPage() {
         })
       });
 
-      if (!interactionResponse.ok) {
-        throw new Error(`Failed to record interaction: ${interactionResponse.status}`);
-      }
-
       // Handle specific actions
       if (actionId === 'book_meeting') {
         // Call the book demo endpoint if it exists
         try {
-          await fetch(`/api/sourcing/replies/${reply.id}/book-demo`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            credentials: 'include'
-          });
+          await api(`/api/sourcing/replies/${reply.id}/book-demo`, { method: 'POST' });
         } catch (bookingErr) {
           console.warn('Book demo endpoint not available:', bookingErr);
         }
       } else if (actionId === 'disqualify') {
         // Call the disqualify endpoint if it exists
         try {
-          await fetch(`/api/sourcing/replies/${reply.id}/disqualify`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            credentials: 'include'
-          });
+          await api(`/api/sourcing/replies/${reply.id}/disqualify`, { method: 'POST' });
         } catch (disqualifyErr) {
           console.warn('Disqualify endpoint not available:', disqualifyErr);
         }
