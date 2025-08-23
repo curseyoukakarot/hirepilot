@@ -230,12 +230,30 @@ export class SourcingNotifications {
   }) {
     const threadKey = `sourcing:${params.campaignId}:${params.leadId}`;
     
+    // Create interactive actions based on classification
     const actions: ActionType[] = [
       {
-        id: 'draft_reply',
+        id: 'reply_draft',
         type: 'button',
         label: '🤖 Draft with REX',
         style: 'primary'
+      },
+      {
+        id: 'book_meeting',
+        type: 'button',
+        label: '📅 Book Meeting',
+        style: 'secondary'
+      },
+      {
+        id: 'disqualify',
+        type: 'button',
+        label: '❌ Disqualify',
+        style: 'secondary'
+      },
+      {
+        id: 'free_text',
+        type: 'input',
+        placeholder: 'Type an instruction…'
       }
     ];
     
@@ -260,15 +278,17 @@ export class SourcingNotifications {
       user_id: params.userId,
       source: params.source || 'inapp',
       thread_key: threadKey,
-      title: `New ${params.classification} reply`,
-      body_md: `**From:** ${params.fromEmail}\n**Subject:** ${params.subject}\n\n${params.body.substring(0, 200)}${params.body.length > 200 ? '...' : ''}`,
+      title: `New reply from ${params.fromEmail}`,
+      body_md: `_${params.classification}_ • Suggested next action: *${getNextActionFromClassification(params.classification)}*\n\n${(params.body || '').slice(0, 700)}`,
       type: 'sourcing_reply',
       actions,
       metadata: {
         campaign_id: params.campaignId,
         lead_id: params.leadId,
         reply_id: params.replyId,
-        classification: params.classification
+        classification: params.classification,
+        from_email: params.fromEmail,
+        subject: params.subject
       }
     });
   }
@@ -364,6 +384,20 @@ export class SourcingNotifications {
         title_groups: params.titleGroups
       }
     });
+  }
+}
+
+/**
+ * Helper to get suggested next action from classification
+ */
+function getNextActionFromClassification(classification: string): string {
+  switch (classification) {
+    case 'positive': return 'book meeting';
+    case 'neutral': return 'reply';
+    case 'negative': return 'disqualify';
+    case 'oos': return 'disqualify';
+    case 'auto': return 'hold';
+    default: return 'reply';
   }
 }
 

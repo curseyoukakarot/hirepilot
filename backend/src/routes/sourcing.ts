@@ -319,4 +319,57 @@ router.post('/campaigns/:id/resume', requireAuth, async (req: ApiRequest, res: R
   }
 });
 
+// LIST campaigns (simple) - for frontend campaigns page
+router.get('/campaigns', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const { data, error } = await supabase
+      .from('sourcing_campaigns')
+      .select('id, title, audience_tag, status, created_at, created_by, default_sender_id')
+      .order('created_at', { ascending: false })
+      .limit(100);
+    
+    if (error) {
+      throw new Error(`Failed to fetch campaigns: ${error.message}`);
+    }
+    
+    return res.json(data || []);
+  } catch (error: any) {
+    console.error('Error fetching campaigns:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// Get replies for a specific campaign
+router.get('/campaigns/:id/replies', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    // Get replies with lead information
+    const { data, error } = await supabase
+      .from('sourcing_replies')
+      .select(`
+        *,
+        lead:sourcing_leads!sourcing_replies_lead_id_fkey (
+          id,
+          name,
+          email,
+          title,
+          company
+        )
+      `)
+      .eq('campaign_id', id)
+      .eq('direction', 'inbound')
+      .order('received_at', { ascending: false });
+    
+    if (error) {
+      throw new Error(`Failed to fetch replies: ${error.message}`);
+    }
+    
+    return res.json(data || []);
+  } catch (error: any) {
+    console.error('Error fetching campaign replies:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

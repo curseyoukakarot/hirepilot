@@ -5,6 +5,8 @@ import { supabase } from '../lib/supabase';
 import OpenAI from 'openai';
 import { updateLeadOutreachStage } from '../services/sourcingUtils';
 import { sendSourcingReplyNotification } from '../services/sourcingNotifications';
+import { SourcingNotifications } from '../lib/notifications';
+import { sendCardToSlack } from '../services/slack';
 
 const upload = multer();
 const router = express.Router();
@@ -97,6 +99,15 @@ router.post('/webhooks/sendgrid/sourcing/inbound', upload.any(), async (req: Req
       console.error('❌ Error updating lead status:', error);
     }
     
+    // Get campaign owner for notifications
+    const { data: campaign } = await supabase
+      .from('sourcing_campaigns')
+      .select('created_by')
+      .eq('id', campaignId)
+      .single();
+
+    const userId = campaign?.created_by;
+
     // Send notifications via multiple channels
     await Promise.all([
       // Primary notification service (Slack + Email)
@@ -109,6 +120,28 @@ router.post('/webhooks/sendgrid/sourcing/inbound', upload.any(), async (req: Req
         classification: classification.label,
         nextAction: classification.next_action
       }),
+      // New notification system with interactive cards (in-app)
+      userId ? SourcingNotifications.newReply({
+        userId,
+        campaignId,
+        leadId,
+        replyId: replyRow.id,
+        classification: classification.label,
+        subject,
+        fromEmail: from,
+        body,
+        source: 'inapp'
+      }) : Promise.resolve(null),
+      // Mirror the same card to Slack (if Slack is configured)
+      process.env.SLACK_BOT_TOKEN && userId ? sendSlackReplyNotification({
+        userId,
+        from,
+        classification: classification.label,
+        nextAction: classification.next_action,
+        body,
+        campaignId,
+        leadId
+      }) : Promise.resolve(null),
       // Secondary notification system (for future integrations)
       sendReplyNotification({
         campaignId,
@@ -260,6 +293,59 @@ async function sendReplyNotification(data: {
     
   } catch (error) {
     console.error('❌ Error sending notification:', error);
+  }
+}
+
+/**
+ * Send interactive reply notification to Slack
+ */
+async function sendSlackReplyNotification(params: {
+  userId: string;
+  from: string;
+  classification: string;
+  nextAction: string;
+  body: string;
+  campaignId: string;
+  leadId: string;
+}) {
+  try {
+    // Get user's Slack channel or DM (you may need to implement user -> Slack mapping)
+    // For now, we'll use a default channel or the user ID as channel
+    const slackChannel = process.env.SLACK_DEFAULT_CHANNEL || params.userId;
+    
+    await sendCardToSlack(slackChannel, {
+      title: `New reply from ${params.from}`,
+      body_md: `_${params.classification}_ • Suggested next: *${params.nextAction}*\n\n${(params.body || '').slice(0, 500)}${params.body.length > 500 ? '...' : ''}`,
+      actions: [
+        {
+          id: 'reply_draft',
+          type: 'button',
+          label: '🤖 Draft with REX'
+        },
+        {
+          id: 'book_meeting',
+          type: 'button',
+          label: '📅 Book Meeting'
+        },
+        {
+          id: 'disqualify',
+          type: 'button',
+          label: '❌ Disqualify'
+        }
+      ],
+      thread_key: `sourcing:${params.campaignId}:${params.leadId}`,
+      metadata: {
+        campaign_id: params.campaignId,
+        lead_id: params.leadId,
+        classification: params.classification,
+        from_email: params.from
+      }
+    });
+    
+    console.log(`✅ Slack notification sent for reply from ${params.from}`);
+  } catch (error) {
+    console.error('❌ Failed to send Slack notification:', error);
+    // Don't throw - Slack failures shouldn't break the main flow
   }
 }
 

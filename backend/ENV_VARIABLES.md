@@ -102,6 +102,7 @@ APOLLO_API_BASE=https://api.apollo.io/v1
 SLACK_BOT_TOKEN=xoxb-...
 SLACK_SIGNING_SECRET=...
 REX_WEBHOOK_URL=https://rex.yourdomain.com/hooks/agent-interaction
+SLACK_DEFAULT_CHANNEL=#sourcing-alerts  # Optional: default channel for notifications
 ```
 
 ## 🔐 Security

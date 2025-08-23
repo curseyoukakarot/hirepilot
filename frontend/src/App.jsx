@@ -16,6 +16,10 @@ import CookieRefresh from '../pages/phantom/cookie-refresh';
 import BulkCookieRefresh from '../pages/phantom/bulk-refresh';
 import PhantomAnalytics from '../pages/phantom/analytics';
 import SuperAdminDashboard from './screens/SuperAdminDashboard';
+import ActionInbox from './screens/ActionInbox';
+import CampaignsPage from './pages/SuperAdmin/sourcing/CampaignsPage';
+import CampaignDetailPage from './pages/SuperAdmin/sourcing/CampaignDetailPage';
+import RepliesPage from './pages/SuperAdmin/sourcing/RepliesPage';
 import { supabase } from "./lib/supabase";
 import AdminUserManagement from './screens/AdminUserManagement';
 import AdminPuppetHealth from './screens/AdminPuppetHealth';
@@ -383,6 +387,10 @@ function InnerApp() {
               <Route path="/phantom/config" element={<PhantomConfig />} />
               <Route path="/phantom/webhook-logs" element={<WebhookLogs />} />
               <Route path="/super-admin" element={<SuperAdminDashboard />} />
+              <Route path="/super-admin/inbox" element={<ActionInbox />} />
+              <Route path="/super-admin/sourcing" element={<CampaignsPage />} />
+              <Route path="/super-admin/sourcing/campaigns/:id" element={<CampaignDetailPage />} />
+              <Route path="/super-admin/sourcing/campaigns/:id/replies" element={<RepliesPage />} />
               <Route path="/admin/users" element={<AdminUserManagement />} />
               <Route path="/admin/puppet-health" element={<AdminPuppetHealth />} />
               <Route path="/admin/proxy-management" element={<AdminProxyManagement />} />

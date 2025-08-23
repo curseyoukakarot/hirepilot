@@ -25,6 +25,7 @@
         "test:rex-sourcing": "ts-node scripts/testRexSourcing.ts",
         "test:rex-orchestrator": "ts-node scripts/testRexOrchestrator.ts",
         "test:sourcing-curl": "./scripts/testSourcingAPI_curl.sh",
+        "test:notifications": "ts-node scripts/testNotificationsAPI.ts",
         "build": "tsc --incremental",
         "build:fast": "tsc --incremental --skipLibCheck --noEmit false",
         "build:production": "tsc --skipLibCheck --incremental false --sourceMap false --declaration false",
@@ -44,7 +45,7 @@
         "@prisma/client": "6.12.0",
         "@sendgrid/eventwebhook": "^8.0.0",
         "@sendgrid/mail": "^8.1.5",
-        "@slack/web-api": "7.10.0",
+        "@slack/web-api": "^7.9.2",
         "@supabase/supabase-js": "^2.50.0",
         "@types/cheerio": "0.22.31",
         "@types/cookie-parser": "^1.4.9",
@@ -82,13 +83,13 @@
         "puppeteer-extra": "3.3.6",
         "puppeteer-extra-plugin-stealth": "2.11.2",
         "stripe": "^12.18.0",
-        "zod": "3.25.76"
+        "zod": "^3.25.3"
     },
     "devDependencies": {
         "@types/cors": "^2.8.17",
         "@types/express": "^4.17.21",
         "@types/jsonwebtoken": "^9.0.9",
-        "@types/node": "20.19.11",
+        "@types/node": "^20.10.6",
         "@types/nodemailer": "^6.4.17",
         "@types/uuid": "^10.0.0",
         "ts-node": "^10.9.1",
