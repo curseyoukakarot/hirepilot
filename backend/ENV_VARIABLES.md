@@ -97,6 +97,13 @@ AGENTS_API_TOKEN=<short-lived JWT for REX to call API>
 APOLLO_API_BASE=https://api.apollo.io/v1
 ```
 
+## 💬 Slack Integration (Required for Sourcing Agent)
+```
+SLACK_BOT_TOKEN=xoxb-...
+SLACK_SIGNING_SECRET=...
+REX_WEBHOOK_URL=https://rex.yourdomain.com/hooks/agent-interaction
+```
+
 ## 🔐 Security
 ```
 COOKIE_ENCRYPTION_KEY=your_32_byte_encryption_key_here_123456

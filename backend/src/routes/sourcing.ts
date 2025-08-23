@@ -187,4 +187,136 @@ router.post('/senders', requireAuth, async (req: ApiRequest, res: Response) => {
   }
 });
 
+// Get replies for campaign
+router.get('/campaigns/:id/replies', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const { data: replies, error } = await supabase
+      .from('sourcing_replies')
+      .select(`
+        *,
+        sourcing_leads (
+          id,
+          name,
+          title,
+          company,
+          email
+        )
+      `)
+      .eq('campaign_id', id)
+      .order('received_at', { ascending: false });
+    
+    if (error) throw error;
+    return res.json({ replies });
+  } catch (error: any) {
+    console.error('Error fetching replies:', error);
+    return res.status(400).json({ error: error.message });
+  }
+});
+
+// Reply actions
+router.post('/replies/:replyId/book-demo', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const { replyId } = req.params;
+    const { lead_id } = req.body;
+    
+    // Update reply with action taken
+    const { error: replyError } = await supabase
+      .from('sourcing_replies')
+      .update({ 
+        next_action: 'book',
+        classified_as: 'positive' 
+      })
+      .eq('id', replyId);
+    
+    if (replyError) throw replyError;
+    
+    // Update lead status
+    const { error: leadError } = await supabase
+      .from('sourcing_leads')
+      .update({ 
+        reply_status: 'positive',
+        outreach_stage: 'replied'
+      })
+      .eq('id', lead_id);
+    
+    if (leadError) throw leadError;
+    
+    return res.json({ success: true, action: 'book_demo' });
+  } catch (error: any) {
+    console.error('Error booking demo:', error);
+    return res.status(400).json({ error: error.message });
+  }
+});
+
+router.post('/replies/:replyId/disqualify', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const { replyId } = req.params;
+    const { lead_id } = req.body;
+    
+    // Update reply with action taken
+    const { error: replyError } = await supabase
+      .from('sourcing_replies')
+      .update({ 
+        next_action: 'disqualify',
+        classified_as: 'negative' 
+      })
+      .eq('id', replyId);
+    
+    if (replyError) throw replyError;
+    
+    // Update lead status
+    const { error: leadError } = await supabase
+      .from('sourcing_leads')
+      .update({ 
+        reply_status: 'negative',
+        outreach_stage: 'unsubscribed'
+      })
+      .eq('id', lead_id);
+    
+    if (leadError) throw leadError;
+    
+    return res.json({ success: true, action: 'disqualify' });
+  } catch (error: any) {
+    console.error('Error disqualifying lead:', error);
+    return res.status(400).json({ error: error.message });
+  }
+});
+
+// Campaign control actions
+router.post('/campaigns/:id/pause', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const { error } = await supabase
+      .from('sourcing_campaigns')
+      .update({ status: 'paused' })
+      .eq('id', id);
+    
+    if (error) throw error;
+    return res.json({ success: true, status: 'paused' });
+  } catch (error: any) {
+    console.error('Error pausing campaign:', error);
+    return res.status(400).json({ error: error.message });
+  }
+});
+
+router.post('/campaigns/:id/resume', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const { error } = await supabase
+      .from('sourcing_campaigns')
+      .update({ status: 'running' })
+      .eq('id', id);
+    
+    if (error) throw error;
+    return res.json({ success: true, status: 'running' });
+  } catch (error: any) {
+    console.error('Error resuming campaign:', error);
+    return res.status(400).json({ error: error.message });
+  }
+});
+
 export default router;
