@@ -7,6 +7,7 @@ import { useLocation, useSearchParams } from 'react-router-dom';
 import ApolloApiKeyModal from '../components/ApolloApiKeyModal';
 import RexSlackIntegrationCard from '../components/settings/integrations/RexSlackIntegrationCard';
 import ZapierIntegrationCard from '../components/settings/integrations/ZapierIntegrationCard';
+import { api } from '../lib/api';
 
 export default function SettingsIntegrations() {
   const [integrations, setIntegrations] = useState([
@@ -79,6 +80,7 @@ export default function SettingsIntegrations() {
   // Add new state for Apollo key
   const [apolloKeyStatus, setApolloKeyStatus] = useState(null); // 'valid' | 'invalid' | null
   const [currentUser, setCurrentUser] = useState(null);
+  const [agentModeEnabled, setAgentModeEnabled] = useState(false);
 
   // State for enrichment API keys
   const [enrichmentKeys, setEnrichmentKeys] = useState({
@@ -149,6 +151,12 @@ export default function SettingsIntegrations() {
       setLoading(false);
     };
     fetchIntegrations();
+    (async () => {
+      try {
+        const data = await api('/api/agent-mode');
+        setAgentModeEnabled(!!data.agent_mode_enabled);
+      } catch (e) {}
+    })();
   }, []);
 
   useEffect(() => {
@@ -837,6 +845,27 @@ export default function SettingsIntegrations() {
             <FaCircle className="text-green-500" />
             <span>{integrations.filter(i => i.isConnected).length} Active Connections</span>
           </div>
+        </div>
+        {/* Agent Mode Toggle */}
+        <div className="mb-6 p-4 rounded-lg border border-gray-200 bg-white flex items-center justify-between">
+          <div>
+            <div className="text-gray-900 font-medium">Agent Mode</div>
+            <div className="text-gray-500 text-sm">Enable REX to run sourcing actions and send sequences.</div>
+          </div>
+          <button
+            onClick={async () => {
+              const next = !agentModeEnabled;
+              setAgentModeEnabled(next);
+              try {
+                await api('/api/agent-mode', { method: 'POST', body: JSON.stringify({ enabled: next }) });
+              } catch (e) {
+                setAgentModeEnabled(!next);
+              }
+            }}
+            className={`px-4 py-2 rounded-lg text-white ${agentModeEnabled ? 'bg-green-600' : 'bg-gray-600'}`}
+          >
+            {agentModeEnabled ? 'Enabled' : 'Disabled'}
+          </button>
         </div>
         <div className="space-y-6">
           {integrations.map((integration) => (

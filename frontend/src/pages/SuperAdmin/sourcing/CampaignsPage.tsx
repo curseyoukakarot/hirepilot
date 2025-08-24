@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
 import { api } from '../../../lib/api';
+import React from 'react';
 
 type Campaign = {
   id: string;
@@ -127,6 +128,8 @@ export default function CampaignsPage() {
           </p>
         </div>
         <div className="flex items-center space-x-3">
+          {/* Agent Mode quick toggle */}
+          <AgentModeSwitch />
           <button
             onClick={loadCampaigns}
             className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
@@ -320,5 +323,34 @@ export default function CampaignsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function AgentModeSwitch() {
+  const [enabled, setEnabled] = React.useState(false);
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const data = await api('/api/agent-mode');
+        setEnabled(!!data.agent_mode_enabled);
+      } catch (e) {}
+    })();
+  }, []);
+  return (
+    <button
+      onClick={async () => {
+        const next = !enabled;
+        setEnabled(next);
+        try {
+          await api('/api/agent-mode', { method: 'POST', body: JSON.stringify({ enabled: next }) });
+        } catch (e) {
+          setEnabled(!next);
+        }
+      }}
+      className={`px-3 py-2 rounded-lg text-white ${enabled ? 'bg-green-600' : 'bg-gray-600'}`}
+      title="Agent Mode"
+    >
+      {enabled ? 'Agent: On' : 'Agent: Off'}
+    </button>
   );
 }

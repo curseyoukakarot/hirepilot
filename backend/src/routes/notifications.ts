@@ -280,4 +280,54 @@ router.get('/notifications/health', async (req: Request, res: Response) => {
   }
 });
 
+// Agent Mode read/write (stored in user_settings.agent_mode_enabled)
+router.get('/agent-mode', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const { data, error } = await supabase
+      .from('user_settings')
+      .select('agent_mode_enabled')
+      .eq('user_id', userId)
+      .single();
+    if (error && (error as any).code !== 'PGRST116') throw error;
+    return res.json({ agent_mode_enabled: data?.agent_mode_enabled ?? false });
+  } catch (e: any) {
+    console.error('Error reading agent mode:', e);
+    return res.status(500).json({ error: e.message });
+  }
+});
+
+router.post('/agent-mode', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const body = z.object({ enabled: z.boolean() }).parse(req.body);
+
+    const { data: existing } = await supabase
+      .from('user_settings')
+      .select('user_id')
+      .eq('user_id', userId)
+      .single();
+
+    if (existing) {
+      const { error } = await supabase
+        .from('user_settings')
+        .update({ agent_mode_enabled: body.enabled })
+        .eq('user_id', userId);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase
+        .from('user_settings')
+        .insert({ user_id: userId, agent_mode_enabled: body.enabled });
+      if (error) throw error;
+    }
+
+    return res.json({ ok: true, agent_mode_enabled: body.enabled });
+  } catch (e: any) {
+    console.error('Error toggling agent mode:', e);
+    return res.status(500).json({ error: e.message });
+  }
+});
+
 export default router;
