@@ -38,7 +38,7 @@ export async function saveSequence(campaignId: string, steps: Steps) {
   return data;
 }
 
-export async function addLeads(campaignId: string, leads: any[]) {
+export async function addLeads(campaignId: string, leads: any[], options?: { source?: string; userId?: string }) {
   if (!leads?.length) return { inserted: 0 };
   const payload = leads.map(l => ({
     campaign_id: campaignId,
@@ -47,6 +47,23 @@ export async function addLeads(campaignId: string, leads: any[]) {
   }));
   const { error } = await supabase.from('sourcing_leads').insert(payload);
   if (error) throw error;
+
+  // Optional: deduct credits if these leads originated from Apollo via REX
+  try {
+    if (options?.source === 'apollo' && options?.userId) {
+      const { CreditService } = await import('../services/creditService');
+      await CreditService.useCreditsEffective(options.userId, payload.length);
+      await CreditService.logCreditUsage(
+        options.userId,
+        payload.length,
+        'api_usage',
+        `REX Apollo import: ${payload.length} leads added to sourcing campaign ${campaignId}`
+      );
+    }
+  } catch (e) {
+    console.error('[sourcing.addLeads] credit deduction failed (non-fatal):', e);
+  }
+
   return { inserted: payload.length };
 }
 
