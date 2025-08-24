@@ -5,6 +5,7 @@ dayjs.extend(businessDays as any);
 import { supabase } from '../lib/supabase';
 import { emailQueue } from '../queues/redis';
 import { buildThreeStepSequence } from './sequenceBuilder';
+import { ApiRequest } from '../../types/api';
 
 type Steps = { step1: any; step2?: any; step3?: any; spacingBusinessDays?: number };
 
@@ -50,6 +51,7 @@ function personalize(text: string, lead: any) {
 }
 
 export async function sendTieredTemplateToCampaign(params: { campaignId: string; selectedTemplateId: string; userId: string; }) {
+  await ensureAgentModeEnabled(params.userId);
   const { campaignId, selectedTemplateId } = params;
   const leads = await getValidLeads(campaignId);
   if (!leads.length) return { scheduled: 0 };
@@ -77,6 +79,7 @@ export async function sendTieredTemplateToCampaign(params: { campaignId: string;
 }
 
 export async function generateAndSendNewSequenceToCampaign(params: { campaignId: string; userId: string; jobTitle?: string; tone?: string; }) {
+  await ensureAgentModeEnabled(params.userId);
   const { campaignId, jobTitle, tone } = params;
   const leads = await getValidLeads(campaignId);
   if (!leads.length) return { scheduled: 0 };
@@ -103,6 +106,7 @@ export async function generateAndSendNewSequenceToCampaign(params: { campaignId:
 }
 
 export async function sendSingleMessageToCampaign(params: { campaignId: string; userId: string; subject?: string; html?: string; templateId?: string; }) {
+  await ensureAgentModeEnabled(params.userId);
   const { campaignId, subject, html, templateId } = params;
   const leads = await getValidLeads(campaignId);
   if (!leads.length) return { scheduled: 0 };
@@ -137,6 +141,41 @@ export async function sendSingleMessageToCampaign(params: { campaignId: string; 
   }
 
   return { scheduled: leads.length };
+}
+
+async function ensureAgentModeEnabled(userId: string) {
+  // User-level
+  const { data: userSettings } = await supabase
+    .from('user_settings')
+    .select('agent_mode_enabled')
+    .eq('user_id', userId)
+    .single();
+  const userOn = !!userSettings?.agent_mode_enabled;
+
+  // Team-level (best-effort) using team_settings.team_admin_id from team_credit_sharing
+  let teamOn = true;
+  try {
+    const { data: sharing } = await supabase
+      .from('team_credit_sharing')
+      .select('team_admin_id')
+      .eq('team_member_id', userId)
+      .single();
+    const adminId = sharing?.team_admin_id || userId;
+    const { data: team } = await supabase
+      .from('team_settings')
+      .select('agent_mode_enabled')
+      .eq('team_admin_id', adminId)
+      .single();
+    if (team) teamOn = !!team.agent_mode_enabled;
+  } catch {}
+
+  if (!userOn || !teamOn) {
+    const reason = !userOn ? 'Agent Mode is disabled in your personal settings.' : 'Agent Mode is disabled for your team.';
+    const err = new Error(`Agent Mode is off. ${reason}`);
+    // @ts-ignore
+    err.status = 403;
+    throw err;
+  }
 }
 
 

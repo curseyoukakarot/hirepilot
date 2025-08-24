@@ -330,4 +330,54 @@ router.post('/agent-mode', requireAuth, async (req: ApiRequest, res: Response) =
   }
 });
 
+// Team Agent Mode read/write. team_admin_id identifies the owning admin for the team
+router.get('/agent-mode/team', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const teamAdminId = (req.query.team_id as string) || userId;
+    const { data } = await supabase
+      .from('team_settings')
+      .select('agent_mode_enabled')
+      .eq('team_admin_id', teamAdminId)
+      .single();
+    return res.json({ agent_mode_enabled: data?.agent_mode_enabled ?? false });
+  } catch (e: any) {
+    console.error('Error reading team agent mode:', e);
+    return res.status(500).json({ error: e.message });
+  }
+});
+
+router.post('/agent-mode/team', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const body = z.object({ team_id: z.string().optional(), enabled: z.boolean() }).parse(req.body);
+    const teamAdminId = body.team_id || userId;
+
+    // Upsert
+    const { data: existing } = await supabase
+      .from('team_settings')
+      .select('team_admin_id')
+      .eq('team_admin_id', teamAdminId)
+      .single();
+    if (existing) {
+      const { error } = await supabase
+        .from('team_settings')
+        .update({ agent_mode_enabled: body.enabled, updated_at: new Date().toISOString() })
+        .eq('team_admin_id', teamAdminId);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase
+        .from('team_settings')
+        .insert({ team_admin_id: teamAdminId, agent_mode_enabled: body.enabled });
+      if (error) throw error;
+    }
+    return res.json({ ok: true, agent_mode_enabled: body.enabled });
+  } catch (e: any) {
+    console.error('Error toggling team agent mode:', e);
+    return res.status(500).json({ error: e.message });
+  }
+});
+
 export default router;
