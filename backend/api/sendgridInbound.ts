@@ -8,14 +8,35 @@ const upload = multer();
 const router = express.Router();
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
-function extractTokenAddress(toValue: string | undefined) {
-  if (!toValue) return null;
-  // to may include multiple addresses separated by commas
-  const first = toValue.split(',')[0].trim();
-  const match = first.match(/msg_([0-9a-fA-F-]{36})\.u_([0-9a-fA-F-]{36})\.c_([0-9a-fA-F-]+|none)@/);
-  if (!match) return null;
-  const campaignId = match[3] === 'none' ? null : match[3];
-  return { messageId: match[1], userId: match[2], campaignId };
+// ---------------- Routing resolution: token first, legacy VERP fallback ----------------
+function extractToken(toAddr: string) {
+  const m = toAddr.match(/reply\+([A-Za-z0-9]+)@/i);
+  return m?.[1] || null;
+}
+
+async function resolveRoutingFromAddress(toHeader: string) {
+  // toHeader can include name + angle brackets; get the addr
+  const addr = toHeader.match(/<([^>]+)>/)?.[1] || toHeader;
+  // short-token path
+  const token = extractToken(addr);
+  if (token) {
+    try {
+      const { data, error } = await supabase
+        .from('reply_tokens')
+        .select('token, message_id, user_id, campaign_id')
+        .eq('token', token)
+        .maybeSingle();
+      if (!error && data) {
+        return { messageId: data.message_id, userId: data.user_id, campaignId: data.campaign_id, via: 'token' as const };
+      }
+    } catch {}
+  }
+  // Fallback to legacy VERP parsing
+  const legacy = addr.match(/msg_([a-f0-9-]+)\.u_([a-f0-9-]+)\.c_([A-Za-z0-9-]+)@/i);
+  if (legacy) {
+    return { messageId: legacy[1], userId: legacy[2], campaignId: legacy[3] === 'none' ? null : legacy[3], via: 'legacy' as const };
+  }
+  throw new Error('Unable to resolve message context from To address');
 }
 
 type ParsedReply = {
@@ -145,6 +166,45 @@ async function computeForwardRecipients(userId: string): Promise<string[]> {
   }
 }
 
+// Prefer sender identity routing; fallback to user's primary email
+async function computeRecipientsForMessage(messageId: string): Promise<{ recipients: string[]; msg: any }> {
+  // Look up message metadata (messages table holds sender_identity_id/from_email/message_id_header)
+  const { data: m, error: mErr } = await supabase
+    .from('messages')
+    .select('id, user_id, campaign_id, sender_identity_id, from_email, message_id_header')
+    .eq('id', messageId)
+    .maybeSingle();
+  if (mErr || !m) throw new Error('message not found');
+
+  // prefer sender_identity.forward_to
+  if (m.sender_identity_id) {
+    const { data: idn } = await supabase
+      .from('email_identities')
+      .select('forward_to')
+      .eq('id', m.sender_identity_id)
+      .maybeSingle();
+    if (idn?.forward_to) return { recipients: [idn.forward_to], msg: m };
+  }
+
+  // fallback: match identity by from_email
+  if (m.from_email) {
+    const { data: idn2 } = await supabase
+      .from('email_identities')
+      .select('forward_to')
+      .eq('from_email', m.from_email)
+      .maybeSingle();
+    if (idn2?.forward_to) return { recipients: [idn2.forward_to], msg: m };
+  }
+
+  // final fallback: the user's primary_email
+  const { data: u } = await supabase
+    .from('users')
+    .select('primary_email')
+    .eq('id', m.user_id)
+    .maybeSingle();
+  return { recipients: u?.primary_email ? [u.primary_email] : [], msg: m };
+}
+
 async function forwardReply({
   recipients,
   originalFrom,
@@ -154,7 +214,8 @@ async function forwardReply({
   messageId,
   campaignId,
   userId,
-  attachments = []
+  attachments = [],
+  headers
 }: {
   recipients: string[];
   originalFrom: string;
@@ -165,6 +226,7 @@ async function forwardReply({
   campaignId: string | null;
   userId: string;
   attachments?: any[];
+  headers?: Record<string, string>;
 }) {
   try {
     if (recipients.length === 0) {
@@ -215,6 +277,10 @@ async function forwardReply({
       }
     };
 
+    if (headers && Object.keys(headers).length > 0) {
+      msg.headers = { ...(msg.headers || {}), ...headers };
+    }
+
     // Add attachments if present
     if (attachments && attachments.length > 0) {
       msg.attachments = attachments.map((att: any) => ({
@@ -255,20 +321,22 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
       return;
     }
 
-    const to = (req.body.to as string) || '';
-    
+    const to = (req.body.to as string) || (req.body.envelope_to as string) || (req.body.to_raw as string) || '';
+
     // Parse MIME data to get real email bodies and attachments
     console.log('[sendgrid/inbound] Content-Type:', req.headers['content-type']);
     const parsed = await parseInbound(req);
     console.log('[sendgrid/inbound] MIME present:', Boolean(req.body.email), 'text.len:', parsed.text?.length || 0, 'html.len:', parsed.html?.length || 0);
 
-    const token = extractTokenAddress(to);
-    if (!token) {
+    let routing;
+    try {
+      routing = await resolveRoutingFromAddress(to);
+    } catch (e) {
+      console.error('[sendgrid/inbound] routing resolution failed:', e);
       res.status(400).send('invalid to token');
       return;
     }
-
-    const { messageId, userId, campaignId } = token;
+    const { messageId, userId, campaignId } = routing as any;
 
     // Optional lookup of lead by message id from messages table
     let lead_id: string | null = null;
@@ -310,7 +378,17 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
 
     // Forward reply to user's inbox
     try {
-      const recipients = await computeForwardRecipients(userId);
+      let recipients: string[] = [];
+      let msgMeta: any = null;
+      try {
+        const r = await computeRecipientsForMessage(messageId);
+        recipients = r.recipients;
+        msgMeta = r.msg;
+      } catch (e) {
+        console.warn('[sendgrid/inbound] computeRecipientsForMessage failed, falling back to user primary:', e);
+        recipients = await computeForwardRecipients(userId);
+      }
+
       if (recipients.length > 0) {
         console.log(`[sendgrid/inbound] Forwarding reply to ${recipients.length} recipients`);
         
@@ -333,7 +411,12 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
           messageId,
           campaignId,
           userId,
-          attachments
+          attachments,
+          headers: {
+            'In-Reply-To': msgMeta?.message_id_header || '',
+            'References': msgMeta?.message_id_header || '',
+            'X-HirePilot-Forwarded': 'true'
+          }
         });
       } else {
         console.log(`[sendgrid/inbound] No forward recipients for user ${userId}`);
