@@ -51,7 +51,7 @@ export async function addLeads(campaignId: string, leads: any[], options?: { sou
   // Optional: deduct credits if these leads originated from Apollo via REX
   try {
     if (options?.source === 'apollo' && options?.userId) {
-      const { CreditService } = await import('../services/creditService');
+      const { CreditService } = await import('../../services/creditService');
       await CreditService.useCreditsEffective(options.userId, payload.length);
       await CreditService.logCreditUsage(
         options.userId,
