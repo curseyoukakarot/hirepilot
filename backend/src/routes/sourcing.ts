@@ -6,6 +6,7 @@ import { getCampaignWithDetails, getLeadsForCampaign, searchCampaigns } from '..
 import { supabase } from '../lib/supabase';
 import { requireAuth } from '../../middleware/authMiddleware';
 import { ApiRequest } from '../../types/api';
+import { sendTieredTemplateToCampaign, generateAndSendNewSequenceToCampaign, sendSingleMessageToCampaign } from '../services/messagingCampaign';
 
 const router = express.Router();
 
@@ -338,3 +339,47 @@ router.post('/campaigns/:id/resume', requireAuth, async (req: ApiRequest, res: R
 // Removed duplicate - the search route at /campaigns/search handles both cases
 
 export default router;
+/**
+ * REX Agent: Send tiered template to existing campaign leads
+ */
+router.post('/campaigns/:id/send-template', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const body = z.object({ selectedTemplateId: z.string(), userId: z.string() }).parse(req.body);
+    const result = await sendTieredTemplateToCampaign({ campaignId: id, selectedTemplateId: body.selectedTemplateId, userId: body.userId });
+    return res.json({ ok: true, ...result });
+  } catch (error: any) {
+    console.error('Error sending tiered template:', error);
+    return res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * REX Agent: Generate & send new tiered sequence to existing campaign
+ */
+router.post('/campaigns/:id/generate-and-send', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const body = z.object({ userId: z.string(), jobTitle: z.string().optional(), tone: z.string().optional() }).parse(req.body);
+    const result = await generateAndSendNewSequenceToCampaign({ campaignId: id, userId: body.userId, jobTitle: body.jobTitle, tone: body.tone });
+    return res.json({ ok: true, ...result });
+  } catch (error: any) {
+    console.error('Error generating/sending sequence:', error);
+    return res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * REX Agent: Send a one-off message or template to campaign
+ */
+router.post('/campaigns/:id/send-single', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const body = z.object({ userId: z.string(), subject: z.string().optional(), html: z.string().optional(), templateId: z.string().optional() }).parse(req.body);
+    const result = await sendSingleMessageToCampaign({ campaignId: id, userId: body.userId, subject: body.subject, html: body.html, templateId: body.templateId });
+    return res.json({ ok: true, ...result });
+  } catch (error: any) {
+    console.error('Error sending single message:', error);
+    return res.status(400).json({ error: error.message });
+  }
+});
