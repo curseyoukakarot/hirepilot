@@ -158,10 +158,6 @@ router.post('/sendgrid/send', async (req, res) => {
       }
     }
 
-    if (dbError) {
-      console.error('Error storing message:', dbError);
-    }
-
     res.json({ 
       success: true, 
       message: 'Email sent successfully',
