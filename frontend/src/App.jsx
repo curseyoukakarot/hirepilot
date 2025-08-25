@@ -43,6 +43,7 @@ import TermsPage from './screens/TermsPage';
 import RexSupport from './screens/RexSupport';
 import ApiDocs from './screens/ApiDocs';
 import AffiliateProgram from './screens/AffiliateProgram';
+import SniperTargets from './screens/SniperTargets';
 import PartnersDashboard from './pages/partners/AffiliateDashboard';
 import AffiliatePayouts from './pages/partners/AffiliatePayouts';
 import AffiliateSettings from './pages/partners/AffiliateSettings';
@@ -368,6 +369,7 @@ function InnerApp() {
               <Route path="/settings/*" element={<Settings />} />
               <Route path="/billing" element={<BillingScreen />} />
               <Route path="/rex-chat" element={<RexChatPage />} />
+              <Route path="/sniper" element={<SniperTargets />} />
               <Route path="/leads" element={<LeadManagement />} />
               <Route path="/leads/profile" element={<LeadProfileDrawer />} />
               <Route path="/pricing" element={<Pricing />} />
