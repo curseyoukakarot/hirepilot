@@ -25,16 +25,26 @@ export async function sourceLeads({
   let targetCampaignId = campaignId;
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(campaignId || ''));
   if (!isUuid) {
-    // Try latest campaign from REX context
-    const { data: ctx } = await supabaseDb
-      .from('rex_user_context')
-      .select('latest_campaign_id')
-      .eq('supabase_user_id', userId)
-      .maybeSingle();
-    if (ctx?.latest_campaign_id) {
-      targetCampaignId = ctx.latest_campaign_id;
+    // Default behavior: create a NEW campaign unless explicitly told to reuse 'latest'
+    if (String(campaignId || '').toLowerCase() === 'latest') {
+      const { data: ctx } = await supabaseDb
+        .from('rex_user_context')
+        .select('latest_campaign_id')
+        .eq('supabase_user_id', userId)
+        .maybeSingle();
+      if (ctx?.latest_campaign_id) {
+        targetCampaignId = ctx.latest_campaign_id;
+      } else {
+        const title = String(filters?.title || filters?.keywords || 'Sourcing Campaign').slice(0, 80);
+        const { data: newCamp, error: newErr } = await supabaseDb
+          .from('sourcing_campaigns')
+          .insert({ title, created_by: userId, audience_tag: 'rex' })
+          .select('id')
+          .single();
+        if (newErr) throw newErr;
+        targetCampaignId = newCamp.id;
+      }
     } else {
-      // Create a new sourcing campaign as fallback
       const title = String(campaignId || filters?.title || filters?.keywords || 'Sourcing Campaign').slice(0, 80);
       const { data: newCamp, error: newErr } = await supabaseDb
         .from('sourcing_campaigns')
