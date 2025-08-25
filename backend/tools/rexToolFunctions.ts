@@ -21,6 +21,30 @@ export async function sourceLeads({
   source: 'apollo' | 'linkedin';
   filters: Record<string, any>;
 }) {
+  // Resolve campaign id: allow non-UUID sentinel (e.g., 'latest' or slug) by mapping to user's latest or creating a new campaign
+  let targetCampaignId = campaignId;
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(campaignId || ''));
+  if (!isUuid) {
+    // Try latest campaign from REX context
+    const { data: ctx } = await supabaseDb
+      .from('rex_user_context')
+      .select('latest_campaign_id')
+      .eq('supabase_user_id', userId)
+      .maybeSingle();
+    if (ctx?.latest_campaign_id) {
+      targetCampaignId = ctx.latest_campaign_id;
+    } else {
+      // Create a new sourcing campaign as fallback
+      const title = String(campaignId || filters?.title || filters?.keywords || 'Sourcing Campaign').slice(0, 80);
+      const { data: newCamp, error: newErr } = await supabaseDb
+        .from('sourcing_campaigns')
+        .insert({ title, created_by: userId, audience_tag: 'rex' })
+        .select('id')
+        .single();
+      if (newErr) throw newErr;
+      targetCampaignId = newCamp.id;
+    }
+  }
   if (source === 'linkedin') {
     // TODO: Implement LinkedIn sourcing via PhantomBuster
     return { queued: true, message: 'LinkedIn sourcing queued – not yet implemented in REX tool layer.' };
@@ -65,7 +89,7 @@ export async function sourceLeads({
   });
 
   const leadRows = uniqueLeads.map((l: any) => ({
-    campaign_id: campaignId,
+    campaign_id: targetCampaignId,
     name: [l.firstName, l.lastName].filter(Boolean).join(' ').trim() || null,
     title: l.title || null,
     company: l.company || null,
@@ -87,9 +111,9 @@ export async function sourceLeads({
     throw new Error('Failed to insert leads');
   }
 
-  await notifySlack(`📥 Imported ${insertedLeads?.length || 0} leads into sourcing campaign ${campaignId}`);
+  await notifySlack(`📥 Imported ${insertedLeads?.length || 0} leads into sourcing campaign ${targetCampaignId}`);
 
-  return { imported: insertedLeads?.length || 0 };
+  return { imported: insertedLeads?.length || 0, campaign_id: targetCampaignId };
 }
 
 /**
