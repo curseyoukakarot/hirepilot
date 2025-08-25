@@ -2,7 +2,7 @@ console.log('### LOADED', __filename);
 import express, { Request, Response } from 'express';
 import { z } from 'zod';
 import { createCampaign, addLeads, generateSequenceForCampaign, scheduleCampaign } from '../services/sourcing';
-import { getCampaignWithDetails, getLeadsForCampaign, searchCampaigns } from '../services/sourcingUtils';
+import { getCampaignWithDetails, getLeadsForCampaign, searchCampaigns, getCampaignStats } from '../services/sourcingUtils';
 import { supabase } from '../lib/supabase';
 import { requireAuth } from '../../middleware/authMiddleware';
 import { ApiRequest } from '../../types/api';
@@ -104,11 +104,46 @@ router.post('/campaigns/:id/schedule', requireAuth, async (req: ApiRequest, res:
 router.get('/campaigns/:id', requireAuth, async (req: ApiRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const campaign = await getCampaignWithDetails(id);
-    return res.json(campaign);
+    const full = await getCampaignWithDetails(id);
+    const leads = await getLeadsForCampaign(id, 200, 0);
+
+    const campaign = {
+      id: full.id,
+      title: full.title,
+      audience_tag: (full as any).audience_tag,
+      status: full.status,
+      created_at: full.created_at,
+      created_by: (full as any).created_by,
+      default_sender_id: (full as any).default_sender_id
+    } as any;
+
+    const sequence = Array.isArray((full as any).sourcing_sequences) && (full as any).sourcing_sequences.length > 0
+      ? (full as any).sourcing_sequences[0]
+      : undefined;
+
+    return res.json({ campaign, sequence, leads });
   } catch (error: any) {
     console.error('Error fetching campaign:', error);
     return res.status(404).json({ error: 'Campaign not found' });
+  }
+});
+
+// Campaign stats (used by campaigns listing)
+router.get('/campaigns/:id/stats', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const stats = await getCampaignStats(id);
+    // Map to the structure the frontend expects on CampaignsPage
+    const mapped = {
+      total_leads: stats.total,
+      emails_sent: (stats.step1_sent + stats.step2_sent + stats.step3_sent),
+      replies_received: stats.replied,
+      positive_replies: stats.positive_replies
+    };
+    return res.json(mapped);
+  } catch (error: any) {
+    console.error('Error fetching campaign stats:', error);
+    return res.status(404).json({ error: 'Stats not found' });
   }
 });
 
