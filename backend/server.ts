@@ -102,6 +102,7 @@ import { messageScheduler } from './workers/messageScheduler';
 import { registerLinkedInSessionRoutes } from './src/routes/linkedin.session.routes';
 import { sniperWorker } from './src/workers/sniper.worker';
 import { registerSniperRoutes } from './src/routes/sniper.routes';
+import { sniperOpenerWorker } from './src/workers/sniper.opener.worker';
 
 declare module 'express-list-endpoints';
 
@@ -254,6 +255,8 @@ app.use('/api/team', teamRouter);
   registerSniperRoutes(app);
   // Boot sniper worker (BullMQ)
   void sniperWorker;
+  // Boot sniper opener worker (BullMQ)
+  void sniperOpenerWorker;
   // (webhook route mounted earlier before body parsers)
 app.get('/api/campaigns/all/performance', (req, res) => {
   (req.params as any).id = 'all';
