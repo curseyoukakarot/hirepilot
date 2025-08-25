@@ -17,6 +17,9 @@ import BulkCookieRefresh from '../pages/phantom/bulk-refresh';
 import PhantomAnalytics from '../pages/phantom/analytics';
 import SuperAdminDashboard from './screens/SuperAdminDashboard';
 import ActionInbox from './screens/ActionInbox';
+import AgentModeCenter from './pages/agent/AgentModeCenter';
+import CampaignDetailDrawer from './pages/agent/CampaignDetailDrawer';
+import RepliesDrawer from './pages/agent/RepliesDrawer';
 import CampaignsPage from './pages/SuperAdmin/sourcing/CampaignsPage';
 import CampaignDetailPage from './pages/SuperAdmin/sourcing/CampaignDetailPage';
 import RepliesPage from './pages/SuperAdmin/sourcing/RepliesPage';
@@ -370,6 +373,11 @@ function InnerApp() {
               <Route path="/billing" element={<BillingScreen />} />
               <Route path="/rex-chat" element={<RexChatPage />} />
               <Route path="/sniper" element={<SniperTargets />} />
+              {/* Agent Mode Center and drawers */}
+              <Route path="/agent" element={<AgentModeCenter />}>
+                <Route path="campaign/:id" element={<CampaignDetailDrawer />} />
+                <Route path="campaign/:id/replies" element={<RepliesDrawer />} />
+              </Route>
               <Route path="/leads" element={<LeadManagement />} />
               <Route path="/leads/profile" element={<LeadProfileDrawer />} />
               <Route path="/pricing" element={<Pricing />} />
