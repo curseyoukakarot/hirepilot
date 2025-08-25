@@ -42,8 +42,8 @@ export async function startSourcingWizard(
       updated_at: new Date().toISOString()
     });
 
-    // 3) Check for sender
-    if (!params.sender_id) {
+    // 3) Check for sender. If single behavior, require a sender; if rotate, allow skipping.
+    if (params.senderBehavior === 'single' && !params.senderEmail && !params.sender_id) {
       return await senderSelectionCard(sessionId, tools, user);
     }
 

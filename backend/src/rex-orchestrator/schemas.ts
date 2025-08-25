@@ -11,6 +11,8 @@ export const SourcingParams = z.object({
   campaign_title: z.string().default(() => `Sourcing – Week ${new Date().toLocaleDateString()}`),
   audience_tag: z.string().optional(),
   sender_id: z.string().optional(),
+  senderBehavior: z.enum(['single','rotate']).default('single'),
+  senderEmail: z.string().email().optional(),
   track_and_assist_replies: z.boolean().default(true)
 });
 

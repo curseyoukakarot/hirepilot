@@ -29,7 +29,7 @@ function addBusinessDays(d: dayjs.Dayjs, days: number) {
 async function enqueueStepEmail(campaignId: string, lead: any, step: any, when: dayjs.Dayjs) {
   if (!step) return;
   const delayMs = Math.max(0, when.diff(dayjs(), 'millisecond'));
-  const headers = { 'X-Campaign-Id': campaignId, 'X-Lead-Id': lead.id } as Record<string, string>;
+  const headers = await buildSenderHeaders(campaignId, { 'X-Campaign-Id': campaignId, 'X-Lead-Id': lead.id });
   await emailQueue.add('send', {
     to: lead.email,
     subject: personalize(step.subject, lead),
@@ -48,6 +48,61 @@ function personalize(text: string, lead: any) {
     .replace(/\{\{name\}\}/gi, lead.name || '')
     .replace(/\{\{company\}\}/gi, lead.company || '')
     .replace(/\{\{title\}\}/gi, lead.title || '');
+}
+
+async function buildSenderHeaders(campaignId: string, base: Record<string, string>) {
+  // Fetch campaign and default sender
+  const { data: campaign } = await supabase
+    .from('sourcing_campaigns')
+    .select('default_sender_id, created_by')
+    .eq('id', campaignId)
+    .single();
+
+  // Determine behavior from an optional campaign config table or defaults
+  // For quick patch, read per-campaign behavior from team/user settings if available; else default to single/default_sender
+  let behavior: 'single' | 'rotate' = 'single';
+  let explicitEmail: string | null = null;
+  try {
+    const { data: cfg } = await supabase
+      .from('campaign_configs')
+      .select('sender_behavior,sender_email')
+      .eq('campaign_id', campaignId)
+      .maybeSingle();
+    if (cfg?.sender_behavior) behavior = cfg.sender_behavior as any;
+    if (cfg?.sender_email) explicitEmail = cfg.sender_email;
+  } catch {}
+
+  // Fallback to default sender on campaign if single
+  if (behavior === 'single') {
+    // If explicitEmail provided, use it; otherwise resolve default_sender_id to email
+    let fromEmail = explicitEmail || null;
+    if (!fromEmail && campaign?.default_sender_id) {
+      const { data: sender } = await supabase
+        .from('email_senders')
+        .select('from_email')
+        .eq('id', campaign.default_sender_id)
+        .single();
+      fromEmail = sender?.from_email || null;
+    }
+    return { ...base, 'X-From-Override': fromEmail || '' };
+  }
+
+  // rotate behavior: pick next verified sender for this user
+  const { data: senders } = await supabase
+    .from('email_senders')
+    .select('id,from_email,domain_verified')
+    .eq('provider', 'sendgrid')
+    .order('created_at', { ascending: true });
+  const verified = (senders || []).filter(s => s.domain_verified);
+  if (!verified.length) return base;
+  const pick = rotateSenders(verified.map(s => s.from_email));
+  return { ...base, 'X-From-Override': pick };
+}
+
+function rotateSenders(emails: string[]) {
+  // Simple round-robin using current time to avoid server state
+  const idx = Math.floor(Date.now() / 1000) % emails.length;
+  return emails[idx];
 }
 
 export async function sendTieredTemplateToCampaign(params: { campaignId: string; selectedTemplateId: string; userId: string; }) {
@@ -131,7 +186,7 @@ export async function sendSingleMessageToCampaign(params: { campaignId: string; 
       to: l.email,
       subject: personalize(finalSubject, l),
       html: personalize(finalHtml, l),
-      headers
+      headers: await buildSenderHeaders(campaignId, headers)
     }, {
       delay: 0,
       attempts: 5,
