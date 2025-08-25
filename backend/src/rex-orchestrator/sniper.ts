@@ -46,8 +46,11 @@ export async function startSniperWizard(text:string, tools:any, user:{id:string}
     actions: [{ id: "open_settings", type:"button", label:"Open Settings" }]
   });
 
-  const t = await tools.call('sniper_add_target', { userId: user.id, ...parsed.data });
-  return done(`Sniper started: ${parsed.data.type === 'keyword' ? parsed.data.keyword_match : parsed.data.post_url}. I'll capture up to ${parsed.data.daily_cap}/day and drop them into a Sniper micro-campaign.`);
+  const created = await tools.call('sniper_add_target', { userId: user.id, ...parsed.data });
+  if (parsed.data.send_opener) {
+    await tools.call('sniper_set_opener', { userId: user.id, id: created.id, send_opener: true });
+  }
+  return done(`Sniper started: ${parsed.data.type === 'keyword' ? parsed.data.keyword_match : parsed.data.post_url}. I’ll capture up to ${parsed.data.daily_cap}/day and send up to ${process.env.SNIPER_OPENER_DAILY_CAP || 20} openers/day.`);
 }
 
 
