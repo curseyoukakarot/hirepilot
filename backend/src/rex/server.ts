@@ -83,6 +83,21 @@ async function api(endpoint: string, options: { method: string; body?: string } 
   }
 }
 
+// API helper that impersonates a specific user via x-user-id header
+async function apiAsUser(userId: string, endpoint: string, options: { method: string; body?: string } = { method: 'GET' }) {
+  const baseUrl = process.env.BACKEND_BASE_URL || 'http://localhost:8080';
+  const url = `${baseUrl}${endpoint}`;
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', 'x-user-id': userId };
+  if (process.env.AGENTS_API_TOKEN) headers['Authorization'] = `Bearer ${process.env.AGENTS_API_TOKEN}`;
+  const response = await fetch(url, { method: options.method, headers, body: options.body });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
+  }
+  const contentType = response.headers.get('content-type');
+  return contentType && contentType.includes('application/json') ? response.json() : response.text();
+}
+
 // ---------------------------------------------------------------------------------
 // Minimal REX MCP server (stdio transport)
 // ---------------------------------------------------------------------------------
@@ -1007,6 +1022,44 @@ server.registerCapabilities({
       handler: async ({ userId }) => {
         await assertPremium(userId);
         return await api('/api/sourcing/senders', { method: 'GET' });
+      }
+    },
+    // ==================== SNIPER TOOLS ====================
+    sniper_add_target: {
+      parameters: {
+        userId: { type:'string' },
+        type: { type:'string' },
+        post_url: { type:'string', optional: true },
+        keyword_match: { type:'string', optional: true },
+        daily_cap: { type:'number', optional: true }
+      },
+      handler: async ({ userId, type, post_url, keyword_match, daily_cap }) => {
+        await assertPremium(userId);
+        return await apiAsUser(userId, `/api/sniper/targets`, {
+          method: 'POST',
+          body: JSON.stringify({ type, post_url, keyword_match, daily_cap })
+        });
+      }
+    },
+    sniper_pause: {
+      parameters: { userId: { type:'string' }, id: { type:'string' } },
+      handler: async ({ userId, id }) => {
+        await assertPremium(userId);
+        return await apiAsUser(userId, `/api/sniper/targets/${id}/pause`, { method: 'POST' });
+      }
+    },
+    sniper_resume: {
+      parameters: { userId: { type:'string' }, id: { type:'string' } },
+      handler: async ({ userId, id }) => {
+        await assertPremium(userId);
+        return await apiAsUser(userId, `/api/sniper/targets/${id}/resume`, { method: 'POST' });
+      }
+    },
+    sniper_capture_now: {
+      parameters: { userId: { type:'string' }, id: { type:'string' } },
+      handler: async ({ userId, id }) => {
+        await assertPremium(userId);
+        return await apiAsUser(userId, `/api/sniper/targets/${id}/capture-now`, { method: 'POST' });
       }
     }
   }
