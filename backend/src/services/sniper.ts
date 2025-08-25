@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase';
 import dayjs from 'dayjs';
 import fetch from 'node-fetch';
 import { LinkedInClient } from '../lib/linkedin/client';
+import { sniperOpenerQueue } from '../queues/redis';
 import { decryptGCM } from '../lib/crypto';
 
 type Target = {
@@ -121,6 +122,11 @@ export async function captureOnce(targetId: string) {
       const min = Number(process.env.SNIPER_MIN_WAIT_MS || 800);
       const max = Number(process.env.SNIPER_MAX_WAIT_MS || 1600);
       await li.sleep(min + Math.floor(Math.random()*(max-min)));
+    }
+
+    // if target is set to send openers and we enriched some leads, queue a batch
+    if ((t as any).send_opener && enriched > 0 && process.env.SNIPER_OPENER_ENABLE === 'true') {
+      await sniperOpenerQueue.add('opener', { targetId }, { delay: 5000 });
     }
 
     await supabase.from('sniper_runs').insert({ target_id: targetId, success_count: found });
