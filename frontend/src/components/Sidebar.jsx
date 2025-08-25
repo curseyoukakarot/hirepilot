@@ -82,21 +82,38 @@ export default function Sidebar() {
             ))}
             {/* Affiliate nav removed from main dashboard */}
             {isPremium && (
-              <li>
-                <NavLink
-                  to="/agent"
-                  className={({ isActive }) =>
-                    `flex items-center px-4 py-2 text-base rounded-lg font-medium transition-colors cursor-pointer ${
-                      isActive
-                        ? 'bg-indigo-50 text-indigo-700 font-semibold dark:bg-gray-700 dark:text-indigo-300'
-                        : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
-                    }`
-                  }
-                >
-                  <span className="mr-3 text-lg"><FaRobot /></span>
-                  Agent Mode
-                </NavLink>
-              </li>
+              <>
+                <li>
+                  <NavLink
+                    to="/agent"
+                    className={({ isActive }) =>
+                      `flex items-center px-4 py-2 text-base rounded-lg font-medium transition-colors cursor-pointer ${
+                        isActive
+                          ? 'bg-indigo-50 text-indigo-700 font-semibold dark:bg-gray-700 dark:text-indigo-300'
+                          : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      }`
+                    }
+                  >
+                    <span className="mr-3 text-lg"><FaRobot /></span>
+                    Agent Mode
+                  </NavLink>
+                </li>
+                <li>
+                  <NavLink
+                    to="/rex-chat"
+                    className={({ isActive }) =>
+                      `flex items-center px-4 py-2 text-base rounded-lg font-medium transition-colors cursor-pointer ${
+                        isActive
+                          ? 'bg-indigo-50 text-indigo-700 font-semibold dark:bg-gray-700 dark:text-indigo-300'
+                          : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      }`
+                    }
+                  >
+                    <span className="mr-3 text-lg"><FaRobot /></span>
+                    REX Chat
+                  </NavLink>
+                </li>
+              </>
             )}
           </ul>
         </div>
@@ -136,28 +153,7 @@ export default function Sidebar() {
                 <span className="mr-3 text-lg"><FaShieldAlt /></span>
                 Super Admin
               </NavLink>
-              <NavLink
-                to="/super-admin/inbox"
-                className={({ isActive }) =>
-                  `flex items-center px-4 py-2 text-base rounded-lg font-medium transition-colors cursor-pointer ${
-                    isActive ? 'bg-blue-100 text-blue-700 font-semibold dark:bg-gray-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
-                  }`
-                }
-              >
-                <span className="mr-3 text-lg"><FaBell /></span>
-                Action Inbox
-              </NavLink>
-              <NavLink
-                to="/super-admin/sourcing"
-                className={({ isActive }) =>
-                  `flex items-center px-4 py-2 text-base rounded-lg font-medium transition-colors cursor-pointer ${
-                    isActive ? 'bg-blue-100 text-blue-700 font-semibold dark:bg-gray-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
-                  }`
-                }
-              >
-                <span className="mr-3 text-lg"><FaUsers /></span>
-                Sourcing Campaigns
-              </NavLink>
+              {/* Removed Action Inbox and Sourcing Campaigns in favor of unified Agent Mode */}
               <NavLink
                 to="/admin/puppet-health"
                 className={({ isActive }) =>
