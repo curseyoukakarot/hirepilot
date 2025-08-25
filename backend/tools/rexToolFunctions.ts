@@ -44,6 +44,31 @@ export async function sourceLeads({
       if (newErr) throw newErr;
       targetCampaignId = newCamp.id;
     }
+  } else {
+    // UUID supplied: ensure it exists in sourcing_campaigns; if not, create one and map title from legacy campaigns if available
+    const { data: exists } = await supabaseDb
+      .from('sourcing_campaigns')
+      .select('id')
+      .eq('id', targetCampaignId)
+      .maybeSingle();
+    if (!exists?.id) {
+      let title = String(filters?.title || filters?.keywords || 'Sourcing Campaign').slice(0, 80);
+      try {
+        const { data: legacy } = await supabaseDb
+          .from('campaigns')
+          .select('title')
+          .eq('id', targetCampaignId)
+          .maybeSingle();
+        if (legacy?.title) title = legacy.title;
+      } catch {}
+      const { data: newCamp, error: newErr } = await supabaseDb
+        .from('sourcing_campaigns')
+        .insert({ id: targetCampaignId, title, created_by: userId, audience_tag: 'rex' })
+        .select('id')
+        .single();
+      if (newErr) throw newErr;
+      targetCampaignId = newCamp.id;
+    }
   }
   if (source === 'linkedin') {
     // TODO: Implement LinkedIn sourcing via PhantomBuster
