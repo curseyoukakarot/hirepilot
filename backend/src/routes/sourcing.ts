@@ -162,6 +162,45 @@ router.get('/campaigns', requireAuth, async (req: ApiRequest, res: Response) => 
   }
 });
 
+// Save campaign sender behavior config
+router.post('/campaign-config/:id/sender', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const body = z.object({
+      senderBehavior: z.enum(['single','rotate']),
+      senderEmail: z.string().email().optional()
+    }).parse(req.body);
+
+    if (body.senderBehavior === 'single' && !body.senderEmail) {
+      return res.status(400).json({ error: 'senderEmail required for single behavior' });
+    }
+
+    // Validate senderEmail belongs to available senders if provided
+    if (body.senderBehavior === 'single' && body.senderEmail) {
+      const { data: match } = await supabase
+        .from('email_senders')
+        .select('from_email')
+        .eq('from_email', body.senderEmail)
+        .maybeSingle();
+      if (!match) return res.status(400).json({ error: 'Sender email not found/connected' });
+    }
+
+    const { error } = await supabase
+      .from('campaign_configs')
+      .upsert({
+        campaign_id: id,
+        sender_behavior: body.senderBehavior,
+        sender_email: body.senderEmail || null,
+        updated_at: new Date().toISOString()
+      });
+    if (error) throw error;
+    return res.json({ ok: true });
+  } catch (error: any) {
+    console.error('Error saving campaign sender config:', error);
+    return res.status(400).json({ error: error.message });
+  }
+});
+
 // Get email senders
 router.get('/senders', requireAuth, async (req: ApiRequest, res: Response) => {
   try {

@@ -120,3 +120,13 @@ COMMENT ON TABLE sourcing_replies IS 'AI Agents: Inbound/outbound email replies 
 INSERT INTO email_senders (from_name, from_email, domain_verified, warmup_mode)
 SELECT 'HirePilot', 'no-reply@hirepilot.ai', FALSE, TRUE
 WHERE NOT EXISTS (SELECT 1 FROM email_senders WHERE from_email = 'no-reply@hirepilot.ai');
+
+-- Campaign configuration: sender behavior and overrides
+CREATE TABLE IF NOT EXISTS campaign_configs (
+  campaign_id UUID PRIMARY KEY REFERENCES sourcing_campaigns(id) ON DELETE CASCADE,
+  sender_behavior TEXT CHECK (sender_behavior IN ('single','rotate')) DEFAULT 'single',
+  sender_email TEXT,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_campaign_configs_behavior ON campaign_configs(sender_behavior);
