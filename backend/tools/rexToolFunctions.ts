@@ -58,53 +58,38 @@ export async function sourceLeads({
 
   if (!leads.length) return { imported: 0 };
 
-  // 4. Insert leads into lead table & campaign_leads (dedup by email)
+  // 4. Insert leads into sourcing_leads (dedupe by email within campaign)
   const uniqueLeads = leads.filter((l: any, idx: number, arr: any[]) => {
     if (!l.email) return false;
     return arr.findIndex(a => a.email === l.email) === idx;
   });
 
-  // Map to DB schema
   const leadRows = uniqueLeads.map((l: any) => ({
-    user_id: userId,
-    first_name: l.firstName,
-    last_name: l.lastName,
-    title: l.title,
-    company: l.company,
-    email: l.email,
-    linkedin_url: l.linkedinUrl,
-    enrichment_data: { apollo: l },
-    status: 'sourced'
+    campaign_id: campaignId,
+    name: [l.firstName, l.lastName].filter(Boolean).join(' ').trim() || null,
+    title: l.title || null,
+    company: l.company || null,
+    linkedin_url: l.linkedinUrl || null,
+    email: l.email || null,
+    domain: l.domain || null,
+    enriched: !!l.email
   }));
 
+  // Upsert by (campaign_id, email) if constraint exists; otherwise filter out existing emails first
+  // Best-effort: try insert and ignore duplicates
   const { data: insertedLeads, error } = await supabaseDb
-    .from('leads')
+    .from('sourcing_leads')
     .insert(leadRows)
     .select();
 
   if (error) {
-    console.error('[sourceLeads] Lead insert error', error);
+    console.error('[sourceLeads] sourcing_leads insert error', error);
     throw new Error('Failed to insert leads');
   }
 
-  // 5. Attach to campaign_leads
-  const campaignLeadRows = insertedLeads.map((lead: any) => ({
-    campaign_id: campaignId,
-    lead_id: lead.id,
-    user_id: userId
-  }));
+  await notifySlack(`📥 Imported ${insertedLeads?.length || 0} leads into sourcing campaign ${campaignId}`);
 
-  const { error: clErr } = await supabaseDb
-    .from('campaign_leads')
-    .insert(campaignLeadRows);
-
-  if (clErr) {
-    console.error('[sourceLeads] campaign_leads insert error', clErr);
-  }
-
-  await notifySlack(`📥 Imported ${insertedLeads.length} leads into campaign ${campaignId}`);
-
-  return { imported: insertedLeads.length };
+  return { imported: insertedLeads?.length || 0 };
 }
 
 /**

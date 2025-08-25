@@ -1,9 +1,11 @@
 import { Queue, Worker } from 'bullmq';
 import IORedis from 'ioredis';
 
-export const connection = new IORedis(process.env.REDIS_URL!, { 
-  maxRetriesPerRequest: null, 
-  enableReadyCheck: true 
+const redisUrl = process.env.REDIS_URL || process.env.REDIS_TLS_URL || 'redis://127.0.0.1:6379';
+export const connection = new IORedis(redisUrl, {
+  maxRetriesPerRequest: null,
+  enableReadyCheck: true,
+  tls: redisUrl.startsWith('rediss://') ? { rejectUnauthorized: false } : undefined
 });
 
 export const emailQueue = new Queue('emailQueue', { connection });
