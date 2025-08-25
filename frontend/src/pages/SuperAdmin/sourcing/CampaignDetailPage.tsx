@@ -242,6 +242,41 @@ export default function CampaignDetailPage() {
             </button>
           )}
 
+          {/* Relaunch (set back to draft) */}
+          <button
+            onClick={async()=>{
+              if(!id) return;
+              setActionLoading('relaunch');
+              try{
+                await api(`/api/sourcing/campaigns/${id}/relaunch`, { method:'POST' });
+                await loadCampaign();
+              }catch(err){ setError(err instanceof Error ? err.message : 'Failed to relaunch'); }
+              setActionLoading(null);
+            }}
+            disabled={actionLoading==='relaunch'}
+            className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {actionLoading==='relaunch' ? 'Relaunching…' : '🔄 Relaunch'}
+          </button>
+
+          {/* Delete */}
+          <button
+            onClick={async()=>{
+              if(!id) return;
+              if(!confirm('Delete this campaign? This cannot be undone.')) return;
+              setActionLoading('delete');
+              try{
+                await api(`/api/sourcing/campaigns/${id}`, { method:'DELETE' });
+                navigate('/super-admin/sourcing');
+              }catch(err){ setError(err instanceof Error ? err.message : 'Failed to delete'); }
+              setActionLoading(null);
+            }}
+            disabled={actionLoading==='delete'}
+            className="px-4 py-2 rounded-lg bg-red-700 hover:bg-red-800 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {actionLoading==='delete' ? 'Deleting…' : '🗑️ Delete'}
+          </button>
+
           <Link
             to={`/super-admin/sourcing/campaigns/${id}/replies`}
             className="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-medium transition-colors"

@@ -422,6 +422,38 @@ router.post('/campaigns/:id/resume', requireAuth, async (req: ApiRequest, res: R
   }
 });
 
+// Relaunch campaign (set to draft so it can be scheduled again)
+router.post('/campaigns/:id/relaunch', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { error } = await supabase
+      .from('sourcing_campaigns')
+      .update({ status: 'draft' })
+      .eq('id', id);
+    if (error) throw error;
+    return res.json({ success: true, status: 'draft' });
+  } catch (error: any) {
+    console.error('Error relaunching campaign:', error);
+    return res.status(400).json({ error: error.message });
+  }
+});
+
+// Delete campaign (cascade via FKs)
+router.delete('/campaigns/:id', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { error } = await supabase
+      .from('sourcing_campaigns')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+    return res.json({ success: true });
+  } catch (error: any) {
+    console.error('Error deleting campaign:', error);
+    return res.status(400).json({ error: error.message });
+  }
+});
+
 // Removed duplicate - the search route at /campaigns/search handles both cases
 
 export default router;
