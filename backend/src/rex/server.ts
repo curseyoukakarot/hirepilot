@@ -1061,6 +1061,32 @@ server.registerCapabilities({
         await assertPremium(userId);
         return await apiAsUser(userId, `/api/sniper/targets/${id}/capture-now`, { method: 'POST' });
       }
+    },
+    sniper_set_opener: {
+      parameters: {
+        userId: { type:'string' },
+        id: { type:'string' },
+        send_opener: { type:'boolean' },
+        opener_subject: { type:'string', optional: true },
+        opener_body: { type:'string', optional: true }
+      },
+      handler: async ({ userId, id, send_opener, opener_subject, opener_body }) => {
+        await assertPremium(userId);
+        return await apiAsUser(userId, `/api/sniper/targets/${id}/opener`, {
+          method: 'POST',
+          body: JSON.stringify({ send_opener, opener_subject, opener_body })
+        });
+      }
+    },
+    sniper_set_opener_cap: {
+      parameters: { userId: { type:'string' }, id: { type:'string' }, daily_cap: { type:'number' } },
+      handler: async ({ userId, id, daily_cap }) => {
+        await assertPremium(userId);
+        return await apiAsUser(userId, `/api/sniper/targets/${id}/opener-cap`, {
+          method: 'POST',
+          body: JSON.stringify({ daily_cap })
+        });
+      }
     }
   }
 });
