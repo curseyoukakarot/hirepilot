@@ -105,9 +105,11 @@ CREATE INDEX IF NOT EXISTS idx_sourcing_replies_direction ON sourcing_replies(di
 CREATE INDEX IF NOT EXISTS idx_sourcing_replies_classified_as ON sourcing_replies(classified_as);
 
 -- Add foreign key constraint for default_sender_id
-ALTER TABLE sourcing_campaigns 
-ADD CONSTRAINT fk_sourcing_campaigns_default_sender 
-FOREIGN KEY (default_sender_id) REFERENCES email_senders(id);
+DO $$ BEGIN
+  ALTER TABLE sourcing_campaigns 
+  ADD CONSTRAINT fk_sourcing_campaigns_default_sender 
+  FOREIGN KEY (default_sender_id) REFERENCES email_senders(id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Add comments for documentation
 COMMENT ON TABLE sourcing_campaigns IS 'AI Agents: Sourcing campaigns with leads bucket and 3-step sequences';
@@ -116,17 +118,24 @@ COMMENT ON TABLE sourcing_sequences IS 'AI Agents: Email sequences for sourcing 
 COMMENT ON TABLE email_senders IS 'AI Agents: Email sender profiles for SendGrid integration';
 COMMENT ON TABLE sourcing_replies IS 'AI Agents: Inbound/outbound email replies with classification';
 
--- Insert default email sender if none exists
-INSERT INTO email_senders (from_name, from_email, domain_verified, warmup_mode)
-SELECT 'HirePilot', 'no-reply@hirepilot.ai', FALSE, TRUE
-WHERE NOT EXISTS (SELECT 1 FROM email_senders WHERE from_email = 'no-reply@hirepilot.ai');
+-- Remove any app-level default sender; users must use their own verified senders
+DELETE FROM email_senders WHERE from_email IN ('no-reply@hirepilot.ai', 'no-reply@thehirepilot.com');
 
 -- Campaign configuration: sender behavior and overrides
 CREATE TABLE IF NOT EXISTS campaign_configs (
   campaign_id UUID PRIMARY KEY REFERENCES sourcing_campaigns(id) ON DELETE CASCADE,
-  sender_behavior TEXT CHECK (sender_behavior IN ('single','rotate')) DEFAULT 'single',
+  sender_behavior TEXT CHECK (sender_behavior IN ('single','rotate','specific')) DEFAULT 'single',
   sender_email TEXT,
+  sender_emails TEXT[],
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_campaign_configs_behavior ON campaign_configs(sender_behavior);
+
+-- Idempotent alters for deployments where table already exists
+ALTER TABLE campaign_configs
+  ADD COLUMN IF NOT EXISTS sender_emails TEXT[];
+DO $$ BEGIN
+  ALTER TABLE campaign_configs
+  ADD CONSTRAINT campaign_configs_sender_behavior_chk CHECK (sender_behavior IN ('single','rotate','specific'));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;

@@ -60,16 +60,18 @@ async function buildSenderHeaders(campaignId: string, base: Record<string, strin
 
   // Determine behavior from an optional campaign config table or defaults
   // For quick patch, read per-campaign behavior from team/user settings if available; else default to single/default_sender
-  let behavior: 'single' | 'rotate' = 'single';
+  let behavior: 'single' | 'rotate' | 'specific' = 'single';
   let explicitEmail: string | null = null;
+  let specificEmails: string[] = [];
   try {
     const { data: cfg } = await supabase
       .from('campaign_configs')
-      .select('sender_behavior,sender_email')
+      .select('sender_behavior,sender_email,sender_emails')
       .eq('campaign_id', campaignId)
       .maybeSingle();
     if (cfg?.sender_behavior) behavior = cfg.sender_behavior as any;
     if (cfg?.sender_email) explicitEmail = cfg.sender_email;
+    if (Array.isArray((cfg as any)?.sender_emails)) specificEmails = (cfg as any).sender_emails as string[];
   } catch {}
 
   // Fallback to default sender on campaign if single
@@ -87,15 +89,29 @@ async function buildSenderHeaders(campaignId: string, base: Record<string, strin
     return { ...base, 'X-From-Override': fromEmail || '' };
   }
 
+  // specific behavior: rotate among selected verified senders
+  if (behavior === 'specific' && specificEmails.length > 0) {
+    const { data: senders } = await supabase
+      .from('user_sendgrid_senders')
+      .select('email,verified')
+      .in('email', specificEmails)
+      .eq('user_id', campaign?.created_by as string);
+    const verified = (senders || []).filter(s => s.verified).map(s => s.email);
+    if (verified.length) {
+      const pick = rotateSenders(verified);
+      return { ...base, 'X-From-Override': pick };
+    }
+  }
+
   // rotate behavior: pick next verified sender for this user
   const { data: senders } = await supabase
-    .from('email_senders')
-    .select('id,from_email,domain_verified')
-    .eq('provider', 'sendgrid')
+    .from('user_sendgrid_senders')
+    .select('email,verified')
+    .eq('user_id', campaign?.created_by as string)
     .order('created_at', { ascending: true });
-  const verified = (senders || []).filter(s => s.domain_verified);
+  const verified = (senders || []).filter(s => s.verified);
   if (!verified.length) return base;
-  const pick = rotateSenders(verified.map(s => s.from_email));
+  const pick = rotateSenders(verified.map(s => s.email));
   return { ...base, 'X-From-Override': pick };
 }
 

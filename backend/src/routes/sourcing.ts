@@ -202,22 +202,28 @@ router.post('/campaign-config/:id/sender', requireAuth, async (req: ApiRequest, 
   try {
     const { id } = req.params;
     const body = z.object({
-      senderBehavior: z.enum(['single','rotate']),
-      senderEmail: z.string().email().optional()
+      senderBehavior: z.enum(['single','rotate','specific']),
+      senderEmail: z.string().email().optional(),
+      senderEmails: z.array(z.string().email()).optional()
     }).parse(req.body);
 
     if (body.senderBehavior === 'single' && !body.senderEmail) {
       return res.status(400).json({ error: 'senderEmail required for single behavior' });
     }
 
-    // Validate senderEmail belongs to available senders if provided
-    if (body.senderBehavior === 'single' && body.senderEmail) {
-      const { data: match } = await supabase
-        .from('email_senders')
-        .select('from_email')
-        .eq('from_email', body.senderEmail)
-        .maybeSingle();
-      if (!match) return res.status(400).json({ error: 'Sender email not found/connected' });
+    const userId = req.user?.id as string;
+    const { data: available } = await supabase
+      .from('user_sendgrid_senders')
+      .select('email,verified')
+      .eq('user_id', userId);
+    const allowed = new Set((available || []).filter(s => s.verified).map(s => s.email));
+
+    if (body.senderBehavior === 'single' && body.senderEmail && !allowed.has(body.senderEmail)) {
+      return res.status(400).json({ error: 'Sender email not found/verified for this account' });
+    }
+    if (body.senderBehavior === 'specific' && body.senderEmails) {
+      const invalid = body.senderEmails.filter(e => !allowed.has(e));
+      if (invalid.length) return res.status(400).json({ error: `Invalid senders: ${invalid.join(', ')}` });
     }
 
     const { error } = await supabase
@@ -226,6 +232,7 @@ router.post('/campaign-config/:id/sender', requireAuth, async (req: ApiRequest, 
         campaign_id: id,
         sender_behavior: body.senderBehavior,
         sender_email: body.senderEmail || null,
+        sender_emails: body.senderBehavior === 'specific' ? (body.senderEmails || []) : null,
         updated_at: new Date().toISOString()
       });
     if (error) throw error;
@@ -239,13 +246,17 @@ router.post('/campaign-config/:id/sender', requireAuth, async (req: ApiRequest, 
 // Get email senders
 router.get('/senders', requireAuth, async (req: ApiRequest, res: Response) => {
   try {
+    const userId = req.user?.id as string;
     const { data: senders, error } = await supabase
-      .from('email_senders')
-      .select('*')
+      .from('user_sendgrid_senders')
+      .select('id,email,name,verified')
+      .eq('user_id', userId)
       .order('created_at', { ascending: false });
     
     if (error) throw error;
-    return res.json(senders);
+    // normalize to previous frontend expectation
+    const normalized = (senders || []).map(s => ({ id: s.id, from_email: s.email, from_name: s.name, domain_verified: s.verified }));
+    return res.json(normalized);
   } catch (error: any) {
     console.error('Error fetching senders:', error);
     return res.status(400).json({ error: error.message });

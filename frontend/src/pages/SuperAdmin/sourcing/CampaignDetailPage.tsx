@@ -42,9 +42,10 @@ export default function CampaignDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [senderBehavior, setSenderBehavior] = useState<'single'|'rotate'>('single');
+  const [senderBehavior, setSenderBehavior] = useState<'single'|'rotate'|'specific'>('single');
   const [senderOptions, setSenderOptions] = useState<Array<{ id:string; email:string }>>([]);
   const [senderEmail, setSenderEmail] = useState<string>('');
+  const [senderEmails, setSenderEmails] = useState<string[]>([]);
   const [senderSaving, setSenderSaving] = useState<boolean>(false);
 
   const loadCampaign = async () => {
@@ -255,6 +256,10 @@ export default function CampaignDetailPage() {
               <input type="radio" name="senderBehavior" checked={senderBehavior==='rotate'} onChange={()=>setSenderBehavior('rotate')} />
               <span>Rotate between available senders</span>
             </label>
+            <label className="inline-flex items-center gap-2">
+              <input type="radio" name="senderBehavior" checked={senderBehavior==='specific'} onChange={()=>setSenderBehavior('specific')} />
+              <span>Rotate between specific senders…</span>
+            </label>
           </div>
           {senderBehavior === 'single' && (
             <div className="flex items-center gap-3">
@@ -273,6 +278,31 @@ export default function CampaignDetailPage() {
                   setSenderSaving(false);
                 }}
                 disabled={senderSaving || (senderBehavior==='single' && !senderEmail)}
+                className="px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded text-white disabled:opacity-50"
+              >
+                {senderSaving ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          )}
+          {senderBehavior === 'specific' && (
+            <div className="flex items-center gap-3 flex-wrap">
+              <select multiple value={senderEmails} onChange={e=>{
+                const opts = Array.from(e.target.selectedOptions).map(o=>o.value);
+                setSenderEmails(opts);
+              }} className="px-3 py-2 bg-slate-800 border border-slate-700 rounded text-gray-100 min-w-[260px] h-28">
+                {senderOptions.map(s => (
+                  <option key={s.id} value={s.email}>{s.email}</option>
+                ))}
+              </select>
+              <button
+                onClick={async()=>{
+                  setSenderSaving(true);
+                  try {
+                    await api(`/api/campaign-config/${id}/sender`, { method: 'POST', body: JSON.stringify({ senderBehavior, senderEmails }) });
+                  } catch {}
+                  setSenderSaving(false);
+                }}
+                disabled={senderSaving || senderEmails.length === 0}
                 className="px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded text-white disabled:opacity-50"
               >
                 {senderSaving ? 'Saving…' : 'Save'}
