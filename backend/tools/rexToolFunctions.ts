@@ -97,20 +97,24 @@ export async function sourceLeads({
 
   if (!apolloApiKey) throw new Error('No Apollo API key configured');
 
-  // 2. Build Apollo search params (simple mapping – can be expanded)
+  // 2. Build Apollo search params using the same logic as Campaign Wizard
   const searchParams: any = {
     api_key: apolloApiKey,
     page: 1,
     per_page: Math.max(1, Math.min(100, Number(filters?.count || filters?.limit || filters?.per_page || 25)))
   };
-  if (filters?.booleanSearch && filters?.keywords) {
-    // Boolean mode: put Boolean expression into person_titles so Apollo ORs terms natively
-    searchParams.person_titles = [String(filters.keywords).trim()];
-  } else {
-    if (filters?.title) searchParams.person_titles = [filters.title];
-    if (filters?.keywords) searchParams.q_keywords = filters.keywords;
+  const titleInput = String(filters?.title || filters?.jobTitle || filters?.keywords || '').trim();
+  const locationInput = String(filters?.location || filters?.person_locations || '').trim();
+  if (filters?.booleanSearch && titleInput) {
+    // Boolean query placed into person_titles for Apollo native OR
+    searchParams.person_titles = [titleInput];
+  } else if (titleInput) {
+    searchParams.person_titles = [titleInput];
   }
-  if (filters?.location) searchParams.person_locations = [filters.location];
+  if (locationInput) {
+    searchParams.person_locations = [locationInput];
+  }
+  if (filters?.q_keywords) searchParams.q_keywords = filters.q_keywords;
 
   // 3. Search & enrich people
   const { leads } = await searchAndEnrichPeople(searchParams as any);

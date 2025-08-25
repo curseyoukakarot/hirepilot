@@ -1,6 +1,7 @@
 console.log('### LOADED', __filename);
 import express, { Request, Response } from 'express';
 import { z } from 'zod';
+import axios from 'axios';
 import { createCampaign, addLeads, generateSequenceForCampaign, scheduleCampaign } from '../services/sourcing';
 import { getCampaignWithDetails, getLeadsForCampaign, searchCampaigns, getCampaignStats } from '../services/sourcingUtils';
 import { supabase } from '../lib/supabase';
@@ -465,6 +466,50 @@ router.post('/campaigns/:id/send-single', requireAuth, async (req: ApiRequest, r
     return res.json({ ok: true, ...result });
   } catch (error: any) {
     console.error('Error sending single message:', error);
+    return res.status(400).json({ error: error.message });
+  }
+});
+
+// Sync SendGrid senders for current user from SendGrid API
+router.post('/senders/sync', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user?.id as string;
+    const { data: keyRow } = await supabase
+      .from('user_sendgrid_keys')
+      .select('api_key')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (!keyRow?.api_key) return res.status(400).json({ error: 'SendGrid not connected' });
+
+    const headers = { Authorization: `Bearer ${keyRow.api_key}` } as any;
+    let merged: Array<{ email: string; name?: string; verified: boolean }> = [];
+    try {
+      const r1 = await axios.get('https://api.sendgrid.com/v3/verified_senders', { headers });
+      const a1 = Array.isArray(r1.data?.results) ? r1.data.results : [];
+      merged.push(...a1.map((s: any) => ({ email: s.from_email, name: s.from_name, verified: !!s.verified })));
+    } catch {}
+    try {
+      const r2 = await axios.get('https://api.sendgrid.com/v3/senders', { headers });
+      const a2 = Array.isArray(r2.data?.results) ? r2.data.results : Array.isArray(r2.data) ? r2.data : [];
+      merged.push(...a2.map((s: any) => ({ email: s.from?.email || s.from_email || s.email, name: s.from?.name || s.nickname || s.name, verified: !!(s.verified || s.reviewed || s.verification?.status === 'completed') })));
+    } catch {}
+
+    const byEmail = new Map<string, { email: string; name?: string; verified: boolean }>();
+    merged.forEach(s => {
+      if (!s?.email) return;
+      const prev = byEmail.get(s.email);
+      byEmail.set(s.email, { email: s.email, name: s.name || prev?.name, verified: s.verified || prev?.verified || false });
+    });
+    const upserts = Array.from(byEmail.values()).map(v => ({ user_id: userId, email: v.email, name: v.name || null, verified: v.verified }));
+    if (upserts.length) {
+      const { error: upErr } = await supabase
+        .from('user_sendgrid_senders')
+        .upsert(upserts);
+      if (upErr) throw upErr;
+    }
+    return res.json({ synced: upserts.length });
+  } catch (error: any) {
+    console.error('Error syncing senders:', error?.response?.data || error.message);
     return res.status(400).json({ error: error.message });
   }
 });
