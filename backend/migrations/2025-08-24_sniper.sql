@@ -48,4 +48,23 @@ create table if not exists sniper_runs (
 create index if not exists idx_sniper_targets_user on sniper_targets(user_id, status);
 create index if not exists idx_sniper_captures_target on sniper_captures(target_id, captured_at);
 
+-- Opener preferences on target
+alter table sniper_targets
+  add column if not exists send_opener boolean default false,
+  add column if not exists opener_template_id uuid,
+  add column if not exists opener_subject text,
+  add column if not exists opener_body text;
+
+-- Per-target daily opener send log (light)
+create table if not exists sniper_opener_sends (
+  id uuid primary key default gen_random_uuid(),
+  target_id uuid references sniper_targets(id) on delete cascade,
+  lead_id uuid references sourcing_leads(id) on delete cascade,
+  email text,
+  sent_at timestamptz default now()
+);
+
+create index if not exists idx_sniper_opener_sends_target_day
+  on sniper_opener_sends(target_id, sent_at);
+
 
