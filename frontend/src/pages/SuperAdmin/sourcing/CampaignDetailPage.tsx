@@ -42,6 +42,10 @@ export default function CampaignDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [senderBehavior, setSenderBehavior] = useState<'single'|'rotate'>('single');
+  const [senderOptions, setSenderOptions] = useState<Array<{ id:string; email:string }>>([]);
+  const [senderEmail, setSenderEmail] = useState<string>('');
+  const [senderSaving, setSenderSaving] = useState<boolean>(false);
 
   const loadCampaign = async () => {
     try {
@@ -62,6 +66,16 @@ export default function CampaignDetailPage() {
       loadCampaign();
     }
   }, [id]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const senders = await api('/api/sourcing/senders');
+        const normalized = (senders || []).map((s:any) => ({ id: s.id, email: s.from_email }));
+        setSenderOptions(normalized);
+      } catch {}
+    })();
+  }, []);
 
   const handleAction = async (action: string) => {
     if (!id) return;
@@ -228,6 +242,59 @@ export default function CampaignDetailPage() {
           >
             🤖 Chat with REX
           </Link>
+        </div>
+        {/* Sender Behavior Controls */}
+        <div className="mt-6 p-4 border border-slate-700 rounded-lg bg-slate-900/50">
+          <div className="text-gray-200 font-medium mb-2">Sender Behavior</div>
+          <div className="flex items-center gap-6 text-gray-300 mb-3">
+            <label className="inline-flex items-center gap-2">
+              <input type="radio" name="senderBehavior" checked={senderBehavior==='single'} onChange={()=>setSenderBehavior('single')} />
+              <span>Send from a single sender</span>
+            </label>
+            <label className="inline-flex items-center gap-2">
+              <input type="radio" name="senderBehavior" checked={senderBehavior==='rotate'} onChange={()=>setSenderBehavior('rotate')} />
+              <span>Rotate between available senders</span>
+            </label>
+          </div>
+          {senderBehavior === 'single' && (
+            <div className="flex items-center gap-3">
+              <select value={senderEmail} onChange={e=>setSenderEmail(e.target.value)} className="px-3 py-2 bg-slate-800 border border-slate-700 rounded text-gray-100">
+                <option value="">Select sender…</option>
+                {senderOptions.map(s => (
+                  <option key={s.id} value={s.email}>{s.email}</option>
+                ))}
+              </select>
+              <button
+                onClick={async()=>{
+                  setSenderSaving(true);
+                  try {
+                    await api(`/api/campaign-config/${id}/sender`, { method: 'POST', body: JSON.stringify({ senderBehavior, senderEmail }) });
+                  } catch {}
+                  setSenderSaving(false);
+                }}
+                disabled={senderSaving || (senderBehavior==='single' && !senderEmail)}
+                className="px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded text-white disabled:opacity-50"
+              >
+                {senderSaving ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          )}
+          {senderBehavior === 'rotate' && (
+            <div>
+              <button
+                onClick={async()=>{
+                  setSenderSaving(true);
+                  try {
+                    await api(`/api/campaign-config/${id}/sender`, { method: 'POST', body: JSON.stringify({ senderBehavior }) });
+                  } catch {}
+                  setSenderSaving(false);
+                }}
+                className="px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded text-white"
+              >
+                {senderSaving ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
