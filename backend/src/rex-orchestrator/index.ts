@@ -1,4 +1,6 @@
 import { SourcingParams, WizardCardT, AgentPlanT, COMMON_TITLE_GROUPS, COMMON_INDUSTRIES, COMMON_LOCATIONS } from './schemas';
+import { SniperParams } from './schemas';
+import { startSniperWizard } from './sniper';
 import { SOURCE_EXTRACT, WIZARD_MESSAGES, ERROR_MESSAGES } from './prompts';
 import OpenAI from 'openai';
 
@@ -57,6 +59,17 @@ export async function startSourcingWizard(
     console.error('Error in startSourcingWizard:', error);
     return ask(ERROR_MESSAGES.WIZARD_STATE_ERROR);
   }
+}
+
+// Lightweight router: direct entrypoint for Sniper wizard
+export async function orchestrate(text: string, tools: any, user: { id: string }): Promise<WizardCardT | string> {
+  // Try Sniper intent first
+  const lowered = text.toLowerCase();
+  if (/(sniper|watch|keyword|competitor|post url|likes|comments)/.test(lowered)) {
+    try { return await startSniperWizard(text, tools, user); } catch (e) { /* fallthrough */ }
+  }
+  // Default to sourcing wizard
+  return await startSourcingWizard(text, tools, user);
 }
 
 export async function handleWizardStep(

@@ -105,3 +105,15 @@ export const COMMON_LOCATIONS = [
   'Denver',
   'Remote'
 ] as const;
+
+// -------------------- Sniper Agent --------------------
+export const SniperParams = z.object({
+  type: z.enum(['own','competitor','keyword']),
+  post_url: z.string().url().optional(),
+  keyword_match: z.string().optional(),
+  active_days: z.number().int().min(1).max(14).default(7),
+  daily_cap: z.number().int().min(5).max(30).default(15),
+  send_opener: z.boolean().default(false)
+})
+.refine(v => (v.type === 'keyword' ? !!v.keyword_match : true), { message: 'keyword_match required for type=keyword' })
+.refine(v => (v.type !== 'keyword' ? !!v.post_url : true), { message: 'post_url required for own/competitor' });
