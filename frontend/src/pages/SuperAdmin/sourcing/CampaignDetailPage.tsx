@@ -47,6 +47,7 @@ export default function CampaignDetailPage() {
   const [senderEmail, setSenderEmail] = useState<string>('');
   const [senderEmails, setSenderEmails] = useState<string[]>([]);
   const [senderSaving, setSenderSaving] = useState<boolean>(false);
+  const [senderSyncing, setSenderSyncing] = useState<boolean>(false);
 
   const loadCampaign = async () => {
     try {
@@ -74,6 +75,17 @@ export default function CampaignDetailPage() {
         const senders = await api('/api/sourcing/senders');
         const normalized = (senders || []).map((s:any) => ({ id: s.id, email: s.from_email }));
         setSenderOptions(normalized);
+        // Auto-sync once if empty
+        if (!normalized.length) {
+          setSenderSyncing(true);
+          try {
+            await api('/api/sourcing/senders/sync', { method: 'POST' });
+            const refreshed = await api('/api/sourcing/senders');
+            const n2 = (refreshed || []).map((s:any) => ({ id: s.id, email: s.from_email }));
+            setSenderOptions(n2);
+          } catch {}
+          setSenderSyncing(false);
+        }
       } catch {}
     })();
   }, []);
@@ -260,6 +272,22 @@ export default function CampaignDetailPage() {
               <input type="radio" name="senderBehavior" checked={senderBehavior==='specific'} onChange={()=>setSenderBehavior('specific')} />
               <span>Rotate between specific senders…</span>
             </label>
+            <button
+              onClick={async()=>{
+                setSenderSyncing(true);
+                try {
+                  await api('/api/sourcing/senders/sync', { method: 'POST' });
+                  const refreshed = await api('/api/sourcing/senders');
+                  const n2 = (refreshed || []).map((s:any) => ({ id: s.id, email: s.from_email }));
+                  setSenderOptions(n2);
+                } catch {}
+                setSenderSyncing(false);
+              }}
+              className="ml-auto px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm disabled:opacity-50"
+              disabled={senderSyncing}
+            >
+              {senderSyncing ? 'Syncing…' : 'Sync SendGrid senders'}
+            </button>
           </div>
           {senderBehavior === 'single' && (
             <div className="flex items-center gap-3">
