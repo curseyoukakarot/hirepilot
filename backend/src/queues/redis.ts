@@ -8,3 +8,4 @@ export const connection = new IORedis(process.env.REDIS_URL!, {
 
 export const emailQueue = new Queue('emailQueue', { connection });
 export const campaignQueue = new Queue('campaignQueue', { connection });
+export const sniperQueue = new Queue('sniper:capture', { connection });

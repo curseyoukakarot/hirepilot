@@ -101,6 +101,7 @@ import { attachTeam } from './middleware/teamContext';
 import { messageScheduler } from './workers/messageScheduler';
 import { registerLinkedInSessionRoutes } from './src/routes/linkedin.session.routes';
 import { sniperWorker } from './src/workers/sniper.worker';
+import { registerSniperRoutes } from './src/routes/sniper.routes';
 
 declare module 'express-list-endpoints';
 
@@ -249,6 +250,8 @@ app.use('/api/team', teamRouter);
   app.use('/api/admin', adminUsersRouter);
   // LinkedIn session routes (encrypted storage)
   registerLinkedInSessionRoutes(app);
+  // Sniper routes
+  registerSniperRoutes(app);
   // Boot sniper worker (BullMQ)
   void sniperWorker;
   // (webhook route mounted earlier before body parsers)
