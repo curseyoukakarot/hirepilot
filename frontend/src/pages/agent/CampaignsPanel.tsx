@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api';
-import AgentModeSwitch from '../../components/admin/sourcing/AgentModeSwitch.jsx';
+import AgentModeSwitch from '../../components/admin/sourcing/AgentModeSwitch';
 
 type Campaign = {
   id: string;
