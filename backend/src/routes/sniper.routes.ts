@@ -2,6 +2,7 @@ import type { Application, Request, Response } from 'express';
 import { z } from 'zod';
 import { addTarget, listTargets, pauseTarget, resumeTarget, captureOnce } from '../services/sniper';
 import { sniperQueue } from '../queues/redis';
+import { supabase } from '../lib/supabase';
 
 function uid(req: Request){
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -37,6 +38,34 @@ export function registerSniperRoutes(app: Application) {
   app.post('/api/sniper/targets/:id/capture-now', async (req: Request, res: Response) => {
     const result = await captureOnce((req.params as any).id);
     return res.json(result);
+  });
+
+  // Toggle opener + set subject/body (optional)
+  app.post('/api/sniper/targets/:id/opener', async (req: Request, res: Response) => {
+    const body = z.object({
+      send_opener: z.boolean(),
+      opener_subject: z.string().optional(),
+      opener_body: z.string().optional()
+    }).safeParse(req.body);
+    if (!body.success) return res.status(400).json({ error: 'invalid_payload', details: body.error.flatten() });
+
+    const { error } = await supabase.from('sniper_targets')
+      .update({
+        send_opener: body.data.send_opener,
+        opener_subject: body.data.opener_subject ?? null,
+        opener_body: body.data.opener_body ?? null
+      }).eq('id', (req.params as any).id);
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ ok: true });
+  });
+
+  // Adjust opener daily cap
+  app.post('/api/sniper/targets/:id/opener-cap', async (req: Request, res: Response) => {
+    const body = z.object({ daily_cap: z.number().int().min(5).max(50) }).safeParse(req.body);
+    if (!body.success) return res.status(400).json({ error: 'invalid_payload', details: body.error.flatten() });
+    const { error } = await supabase.from('sniper_targets').update({ daily_cap: body.data.daily_cap }).eq('id', (req.params as any).id);
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ ok: true });
   });
 }
 
