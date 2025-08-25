@@ -99,6 +99,7 @@ import trackingRouter from './api/tracking';
 import './src/rex/server';
 import { attachTeam } from './middleware/teamContext';
 import { messageScheduler } from './workers/messageScheduler';
+import { registerLinkedInSessionRoutes } from './src/routes/linkedin.session.routes';
 
 declare module 'express-list-endpoints';
 
@@ -245,6 +246,8 @@ app.use('/api/team', teamRouter);
   app.use('/api/candidates', candidatesRouter);
   app.use('/api/cron', cronProcessorRouter);
   app.use('/api/admin', adminUsersRouter);
+  // LinkedIn session routes (encrypted storage)
+  registerLinkedInSessionRoutes(app);
   // (webhook route mounted earlier before body parsers)
 app.get('/api/campaigns/all/performance', (req, res) => {
   (req.params as any).id = 'all';
