@@ -250,13 +250,13 @@ router.get('/senders', requireAuth, async (req: ApiRequest, res: Response) => {
     const userId = req.user?.id as string;
     const { data: senders, error } = await supabase
       .from('user_sendgrid_senders')
-      .select('id,email,name,verified')
+      .select('email,name,verified')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
     
     if (error) throw error;
     // normalize to previous frontend expectation
-    const normalized = (senders || []).map(s => ({ id: s.id, from_email: s.email, from_name: s.name, domain_verified: s.verified }));
+    const normalized = (senders || []).map(s => ({ id: s.email, from_email: s.email, from_name: s.name, domain_verified: s.verified }));
     return res.json(normalized);
   } catch (error: any) {
     console.error('Error fetching senders:', error);
