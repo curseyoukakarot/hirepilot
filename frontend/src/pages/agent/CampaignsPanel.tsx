@@ -36,10 +36,15 @@ export default function CampaignsPanel() {
       // Restrict to the logged-in user to avoid cross-account bleed
       const { data: { user } } = await supabase.auth.getUser();
       const userId = user?.id;
-      const campaigns = await api(`/api/sourcing/campaigns${userId ? `?created_by=${userId}` : ''}`);
-      setRows(campaigns);
+      const resp = await api(`/api/sourcing/campaigns${userId ? `?created_by=${userId}` : ''}`);
+      const list: Campaign[] = Array.isArray(resp)
+        ? resp
+        : Array.isArray((resp as any)?.campaigns)
+          ? (resp as any).campaigns
+          : [];
+      setRows(list);
 
-      const statsPromises = campaigns.map(async (campaign: Campaign) => {
+      const statsPromises = list.map(async (campaign: Campaign) => {
         try {
           const campaignStats = await api(`/api/sourcing/campaigns/${campaign.id}/stats`);
           return { id: campaign.id, stats: campaignStats };

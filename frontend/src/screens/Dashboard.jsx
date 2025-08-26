@@ -43,8 +43,19 @@ export default function Dashboard() {
             .eq('user_id', data.user.id)
             .eq('provider', 'rex')
             .maybeSingle();
-          const enabled = ['enabled','connected','on','true'].includes(String(integ?.status || '').toLowerCase());
-          setRexEnabled(enabled);
+          const integEnabled = ['enabled','connected','on','true'].includes(String(integ?.status || '').toLowerCase());
+          // Also enable for privileged roles (Team Admin and above)
+          let roleEnabled = false;
+          try {
+            const { data: userRow } = await supabase
+              .from('users')
+              .select('role')
+              .eq('id', data.user.id)
+              .maybeSingle();
+            const roleLc = String(userRow?.role || data.user.user_metadata?.role || '').toLowerCase();
+            roleEnabled = ['teamadmin','team_admin','superadmin','super_admin','admin','recruitpro'].includes(roleLc);
+          } catch {}
+          setRexEnabled(integEnabled || roleEnabled);
         } catch {
           setRexEnabled(false);
         }
