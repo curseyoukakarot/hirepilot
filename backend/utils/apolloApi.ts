@@ -100,19 +100,9 @@ function expandTitleVariants(title: string): string[] {
   }
   
   // Specific role-based expansions
-  if (baseTitle.includes('director') && baseTitle.includes('product')) {
-    variants.push(
-      'director product',
-      'director of product', 
-      'product director',
-      'director product management',
-      'product management director',
-      'head of product'
-    );
-  }
-  
-  if (baseTitle.includes('director') && !baseTitle.includes('product')) {
-    variants.push(`head of ${words.slice(-1)[0]}`); // "Director Marketing" → "Head of Marketing"
+  if (baseTitle.includes('director')) {
+    const dept = words.filter(w => w !== 'director' && w !== 'of').join(' ').trim();
+    if (dept) variants.push(`head of ${dept}`);
   }
   
   if (baseTitle.includes('manager')) {
@@ -131,9 +121,18 @@ function expandTitleVariants(title: string): string[] {
     }
     variants.push(baseTitle.replace('engineer', 'developer'));
   }
-  
-  if (baseTitle.includes('vp') || baseTitle.includes('vice president')) {
-    variants.push('vp product', 'vice president product', 'svp product');
+
+  // Senior leadership expansions respecting department in the title
+  if (baseTitle.includes('vp') || baseTitle.includes('vice president') || baseTitle.includes('svp') || baseTitle.includes('evp')) {
+    const dept = words.filter(w => !['vp','svp','evp','vice','president','of'].includes(w)).join(' ').trim();
+    if (dept) {
+      variants.push(`vp ${dept}`);
+      variants.push(`vice president ${dept}`);
+      variants.push(`svp ${dept}`);
+      variants.push(`head of ${dept}`);
+      variants.push(`${dept} vp`);
+      variants.push(`vice president of ${dept}`);
+    }
   }
   
   // Remove empty strings and duplicates
@@ -204,7 +203,7 @@ export async function searchPeople(params: ApolloSearchParams) {
 
     // Regular search logic
     const requestBody: any = {
-      per_page: params.per_page || 25,
+      per_page: Math.min(Math.max(params.per_page || 25, 1), 100),
       page: params.page || 1,
       contact_email_status: 'verified'
     };
@@ -284,10 +283,10 @@ async function handleBooleanSearchCorrectly(params: ApolloSearchParams) {
 
   // SINGLE API call with person_titles array (Apollo handles OR logic natively)
   const requestBody: any = {
-    per_page: params.per_page || 25,
+    per_page: Math.min(Math.max(params.per_page || 25, 1), 100),
     page: params.page || 1,
     contact_email_status: 'verified',
-    person_titles: terms // Apollo automatically ORs these terms!
+    person_titles: terms
   };
 
   // Add location if specified

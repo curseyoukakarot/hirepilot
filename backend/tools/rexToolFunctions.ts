@@ -98,10 +98,11 @@ export async function sourceLeads({
   if (!apolloApiKey) throw new Error('No Apollo API key configured');
 
   // 2. Build Apollo search params using the same logic as Campaign Wizard
+  const desiredCount = Math.max(1, Math.min(200, Number(filters?.count || filters?.limit || filters?.per_page || 25)));
   const searchParams: any = {
     api_key: apolloApiKey,
     page: 1,
-    per_page: Math.max(1, Math.min(100, Number(filters?.count || filters?.limit || filters?.per_page || 25)))
+    per_page: Math.min(100, desiredCount)
   };
   const titleInput = String(filters?.title || filters?.jobTitle || filters?.keywords || '').trim();
   const locationInput = String(filters?.location || filters?.person_locations || '').trim();
@@ -117,12 +118,30 @@ export async function sourceLeads({
   if (filters?.q_keywords) searchParams.q_keywords = filters.q_keywords;
 
   // 3. Search & enrich people
-  const { leads } = await searchAndEnrichPeople(searchParams as any);
+  // Fetch multiple pages if needed to reach desiredCount
+  let allLeads: any[] = [];
+  let currentPage = 1;
+  while (allLeads.length < desiredCount && currentPage <= 5) {
+    const pageParams = { ...searchParams, page: currentPage } as any;
+    const { leads } = await searchAndEnrichPeople(pageParams);
+    allLeads.push(...leads);
+    if (!leads || leads.length < pageParams.per_page) break; // no more pages
+    currentPage += 1;
+  }
 
-  if (!leads.length) return { imported: 0 };
+  if (!allLeads.length) return { imported: 0 };
 
   // 4. Insert leads into sourcing_leads (dedupe by email within campaign)
-  const uniqueLeads = leads.filter((l: any, idx: number, arr: any[]) => {
+  // Tighten title filtering post-fetch for accuracy
+  const mustTitles: string[] = (titleInput ? [titleInput] : []).concat(titleInput.toLowerCase().includes('vp') ? ['vice president of sales','vp sales','vp of sales'] : []);
+  const rigidMatch = (title: string) => {
+    const tl = String(title || '').toLowerCase();
+    return mustTitles.length === 0 || mustTitles.some(t => tl.includes(t));
+  };
+
+  const filteredLeads = allLeads.filter(l => rigidMatch(l.title));
+
+  const uniqueLeads = filteredLeads.filter((l: any, idx: number, arr: any[]) => {
     if (!l.email) return false;
     return arr.findIndex(a => a.email === l.email) === idx;
   });
