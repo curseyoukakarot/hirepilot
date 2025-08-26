@@ -106,7 +106,7 @@ const HomePage = () => {
             </div>
             <div className="bg-gray-800 p-8 rounded-xl hover:shadow-lg transition-shadow">
               <div className="w-12 h-12 bg-cyan-600 rounded-lg flex items-center justify-center mb-4">
-                <img src="/zapier-icon.png" alt="Zapier" className="h-6 w-6" />
+                <img src="/zapier-icon.png" alt="Zapier" className="h-7 w-7 filter brightness-0 invert" />
               </div>
               <h3 className="text-xl font-semibold text-white mb-2">Plug & Play Integrations</h3>
               <p className="text-gray-300">Works with Apollo, PhantomBuster, Slack, Gmail, Outlook, Calendars, ATS tools.</p>
