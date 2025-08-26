@@ -25,8 +25,7 @@ const HomePage = () => {
                 <div className="space-y-4">
                   <h1 className="text-5xl lg:text-6xl font-bold text-gray-900 leading-tight">
                     Your AI Recruiting Agent — 
-                    <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> Find, Engage & Hire</span> 
-                    at Scale
+                    <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> Find, Engage & Hire</span>{' '}at Scale
                   </h1>
                   <p className="text-xl text-gray-600 leading-relaxed">
                     Automate sourcing, messaging, follow-ups, and tracking—all powered by smart AI agents and workflow automations that plug into your tools.
