@@ -62,14 +62,14 @@ export default function BlogTOC({ items }) {
       {/* Desktop sidebar */}
       <aside className="hidden lg:block w-64 flex-shrink-0">
         <div className="sticky top-8">
-          <h3 className="text-lg font-semibold mb-4 text-gray-200">Table of Contents</h3>
+          <h3 className="text-lg font-semibold mb-4 text-gray-800">Table of Contents</h3>
           <nav className="space-y-2">
             {computedItems?.map((item) => (
               <button
                 key={item.id}
                 onClick={() => scrollTo(item.id)}
                 className={`block text-left w-full py-1 cursor-pointer transition-colors ${
-                  activeId === item.id ? 'toc-active' : 'text-gray-400 hover:text-white'
+                  activeId === item.id ? 'toc-active' : 'text-gray-600 hover:text-blue-700'
                 }`}
               >
                 {item.label}
