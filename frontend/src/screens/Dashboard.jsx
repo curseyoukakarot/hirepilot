@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Chart } from 'chart.js/auto';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
+import QuickActionsRexCard from '../components/QuickActionsRexCard';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -17,6 +18,7 @@ export default function Dashboard() {
   const [jobsLoading, setJobsLoading] = useState(true);
   const [campaigns, setCampaigns] = useState([]);
   const [campaignsLoading, setCampaignsLoading] = useState(true);
+  const [rexEnabled, setRexEnabled] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -32,6 +34,19 @@ export default function Dashboard() {
           setMetrics(result);
         } catch (err) {
           setMetrics(null);
+        }
+        try {
+          // Determine REX enabled from integrations
+          const { data: integ } = await supabase
+            .from('integrations')
+            .select('status')
+            .eq('user_id', data.user.id)
+            .eq('provider', 'rex')
+            .maybeSingle();
+          const enabled = ['enabled','connected','on','true'].includes(String(integ?.status || '').toLowerCase());
+          setRexEnabled(enabled);
+        } catch {
+          setRexEnabled(false);
         }
       }
       setLoading(false);
@@ -274,6 +289,13 @@ export default function Dashboard() {
             </div>
           </section>
         </div>
+
+        {/* REX Quick Actions - visible only if REX enabled */}
+        {rexEnabled && (
+          <div className="mt-6">
+            <QuickActionsRexCard />
+          </div>
+        )}
       </main>
     </div>
   );

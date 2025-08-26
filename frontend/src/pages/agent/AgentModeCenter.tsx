@@ -5,7 +5,11 @@ import SniperTargetsPanel from './SniperTargetsPanel';
 import ActionInboxPanel from './ActionInboxPanel';
 
 export default function AgentModeCenter() {
-  const [tab, setTab] = useState<'campaigns' | 'sniper' | 'inbox'>('campaigns');
+  const [tab, setTab] = useState<'campaigns' | 'sniper' | 'inbox'>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const t = (params.get('tab') || '').toLowerCase();
+    return (['campaigns','sniper','inbox'] as const).includes(t as any) ? (t as any) : 'campaigns';
+  });
 
   const tabStyle = (active: boolean) =>
     `px-4 py-2 rounded-full font-medium transition-colors text-sm ${
