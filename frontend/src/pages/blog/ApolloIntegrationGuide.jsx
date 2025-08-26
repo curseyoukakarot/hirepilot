@@ -1,4 +1,5 @@
 import React from 'react';
+import BlogTOC from '../../components/blog/BlogTOC';
 
 export default function ApolloIntegrationGuide() {
   return (
@@ -54,17 +55,7 @@ export default function ApolloIntegrationGuide() {
       {/* Main */}
       <div id="main-content" className="flex max-w-6xl mx-auto px-6 py-12 gap-8">
         {/* TOC */}
-        <div id="toc-sidebar" className="hidden lg:block w-64 flex-shrink-0">
-          <div className="sticky top-8">
-            <h3 className="text-lg font-semibold mb-4 text-gray-200">Table of Contents</h3>
-            <nav className="space-y-2">
-              <a href="#connect" className="block text-gray-400 hover:text-white py-1">Step 1 – Connect Apollo</a>
-              <a href="#keywords" className="block text-gray-400 hover:text-white py-1">Step 2 – Keyword Tips</a>
-              <a href="#shared" className="block text-gray-400 hover:text-white py-1">Step 3 – Shared vs Own Key</a>
-              <a href="#field-tips" className="block text-gray-400 hover:text-white py-1">Tips from the Field</a>
-            </nav>
-          </div>
-        </div>
+        <BlogTOC />
 
         {/* Article */}
         <article id="article-body" className="flex-1 max-w-3xl prose prose-lg">

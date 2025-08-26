@@ -1,4 +1,5 @@
 import React from 'react';
+import BlogTOC from '../../components/blog/BlogTOC';
 
 export default function EmailDeliverability3() {
   return (
@@ -69,21 +70,7 @@ export default function EmailDeliverability3() {
       {/* Main content */}
       <div id="main-content" className="flex max-w-6xl mx-auto px-6 py-12 gap-8">
         {/* TOC */}
-        <div id="toc-sidebar" className="hidden lg:block w-64 flex-shrink-0">
-          <div className="sticky top-8">
-            <h3 className="text-lg font-semibold mb-4 text-gray-200">Table of Contents</h3>
-            <nav className="space-y-2">
-              <a href="#what-theyre-designed-for" className="block text-gray-400 hover:text-white transition-colors py-1">What They're Designed For</a>
-              <a href="#hidden-send-limits" className="block text-gray-400 hover:text-white transition-colors py-1">Hidden Send Limits</a>
-              <a href="#signs-of-throttling" className="block text-gray-400 hover:text-white transition-colors py-1">Signs of Throttling</a>
-              <a href="#manual-outreach" className="block text-gray-400 hover:text-white transition-colors py-1">Manual 1:1 Outreach</a>
-              <a href="#what-to-use-instead" className="block text-gray-400 hover:text-white transition-colors py-1">What to Use Instead</a>
-              <a href="#gmail-smtp-vs-ui" className="block text-gray-400 hover:text-white transition-colors py-1">Gmail SMTP vs UI</a>
-              <a href="#action-plan" className="block text-gray-400 hover:text-white transition-colors py-1">Action Plan</a>
-              <a href="#next-up" className="block text-gray-400 hover:text-white transition-colors py-1">Next Up</a>
-            </nav>
-          </div>
-        </div>
+        <BlogTOC />
 
         {/* Article body */}
         <article id="article-body" className="flex-1 max-w-3xl prose prose-lg">

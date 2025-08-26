@@ -1,4 +1,5 @@
 import React from 'react';
+import BlogTOC from '../../components/blog/BlogTOC';
 
 export default function EmailDeliverability2() {
   return (
@@ -66,21 +67,7 @@ export default function EmailDeliverability2() {
       {/* Main content */}
       <div id="main-content" className="flex max-w-6xl mx-auto px-6 py-12 gap-8">
         {/* TOC */}
-        <div id="toc-sidebar" className="hidden lg:block w-64 flex-shrink-0">
-          <div className="sticky top-8">
-            <h3 className="text-lg font-semibold mb-4 text-gray-200">Table of Contents</h3>
-            <nav className="space-y-2">
-              <a href="#domain-reputation-explained" className="block text-gray-400 hover:text-white transition-colors py-1">Domain Reputation Explained</a>
-              <a href="#setting-up-domain" className="block text-gray-400 hover:text-white transition-colors py-1">Setting Up Your Domain</a>
-              <a href="#authentication-records" className="block text-gray-400 hover:text-white transition-colors py-1">SPF, DKIM, DMARC Setup</a>
-              <a href="#domain-warmup" className="block text-gray-400 hover:text-white transition-colors py-1">Domain Warm-up Process</a>
-              <a href="#monitoring-health" className="block text-gray-400 hover:text-white transition-colors py-1">Monitoring Domain Health</a>
-              <a href="#throwaway-domains" className="block text-gray-400 hover:text-white transition-colors py-1">Throwaway Domain Strategy</a>
-              <a href="#action-plan" className="block text-gray-400 hover:text-white transition-colors py-1">Action Plan</a>
-              <a href="#next-up" className="block text-gray-400 hover:text-white transition-colors py-1">Next Up</a>
-            </nav>
-          </div>
-        </div>
+        <BlogTOC />
 
         {/* Article body */}
         <article id="article-body" className="flex-1 max-w-3xl prose prose-lg">

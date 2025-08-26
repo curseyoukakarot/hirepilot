@@ -1,4 +1,5 @@
 import React from 'react';
+import BlogTOC from '../../components/blog/BlogTOC';
 
 export default function EmailDeliverability4() {
   return (
@@ -67,23 +68,7 @@ export default function EmailDeliverability4() {
       {/* Main content */}
       <div id="main-content" className="flex max-w-6xl mx-auto px-6 py-12 gap-8">
         {/* TOC */}
-        <div id="toc-sidebar" className="hidden lg:block w-64 flex-shrink-0">
-          <div className="sticky top-8">
-            <h3 className="text-lg font-semibold mb-4 text-gray-200">Table of Contents</h3>
-            <nav className="space-y-2">
-              <a href="#why-sendgrid" className="block text-gray-400 hover:text-white transition-colors py-1">Why Use SendGrid</a>
-              <a href="#setup-sendgrid" className="block text-gray-400 hover:text-white transition-colors py-1">Setting Up SendGrid</a>
-              <a href="#domain-authentication" className="block text-gray-400 hover:text-white transition-colors py-1">Domain Authentication</a>
-              <a href="#integration-methods" className="block text-gray-400 hover:text-white transition-colors py-1">API vs SMTP Integration</a>
-              <a href="#warm-up-process" className="block text-gray-400 hover:text-white transition-colors py-1">Warm-up Process</a>
-              <a href="#monitoring-metrics" className="block text-gray-400 hover:text-white transition-colors py-1">Monitoring Metrics</a>
-              <a href="#pro-tips" className="block text-gray-400 hover:text-white transition-colors py-1">Pro Tips</a>
-              <a href="#protect-sender-score" className="block text-gray-400 hover:text-white transition-colors py-1">Protect Sender Score</a>
-              <a href="#action-plan" className="block text-gray-400 hover:text-white transition-colors py-1">Action Plan</a>
-              <a href="#next-up" className="block text-gray-400 hover:text-white transition-colors py-1">Next Up</a>
-            </nav>
-          </div>
-        </div>
+        <BlogTOC />
 
         {/* Article body */}
         <article id="article-body" className="flex-1 max-w-3xl prose prose-lg">

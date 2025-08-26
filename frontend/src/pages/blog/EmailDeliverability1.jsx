@@ -1,4 +1,5 @@
 import React from 'react';
+import BlogTOC from '../../components/blog/BlogTOC';
 
 export default function EmailDeliverability1() {
   return (
@@ -67,20 +68,7 @@ export default function EmailDeliverability1() {
       {/* Main content */}
       <div id="main-content" className="flex max-w-6xl mx-auto px-6 py-12 gap-8">
         {/* TOC */}
-        <div id="toc-sidebar" className="hidden lg:block w-64 flex-shrink-0">
-          <div className="sticky top-8">
-            <h3 className="text-lg font-semibold mb-4 text-gray-200">Table of Contents</h3>
-            <nav className="space-y-2">
-              <a href="#why-this-matters" className="block text-gray-400 hover:text-white transition-colors py-1">Why This Matters</a>
-              <a href="#domain-reputation" className="block text-gray-400 hover:text-white transition-colors py-1">What Is Domain Reputation?</a>
-              <a href="#gmail-outlook-limits" className="block text-gray-400 hover:text-white transition-colors py-1">Gmail & Outlook Limits</a>
-              <a href="#sendgrid-solution" className="block text-gray-400 hover:text-white transition-colors py-1">The Smarter Way: SendGrid</a>
-              <a href="#action-plan" className="block text-gray-400 hover:text-white transition-colors py-1">Your Action Plan</a>
-              <a href="#pro-tip" className="block text-gray-400 hover:text-white transition-colors py-1">Pro Tip</a>
-              <a href="#next-up" className="block text-gray-400 hover:text-white transition-colors py-1">Next Up</a>
-            </nav>
-          </div>
-        </div>
+        <BlogTOC />
 
         {/* Article body */}
         <article id="article-body" className="flex-1 max-w-3xl prose prose-lg">

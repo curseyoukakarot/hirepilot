@@ -1,4 +1,5 @@
 import React from 'react';
+import BlogTOC from '../../components/blog/BlogTOC';
 
 export default function EmailTroubleshootingGuide() {
   return (
@@ -56,19 +57,7 @@ export default function EmailTroubleshootingGuide() {
       {/* Main */}
       <div id="main-content" className="flex max-w-6xl mx-auto px-6 py-12 gap-8">
         {/* TOC */}
-        <div id="toc-sidebar" className="hidden lg:block w-64 flex-shrink-0">
-          <div className="sticky top-8">
-            <h3 className="text-lg font-semibold mb-4 text-gray-200">Table of Contents</h3>
-            <nav className="space-y-2">
-              <a href="#how" className="block text-gray-400 hover:text-white py-1">How Email Sending Works</a>
-              <a href="#gmail" className="block text-gray-400 hover:text-white py-1">Gmail Fixes</a>
-              <a href="#outlook" className="block text-gray-400 hover:text-white py-1">Outlook Fixes</a>
-              <a href="#sendgrid" className="block text-gray-400 hover:text-white py-1">SendGrid Fixes</a>
-              <a href="#tips" className="block text-gray-400 hover:text-white py-1">General Tips</a>
-              <a href="#rex" className="block text-gray-400 hover:text-white py-1">Ask REX</a>
-            </nav>
-          </div>
-        </div>
+        <BlogTOC />
 
         {/* Article */}
         <article id="article-body" className="flex-1 max-w-3xl prose prose-lg">

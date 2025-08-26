@@ -1,4 +1,5 @@
 import React from 'react';
+import BlogTOC from '../../components/blog/BlogTOC';
 
 export default function EmailDeliverability5() {
   return (
@@ -70,23 +71,7 @@ export default function EmailDeliverability5() {
       {/* Main content */}
       <div id="main-content" className="flex max-w-6xl mx-auto px-6 py-12 gap-8">
         {/* TOC */}
-        <div id="toc-sidebar" className="hidden lg:block w-64 flex-shrink-0">
-          <div className="sticky top-8">
-            <h3 className="text-lg font-semibold mb-4 text-gray-200">Table of Contents</h3>
-            <nav className="space-y-2">
-              <a href="#spam-triggers" className="block text-gray-400 hover:text-white transition-colors py-1">What Triggers Spam Filters</a>
-              <a href="#high-deliverability" className="block text-gray-400 hover:text-white transition-colors py-1">High-Deliverability Messages</a>
-              <a href="#subject-lines" className="block text-gray-400 hover:text-white transition-colors py-1">Subject Line Rules</a>
-              <a href="#opening-lines" className="block text-gray-400 hover:text-white transition-colors py-1">Opening Lines</a>
-              <a href="#body-copy" className="block text-gray-400 hover:text-white transition-colors py-1">Body Copy</a>
-              <a href="#signatures" className="block text-gray-400 hover:text-white transition-colors py-1">Professional Signatures</a>
-              <a href="#technical-dos" className="block text-gray-400 hover:text-white transition-colors py-1">Technical Do's & Don'ts</a>
-              <a href="#testing" className="block text-gray-400 hover:text-white transition-colors py-1">Test Before Sending</a>
-              <a href="#final-thoughts" className="block text-gray-400 hover:text-white transition-colors py-1">Final Thoughts</a>
-              <a href="#action-plan" className="block text-gray-400 hover:text-white transition-colors py-1">Final Action Plan</a>
-            </nav>
-          </div>
-        </div>
+        <BlogTOC />
 
         {/* Article body */}
         <article id="article-body" className="flex-1 max-w-3xl prose prose-lg">

@@ -1,4 +1,5 @@
 import React from 'react';
+import BlogTOC from '../../components/blog/BlogTOC';
 
 export default function MeetRexGuide() {
   return (
@@ -54,19 +55,7 @@ export default function MeetRexGuide() {
       {/* Main */}
       <div id="main-content" className="flex max-w-6xl mx-auto px-6 py-12 gap-8">
         {/* TOC */}
-        <div id="toc-sidebar" className="hidden lg:block w-64 flex-shrink-0">
-          <div className="sticky top-8">
-            <h3 className="text-lg font-semibold mb-4 text-gray-200">Table of Contents</h3>
-            <nav className="space-y-2">
-              <a href="#what" className="block text-gray-400 hover:text-white py-1">What Can REX Do?</a>
-              <a href="#knowledge" className="block text-gray-400 hover:text-white py-1">Where REX Gets Knowledge</a>
-              <a href="#ask" className="block text-gray-400 hover:text-white py-1">What to Ask REX</a>
-              <a href="#tools" className="block text-gray-400 hover:text-white py-1">Built-In Tools</a>
-              <a href="#access" className="block text-gray-400 hover:text-white py-1">Who Has Access</a>
-              <a href="#future" className="block text-gray-400 hover:text-white py-1">Future of Recruiting</a>
-            </nav>
-          </div>
-        </div>
+        <BlogTOC />
 
         {/* Article */}
         <article id="article-body" className="flex-1 max-w-3xl prose prose-lg">
