@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 
 const links = [
+  { label: 'Meet REX', href: '/rex' },
   { label: 'Your Recruiting Co-Pilot', href: '/copilot' },
   { label: 'Done For You Hiring', href: '/handsfree' },
-  { label: 'Meet REX', href: '/rex' },
   { label: 'Pricing', href: '/pricing' },
 ];
 

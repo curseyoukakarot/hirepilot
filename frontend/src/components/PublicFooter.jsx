@@ -18,9 +18,9 @@ export default function PublicFooter() {
           <div>
             <h4 className="font-semibold text-lg mb-4">Product</h4>
             <ul className="space-y-3 text-gray-400">
+              <li><a href="/rex" className="hover:text-white">Meet REX</a></li>
               <li><a href="/copilot" className="hover:text-white">Your Recruiting Co-Pilot</a></li>
               <li><a href="/handsfree" className="hover:text-white">Done For You Hiring</a></li>
-              <li><a href="/rex" className="hover:text-white">Meet REX</a></li>
               <li><a href="/chromeextension" className="hover:text-white">Chrome Extension</a></li>
               <li><a href="/pricing" className="hover:text-white">Pricing</a></li>
             </ul>
