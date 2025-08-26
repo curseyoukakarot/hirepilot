@@ -1,4 +1,5 @@
 import React from 'react';
+import BlogTOC from '../../components/blog/BlogTOC';
 
 export default function ZapierGuide() {
   return (
@@ -66,25 +67,20 @@ export default function ZapierGuide() {
       {/* Main content */}
       <div id="main-content" className="flex max-w-6xl mx-auto px-6 py-12 gap-8">
         {/* TOC */}
-        <div id="toc-sidebar" className="hidden lg:block w-64 flex-shrink-0">
-          <div className="sticky top-8">
-            <h3 className="text-lg font-semibold mb-4 text-gray-200">Table of Contents</h3>
-            <nav className="space-y-2">
-              <span className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">Introduction</span>
-              <span className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">Step 1 – Grab Your API Key</span>
-              <span className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">Step 2 – What You Can Automate</span>
-              <span className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">Step 3 – Trigger Endpoints</span>
-              <span className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">Step 4 – Action Endpoints</span>
-              <span className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">Step 5 – Example Workflows</span>
-              <span className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">Step 6 – Zapier Setup (Polling Trigger)</span>
-              <span className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">Step 7 – Make.com Setup (Trigger)</span>
-              <span className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">Step 8 – Pro Tips</span>
-              <span className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">Step 9 – Real-World Automations</span>
-              <span className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">Step 10 – Let REX Help</span>
-              <span className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">Conclusion</span>
-            </nav>
-          </div>
-        </div>
+        <BlogTOC items={[
+          { id: 'introduction', label: 'Introduction' },
+          { id: 'step-1', label: 'Step 1 – Grab Your API Key' },
+          { id: 'step-2', label: 'Step 2 – What You Can Automate' },
+          { id: 'step-3', label: 'Step 3 – Trigger Endpoints' },
+          { id: 'step-4', label: 'Step 4 – Action Endpoints' },
+          { id: 'step-5', label: 'Step 5 – Example Workflows' },
+          { id: 'step-6', label: 'Step 6 – Zapier Setup' },
+          { id: 'step-7', label: 'Step 7 – Make.com Setup' },
+          { id: 'step-8', label: 'Step 8 – Pro Tips' },
+          { id: 'step-9', label: 'Step 9 – Real-World Automations' },
+          { id: 'step-10', label: 'Step 10 – Let REX Help' },
+          { id: 'conclusion', label: 'Conclusion' },
+        ]} />
 
         {/* Article body */}
         <article id="article-body" className="flex-1 max-w-3xl prose prose-lg">
