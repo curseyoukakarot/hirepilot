@@ -1,11 +1,33 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 export default function BlogTOC({ items }) {
+  const [derivedItems, setDerivedItems] = useState([]);
+  const computedItems = useMemo(() => (items && items.length ? items : derivedItems), [items, derivedItems]);
   const [activeId, setActiveId] = useState(items?.[0]?.id || '');
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (!items || items.length === 0) return;
+    if (items && items.length > 0) return; // use provided items
+    // Auto-generate from #article-body direct children with id
+    const article = document.getElementById('article-body');
+    if (!article) return;
+    const sections = Array.from(article.querySelectorAll(':scope > div[id]'));
+    const built = sections.map((section) => {
+      const heading = section.querySelector('h2, h3');
+      const text = heading ? heading.textContent : section.id;
+      return { id: section.id, label: text };
+    });
+    setDerivedItems(built);
+  }, [items]);
+
+  useEffect(() => {
+    const firstId = (computedItems && computedItems.length) ? computedItems[0].id : '';
+    setActiveId(firstId);
+  }, [computedItems]);
+
+  useEffect(() => {
+    const toc = computedItems;
+    if (!toc || toc.length === 0) return;
     const observer = new IntersectionObserver(
       (entries) => {
         const visible = entries
@@ -15,12 +37,12 @@ export default function BlogTOC({ items }) {
       },
       { root: null, rootMargin: '0px 0px -60% 0px', threshold: 0.1 }
     );
-    const els = items
+    const els = toc
       .map((t) => document.getElementById(t.id))
       .filter(Boolean);
     els.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
-  }, [items]);
+  }, [computedItems]);
 
   const scrollTo = (id) => {
     const el = document.getElementById(id);
@@ -42,7 +64,7 @@ export default function BlogTOC({ items }) {
         <div className="sticky top-8">
           <h3 className="text-lg font-semibold mb-4 text-gray-200">Table of Contents</h3>
           <nav className="space-y-2">
-            {items?.map((item) => (
+            {computedItems?.map((item) => (
               <button
                 key={item.id}
                 onClick={() => scrollTo(item.id)}
@@ -80,7 +102,7 @@ export default function BlogTOC({ items }) {
                 </button>
               </div>
               <nav className="space-y-3">
-                {items?.map((item) => (
+                {computedItems?.map((item) => (
                   <button
                     key={item.id}
                     onClick={() => scrollTo(item.id)}

@@ -1,4 +1,5 @@
 import React from 'react';
+import BlogTOC from '../../components/blog/BlogTOC';
 
 export default function MessageCenterSetup() {
   return (
@@ -55,19 +56,7 @@ export default function MessageCenterSetup() {
       {/* Main content */}
       <div id="main-content" className="flex max-w-6xl mx-auto px-6 py-12 gap-8">
         {/* TOC */}
-        <div id="toc-sidebar" className="hidden lg:block w-64 flex-shrink-0">
-          <div className="sticky top-8">
-            <h3 className="text-lg font-semibold mb-4 text-gray-200">Table of Contents</h3>
-            <nav className="space-y-2">
-              <a href="#why" className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">Why Connect</a>
-              <a href="#choose-provider" className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">Step 1 – Choose Provider</a>
-              <a href="#gmail-issue" className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">Gmail Permissions</a>
-              <a href="#sendgrid" className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">Step 2 – SendGrid</a>
-              <a href="#test" className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">Step 3 – Test Connection</a>
-              <a href="#pro-tips" className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">Pro Tips</a>
-            </nav>
-          </div>
-        </div>
+        <BlogTOC />
 
         {/* Article body */}
         <article id="article-body" className="flex-1 max-w-3xl prose prose-lg">

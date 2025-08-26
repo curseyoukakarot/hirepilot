@@ -1,4 +1,5 @@
 import React from 'react';
+import BlogTOC from '../../components/blog/BlogTOC';
 
 export default function AutomateRecruiting5() {
   return (
@@ -73,19 +74,7 @@ export default function AutomateRecruiting5() {
       {/* Main content */}
       <div id="main-content" className="flex max-w-6xl mx-auto px-6 py-12 gap-8">
         {/* TOC */}
-        <div id="toc-sidebar" className="hidden lg:block w-64 flex-shrink-0">
-          <div className="sticky top-8">
-            <h3 className="text-lg font-semibold mb-4 text-gray-200">Table of Contents</h3>
-            <nav className="space-y-2">
-              <span className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">Credits & ROI Tracking</span>
-              <span className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">Weekly Reporting</span>
-              <span className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">Stack Integration</span>
-              <span className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">Agency Automation</span>
-              <span className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">Before vs After</span>
-              <span className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">Your Recruiting Machine</span>
-            </nav>
-          </div>
-        </div>
+        <BlogTOC />
 
         {/* Article body */}
         <article id="article-body" className="flex-1 max-w-3xl prose prose-lg">
