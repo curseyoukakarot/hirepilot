@@ -1,233 +1,292 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import PublicNavbar from '../components/PublicNavbar';
 import PublicFooter from '../components/PublicFooter';
 
 const HomePage = () => {
   return (
-    <div className="min-h-screen bg-white text-gray-900">
+    <div className="bg-white font-sans">
+      <style>{`
+        ::-webkit-scrollbar { display: none; }
+        html, body {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
+
       {/* Header */}
       <PublicNavbar />
 
       {/* Hero Section */}
-      <section id="hero" className="bg-gradient-to-b from-blue-500 via-blue-200 to-white pt-32 pb-20">
-        <div className="max-w-7xl mx-auto px-6 md:px-10 flex flex-col-reverse md:flex-row items-center justify-between gap-12">
-          <div className="w-full md:w-1/2 text-center md:text-left">
-            <h1 className="text-4xl md:text-5xl font-bold leading-tight text-gray-900">
-              Hire Better, Faster — <br className="hidden md:block" />
-              <span className="text-blue-900">On Autopilot.</span>
-            </h1>
-            <p className="mt-6 text-lg text-gray-800">
-              AI-powered recruiting that saves you 100+ hours per hire.
-            </p>
-            <div className="mt-8 flex flex-col sm:flex-row gap-4 sm:justify-start justify-center">
-              <a href="/pricing" className="group bg-white text-blue-600 font-semibold py-3 px-6 rounded-lg shadow-lg hover:shadow-white/25 transition-all duration-200">
-                Start for Free <i className="fa-solid fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
-              </a>
-              <a href="https://form.typeform.com/to/cnUZ9PgW" target="_blank" rel="noopener" className="bg-blue-900 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:bg-blue-800 transition-all duration-200">
-                <i className="fa-regular fa-calendar mr-2"></i> Book Demo
-              </a>
+      <section id="hero" className="pt-24 pb-16 bg-gradient-to-br from-gray-50 to-white h-[700px] flex items-center">
+        <div className="container mx-auto px-6">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div className="space-y-8">
+              <div className="space-y-4">
+                <h1 className="text-5xl lg:text-6xl font-bold text-gray-900 leading-tight">
+                  Your AI Recruiting Agent — 
+                  <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> Find, Engage & Hire</span> 
+                  at Scale
+                </h1>
+                <p className="text-xl text-gray-600 leading-relaxed">
+                  Automate sourcing, messaging, follow-ups, and tracking—all powered by smart AI agents and workflow automations that plug into your tools.
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <a href="/pricing" className="bg-blue-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2">
+                  <span>Start Free</span>
+                  <i className="fas fa-arrow-right"></i>
+                </a>
+                <a href="https://form.typeform.com/to/cnUZ9PgW" target="_blank" rel="noopener" className="border border-gray-300 text-gray-700 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-50 transition-colors flex items-center justify-center space-x-2">
+                  <i className="fas fa-play"></i>
+                  <span>Watch Demo</span>
+                </a>
+              </div>
+            </div>
+            <div className="relative">
+              <img className="w-full h-96 object-cover rounded-xl shadow-2xl" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/94e0c2ce29-245df503dbce77d03ce6.png" alt="modern AI recruiting dashboard interface with chat bot, candidate profiles, and automation workflows, sleek dark UI design" />
             </div>
           </div>
-          <div className="w-full md:w-1/2">
-            <div className="w-full md:w-full flex justify-center">
-              <div className="relative max-w-6xl w-full">
-                <div className="absolute inset-0 bg-white/10 rounded-2xl transform rotate-6"></div>
-                <div className="relative rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/20 bg-white">
-                  <img className="w-full h-auto" src="/hero1.png" alt="HirePilot – AI recruiting assistant illustration" />
-                </div>
+        </div>
+      </section>
+
+      {/* Problem Section */}
+      <section id="problem" className="py-16 bg-gray-900 text-white">
+        <div className="container mx-auto px-6 text-center">
+          <div className="max-w-4xl mx-auto space-y-8">
+            <h2 className="text-4xl font-bold">Recruiting is broken. Manual. Repetitive. Time-consuming.</h2>
+            <p className="text-xl text-gray-300 leading-relaxed">
+              We built HirePilot to replace hours of sourcing, messaging, follow-ups, and tracking with AI-powered agents that never sleep. Whether you're a recruiter, founder, or hiring manager—HirePilot runs your playbook faster and better.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Grid */}
+      <section id="features" className="py-20 bg-white">
+        <div className="container mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">What Can HirePilot Do?</h2>
+          </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="bg-gray-50 p-8 rounded-xl hover:shadow-lg transition-shadow">
+              <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mb-4">
+                <i className="fas fa-search text-white text-xl"></i>
               </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">AI Sourcing Agent</h3>
+              <p className="text-gray-600">Automatically discover and prioritize candidates based on your ideal profile.</p>
+            </div>
+            <div className="bg-gray-50 p-8 rounded-xl hover:shadow-lg transition-shadow">
+              <div className="w-12 h-12 bg-purple-600 rounded-lg flex items-center justify-center mb-4">
+                <i className="fas fa-envelope text-white text-xl"></i>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Smart Outreach + Follow-Up</h3>
+              <p className="text-gray-600">Personalized messages with automated follow-up logic until they respond.</p>
+            </div>
+            <div className="bg-gray-50 p-8 rounded-xl hover:shadow-lg transition-shadow">
+              <div className="w-12 h-12 bg-cyan-600 rounded-lg flex items-center justify-center mb-4">
+                <i className="fas fa-cogs text-white text-xl"></i>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Workflow Automation</h3>
+              <p className="text-gray-600">Customize sourcing → messaging → scheduling workflows that run in the background.</p>
+            </div>
+            <div className="bg-gray-50 p-8 rounded-xl hover:shadow-lg transition-shadow">
+              <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mb-4">
+                <i className="fas fa-robot text-white text-xl"></i>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">REX Recruiting Agent</h3>
+              <p className="text-gray-600">Talk to REX in Slack or in-app to assign tasks, get candidates, or automate your day.</p>
+            </div>
+            <div className="bg-gray-50 p-8 rounded-xl hover:shadow-lg transition-shadow">
+              <div className="w-12 h-12 bg-purple-600 rounded-lg flex items-center justify-center mb-4">
+                <i className="fas fa-chart-line text-white text-xl"></i>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Live Analytics & Campaign Tracking</h3>
+              <p className="text-gray-600">See outreach stats, reply rates, and funnel performance in real time.</p>
+            </div>
+            <div className="bg-gray-50 p-8 rounded-xl hover:shadow-lg transition-shadow">
+              <div className="w-12 h-12 bg-cyan-600 rounded-lg flex items-center justify-center mb-4">
+                <i className="fas fa-plug text-white text-xl"></i>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Plug & Play Integrations</h3>
+              <p className="text-gray-600">Works with Apollo, PhantomBuster, Slack, Gmail, Outlook, Calendars, ATS tools.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Use Cases */}
+      <section id="use-cases" className="py-20 bg-gray-50">
+        <div className="container mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">Who Is HirePilot For?</h2>
+          </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="bg-white p-8 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
+              <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mb-6 mx-auto">
+                <i className="fas fa-building text-white text-2xl"></i>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-4 text-center">Recruiting Agencies</h3>
+              <p className="text-gray-600 text-center">Scale outreach & get client results faster.</p>
+            </div>
+            <div className="bg-white p-8 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
+              <div className="w-16 h-16 bg-purple-600 rounded-full flex items-center justify-center mb-6 mx-auto">
+                <i className="fas fa-users text-white text-2xl"></i>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-4 text-center">In-House Teams</h3>
+              <p className="text-gray-600 text-center">Source, message, and hire without adding headcount.</p>
+            </div>
+            <div className="bg-white p-8 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
+              <div className="w-16 h-16 bg-cyan-600 rounded-full flex items-center justify-center mb-6 mx-auto">
+                <i className="fas fa-rocket text-white text-2xl"></i>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-4 text-center">Founders/Startups</h3>
+              <p className="text-gray-600 text-center">Automate your hiring pipeline with zero recruiting experience.</p>
+            </div>
+            <div className="bg-white p-8 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
+              <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mb-6 mx-auto">
+                <i className="fas fa-chart-bar text-white text-2xl"></i>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-4 text-center">Growth Teams</h3>
+              <p className="text-gray-600 text-center">Expand into new markets with candidate/partner sourcing flows.</p>
             </div>
           </div>
         </div>
       </section>
 
       {/* How It Works */}
-      <section id="how-it-works" className="py-20 bg-gray-50">
-        <div className="max-w-6xl mx-auto px-6">
-          <h2 className="text-3xl font-semibold text-center mb-4">How It Works</h2>
-          <p className="text-gray-600 text-center mb-12 max-w-2xl mx-auto">Our AI-powered platform streamlines your hiring process in three simple steps</p>
-          <div className="grid md:grid-cols-3 gap-8">
-            <div id="step-1" className="bg-white p-8 rounded-xl shadow-sm text-center group hover:shadow-lg transition-shadow duration-200">
-              <div className="w-16 h-16 mx-auto mb-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-2xl group-hover:scale-110 transition-transform duration-200">1</div>
-              <h3 className="font-semibold text-xl mb-3">Submit your job</h3>
-              <p className="text-gray-600">Describe your ideal candidate and let our AI do the heavy lifting.</p>
-            </div>
-            <div id="step-2" className="bg-white p-8 rounded-xl shadow-sm text-center group hover:shadow-lg transition-shadow duration-200">
-              <div className="w-16 h-16 mx-auto mb-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-2xl group-hover:scale-110 transition-transform duration-200">2</div>
-              <h3 className="font-semibold text-xl mb-3">Source Candidates</h3>
-              <p className="text-gray-600">Finds and engage quickly with candidates that are the right fit for your role.</p>
-            </div>
-            <div id="step-3" className="bg-white p-8 rounded-xl shadow-sm text-center group hover:shadow-lg transition-shadow duration-200">
-              <div className="w-16 h-16 mx-auto mb-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-2xl group-hover:scale-110 transition-transform duration-200">3</div>
-              <h3 className="font-semibold text-xl mb-3">Interviews Scheduled</h3>
-              <p className="text-gray-600">Qualified candidates are automatically scheduled for interviews.</p>
-            </div>
+      <section id="how-it-works" className="py-20 bg-white">
+        <div className="container mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">How HirePilot Works</h2>
           </div>
-        </div>
-      </section>
-
-      {/* Features */}
-      <section id="features" className="py-20 bg-white">
-        <div className="max-w-6xl mx-auto px-6 space-y-20">
-          <div id="feature-1" className="flex flex-col md:flex-row items-center gap-12">
-            <div className="md:w-1/2">
-              <div className="flex gap-4">
-                <span className="inline-block text-blue-600 bg-blue-50 px-8 py-2 rounded-full text-sm font-medium mb-6 whitespace-nowrap">
-                  <i className="fa-brands fa-linkedin mr-2"></i> LinkedIn Integration
-                </span>
-                <span className="inline-block text-purple-700 bg-purple-100 px-8 py-2 rounded-full text-sm font-medium mb-6 flex items-center gap-2 whitespace-nowrap">
-                  <img src="/apollo-logo-v2.png" alt="Apollo" className="h-5 w-5" /> Apollo Integration
-                </span>
-                <span className="inline-block text-green-700 bg-green-100 px-8 py-2 rounded-full text-sm font-medium mb-6 flex items-center gap-2 whitespace-nowrap">
-                  <i className="fa-solid fa-envelope"></i> Outreach Integrations
-                </span>
-              </div>
-              <h3 className="text-3xl font-semibold mb-6">Source with Accuracy</h3>
-              <p className="text-gray-600 mb-6">
-                Find and engage with qualified candidates across platforms that bring you the best talent.
-              </p>
-              <ul className="space-y-4">
-                <li className="flex items-center gap-3 text-gray-700">
-                  <i className="fa-solid fa-check text-green-500"></i>
-                  Smart candidate matching
-                </li>
-                <li className="flex items-center gap-3 text-gray-700">
-                  <i className="fa-solid fa-check text-green-500"></i>
-                  Automated outreach
-                </li>
-              </ul>
-            </div>
-            <div className="md:w-1/2">
-              <div className="rounded-xl overflow-hidden shadow-xl">
-                <img className="w-full h-auto" src="/linkedin-sn.png" alt="LinkedIn Sales Navigator dashboard" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Full-width reverse blue gradient background for feature-2 */}
-      <div className="w-full bg-gradient-to-t from-blue-500 via-blue-200 to-white py-20">
-        <section className="max-w-6xl mx-auto px-6">
-          <div id="feature-2" className="flex flex-col md:flex-row-reverse items-center gap-12">
-            <div className="md:w-1/2">
-              <div className="inline-block text-blue-600 bg-blue-50 px-4 py-2 rounded-full text-sm font-medium mb-6">
-                <i className="fa-solid fa-robot mr-2"></i> AI-Powered
-              </div>
-              <h3 className="text-3xl font-semibold mb-6">Personalized GPT Outreach</h3>
-              <p className="text-gray-600 mb-6">
-                AI-powered messaging that speaks to candidates in a personal, engaging way.
-              </p>
-              <ul className="space-y-4">
-                <li className="flex items-center gap-3 text-gray-700">
-                  <i className="fa-solid fa-check text-green-500"></i>
-                  Custom message templates
-                </li>
-                <li className="flex items-center gap-3 text-gray-700">
-                  <i className="fa-solid fa-check text-green-500"></i>
-                  Response analysis
-                </li>
-              </ul>
-            </div>
-            <div className="md:w-1/2">
-              <div className="rounded-xl overflow-hidden shadow-xl">
-                <img className="w-full h-auto" src="/ai-outreach.png" alt="AI messaging interface with candidate conversation and response analytics" />
-              </div>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      {/* Trust Section */}
-      <section id="trust" className="py-16 bg-white">
-        <div className="max-w-6xl mx-auto px-6 text-center">
-          <p className="text-gray-600 mb-8">Sync your HirePilot recruiting flows with tools you already have</p>
-          <div className="flex justify-center items-center space-x-12 opacity-60">
-            <img src="/apollo-logo-v2.png" alt="Apollo" className="h-8" />
-            <i className="fa-brands fa-linkedin text-4xl text-gray-400" />
-            <i className="fa-brands fa-slack text-4xl text-gray-400" />
-            <img src="/zapier-icon.png" alt="Zapier" className="h-8 filter grayscale brightness-75" />
-            <img src="/make-logo-v1.png" alt="Make" className="h-8 w-auto filter grayscale brightness-75" />
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials */}
-      <section id="testimonials" className="py-20 bg-gray-50">
-        <div className="max-w-6xl mx-auto px-6">
-          <h2 className="text-3xl font-semibold text-center mb-4">What Our Customers Say</h2>
-          <p className="text-gray-600 text-center mb-12 max-w-2xl mx-auto">Join thousands of satisfied customers who have transformed their hiring process</p>
-          <div className="grid md:grid-cols-3 gap-8">
-            <div id="testimonial-1" className="bg-white p-8 rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-200">
-              <div className="flex items-center gap-4 mb-6">
-                <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg" alt="Sarah Johnson" className="w-12 h-12 rounded-full" />
+          <div className="max-w-4xl mx-auto">
+            <div className="space-y-12">
+              <div className="flex items-center space-x-8">
+                <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-white text-xl font-bold">1</span>
+                </div>
                 <div>
-                  <div className="font-medium">Sarah J.</div>
-                  <div className="text-sm text-gray-500">Freelance Tech Recruiter</div>
+                  <h3 className="text-2xl font-semibold text-gray-900 mb-2">Define Your Ideal Candidate</h3>
+                  <p className="text-gray-600">Roles, skills, regions</p>
                 </div>
               </div>
-              <p className="text-gray-700 italic">"I landed my first client in 3 weeks with HirePilot!"</p>
-              <div className="mt-6 text-yellow-400 flex gap-1">
-                <i className="fa-solid fa-star"></i>
-                <i className="fa-solid fa-star"></i>
-                <i className="fa-solid fa-star"></i>
-                <i className="fa-solid fa-star"></i>
-                <i className="fa-solid fa-star"></i>
-              </div>
-            </div>
-
-            <div id="testimonial-2" className="bg-white p-8 rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-200">
-              <div className="flex items-center gap-4 mb-6">
-                <img src="/dejanira.jpeg" alt="Dejanira (Dej) L." className="w-12 h-12 rounded-full" />
+              <div className="flex items-center space-x-8">
+                <div className="w-16 h-16 bg-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-white text-xl font-bold">2</span>
+                </div>
                 <div>
-                  <div className="font-medium">Dejanira (Dej) L.</div>
-                  <div className="text-sm text-gray-500">Freelance Tech Recruiter</div>
+                  <h3 className="text-2xl font-semibold text-gray-900 mb-2">Activate Your Campaign</h3>
+                  <p className="text-gray-600">Use our AI templates or write your own</p>
                 </div>
               </div>
-              <p className="text-gray-700 italic">"I made 8k in my first 6 weeks"</p>
-              <div className="mt-6 text-yellow-400 flex gap-1">
-                <i className="fa-solid fa-star"></i>
-                <i className="fa-solid fa-star"></i>
-                <i className="fa-solid fa-star"></i>
-                <i className="fa-solid fa-star"></i>
-                <i className="fa-solid fa-star"></i>
-              </div>
-            </div>
-
-            <div id="testimonial-3" className="bg-white p-8 rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-200">
-              <div className="flex items-center gap-4 mb-6">
-                <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-5.jpg" alt="Emily Rodriguez" className="w-12 h-12 rounded-full" />
+              <div className="flex items-center space-x-8">
+                <div className="w-16 h-16 bg-cyan-600 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-white text-xl font-bold">3</span>
+                </div>
                 <div>
-                  <div className="font-medium">Emily R.</div>
-                  <div className="text-sm text-gray-500">Talent Lead</div>
+                  <h3 className="text-2xl font-semibold text-gray-900 mb-2">Let REX Run the Show</h3>
+                  <p className="text-gray-600">Sourcing, outreach, follow-ups auto‑run</p>
                 </div>
               </div>
-              <p className="text-gray-700 italic">"The automated scheduling and engagement features have saved countless hours of manual work."</p>
-              <div className="mt-6 text-yellow-400 flex gap-1">
-                <i className="fa-solid fa-star"></i>
-                <i className="fa-solid fa-star"></i>
-                <i className="fa-solid fa-star"></i>
-                <i className="fa-solid fa-star"></i>
-                <i className="fa-solid fa-star"></i>
+              <div className="flex items-center space-x-8">
+                <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-white text-xl font-bold">4</span>
+                </div>
+                <div>
+                  <h3 className="text-2xl font-semibold text-gray-900 mb-2">Get Responses & Book Interviews</h3>
+                  <p className="text-gray-600">Direct to your calendar, Slack, or ATS</p>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* CTA */}
-      <section id="cta" className="py-20 bg-gradient-to-r from-blue-600 to-blue-500 text-white">
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          <h2 className="text-4xl font-bold mb-6">Build your recruiting engine in minutes</h2>
-          <p className="text-xl mb-10 opacity-90">Join thousands of companies hiring better with AI.</p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a href="/pricing" className="bg-white text-blue-600 font-semibold py-4 px-8 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-200">
-              Get Started Free <i className="fa-solid fa-arrow-right ml-2"></i>
-            </a>
-            <a href="https://form.typeform.com/to/cnUZ9PgW" target="_blank" rel="noopener" className="border-2 border-white text-white font-semibold py-4 px-8 rounded-lg hover:bg-white/10 transition-colors duration-200">
-              <i className="fa-regular fa-calendar mr-2"></i> Schedule Demo
-            </a>
+      {/* Social Proof */}
+      <section id="social-proof" className="py-20 bg-gray-900 text-white">
+        <div className="container mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold mb-8">Built for teams that want more hires in less time</h2>
+            <div className="grid md:grid-cols-4 gap-8 mb-16">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-blue-500 mb-2">5,200+</div>
+                <div className="text-gray-300">Candidates Sourced</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-purple-500 mb-2">300+</div>
+                <div className="text-gray-300">Interviews Booked</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-cyan-500 mb-2">1,000s</div>
+                <div className="text-gray-300">Hours Saved</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-blue-500 mb-2">$50K+</div>
+                <div className="text-gray-300">Revenue Enabled</div>
+              </div>
+            </div>
+          </div>
+          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            <div className="bg-gray-800 p-8 rounded-xl">
+              <p className="text-lg mb-6">"REX is like having a top-tier recruiter in Slack. I literally type a request and it gets done."</p>
+              <div className="flex items-center space-x-4">
+                <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" alt="User" className="w-12 h-12 rounded-full" />
+                <div>
+                  <div className="font-semibold">RecruitPro Agency</div>
+                  <div className="text-gray-400">Agency User</div>
+                </div>
+              </div>
+            </div>
+            <div className="bg-gray-800 p-8 rounded-xl">
+              <p className="text-lg mb-6">"I sourced more leads in a week than my team did all last month."</p>
+              <div className="flex items-center space-x-4">
+                <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-3.jpg" alt="User" className="w-12 h-12 rounded-full" />
+                <div>
+                  <div className="font-semibold">Startup Hiring Manager</div>
+                  <div className="text-gray-400">Tech Company</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing */}
+      <section id="pricing" className="py-20 bg-white">
+        <div className="container mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">Plans for every team. Try it free.</h2>
+          </div>
+          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            <div className="bg-gray-50 p-8 rounded-xl border">
+              <h3 className="text-2xl font-bold text-gray-900 mb-4">Starter</h3>
+              <p className="text-gray-600 mb-6">For solo recruiters</p>
+              <a href="/pricing" className="w-full bg-gray-800 text-white py-3 rounded-lg hover:bg-gray-900 transition-colors block text-center">Get Started</a>
+            </div>
+            <div className="bg-blue-600 p-8 rounded-xl text-white transform scale-105">
+              <h3 className="text-2xl font-bold mb-4">Pro</h3>
+              <p className="text-blue-100 mb-6">For teams & agencies</p>
+              <a href="/pricing" className="w-full bg-white text-blue-600 py-3 rounded-lg hover:bg-gray-100 transition-colors font-semibold block text-center">Get Started</a>
+            </div>
+            <div className="bg-gray-50 p-8 rounded-xl border">
+              <h3 className="text-2xl font-bold text-gray-900 mb-4">DFY</h3>
+              <p className="text-gray-600 mb-6">Let our team run the playbook for you</p>
+              <a href="https://form.typeform.com/to/cnUZ9PgW" target="_blank" rel="noopener" className="w-full bg-gray-800 text-white py-3 rounded-lg hover:bg-gray-900 transition-colors block text-center">Contact Us</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA */}
+      <section id="final-cta" className="py-20 bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+        <div className="container mx-auto px-6 text-center">
+          <div className="max-w-3xl mx-auto space-y-8">
+            <h2 className="text-4xl font-bold">Start hiring smarter with AI</h2>
+            <p className="text-xl text-blue-100">Recruiting shouldn't be slow. Let HirePilot automate it for you.</p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <a href="/pricing" className="bg-white text-blue-600 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-100 transition-colors">Get Started Free</a>
+              <a href="https://form.typeform.com/to/cnUZ9PgW" target="_blank" rel="noopener" className="border border-white text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white/10 transition-colors">Watch Demo</a>
+            </div>
           </div>
         </div>
       </section>
@@ -238,4 +297,4 @@ const HomePage = () => {
   );
 };
 
-export default HomePage; 
+export default HomePage;
