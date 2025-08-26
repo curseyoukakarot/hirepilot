@@ -1,6 +1,46 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 export default function RexAgentMode() {
+  const tocItems = [
+    { id: 'introduction', label: 'Introduction' },
+    { id: 'turn-on', label: 'Turn on Agent Mode' },
+    { id: 'weekly-example', label: 'Weekly Campaign Example' },
+    { id: 'sourcer', label: 'REX – Sourcer' },
+    { id: 'sniper', label: 'REX – Sniper' },
+    { id: 'use-cases', label: 'Use Cases' },
+    { id: 'sample-commands', label: 'Sample Commands' },
+    { id: 'command-center', label: 'Command Center' },
+    { id: 'pro-tip', label: 'Pro Tip' },
+    { id: 'get-started', label: 'Get Started' },
+  ];
+
+  const [activeId, setActiveId] = useState('introduction');
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      entries => {
+        const visible = entries
+          .filter(e => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible.length > 0) {
+          setActiveId(visible[0].target.id);
+        }
+      },
+      { root: null, rootMargin: '0px 0px -60% 0px', threshold: 0.1 }
+    );
+
+    const elements = tocItems
+      .map(t => document.getElementById(t.id))
+      .filter(Boolean);
+    elements.forEach(el => observer.observe(el));
+
+    return () => observer.disconnect();
+  }, []);
+
+  const scrollTo = (id) => {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
   return (
     <>
       <style>{`
@@ -69,16 +109,15 @@ export default function RexAgentMode() {
           <div className="sticky top-8">
             <h3 className="text-lg font-semibold mb-4 text-gray-200">Table of Contents</h3>
             <nav className="space-y-2">
-              <span className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">Introduction</span>
-              <span className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">Turn on Agent Mode</span>
-              <span className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">Weekly Campaign Example</span>
-              <span className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">REX – Sourcer</span>
-              <span className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">REX – Sniper</span>
-              <span className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">Use Cases</span>
-              <span className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">Sample Commands</span>
-              <span className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">Command Center</span>
-              <span className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">Pro Tip</span>
-              <span className="block text-gray-400 hover:text-white transition-colors py-1 cursor-pointer">Get Started</span>
+              {tocItems.map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => scrollTo(item.id)}
+                  className={`block text-left w-full py-1 cursor-pointer transition-colors ${activeId===item.id? 'toc-active' : 'text-gray-400 hover:text-white'}`}
+                >
+                  {item.label}
+                </button>
+              ))}
             </nav>
           </div>
         </div>
