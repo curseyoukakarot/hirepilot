@@ -27,11 +27,11 @@ const router = Router();
 function supabaseForRequest(req: any) {
   const supabaseUrl = process.env.SUPABASE_URL!;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY!;
-  const client = createClient(supabaseUrl, anonKey, { auth: { persistSession: false } });
-  const authHeader = req.headers.authorization || '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : undefined;
-  if (token) (client as any).auth.setAuth(token);
-  return client;
+  const authHeader = (req.headers.authorization as string) || '';
+  return createClient(supabaseUrl, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    global: { headers: authHeader ? { Authorization: authHeader } : {} }
+  });
 }
 
 // POST /api/rex/conversations
