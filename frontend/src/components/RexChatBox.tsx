@@ -314,8 +314,9 @@ export default function RexChatBox() {
           ]
         })
       });
+      const ok = res.ok;
       const data = await res.json();
-      const assistantText = data.reply?.content || data.reply?.content?.text || '(no reply)';
+      const assistantText = data?.reply?.content || data?.reply?.content?.text || (ok ? '(no reply)' : (data?.error || 'Request failed'));
       const rexMsg: ChatMessage = {
         id: crypto.randomUUID(),
         sender: 'rex',
@@ -324,8 +325,12 @@ export default function RexChatBox() {
       };
       setMessages(prev => [...prev, rexMsg]);
 
-      // persist assistant reply
-      await postMessage(convId!, 'assistant', data.reply);
+      // persist assistant reply only if present; otherwise store fallback text
+      if (data?.reply) {
+        await postMessage(convId!, 'assistant', data.reply);
+      } else {
+        await postMessage(convId!, 'assistant', { text: assistantText });
+      }
 
       // refresh conversations ordering
       const list = await listConversations();

@@ -43,6 +43,10 @@ export async function sourceLeads({
           .single();
         if (newErr) throw newErr;
         targetCampaignId = newCamp.id;
+        // Persist as latest for this user
+        await supabaseDb
+          .from('rex_user_context')
+          .upsert({ supabase_user_id: userId, latest_campaign_id: targetCampaignId }, { onConflict: 'supabase_user_id' });
       }
     } else {
       const title = String(campaignId || filters?.title || filters?.keywords || 'Sourcing Campaign').slice(0, 80);
@@ -53,6 +57,9 @@ export async function sourceLeads({
         .single();
       if (newErr) throw newErr;
       targetCampaignId = newCamp.id;
+      await supabaseDb
+        .from('rex_user_context')
+        .upsert({ supabase_user_id: userId, latest_campaign_id: targetCampaignId }, { onConflict: 'supabase_user_id' });
     }
   } else {
     // UUID supplied: ensure it exists in sourcing_campaigns; if not, create one and map title from legacy campaigns if available
