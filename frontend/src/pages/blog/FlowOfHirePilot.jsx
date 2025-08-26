@@ -1,5 +1,6 @@
 import React from 'react';
 import BlogTOC from '../../components/blog/BlogTOC';
+import BlogNavbar from '../../components/blog/BlogNavbar';
 
 export default function FlowOfHirePilot() {
   return (
@@ -17,15 +18,7 @@ export default function FlowOfHirePilot() {
         .toc-active { color: #3b82f6; }
       `}</style>
 
-      {/* Breadcrumb */}
-      <div className="bg-gray-800 py-4" id="breadcrumb">
-        <div className="max-w-6xl mx-auto px-6">
-          <a href="/blog" className="flex items-center transition-colors">
-            <i className="fa-solid fa-arrow-left mr-2" />
-            Back to Blog
-          </a>
-        </div>
-      </div>
+      <BlogNavbar />
 
       {/* Hero */}
       <div id="hero-section" className="relative">

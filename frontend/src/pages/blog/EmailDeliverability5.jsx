@@ -1,5 +1,6 @@
 import React from 'react';
 import BlogTOC from '../../components/blog/BlogTOC';
+import BlogNavbar from '../../components/blog/BlogNavbar';
 
 export default function EmailDeliverability5() {
   return (
@@ -28,15 +29,7 @@ export default function EmailDeliverability5() {
         #complete-series h3, #complete-series p { color: #ffffff !important; }
       `}</style>
 
-      {/* Breadcrumb */}
-      <div id="breadcrumb" className="bg-gray-800 py-4">
-        <div className="max-w-6xl mx-auto px-6">
-          <a href="/blog" className="text-gray-300 hover:text-white transition-colors flex items-center">
-            <i className="fa-solid fa-arrow-left mr-2" />
-            Back to Blog
-          </a>
-        </div>
-      </div>
+      <BlogNavbar />
 
       {/* Hero */}
       <div id="hero-section" className="relative">
