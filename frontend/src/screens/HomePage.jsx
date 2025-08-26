@@ -43,7 +43,7 @@ const HomePage = () => {
               </div>
             </div>
             <div className="relative flex justify-center">
-              <img className="w-full max-w-4xl h-auto object-contain rounded-xl shadow-2xl" src="/homepage-hero-1.png" alt="modern AI recruiting dashboard interface with chat bot, candidate profiles, and automation workflows, sleek dark UI design" />
+              <img className="w-full max-w-7xl h-auto object-contain rounded-xl shadow-2xl" src="/homepage-hero-1.png" alt="modern AI recruiting dashboard interface with chat bot, candidate profiles, and automation workflows, sleek dark UI design" />
             </div>
           </div>
         </div>
