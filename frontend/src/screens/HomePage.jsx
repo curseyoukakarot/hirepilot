@@ -109,7 +109,7 @@ const HomePage = () => {
                 <img src="/zapier-icon.png" alt="Zapier" className="h-7 w-7 filter brightness-0 invert" />
               </div>
               <h3 className="text-xl font-semibold text-white mb-2">Plug & Play Integrations</h3>
-              <p className="text-gray-300">Works with Apollo, PhantomBuster, Slack, Gmail, Outlook, Calendars, ATS tools.</p>
+              <p className="text-gray-300">Works natively with Apollo, Slack, Gmail and ATS tools. Connect HirePilot to thousands of apps using Zapier or Make.</p>
             </div>
           </div>
         </div>
