@@ -34,6 +34,30 @@ export async function sourceLeads({
         .maybeSingle();
       if (ctx?.latest_campaign_id) {
         targetCampaignId = ctx.latest_campaign_id;
+        // Ensure the latest id exists in sourcing_campaigns (it may be a legacy campaigns id)
+        const { data: existsLatest } = await supabaseDb
+          .from('sourcing_campaigns')
+          .select('id')
+          .eq('id', targetCampaignId)
+          .maybeSingle();
+        if (!existsLatest?.id) {
+          let title = String(filters?.title || filters?.keywords || 'Sourcing Campaign').slice(0, 80);
+          try {
+            const { data: legacy2 } = await supabaseDb
+              .from('campaigns')
+              .select('title')
+              .eq('id', targetCampaignId)
+              .maybeSingle();
+            if (legacy2?.title) title = legacy2.title;
+          } catch {}
+          const { error: createLatestErr } = await supabaseDb
+            .from('sourcing_campaigns')
+            .insert({ id: targetCampaignId, title, created_by: userId, audience_tag: 'rex' });
+          if (createLatestErr) throw createLatestErr;
+          await supabaseDb
+            .from('rex_user_context')
+            .upsert({ supabase_user_id: userId, latest_campaign_id: targetCampaignId }, { onConflict: 'supabase_user_id' });
+        }
       } else {
         const title = String(filters?.title || filters?.keywords || 'Sourcing Campaign').slice(0, 80);
         const { data: newCamp, error: newErr } = await supabaseDb
