@@ -37,7 +37,10 @@ export default function RepliesPage() {
       setLoading(true);
       setError(null);
       const repliesData = await api(`/api/sourcing/campaigns/${id}/replies`);
-      setReplies(repliesData);
+      const normalized: Reply[] = Array.isArray(repliesData)
+        ? repliesData
+        : (Array.isArray((repliesData as any)?.replies) ? (repliesData as any).replies : []);
+      setReplies(normalized);
     } catch (err) {
       console.error('Error loading replies:', err);
       setError(err instanceof Error ? err.message : 'Failed to load replies');
