@@ -70,47 +70,47 @@ const HomePage = () => {
             <h2 className="text-4xl font-bold text-gray-900 mb-4">What Can HirePilot Do?</h2>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <div className="bg-gray-50 p-8 rounded-xl hover:shadow-lg transition-shadow">
+            <div className="bg-gray-800 p-8 rounded-xl hover:shadow-lg transition-shadow">
               <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mb-4">
                 <i className="fas fa-search text-white text-xl"></i>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">AI Sourcing Agent</h3>
-              <p className="text-gray-600">Automatically discover and prioritize candidates based on your ideal profile.</p>
+              <h3 className="text-xl font-semibold text-white mb-2">AI Sourcing Agent</h3>
+              <p className="text-gray-300">Automatically discover and prioritize candidates based on your ideal profile.</p>
             </div>
-            <div className="bg-gray-50 p-8 rounded-xl hover:shadow-lg transition-shadow">
+            <div className="bg-gray-800 p-8 rounded-xl hover:shadow-lg transition-shadow">
               <div className="w-12 h-12 bg-purple-600 rounded-lg flex items-center justify-center mb-4">
                 <i className="fas fa-envelope text-white text-xl"></i>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Smart Outreach + Follow-Up</h3>
-              <p className="text-gray-600">Personalized messages with automated follow-up logic until they respond.</p>
+              <h3 className="text-xl font-semibold text-white mb-2">Smart Outreach + Follow-Up</h3>
+              <p className="text-gray-300">Personalized messages with automated follow-up logic until they respond.</p>
             </div>
-            <div className="bg-gray-50 p-8 rounded-xl hover:shadow-lg transition-shadow">
+            <div className="bg-gray-800 p-8 rounded-xl hover:shadow-lg transition-shadow">
               <div className="w-12 h-12 bg-cyan-600 rounded-lg flex items-center justify-center mb-4">
                 <i className="fas fa-cogs text-white text-xl"></i>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Workflow Automation</h3>
-              <p className="text-gray-600">Customize sourcing → messaging → scheduling workflows that run in the background.</p>
+              <h3 className="text-xl font-semibold text-white mb-2">Workflow Automation</h3>
+              <p className="text-gray-300">Customize sourcing → messaging → scheduling workflows that run in the background.</p>
             </div>
-            <div className="bg-gray-50 p-8 rounded-xl hover:shadow-lg transition-shadow">
+            <div className="bg-gray-800 p-8 rounded-xl hover:shadow-lg transition-shadow">
               <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mb-4">
                 <i className="fas fa-robot text-white text-xl"></i>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">REX Recruiting Agent</h3>
-              <p className="text-gray-600">Talk to REX in Slack or in-app to assign tasks, get candidates, or automate your day.</p>
+              <h3 className="text-xl font-semibold text-white mb-2">REX Recruiting Agent</h3>
+              <p className="text-gray-300">Talk to REX in Slack or in-app to assign tasks, get candidates, or automate your day.</p>
             </div>
-            <div className="bg-gray-50 p-8 rounded-xl hover:shadow-lg transition-shadow">
+            <div className="bg-gray-800 p-8 rounded-xl hover:shadow-lg transition-shadow">
               <div className="w-12 h-12 bg-purple-600 rounded-lg flex items-center justify-center mb-4">
                 <i className="fas fa-chart-line text-white text-xl"></i>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Live Analytics & Campaign Tracking</h3>
-              <p className="text-gray-600">See outreach stats, reply rates, and funnel performance in real time.</p>
+              <h3 className="text-xl font-semibold text-white mb-2">Live Analytics & Campaign Tracking</h3>
+              <p className="text-gray-300">See outreach stats, reply rates, and funnel performance in real time.</p>
             </div>
-            <div className="bg-gray-50 p-8 rounded-xl hover:shadow-lg transition-shadow">
+            <div className="bg-gray-800 p-8 rounded-xl hover:shadow-lg transition-shadow">
               <div className="w-12 h-12 bg-cyan-600 rounded-lg flex items-center justify-center mb-4">
                 <i className="fas fa-plug text-white text-xl"></i>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Plug & Play Integrations</h3>
-              <p className="text-gray-600">Works with Apollo, PhantomBuster, Slack, Gmail, Outlook, Calendars, ATS tools.</p>
+              <h3 className="text-xl font-semibold text-white mb-2">Plug & Play Integrations</h3>
+              <p className="text-gray-300">Works with Apollo, PhantomBuster, Slack, Gmail, Outlook, Calendars, ATS tools.</p>
             </div>
           </div>
         </div>
