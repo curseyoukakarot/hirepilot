@@ -80,9 +80,9 @@ export async function sourceLeads({
       targetCampaignId = newCamp.id;
     }
   }
+  // Temporary: Treat LinkedIn requests as Apollo fallback so users get results now
   if (source === 'linkedin') {
-    // TODO: Implement LinkedIn sourcing via PhantomBuster
-    return { queued: true, message: 'LinkedIn sourcing queued – not yet implemented in REX tool layer.' };
+    console.warn('[sourceLeads] LinkedIn requested; falling back to Apollo search for immediate results');
   }
 
   // 1. Determine Apollo API key

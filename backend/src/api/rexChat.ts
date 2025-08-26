@@ -128,7 +128,7 @@ export default async function rexChat(req: Request, res: Response) {
 
     const contextMessage = {
       role: 'system',
-      content: `CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` : ''}`
+      content: `You are REX, a recruiting agent. When the user asks to source leads or create a campaign with a target title/location/count, you MUST call the tool 'source_leads' with { userId, campaignId: 'latest', source: 'apollo', filters: { title: <normalized title>, location: <city, state>, count: <N> } }. Do not provide generic plans if a tool can fulfill the request. Prefer Apollo sourcing over LinkedIn. Keep replies concise. CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` : ''}`
     } as any;
 
     let completion = await openai.chat.completions.create({
