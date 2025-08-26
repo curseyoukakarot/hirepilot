@@ -17,33 +17,33 @@ const HomePage = () => {
       <PublicNavbar />
 
       {/* Hero Section */}
-      <section id="hero" className="pt-24 pb-16 bg-gradient-to-br from-gray-50 to-white h-[700px] flex items-center">
+      <section id="hero" className="pt-24 pb-16 bg-gradient-to-b from-blue-600 to-white h-[700px] flex items-center">
         <div className="container mx-auto px-6">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
+          <div className="grid lg:grid-cols-2 gap-8 items-center max-w-6xl mx-auto">
             <div className="space-y-8">
               <div className="space-y-4">
-                <h1 className="text-5xl lg:text-6xl font-bold text-gray-900 leading-tight">
+                <h1 className="text-5xl lg:text-6xl font-bold text-white leading-tight">
                   Your AI Recruiting Agent — 
-                  <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> Find, Engage & Hire</span> 
+                  <span className="bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent"> Find, Engage & Hire</span> 
                   at Scale
                 </h1>
-                <p className="text-xl text-gray-600 leading-relaxed">
+                <p className="text-xl text-blue-100 leading-relaxed">
                   Automate sourcing, messaging, follow-ups, and tracking—all powered by smart AI agents and workflow automations that plug into your tools.
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-4">
-                <a href="/pricing" className="bg-blue-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2">
+                <a href="/pricing" className="bg-white text-blue-600 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-100 transition-colors flex items-center justify-center space-x-2">
                   <span>Start Free</span>
                   <i className="fas fa-arrow-right"></i>
                 </a>
-                <a href="https://form.typeform.com/to/cnUZ9PgW" target="_blank" rel="noopener" className="border border-gray-300 text-gray-700 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-50 transition-colors flex items-center justify-center space-x-2">
+                <a href="https://form.typeform.com/to/cnUZ9PgW" target="_blank" rel="noopener" className="border border-white text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white/10 transition-colors flex items-center justify-center space-x-2">
                   <i className="fas fa-play"></i>
                   <span>Watch Demo</span>
                 </a>
               </div>
             </div>
-            <div className="relative">
-              <img className="w-full h-96 object-cover rounded-xl shadow-2xl" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/94e0c2ce29-245df503dbce77d03ce6.png" alt="modern AI recruiting dashboard interface with chat bot, candidate profiles, and automation workflows, sleek dark UI design" />
+            <div className="relative flex justify-center">
+              <img className="w-full max-w-2xl h-[600px] object-cover rounded-xl shadow-2xl" src="/homepage-hero.png" alt="modern AI recruiting dashboard interface with chat bot, candidate profiles, and automation workflows, sleek dark UI design" />
             </div>
           </div>
         </div>
@@ -154,7 +154,7 @@ const HomePage = () => {
       </section>
 
       {/* How It Works */}
-      <section id="how-it-works" className="py-20 bg-white">
+      <section id="how-it-works" className="py-20 bg-gradient-to-b from-white to-blue-600">
         <div className="container mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-gray-900 mb-4">How HirePilot Works</h2>
@@ -261,11 +261,16 @@ const HomePage = () => {
             <div className="bg-gray-50 p-8 rounded-xl border">
               <h3 className="text-2xl font-bold text-gray-900 mb-4">Starter</h3>
               <p className="text-gray-600 mb-6">For solo recruiters</p>
+              <ul className="text-gray-600 mb-6 space-y-2">
+                <li>• LinkedIn and Apollo Lead Sources</li>
+                <li>• Access to Zapier and Make</li>
+              </ul>
               <a href="/pricing" className="w-full bg-gray-800 text-white py-3 rounded-lg hover:bg-gray-900 transition-colors block text-center">Get Started</a>
             </div>
             <div className="bg-blue-600 p-8 rounded-xl text-white transform scale-105">
-              <h3 className="text-2xl font-bold mb-4">Pro</h3>
+              <h3 className="text-2xl font-bold mb-4">Pro and Team</h3>
               <p className="text-blue-100 mb-6">For teams & agencies</p>
+              <p className="text-blue-100 mb-6">Access to REX your Recruiting AI Assistant</p>
               <a href="/pricing" className="w-full bg-white text-blue-600 py-3 rounded-lg hover:bg-gray-100 transition-colors font-semibold block text-center">Get Started</a>
             </div>
             <div className="bg-gray-50 p-8 rounded-xl border">
