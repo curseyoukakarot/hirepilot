@@ -229,32 +229,23 @@ const HomePage = () => {
           <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
             <div className="bg-gray-800 p-8 rounded-xl">
               <p className="text-lg mb-6">"I landed my first client in 3 weeks with HirePilot!"</p>
-              <div className="flex items-center space-x-4">
-                <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" alt="Sarah Johnson" className="w-12 h-12 rounded-full" />
-                <div>
-                  <div className="font-semibold">Sarah J.</div>
-                  <div className="text-gray-400">Freelance Tech Recruiter</div>
-                </div>
+              <div>
+                <div className="font-semibold">Sarah J.</div>
+                <div className="text-gray-400">Freelance Tech Recruiter</div>
               </div>
             </div>
             <div className="bg-gray-800 p-8 rounded-xl">
               <p className="text-lg mb-6">"I made 8k in my first 6 weeks"</p>
-              <div className="flex items-center space-x-4">
-                <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-3.jpg" alt="Dejanira (Dej) L." className="w-12 h-12 rounded-full" />
-                <div>
-                  <div className="font-semibold">Dejanira (Dej) L.</div>
-                  <div className="text-gray-400">Freelance Tech Recruiter</div>
-                </div>
+              <div>
+                <div className="font-semibold">Dejanira (Dej) L.</div>
+                <div className="text-gray-400">Freelance Tech Recruiter</div>
               </div>
             </div>
             <div className="bg-gray-800 p-8 rounded-xl">
               <p className="text-lg mb-6">"The automated scheduling and engagement features have saved countless hours of manual work."</p>
-              <div className="flex items-center space-x-4">
-                <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg" alt="Emily Rodriguez" className="w-12 h-12 rounded-full" />
-                <div>
-                  <div className="font-semibold">Emily R.</div>
-                  <div className="text-gray-400">Talent Lead</div>
-                </div>
+              <div>
+                <div className="font-semibold">Emily R.</div>
+                <div className="text-gray-400">Talent Lead</div>
               </div>
             </div>
           </div>
