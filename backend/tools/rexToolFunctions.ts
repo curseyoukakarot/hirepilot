@@ -200,6 +200,106 @@ export async function sourceLeads({
     throw new Error('Failed to insert leads');
   }
 
+  // -------------------------------------------------------------
+  // Mirror into standard campaigns + leads tables for main UI
+  // -------------------------------------------------------------
+  try {
+    // 1) Ensure there is a standard campaign in `campaigns`
+    const stdTitle = String(filters?.title || filters?.keywords || 'Sourcing Campaign').slice(0, 80);
+    let stdCampaignId: string | null = null;
+    {
+      const { data: existingStd } = await supabaseDb
+        .from('campaigns')
+        .select('id')
+        .eq('user_id', userId)
+        .ilike('title', stdTitle)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (existingStd?.id) {
+        stdCampaignId = existingStd.id as any;
+      } else {
+        const { data: stdCamp, error: stdErr } = await supabaseDb
+          .from('campaigns')
+          .insert({ title: stdTitle, user_id: userId, status: 'draft', source: source })
+          .select('id')
+          .single();
+        if (stdErr) throw stdErr;
+        stdCampaignId = (stdCamp as any).id;
+      }
+    }
+
+    // 2) Insert into `leads` and deduct credits
+    if (stdCampaignId) {
+      const normalizedLeads = uniqueLeads.map((l: any) => {
+        const first = l.firstName || (l.name ? String(l.name).split(' ')[0] : '') || '';
+        const last = l.lastName || (l.name ? String(l.name).split(' ').slice(1).join(' ') : '') || '';
+        const locationStr = l.location || [l.city, l.state, l.country].filter(Boolean).join(', ');
+        return {
+          user_id: userId,
+          campaign_id: stdCampaignId,
+          first_name: first,
+          last_name: last,
+          name: l.name || `${first} ${last}`.trim(),
+          email: l.email || '',
+          title: l.title || '',
+          company: l.company || '',
+          linkedin_url: l.linkedinUrl || null,
+          city: l.city || null,
+          state: l.state || null,
+          country: l.country || null,
+          location: locationStr || null,
+          enrichment_data: l.enrichment_data ? JSON.stringify(l.enrichment_data) : null,
+          enrichment_source: 'apollo',
+          source: source || null,
+          status: 'New',
+          created_at: new Date().toISOString()
+        };
+      });
+
+      const { error: leadsErr } = await supabaseDb.from('leads').insert(normalizedLeads);
+      if (leadsErr) throw leadsErr;
+
+      // 3) Deduct credits and log
+      try {
+        const { CreditService } = await import('../services/creditService');
+        await CreditService.useCreditsEffective(userId, normalizedLeads.length);
+        await CreditService.logCreditUsage(
+          userId,
+          normalizedLeads.length,
+          'api_usage',
+          `REX sourcing: imported ${normalizedLeads.length} leads into campaign ${stdCampaignId}`
+        );
+      } catch (creditErr) {
+        console.error('[sourceLeads] credit deduction failed (non-fatal):', creditErr);
+      }
+
+      // 4) Update campaign totals
+      try {
+        const { count: totalLeads } = await supabaseDb
+          .from('leads')
+          .select('id', { count: 'exact' })
+          .eq('campaign_id', stdCampaignId);
+
+        const { count: enrichedLeads } = await supabaseDb
+          .from('leads')
+          .select('id', { count: 'exact' })
+          .eq('campaign_id', stdCampaignId)
+          .not('email', 'is', null)
+          .neq('email', '');
+
+        await supabaseDb
+          .from('campaigns')
+          .update({ total_leads: totalLeads || 0, enriched_leads: enrichedLeads || 0, updated_at: new Date().toISOString() })
+          .eq('id', stdCampaignId);
+      } catch (e) {
+        console.warn('[sourceLeads] campaign totals update failed (non-fatal):', e);
+      }
+    }
+  } catch (mirrorErr) {
+    console.warn('[sourceLeads] mirror to campaigns/leads failed (non-fatal):', mirrorErr);
+  }
+
   await notifySlack(`📥 Imported ${insertedLeads?.length || 0} leads into sourcing campaign ${targetCampaignId}`);
 
   return { imported: insertedLeads?.length || 0, campaign_id: targetCampaignId };

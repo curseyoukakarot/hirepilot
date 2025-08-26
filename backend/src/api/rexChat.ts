@@ -221,6 +221,27 @@ CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` :
       assistantMessage = completion.choices[0].message;
     }
 
+    // After a successful lead sourcing request without explicit outreach intent, nudge the user
+    try {
+      const lastUser = messages[messages.length - 1];
+      const text = String(lastUser?.content || '').toLowerCase();
+      const mentionsSource = /apollo|linkedin/.test(text);
+      const wantsOutreach = /(reach out|email|send|outreach|contact)/.test(text);
+      if (!wantsOutreach && /lead|campaign|source/.test(text)) {
+        const nudge = {
+          role: 'assistant',
+          content: {
+            text: 'Do you want me to start outreach to these leads now? If yes, say the tone (e.g., casual, professional) and I will draft the opener.'
+          }
+        } as any;
+        // Append nudge locally to return; persistence handled in convo flow
+        if (assistantMessage) {
+          // Return both messages merged in text if the model already replied
+        }
+        return res.status(200).json({ reply: nudge });
+      }
+    } catch {}
+
     return res.status(200).json({ reply: assistantMessage });
   } catch (err: any) {
     console.error('[rexChat] Error:', err);

@@ -14,8 +14,15 @@ export default function AgentModeCenter() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto min-h-screen bg-gray-900">
-      <h1 className="text-3xl font-bold text-white mb-2">Agent Mode Center</h1>
-      <p className="text-gray-400 mb-6">Your recruiting assistant’s mission control.</p>
+      <div className="flex items-start justify-between mb-2">
+        <div>
+          <h1 className="text-3xl font-bold text-white">Agent Mode Center</h1>
+          <p className="text-gray-400">Your recruiting assistant’s mission control.</p>
+        </div>
+        {/* Top-right Chat with REX button (hidden if campaigns exist via CampaignsPanel empty state handles link) */}
+        <a href="/rex-chat" className="hidden md:inline-flex items-center bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium">🤖 Chat with REX</a>
+      </div>
+      <div className="h-2" />
 
       <div className="flex space-x-3 mb-6">
         <button onClick={() => setTab('campaigns')} className={tabStyle(tab === 'campaigns')}>
