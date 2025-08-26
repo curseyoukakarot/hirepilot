@@ -226,24 +226,34 @@ const HomePage = () => {
               </div>
             </div>
           </div>
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
             <div className="bg-gray-800 p-8 rounded-xl">
-              <p className="text-lg mb-6">"REX is like having a top-tier recruiter in Slack. I literally type a request and it gets done."</p>
+              <p className="text-lg mb-6">"I landed my first client in 3 weeks with HirePilot!"</p>
               <div className="flex items-center space-x-4">
-                <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" alt="User" className="w-12 h-12 rounded-full" />
+                <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" alt="Sarah Johnson" className="w-12 h-12 rounded-full" />
                 <div>
-                  <div className="font-semibold">RecruitPro Agency</div>
-                  <div className="text-gray-400">Agency User</div>
+                  <div className="font-semibold">Sarah J.</div>
+                  <div className="text-gray-400">Freelance Tech Recruiter</div>
                 </div>
               </div>
             </div>
             <div className="bg-gray-800 p-8 rounded-xl">
-              <p className="text-lg mb-6">"I sourced more leads in a week than my team did all last month."</p>
+              <p className="text-lg mb-6">"I made 8k in my first 6 weeks"</p>
               <div className="flex items-center space-x-4">
-                <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-3.jpg" alt="User" className="w-12 h-12 rounded-full" />
+                <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-3.jpg" alt="Dejanira (Dej) L." className="w-12 h-12 rounded-full" />
                 <div>
-                  <div className="font-semibold">Startup Hiring Manager</div>
-                  <div className="text-gray-400">Tech Company</div>
+                  <div className="font-semibold">Dejanira (Dej) L.</div>
+                  <div className="text-gray-400">Freelance Tech Recruiter</div>
+                </div>
+              </div>
+            </div>
+            <div className="bg-gray-800 p-8 rounded-xl">
+              <p className="text-lg mb-6">"The automated scheduling and engagement features have saved countless hours of manual work."</p>
+              <div className="flex items-center space-x-4">
+                <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg" alt="Emily Rodriguez" className="w-12 h-12 rounded-full" />
+                <div>
+                  <div className="font-semibold">Emily R.</div>
+                  <div className="text-gray-400">Talent Lead</div>
                 </div>
               </div>
             </div>
@@ -261,10 +271,8 @@ const HomePage = () => {
             <div className="bg-gray-50 p-8 rounded-xl border">
               <h3 className="text-2xl font-bold text-gray-900 mb-4">Starter</h3>
               <p className="text-gray-600 mb-6">For solo recruiters</p>
-              <ul className="text-gray-600 mb-6 space-y-2">
-                <li>• LinkedIn and Apollo Lead Sources</li>
-                <li>• Access to Zapier and Make</li>
-              </ul>
+              <p className="text-gray-600 mb-6">LinkedIn and Apollo Lead Sources</p>
+              <p className="text-gray-600 mb-6">Access to Zapier and Make</p>
               <a href="/pricing" className="w-full bg-gray-800 text-white py-3 rounded-lg hover:bg-gray-900 transition-colors block text-center">Get Started</a>
             </div>
             <div className="bg-blue-600 p-8 rounded-xl text-white transform scale-105">
