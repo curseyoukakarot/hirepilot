@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api';
+import { supabase } from '../../lib/supabase';
 import AgentModeSwitch from '../../components/admin/sourcing/AgentModeSwitch';
 
 type Campaign = {
@@ -32,7 +33,10 @@ export default function CampaignsPanel() {
     try {
       setLoading(true);
       setError(null);
-      const campaigns = await api('/api/sourcing/campaigns');
+      // Restrict to the logged-in user to avoid cross-account bleed
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id;
+      const campaigns = await api(`/api/sourcing/campaigns${userId ? `?created_by=${userId}` : ''}`);
       setRows(campaigns);
 
       const statsPromises = campaigns.map(async (campaign: Campaign) => {
