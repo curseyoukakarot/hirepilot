@@ -12,6 +12,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { createConversation, fetchMessages, listConversations, postMessage, RexConversation, RexMessage } from "../lib/rexApi";
 
 interface ChatMessage {
   id: string;
@@ -25,7 +26,7 @@ interface ChatMessage {
   }[];
 }
 
-function Sidebar({ conversations }: { conversations: any[] }) {
+function Sidebar({ conversations, activeId, onSelect, onNew }: { conversations: RexConversation[]; activeId?: string; onSelect: (id: string) => void; onNew: () => void; }) {
   return (
     <aside className="hidden sm:flex w-64 bg-gray-800 border-r border-gray-700 flex-col">
       <div className="p-4 border-b border-gray-700">
@@ -44,19 +45,19 @@ function Sidebar({ conversations }: { conversations: any[] }) {
         {conversations.map((c) => (
           <div
             key={c.id}
-            className="p-3 rounded-lg bg-gray-700 cursor-pointer hover:bg-gray-600 transition-colors"
+            onClick={() => onSelect(c.id)}
+            className={`p-3 rounded-lg cursor-pointer transition-colors ${c.id===activeId? 'bg-gray-600' : 'bg-gray-700 hover:bg-gray-600'}`}
           >
             <div className="flex items-center justify-between mb-1">
-              <span className="text-sm font-medium">{c.title}</span>
-              <span className="text-xs text-gray-400">{c.time}</span>
+              <span className="text-sm font-medium truncate">{c.title || 'New chat'}</span>
+              <span className="text-xs text-gray-400">{new Date(c.updated_at).toLocaleString()}</span>
             </div>
-            <p className="text-xs text-gray-400 truncate">{c.preview}</p>
           </div>
         ))}
       </div>
 
       <div className="p-4 border-t border-gray-700">
-        <button className="w-full flex items-center justify-center space-x-2 p-2 rounded-lg bg-purple-600 hover:bg-purple-700 transition-colors text-sm">
+        <button onClick={onNew} className="w-full flex items-center justify-center space-x-2 p-2 rounded-lg bg-purple-600 hover:bg-purple-700 transition-colors text-sm">
           <i className="fas fa-plus text-sm" />
           <span>New Chat</span>
         </button>
@@ -239,6 +240,8 @@ function ChatInput({ onSend }: { onSend: (text: string) => void }) {
 export default function RexChatBox() {
   const [eligible, setEligible] = useState<boolean | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [conversations, setConversations] = useState<RexConversation[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<string | undefined>(undefined);
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -276,6 +279,17 @@ export default function RexChatBox() {
   }, [messages, isTyping]);
 
   const sendMessage = async (text: string) => {
+    // ensure conversation
+    let convId = activeConversationId;
+    if (!convId) {
+      const conv = await createConversation(text.slice(0,120));
+      setActiveConversationId(conv.id);
+      convId = conv.id;
+      // refresh list
+      const list = await listConversations();
+      setConversations(list);
+    }
+
     const userMsg: ChatMessage = {
       id: crypto.randomUUID(),
       sender: "user",
@@ -286,13 +300,14 @@ export default function RexChatBox() {
 
     setIsTyping(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const supaUserId = user?.id || 'anon';
+      // persist user message
+      await postMessage(convId!, 'user', { text });
+
       const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/rex/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: supaUserId,
+          userId: (await supabase.auth.getUser()).data.user?.id,
           messages: [
             ...messages.map(m => ({ role: m.sender === 'user' ? 'user' : 'assistant', content: m.content })),
             { role: 'user', content: text }
@@ -300,7 +315,7 @@ export default function RexChatBox() {
         })
       });
       const data = await res.json();
-      const assistantText = data.reply?.content || '(no reply)';
+      const assistantText = data.reply?.content || data.reply?.content?.text || '(no reply)';
       const rexMsg: ChatMessage = {
         id: crypto.randomUUID(),
         sender: 'rex',
@@ -308,12 +323,41 @@ export default function RexChatBox() {
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       setMessages(prev => [...prev, rexMsg]);
+
+      // persist assistant reply
+      await postMessage(convId!, 'assistant', data.reply);
+
+      // refresh conversations ordering
+      const list = await listConversations();
+      setConversations(list);
     } catch (err) {
       console.error('Chat error', err);
     } finally {
       setIsTyping(false);
     }
   };
+
+  // load conversations and messages when selecting
+  useEffect(() => {
+    (async () => {
+      const list = await listConversations();
+      setConversations(list);
+      if (!activeConversationId && list.length > 0) setActiveConversationId(list[0].id);
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!activeConversationId) { setMessages([]); return; }
+    (async () => {
+      const msgs = await fetchMessages(activeConversationId);
+      setMessages(msgs.map(m => ({
+        id: m.id,
+        sender: m.role === 'user' ? 'user' : 'rex',
+        content: m.content?.text ?? (typeof m.content === 'string' ? m.content : JSON.stringify(m.content)),
+        timestamp: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      })));
+    })();
+  }, [activeConversationId]);
 
   if (eligible === null) return null; // still loading
 
@@ -330,7 +374,15 @@ export default function RexChatBox() {
     <div className="h-full bg-gray-900 text-white font-inter flex">
       {/* Sidebar */}
       <Sidebar
-        conversations={[] /* Placeholder – hook up to real history later */}
+        conversations={conversations}
+        activeId={activeConversationId}
+        onSelect={setActiveConversationId}
+        onNew={async () => {
+          const conv = await createConversation('New chat');
+          setActiveConversationId(conv.id);
+          const list = await listConversations();
+          setConversations(list);
+        }}
       />
 
       {/* Chat main */}

@@ -103,6 +103,7 @@ import { registerLinkedInSessionRoutes } from './src/routes/linkedin.session.rou
 import { sniperWorker } from './src/workers/sniper.worker';
 import { registerSniperRoutes } from './src/routes/sniper.routes';
 import { sniperOpenerWorker } from './src/workers/sniper.opener.worker';
+import rexConversationsRouter from './src/routes/rexConversations';
 
 declare module 'express-list-endpoints';
 
@@ -265,6 +266,7 @@ app.get('/api/campaigns/all/performance', (req, res) => {
 app.post('/api/rex/chat', rexChat);
 app.post('/api/rex/tools', rexToolsHandler);
 app.post('/api/rex/tools/linkedin_connect', linkedinConnectHandler);
+app.use('/api', requireAuth as any, rexConversationsRouter);
 app.post('/api/integrations/slack/enabled', slackToggle);
 app.get('/api/slack/connect', slackConnect);
 app.get('/api/slack/callback', slackCallback);

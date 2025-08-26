@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import OpenAI from 'openai';
 import { supabase } from '../lib/supabase';
+import fetch from 'node-fetch';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -9,10 +10,11 @@ export default async function rexChat(req: Request, res: Response) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { userId, messages, campaign_id } = req.body as {
+  const { userId, messages, campaign_id, conversationId } = req.body as {
     userId?: string;
     messages?: { role: 'user' | 'assistant'; content: string }[];
     campaign_id?: string;
+    conversationId?: string;
   };
 
   if (!userId || !messages || !Array.isArray(messages)) {
@@ -23,6 +25,9 @@ export default async function rexChat(req: Request, res: Response) {
   res.set('Access-Control-Allow-Origin', '*');
 
   try {
+    // Forward auth header for RLS-bound internal calls
+    const authHeader = req.headers.authorization || '';
+
     // 1. Fetch user from Supabase
     const { data: userRow, error } = await supabase
       .from('users')
@@ -133,6 +138,44 @@ export default async function rexChat(req: Request, res: Response) {
     });
 
     let assistantMessage = completion.choices[0].message;
+
+    // ---------------- Persist conversation & messages -----------------
+    try {
+      // Determine conversation id (create if not provided)
+      let convId = conversationId as string | undefined;
+      const lastUserMsg = [...(messages || [])].reverse().find(m => m.role === 'user');
+      const title = (lastUserMsg?.content || 'New chat').slice(0, 120);
+      if (!convId) {
+        const createResp = await fetch(`${process.env.BACKEND_INTERNAL_URL || `http://127.0.0.1:${process.env.PORT || 8080}`}/api/rex/conversations`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(authHeader ? { Authorization: authHeader } : {}) },
+          body: JSON.stringify({ title })
+        });
+        const created = await createResp.json();
+        convId = created?.conversation?.id;
+      }
+
+      if (convId && lastUserMsg) {
+        // Save user message
+        await fetch(`${process.env.BACKEND_INTERNAL_URL || `http://127.0.0.1:${process.env.PORT || 8080}`}/api/rex/conversations/${convId}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(authHeader ? { Authorization: authHeader } : {}) },
+          body: JSON.stringify({ role: 'user', content: { text: lastUserMsg.content } })
+        });
+      }
+
+      if (convId && assistantMessage) {
+        // Save assistant message
+        await fetch(`${process.env.BACKEND_INTERNAL_URL || `http://127.0.0.1:${process.env.PORT || 8080}`}/api/rex/conversations/${convId}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(authHeader ? { Authorization: authHeader } : {}) },
+          body: JSON.stringify({ role: 'assistant', content: assistantMessage })
+        });
+      }
+    } catch (persistErr) {
+      console.error('[rexChat] persist error', persistErr);
+      // Do not fail chat on persistence errors
+    }
 
     // If tool call requested
     const call = completion.choices[0].message.tool_calls?.[0] as any;
