@@ -73,6 +73,7 @@ const EmailDeliverability4 = lazy(() => import("./pages/blog/EmailDeliverability
 const EmailDeliverability5 = lazy(() => import("./pages/blog/EmailDeliverability5"));
 const CreditsGuide = lazy(() => import("./pages/blog/CreditsGuide"));
 const ZapierGuide = lazy(() => import("./pages/blog/ZapierGuide"));
+const RexAgentMode = lazy(() => import("./pages/blog/RexAgentMode"));
 // AutomateRecruiting Series
 const AutomateRecruiting1 = lazy(() => import("./pages/blog/AutomateRecruiting1"));
 const AutomateRecruiting2 = lazy(() => import("./pages/blog/AutomateRecruiting2"));
@@ -430,6 +431,7 @@ function InnerApp() {
               <Route path="/blog/email-troubleshooting" element={<EmailTroubleshootingGuide />} />
               <Route path="/blog/CreditsGuide" element={<CreditsGuide />} />
               <Route path="/blog/zapierguide" element={<ZapierGuide />} />
+              <Route path="/blog/agentmode" element={<RexAgentMode />} />
               {/* Email Deliverability Series */}
               <Route path="/blog/email-deliverability-1" element={<EmailDeliverability1 />} />
               <Route path="/blog/email-deliverability-2" element={<EmailDeliverability2 />} />

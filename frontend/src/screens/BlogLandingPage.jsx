@@ -10,6 +10,16 @@ export default function BlogLandingPage() {
 
   const articles = [
     {
+      id: 22,
+      href: '/blog/agentmode',
+      title: 'Introducing Agent Mode: Let REX Run Your Outbound',
+      summary: 'Turn on Agent Mode to have REX source, message, and manage weekly campaigns for you.',
+      tag: 'AI Automation',
+      gradient: 'from-blue-600 to-indigo-600',
+      icon: 'fa-rocket',
+      date: 'Aug 26, 2025',
+    },
+    {
       id: 21,
       href: '/blog/zapierguide',
       title: 'HirePilot + Zapier/Make: Your No-Code Recruiting Superpowers',
