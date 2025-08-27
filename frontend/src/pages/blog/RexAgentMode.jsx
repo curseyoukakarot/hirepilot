@@ -271,10 +271,10 @@ export default function RexAgentMode() {
 
             <h4>Per-thread actions</h4>
             <ul>
-              <li>“REX, handle replies for thread {{threadId}} end-to-end.”</li>
-              <li>“REX, propose 3 drafts for thread {{threadId}}.”</li>
-              <li>“REX, offer a meeting on thread {{threadId}} with the 15-min link.”</li>
-              <li>“REX, send the DFY starter one-pager on thread {{threadId}} and propose a 30-min call.”</li>
+              <li>“REX, handle replies for thread &#123;&#123;threadId&#125;&#125; end-to-end.”</li>
+              <li>“REX, propose 3 drafts for thread &#123;&#123;threadId&#125;&#125;.”</li>
+              <li>“REX, offer a meeting on thread &#123;&#123;threadId&#125;&#125; with the 15-min link.”</li>
+              <li>“REX, send the DFY starter one-pager on thread &#123;&#123;threadId&#125;&#125; and propose a 30-min call.”</li>
             </ul>
 
             <h4>Sweeps &amp; reporting</h4>
