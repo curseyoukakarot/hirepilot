@@ -107,6 +107,7 @@ import rexConversationsRouter from './src/routes/rexConversations';
 import salesPolicyRouter from './src/routes/sales/policy.routes';
 import salesInboundRouter from './src/routes/sales/inbound.routes';
 import salesOpsRouter from './src/routes/sales/ops.routes';
+import salesTestRouter from './src/routes/sales/test.routes';
 import { salesInboundWorker } from './src/workers/sales.inbound.worker';
 import { salesSendWorker } from './src/workers/sales.send.worker';
 import { salesSweepWorker } from './src/workers/sales.sweep.worker';
@@ -298,6 +299,7 @@ app.use('/api/payouts', requireAuth as any, payoutsRouter);
   app.use('/', salesPolicyRouter);
   app.use('/', salesInboundRouter);
   app.use('/', salesOpsRouter);
+  app.use('/', salesTestRouter);
   // Boot workers
   void salesInboundWorker;
   void salesSendWorker;

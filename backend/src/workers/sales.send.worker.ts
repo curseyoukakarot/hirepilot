@@ -3,6 +3,7 @@ import { connection } from './queues';
 import { supabase } from '../lib/supabase';
 import { sendEmail } from '../integrations/sendgrid';
 import dayjs from 'dayjs';
+import { getPolicyForUser, getEffectiveSenderEmail } from '../services/sales/policy';
 
 const PER_THREAD_DAILY = Number(process.env.SALES_SEND_MAX_PER_THREAD_PER_DAY || 1);
 
@@ -27,9 +28,22 @@ export const salesSendWorker = new Worker('sales:send', async (job) => {
       .select('sender, recipient').eq('thread_id', thread_id).eq('direction','inbound')
       .order('created_at',{ascending:false}).limit(1);
     const recipient = lastInbound?.[0]?.sender;
+    if (!recipient) {
+      await supabase.from('sales_actions').insert({ thread_id: thread_id, action: 'escalate', payload: { reason: 'missing_recipient' }});
+      return { skipped: 'no-recipient' };
+    }
 
-    const { data: pol } = await supabase.from('sales_agent_policies').select('policy').eq('user_id', (t as any).user_id).single();
-    const from = (pol as any)?.policy?.sender?.email || process.env.DEFAULT_SENDER;
+    const policy = await getPolicyForUser((t as any).user_id);
+    const from = await getEffectiveSenderEmail((t as any).user_id, policy);
+
+    if (!from) {
+      await supabase.from('sales_actions').insert({
+        thread_id: thread_id,
+        action: 'escalate',
+        payload: { reason: 'missing_sender', message: 'Configure Sales Agent sender email in Settings > Sales Agent.' }
+      });
+      return { error: 'missing-sender' };
+    }
 
     if (recipient && from) {
       await sendEmail({

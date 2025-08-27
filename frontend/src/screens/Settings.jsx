@@ -5,6 +5,7 @@ import SettingsIntegrations from './SettingsIntegrations';
 import SettingsTeamMembers from './SettingsTeamMembers';
 import SettingsNotifications from './SettingsNotifications';
 import SettingsApiKeys from './SettingsApiKeys';
+import SettingsSalesAgent from './SettingsSalesAgent';
 import SettingsCredits from './SettingsCredits';
 import { supabase } from '../lib/supabase';
 
@@ -20,6 +21,7 @@ export default function Settings() {
   const baseTabs = [
     { id: 'profile', label: 'Profile Info', path: '/settings/profile' },
     { id: 'integrations', label: 'Integrations', path: '/settings/integrations' },
+    { id: 'sales-agent', label: 'Sales Agent', path: '/settings/sales-agent' },
     { id: 'team', label: 'Team Settings', path: '/settings/team' },
     { id: 'notifications', label: 'Notifications', path: '/settings/notifications' },
     { id: 'credits', label: 'Credits', path: '/settings/credits' },
@@ -63,6 +65,8 @@ export default function Settings() {
         return <SettingsCredits />;
       case 'api':
         return <SettingsApiKeys />;
+      case 'sales-agent':
+        return <SettingsSalesAgent />;
       default:
         return <SettingsProfileInfo />;
     }

@@ -72,7 +72,12 @@ router.post('/api/sales/policy', async (req: Request, res: Response) => {
     const body = PolicySchema.parse(req.body ?? {});
     const { error } = await supabase.from('sales_agent_policies').upsert({ user_id, policy: body, updated_at: new Date().toISOString() });
     if (error) { res.status(500).json({ error: error.message }); return; }
-    res.json({ ok: true, policy: body });
+    // Soft guidance: let frontend know if important fields are missing
+    const needs: string[] = [];
+    if (!body?.sender?.email && body?.sender?.behavior === 'single') needs.push('sender_email');
+    if (!body?.assets?.demo_video_url) needs.push('demo_video_url');
+    if (!body?.assets?.pricing_url) needs.push('pricing_url');
+    res.json({ ok: true, policy: body, needs });
   } catch (e: any) {
     if (e instanceof z.ZodError) { res.status(400).json({ error: 'validation_error', details: e.errors }); return; }
     res.status(500).json({ error: e.message || 'Internal error' });

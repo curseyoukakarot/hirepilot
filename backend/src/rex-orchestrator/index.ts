@@ -1,6 +1,7 @@
 import { SourcingParams, WizardCardT, AgentPlanT, COMMON_TITLE_GROUPS, COMMON_INDUSTRIES, COMMON_LOCATIONS } from './schemas';
 import { SniperParams } from './schemas';
 import { startSniperWizard } from './sniper';
+import { salesOrchestrate } from './sales';
 import { SOURCE_EXTRACT, WIZARD_MESSAGES, ERROR_MESSAGES } from './prompts';
 import OpenAI from 'openai';
 
@@ -67,6 +68,10 @@ export async function orchestrate(text: string, tools: any, user: { id: string }
   const lowered = text.toLowerCase();
   if (/(sniper|watch|keyword|competitor|post url|likes|comments)/.test(lowered)) {
     try { return await startSniperWizard(text, tools, user); } catch (e) { /* fallthrough */ }
+  }
+  // Sales agent intents
+  if (/(sales agent|handle replies|offer calendly|send demo|send pricing|propose drafts|start handling)/.test(lowered)) {
+    try { const result = await salesOrchestrate(text, tools); return typeof result === 'string' ? result : JSON.stringify(result); } catch (e) { /* fallthrough */ }
   }
   // Default to sourcing wizard
   return await startSourcingWizard(text, tools, user);
