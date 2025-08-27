@@ -1,6 +1,22 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 
 export default function PublicFooter() {
+  useEffect(() => {
+    (function(key) {
+      if (typeof window === 'undefined') return;
+      if (window.reb2b) return;
+      window.reb2b = { loaded: true };
+      var s = document.createElement('script');
+      s.async = true;
+      s.src = 'https://ddwl4m2hdecbv.cloudfront.net/b/' + key + '/' + key + '.js.gz';
+      var firstScript = document.getElementsByTagName('script')[0];
+      if (firstScript && firstScript.parentNode) {
+        firstScript.parentNode.insertBefore(s, firstScript);
+      } else {
+        document.head.appendChild(s);
+      }
+    })('VN080HXJK06J');
+  }, []);
   return (
     <footer id="footer" className="bg-gray-900 text-white py-16">
       <div className="max-w-6xl mx-auto px-6">
