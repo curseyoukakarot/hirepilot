@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { launchQueue } from '../../api/campaigns/launch';
 import sgMail from '@sendgrid/mail';
 import { personalizeMessage } from '../../utils/messageUtils';
+import { canonicalFlows, searchSupport, whitelistPages } from './knowledge.widget';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const {
   sourceLeads,
@@ -1087,6 +1088,84 @@ server.registerCapabilities({
           method: 'POST',
           body: JSON.stringify({ daily_cap })
         });
+      }
+    },
+    rex_widget_support_get_pricing_overview: {
+      parameters: {},
+      handler: async () => {
+        // Prefer system_settings if available; fallback to simple tiers
+        try {
+          const { data } = await supabase.from('system_settings').select('value').eq('key','pricing_tiers').maybeSingle();
+          const tiers = (data?.value as any) || [
+            { name:'Pro', price:'$99', summary:'For recruiters' },
+            { name:'Team', price:'$299', summary:'For teams' }
+          ];
+          return { tiers, pricing_url: 'https://thehirepilot.com/pricing' };
+        } catch {
+          return { tiers: [{ name:'Pro', price:'$99', summary:'For recruiters' }], pricing_url:'https://thehirepilot.com/pricing' };
+        }
+      }
+    },
+    rex_widget_support_get_feature_overview: {
+      parameters: {},
+      handler: async () => {
+        return { features: [
+          { name:'Campaigns', description:'Outreach with follow-ups', link:'https://thehirepilot.com/' },
+          { name:'Integrations', description:'SendGrid/Google/Outlook', link:'https://thehirepilot.com/' }
+        ] };
+      }
+    },
+    rex_widget_support_get_flow_steps: {
+      parameters: { flow: { type:'string' } },
+      handler: async ({ flow }: { flow: keyof typeof canonicalFlows }) => {
+        const item = canonicalFlows[flow];
+        if (!item) throw new Error('flow not found');
+        return item;
+      }
+    },
+    rex_widget_support_get_support_article: {
+      parameters: { slug: { type:'string' } },
+      handler: async ({ slug }: { slug: string }) => {
+        const p = whitelistPages.find(p => p.slug === slug);
+        if (!p) throw new Error('slug not found');
+        return { title: p.title, excerpt: p.excerpt, url: p.url };
+      }
+    },
+    rex_widget_support_search_support: {
+      parameters: { q:{type:'string'}, top_k:{type:'number', optional:true} },
+      handler: async ({ q, top_k }: { q:string; top_k?:number }) => ({ results: searchSupport(q, top_k || 5) })
+    },
+    rex_widget_support_get_account_readiness: {
+      parameters: { user_id:{ type:'string', optional:true } },
+      handler: async ({ user_id }: { user_id?:string }) => {
+        // simple read-only flags; real impl can query aggregates
+        if (!user_id) return { onboarding_complete:false, email_connected:false, has_campaigns:false };
+        const { data: integ } = await supabase.from('integrations').select('provider,status').eq('user_id', user_id);
+        const email_connected = Boolean((integ||[]).find(r => ['sendgrid','google','outlook'].includes(String(r.provider))));
+        const { count } = await supabase.from('sourcing_campaigns').select('*', { count:'exact', head:true }).eq('created_by', user_id);
+        return { onboarding_complete: email_connected && (count||0) > 0, email_connected, has_campaigns: (count||0) > 0 };
+      }
+    },
+    rex_widget_support_create_lead: {
+      parameters: { full_name:{type:'string'}, work_email:{type:'string'}, company:{type:'string', optional:true}, interest:{type:'string', optional:true}, notes:{type:'string', optional:true}, rb2b:{type:'object', optional:true} },
+      handler: async (payload: any) => {
+        const resp = await api('/api/rex_widget/leads', { method:'POST', body: JSON.stringify(payload) });
+        return { id: resp.id, routed: { slack: true } };
+      }
+    },
+    rex_widget_support_handoff_to_human: {
+      parameters: { thread_id:{type:'string'}, reason:{type:'string', optional:true} },
+      handler: async ({ thread_id, reason }: { thread_id:string; reason?:string }) => {
+        await api('/api/rex_widget/handoff', { method:'POST', body: JSON.stringify({ threadId: thread_id, reason }) });
+        return { ok:true };
+      }
+    },
+    rex_widget_support_get_ctas: {
+      parameters: {},
+      handler: async () => {
+        const { data } = await supabase.from('system_settings').select('key,value').in('key',['rex_demo_url','rex_calendly_url']).then(r=>({rows:r.data||[]}));
+        const out:any = {}; (data.rows||[]).forEach((r:any)=> out[`${r.key === 'rex_demo_url' ? 'demo_url':'calendly_url'}`]=r.value);
+        return out;
       }
     }
   }

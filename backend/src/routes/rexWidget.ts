@@ -263,13 +263,38 @@ router.post('/chat', async (req: Request, res: Response) => {
       ...messages.map(m => ({ role: m.role, content: m.text })) as any,
     ];
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: oaiMessages,
-      temperature: 0.2,
-      // Force JSON-only to avoid leaking structured payloads into prose
-      response_format: { type: 'json_object' } as any,
-    });
+    // TOOL-CALLING PATH (MCP) for popup: call curated tools first
+    const popupSystem = {
+      role: 'system',
+      content: `You are HirePilot’s REX — Support + Sales Lite. Use ONLY rex_widget_support_* tools to answer.
+Strict order: get_flow_steps/get_pricing_overview/get_feature_overview/get_support_article → rex_widget_support_search_support (whitelist) → if nothing, say "No verified page" and suggest CTAs.
+Never perform actions. Be concise with bullets and cite source_url.`
+    } as any;
+    const popupTools: any = [
+      { type:'function', function:{ name:'rex_widget_support_get_flow_steps', parameters:{ type:'object', properties:{ flow:{type:'string'}}, required:['flow']} } },
+      { type:'function', function:{ name:'rex_widget_support_get_pricing_overview', parameters:{ type:'object', properties:{} } } },
+      { type:'function', function:{ name:'rex_widget_support_get_feature_overview', parameters:{ type:'object', properties:{} } } },
+      { type:'function', function:{ name:'rex_widget_support_get_support_article', parameters:{ type:'object', properties:{ slug:{type:'string'}}, required:['slug'] } } },
+      { type:'function', function:{ name:'rex_widget_support_search_support', parameters:{ type:'object', properties:{ q:{type:'string'}, top_k:{type:'number'} }, required:['q'] } } },
+      { type:'function', function:{ name:'rex_widget_support_get_ctas', parameters:{ type:'object', properties:{} } } },
+      { type:'function', function:{ name:'rex_widget_support_get_account_readiness', parameters:{ type:'object', properties:{ user_id:{type:'string'} } } } }
+    ];
+
+    // Map common queries to flow tool calls
+    const userQ = (lastUser?.text || '').toLowerCase();
+    const flowMap: Record<string, string> = {
+      'launch a campaign': 'launch_campaign',
+      'import leads': 'import_leads',
+      'connect email': 'connect_email',
+      'follow-ups': 'set_followups',
+    };
+    const flowKey = Object.keys(flowMap).find(k => userQ.includes(k));
+    const initialMessages: any[] = [popupSystem, ...messages.map(m => ({ role: m.role, content: m.text }))];
+    if (flowKey) {
+      initialMessages.push({ role:'user', content:`TOOL: rex_widget_support_get_flow_steps { "flow": "${flowMap[flowKey]}" }` });
+    }
+
+    let completion = await openai.chat.completions.create({ model:'gpt-4o-mini', messages: initialMessages, tools: popupTools });
 
     const raw = completion.choices?.[0]?.message?.content || '';
     let parsed: any = null;
