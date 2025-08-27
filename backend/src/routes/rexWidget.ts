@@ -309,7 +309,8 @@ Return a JSON object only.`
         let args: any = {};
         try { args = call.function?.arguments ? JSON.parse(call.function.arguments) : call.arguments; } catch { args = call.function?.arguments || call.arguments; }
         const result = await capabilities.tools[toolName].handler(args);
-        initialMessages.push(assistantMsg);
+        // Add an assistant message with tool_calls only (no content array)
+        initialMessages.push({ role:'assistant', tool_calls: assistantMsg.tool_calls } as any);
         initialMessages.push({ role:'tool', tool_call_id: call.id, name: toolName, content: JSON.stringify(result) } as any);
       }
       loopCount++;
