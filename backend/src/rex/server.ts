@@ -1092,9 +1092,9 @@ server.registerCapabilities({
   }
 });
 
-// Register Sales Agent tools
-import { salesTools } from './agents-mcp/sales.tools';
-for (const t of salesTools as any[]) (server as any).tool(t);
+// NOTE: Additional tool registration for Sales Agent is disabled in production
+// because the current MCP Server instance doesn't expose a .tool() API.
+// When ready, migrate sales tools into server.registerCapabilities({ tools: { ... } }) format.
 
 // Attach stdio transport (must be after capabilities registration)
 server.connect(new StdioServerTransport());
