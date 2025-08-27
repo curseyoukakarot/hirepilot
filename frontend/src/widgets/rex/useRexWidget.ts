@@ -34,7 +34,7 @@ type UseRexWidgetOptions = {
 
 export function useRexWidget(options?: UseRexWidgetOptions) {
   const { initialMode = 'sales', config } = options || {};
-  const API_BASE = (typeof import !== 'undefined' && (import.meta as any)?.env?.VITE_REX_API_BASE) || '';
+  const API_BASE = (import.meta as any).env?.VITE_REX_API_BASE || '';
 
   const [isOpen, setIsOpen] = useState<boolean>(() => {
     try { return JSON.parse(localStorage.getItem(OPEN_KEY) || 'false'); } catch { return false; }
