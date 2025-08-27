@@ -1163,8 +1163,12 @@ server.registerCapabilities({
     rex_widget_support_get_ctas: {
       parameters: {},
       handler: async () => {
-        const { data } = await supabase.from('system_settings').select('key,value').in('key',['rex_demo_url','rex_calendly_url']).then(r=>({rows:r.data||[]}));
-        const out:any = {}; (data.rows||[]).forEach((r:any)=> out[`${r.key === 'rex_demo_url' ? 'demo_url':'calendly_url'}`]=r.value);
+        const { data } = await supabase
+          .from('system_settings')
+          .select('key,value')
+          .in('key',['rex_demo_url','rex_calendly_url']);
+        const out:any = {};
+        (data || []).forEach((r:any)=>{ out[r.key === 'rex_demo_url' ? 'demo_url' : 'calendly_url'] = r.value; });
         return out;
       }
     }
