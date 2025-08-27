@@ -57,6 +57,7 @@ import PartnersSignup from './pages/partners/Signup';
 import { setRefCookie } from './lib/affiliate';
 import PartnersRouteGuard from './pages/partners/PartnersRouteGuard';
 const RequirePartnersAuth = ({ children }) => <PartnersRouteGuard>{children}</PartnersRouteGuard>;
+import RexWidget from './widgets/rex/RexWidget';
 // Blog article pages
 const FlowOfHirePilot = lazy(() => import("./pages/blog/FlowOfHirePilot"));
 const MessageCenterSetup = lazy(() => import("./pages/blog/MessageCenterSetup"));
@@ -451,6 +452,14 @@ function InnerApp() {
           </Suspense>
         </main>
       </div>
+      {/* REX widget mounted globally */}
+      <RexWidget
+        mode={isAuthPage ? 'sales' : 'support'}
+        config={{
+          demoUrl: (import.meta as any).env?.VITE_DEMO_URL || undefined,
+          calendlyUrl: (import.meta as any).env?.VITE_CALENDLY_URL || undefined,
+        }}
+      />
     </div>
   );
 }
