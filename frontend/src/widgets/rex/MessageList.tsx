@@ -26,7 +26,8 @@ export const MessageList: React.FC<Props> = ({ messages }) => {
                 <span className="h-2 w-2 animate-pulse rounded-full bg-gray-500 [animation-delay:300ms]"></span>
               </span>
             ) : (
-              m.text
+              // Strip accidentally leaked JSON payloads from the model response
+              (typeof m.text === 'string' ? m.text.replace(/\{\s*"content"[\s\S]*\}\s*$/,'').trim() : m.text as any)
             )}
           </div>
           {!!m.sources?.length && (

@@ -171,11 +171,17 @@ router.post('/chat', async (req: Request, res: Response) => {
       model: 'gpt-4o-mini',
       messages: oaiMessages,
       temperature: 0.2,
+      // Force JSON-only to avoid leaking structured payloads into prose
+      response_format: { type: 'json_object' } as any,
     });
 
     const raw = completion.choices?.[0]?.message?.content || '';
     let parsed: any = null;
-    try { parsed = JSON.parse(raw); } catch {}
+    try { parsed = JSON.parse(raw); } catch {
+      // Try to recover JSON object if model wrapped it in prose
+      const match = raw.match(/\{[\s\S]*\}$/);
+      if (match) { try { parsed = JSON.parse(match[0]); } catch {} }
+    }
     let content = parsed?.content || raw || 'Thanks!';
     const outSources = Array.isArray(parsed?.sources) && parsed.sources.length ? parsed.sources : (sources || []);
     const tutorial = parsed?.tutorial && parsed.tutorial.title && Array.isArray(parsed.tutorial.steps) ? parsed.tutorial : null;
@@ -193,6 +199,24 @@ router.post('/chat', async (req: Request, res: Response) => {
       const raw2 = follow.choices?.[0]?.message?.content || '';
       try { const p2 = JSON.parse(raw2); content = p2.content || content; }
       catch {}
+    }
+
+    // Heuristic: pricing question → summarize tiers from settings to ensure correctness
+    if (/\bprice|pricing|pro plan|plans?\b/i.test(lastUser?.text || '') && settings['pricing_tiers']) {
+      try {
+        const tiers = settings['pricing_tiers'];
+        const lines = Array.isArray(tiers)
+          ? tiers.map((t: any) => `- ${t.name || 'Plan'}: ${t.description || ''}${t.price ? ` (from ${t.price})` : ''}`)
+          : [];
+        content = [
+          'Here’s a quick overview of our plans:',
+          ...lines,
+          'See full details on our pricing page.'
+        ].filter(Boolean).join('\n');
+        if (!outSources.find((s: any) => /pricing/i.test(s.title))) {
+          outSources.push({ title: 'HirePilot Pricing', url: 'https://thehirepilot.com/pricing' });
+        }
+      } catch {}
     }
 
     // Persist assistant message
