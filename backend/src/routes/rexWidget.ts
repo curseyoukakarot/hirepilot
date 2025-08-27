@@ -296,6 +296,34 @@ Never perform actions. Be concise with bullets and cite source_url.`
 
     let completion = await openai.chat.completions.create({ model:'gpt-4o-mini', messages: initialMessages, tools: popupTools });
 
+    // Execute tool calls in a short loop (max 3)
+    const { server: rexServer } = await import('../rex/server');
+    const capabilities = (rexServer as any).getCapabilities?.() || (rexServer as any).capabilities || {};
+    let assistantMsg = completion.choices[0].message as any;
+    let loopCount = 0;
+    while (assistantMsg?.tool_calls && loopCount < 3) {
+      for (const call of assistantMsg.tool_calls) {
+        const toolName = call.function?.name || call.name;
+        if (!toolName || !capabilities?.tools?.[toolName]?.handler) continue;
+        let args: any = {};
+        try { args = call.function?.arguments ? JSON.parse(call.function.arguments) : call.arguments; } catch { args = call.function?.arguments || call.arguments; }
+        const result = await capabilities.tools[toolName].handler(args);
+        initialMessages.push(assistantMsg);
+        initialMessages.push({ role:'tool', tool_call_id: call.id, name: toolName, content: JSON.stringify(result) } as any);
+      }
+      loopCount++;
+      completion = await openai.chat.completions.create({ model:'gpt-4o-mini', messages: initialMessages, tools: popupTools });
+      assistantMsg = completion.choices[0].message as any;
+    }
+
+    // Final answer as strict JSON
+    completion = await openai.chat.completions.create({
+      model:'gpt-4o-mini',
+      messages: initialMessages,
+      temperature: 0.2,
+      response_format: { type:'json_object' } as any
+    });
+
     const raw = completion.choices?.[0]?.message?.content || '';
     let parsed: any = null;
     try { parsed = JSON.parse(raw); } catch {
