@@ -201,7 +201,7 @@ export default function RexAgentMode() {
               <li>Pick a mode: <em>Handle (auto-send)</em> for speed, or <em>Share &amp; ask</em> to approve each reply.</li>
               <li>Set a sender (required for sending): your verified SendGrid from-address.</li>
               <li>Add assets (optional, recommended): demo URL, pricing page, one-pager.</li>
-              <li>Calendly event type: e.g., <code>hirepilot/15min-intro</code>.</li>
+              <li>Calendly event type: e.g., <code style={{ color: '#ffffff' }}>hirepilot/15min-intro</code>.</li>
               <li>Limits: keep 1 send per thread per day and quiet hours (e.g., 20:00–07:00) unless you know you need more.</li>
               <li>Test tools (right on the page): Send test email; Simulate inbound reply to see the flow.</li>
               <li>Done. New replies will route into Action Inbox (and Slack, if connected).</li>
