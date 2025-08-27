@@ -20,6 +20,7 @@ import ActionInbox from './screens/ActionInbox';
 import AgentModeCenter from './pages/agent/AgentModeCenter';
 import CampaignDetailDrawer from './pages/agent/CampaignDetailDrawer';
 import RepliesDrawer from './pages/agent/RepliesDrawer';
+import ActionInboxDrawer from './pages/agent/ActionInboxDrawer';
 import CampaignsPage from './pages/SuperAdmin/sourcing/CampaignsPage';
 import CampaignDetailPage from './pages/SuperAdmin/sourcing/CampaignDetailPage';
 import RepliesPage from './pages/SuperAdmin/sourcing/RepliesPage';
@@ -378,6 +379,7 @@ function InnerApp() {
               <Route path="/agent" element={<AgentModeCenter />}>
                 <Route path="campaign/:id" element={<CampaignDetailDrawer />} />
                 <Route path="campaign/:id/replies" element={<RepliesDrawer />} />
+                <Route path="inbox" element={<ActionInboxDrawer />} />
               </Route>
               <Route path="/leads" element={<LeadManagement />} />
               <Route path="/leads/profile" element={<LeadProfileDrawer />} />
