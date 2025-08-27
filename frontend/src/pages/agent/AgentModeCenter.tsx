@@ -18,7 +18,7 @@ export default function AgentModeCenter() {
     }`;
 
   return (
-    <div className="p-6 max-w-7xl mx-auto min-h-screen bg-gray-900">
+    <div className="p-6 w-full min-h-screen bg-gray-900">
       <div className="flex items-start justify-between mb-2">
         <div>
           <h1 className="text-3xl font-bold text-white">Agent Mode Center</h1>
