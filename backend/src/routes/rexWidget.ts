@@ -63,10 +63,10 @@ router.post('/chat', async (req: Request, res: Response) => {
       await supabase.from('rex_widget_messages').insert({ session_id: sessionId, role: 'user', text: lastUser.text });
     }
 
-    // RAG sources (support/rex modes): hybrid semantic + keyword
+    // RAG sources (all modes now): hybrid semantic + keyword
     let sources: { title: string; url: string }[] | undefined = undefined;
     let contextSnippets: string[] = [];
-    if (mode !== 'sales' && lastUser?.text) {
+    if (lastUser?.text) {
       const query = lastUser.text.slice(0, 1000);
       try {
         // 1) Embed query
@@ -98,7 +98,7 @@ router.post('/chat', async (req: Request, res: Response) => {
     const { data: settingsRows } = await supabase
       .from('system_settings')
       .select('key,value')
-      .in('key', ['pricing_tiers', 'rex_demo_url', 'rex_calendly_url']);
+      .in('key', ['pricing_tiers', 'rex_demo_url', 'rex_calendly_url', 'rex_sales_faq']);
     const settings: Record<string, any> = {};
     (settingsRows || []).forEach((r: any) => { settings[r.key] = r.value; });
 
@@ -108,6 +108,9 @@ router.post('/chat', async (req: Request, res: Response) => {
       const cal = settings['rex_calendly_url'] ? `Book: ${settings['rex_calendly_url']}.` : '';
       const company = context?.rb2b?.company?.name ? `The visitor appears to be from ${context?.rb2b?.company?.name}. Tailor 1-2 sentences to their industry/size.` : '';
       const citations = sources?.length ? `When referencing docs/blog, include concise citations from provided sources.` : '';
+      const faqs = Array.isArray(settings['rex_sales_faq']) && settings['rex_sales_faq'].length
+        ? `Known FAQs (prefer these verbatim if the user's question matches): ${JSON.stringify(settings['rex_sales_faq'])}.`
+        : '';
       return [
         'You are HirePilot Sales Assistant. Be concise, value-forward.',
         pricing,
@@ -116,6 +119,7 @@ router.post('/chat', async (req: Request, res: Response) => {
         cal,
         company,
         citations,
+        faqs,
         'Never invent features. If unknown, say so briefly.',
         'Output JSON only with keys {"content", "sources", "tutorial"}. "sources" should be an array of {title,url} you actually cited; "tutorial" usually null in sales.'
       ].filter(Boolean).join(' ');
@@ -159,9 +163,24 @@ router.post('/chat', async (req: Request, res: Response) => {
     const raw = completion.choices?.[0]?.message?.content || '';
     let parsed: any = null;
     try { parsed = JSON.parse(raw); } catch {}
-    const content = parsed?.content || raw || 'Thanks!';
+    let content = parsed?.content || raw || 'Thanks!';
     const outSources = Array.isArray(parsed?.sources) && parsed.sources.length ? parsed.sources : (sources || []);
     const tutorial = parsed?.tutorial && parsed.tutorial.title && Array.isArray(parsed.tutorial.steps) ? parsed.tutorial : null;
+
+    // If still generic and we have RAG snippets, nudge a second pass to produce concrete steps.
+    if (!tutorial && mode !== 'sales' && contextSnippets.length && /refer to|documentation|support resources/i.test(content)) {
+      const follow = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        temperature: 0.2,
+        messages: [
+          { role: 'system', content: 'Rewrite the answer below into a concrete, step-by-step guide using the provided context. Output JSON {"content","sources","tutorial"}. Keep it short and accurate.' },
+          { role: 'user', content: `Answer: ${content}\nContext:\n${contextSnippets.join('\n')}` }
+        ]
+      });
+      const raw2 = follow.choices?.[0]?.message?.content || '';
+      try { const p2 = JSON.parse(raw2); content = p2.content || content; }
+      catch {}
+    }
 
     // Persist assistant message
     await supabase.from('rex_widget_messages').insert({ session_id: sessionId, role: 'assistant', text: content, sources: outSources as any, tutorial });
