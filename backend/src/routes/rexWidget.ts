@@ -359,22 +359,18 @@ Return a JSON object only.`
       catch {}
     }
 
-    // Heuristic: pricing question → summarize tiers from settings to ensure correctness
-    if (/\bprice|pricing|pro plan|plans?\b/i.test(lastUser?.text || '') && settings['pricing_tiers']) {
-      try {
-        const tiers = settings['pricing_tiers'];
-        const lines = Array.isArray(tiers)
-          ? tiers.map((t: any) => `- ${t.name || 'Plan'}: ${t.description || ''}${t.price ? ` (from ${t.price})` : ''}`)
-          : [];
-        content = [
-          'Here’s a quick overview of our plans:',
-          ...lines,
-          'See full details on our pricing page.'
-        ].filter(Boolean).join('\n');
-        if (!outSources.find((s: any) => /pricing/i.test(s.title))) {
-          outSources.push({ title: 'HirePilot Pricing', url: 'https://thehirepilot.com/pricing' });
-        }
-      } catch {}
+    // Heuristic: pricing → only summarize if settings provide tiers. Never invent.
+    if (/\bprice|pricing|pro plan|plans?\b/i.test(lastUser?.text || '')) {
+      const tiers = settings['pricing_tiers'];
+      if (Array.isArray(tiers) && tiers.length) {
+        try {
+          const lines = tiers.map((t: any) => `- ${t.name || 'Plan'}${t.summary ? `: ${t.summary}` : ''}${t.price ? ` (from ${t.price})` : ''}`);
+          content = ['Here’s a quick overview of our plans:', ...lines, 'See full details on our pricing page.'].join('\n');
+        } catch {}
+      } else {
+        content = 'Please see our pricing page for up-to-date plan details.';
+      }
+      if (!outSources.find((s: any) => /pricing/i.test(s.title))) outSources.push({ title: 'HirePilot Pricing', url: 'https://thehirepilot.com/pricing' });
     }
 
     // Optional: debug diagnostics

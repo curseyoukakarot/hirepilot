@@ -1093,17 +1093,14 @@ server.registerCapabilities({
     rex_widget_support_get_pricing_overview: {
       parameters: {},
       handler: async () => {
-        // Prefer system_settings if available; fallback to simple tiers
-        try {
-          const { data } = await supabase.from('system_settings').select('value').eq('key','pricing_tiers').maybeSingle();
-          const tiers = (data?.value as any) || [
-            { name:'Pro', price:'$99', summary:'For recruiters' },
-            { name:'Team', price:'$299', summary:'For teams' }
-          ];
-          return { tiers, pricing_url: 'https://thehirepilot.com/pricing' };
-        } catch {
-          return { tiers: [{ name:'Pro', price:'$99', summary:'For recruiters' }], pricing_url:'https://thehirepilot.com/pricing' };
-        }
+        // Prefer system_settings; if missing, DO NOT invent pricing. Return link only.
+        const { data, error } = await supabase
+          .from('system_settings')
+          .select('value')
+          .eq('key','pricing_tiers')
+          .maybeSingle();
+        const tiers = (data?.value as any) || [];
+        return { tiers, pricing_url: 'https://thehirepilot.com/pricing' };
       }
     },
     rex_widget_support_get_feature_overview: {
