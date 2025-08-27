@@ -34,6 +34,7 @@ type UseRexWidgetOptions = {
 
 export function useRexWidget(options?: UseRexWidgetOptions) {
   const { initialMode = 'sales', config } = options || {};
+  const API_BASE = (typeof import !== 'undefined' && (import.meta as any)?.env?.VITE_REX_API_BASE) || '';
 
   const [isOpen, setIsOpen] = useState<boolean>(() => {
     try { return JSON.parse(localStorage.getItem(OPEN_KEY) || 'false'); } catch { return false; }
@@ -125,9 +126,9 @@ export function useRexWidget(options?: UseRexWidgetOptions) {
     setLoading(true);
 
     try {
-      const resp = await fetch('/api/rex_widget/chat', {
+      const resp = await fetch(`${API_BASE}/api/rex_widget/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-rex-anon-id': anonIdRef.current },
         body: JSON.stringify({
           threadId,
           mode,
@@ -177,13 +178,13 @@ export function useRexWidget(options?: UseRexWidgetOptions) {
 
   const sendHandoff = useCallback(async (reason?: string) => {
     try {
-      await fetch('/api/rex_widget/handoff', {
+      await fetch(`${API_BASE}/api/rex_widget/handoff`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-rex-anon-id': anonIdRef.current },
         body: JSON.stringify({ threadId, reason }),
       });
     } catch {}
-  }, [threadId]);
+  }, [threadId, API_BASE]);
 
   const sendLead = useCallback(async (payload: RexLeadPayload) => {
     const rb2b = (typeof window !== 'undefined' ? (window as any).rb2b : null) ?? null;
@@ -196,14 +197,14 @@ export function useRexWidget(options?: UseRexWidgetOptions) {
         rb2b,
       },
     };
-    const resp = await fetch('/api/rex_widget/leads', {
+    const resp = await fetch(`${API_BASE}/api/rex_widget/leads`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-rex-anon-id': anonIdRef.current },
       body: JSON.stringify(body),
     });
     if (!resp.ok) throw new Error('Lead submit failed');
     return resp.json().catch(() => ({}));
-  }, [threadId]);
+  }, [threadId, API_BASE]);
 
   return {
     isOpen,

@@ -38,7 +38,7 @@ export const ChatPanel: React.FC<Props> = ({ isOpen, onClose, onSend, loading, m
           </button>
         </div>
       </div>
-      <div className="h-80">
+      <div className="h-80 overflow-y-auto">
         <MessageList messages={messages} />
       </div>
       {mode === 'support' && (() => {
