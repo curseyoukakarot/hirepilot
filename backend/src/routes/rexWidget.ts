@@ -268,7 +268,8 @@ router.post('/chat', async (req: Request, res: Response) => {
       role: 'system',
       content: `You are HirePilot’s REX — Support + Sales Lite. Use ONLY rex_widget_support_* tools to answer.
 Strict order: get_flow_steps/get_pricing_overview/get_feature_overview/get_support_article → rex_widget_support_search_support (whitelist) → if nothing, say "No verified page" and suggest CTAs.
-Never perform actions. Be concise with bullets and cite source_url.`
+Never perform actions. Be concise with bullets and cite source_url.
+Return a JSON object only.`
     } as any;
     const popupTools: any = [
       { type:'function', function:{ name:'rex_widget_support_get_flow_steps', parameters:{ type:'object', properties:{ flow:{type:'string'}}, required:['flow']} } },
@@ -317,6 +318,7 @@ Never perform actions. Be concise with bullets and cite source_url.`
     }
 
     // Final answer as strict JSON
+    initialMessages.push({ role:'system', content: 'Return ONLY a JSON object with keys {"content","sources","tutorial"}. Always respond in JSON.' } as any);
     completion = await openai.chat.completions.create({
       model:'gpt-4o-mini',
       messages: initialMessages,
