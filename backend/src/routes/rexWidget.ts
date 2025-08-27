@@ -74,20 +74,33 @@ router.post('/chat', async (req: Request, res: Response) => {
         const embedding = emb.data?.[0]?.embedding;
         // 2) Call RPC for vector match
         if (embedding) {
-          const { data: vec } = await supabase.rpc('match_kb_chunks', { query_embedding: embedding as any, match_count: 4 });
+          const { data: vec } = await supabase.rpc('match_kb_chunks', { query_embedding: embedding as any, match_count: 12 });
           if (vec?.length) {
-            sources = vec.map((r: any) => ({ title: r.title, url: r.url }));
-            contextSnippets = vec.map((r: any) => r.content).filter(Boolean).slice(0, 4);
+            // Prefer blog articles first, then others by similarity
+            const blog = vec.filter((r: any) => /\/blog\//i.test(r.url)).slice(0, 4);
+            const nonBlog = vec.filter((r: any) => !/\/blog\//i.test(r.url)).slice(0, 4 - blog.length);
+            const picked = [...blog, ...nonBlog];
+            sources = picked.map((r: any) => ({ title: r.title, url: r.url }));
+            contextSnippets = picked.map((r: any) => r.content).filter(Boolean).slice(0, 4);
           }
         }
-        // 3) Fallback to text search if vector returns nothing
+        // 3) Fallback to text search with blog-first if vector returns nothing
         if ((!sources || sources.length === 0)) {
-          const { data: pages } = await supabase
+          const { data: blogPages } = await supabase
             .from('rex_kb_pages')
             .select('url,title')
+            .ilike('url', '%/blog/%')
             .textSearch('text', query, { type: 'websearch' })
             .limit(4);
-          if (pages?.length) sources = pages.map((p: any) => ({ title: p.title, url: p.url }));
+          if (blogPages?.length) sources = blogPages.map((p: any) => ({ title: p.title, url: p.url }));
+          if ((!sources || sources.length === 0)) {
+            const { data: pages } = await supabase
+              .from('rex_kb_pages')
+              .select('url,title')
+              .textSearch('text', query, { type: 'websearch' })
+              .limit(4);
+            if (pages?.length) sources = pages.map((p: any) => ({ title: p.title, url: p.url }));
+          }
         }
       } catch (ragErr) {
         await logEvent('rex_widget_rag_error', { error: String(ragErr) });
@@ -148,7 +161,7 @@ router.post('/chat', async (req: Request, res: Response) => {
     const citationBlock = sources?.length ? `\n\nWhen answering, reference these sources where relevant:\n${sources.map(s => `- ${s.title} (${s.url})`).join('\n')}` : '';
 
     // Include RAG snippets to ground the answer
-    const ragBlock = contextSnippets.length ? `\n\nContext:\n${contextSnippets.map((s, i) => `(${i+1}) ${s}`).join('\n')}` : '';
+    const ragBlock = contextSnippets.length ? `\n\nContext (prefer blog articles when available):\n${contextSnippets.map((s, i) => `(${i+1}) ${s}`).join('\n')}` : '';
     const oaiMessages = [
       { role: 'system', content: `${sys}${citationBlock}${ragBlock}\nReturn ONLY JSON.` },
       ...messages.map(m => ({ role: m.role, content: m.text })) as any,
