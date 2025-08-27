@@ -18,6 +18,26 @@
   <body>
     <div id="root"></div>
     </div>
+    <script>
+      (function () {
+        var path = window.location.pathname;
+        var publicPrefixes = [
+          '/pricing',
+          '/rex',
+          '/copilot',
+          '/handsfree',
+          '/chromeextension',
+          '/blog',
+          '/affiliates',
+          '/terms',
+          '/rexsupport',
+          '/apidoc'
+        ];
+        var isPublic = path === '/' || publicPrefixes.some(function (prefix) { return path.indexOf(prefix) === 0; });
+        if (!isPublic) return;
+        !function(key) { if (window.reb2b) return; window.reb2b = { loaded: true }; var s = document.createElement('script'); s.async = true; s.src = 'https://ddwl4m2hdecbv.cloudfront.net/b/' + key + '/' + key + '.js.gz'; var firstScript = document.getElementsByTagName('script')[0]; if (firstScript && firstScript.parentNode) { firstScript.parentNode.insertBefore(s, firstScript); } else { document.head.appendChild(s); } }('VN080HXJK06J');
+      })();
+    </script>
     <script type="module" src="/src/main.jsx"></script>
 
   </body>
