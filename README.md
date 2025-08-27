@@ -1,3 +1,39 @@
+## REX Widget Environments
+
+Frontend fallbacks (used only if `/api/rex_widget/config` does not provide values):
+
+- `REACT_APP_REX_API_BASE` (optional, default same-origin)
+- `REACT_APP_DEMO_URL`
+- `REACT_APP_CALENDLY_URL`
+
+Server env:
+
+- `OPENAI_API_KEY`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `SLACK_WEBHOOK_URL`
+- `ZAPIER_HOOK_URL` (optional)
+- `MONDAY_TOKEN` (optional)
+- `MONDAY_BOARD_ID` (optional)
+- `SITE_SITEMAP_URLS` (comma-separated)
+- `MAX_PAGES` (optional, default 200)
+- `CORS_ALLOW_ORIGINS="https://thehirepilot.com,https://*.thehirepilot.com"`
+
+### QA Checklist
+
+1. Public site launches Sales Mode. Chips visible.
+2. After 2 Q&As, CTA row appears (Demo/Calendly/Human).
+3. Lead submit inserts `rex_leads` and triggers Slack (and Zapier/Monday if configured).
+4. In app routes, Support Mode answers with step-by-step and sources.
+5. Close & reopen restores last 15 messages (per anon/user scope).
+6. Handoff posts transcript to Slack.
+7. Admin POST `/api/rex_widget/kb/reindex` triggers Edge Function crawl; new sources appear.
+
+### Fixtures
+
+- `fixtures/rex/sample_pages.json` – sample KB pages/chunks
+- `fixtures/rex/rb2b_sample.json` – mock RB2B payload
+
 # HirePilot
 
 HirePilot is an AI-powered recruiting platform that helps companies hire better, faster. This project is built with React and uses modern web technologies to provide a seamless user experience.

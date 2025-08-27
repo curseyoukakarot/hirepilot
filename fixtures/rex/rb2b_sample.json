@@ -1,0 +1,12 @@
+{
+  "company": {
+    "name": "Acme Corp",
+    "industry": "Staffing",
+    "employee_count": 120
+  },
+  "visitor": {
+    "email": "jane.doe@acme.com"
+  }
+}
+
+

@@ -1,0 +1,37 @@
+[
+  {
+    "url": "https://thehirepilot.com/blog/launch-campaign",
+    "title": "How to launch a campaign",
+    "html": "<html><head><title>How to launch a campaign</title></head><body><main><h1>Launch</h1><p>Open Campaigns, click New Campaign, follow the wizard.</p></main></body></html>",
+    "chunks": [
+      "Open Campaigns, click New Campaign, follow the wizard.",
+      "Set audience and schedule, then launch."
+    ]
+  },
+  {
+    "url": "https://thehirepilot.com/pricing",
+    "title": "Pricing",
+    "html": "<html><head><title>Pricing</title></head><body><main><h1>Pricing</h1><p>Pro and Team tiers available.</p></main></body></html>",
+    "chunks": ["Pro and Team tiers available."]
+  },
+  {
+    "url": "https://thehirepilot.com/blog/import-csv",
+    "title": "Import CSV",
+    "html": "<html><head><title>Import CSV</title></head><body><main><p>Go to Leads, click Import CSV, map columns.</p></main></body></html>",
+    "chunks": ["Go to Leads, click Import CSV, map columns."]
+  },
+  {
+    "url": "https://thehirepilot.com/blog/connect-linkedin",
+    "title": "Connect LinkedIn",
+    "html": "<html><head><title>Connect LinkedIn</title></head><body><main><p>Settings → Integrations → LinkedIn.</p></main></body></html>",
+    "chunks": ["Settings → Integrations → LinkedIn."]
+  },
+  {
+    "url": "https://thehirepilot.com/blog/first-campaign",
+    "title": "First Campaign",
+    "html": "<html><head><title>First Campaign</title></head><body><main><p>Step-by-step to set up your first campaign.</p></main></body></html>",
+    "chunks": ["Step-by-step to set up your first campaign."]
+  }
+]
+
+
