@@ -197,7 +197,7 @@ export default function RexAgentMode() {
 
             <h3>Quick start (two minutes)</h3>
             <ol>
-              <li>Open: Settings → Sales Agent.</li>
+              <li>Open: Agent Mode → Sales Agent.</li>
               <li>Pick a mode: <em>Handle (auto-send)</em> for speed, or <em>Share &amp; ask</em> to approve each reply.</li>
               <li>Set a sender (required for sending): your verified SendGrid from-address.</li>
               <li>Add assets (optional, recommended): demo URL, pricing page, one-pager.</li>
@@ -302,7 +302,7 @@ export default function RexAgentMode() {
 
             <h3>Enable it now</h3>
             <ol>
-              <li>Go to Settings → Sales Agent.</li>
+              <li>Go to Agent Mode → Sales Agent.</li>
               <li>Add sender, demo, pricing, Calendly.</li>
               <li>Choose Handle or Share &amp; ask.</li>
               <li>Click Send test email to confirm everything is wired.</li>
