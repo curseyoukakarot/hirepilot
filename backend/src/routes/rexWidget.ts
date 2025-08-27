@@ -127,6 +127,45 @@ router.post('/chat', async (req: Request, res: Response) => {
       }
     }
 
+    // Helper to turn HTML into plain text for context fallback
+    const htmlToText = (html: string) => {
+      if (!html) return '';
+      return html
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    };
+
+    // If we have sources but no snippets, pull page HTML/Text as a last resort
+    if ((!contextSnippets || contextSnippets.length === 0) && sources && sources.length) {
+      try {
+        const urls = sources.slice(0, 2).map(s => s.url);
+        const { data: pagesMaybe } = await supabase
+          .from('rex_kb_pages')
+          .select('url, html')
+          .in('url', urls);
+        let added = 0;
+        for (const u of urls) {
+          const row = (pagesMaybe || []).find((p: any) => p.url === u);
+          if (row?.html) {
+            const txt = htmlToText(row.html);
+            if (txt) { contextSnippets.push(txt.slice(0, 1800)); added++; }
+          } else {
+            // As a final fallback, fetch live page
+            try {
+              const r = await axios.get(u, { timeout: 4000 });
+              const txt = htmlToText(r.data);
+              if (txt) { contextSnippets.push(txt.slice(0, 1800)); added++; }
+            } catch {}
+          }
+          if (added >= 2) break;
+        }
+      } catch {}
+    }
+
     // Fetch settings for prompts (pricing, demo/calendly)
     const { data: settingsRows } = await supabase
       .from('system_settings')
