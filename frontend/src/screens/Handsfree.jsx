@@ -146,7 +146,6 @@ export default function Handsfree() {
             <div className="grid md:grid-cols-2 gap-8">
               <div id="testimonial-1" className="bg-gray-50 p-8 rounded-xl">
                 <div className="flex items-center gap-4 mb-6">
-                  <img src="/michael-chen.png" alt="Michael Chen" className="w-16 h-16 rounded-full" />
                   <div>
                     <h4 className="font-semibold">Michael C.</h4>
                     <p className="text-gray-600">CTO</p>
@@ -157,7 +156,6 @@ export default function Handsfree() {
 
               <div id="testimonial-2" className="bg-gray-50 p-8 rounded-xl">
                 <div className="flex items-center gap-4 mb-6">
-                  <img src="/sarah-williams.png" alt="Sarah Williams" className="w-16 h-16 rounded-full" />
                   <div>
                     <h4 className="font-semibold">Sarah W.</h4>
                     <p className="text-gray-600">Head of Talent</p>
