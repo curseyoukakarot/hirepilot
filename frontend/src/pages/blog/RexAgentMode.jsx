@@ -9,6 +9,7 @@ export default function RexAgentMode() {
     { id: 'weekly-example', label: 'Weekly Campaign Example' },
     { id: 'sourcer', label: 'REX – Sourcer' },
     { id: 'sniper', label: 'REX – Sniper' },
+    { id: 'sales', label: 'REX – Sales Agent (NEW)' },
     { id: 'use-cases', label: 'Use Cases' },
     { id: 'sample-commands', label: 'Sample Commands' },
     { id: 'command-center', label: 'Command Center' },
@@ -173,6 +174,140 @@ export default function RexAgentMode() {
               <li>Crafts a short, specific opener based on the topic</li>
             </ul>
             <p>Perfect for daily drips: watches 3–4 topics, grabs 10–15 high-intent leads/day, and creates warm conversations with minimal noise.</p>
+          </div>
+
+          <div id="sales">
+            <h2>REX Agent 3: Sales Agent (NEW)</h2>
+            <p>The newest member of Agent Mode turns every reply into momentum. Sales Agent reads inbound messages, classifies intent, and either proposes polished drafts for your approval or replies automatically with your demo, pricing, and calendar — then tracks the thread through to the meeting and beyond.</p>
+
+            <h3>What Sales Agent does</h3>
+            <ul>
+              <li>Monitors inbound replies from sourcing/sequences (email today; LinkedIn/web optional).</li>
+              <li>Understands intent: positive, neutral, objection, OOO, unsubscribe.</li>
+              <li>Acts by policy (your rules):</li>
+              <ul>
+                <li><strong>Share &amp; ask</strong>: proposes 2–3 concise drafts for you to approve in the Action Inbox.</li>
+                <li><strong>Handle (auto-send)</strong>: replies instantly in your voice and offers your Calendly link.</li>
+              </ul>
+              <li>Sends the right assets (if you’ve added them): demo video, pricing page, one-pager, deck.</li>
+              <li>Books meetings (Calendly event type), captures basic qualifiers, and updates the thread status.</li>
+              <li>Respects guardrails: quiet hours, per-thread daily send limit, escalation on uncertainty.</li>
+              <li>Gives you control: review drafts, edit &amp; send, quick Offer Meeting, escalate, or view the full Timeline of a thread.</li>
+            </ul>
+
+            <h3>Quick start (two minutes)</h3>
+            <ol>
+              <li>Open: Settings → Sales Agent.</li>
+              <li>Pick a mode: <em>Handle (auto-send)</em> for speed, or <em>Share &amp; ask</em> to approve each reply.</li>
+              <li>Set a sender (required for sending): your verified SendGrid from-address.</li>
+              <li>Add assets (optional, recommended): demo URL, pricing page, one-pager.</li>
+              <li>Calendly event type: e.g., <code>hirepilot/15min-intro</code>.</li>
+              <li>Limits: keep 1 send per thread per day and quiet hours (e.g., 20:00–07:00) unless you know you need more.</li>
+              <li>Test tools (right on the page): Send test email; Simulate inbound reply to see the flow.</li>
+              <li>Done. New replies will route into Action Inbox (and Slack, if connected).</li>
+            </ol>
+            <p><em>Tip:</em> If sender or links are missing, you’ll see a banner with exactly what to complete. The agent never fabricates links.</p>
+
+            <h3>Two operating modes</h3>
+            <h4>1) Share &amp; ask (approval mode)</h4>
+            <ul>
+              <li>The agent proposes 2–3 drafts (short, clear CTA, your tone).</li>
+              <li>You approve in one click (or Edit &amp; Send) from the Action Inbox.</li>
+              <li>Great for teams adopting Agent Mode or for sensitive deals.</li>
+            </ul>
+            <h4>2) Handle (auto-send)</h4>
+            <ul>
+              <li>The agent replies automatically within your limits and quiet hours.</li>
+              <li>Positive replies get demo/pricing + Calendly. Objections get concise answers + proof (and still offer time).</li>
+              <li>If something’s unclear, it escalates for your review.</li>
+            </ul>
+
+            <h3>The experience: Action Inbox + Timeline</h3>
+            <p><strong>Action Inbox</strong> shows threads awaiting you with:</p>
+            <ul>
+              <li>Latest inbound message</li>
+              <li>Up to 3 proposed drafts</li>
+              <li>Buttons: Send this, Edit &amp; Send, Offer Meeting, Escalate</li>
+              <li>Quick Insert chips (Demo, Pricing, Calendly, One-pager)</li>
+            </ul>
+            <p><strong>Timeline Drawer</strong> (View timeline) shows the full history: inbound/outbound/drafts + actions.</p>
+
+            <h3>How it pairs with the other agents</h3>
+            <ul>
+              <li><strong>Sourcing Agent</strong> fills the top of the funnel from Apollo with sequenced outreach.</li>
+              <li><strong>Sniper Agent</strong> adds daily micro-lists from live social intent (commenters/likers/keywords).</li>
+              <li><strong>Sales Agent</strong> turns replies into calls and signups — hands-off or with your approval.</li>
+            </ul>
+            <p><em>Think: volume + intent → conversion.</em></p>
+
+            <h3>Recommended setup</h3>
+            <ul>
+              <li><strong>Sender</strong>: start with Single sender per workspace (simpler reputation).</li>
+              <li><strong>Tone</strong>: “friendly &amp; direct”, short replies (≤120 words), one CTA.</li>
+              <li><strong>Assets</strong>: add at least a demo and pricing link so the agent can answer fast.</li>
+              <li><strong>Calendly</strong>: set your default event type; the agent uses it on positive intent.</li>
+              <li><strong>Limits</strong>: keep 1 send/day/thread and quiet hours on; increase later if needed.</li>
+            </ul>
+
+            <h3>What can Sales Agent handle?</h3>
+            <ul>
+              <li>Answer “What’s the price? / Can I see a demo?” with your links + book a time.</li>
+              <li>Confirm interest and ask two qualifiers (team size, timeline) when helpful.</li>
+              <li>Recognize OOO and pause until they’re back.</li>
+              <li>Process unsubscribe cleanly.</li>
+              <li>Generate and send proposal PDFs for DFY/enterprise (optional add-on).</li>
+              <li>Keep a clean audit trail (per-thread actions &amp; messages).</li>
+            </ul>
+
+            <h3>Talk to REX: commands you can use today</h3>
+            <h4>Configure policy (once)</h4>
+            <ul>
+              <li>“REX, set my Sales Agent sender to jane@agency.com.”</li>
+              <li>“REX, add my demo https://youtu.be/abc and pricing https://myagency.com/pricing.”</li>
+              <li>“REX, use Calendly event myagency/15min-intro.”</li>
+              <li>“REX, switch Sales Agent to Share &amp; ask.”</li>
+              <li>“REX, set tone to professional and keep replies under 120 words.”</li>
+            </ul>
+
+            <h4>Per-thread actions</h4>
+            <ul>
+              <li>“REX, handle replies for thread {{threadId}} end-to-end.”</li>
+              <li>“REX, propose 3 drafts for thread {{threadId}}.”</li>
+              <li>“REX, offer a meeting on thread {{threadId}} with the 15-min link.”</li>
+              <li>“REX, send the DFY starter one-pager on thread {{threadId}} and propose a 30-min call.”</li>
+            </ul>
+
+            <h4>Sweeps &amp; reporting</h4>
+            <ul>
+              <li>“REX, sweep stuck threads from the last 24 hours and draft nudges.”</li>
+              <li>“REX, summarize this week’s inbound and what we booked.”</li>
+            </ul>
+
+            <h3>Real-world plays (copy/paste)</h3>
+            <h4>Get new recruiting clients</h4>
+            <p>“REX, when someone replies ‘interested’, send demo + pricing and offer my 15-min link. If no response in 48 hours, nudge with a short case study.”</p>
+            <h4>Fill a job req</h4>
+            <p>“REX, for candidates who ask about comp or timeline, answer briefly and book a 15-min screen with the hiring manager’s link.”</p>
+            <h4>Partnership outreach with VCs</h4>
+            <p>“REX, for partners who reply ‘tell me more’, send the 1-pager + 15-min link and ask for 2–3 portfolio intros.”</p>
+            <h4>International expansion</h4>
+            <p>“REX, when a non-US lead replies, use my international pricing link and suggest morning CST slots.”</p>
+
+            <h3>Guardrails &amp; good citizenship</h3>
+            <ul>
+              <li>No fabricated links: if you haven’t configured demo/pricing, the agent will omit them and escalate if needed.</li>
+              <li>Deliverability: we default to single sender, quiet hours, and a per-thread daily limit. You can raise limits as your program matures.</li>
+              <li>Transparency: every action is logged and visible in the Timeline.</li>
+            </ul>
+
+            <h3>Enable it now</h3>
+            <ol>
+              <li>Go to Settings → Sales Agent.</li>
+              <li>Add sender, demo, pricing, Calendly.</li>
+              <li>Choose Handle or Share &amp; ask.</li>
+              <li>Click Send test email to confirm everything is wired.</li>
+              <li>Watch the Action Inbox light up as replies arrive. 🎉</li>
+            </ol>
           </div>
 
           <div id="use-cases">
