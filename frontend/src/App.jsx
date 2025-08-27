@@ -456,8 +456,8 @@ function InnerApp() {
       <RexWidget
         mode={isAuthPage ? 'sales' : 'support'}
         config={{
-          demoUrl: (import.meta as any).env?.VITE_DEMO_URL || undefined,
-          calendlyUrl: (import.meta as any).env?.VITE_CALENDLY_URL || undefined,
+          demoUrl: (import.meta?.env && import.meta.env.VITE_DEMO_URL) || undefined,
+          calendlyUrl: (import.meta?.env && import.meta.env.VITE_CALENDLY_URL) || undefined,
         }}
       />
     </div>
