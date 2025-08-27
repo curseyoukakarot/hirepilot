@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import CampaignsPanel from './CampaignsPanel';
 import SniperTargetsPanel from './SniperTargetsPanel';
 import ActionInboxPanel from './ActionInboxPanel';
+import SalesAgentSettingsCard from './SalesAgentSettingsCard';
 
 export default function AgentModeCenter() {
   const [tab, setTab] = useState<'campaigns' | 'sniper' | 'inbox'>(() => {
@@ -40,10 +41,15 @@ export default function AgentModeCenter() {
         </button>
       </div>
 
-      <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
-        {tab === 'campaigns' && <CampaignsPanel />}
-        {tab === 'sniper' && <SniperTargetsPanel />}
-        {tab === 'inbox' && <ActionInboxPanel />}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+          {tab === 'campaigns' && <CampaignsPanel />}
+          {tab === 'sniper' && <SniperTargetsPanel />}
+          {tab === 'inbox' && <ActionInboxPanel />}
+        </div>
+        <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+          <SalesAgentSettingsCard />
+        </div>
       </div>
 
       {/* Nested drawers mount here */}
