@@ -43,6 +43,7 @@ export default function SalesAgentSettingsCard(){
   const [needs, setNeeds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [preview, setPreview] = useState('');
+  const [testTo, setTestTo] = useState('');
 
   useEffect(() => { (async()=>{
     try {
@@ -149,6 +150,34 @@ export default function SalesAgentSettingsCard(){
         <div className="text-sm font-medium text-gray-200 mb-1">Live preview</div>
         <pre className="rounded border border-slate-700 bg-slate-900 p-3 text-sm text-gray-200 whitespace-pre-wrap">{previewBody}</pre>
         <button className="mt-2 rounded bg-slate-700 hover:bg-slate-600 px-3 py-1.5 text-xs text-white" onClick={()=> setPreview(previewBody)}>Refresh preview</button>
+      </div>
+
+      {/* Test tools */}
+      <div className="rounded-lg border border-slate-700 bg-slate-900 p-3">
+        <div className="font-semibold text-gray-100 mb-1">Test tools</div>
+        <div className="text-xs text-gray-400 mb-2">Send a test email using your configured sender. If you leave the field blank, we’ll try your account email.</div>
+        <div className="flex items-center gap-2">
+          <input
+            placeholder="you@yourdomain.com"
+            className="flex-1 rounded border border-slate-600 bg-slate-950 p-2 text-sm text-white"
+            value={testTo}
+            onChange={(e)=> setTestTo(e.target.value)}
+          />
+          <button
+            className="rounded bg-emerald-600 hover:bg-emerald-500 px-3 py-2 text-xs text-white"
+            onClick={async ()=>{
+              try {
+                const payload = testTo && testTo.length ? { to: testTo } : {} as any;
+                const res = await apiPost('/api/sales/test-email', payload);
+                alert(res?.ok ? `Test email sent to ${res?.sent?.to}` : `Failed: ${res?.message || res?.error || 'unknown'}`);
+              } catch (e:any) {
+                alert(`Failed: ${e?.message || e}`);
+              }
+            }}
+          >
+            Send test email
+          </button>
+        </div>
       </div>
     </div>
   );
