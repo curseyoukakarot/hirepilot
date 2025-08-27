@@ -88,18 +88,38 @@ router.post('/chat', async (req: Request, res: Response) => {
         if ((!sources || sources.length === 0)) {
           const { data: blogPages } = await supabase
             .from('rex_kb_pages')
-            .select('url,title')
+            .select('id,url,title')
             .ilike('url', '%/blog/%')
             .textSearch('text', query, { type: 'websearch' })
             .limit(4);
-          if (blogPages?.length) sources = blogPages.map((p: any) => ({ title: p.title, url: p.url }));
+          if (blogPages?.length) {
+            sources = blogPages.map((p: any) => ({ title: p.title, url: p.url }));
+            const ids = blogPages.map((p: any) => p.id);
+            const { data: chunks } = await supabase
+              .from('rex_kb_chunks')
+              .select('content,page_id,ordinal')
+              .in('page_id', ids)
+              .order('ordinal', { ascending: true })
+              .limit(8);
+            if (chunks?.length) contextSnippets = chunks.map((c: any) => c.content).filter(Boolean).slice(0, 4);
+          }
           if ((!sources || sources.length === 0)) {
             const { data: pages } = await supabase
               .from('rex_kb_pages')
-              .select('url,title')
+              .select('id,url,title')
               .textSearch('text', query, { type: 'websearch' })
               .limit(4);
-            if (pages?.length) sources = pages.map((p: any) => ({ title: p.title, url: p.url }));
+            if (pages?.length) {
+              sources = pages.map((p: any) => ({ title: p.title, url: p.url }));
+              const ids = pages.map((p: any) => p.id);
+              const { data: chunks2 } = await supabase
+                .from('rex_kb_chunks')
+                .select('content,page_id,ordinal')
+                .in('page_id', ids)
+                .order('ordinal', { ascending: true })
+                .limit(8);
+              if (chunks2?.length) contextSnippets = chunks2.map((c: any) => c.content).filter(Boolean).slice(0, 4);
+            }
           }
         }
       } catch (ragErr) {
@@ -178,6 +198,24 @@ router.post('/chat', async (req: Request, res: Response) => {
     if (deterministic) {
       const forced = deterministicKnowledge[deterministic];
       sources = forced.concat(sources || []).slice(0, 4);
+      // If we have no context yet, pull top chunks for these forced URLs
+      if (!contextSnippets.length) {
+        const forcedUrls = forced.map(f => f.url);
+        const { data: pgs } = await supabase
+          .from('rex_kb_pages')
+          .select('id,url,title')
+          .in('url', forcedUrls);
+        if (pgs?.length) {
+          const ids = pgs.map((p: any) => p.id);
+          const { data: ch } = await supabase
+            .from('rex_kb_chunks')
+            .select('content,page_id,ordinal')
+            .in('page_id', ids)
+            .order('ordinal', { ascending: true })
+            .limit(8);
+          if (ch?.length) contextSnippets = ch.map((c: any) => c.content).filter(Boolean).slice(0, 4);
+        }
+      }
     }
 
     const ragBlock = contextSnippets.length ? `\n\nContext (prefer blog articles when available):\n${contextSnippets.map((s, i) => `(${i+1}) ${s}`).join('\n')}` : '';
