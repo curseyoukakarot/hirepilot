@@ -115,6 +115,8 @@ router.post('/chat', async (req: Request, res: Response) => {
     const settings: Record<string, any> = {};
     (settingsRows || []).forEach((r: any) => { settings[r.key] = r.value; });
 
+    const CANONICAL = 'https://thehirepilot.com';
+
     function salesPrompt(): string {
       const pricing = settings['pricing_tiers'] ? `Pricing tiers: ${JSON.stringify(settings['pricing_tiers'])}. Link: https://thehirepilot.com/pricing.` : 'Pricing available at https://thehirepilot.com/pricing.';
       const demo = settings['rex_demo_url'] ? `Demo: ${settings['rex_demo_url']}.` : '';
@@ -125,7 +127,9 @@ router.post('/chat', async (req: Request, res: Response) => {
         ? `Known FAQs (prefer these verbatim if the user's question matches): ${JSON.stringify(settings['rex_sales_faq'])}.`
         : '';
       return [
-        'You are HirePilot Sales Assistant. Be concise, value-forward.',
+        `You are HirePilot Sales Assistant for domain ${CANONICAL}. Be concise, value-forward.`,
+        `Ground every answer strictly on in-domain content from ${CANONICAL} (homepage, pricing, blog, docs).`,
+        'If you cannot ground the answer in provided context or an in-domain source link, say "I don’t have a verified answer in our docs yet" and suggest Book a Demo or Contact Support. Do NOT guess.',
         pricing,
         'Offer next steps when helpful: Watch demo and Book Calendly.',
         demo,
@@ -133,7 +137,7 @@ router.post('/chat', async (req: Request, res: Response) => {
         company,
         citations,
         faqs,
-        'Never invent features. If unknown, say so briefly.',
+        'Never invent features. If unknown, say so briefly and provide the most relevant in-domain link.',
         'Output JSON only with keys {"content", "sources", "tutorial"}. "sources" should be an array of {title,url} you actually cited; "tutorial" usually null in sales.'
       ].filter(Boolean).join(' ');
     }
@@ -141,10 +145,12 @@ router.post('/chat', async (req: Request, res: Response) => {
     function supportPrompt(): string {
       const citations = sources?.length ? 'Include source links for steps where applicable.' : '';
       return [
-        'You are HirePilot Support Assistant. Provide step-by-step instructions aligned to actual UI labels (e.g., "Campaigns → New Campaign").',
+        `You are HirePilot Support Assistant for domain ${CANONICAL}.`,
+        `ONLY answer using in-domain sources from ${CANONICAL} and the provided context snippets.`,
+        'Provide step-by-step instructions aligned to actual UI labels (e.g., "Campaigns → New Campaign").',
         'Prefer concise bullets. Call out permissions or human actions when required; suggest "Contact Support" when blocked.',
         citations,
-        'Never invent features. Use provided sources for citations.',
+        'Never invent features. If you cannot cite an in-domain source, say you are unsure and point to the closest relevant link.',
         'Output JSON only with keys {"content", "sources", "tutorial"}.',
         'If a tutorial makes sense, include {"tutorial": {"title": string, "steps": string[]}} with clear, sequential steps.'
       ].join(' ');
