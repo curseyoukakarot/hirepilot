@@ -2,7 +2,7 @@ import React from 'react';
 
 type Props = {
   suggestions?: string[];
-  onPick: (text: string) => void;
+  onPick: (text: any) => void;
 };
 
 export const QuickSuggestions: React.FC<Props> = ({ suggestions, onPick }) => {

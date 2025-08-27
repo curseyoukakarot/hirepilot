@@ -161,6 +161,19 @@ router.post('/chat', async (req: Request, res: Response) => {
     const citationBlock = sources?.length ? `\n\nWhen answering, reference these sources where relevant:\n${sources.map(s => `- ${s.title} (${s.url})`).join('\n')}` : '';
 
     // Include RAG snippets to ground the answer
+    // Deterministic knowledge routing for common questions
+    const deterministicKnowledge: Record<string, { title: string; url: string }[]> = {
+      'how do i launch a campaign': [ { title: 'Flow of HirePilot', url: 'https://thehirepilot.com/blog/flow-of-hirepilot' } ],
+      "what's included in pro plan": [ { title: 'HirePilot Pricing', url: 'https://thehirepilot.com/pricing' } ],
+      'what is hirepilot': [ { title: 'HirePilot Home', url: 'https://thehirepilot.com/' } ],
+    };
+    const key = (lastUser?.text || '').toLowerCase().trim();
+    const deterministic = Object.keys(deterministicKnowledge).find(k => key.includes(k));
+    if (deterministic) {
+      const forced = deterministicKnowledge[deterministic];
+      sources = forced.concat(sources || []).slice(0, 4);
+    }
+
     const ragBlock = contextSnippets.length ? `\n\nContext (prefer blog articles when available):\n${contextSnippets.map((s, i) => `(${i+1}) ${s}`).join('\n')}` : '';
     const oaiMessages = [
       { role: 'system', content: `${sys}${citationBlock}${ragBlock}\nReturn ONLY JSON.` },
