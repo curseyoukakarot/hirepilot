@@ -63,17 +63,34 @@ router.post('/chat', async (req: Request, res: Response) => {
       await supabase.from('rex_widget_messages').insert({ session_id: sessionId, role: 'user', text: lastUser.text });
     }
 
-    // RAG sources (support/rex modes)
+    // RAG sources (support/rex modes): hybrid semantic + keyword
     let sources: { title: string; url: string }[] | undefined = undefined;
+    let contextSnippets: string[] = [];
     if (mode !== 'sales' && lastUser?.text) {
-      const query = lastUser.text.slice(0, 512);
-      const { data: pages } = await supabase
-        .from('rex_kb_pages')
-        .select('url,title')
-        .textSearch('text', query, { type: 'websearch' })
-        .limit(4);
-      if (pages && pages.length) {
-        sources = pages.map((p: any) => ({ title: p.title, url: p.url }));
+      const query = lastUser.text.slice(0, 1000);
+      try {
+        // 1) Embed query
+        const emb = await openai.embeddings.create({ model: 'text-embedding-3-small', input: query });
+        const embedding = emb.data?.[0]?.embedding;
+        // 2) Call RPC for vector match
+        if (embedding) {
+          const { data: vec } = await supabase.rpc('match_kb_chunks', { query_embedding: embedding as any, match_count: 4 });
+          if (vec?.length) {
+            sources = vec.map((r: any) => ({ title: r.title, url: r.url }));
+            contextSnippets = vec.map((r: any) => r.content).filter(Boolean).slice(0, 4);
+          }
+        }
+        // 3) Fallback to text search if vector returns nothing
+        if ((!sources || sources.length === 0)) {
+          const { data: pages } = await supabase
+            .from('rex_kb_pages')
+            .select('url,title')
+            .textSearch('text', query, { type: 'websearch' })
+            .limit(4);
+          if (pages?.length) sources = pages.map((p: any) => ({ title: p.title, url: p.url }));
+        }
+      } catch (ragErr) {
+        await logEvent('rex_widget_rag_error', { error: String(ragErr) });
       }
     }
 
@@ -126,8 +143,10 @@ router.post('/chat', async (req: Request, res: Response) => {
     const sys = mode === 'sales' ? salesPrompt() : mode === 'support' ? supportPrompt() : rexPrompt();
     const citationBlock = sources?.length ? `\n\nWhen answering, reference these sources where relevant:\n${sources.map(s => `- ${s.title} (${s.url})`).join('\n')}` : '';
 
+    // Include RAG snippets to ground the answer
+    const ragBlock = contextSnippets.length ? `\n\nContext:\n${contextSnippets.map((s, i) => `(${i+1}) ${s}`).join('\n')}` : '';
     const oaiMessages = [
-      { role: 'system', content: `${sys}${citationBlock}\nReturn ONLY JSON.` },
+      { role: 'system', content: `${sys}${citationBlock}${ragBlock}\nReturn ONLY JSON.` },
       ...messages.map(m => ({ role: m.role, content: m.text })) as any,
     ];
 
