@@ -193,6 +193,24 @@ router.get('/config', async (_req: Request, res: Response) => {
   }
 });
 
+// Admin-only trigger to reindex KB (assumes auth middleware or simple token)
+router.post('/kb/reindex', async (req: Request, res: Response) => {
+  try {
+    const token = req.headers['x-admin-token'] as string | undefined;
+    if (!token || token !== process.env.ADMIN_TOKEN) {
+      res.status(401).json({ error: 'unauthorized' });
+      return;
+    }
+    // Call Supabase Edge Function
+    const fnUrl = `${process.env.SUPABASE_URL}/functions/v1/crawl_kb`;
+    const r = await axios.post(fnUrl, {}, { headers: { Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}` } });
+    res.json(r.data);
+  } catch (err: any) {
+    await logEvent('rex_widget_error', { route: 'kb/reindex', error: err?.message || String(err), stack: err?.stack });
+    res.status(500).json({ error: err?.message || 'Internal error' });
+  }
+});
+
 export default router;
 
 
