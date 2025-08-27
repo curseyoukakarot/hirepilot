@@ -77,33 +77,77 @@ router.post('/chat', async (req: Request, res: Response) => {
       }
     }
 
-    // Build system prompt by mode
-    const modeSystem: Record<string, string> = {
-      sales: 'You are HirePilot Sales Assistant. Be concise, friendly, and include CTAs when helpful (demo, book a call).',
-      support: 'You are HirePilot Support Assistant. Provide step-by-step instructions referencing product docs. Cite sources as provided.',
-      rex: 'You are REX, a power assistant for HirePilot. Help with advanced tasks and cite sources when applicable.'
-    };
-    const sys = modeSystem[mode] || modeSystem.support;
+    // Fetch settings for prompts (pricing, demo/calendly)
+    const { data: settingsRows } = await supabase
+      .from('system_settings')
+      .select('key,value')
+      .in('key', ['pricing_tiers', 'rex_demo_url', 'rex_calendly_url']);
+    const settings: Record<string, any> = {};
+    (settingsRows || []).forEach((r: any) => { settings[r.key] = r.value; });
+
+    function salesPrompt(): string {
+      const pricing = settings['pricing_tiers'] ? `Pricing tiers: ${JSON.stringify(settings['pricing_tiers'])}. Link: https://thehirepilot.com/pricing.` : 'Pricing available at https://thehirepilot.com/pricing.';
+      const demo = settings['rex_demo_url'] ? `Demo: ${settings['rex_demo_url']}.` : '';
+      const cal = settings['rex_calendly_url'] ? `Book: ${settings['rex_calendly_url']}.` : '';
+      const company = context?.rb2b?.company?.name ? `The visitor appears to be from ${context?.rb2b?.company?.name}. Tailor 1-2 sentences to their industry/size.` : '';
+      const citations = sources?.length ? `When referencing docs/blog, include concise citations from provided sources.` : '';
+      return [
+        'You are HirePilot Sales Assistant. Be concise, value-forward.',
+        pricing,
+        'Offer next steps when helpful: Watch demo and Book Calendly.',
+        demo,
+        cal,
+        company,
+        citations,
+        'Never invent features. If unknown, say so briefly.',
+        'Output JSON only with keys {"content", "sources", "tutorial"}. "sources" should be an array of {title,url} you actually cited; "tutorial" usually null in sales.'
+      ].filter(Boolean).join(' ');
+    }
+
+    function supportPrompt(): string {
+      const citations = sources?.length ? 'Include source links for steps where applicable.' : '';
+      return [
+        'You are HirePilot Support Assistant. Provide step-by-step instructions aligned to actual UI labels (e.g., "Campaigns → New Campaign").',
+        'Prefer concise bullets. Call out permissions or human actions when required; suggest "Contact Support" when blocked.',
+        citations,
+        'Never invent features. Use provided sources for citations.',
+        'Output JSON only with keys {"content", "sources", "tutorial"}.',
+        'If a tutorial makes sense, include {"tutorial": {"title": string, "steps": string[]}} with clear, sequential steps.'
+      ].join(' ');
+    }
+
+    function rexPrompt(): string {
+      return [
+        supportPrompt(),
+        'You may use structured output as described. Keep answers accurate and actionable.'
+      ].join(' ');
+    }
+
+    const sys = mode === 'sales' ? salesPrompt() : mode === 'support' ? supportPrompt() : rexPrompt();
     const citationBlock = sources?.length ? `\n\nWhen answering, reference these sources where relevant:\n${sources.map(s => `- ${s.title} (${s.url})`).join('\n')}` : '';
 
     const oaiMessages = [
-      { role: 'system', content: `${sys}${citationBlock}` },
+      { role: 'system', content: `${sys}${citationBlock}\nReturn ONLY JSON.` },
       ...messages.map(m => ({ role: m.role, content: m.text })) as any,
     ];
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: oaiMessages,
-      temperature: 0.3,
+      temperature: 0.2,
     });
 
-    const text = completion.choices?.[0]?.message?.content || 'Thanks!';
-    const assistantPayload: any = { text, sources };
+    const raw = completion.choices?.[0]?.message?.content || '';
+    let parsed: any = null;
+    try { parsed = JSON.parse(raw); } catch {}
+    const content = parsed?.content || raw || 'Thanks!';
+    const outSources = Array.isArray(parsed?.sources) && parsed.sources.length ? parsed.sources : (sources || []);
+    const tutorial = parsed?.tutorial && parsed.tutorial.title && Array.isArray(parsed.tutorial.steps) ? parsed.tutorial : null;
 
     // Persist assistant message
-    await supabase.from('rex_widget_messages').insert({ session_id: sessionId, role: 'assistant', text, sources: sources ? sources as any : null });
+    await supabase.from('rex_widget_messages').insert({ session_id: sessionId, role: 'assistant', text: content, sources: outSources as any, tutorial });
 
-    res.json({ threadId: sessionId, message: assistantPayload });
+    res.json({ threadId: sessionId, message: { text: content, sources: outSources, tutorial } });
   } catch (err: any) {
     await logEvent('rex_widget_error', { route: 'chat', error: err?.message || String(err), stack: err?.stack, body: req.body });
     res.status(500).json({ error: err?.message || 'Internal error' });
