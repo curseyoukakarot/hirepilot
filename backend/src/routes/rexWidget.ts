@@ -149,7 +149,7 @@ router.post('/chat', async (req: Request, res: Response) => {
       return [
         `You are HirePilot Sales Assistant for domain ${CANONICAL}. Be concise, value-forward.`,
         `Ground every answer strictly on in-domain content from ${CANONICAL} (homepage, pricing, blog, docs).`,
-        'If you cannot ground the answer in provided context or an in-domain source link, say "I don’t have a verified answer in our docs yet" and suggest Book a Demo or Contact Support. Do NOT guess.',
+        'Only answer if you can directly quote or summarize from the provided Context snippets or linked in-domain pages. If you cannot, respond: "No verified answer available" and suggest Book a Demo or Contact Support. Do NOT guess.',
         pricing,
         'Offer next steps when helpful: Watch demo and Book Calendly.',
         demo,
@@ -166,7 +166,7 @@ router.post('/chat', async (req: Request, res: Response) => {
       const citations = sources?.length ? 'Include source links for steps where applicable.' : '';
       return [
         `You are HirePilot Support Assistant for domain ${CANONICAL}.`,
-        `ONLY answer using in-domain sources from ${CANONICAL} and the provided context snippets.`,
+        `ONLY answer using in-domain sources from ${CANONICAL} and the provided Context snippets.`,
         'Provide step-by-step instructions aligned to actual UI labels (e.g., "Campaigns → New Campaign").',
         'Prefer concise bullets. Call out permissions or human actions when required; suggest "Contact Support" when blocked.',
         citations,
@@ -274,6 +274,16 @@ router.post('/chat', async (req: Request, res: Response) => {
           outSources.push({ title: 'HirePilot Pricing', url: 'https://thehirepilot.com/pricing' });
         }
       } catch {}
+    }
+
+    // Optional: debug diagnostics
+    if ((req.query as any)?.debug === 'true') {
+      await logEvent('rex_widget_debug', {
+        q: lastUser?.text,
+        top_sources: (sources || []).slice(0, 10),
+        used_sources: outSources,
+        snippet_lengths: contextSnippets.map(s => s.length),
+      });
     }
 
     // Persist assistant message
