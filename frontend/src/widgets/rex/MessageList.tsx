@@ -1,16 +1,17 @@
-import React from 'react';
-import type { RexMessage } from './types';
 import React, { useState } from 'react';
+import type { RexMessage } from './types';
 
 type Props = {
   messages: RexMessage[];
 };
 
 export const MessageList: React.FC<Props> = ({ messages }) => {
+  const [openTutorialById, setOpenTutorialById] = useState<Record<string, boolean>>({});
   return (
     <div className="space-y-3 overflow-y-auto px-3 py-4">
       {messages.map((m) => {
-        const [open, setOpen] = useState(false);
+        const isOpen = !!openTutorialById[m.id];
+        const toggle = () => setOpenTutorialById(prev => ({ ...prev, [m.id]: !prev[m.id] }));
         return (
         <div key={m.id} className="flex flex-col">
           <div className={
@@ -45,11 +46,11 @@ export const MessageList: React.FC<Props> = ({ messages }) => {
           )}
           {!!m.tutorial && m.role === 'assistant' && (
             <div className="mt-2 mr-auto w-full max-w-[80%] rounded-xl border border-gray-200 bg-white p-3">
-              <button className="flex w-full items-center justify-between text-left text-sm font-semibold" onClick={() => setOpen(o => !o)}>
+              <button className="flex w-full items-center justify-between text-left text-sm font-semibold" onClick={toggle}>
                 <span>{m.tutorial.title}</span>
-                <span className="text-xs text-gray-600">{open ? 'Hide' : 'Show me how'}</span>
+                <span className="text-xs text-gray-600">{isOpen ? 'Hide' : 'Show me how'}</span>
               </button>
-              {open && (
+              {isOpen && (
                 <ol className="mt-2 list-decimal space-y-2 pl-5 text-sm text-gray-800">
                   {m.tutorial.steps.map((step, idx) => (
                     <li key={`${m.id}_t_${idx}`}>{step}</li>
