@@ -1,0 +1,19 @@
+@keyframes rex-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.7); }
+  50% { transform: scale(1.03); box-shadow: 0 0 0 10px rgba(37, 99, 235, 0); }
+}
+
+.rex-animate-pulse {
+  animation: rex-pulse 2s infinite;
+}
+
+.rex-slide-in {
+  animation: rex-slide-in 220ms ease-out;
+}
+
+@keyframes rex-slide-in {
+  from { transform: translateY(16px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+
