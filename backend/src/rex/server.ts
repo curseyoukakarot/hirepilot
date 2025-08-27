@@ -102,6 +102,7 @@ async function apiAsUser(userId: string, endpoint: string, options: { method: st
 // Minimal REX MCP server (stdio transport)
 // ---------------------------------------------------------------------------------
 const server = new Server({ name: 'REX Server', version: '0.1.0' });
+export { api };
 
 // ------------------ Tool capabilities ------------------
 server.registerCapabilities({
@@ -1090,6 +1091,10 @@ server.registerCapabilities({
     }
   }
 });
+
+// Register Sales Agent tools
+import { salesTools } from './agents-mcp/sales.tools';
+for (const t of salesTools as any[]) (server as any).tool(t);
 
 // Attach stdio transport (must be after capabilities registration)
 server.connect(new StdioServerTransport());
