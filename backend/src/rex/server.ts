@@ -6,6 +6,7 @@ import { launchQueue } from '../../api/campaigns/launch';
 import sgMail from '@sendgrid/mail';
 import { personalizeMessage } from '../../utils/messageUtils';
 import { canonicalFlows, searchSupport, whitelistPages } from './knowledge.widget';
+import { widgetTools } from './widgetTools';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const {
   sourceLeads,
@@ -108,6 +109,8 @@ export { api };
 // ------------------ Tool capabilities ------------------
 server.registerCapabilities({
   tools: {
+    // ===== rex_widget_support toolset (safe, read-only) =====
+    ...Object.fromEntries(Object.entries(widgetTools).map(([k,v]) => [k, { parameters:{}, handler: v.handler } ])),
     add_numbers: {
       parameters: { a: { type: 'number' }, b: { type: 'number' } },
       handler: async ({ a, b }: { a: number; b: number }) => a + b
