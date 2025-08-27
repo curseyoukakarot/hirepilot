@@ -282,6 +282,12 @@ Return a JSON object only.`
     ];
 
     // Map common queries to flow tool calls
+    // Normalize history messages to avoid content array shape errors
+    const history = (messages || []).map((m: any) => {
+      const content = typeof m.content === 'string' ? m.content : (typeof m.text === 'string' ? m.text : JSON.stringify(m.content || m.text || ''));
+      return { role: m.role, content };
+    });
+
     const userQ = (lastUser?.text || '').toLowerCase();
     const flowMap: Record<string, string> = {
       'launch a campaign': 'launch_campaign',
@@ -290,7 +296,7 @@ Return a JSON object only.`
       'follow-ups': 'set_followups',
     };
     const flowKey = Object.keys(flowMap).find(k => userQ.includes(k));
-    const initialMessages: any[] = [popupSystem, ...messages.map(m => ({ role: m.role, content: m.text }))];
+    const initialMessages: any[] = [popupSystem, ...history];
     if (flowKey) {
       initialMessages.push({ role:'user', content:`TOOL: rex_widget_support_get_flow_steps { "flow": "${flowMap[flowKey]}" }` });
     }
