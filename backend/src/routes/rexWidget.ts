@@ -287,7 +287,7 @@ router.post('/chat', async (req: Request, res: Response) => {
 
     const ragBlock = contextSnippets.length ? `\n\nContext (prefer blog articles when available):\n${contextSnippets.map((s, i) => `(${i+1}) ${s}`).join('\n')}` : '';
     const buildGroundedMessages = () => ([
-      { role: 'system', content: `${sys}${citationBlock}${ragBlock}\nReturn ONLY a JSON object with keys \"content\", \"sources\", \"tutorial\". Ensure this is valid JSON.` },
+      { role: 'system', content: `${sys}${citationBlock}${ragBlock}\nReturn ONLY a JSON object with keys \"content\", \"sources\", \"tutorial\". Ensure this is valid JSON. Limit content to 120 words unless steps are required.` },
       ...messages.map(m => ({ role: m.role, content: m.text })) as any,
     ]);
 
@@ -317,6 +317,11 @@ router.post('/chat', async (req: Request, res: Response) => {
         'i recommend you to book a demo',
       ];
       return weakPhrases.some(p => t.includes(p)) || (outSources || []).length === 0;
+    }
+
+    // Guardrail: if sales info intent and no sources, avoid fabrication
+    if ((/price|pricing|pro plan|plans?|what is hirepilot|compare|different|vs\b/i.test(lastUser?.text || '')) && (!sources || sources.length === 0)) {
+      content = "I’m not sure based on what I can see. Want me to point you to docs or connect you with a human?";
     }
 
     // If still generic and we have RAG snippets, nudge a second pass to produce concrete steps.

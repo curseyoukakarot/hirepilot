@@ -70,14 +70,16 @@ export function planTurn(input: { text: string; mode: AgentMode; meta: SessionMe
   let say = '';
 
   if (input.mode === 'sales') {
-    if (state === 'GREETER' || intent === 'greeting_smalltalk') {
+    // Avoid repeating greeter once we've left GREETER state
+    if (state === 'GREETER' || (intent === 'greeting_smalltalk' && (input.meta.state === undefined || input.meta.state === 'GREETER'))) {
       say = "Hey! I’m REX 👋 I can show you how HirePilot sources candidates and runs outreach. Are you hiring for clients or your own team?";
-      return { intent, state:'DISCOVERY', actions, response: { say, cta: { type:'link', label:'Watch 2‑min demo', url: input.config.demoUrl || 'https://thehirepilot.com/' } } };
+      return { intent: 'greeting_smalltalk', state:'DISCOVERY', actions, response: { say, cta: { type:'link', label:'Watch 2‑min demo', url: input.config.demoUrl || 'https://thehirepilot.com/' } } };
     }
     if (intent === 'pricing_plan') {
       actions.push({ tool:'pricing.get', args:{} });
       say = 'Here’s a quick overview of plans. Want me to send pricing details or book time to walk through setup?';
-      return { intent, state:'CTA', actions, response: { say, cta: { type:'calendly', label:'Book 15‑min', url: input.config.calendlyUrl || '' } } };
+      const preferLead = !(input.meta.collected && input.meta.collected.email);
+      return { intent, state:'CTA', actions, response: { say, cta: preferLead ? { type:'lead_form', label:'Share your details' } : { type:'calendly', label:'Book 15‑min', url: input.config.calendlyUrl || '' } } };
     }
     if (intent === 'comparison') {
       actions.push({ tool:'kb.search', args:{ query: input.text, k: 6 } });
@@ -91,14 +93,16 @@ export function planTurn(input: { text: string; mode: AgentMode; meta: SessionMe
   }
 
   // Support mode
-  if (state === 'SUPPORT_GREETER' || intent === 'greeting_smalltalk') {
+  if (state === 'SUPPORT_GREETER' || (intent === 'greeting_smalltalk' && (input.meta.state === undefined || input.meta.state === 'SUPPORT_GREETER'))) {
     say = 'Hey! Need help with anything here? I can walk you through campaigns, sequences, and integrations.';
-    return { intent, state:'GET_CONTEXT', actions, response: { say, cta: { type:'link', label:'Open docs', url:'https://thehirepilot.com/' } } };
+    return { intent: 'greeting_smalltalk', state:'GET_CONTEXT', actions, response: { say, cta: { type:'link', label:'Open docs', url:'https://thehirepilot.com/' } } };
   }
   if (intent === 'support_howto') {
     actions.push({ tool:'kb.search', args:{ query: input.text, k: 6 } });
+    // Suggest deep link for common email sending issues
+    const deepLink = /email|send|inbox|deliver/i.test(input.text) ? '/app/settings/integrations' : undefined;
     say = 'Here are the exact steps. Want me to open the page for you?';
-    return { intent, state:'GUIDE', actions, response: { say, cta: { type:'none', label:'' } } };
+    return { intent, state:'GUIDE', actions, response: { say, cta: deepLink ? { type:'link', label:'Open Sender settings', url: deepLink } : { type:'none', label:'' } } };
   }
   if (intent === 'support_bug') {
     say = 'Sorry about that — can you paste the exact error message or a screenshot?';
