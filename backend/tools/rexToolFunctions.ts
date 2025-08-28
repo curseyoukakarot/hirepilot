@@ -116,15 +116,17 @@ export async function sourceLeads({
     console.warn('[sourceLeads] LinkedIn requested; falling back to Apollo search for immediate results');
   }
 
-  // 1. Determine Apollo API key
-  let apolloApiKey: string | undefined;
+  // 1. Determine Apollo API key with fallback: personal -> super admin -> platform
   const { data: settingsRow } = await supabaseDb
     .from('user_settings')
     .select('apollo_api_key')
     .eq('user_id', userId)
     .single();
 
-  apolloApiKey = settingsRow?.apollo_api_key ?? process.env.HIREPILOT_APOLLO_API_KEY;
+  const personalKey = settingsRow?.apollo_api_key;
+  const superAdminKey = process.env.SUPER_ADMIN_APOLLO_API_KEY;
+  const platformKey = process.env.HIREPILOT_APOLLO_API_KEY;
+  const apolloApiKey: string | undefined = personalKey || superAdminKey || platformKey;
 
   if (!apolloApiKey) throw new Error('No Apollo API key configured');
 
@@ -488,6 +490,7 @@ export async function enrichLead({
   }
 
     try {
+      // Use fallback-aware enrichment service (personal -> super admin -> platform)
       const resp = await apolloEnrichLead({
         leadId,
         userId,

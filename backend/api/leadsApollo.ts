@@ -62,16 +62,11 @@ router.post('/search', requireAuth, async (req, res) => {
 
     if (settingsError) console.error('[Apollo Search] settings fetch error:', settingsError);
 
-    // Determine which API key to use
-    let apiKey: string | undefined;
-
-    if (isRecruitPro) {
-      apiKey = process.env.SUPER_ADMIN_APOLLO_API_KEY;
-    } else if (settings?.apollo_api_key) {
-      apiKey = settings.apollo_api_key;
-    } else {
-      apiKey = process.env.SUPER_ADMIN_APOLLO_API_KEY; // Fallback for backwards compatibility
-    }
+    // Determine which API key to use (prefer personal, then super admin, then platform)
+    const personalKey = settings?.apollo_api_key;
+    const superAdminKey = process.env.SUPER_ADMIN_APOLLO_API_KEY;
+    const platformKey = process.env.HIREPILOT_APOLLO_API_KEY;
+    const apiKey = personalKey || superAdminKey || platformKey;
 
     if (!apiKey) {
       res.status(401).json({ error: 'No valid Apollo API key found' });
@@ -263,16 +258,11 @@ router.get('/locations', requireAuth, async (req, res) => {
 
     if (settingsError) console.error('[Apollo Locations] settings fetch error:', settingsError);
 
-    // Determine which API key to use
-    let apiKey: string | undefined;
-
-    if (isRecruitPro) {
-      apiKey = process.env.SUPER_ADMIN_APOLLO_API_KEY;
-    } else if (settings?.apollo_api_key) {
-      apiKey = settings.apollo_api_key;
-    } else {
-      apiKey = process.env.SUPER_ADMIN_APOLLO_API_KEY; // Fallback for backwards compatibility
-    }
+    // Determine which API key to use (prefer personal, then super admin, then platform)
+    const personalKey = settings?.apollo_api_key;
+    const superAdminKey = process.env.SUPER_ADMIN_APOLLO_API_KEY;
+    const platformKey = process.env.HIREPILOT_APOLLO_API_KEY;
+    const apiKey = personalKey || superAdminKey || platformKey;
 
     if (!apiKey) {
       res.status(401).json({ error: 'No valid Apollo API key found' });

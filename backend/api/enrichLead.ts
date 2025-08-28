@@ -45,18 +45,20 @@ export default async function enrichLead(req: Request, res: Response) {
       lead_id = lead.id;
     }
 
-    // Get user settings to check Apollo API key
+    // Resolve Apollo API key with fallback: personal -> super admin -> platform
     const { data: settings, error: settingsError } = await supabase
       .from('user_settings')
-      .select('*')
+      .select('apollo_api_key')
       .eq('user_id', user_id)
       .single();
 
     if (settingsError) throw settingsError;
 
-    // Check if user has their own Apollo API key
-    const hasOwnApolloKey = !!settings?.apollo_api_key;
-    const apolloApiKey = hasOwnApolloKey ? settings.apollo_api_key : process.env.HIREPILOT_APOLLO_API_KEY;
+    const personalKey = settings?.apollo_api_key;
+    const superAdminKey = process.env.SUPER_ADMIN_APOLLO_API_KEY;
+    const platformKey = process.env.HIREPILOT_APOLLO_API_KEY;
+    const apolloApiKey = personalKey || superAdminKey || platformKey;
+    const hasOwnApolloKey = !!personalKey;
 
     // Get user's credit balance
     const { data: userCredits, error: creditsError } = await supabase

@@ -35,16 +35,11 @@ export default async function searchApolloLeads(req: Request, res: Response) {
 
     if (settingsError) throw settingsError;
 
-    // Determine which API key to use
-    let apolloApiKey: string | undefined;
-
-    if (isRecruitPro) {
-      apolloApiKey = process.env.SUPER_ADMIN_APOLLO_API_KEY;
-    } else if (settings?.apollo_api_key) {
-      apolloApiKey = settings.apollo_api_key;
-    } else {
-      apolloApiKey = process.env.HIREPILOT_APOLLO_API_KEY;
-    }
+    // Determine which API key to use (prefer personal, then super admin, then platform)
+    const personalKey = settings?.apollo_api_key;
+    const superAdminKey = process.env.SUPER_ADMIN_APOLLO_API_KEY;
+    const platformKey = process.env.HIREPILOT_APOLLO_API_KEY;
+    const apolloApiKey: string | undefined = personalKey || superAdminKey || platformKey;
 
     if (!apolloApiKey) {
       res.status(400).json({ error: 'No Apollo API key found' });

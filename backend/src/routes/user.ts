@@ -72,15 +72,15 @@ router.get('/settings', requireAuth, async (req: Request, res: Response) => {
       .eq('status', 'connected')
       .single();
 
-    // Determine Apollo API key and connection status
-    let apolloApiKey = settings?.apollo_api_key || null;
-    let apolloConnected = !!integration;
+    // Determine Apollo API key and connection status with universal fallback
+    const personalKey = settings?.apollo_api_key || null;
+    const superAdminKey = process.env.SUPER_ADMIN_APOLLO_API_KEY || null;
+    const platformKey = process.env.HIREPILOT_APOLLO_API_KEY || null;
 
-    // RecruitPro users get access to SUPER_ADMIN_APOLLO_API_KEY
-    if (isRecruitPro && process.env.SUPER_ADMIN_APOLLO_API_KEY) {
-      apolloApiKey = process.env.SUPER_ADMIN_APOLLO_API_KEY;
-      apolloConnected = true; // Mark as connected for RecruitPro users
-    }
+    // Prefer user's own key; otherwise fall back to super admin; then platform
+    let apolloApiKey = personalKey || superAdminKey || platformKey || null;
+    // Connected if we have any key available or an OAuth integration
+    let apolloConnected = !!apolloApiKey || !!integration;
 
     // Return both OAuth status and API key
     res.json({
