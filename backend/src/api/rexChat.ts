@@ -177,11 +177,12 @@ CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` :
     let assistantMessage = completion.choices[0].message;
     let executedSourcing = false;
     let lastToolResult: any = null;
+    // Conversation id that we will persist messages into (reused across steps)
+    let convId = conversationId as string | undefined;
 
     // ---------------- Persist conversation & messages -----------------
     try {
       // Determine conversation id (create if not provided)
-      let convId = conversationId as string | undefined;
       const lastUserMsg = [...(messages || [])].reverse().find(m => m.role === 'user');
       const title = (lastUserMsg?.content || 'New chat').slice(0, 120);
       if (!convId) {
@@ -270,22 +271,31 @@ CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` :
 
       completion = await openai.chat.completions.create({ model: 'gpt-4o-mini', messages });
       assistantMessage = completion.choices[0].message;
-      // Persist the final assistant message (post-tools) only
+      // Persist the final assistant message (post-tools) only to the SAME conversation
       try {
         const lastUserMsg = [...(messages || [])].reverse().find(m => m.role === 'user');
         const title = (lastUserMsg?.content || 'New chat').slice(0, 120);
-        const convIdFetch = await fetch(`${process.env.BACKEND_INTERNAL_URL || `http://127.0.0.1:${process.env.PORT || 8080}`}/api/rex/conversations`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...(authHeader ? { Authorization: authHeader } : {}) },
-          body: JSON.stringify({ title })
-        });
-        const created = await convIdFetch.json();
-        const convId2 = created?.conversation?.id;
-        if (convId2 && assistantMessage) {
-          await fetch(`${process.env.BACKEND_INTERNAL_URL || `http://127.0.0.1:${process.env.PORT || 8080}`}/api/rex/conversations/${convId2}/messages`, {
+        // Ensure we have a conversation id; create only if still missing
+        if (!convId) {
+          const createResp2 = await fetch(`${process.env.BACKEND_INTERNAL_URL || `http://127.0.0.1:${process.env.PORT || 8080}`}/api/rex/conversations`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...(authHeader ? { Authorization: authHeader } : {}) },
-            body: JSON.stringify({ role: 'assistant', content: assistantMessage })
+            body: JSON.stringify({ title })
+          });
+          const created2 = await createResp2.json();
+          convId = created2?.conversation?.id;
+        }
+        if (convId && assistantMessage) {
+          // Sanitize assistant content to avoid persisting tool_calls or raw OpenAI message objects
+          const assistantText = typeof (assistantMessage as any)?.content === 'string'
+            ? (assistantMessage as any).content
+            : typeof (assistantMessage as any)?.content?.text === 'string'
+              ? (assistantMessage as any).content.text
+              : '';
+          await fetch(`${process.env.BACKEND_INTERNAL_URL || `http://127.0.0.1:${process.env.PORT || 8080}`}/api/rex/conversations/${convId}/messages`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...(authHeader ? { Authorization: authHeader } : {}) },
+            body: JSON.stringify({ role: 'assistant', content: { text: assistantText } })
           });
         }
       } catch (persistFinalErr) {
