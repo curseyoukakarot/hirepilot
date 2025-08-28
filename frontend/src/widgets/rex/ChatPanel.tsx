@@ -3,7 +3,7 @@ import { MessageList } from './MessageList';
 import { MessageComposer } from './MessageComposer';
 import { QuickSuggestions } from './QuickSuggestions';
 import ArticleCard from './ArticleCard';
-import type { RexMessage, RexMode } from './types';
+import type { RexMessage, RexMode, RexCta } from './types';
 
 type Props = {
   isOpen: boolean;
@@ -18,9 +18,10 @@ type Props = {
   onHandoff?: () => void;
   onOpenLead?: () => void;
   onContactSupport?: () => void;
+  cta?: RexCta | null;
 };
 
-export const ChatPanel: React.FC<Props> = ({ isOpen, onClose, onSend, loading, messages, mode, demoUrl, calendlyUrl, showSalesCtas, onHandoff, onOpenLead, onContactSupport }) => {
+export const ChatPanel: React.FC<Props> = ({ isOpen, onClose, onSend, loading, messages, mode, demoUrl, calendlyUrl, showSalesCtas, onHandoff, onOpenLead, onContactSupport, cta }) => {
   if (!isOpen) return null;
   return (
     <div className="fixed bottom-24 right-6 z-50 w-[380px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl animate-in data-[state=open]:slide-in-from-bottom-4">
@@ -61,6 +62,22 @@ export const ChatPanel: React.FC<Props> = ({ isOpen, onClose, onSend, loading, m
             <a href={calendlyUrl} target="_blank" rel="noreferrer" className="rounded-full border border-gray-300 bg-white px-3 py-1 hover:bg-gray-100">Book live walkthrough</a>
           )}
           <button onClick={onHandoff} className="rounded-full border border-gray-300 bg-white px-3 py-1 hover:bg-gray-100">Talk to a human</button>
+        </div>
+      )}
+      {!!cta && cta.type !== 'none' && (
+        <div className="flex items-center justify-between gap-2 border-t border-gray-200 bg-gray-50 px-3 py-2 text-xs">
+          {cta.type === 'link' && cta.url && (
+            <a href={cta.url} target="_blank" rel="noreferrer" className="rounded-full border border-gray-300 bg-white px-3 py-1 hover:bg-gray-100">{cta.label || 'Open'}</a>
+          )}
+          {cta.type === 'calendly' && (calendlyUrl || cta.url) && (
+            <a href={(cta.url || calendlyUrl)!} target="_blank" rel="noreferrer" className="rounded-full border border-gray-300 bg-white px-3 py-1 hover:bg-gray-100">{cta.label || 'Book on Calendly'}</a>
+          )}
+          {cta.type === 'lead_form' && (
+            <button onClick={onOpenLead} className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-blue-700 hover:bg-blue-100">{cta.label || 'Share your details'}</button>
+          )}
+          {cta.type === 'support_ticket' && (
+            <button onClick={onContactSupport} className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-gray-700 hover:bg-gray-100">{cta.label || 'Create ticket'}</button>
+          )}
         </div>
       )}
       <MessageComposer

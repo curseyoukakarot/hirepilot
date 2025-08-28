@@ -60,6 +60,26 @@ export const widgetTools: Record<string, { handler: (args: any) => Promise<any> 
       const out:any = {}; (data||[]).forEach((r:any)=>{ out[r.key === 'rex_demo_url' ? 'demo_url' : 'calendly_url'] = r.value; });
       return out;
     }
+  },
+  // New tools for agent layer
+  rex_widget_support_user_context: {
+    handler: async ({ rb2b, pathname, user_id }: { rb2b?:any; pathname?:string; user_id?:string }) => {
+      const mode = (pathname||'').startsWith('/app') ? 'support' : 'sales';
+      return { mode, rb2b_company: rb2b?.company?.name || null, user_id: user_id || null, pathname: pathname || '/' };
+    }
+  },
+  rex_widget_support_analytics_track: {
+    handler: async ({ event, props }: { event:string; props?:any }) => {
+      await supabase.from('rex_events').insert({ kind: event, payload: props || {} });
+      return { ok:true };
+    }
+  },
+  rex_widget_support_ticket_create: {
+    handler: async ({ session_id, user_id, anon_id, summary, details }: { session_id:string; user_id?:string; anon_id?:string; summary:string; details?:string }) => {
+      const { data, error } = await supabase.from('rex_tickets').insert({ session_id, user_id: user_id||null, anon_id: anon_id||null, summary, details: details||null }).select('id').single();
+      if (error) throw error;
+      return { id: data.id };
+    }
   }
 };
 

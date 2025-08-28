@@ -27,6 +27,13 @@ export type RexConfig = {
   calendlyUrl?: string;
 };
 
+export type RexCta = {
+  type: 'none' | 'link' | 'calendly' | 'lead_form' | 'support_ticket';
+  label: string;
+  url?: string;
+  fields?: { name: string; label: string; type: string; required?: boolean }[];
+};
+
 export type RexWidgetProps = {
   mode?: RexMode;
   config?: RexConfig;

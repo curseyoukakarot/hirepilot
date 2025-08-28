@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { RexConfig, RexMessage, RexMode, RexLeadPayload } from './types';
+import type { RexConfig, RexMessage, RexMode, RexLeadPayload, RexCta } from './types';
 
 const OPEN_KEY = 'rex:open';
 const ANON_KEY = 'rex:anonId';
@@ -64,6 +64,7 @@ export function useRexWidget(options?: UseRexWidgetOptions) {
     }
   });
   const [loading, setLoading] = useState<boolean>(false);
+  const [cta, setCta] = useState<RexCta | null>(null);
   const [salesTurns, setSalesTurns] = useState<number>(0);
   const [salesCtaOverride, setSalesCtaOverride] = useState<boolean>(false);
   const [hasOpened, setHasOpened] = useState<boolean>(false);
@@ -150,6 +151,7 @@ export function useRexWidget(options?: UseRexWidgetOptions) {
         sources: data?.message?.sources || data?.sources || [],
       };
       setThreadId(data?.threadId || data?.thread_id || threadId);
+      setCta(data?.cta || null);
       setMessages(prev => {
         // replace typing placeholder with the real message
         const copy = [...prev];
@@ -226,6 +228,7 @@ export function useRexWidget(options?: UseRexWidgetOptions) {
     setSalesCtaOverride,
     shouldPulse,
     config: config || {},
+    cta,
   } as const;
 }
 

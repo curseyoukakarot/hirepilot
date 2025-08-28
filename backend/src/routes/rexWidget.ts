@@ -472,6 +472,29 @@ router.post('/handoff', async (req: Request, res: Response) => {
   }
 });
 
+// Create a support ticket
+router.post('/tickets', async (req: Request, res: Response) => {
+  try {
+    const { sessionId, summary, details } = req.body as { sessionId: string; summary: string; details?: string };
+    const anonId = getAnonId(req);
+    const { data, error } = await supabase
+      .from('rex_tickets')
+      .insert({ session_id: sessionId, anon_id: anonId, summary, details: details || null })
+      .select('id')
+      .single();
+    if (error) throw error;
+    // Fan-out to Slack if configured
+    const slackUrl = process.env.SLACK_WEBHOOK_URL;
+    if (slackUrl) {
+      try { await axios.post(slackUrl, { text: `New Support Ticket (REX): ${data.id}\nSession: ${sessionId}\n${summary}\n\n${details || ''}` }); } catch {}
+    }
+    res.json({ id: data.id });
+  } catch (err: any) {
+    await logEvent('rex_widget_error', { route: 'tickets', error: err?.message || String(err), stack: err?.stack, body: req.body });
+    res.status(500).json({ error: err?.message || 'Internal error' });
+  }
+});
+
 router.get('/config', async (_req: Request, res: Response) => {
   try {
     const keys = ['rex_demo_url', 'rex_calendly_url', 'pricing_tiers', 'rex_sales_faq'];
