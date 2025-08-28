@@ -206,7 +206,22 @@ CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` :
         const wantsNewCampaign = /create\s+(a\s+)?new\s+campaign|\bnew\s+campaign\b/.test(userText);
         if (toolName === 'source_leads') {
           if (wantsNewCampaign) {
-            args.campaignId = args.campaignId && /^[0-9a-f-]{36}$/i.test(String(args.campaignId)) ? args.campaignId : `new_${Date.now()}`;
+            // Create a real new campaign now and pass its id to the tool
+            try {
+              const titleGuess = (String(lastUserMsg?.content || '').match(/find\s+\d+\s+(.+?)\s+in/i)?.[1] || 'Sourcing Campaign').slice(0,80);
+              const { data: newCamp, error: newErr } = await supabase
+                .from('sourcing_campaigns')
+                .insert({ title: titleGuess, created_by: userId, audience_tag: 'rex' })
+                .select('id')
+                .single();
+              if (newErr) throw newErr;
+              args.campaignId = newCamp.id;
+              await supabase
+                .from('rex_user_context')
+                .upsert({ supabase_user_id: userId, latest_campaign_id: newCamp.id }, { onConflict: 'supabase_user_id' });
+            } catch {
+              args.campaignId = `new_${Date.now()}`;
+            }
           } else {
             // Default to latest if not provided
             if (!args.campaignId) args.campaignId = 'latest';
