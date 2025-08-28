@@ -280,7 +280,11 @@ app.get('/api/campaigns/all/performance', (req, res) => {
 app.post('/api/rex/chat', rexChat);
 app.post('/api/rex/tools', rexToolsHandler);
 app.post('/api/rex/tools/linkedin_connect', linkedinConnectHandler);
-app.use('/api', requireAuth as any, rexConversationsRouter);
+// Important: Do NOT attach global auth middleware at '/api' level.
+// The routes within rexConversationsRouter already apply requireAuth per-route.
+// Attaching requireAuth here would unintentionally protect ALL '/api/*' routes,
+// including public OAuth callbacks like '/api/auth/outlook/callback'.
+app.use('/api', rexConversationsRouter);
 app.post('/api/integrations/slack/enabled', slackToggle);
 app.get('/api/slack/connect', slackConnect);
 app.get('/api/slack/callback', slackCallback);
