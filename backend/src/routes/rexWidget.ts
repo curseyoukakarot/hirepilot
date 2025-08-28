@@ -319,7 +319,7 @@ router.post('/chat', async (req: Request, res: Response) => {
     let outSources = sources || [];
     let tutorial = null as any;
 
-    function answerIsWeak(txt: string) {
+    function answerIsWeak(txt: string, intent?: string) {
       const t = (txt || '').toLowerCase();
       const weakPhrases = [
         'no verified answer',
@@ -328,11 +328,12 @@ router.post('/chat', async (req: Request, res: Response) => {
         'thanks!',
         'i recommend you to book a demo',
       ];
-      return weakPhrases.some(p => t.includes(p)) || (outSources || []).length === 0;
+      const noSourcesWeak = intent === 'greeting_smalltalk' ? false : ((outSources || []).length === 0);
+      return weakPhrases.some(p => t.includes(p)) || noSourcesWeak;
     }
 
     // Guardrail: if sales info intent and no sources, avoid fabrication
-    if ((/price|pricing|pro plan|plans?|what is hirepilot|compare|different|vs\b/i.test(lastUser?.text || '')) && (!sources || sources.length === 0)) {
+    if ((/price|pricing|pro plan|plans?|what is hirepilot|compare|different|vs\b/i.test(lastUser?.text || '')) && (!sources || sources.length === 0) && plan.intent !== 'greeting_smalltalk') {
       content = "I’m not sure based on what I can see. Want me to point you to docs or connect you with a human?";
     }
 
@@ -352,7 +353,7 @@ router.post('/chat', async (req: Request, res: Response) => {
     }
 
     // Grounded fallback: if planner response looks weak, produce grounded answer (content only), keep CTA/state
-    if (lastUser?.text && answerIsWeak(content)) {
+    if (lastUser?.text && plan.intent !== 'greeting_smalltalk' && answerIsWeak(content, plan.intent)) {
       try {
         // Add competitor context if relevant
         await maybeAddCompetitorContext(lastUser.text);
