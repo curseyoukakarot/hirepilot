@@ -145,6 +145,7 @@ CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` :
 
     let assistantMessage = completion.choices[0].message;
     let executedSourcing = false;
+    let lastToolResult: any = null;
 
     // ---------------- Persist conversation & messages -----------------
     try {
@@ -229,6 +230,7 @@ CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` :
       }
 
       const toolResult = await capabilities.tools[toolName].handler(args);
+      lastToolResult = toolResult;
       executedSourcing = ['source_leads','filter_leads'].includes(toolName);
 
       // Feed the tool result back into the conversation
@@ -252,25 +254,17 @@ CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` :
       const text = String(lastUser?.content || '').toLowerCase();
       const wantsOutreach = /(reach out|email|send|outreach|contact)/.test(text);
       const mentionsNewCampaign = /create\s+(a\s+)?new\s+campaign|\bnew\s+campaign\b/.test(text);
-      // If the tool returned structured sourcing info, mention where to view
-      if ((completion as any).choices?.[0]?.message?.tool_calls?.[0]) {
-        try {
-          const call = (completion as any).choices[0].message.tool_calls[0];
-          const parsed = call.function?.arguments ? JSON.parse(call.function.arguments) : {};
-          const result = (parsed && parsed.result) || {};
-          const sourcingId = (result && result.campaign_id) || undefined;
-          const stdId = (result && result.std_campaign_id) || undefined;
-          if (sourcingId || stdId) {
-            const viewText = `\n\nView in Agent Mode: /agent-mode?campaign=${sourcingId || ''}\nView in Leads: /leads?campaign=${stdId || ''}`;
-            if (assistantMessage?.content && typeof (assistantMessage as any).content === 'string') {
-              (assistantMessage as any).content += viewText;
-            } else if (assistantMessage?.content && typeof (assistantMessage as any).content?.text === 'string') {
-              (assistantMessage as any).content.text += viewText;
-            }
-          }
-        } catch {}
+      // Use the actual tool result we just executed
+      if (lastToolResult && (lastToolResult.campaign_id || lastToolResult.std_campaign_id)) {
+        const viewText = `\n\nView in Agent Mode: /agent-mode?campaign=${lastToolResult.campaign_id || ''}` +
+                         `\nView in Leads: /leads?campaign=${lastToolResult.std_campaign_id || ''}`;
+        if (assistantMessage?.content && typeof (assistantMessage as any).content === 'string') {
+          (assistantMessage as any).content += viewText;
+        } else if (assistantMessage?.content && typeof (assistantMessage as any).content?.text === 'string') {
+          (assistantMessage as any).content.text += viewText;
+        }
       }
-      if (executedSourcing && !wantsOutreach) {
+      if (executedSourcing && !wantsOutreach && ((lastToolResult?.imported || 0) > 0)) {
         const nudgeText = '\n\nDo you want me to start outreach to these leads now? If yes, say the tone (e.g., casual, professional) and I will draft the opener.';
         if (assistantMessage?.content && typeof (assistantMessage as any).content === 'string') {
           (assistantMessage as any).content = (assistantMessage as any).content.replace(/no leads[^\n]*/i, '').trim() + nudgeText;

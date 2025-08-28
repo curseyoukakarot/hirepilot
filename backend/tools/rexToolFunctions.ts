@@ -183,14 +183,16 @@ export async function sourceLeads({
   if (!allLeads.length) return { imported: 0 };
 
   // 4. Insert leads into sourcing_leads (dedupe by email within campaign)
-  // Tighten title filtering post-fetch for accuracy
-  const mustTitles: string[] = (titleInput ? [titleInput] : []).concat(titleInput.toLowerCase().includes('vp') ? ['vice president of sales','vp sales','vp of sales'] : []);
-  const rigidMatch = (title: string) => {
-    const tl = String(title || '').toLowerCase();
-    return mustTitles.length === 0 || mustTitles.some(t => tl.includes(t));
-  };
-
-  const filteredLeads = allLeads.filter(l => rigidMatch(l.title));
+  // Trust Apollo's fuzzy/synonym-aware search: do not over-filter titles post-fetch
+  const filteredLeads = allLeads;
+  try {
+    console.log('[sourceLeads] post-fetch counts', {
+      requested: desiredCount,
+      fetched: allLeads.length,
+      filtered: filteredLeads.length,
+      sampleTitle: filteredLeads[0]?.title || null
+    });
+  } catch {}
 
   const uniqueLeads = filteredLeads.filter((l: any, idx: number, arr: any[]) => {
     if (!l.email) return false;
