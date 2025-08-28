@@ -253,16 +253,11 @@ CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` :
       const wantsOutreach = /(reach out|email|send|outreach|contact)/.test(text);
       const mentionsNewCampaign = /create\s+(a\s+)?new\s+campaign|\bnew\s+campaign\b/.test(text);
       if (executedSourcing && !wantsOutreach) {
-        const nudgeParts = [
-          'I found leads and will import them to your campaign.'
-        ];
-        if (mentionsNewCampaign) nudgeParts.push('A new campaign was created as requested.');
-        nudgeParts.push('Do you want me to start outreach to these leads now? If yes, say the tone (e.g., casual, professional) and I will draft the opener.');
-        const nudgeText = `\n\n${nudgeParts.join(' ')}`;
+        const nudgeText = '\n\nDo you want me to start outreach to these leads now? If yes, say the tone (e.g., casual, professional) and I will draft the opener.';
         if (assistantMessage?.content && typeof (assistantMessage as any).content === 'string') {
-          (assistantMessage as any).content += nudgeText;
+          (assistantMessage as any).content = (assistantMessage as any).content.replace(/no leads[^\n]*/i, '').trim() + nudgeText;
         } else if (assistantMessage?.content && typeof (assistantMessage as any).content?.text === 'string') {
-          (assistantMessage as any).content.text += nudgeText;
+          (assistantMessage as any).content.text = (assistantMessage as any).content.text.replace(/no leads[^\n]*/i, '').trim() + nudgeText;
         }
       }
     } catch {}

@@ -328,7 +328,7 @@ export async function sourceLeads({
   await notifySlack(`📥 Imported ${insertedLeads?.length || 0} leads into sourcing campaign ${targetCampaignId}`);
 
   const importedCount = Array.isArray(insertedLeads) && insertedLeads.length > 0 ? insertedLeads.length : uniqueLeads.length;
-  return { imported: importedCount, campaign_id: targetCampaignId };
+  return { imported: importedCount, total_found: uniqueLeads.length, campaign_id: targetCampaignId };
 }
 
 /**
