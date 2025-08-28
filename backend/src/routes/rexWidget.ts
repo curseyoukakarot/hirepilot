@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase';
 
 const router = express.Router();
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+const ALLOW_WEB_FALLBACK = String(process.env.REX_ALLOW_WEB_FALLBACK || '').toLowerCase() === 'true';
 
 const limiter = rateLimit({
   windowMs: 10 * 60 * 1000,
@@ -139,6 +140,32 @@ router.post('/chat', async (req: Request, res: Response) => {
         .trim();
     };
 
+    // Optional: fetch limited competitor pages for context when comparable questions are asked
+    async function maybeAddCompetitorContext(query: string) {
+      if (!ALLOW_WEB_FALLBACK) return;
+      const q = (query || '').toLowerCase();
+      const candidates: { name: string; url: string }[] = [];
+      if (/\bsales\s*navigator|sales\s*nav\b/.test(q)) candidates.push({ name: 'Sales Navigator', url: 'https://business.linkedin.com/sales-solutions/sales-navigator' });
+      if (/\blever\b/.test(q)) candidates.push({ name: 'Lever', url: 'https://www.lever.co/' });
+      if (/\bbullhorn\b/.test(q)) candidates.push({ name: 'Bullhorn', url: 'https://www.bullhorn.com/' });
+      if (/\bgreenhouse\b/.test(q)) candidates.push({ name: 'Greenhouse', url: 'https://www.greenhouse.io/' });
+      if (/\bworkable\b/.test(q)) candidates.push({ name: 'Workable', url: 'https://www.workable.com/' });
+      if (/\bapollo\b/.test(q)) candidates.push({ name: 'Apollo', url: 'https://www.apollo.io/' });
+      let added = 0;
+      for (const c of candidates.slice(0, 2)) {
+        try {
+          const r = await axios.get(c.url, { timeout: 4000 });
+          const txt = htmlToText(String(r.data || ''));
+          if (txt) {
+            contextSnippets.push(txt.slice(0, 1800));
+            (sources = sources || []).push({ title: c.name, url: c.url });
+            added++;
+          }
+        } catch {}
+        if (added >= 2) break;
+      }
+    }
+
     // If we have sources but no snippets, pull page HTML/Text as a last resort
     if ((!contextSnippets || contextSnippets.length === 0) && sources && sources.length) {
       try {
@@ -258,17 +285,29 @@ router.post('/chat', async (req: Request, res: Response) => {
     }
 
     const ragBlock = contextSnippets.length ? `\n\nContext (prefer blog articles when available):\n${contextSnippets.map((s, i) => `(${i+1}) ${s}`).join('\n')}` : '';
-    const oaiMessages = [
-      { role: 'system', content: `${sys}${citationBlock}${ragBlock}\nReturn ONLY JSON.` },
+    const buildGroundedMessages = () => ([
+      { role: 'system', content: `${sys}${citationBlock}${ragBlock}\nReturn ONLY a JSON object with keys \"content\", \"sources\", \"tutorial\". Ensure this is valid JSON.` },
       ...messages.map(m => ({ role: m.role, content: m.text })) as any,
-    ];
+    ]);
 
     // Curated composer path (catalog -> tools enrichment -> whitelist fallback)
     const { answerPopup } = await import('../popup/compose');
     const composed = await answerPopup(lastUser?.text || '', { userId });
     let content = composed.text || 'Thanks!';
-    const outSources = composed.sources?.length ? composed.sources : (sources || []);
-    const tutorial = composed.tutorial || null;
+    let outSources = composed.sources?.length ? composed.sources : (sources || []);
+    let tutorial = composed.tutorial || null;
+
+    function answerIsWeak(txt: string) {
+      const t = (txt || '').toLowerCase();
+      const weakPhrases = [
+        'no verified answer',
+        'here’s what i found',
+        "here's what i found",
+        'thanks!',
+        'i recommend you to book a demo',
+      ];
+      return weakPhrases.some(p => t.includes(p)) || (outSources || []).length === 0;
+    }
 
     // If still generic and we have RAG snippets, nudge a second pass to produce concrete steps.
     if (!tutorial && mode !== 'sales' && contextSnippets.length && /refer to|documentation|support resources/i.test(content)) {
@@ -283,6 +322,36 @@ router.post('/chat', async (req: Request, res: Response) => {
       const raw2 = follow.choices?.[0]?.message?.content || '';
       try { const p2 = JSON.parse(raw2); content = p2.content || content; }
       catch {}
+    }
+
+    // Grounded fallback: if curated/whitelist was weak, run a fully grounded answer over KB (and optional web) context
+    if (lastUser?.text && answerIsWeak(content)) {
+      try {
+        // Add competitor context if relevant
+        await maybeAddCompetitorContext(lastUser.text);
+        const gm = buildGroundedMessages();
+        const resp = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          temperature: 0.2,
+          response_format: { type: 'json_object' },
+          messages: gm
+        });
+        const raw = resp.choices?.[0]?.message?.content || '';
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object') {
+            if (parsed.content) content = parsed.content;
+            if (Array.isArray(parsed.sources) && parsed.sources.length) {
+              outSources = parsed.sources;
+            } else if (sources && sources.length) {
+              outSources = sources;
+            }
+            if (parsed.tutorial) tutorial = parsed.tutorial;
+          }
+        } catch {}
+      } catch (fallbackErr) {
+        await logEvent('rex_widget_grounded_fallback_error', { error: String(fallbackErr) });
+      }
     }
 
     // Heuristic: pricing → only summarize if settings provide tiers. Never invent.
@@ -306,6 +375,7 @@ router.post('/chat', async (req: Request, res: Response) => {
         top_sources: (sources || []).slice(0, 10),
         used_sources: outSources,
         snippet_lengths: contextSnippets.map(s => s.length),
+        allow_web: ALLOW_WEB_FALLBACK,
       });
     }
 
