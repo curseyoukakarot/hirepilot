@@ -202,11 +202,11 @@ export async function searchPeople(params: ApolloSearchParams) {
     }
 
     // Regular search logic
-    const requestBody: any = {
+    const baseRequest: any = {
       per_page: Math.min(Math.max(params.per_page || 25, 1), 100),
-      page: params.page || 1,
-      contact_email_status: 'verified'
+      page: params.page || 1
     };
+    const requestBody: any = { ...baseRequest, contact_email_status: 'verified' };
 
     // Add title variants (multiple for better matching)
     if (params.person_titles && params.person_titles.length > 0) {
@@ -233,7 +233,7 @@ export async function searchPeople(params: ApolloSearchParams) {
       endpoint: 'mixed_people/search'
     });
 
-    const response = await axios.post(`${APOLLO_API_URL}/mixed_people/search`, requestBody, {
+    let response = await axios.post(`${APOLLO_API_URL}/mixed_people/search`, requestBody, {
       headers: {
         'X-Api-Key': params.api_key,
         'Content-Type': 'application/json',
@@ -242,9 +242,33 @@ export async function searchPeople(params: ApolloSearchParams) {
     });
 
     // Handle both people and contacts in response
-    const people = response.data?.people || [];
-    const contacts = response.data?.contacts || [];
-    const allResults = [...people, ...contacts];
+    let people = response.data?.people || [];
+    let contacts = response.data?.contacts || [];
+    let allResults = [...people, ...contacts];
+
+    // Fallback: if no results with verified filter, retry without it to broaden search
+    if (allResults.length === 0) {
+      const relaxedBody = { ...baseRequest } as any;
+      if (requestBody.person_titles) relaxedBody.person_titles = requestBody.person_titles;
+      if (requestBody.person_locations) relaxedBody.person_locations = requestBody.person_locations;
+      if (requestBody.q_keywords) relaxedBody.q_keywords = requestBody.q_keywords;
+
+      try {
+        const resp2 = await axios.post(`${APOLLO_API_URL}/mixed_people/search`, relaxedBody, {
+          headers: {
+            'X-Api-Key': params.api_key,
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache'
+          }
+        });
+        people = resp2.data?.people || [];
+        contacts = resp2.data?.contacts || [];
+        allResults = [...people, ...contacts];
+        console.log('[Apollo] Relaxed search returned:', allResults.length);
+      } catch (e) {
+        console.warn('[Apollo] Relaxed search failed:', (e as any).response?.data || (e as any).message);
+      }
+    }
 
     console.log('[Apollo] Search response summary:', {
       totalResults: allResults.length,

@@ -137,7 +137,11 @@ export async function sourceLeads({
     page: 1,
     per_page: Math.min(100, desiredCount)
   };
-  const titleInput = String(filters?.title || filters?.jobTitle || filters?.keywords || '').trim();
+  // Normalize common senior title synonyms to improve hit rate
+  const rawTitle = String(filters?.title || filters?.jobTitle || filters?.keywords || '').trim();
+  const titleInput = rawTitle
+    .replace(/\bvp\b/gi, 'Vice President')
+    .replace(/\bhead of\b/gi, 'Head of') || '';
   const locationInput = String(filters?.location || filters?.person_locations || '').trim();
   if (filters?.booleanSearch && titleInput) {
     // Boolean query placed into person_titles for Apollo native OR
