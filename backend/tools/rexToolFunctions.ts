@@ -25,6 +25,20 @@ export async function sourceLeads({
   let targetCampaignId = campaignId;
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(campaignId || ''));
   if (!isUuid) {
+    // If the caller passed a special 'new_*' sentinel, force-create a fresh campaign id
+    if (String(campaignId || '').startsWith('new_')) {
+      const title = String(filters?.title || filters?.keywords || 'Sourcing Campaign').slice(0, 80);
+      const { data: newCamp, error: newErr } = await supabaseDb
+        .from('sourcing_campaigns')
+        .insert({ title, created_by: userId, audience_tag: 'rex' })
+        .select('id')
+        .single();
+      if (newErr) throw newErr;
+      targetCampaignId = newCamp.id;
+      await supabaseDb
+        .from('rex_user_context')
+        .upsert({ supabase_user_id: userId, latest_campaign_id: targetCampaignId }, { onConflict: 'supabase_user_id' });
+    } else
     // Default behavior: create a NEW campaign unless explicitly told to reuse 'latest'
     if (String(campaignId || '').toLowerCase() === 'latest') {
       const { data: ctx } = await supabaseDb

@@ -199,6 +199,21 @@ CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` :
         args = call.function?.arguments || call.arguments;
       }
 
+      // If user explicitly asked to "create a new campaign", force a new campaign id (avoid 'latest' reuse)
+      try {
+        const lastUserMsg = [...(messages || [])].reverse().find(m => m.role === 'user');
+        const userText = String(lastUserMsg?.content || '').toLowerCase();
+        const wantsNewCampaign = /create\s+(a\s+)?new\s+campaign|\bnew\s+campaign\b/.test(userText);
+        if (toolName === 'source_leads') {
+          if (wantsNewCampaign) {
+            args.campaignId = args.campaignId && /^[0-9a-f-]{36}$/i.test(String(args.campaignId)) ? args.campaignId : `new_${Date.now()}`;
+          } else {
+            // Default to latest if not provided
+            if (!args.campaignId) args.campaignId = 'latest';
+          }
+        }
+      } catch {}
+
       const { server: rexServer } = await import('../rex/server');
       const capabilities = rexServer.getCapabilities?.();
       if (!capabilities?.tools?.[toolName]?.handler) {
@@ -228,8 +243,14 @@ CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` :
       const lastUser = messages[messages.length - 1];
       const text = String(lastUser?.content || '').toLowerCase();
       const wantsOutreach = /(reach out|email|send|outreach|contact)/.test(text);
+      const mentionsNewCampaign = /create\s+(a\s+)?new\s+campaign|\bnew\s+campaign\b/.test(text);
       if (executedSourcing && !wantsOutreach) {
-        const nudgeText = '\n\nDo you want me to start outreach to these leads now? If yes, say the tone (e.g., casual, professional) and I will draft the opener.';
+        const nudgeParts = [
+          'I found leads and will import them to your campaign.'
+        ];
+        if (mentionsNewCampaign) nudgeParts.push('A new campaign was created as requested.');
+        nudgeParts.push('Do you want me to start outreach to these leads now? If yes, say the tone (e.g., casual, professional) and I will draft the opener.');
+        const nudgeText = `\n\n${nudgeParts.join(' ')}`;
         if (assistantMessage?.content && typeof (assistantMessage as any).content === 'string') {
           (assistantMessage as any).content += nudgeText;
         } else if (assistantMessage?.content && typeof (assistantMessage as any).content?.text === 'string') {
