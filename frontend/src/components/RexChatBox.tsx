@@ -316,7 +316,11 @@ export default function RexChatBox() {
       });
       const ok = res.ok;
       const data = await res.json();
-      const assistantText = data?.reply?.content || data?.reply?.content?.text || (ok ? '(no reply)' : (data?.error || 'Request failed'));
+      // Ensure assistant content is always a string for rendering
+      const rawReply = data?.reply?.content;
+      const assistantText = typeof rawReply === 'string'
+        ? rawReply
+        : (rawReply?.text ?? (ok ? '(no reply)' : (data?.error || 'Request failed')));
       const rexMsg: ChatMessage = {
         id: crypto.randomUUID(),
         sender: 'rex',
