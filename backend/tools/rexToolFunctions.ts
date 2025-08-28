@@ -223,10 +223,10 @@ export async function sourceLeads({
   // -------------------------------------------------------------
   // Mirror into standard campaigns + leads tables for main UI
   // -------------------------------------------------------------
+  let stdCampaignId: string | null = null;
   try {
     // 1) Ensure there is a standard campaign in `campaigns`
     const stdTitle = String(filters?.title || filters?.keywords || 'Sourcing Campaign').slice(0, 80);
-    let stdCampaignId: string | null = null;
     {
       const { data: existingStd } = await supabaseDb
         .from('campaigns')
@@ -325,10 +325,10 @@ export async function sourceLeads({
     console.warn('[sourceLeads] mirror to campaigns/leads failed (non-fatal):', mirrorErr);
   }
 
-  await notifySlack(`📥 Imported ${insertedLeads?.length || 0} leads into sourcing campaign ${targetCampaignId}`);
+  await notifySlack(`📥 Sourced ${uniqueLeads.length} leads (inserted ${insertedLeads?.length || 0}) into sourcing campaign ${targetCampaignId}`);
 
   const importedCount = Array.isArray(insertedLeads) && insertedLeads.length > 0 ? insertedLeads.length : uniqueLeads.length;
-  return { imported: importedCount, total_found: uniqueLeads.length, campaign_id: targetCampaignId };
+  return { imported: importedCount, total_found: uniqueLeads.length, campaign_id: targetCampaignId, std_campaign_id: stdCampaignId };
 }
 
 /**
