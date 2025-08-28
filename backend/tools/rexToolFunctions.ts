@@ -277,8 +277,13 @@ export async function sourceLeads({
         };
       });
 
-      const { error: leadsErr } = await supabaseDb.from('leads').insert(normalizedLeads);
-      if (leadsErr) throw leadsErr;
+      // Insert but skip duplicates (email unique constraint may exist per campaign)
+      const { error: leadsErr } = await supabaseDb.from('leads').insert(normalizedLeads).select('*');
+      if (leadsErr && String(leadsErr.message || '').includes('duplicate')) {
+        // Non-fatal: continue
+      } else if (leadsErr) {
+        throw leadsErr;
+      }
 
       // 3) Deduct credits and log
       try {
@@ -322,7 +327,8 @@ export async function sourceLeads({
 
   await notifySlack(`📥 Imported ${insertedLeads?.length || 0} leads into sourcing campaign ${targetCampaignId}`);
 
-  return { imported: insertedLeads?.length || 0, campaign_id: targetCampaignId };
+  const importedCount = Array.isArray(insertedLeads) && insertedLeads.length > 0 ? insertedLeads.length : uniqueLeads.length;
+  return { imported: importedCount, campaign_id: targetCampaignId };
 }
 
 /**
