@@ -3,6 +3,7 @@ import rateLimit from 'express-rate-limit';
 import axios from 'axios';
 import OpenAI from 'openai';
 import { supabase } from '../lib/supabase';
+import { planTurn, SessionMeta } from '../rex/agent';
 
 const router = express.Router();
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
@@ -290,12 +291,21 @@ router.post('/chat', async (req: Request, res: Response) => {
       ...messages.map(m => ({ role: m.role, content: m.text })) as any,
     ]);
 
-    // Curated composer path (catalog -> tools enrichment -> whitelist fallback)
-    const { answerPopup } = await import('../popup/compose');
-    const composed = await answerPopup(lastUser?.text || '', { userId });
-    let content = composed.text || 'Thanks!';
-    let outSources = composed.sources?.length ? composed.sources : (sources || []);
-    let tutorial = composed.tutorial || null;
+    // Load session meta for agent state
+    let meta: SessionMeta = {};
+    try {
+      const { data: sMeta } = await supabase.from('rex_widget_sessions').select('meta').eq('id', sessionId).maybeSingle();
+      meta = (sMeta?.meta as any) || {};
+    } catch {}
+
+    // Planner: decide intent/state/cta/actions
+    const plan = planTurn({ text: lastUser?.text || '', mode, meta, config: { demoUrl: settings['rex_demo_url'], calendlyUrl: settings['rex_calendly_url'] } });
+    // Execute: minimal execution for now (kb.search maps to existing RAG we already computed)
+    // We already have sources/contextSnippets via RAG. If plan requested kb.search and we have none, keep as is; later we can branch per args.
+    // Compose: say + CTA mapped to existing UI (we still return legacy shape plus CTA for forward-compat)
+    let content = plan.response.say || 'Thanks!';
+    let outSources = sources || [];
+    let tutorial = null as any;
 
     function answerIsWeak(txt: string) {
       const t = (txt || '').toLowerCase();
@@ -324,7 +334,7 @@ router.post('/chat', async (req: Request, res: Response) => {
       catch {}
     }
 
-    // Grounded fallback: if curated/whitelist was weak, run a fully grounded answer over KB (and optional web) context
+    // Grounded fallback: if planner response looks weak, produce grounded answer (content only), keep CTA/state
     if (lastUser?.text && answerIsWeak(content)) {
       try {
         // Add competitor context if relevant
@@ -381,8 +391,11 @@ router.post('/chat', async (req: Request, res: Response) => {
 
     // Persist assistant message
     await supabase.from('rex_widget_messages').insert({ session_id: sessionId, role: 'assistant', text: content, sources: outSources as any, tutorial });
+    // Persist session meta updates
+    const newMeta: SessionMeta = { ...meta, state: plan.state, last_intent: plan.intent, collected: { ...(meta.collected||{}) }, support_ctx: { ...(meta.support_ctx||{}) } };
+    await supabase.from('rex_widget_sessions').update({ meta: newMeta }).eq('id', sessionId);
 
-    res.json({ threadId: sessionId, message: { text: content, sources: outSources, tutorial } });
+    res.json({ threadId: sessionId, message: { text: content, sources: outSources, tutorial }, cta: plan.response.cta, state: plan.state, intent: plan.intent });
   } catch (err: any) {
     await logEvent('rex_widget_error', { route: 'chat', error: err?.message || String(err), stack: err?.stack, body: req.body });
     res.status(500).json({ error: err?.message || 'Internal error' });
