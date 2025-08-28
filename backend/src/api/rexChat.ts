@@ -172,14 +172,7 @@ CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` :
         });
       }
 
-      if (convId && assistantMessage) {
-        // Save assistant message
-        await fetch(`${process.env.BACKEND_INTERNAL_URL || `http://127.0.0.1:${process.env.PORT || 8080}`}/api/rex/conversations/${convId}/messages`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...(authHeader ? { Authorization: authHeader } : {}) },
-          body: JSON.stringify({ role: 'assistant', content: assistantMessage })
-        });
-      }
+      // Do not persist the initial assistant tool_call stub; we'll save the final reply after tools run
     } catch (persistErr) {
       console.error('[rexChat] persist error', persistErr);
       // Do not fail chat on persistence errors
@@ -246,6 +239,27 @@ CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` :
 
       completion = await openai.chat.completions.create({ model: 'gpt-4o-mini', messages });
       assistantMessage = completion.choices[0].message;
+      // Persist the final assistant message (post-tools) only
+      try {
+        const lastUserMsg = [...(messages || [])].reverse().find(m => m.role === 'user');
+        const title = (lastUserMsg?.content || 'New chat').slice(0, 120);
+        const convIdFetch = await fetch(`${process.env.BACKEND_INTERNAL_URL || `http://127.0.0.1:${process.env.PORT || 8080}`}/api/rex/conversations`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(authHeader ? { Authorization: authHeader } : {}) },
+          body: JSON.stringify({ title })
+        });
+        const created = await convIdFetch.json();
+        const convId2 = created?.conversation?.id;
+        if (convId2 && assistantMessage) {
+          await fetch(`${process.env.BACKEND_INTERNAL_URL || `http://127.0.0.1:${process.env.PORT || 8080}`}/api/rex/conversations/${convId2}/messages`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...(authHeader ? { Authorization: authHeader } : {}) },
+            body: JSON.stringify({ role: 'assistant', content: assistantMessage })
+          });
+        }
+      } catch (persistFinalErr) {
+        console.error('[rexChat] persist final reply error', persistFinalErr);
+      }
     }
 
     // After a successful lead sourcing request without explicit outreach intent, gently append a nudge
