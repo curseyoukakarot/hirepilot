@@ -1185,10 +1185,34 @@ server.connect(new StdioServerTransport());
 console.log('✅ REX MCP server running on stdio');
 
 async function assertPremium(userId: string) {
-  const { data, error } = await supabase.from('users').select('role').eq('id', userId).single();
-  if (error) throw error;
-  const role = data?.role ?? '';
-  if (!['RecruitPro','TeamAdmin','SuperAdmin','super_admin','admin'].includes(role)) {
+  // Allow based on either role OR explicit rex integration flag
+  let role = '';
+  try {
+    const { data } = await supabase.from('users').select('role').eq('id', userId).maybeSingle();
+    role = data?.role || '';
+  } catch (e) {
+    // Non-fatal; continue to integration check
+  }
+
+  // Normalize and check broad set of allowed roles (case-insensitive)
+  const roleLc = String(role || '').toLowerCase();
+  const allowedRoles = new Set([
+    'recruitpro', 'recruiter', 'teamadmin', 'team_admin', 'superadmin', 'super_admin', 'admin', 'member', 'user'
+  ]);
+
+  // Check rex integration flag as source of truth
+  let rexEnabled = false;
+  try {
+    const { data: integ } = await supabase
+      .from('integrations')
+      .select('status')
+      .eq('user_id', userId)
+      .eq('provider', 'rex')
+      .maybeSingle();
+    rexEnabled = ['enabled','connected','on','true'].includes(String(integ?.status || '').toLowerCase());
+  } catch {}
+
+  if (!(rexEnabled || allowedRoles.has(roleLc))) {
     throw new Error('REX access restricted to premium plans.');
   }
 }
