@@ -201,30 +201,23 @@ CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` :
 
       // If user explicitly asked to "create a new campaign", force a new campaign id (avoid 'latest' reuse)
       try {
-        const lastUserMsg = [...(messages || [])].reverse().find(m => m.role === 'user');
-        const userText = String(lastUserMsg?.content || '').toLowerCase();
-        const wantsNewCampaign = /create\s+(a\s+)?new\s+campaign|\bnew\s+campaign\b/.test(userText);
+        // ALWAYS create a fresh campaign for REX sourcing to avoid confusion with dedupe and reuse
         if (toolName === 'source_leads') {
-          if (wantsNewCampaign) {
-            // Create a real new campaign now and pass its id to the tool
-            try {
-              const titleGuess = (String(lastUserMsg?.content || '').match(/find\s+\d+\s+(.+?)\s+in/i)?.[1] || 'Sourcing Campaign').slice(0,80);
-              const { data: newCamp, error: newErr } = await supabase
-                .from('sourcing_campaigns')
-                .insert({ title: titleGuess, created_by: userId, audience_tag: 'rex' })
-                .select('id')
-                .single();
-              if (newErr) throw newErr;
-              args.campaignId = newCamp.id;
-              await supabase
-                .from('rex_user_context')
-                .upsert({ supabase_user_id: userId, latest_campaign_id: newCamp.id }, { onConflict: 'supabase_user_id' });
-            } catch {
-              args.campaignId = `new_${Date.now()}`;
-            }
-          } else {
-            // Default to latest if not provided
-            if (!args.campaignId) args.campaignId = 'latest';
+          const lastUserMsg = [...(messages || [])].reverse().find(m => m.role === 'user');
+          const titleGuess = (String(lastUserMsg?.content || '').match(/find\s+\d+\s+(.+?)\s+in/i)?.[1] || 'Sourcing Campaign').slice(0,80);
+          try {
+            const { data: newCamp, error: newErr } = await supabase
+              .from('sourcing_campaigns')
+              .insert({ title: titleGuess, created_by: userId, audience_tag: 'rex' })
+              .select('id')
+              .single();
+            if (newErr) throw newErr;
+            args.campaignId = newCamp.id;
+            await supabase
+              .from('rex_user_context')
+              .upsert({ supabase_user_id: userId, latest_campaign_id: newCamp.id }, { onConflict: 'supabase_user_id' });
+          } catch {
+            args.campaignId = `new_${Date.now()}`;
           }
         }
       } catch {}
