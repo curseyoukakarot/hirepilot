@@ -25,7 +25,7 @@ export function classifyIntent(text: string): Intent {
   const q = (text||'').toLowerCase();
   if (/\b(hi|hello|hey)\b/.test(q)) return 'greeting_smalltalk';
   if (/\bwhat\s+is\b|how\s+it\s+works|features?\b/.test(q)) return 'learn_hirepilot';
-  if (/price|pricing|plan(s)?\b/.test(q)) return 'pricing_plan';
+  if (/price|pricing|plan(s)?\b|cost|how\s*much\b/.test(q)) return 'pricing_plan';
   if (/compare|vs\b|different from|sales\s*navigator|lever|bullhorn|greenhouse|workable/.test(q)) return 'comparison';
   if (/demo|walkthrough|book\b/.test(q)) return 'demo_booking';
   if (/email|name|contact\b/.test(q)) return 'lead_capture';

@@ -383,12 +383,12 @@ router.post('/chat', async (req: Request, res: Response) => {
     }
 
     // Heuristic: pricing → only summarize if settings provide tiers. Never invent.
-    if (/\bprice|pricing|pro plan|plans?\b/i.test(lastUser?.text || '')) {
+    if (/\b(price|pricing|pro plan|plans?|cost|how\s*much)\b/i.test(lastUser?.text || '')) {
       const tiers = settings['pricing_tiers'];
       if (Array.isArray(tiers) && tiers.length) {
         try {
           const lines = tiers.map((t: any) => `- ${t.name || 'Plan'}${t.summary ? `: ${t.summary}` : ''}${t.price ? ` (from ${t.price})` : ''}`);
-          content = ['Here’s a quick overview of our plans:', ...lines, 'See full details on our pricing page.'].join('\n');
+          content = ['Here’s a quick overview of our plans (no hard numbers unless in settings):', ...lines, 'See full details on our pricing page.'].join('\n');
         } catch {}
       } else {
         content = 'Please see our pricing page for up-to-date plan details.';
