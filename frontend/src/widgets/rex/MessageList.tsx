@@ -7,6 +7,16 @@ type Props = {
 
 export const MessageList: React.FC<Props> = ({ messages }) => {
   const [openTutorialById, setOpenTutorialById] = useState<Record<string, boolean>>({});
+  const normalizeText = (m: RexMessage): string => {
+    const raw: any = (m as any).text;
+    if (typeof raw === 'string') return raw.replace(/\{\s*"content"[\s\S]*\}\s*$/, '').trim();
+    if (raw && typeof raw === 'object') {
+      if (typeof raw.text === 'string') return raw.text;
+      if (typeof raw.content === 'string') return raw.content;
+      try { return JSON.stringify(raw); } catch { return String(raw); }
+    }
+    return '';
+  };
   return (
     <div className="space-y-3 overflow-y-auto px-3 py-4">
       {messages.map((m) => {
@@ -26,8 +36,8 @@ export const MessageList: React.FC<Props> = ({ messages }) => {
                 <span className="h-2 w-2 animate-pulse rounded-full bg-gray-500 [animation-delay:300ms]"></span>
               </span>
             ) : (
-              // Strip accidentally leaked JSON payloads from the model response
-              (typeof m.text === 'string' ? m.text.replace(/\{\s*"content"[\s\S]*\}\s*$/,'').trim() : m.text as any)
+              // Render normalized string (handles object shapes like {text: ...})
+              normalizeText(m)
             )}
           </div>
           {!!m.sources?.length && (
