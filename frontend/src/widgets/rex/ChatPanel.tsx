@@ -29,7 +29,7 @@ export const ChatPanel: React.FC<Props> = ({ isOpen, onClose, onSend, loading, m
         <div className="text-sm font-semibold text-gray-900">{mode === 'sales' ? 'Sales Assistant' : mode === 'support' ? 'Support Assistant' : 'REX Assistant'}</div>
         <div className="flex items-center gap-2">
           {mode === 'sales' && (
-            <button onClick={onOpenLead} className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100">Lead</button>
+            <button onClick={onOpenLead} className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100">Get Support</button>
           )}
           {mode === 'support' && (
             <button onClick={onContactSupport} className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100">Contact Support</button>
