@@ -144,6 +144,7 @@ CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` :
     });
 
     let assistantMessage = completion.choices[0].message;
+    let executedSourcing = false;
 
     // ---------------- Persist conversation & messages -----------------
     try {
@@ -205,6 +206,7 @@ CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` :
       }
 
       const toolResult = await capabilities.tools[toolName].handler(args);
+      executedSourcing = ['source_leads','filter_leads'].includes(toolName);
 
       // Feed the tool result back into the conversation
       messages.push(
@@ -221,24 +223,18 @@ CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` :
       assistantMessage = completion.choices[0].message;
     }
 
-    // After a successful lead sourcing request without explicit outreach intent, nudge the user
+    // After a successful lead sourcing request without explicit outreach intent, gently append a nudge
     try {
       const lastUser = messages[messages.length - 1];
       const text = String(lastUser?.content || '').toLowerCase();
-      const mentionsSource = /apollo|linkedin/.test(text);
       const wantsOutreach = /(reach out|email|send|outreach|contact)/.test(text);
-      if (!wantsOutreach && /lead|campaign|source/.test(text)) {
-        const nudge = {
-          role: 'assistant',
-          content: {
-            text: 'Do you want me to start outreach to these leads now? If yes, say the tone (e.g., casual, professional) and I will draft the opener.'
-          }
-        } as any;
-        // Append nudge locally to return; persistence handled in convo flow
-        if (assistantMessage) {
-          // Return both messages merged in text if the model already replied
+      if (executedSourcing && !wantsOutreach) {
+        const nudgeText = '\n\nDo you want me to start outreach to these leads now? If yes, say the tone (e.g., casual, professional) and I will draft the opener.';
+        if (assistantMessage?.content && typeof (assistantMessage as any).content === 'string') {
+          (assistantMessage as any).content += nudgeText;
+        } else if (assistantMessage?.content && typeof (assistantMessage as any).content?.text === 'string') {
+          (assistantMessage as any).content.text += nudgeText;
         }
-        return res.status(200).json({ reply: nudge });
       }
     } catch {}
 
