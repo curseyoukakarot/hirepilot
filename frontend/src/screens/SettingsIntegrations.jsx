@@ -160,18 +160,27 @@ export default function SettingsIntegrations() {
   }, []);
 
   useEffect(() => {
-    if (
-      location.pathname === '/settings/integrations' &&
-      searchParams.get('apollo') === 'connected'
-    ) {
-      setIntegrations(prev =>
-        prev.map(intg =>
-          intg.id === 'apollo'
-            ? { ...intg, isConnected: true, status: 'Active' }
-            : intg
-        )
-      );
-      toast.success('Apollo connected!');
+    if (location.pathname === '/settings/integrations') {
+      if (searchParams.get('apollo') === 'connected') {
+        setIntegrations(prev =>
+          prev.map(intg =>
+            intg.id === 'apollo'
+              ? { ...intg, isConnected: true, status: 'Active' }
+              : intg
+          )
+        );
+        toast.success('Apollo connected!');
+      }
+      if (searchParams.get('outlook') === 'connected') {
+        setIntegrations(prev =>
+          prev.map(intg =>
+            intg.id === 'outlook'
+              ? { ...intg, isConnected: true, status: 'Active', date: new Date().toLocaleDateString() }
+              : intg
+          )
+        );
+        toast.success('Outlook connected!');
+      }
     }
   }, [location, searchParams]);
 
@@ -305,7 +314,7 @@ export default function SettingsIntegrations() {
     } else if (id === 'outlook') {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const clientId = '1b3df991-884a-4d19-9cd4-9901baddcb97';
+      const clientId = import.meta.env.VITE_OUTLOOK_CLIENT_ID || '1b3df991-884a-4d19-9cd4-9901baddcb97';
       const redirectUri = `${import.meta.env.VITE_BACKEND_URL}/api/auth/outlook/callback`;
       const scope = encodeURIComponent('openid profile email offline_access Mail.Send');
       const state = user.id;

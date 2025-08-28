@@ -550,7 +550,8 @@ app.get('/api/auth/outlook/callback', async (req, res) => {
     }
 
     // Redirect to frontend settings page after successful Outlook authentication
-    res.redirect(`${process.env.FRONTEND_URL}/settings/integrations?outlook=connected`);
+    // Use APP_WEB_URL to ensure we return to the correct app domain where the user session exists
+    res.redirect(`${process.env.APP_WEB_URL}/settings/integrations?outlook=connected`);
   } catch (error: any) {
     console.error('❌ Outlook OAuth error:', error.response?.data || error.message);
     res.status(400).json({ error: 'Outlook OAuth failed', details: error.response?.data || error.message });
