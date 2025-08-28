@@ -98,7 +98,22 @@ export default function Sidebar() {
                     Agent Mode
                   </NavLink>
                 </li>
-                {/* REX Chat remains accessible via top button; Action Inbox is inside Agent Mode */}
+                <li>
+                  <NavLink
+                    to="/rex-chat"
+                    className={({ isActive }) =>
+                      `flex items-center px-4 py-2 text-base rounded-lg font-medium transition-colors cursor-pointer ${
+                        isActive
+                          ? 'bg-indigo-50 text-indigo-700 font-semibold dark:bg-gray-700 dark:text-indigo-300'
+                          : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      }`
+                    }
+                  >
+                    <span className="mr-3 text-lg"><FaRobot /></span>
+                    REX Chat
+                  </NavLink>
+                </li>
+                {/* Action Inbox is inside Agent Mode */}
               </>
             )}
           </ul>
