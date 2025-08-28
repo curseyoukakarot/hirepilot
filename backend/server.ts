@@ -127,6 +127,7 @@ app.get('/health', (_, res) => res.json({ ok: true }));
 const allowed = [
   'https://thehirepilot.com',
   'https://www.thehirepilot.com',
+  'https://app.thehirepilot.com',
   'https://hirepilot.vercel.app',
   'https://affiliates.thehirepilot.com',
   'chrome-extension://hocopaaojddfommlkiegnflimmmppbnk',  // HirePilot Chrome Extension
