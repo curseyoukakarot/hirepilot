@@ -263,86 +263,12 @@ router.post('/chat', async (req: Request, res: Response) => {
       ...messages.map(m => ({ role: m.role, content: m.text })) as any,
     ];
 
-    // TOOL-CALLING PATH (MCP) for popup: call curated tools first
-    const popupSystem = {
-      role: 'system',
-      content: `You are HirePilot’s REX — Support + Sales Lite. Use ONLY rex_widget_support_* tools to answer.
-Strict order: get_flow_steps/get_pricing_overview/get_feature_overview/get_support_article → rex_widget_support_search_support (whitelist) → if nothing, say "No verified page" and suggest CTAs.
-Never perform actions. Be concise with bullets and cite source_url.
-Return a JSON object only.`
-    } as any;
-    const popupTools: any = [
-      { type:'function', function:{ name:'rex_widget_support_get_flow_steps', parameters:{ type:'object', properties:{ flow:{type:'string'}}, required:['flow']} } },
-      { type:'function', function:{ name:'rex_widget_support_get_pricing_overview', parameters:{ type:'object', properties:{} } } },
-      { type:'function', function:{ name:'rex_widget_support_get_feature_overview', parameters:{ type:'object', properties:{} } } },
-      { type:'function', function:{ name:'rex_widget_support_get_support_article', parameters:{ type:'object', properties:{ slug:{type:'string'}}, required:['slug'] } } },
-      { type:'function', function:{ name:'rex_widget_support_search_support', parameters:{ type:'object', properties:{ q:{type:'string'}, top_k:{type:'number'} }, required:['q'] } } },
-      { type:'function', function:{ name:'rex_widget_support_get_ctas', parameters:{ type:'object', properties:{} } } },
-      { type:'function', function:{ name:'rex_widget_support_get_account_readiness', parameters:{ type:'object', properties:{ user_id:{type:'string'} } } } }
-    ];
-
-    // Map common queries to flow tool calls
-    // Normalize history messages to avoid content array shape errors
-    const history = (messages || []).map((m: any) => {
-      const content = typeof m.content === 'string' ? m.content : (typeof m.text === 'string' ? m.text : JSON.stringify(m.content || m.text || ''));
-      return { role: m.role, content };
-    });
-
-    const userQ = (lastUser?.text || '').toLowerCase();
-    const flowMap: Record<string, string> = {
-      'launch a campaign': 'launch_campaign',
-      'import leads': 'import_leads',
-      'connect email': 'connect_email',
-      'follow-ups': 'set_followups',
-    };
-    const flowKey = Object.keys(flowMap).find(k => userQ.includes(k));
-    const initialMessages: any[] = [popupSystem, ...history];
-    if (flowKey) {
-      initialMessages.push({ role:'user', content:`TOOL: rex_widget_support_get_flow_steps { "flow": "${flowMap[flowKey]}" }` });
-    }
-
-    let completion = await openai.chat.completions.create({ model:'gpt-4o-mini', messages: initialMessages, tools: popupTools });
-
-    // Execute tool calls in a short loop (max 3)
-    const { server: rexServer } = await import('../rex/server');
-    const capabilities = (rexServer as any).getCapabilities?.() || (rexServer as any).capabilities || {};
-    let assistantMsg = completion.choices[0].message as any;
-    let loopCount = 0;
-    while (assistantMsg?.tool_calls && loopCount < 3) {
-      for (const call of assistantMsg.tool_calls) {
-        const toolName = call.function?.name || call.name;
-        if (!toolName || !capabilities?.tools?.[toolName]?.handler) continue;
-        let args: any = {};
-        try { args = call.function?.arguments ? JSON.parse(call.function.arguments) : call.arguments; } catch { args = call.function?.arguments || call.arguments; }
-        const result = await capabilities.tools[toolName].handler(args);
-        // Add an assistant message with tool_calls only (no content array)
-        initialMessages.push({ role:'assistant', tool_calls: assistantMsg.tool_calls } as any);
-        initialMessages.push({ role:'tool', tool_call_id: call.id, name: toolName, content: JSON.stringify(result) } as any);
-      }
-      loopCount++;
-      completion = await openai.chat.completions.create({ model:'gpt-4o-mini', messages: initialMessages, tools: popupTools });
-      assistantMsg = completion.choices[0].message as any;
-    }
-
-    // Final answer as strict JSON
-    initialMessages.push({ role:'system', content: 'Return ONLY a JSON object with keys {"content","sources","tutorial"}. Always respond in JSON.' } as any);
-    completion = await openai.chat.completions.create({
-      model:'gpt-4o-mini',
-      messages: initialMessages,
-      temperature: 0.2,
-      response_format: { type:'json_object' } as any
-    });
-
-    const raw = completion.choices?.[0]?.message?.content || '';
-    let parsed: any = null;
-    try { parsed = JSON.parse(raw); } catch {
-      // Try to recover JSON object if model wrapped it in prose
-      const match = raw.match(/\{[\s\S]*\}$/);
-      if (match) { try { parsed = JSON.parse(match[0]); } catch {} }
-    }
-    let content = parsed?.content || raw || 'Thanks!';
-    const outSources = Array.isArray(parsed?.sources) && parsed.sources.length ? parsed.sources : (sources || []);
-    const tutorial = parsed?.tutorial && parsed.tutorial.title && Array.isArray(parsed.tutorial.steps) ? parsed.tutorial : null;
+    // Curated composer path (catalog -> tools enrichment -> whitelist fallback)
+    const { answerPopup } = await import('../popup/compose');
+    const composed = await answerPopup(lastUser?.text || '', { userId });
+    let content = composed.text || 'Thanks!';
+    const outSources = composed.sources?.length ? composed.sources : (sources || []);
+    const tutorial = composed.tutorial || null;
 
     // If still generic and we have RAG snippets, nudge a second pass to produce concrete steps.
     if (!tutorial && mode !== 'sales' && contextSnippets.length && /refer to|documentation|support resources/i.test(content)) {
