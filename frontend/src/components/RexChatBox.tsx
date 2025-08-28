@@ -332,12 +332,8 @@ export default function RexChatBox() {
       };
       setMessages(prev => [...prev, rexMsg]);
 
-      // persist assistant reply only if present; otherwise store fallback text
-      if (data?.reply) {
-        await postMessage(convId!, 'assistant', data.reply);
-      } else {
-        await postMessage(convId!, 'assistant', { text: assistantText });
-      }
+      // Persist only sanitized assistant text to avoid leaking raw OpenAI message objects
+      await postMessage(convId!, 'assistant', { text: assistantText });
 
       // refresh conversations ordering
       const list = await listConversations();
