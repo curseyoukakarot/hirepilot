@@ -235,10 +235,7 @@ const HomePage = () => {
                 <div className="text-3xl font-bold text-cyan-500 mb-2">1,000s</div>
                 <div className="text-gray-300">Hours Saved</div>
               </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-blue-500 mb-2">$50K+</div>
-                <div className="text-gray-300">Revenue Enabled</div>
-              </div>
+              {/* Removed revenue claim per request */}
             </div>
           </div>
           <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
