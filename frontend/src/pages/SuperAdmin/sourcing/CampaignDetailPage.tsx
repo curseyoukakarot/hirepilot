@@ -48,6 +48,10 @@ export default function CampaignDetailPage() {
   const [senderEmails, setSenderEmails] = useState<string[]>([]);
   const [senderSaving, setSenderSaving] = useState<boolean>(false);
   const [senderSyncing, setSenderSyncing] = useState<boolean>(false);
+  // Saved sequences integration
+  const [savedSequences, setSavedSequences] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedSequenceId, setSelectedSequenceId] = useState<string>('');
+  const [enrolling, setEnrolling] = useState<boolean>(false);
 
   const loadCampaign = async () => {
     try {
@@ -86,6 +90,17 @@ export default function CampaignDetailPage() {
           } catch {}
           setSenderSyncing(false);
         }
+      } catch {}
+    })();
+  }, []);
+
+  // Load saved sequences (Message Center templates)
+  useEffect(() => {
+    (async () => {
+      try {
+        const seqs = await api('/api/sequences');
+        const list = (seqs || []).map((s:any) => ({ id: s.id, name: s.name || 'Untitled sequence' }));
+        setSavedSequences(list);
       } catch {}
     })();
   }, []);
@@ -242,13 +257,30 @@ export default function CampaignDetailPage() {
             </button>
           )}
 
-          {/* Relaunch (set back to draft) */}
+          {/* Relaunch (schedule/resume) */}
           <button
             onClick={async()=>{
               if(!id) return;
+              // Guard: require sender + a sequence (generated or attached)
+              const hasSender = (senderBehavior==='rotate') || (senderBehavior==='specific' ? senderEmails.length>0 : !!senderEmail);
+              const hasSequence = !!sequence || !!selectedSequenceId;
+              if (!hasSender || !hasSequence){
+                alert('Please select a sender and attach or generate an email sequence before relaunching.');
+                return;
+              }
               setActionLoading('relaunch');
               try{
-                await api(`/api/sourcing/campaigns/${id}/relaunch`, { method:'POST' });
+                // If a saved sequence is selected, enroll current leads now
+                if (selectedSequenceId && data?.leads?.length){
+                  const leadIds = data.leads.map(l=>l.id);
+                  await api(`/api/sequences/${selectedSequenceId}/enroll`, { method:'POST', body: JSON.stringify({ leadIds }) });
+                }
+                // Schedule or resume
+                if (data?.campaign?.status === 'paused') {
+                  await api(`/api/sourcing/campaigns/${id}/resume`, { method:'POST' });
+                } else {
+                  await api(`/api/sourcing/campaigns/${id}/schedule`, { method:'POST' });
+                }
                 await loadCampaign();
               }catch(err){ setError(err instanceof Error ? err.message : 'Failed to relaunch'); }
               setActionLoading(null);
@@ -439,6 +471,38 @@ export default function CampaignDetailPage() {
               >
                 Generate with REX
               </Link>
+              <div className="mt-6 text-left max-w-md mx-auto">
+                <div className="text-gray-300 mb-2">Or attach a saved sequence</div>
+                <div className="flex items-center gap-3">
+                  <select
+                    value={selectedSequenceId}
+                    onChange={e=>setSelectedSequenceId(e.target.value)}
+                    className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded text-gray-100"
+                  >
+                    <option value="">Select a saved sequence…</option>
+                    {savedSequences.map(s => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={async()=>{
+                      if (!id || !selectedSequenceId) return;
+                      if (!data?.leads || !data.leads.length) return;
+                      setEnrolling(true);
+                      try{
+                        const leadIds = data.leads.map(l=>l.id);
+                        await api(`/api/sequences/${selectedSequenceId}/enroll`, { method:'POST', body: JSON.stringify({ leadIds }) });
+                        alert('Sequence attached and scheduled for current leads.');
+                      }catch(err){ console.error(err); alert('Failed to attach sequence'); }
+                      setEnrolling(false);
+                    }}
+                    disabled={enrolling || !selectedSequenceId || !(data?.leads||[]).length}
+                    className="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded text-white disabled:opacity-50"
+                  >
+                    {enrolling ? 'Attaching…' : 'Attach & Schedule'}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>

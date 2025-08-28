@@ -302,6 +302,14 @@ export function startCronJobs() {
     await processPhantomJobQueue();
     await processScheduledMessages();
     await processSequenceStepRuns();
+    // Weekly REX check-in: once a week per user
+    try {
+      const { supabaseDb } = require('../lib/supabase');
+      const { data: users } = await supabaseDb.from('users').select('id');
+      for (const u of users || []) {
+        try { await fetch(`${process.env.BACKEND_BASE_URL || 'http://localhost:8080'}/api/rex/checkin`, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ userId: u.id }) }); } catch {}
+      }
+    } catch {}
     const nextInterval = randomIntervalMs();
     console.log(`[cron] Next run in ${nextInterval / 60000} minutes`);
     setTimeout(runAndReschedule, nextInterval);

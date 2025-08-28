@@ -126,6 +126,37 @@ export default async function rexChat(req: Request, res: Response) {
       { type:'function',function:{name:'move_candidate_to_stage',parameters:{ type:'object', properties:{ userId:{type:'string'}, candidate:{type:'string'}, stage:{type:'string'}, jobId:{type:'string'} }, required:['userId','candidate','stage']}}}
     ];
 
+    // Lightweight endpoint: weekly check-in hook (called by cron)
+    if (req.path.endsWith('/rex/checkin') && req.method === 'POST') {
+      try {
+        const { data: settings } = await supabase
+          .from('user_settings')
+          .select('last_rex_checkin_at, email, slack_webhook_url, campaign_updates')
+          .eq('user_id', userId)
+          .maybeSingle();
+        const last = settings?.last_rex_checkin_at ? new Date(settings.last_rex_checkin_at) : null;
+        const now = new Date();
+        const weekMs = 7 * 24 * 60 * 60 * 1000;
+        if (!last || now.getTime() - last.getTime() >= weekMs) {
+          const message = `REX weekly check-in: Review your active campaigns: ${process.env.FRONTEND_BASE_URL || ''}/super-admin/sourcing`;
+          if (settings?.campaign_updates && settings?.slack_webhook_url) {
+            await (await import('axios')).default.post(settings.slack_webhook_url, { text: message });
+          }
+          if (settings?.email) {
+            const sg = (await import('@sendgrid/mail')).default;
+            // @ts-ignore
+            sg.setApiKey(process.env.SENDGRID_API_KEY);
+            await sg.send({ to: settings.email, from: process.env.SENDGRID_FROM || 'noreply@hirepilot.ai', subject: 'REX weekly check-in', text: message });
+          }
+          await supabase.from('user_settings').update({ last_rex_checkin_at: now.toISOString() }).eq('user_id', userId);
+        }
+        return res.status(200).json({ ok: true });
+      } catch (e:any) {
+        console.error('[rex/checkin]', e);
+        return res.status(200).json({ ok: false });
+      }
+    }
+
     const contextMessage = {
       role: 'system',
       content: `You are REX, a recruiting agent.
