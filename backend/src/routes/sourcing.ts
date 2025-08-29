@@ -168,9 +168,11 @@ router.get('/campaigns', requireAuth, async (req: ApiRequest, res: Response) => 
   try {
     // If no query parameters, return simple list for frontend
     if (Object.keys(req.query).length === 0) {
+      const userId = req.user?.id as string;
       const { data, error } = await supabase
         .from('sourcing_campaigns')
         .select('id, title, audience_tag, status, created_at, created_by, default_sender_id')
+        .eq('created_by', userId)
         .order('created_at', { ascending: false })
         .limit(100);
       
