@@ -432,15 +432,26 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
 
     console.log('Found invite:', { email: invite.email, id: invite.id });
 
-    // Check if user exists in auth system
-    const { data: authUsers, error: authError } = await supabaseDb.auth.admin.listUsers();
-    const users = authUsers?.users as { id: string; email: string }[];
-    const existingAuthUser = users.find(u => u.email === invite.email);
-
-    if (authError) {
-      console.error('Error checking auth user:', authError);
-      res.status(500).json({ message: 'Error checking user existence', error: authError });
-      return;
+    // Resolve if user already exists (prefer public.users, then auth admin list)
+    let existingAuthUser: { id: string; email?: string } | null = null;
+    try {
+      const { data: existingPublicUser } = await supabaseDb
+        .from('users')
+        .select('id, email')
+        .eq('email', invite.email)
+        .maybeSingle();
+      if (existingPublicUser) existingAuthUser = { id: (existingPublicUser as any).id, email: invite.email };
+    } catch {}
+    if (!existingAuthUser) {
+      const { data: authUsers, error: authError } = await supabaseDb.auth.admin.listUsers({ page: 1, perPage: 1000 } as any);
+      if (authError) {
+        console.error('Error checking auth user:', authError);
+        res.status(500).json({ message: 'Error checking user existence', error: authError });
+        return;
+      }
+      const users = (authUsers?.users || []) as { id: string; email?: string }[];
+      const found = users.find(u => (u.email || '').toLowerCase() === invite.email.toLowerCase());
+      if (found) existingAuthUser = { id: found.id, email: found.email };
     }
 
     // Generate invite URL
@@ -470,38 +481,67 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
       });
 
       if (createError) {
-        console.error('Error creating user:', createError);
-        res.status(503).json({ 
-          message: 'Failed to create user account', 
-          error: createError
-        });
-        return;
+        // If email already exists in auth, switch to update flow
+        if ((createError as any)?.code === 'email_exists') {
+          try {
+            const targetId = existingAuthUser?.id || (async () => {
+              const { data: page } = await supabaseDb.auth.admin.listUsers({ page: 1, perPage: 1000 } as any);
+              const found = ((page?.users || []) as { id: string; email?: string }[])
+                .find(u => (u.email || '').toLowerCase() === invite.email.toLowerCase());
+              return found?.id;
+            })();
+            const resolvedId = typeof targetId === 'string' ? targetId : await targetId;
+            if (resolvedId) {
+              const { error: updErr } = await supabaseDb.auth.admin.updateUserById(resolvedId, {
+                email_confirm: true,
+                password: tempPassword
+              } as any);
+              if (updErr) throw updErr;
+              existingAuthUser = { id: resolvedId, email: invite.email };
+            } else {
+              throw createError;
+            }
+          } catch (err) {
+            console.error('Error resolving existing auth user for update:', err);
+            res.status(503).json({ message: 'Failed to create user account', error: createError });
+            return;
+          }
+        } else {
+          console.error('Error creating user:', createError);
+          res.status(503).json({ 
+            message: 'Failed to create user account', 
+            error: createError
+          });
+          return;
+        }
       }
 
       // Create a record in the public.users table
-      console.log('Creating public user record for:', invite.email);
-      const { error: publicUserError } = await supabaseDb
-        .from('users')
-        .insert([{
-          id: userData.user.id,
-          email: invite.email,
-          role: invite.role,
-          onboarding_complete: false,
-          credits_used: 0,
-          credits_available: 0,
-          is_in_cooldown: false,
-          team_id: (req as any).teamId
-        }]);
+      if (userData?.user?.id) {
+        console.log('Creating public user record for:', invite.email);
+        const { error: publicUserError } = await supabaseDb
+          .from('users')
+          .insert([{
+            id: userData.user.id,
+            email: invite.email,
+            role: invite.role,
+            onboarding_complete: false,
+            credits_used: 0,
+            credits_available: 0,
+            is_in_cooldown: false,
+            team_id: (req as any).teamId
+          }]);
 
-      if (publicUserError) {
-        console.error('Error creating public user record:', publicUserError);
-        // Clean up the auth user since we couldn't create the public record
-        await supabaseDb.auth.admin.deleteUser(userData.user.id);
-        res.status(503).json({ 
-          message: 'Failed to create user record', 
-          error: publicUserError
-        });
-        return;
+        if (publicUserError) {
+          console.error('Error creating public user record:', publicUserError);
+          // Clean up the auth user since we couldn't create the public record
+          await supabaseDb.auth.admin.deleteUser(userData.user.id);
+          res.status(503).json({ 
+            message: 'Failed to create user record', 
+            error: publicUserError
+          });
+          return;
+        }
       }
 
       // Create default user_settings for the new user
