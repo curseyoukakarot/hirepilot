@@ -108,9 +108,42 @@ router.post('/webhooks/sendgrid/sourcing/inbound', upload.any(), async (req: Req
 
     const userId = campaign?.created_by;
 
-    // Send notifications via multiple channels
-    await Promise.all([
-      // Primary notification service (Slack + Email)
+    // Compute recipients: campaign owner + REX-enabled users on the same team (if any)
+    let recipients: string[] = [];
+    if (userId) {
+      recipients.push(userId);
+      try {
+        const { data: owner } = await supabase
+          .from('users')
+          .select('team_id')
+          .eq('id', userId)
+          .single();
+        if (owner?.team_id) {
+          const { data: teamUsers } = await supabase
+            .from('users')
+            .select('id')
+            .eq('team_id', owner.team_id);
+          const ids = (teamUsers || []).map(u => u.id);
+          if (ids.length) {
+            const { data: rexEnabled } = await supabase
+              .from('user_settings')
+              .select('user_id, agent_mode_enabled')
+              .in('user_id', ids);
+            const extra = (rexEnabled || []).filter(r => r.agent_mode_enabled).map(r => r.user_id);
+            recipients.push(...extra);
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to resolve team recipients', e);
+      }
+    }
+
+    // De-dup recipients
+    recipients = Array.from(new Set(recipients.filter(Boolean)));
+
+    // Send notifications via multiple channels to each recipient
+    await Promise.all(recipients.map(rid => Promise.all([
+      // Primary notification service (Slack + Email) per recipient
       sendSourcingReplyNotification({
         campaignId,
         leadId,
@@ -118,11 +151,12 @@ router.post('/webhooks/sendgrid/sourcing/inbound', upload.any(), async (req: Req
         from,
         subject,
         classification: classification.label,
-        nextAction: classification.next_action
+        nextAction: classification.next_action,
+        userId: rid
       }),
-      // New notification system with interactive cards (in-app)
-      userId ? SourcingNotifications.newReply({
-        userId,
+      // In-app Action Inbox card per recipient
+      SourcingNotifications.newReply({
+        userId: rid,
         campaignId,
         leadId,
         replyId: replyRow.id,
@@ -131,28 +165,29 @@ router.post('/webhooks/sendgrid/sourcing/inbound', upload.any(), async (req: Req
         fromEmail: from,
         body,
         source: 'inapp'
-      }) : Promise.resolve(null),
-      // Mirror the same card to Slack (if Slack is configured)
-      process.env.SLACK_BOT_TOKEN && userId ? sendSlackReplyNotification({
-        userId,
+      }),
+      // Slack mirror card per recipient
+      process.env.SLACK_BOT_TOKEN ? sendSlackReplyNotification({
+        userId: rid,
         from,
         classification: classification.label,
         nextAction: classification.next_action,
         body,
         campaignId,
         leadId
-      }) : Promise.resolve(null),
-      // Secondary notification system (for future integrations)
-      sendReplyNotification({
-        campaignId,
-        leadId,
-        from,
-        subject,
-        classification: classification.label,
-        nextAction: classification.next_action,
-        replyId: replyRow.id
-      })
-    ]);
+      }) : Promise.resolve(null)
+    ])));
+
+    // Secondary legacy notification (owner only) for compatibility
+    await sendReplyNotification({
+      campaignId,
+      leadId,
+      from,
+      subject,
+      classification: classification.label,
+      nextAction: classification.next_action,
+      replyId: replyRow.id
+    });
     
     console.log('🎉 Reply processing completed successfully');
     return res.status(200).json({ 
