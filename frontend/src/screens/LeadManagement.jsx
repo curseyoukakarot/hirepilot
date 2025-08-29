@@ -106,6 +106,9 @@ function LeadManagement() {
   const [showAttachToCampaignModal, setShowAttachToCampaignModal] = useState(false);
   const [attachLeadIds, setAttachLeadIds] = useState([]);
 
+  // Provider selection for sequence enrollment
+  const [sequenceProvider, setSequenceProvider] = useState(null); // 'google' | 'outlook' | 'sendgrid'
+
   // Load leads function with campaign filtering support
   const loadLeads = async (campaignId = selectedCampaign) => {
     try {
@@ -630,6 +633,25 @@ function LeadManagement() {
         const data = await res.json();
         setSequences(data || []);
         setShowSequencePicker(true);
+        // Initialize provider based on connected status order: google -> outlook -> sendgrid
+        if (!sequenceProvider) {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { data: googleData } = await supabase
+              .from('google_accounts')
+              .select('status')
+              .eq('user_id', user.id)
+              .maybeSingle();
+            const { data: integ } = await supabase
+              .from('integrations')
+              .select('provider,status')
+              .eq('user_id', user.id);
+            const connected = new Set((integ||[]).filter(r=>r.status==='connected').map(r=>r.provider));
+            if (googleData?.status==='connected') setSequenceProvider('google');
+            else if (connected.has('outlook')) setSequenceProvider('outlook');
+            else if (connected.has('sendgrid')) setSequenceProvider('sendgrid');
+          }
+        }
       }
     } catch (e) {
       // ignore
@@ -2144,6 +2166,31 @@ function LeadManagement() {
             <div className="text-sm text-gray-600 mb-4">
               {selectedSequenceId ? `This will enroll ${selectedLeadIds.length} lead(s) into the selected sequence.` : 'Pick a sequence to see details.'}
             </div>
+            {/* Provider Selection */}
+            <div className="mb-4 flex items-center gap-3">
+              <span className="font-medium text-gray-700">Send with:</span>
+              <button
+                type="button"
+                className={`flex items-center gap-1 px-3 py-2 rounded-lg border ${sequenceProvider === 'google' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 bg-white'} text-sm`}
+                onClick={() => setSequenceProvider('google')}
+              >
+                <i className="fa-brands fa-google text-red-600" /> Google
+              </button>
+              <button
+                type="button"
+                className={`flex items-center gap-1 px-3 py-2 rounded-lg border ${sequenceProvider === 'outlook' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 bg-white'} text-sm`}
+                onClick={() => setSequenceProvider('outlook')}
+              >
+                <i className="fa-brands fa-microsoft text-blue-600" /> Outlook
+              </button>
+              <button
+                type="button"
+                className={`flex items-center gap-1 px-3 py-2 rounded-lg border ${sequenceProvider === 'sendgrid' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 bg-white'} text-sm`}
+                onClick={() => setSequenceProvider('sendgrid')}
+              >
+                <i className="fa-regular fa-envelope text-green-600" /> SendGrid
+              </button>
+            </div>
             <div className="flex justify-end gap-3">
               <button className="px-4 py-2 border rounded-lg hover:bg-gray-50" onClick={() => setShowSequencePicker(false)}>Cancel</button>
               <button
@@ -2157,7 +2204,7 @@ function LeadManagement() {
                       method:'POST',
                       headers:{ 'Content-Type':'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {})},
                       credentials:'include',
-                      body: JSON.stringify({ leadIds: selectedLeadIds, startTimeLocal: sequenceStart.toISOString(), timezone: sequenceTz })
+                      body: JSON.stringify({ leadIds: selectedLeadIds, startTimeLocal: sequenceStart.toISOString(), timezone: sequenceTz, provider: sequenceProvider })
                     });
                     if(!res.ok) throw new Error('Failed to enroll');
                     setShowSequencePicker(false);

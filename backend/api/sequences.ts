@@ -284,7 +284,7 @@ router.post('/sequences/:id/enroll', requireAuth, async (req: ApiRequest, res) =
   try {
     const userId = req.user!.id;
     const sequenceId = req.params.id;
-    const { leadIds, startTimeLocal, timezone } = req.body || {};
+    const { leadIds, startTimeLocal, timezone, provider } = req.body || {};
     if (!Array.isArray(leadIds) || !leadIds.length) return res.status(400).json({ error: 'leadIds required' });
 
     const seqBundle = await getSequenceWithSteps(sequenceId, userId);
@@ -317,13 +317,20 @@ router.post('/sequences/:id/enroll', requireAuth, async (req: ApiRequest, res) =
       if (!existing) {
         const { data: ins, error: insErr } = await supabaseDb
           .from('sequence_enrollments')
-          .insert({ sequence_id: sequenceId, lead_id: leadId, enrolled_by_user_id: userId, status: 'active', current_step_order: 1 })
+          .insert({ sequence_id: sequenceId, lead_id: leadId, enrolled_by_user_id: userId, status: 'active', current_step_order: 1, provider: provider || null })
           .select('id')
           .single();
         if (insErr) throw insErr;
         enrollmentId = ins.id;
       } else {
         enrollmentId = existing.id;
+        // Update provider if specified
+        if (provider) {
+          await supabaseDb
+            .from('sequence_enrollments')
+            .update({ provider })
+            .eq('id', enrollmentId);
+        }
       }
 
       if (enrollmentId) {

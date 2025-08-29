@@ -229,9 +229,17 @@ export async function processSequenceStepRuns(){
       const body = personalizeMessage(step.body || '', leadRes);
       const subject = step.subject ? personalizeMessage(step.subject, leadRes) : undefined;
 
-      // Send via existing provider service (fallback to default service)
-      const sendProvider = require('../services/emailProviderService');
-      const sent = await sendProvider.sendEmail(leadRes, body, leadRes.user_id);
+      // Determine provider for this enrollment if specified; else fall back to default service
+      let sent = false;
+      const preferredProvider = (enrollment as any)?.provider as string | undefined;
+      if (preferredProvider && ['sendgrid','google','gmail','outlook'].includes(preferredProvider)) {
+        const { sendViaProvider } = await import('../services/providerEmail');
+        const subj = step.subject ? personalizeMessage(step.subject, leadRes) : 'Message from HirePilot';
+        sent = await sendViaProvider(preferredProvider as any, leadRes, body, leadRes.user_id, subj);
+      } else {
+        const ep = await import('../services/emailProviderService');
+        sent = await ep.sendEmail(leadRes, body, leadRes.user_id);
+      }
 
       if (!sent){
         const retryCount = Number(run.retry_count || 0);
