@@ -940,7 +940,7 @@ export default function MessagingCenter() {
                   className={`flex items-center px-3 py-2 text-sm rounded-md cursor-pointer transition-colors ${activeFolder === folder.name ? 'bg-blue-50 text-blue-700 font-semibold shadow' : 'text-gray-700 hover:bg-gray-100'}`}
                   onClick={() => {
                     if (folder.name === 'Replies') {
-                      window.location.href = '/agent/action-inbox';
+                      window.location.href = '/agent/inbox';
                       return;
                     }
                     handleFolderClick(folder.name);
