@@ -7,19 +7,24 @@ export default function RexSlackIntegrationCard({ user }) {
   const [enabled, setEnabled] = useState(false);
   const [connected, setConnected] = useState(false);
   const [channel, setChannel] = useState("#Slack workspace");
+  const [planTier, setPlanTier] = useState(null);
 
   const metaRole = user?.user_metadata?.role || user?.user_metadata?.account_type;
   const roleValue = user?.user_type || user?.role || metaRole;
 
-  const hasAccess = [
+  const roleAccess = [
     "SuperAdmin",
     "RecruitPro",
     "TeamAdmin",
+    "team_admin",
     "recruiter",
     "Recruiter",
     "super_admin",
     "admin",
   ].includes(roleValue);
+
+  const planAccess = ["pro", "team", "enterprise"].includes(String(planTier || "").toLowerCase());
+  const hasAccess = roleAccess || planAccess;
 
   if (!hasAccess) return null;
 
@@ -27,6 +32,16 @@ export default function RexSlackIntegrationCard({ user }) {
   useEffect(() => {
     (async () => {
       if (!user) return;
+      // fetch subscription plan tier for gating
+      try {
+        const { data: sub } = await supabase
+          .from('subscriptions')
+          .select('plan_tier')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (sub?.plan_tier) setPlanTier(sub.plan_tier);
+      } catch {}
+
       const { data, error } = await supabase
         .from('users')
         .select('rex_slack_enabled')
