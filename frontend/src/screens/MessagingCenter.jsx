@@ -17,7 +17,7 @@ const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
 // Helper function to generate avatar URL
 const getAvatarUrl = (name) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
 
-const folders = [
+const baseFolders = [
   { name: 'Inbox', icon: <FaInbox /> },
   { name: 'Sent', icon: <FaPaperPlane /> },
   { name: 'Drafts', icon: <FaFile /> },
@@ -42,6 +42,7 @@ export default function MessagingCenter() {
     { label: 'Job Company', value: '{{Job.Company}}' },
   ];
   const [activeFolder, setActiveFolder] = useState('Inbox');
+  const [folders, setFolders] = useState(baseFolders);
   const [messageList, setMessageList] = useState([]);
   const [toField, setToField] = useState('Emily Johnson <emily.johnson@example.com>');
   const [subjectField, setSubjectField] = useState('');
@@ -77,7 +78,7 @@ export default function MessagingCenter() {
     Trash: 'trash',
   };
 
-  // Fetch provider status
+  // Fetch provider status and REX status
   const fetchProviderStatus = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -110,6 +111,24 @@ export default function MessagingCenter() {
     if (firstConnected) setSelectedProvider(firstConnected);
     else setSelectedProvider(null);
     console.log('Provider status:', status, 'First connected:', firstConnected);
+
+    // Check REX (agent mode) and add Replies link if enabled
+    try {
+      const { data: agent } = await fetch(`${API_BASE_URL}/agent-mode`, { headers: { 'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` } }).then(r => r.json());
+      const enabled = !!agent?.agent_mode_enabled;
+      setFolders(prev => {
+        const hasReplies = prev.some(f => f.name === 'Replies');
+        if (enabled && !hasReplies) {
+          return [ { name: 'Replies', icon: <FaInbox /> }, ...prev ];
+        }
+        if (!enabled && hasReplies) {
+          return prev.filter(f => f.name !== 'Replies');
+        }
+        return prev;
+      });
+    } catch (e) {
+      // noop if endpoint not available
+    }
   };
 
   // Fetch messages for a folder
@@ -919,7 +938,13 @@ export default function MessagingCenter() {
               <li key={folder.name}>
                 <span
                   className={`flex items-center px-3 py-2 text-sm rounded-md cursor-pointer transition-colors ${activeFolder === folder.name ? 'bg-blue-50 text-blue-700 font-semibold shadow' : 'text-gray-700 hover:bg-gray-100'}`}
-                  onClick={() => handleFolderClick(folder.name)}
+                  onClick={() => {
+                    if (folder.name === 'Replies') {
+                      window.location.href = '/agent/action-inbox';
+                      return;
+                    }
+                    handleFolderClick(folder.name);
+                  }}
                 >
                   {folder.icon}
                   <span className="ml-2">{folder.name}</span>
