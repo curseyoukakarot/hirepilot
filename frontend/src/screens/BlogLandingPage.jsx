@@ -10,6 +10,16 @@ export default function BlogLandingPage() {
 
   const articles = [
     {
+      id: 23,
+      href: '/blog/ats-integrations',
+      title: 'Integrating HirePilot with Greenhouse, Lever, and Ashby via Zapier & Webhooks',
+      summary: 'Step-by-step guide to connect your ATS to HirePilot using Zapier, webhooks, and native triggers.',
+      tag: 'Integrations',
+      gradient: 'from-blue-600 to-purple-600',
+      icon: 'fa-plug-circle-bolt',
+      date: 'Aug 29, 2025',
+    },
+    {
       id: 22,
       href: '/blog/agentmode',
       title: 'Introducing Agent Mode: Let REX Run Your Outbound',
