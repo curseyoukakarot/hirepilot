@@ -134,50 +134,48 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
         .eq('user_id', currentUser.id)
         .maybeSingle();
 
-      // Ignore PGRST116 (no rows) and handle with explicit no-subscription branch below
+      // Ignore PGRST116 (no rows) and allow invite to proceed without seat checks
       if (subErr && (subErr as any).code !== 'PGRST116') {
         console.error('Failed to fetch subscription for seat check', subErr);
         return res.status(500).json({ message: 'Failed to validate seat limits', error: subErr });
       }
+      // If there is no subscription row, allow inviting without seat checks.
+      if (subRow) {
+        const {
+          plan_tier: planTier,
+          seat_count: seatCount = 0,
+          included_seats: includedSeats = 1,
+          stripe_subscription_id: stripeSubId
+        } = subRow as any;
 
-      if (!subRow) {
-        return res.status(400).json({ message: 'No active subscription found. Please subscribe before inviting team members.' });
-      }
+        // Block invite for Starter / Pro if seat limit reached
+        if (['starter', 'pro'].includes(planTier) && seatCount >= includedSeats) {
+          return res.status(403).json({ message: 'Seat limit reached for your plan. Upgrade to the Team plan to add additional members.' });
+        }
 
-      const {
-        plan_tier: planTier,
-        seat_count: seatCount = 0,
-        included_seats: includedSeats = 1,
-        stripe_subscription_id: stripeSubId
-      } = subRow as any;
+        // For Team plan – if we are at limit we automatically add a paid seat in Stripe & DB
+        let updatedSeatCount = seatCount;
+        if (planTier === 'team') {
+          updatedSeatCount = seatCount + 1; // optimistic increment, will update later
+          if (updatedSeatCount > includedSeats) {
+            try {
+              // Retrieve subscription to get item id
+              const subscription = await stripe.subscriptions.retrieve(stripeSubId, { expand: ['items'] });
+              const itemId = subscription.items.data[0]?.id;
+              if (!itemId) throw new Error('Unable to find Stripe subscription item');
 
-      // Block invite for Starter / Pro if seat limit reached
-      if (['starter', 'pro'].includes(planTier) && seatCount >= includedSeats) {
-        return res.status(403).json({ message: 'Seat limit reached for your plan. Upgrade to the Team plan to add additional members.' });
-      }
+              // Update the quantity (seat count) on the subscription item
+              await stripe.subscriptionItems.update(itemId, { quantity: updatedSeatCount });
 
-      // For Team plan – if we are at limit we automatically add a paid seat in Stripe & DB
-      let updatedSeatCount = seatCount;
-      if (planTier === 'team') {
-        updatedSeatCount = seatCount + 1; // optimistic increment, will update later
-        if (updatedSeatCount > includedSeats) {
-          try {
-            // Retrieve subscription to get item id
-            const subscription = await stripe.subscriptions.retrieve(stripeSubId, { expand: ['items'] });
-            const itemId = subscription.items.data[0]?.id;
-            if (!itemId) throw new Error('Unable to find Stripe subscription item');
-
-            // Update the quantity (seat count) on the subscription item
-            await stripe.subscriptionItems.update(itemId, { quantity: updatedSeatCount });
-
-            // Reflect the change in our DB
-            await supabase
-              .from('subscriptions')
-              .update({ seat_count: updatedSeatCount })
-              .eq('stripe_subscription_id', stripeSubId);
-          } catch (stripeErr) {
-            console.error('Failed to auto-add seat in Stripe', stripeErr);
-            return res.status(500).json({ message: 'Failed to increase seat count in Stripe', error: stripeErr });
+              // Reflect the change in our DB
+              await supabase
+                .from('subscriptions')
+                .update({ seat_count: updatedSeatCount })
+                .eq('stripe_subscription_id', stripeSubId);
+            } catch (stripeErr) {
+              console.error('Failed to auto-add seat in Stripe', stripeErr);
+              return res.status(500).json({ message: 'Failed to increase seat count in Stripe', error: stripeErr });
+            }
           }
         }
       }
