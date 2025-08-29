@@ -8,9 +8,12 @@ sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 export const sendEmail = async (to: string, subject: string, text: string, html?: string) => {
   try {
+    const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'noreply@hirepilot.com';
+    const fromName = process.env.SENDGRID_FROM_NAME || 'HirePilot';
     const msg = {
       to,
-      from: process.env.SENDGRID_FROM_EMAIL || 'noreply@hirepilot.com',
+      from: { email: fromEmail, name: fromName },
+      replyTo: process.env.SENDGRID_REPLY_TO_EMAIL || fromEmail,
       subject,
       text,
       html: html || text,
@@ -61,9 +64,13 @@ export const sendTeamInviteEmail = async (data: {
       </div>
     `;
 
+    const inviteFromEmail = process.env.SENDGRID_INVITE_FROM_EMAIL || process.env.SENDGRID_FROM_EMAIL || 'noreply@hirepilot.com';
+    const inviteFromName = process.env.SENDGRID_INVITE_FROM_NAME || process.env.SENDGRID_FROM_NAME || 'HirePilot';
+
     const msg = {
       to: data.to,
-      from: process.env.SENDGRID_FROM_EMAIL || 'noreply@hirepilot.com',
+      from: { email: inviteFromEmail, name: inviteFromName },
+      replyTo: data.invitedBy.email,
       subject: `You're invited to join HirePilot${data.company ? ` at ${data.company}` : ''}`,
       text: `Hi ${data.firstName}, you've been invited to join HirePilot as a ${data.role} by ${data.invitedBy.firstName} ${data.invitedBy.lastName}. Click this link to get started: ${data.inviteLink}`,
       html: htmlContent,
