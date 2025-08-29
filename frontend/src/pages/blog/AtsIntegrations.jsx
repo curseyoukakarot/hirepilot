@@ -15,8 +15,9 @@ export default function AtsIntegrations() {
         .prose ul { color: #d1d5db; margin: 1.25rem 0 1.5rem; padding-left: 1.25rem; }
         .prose li { margin-bottom: 0.5rem; }
         .prose blockquote { border-left: 4px solid #3b82f6; padding-left: 1rem; margin: 2rem 0; font-style: italic; color: #9ca3af; }
-        .prose code { background: #374151; color: #f9fafb; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.875rem; }
+        .prose code { background: #374151; color: #ffffff !important; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.875rem; }
         .prose pre { background: #1f2937; padding: 1.25rem; border-radius: 0.5rem; overflow-x: auto; margin: 1.5rem 0; }
+        .prose pre, .prose pre code { color: #ffffff !important; }
         .toc-active { color: #3b82f6; }
         .force-white, .force-white * { color: #ffffff !important; }
       `}</style>

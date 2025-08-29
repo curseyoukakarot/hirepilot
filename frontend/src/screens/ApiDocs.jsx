@@ -53,14 +53,14 @@ export default function ApiDocs() {
                                 <span class="text-sm text-gray-500">Zapier/Make Header</span>
                                 <button class="text-blue-400 hover:text-blue-300 text-sm"><i class="fas fa-copy mr-1"></i>Copy</button>
                             </div>
-                            <pre class="text-sm text-green-400 overflow-auto">X-API-Key: YOUR_API_KEY</pre>
+                            <pre class="text-sm overflow-auto" style="color:#ffffff !important">X-API-Key: YOUR_API_KEY</pre>
                         </div>
                         <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
                             <div class="flex items-center justify-between mb-2">
                                 <span class="text-sm text-gray-500">Standard Bearer Header</span>
                                 <button class="text-blue-400 hover:text-blue-300 text-sm"><i class="fas fa-copy mr-1"></i>Copy</button>
                             </div>
-                            <pre class="text-sm text-green-400 overflow-auto">Authorization: Bearer YOUR_API_KEY</pre>
+                            <pre class="text-sm overflow-auto" style="color:#ffffff !important">Authorization: Bearer YOUR_API_KEY</pre>
                         </div>
                     </div>
 
@@ -78,7 +78,7 @@ export default function ApiDocs() {
 
                     <div class="mb-4">
                         <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-900/50 text-blue-400 border border-blue-700">GET</span>
-                        <code class="ml-3 text-green-400">/api/zapier/triggers/events</code>
+                        <code class="ml-3" style="color:#ffffff !important">/api/zapier/triggers/events</code>
                     </div>
 
                     <div class="bg-gray-800 rounded-lg p-4 border border-gray-700 mb-4">
@@ -124,8 +124,8 @@ export default function ApiDocs() {
                     <p class="text-gray-400 mb-6">Make HirePilot do something from your automation—create/update leads or enrich them with Apollo.</p>
 
                     <ul class="list-disc pl-6 text-gray-300 space-y-2">
-                        <li><code class="text-green-400">POST /api/zapier/leads</code> — Create or update a lead</li>
-                        <li><code class="text-green-400">POST /api/zapier/enrich</code> — Enrich a lead via Apollo (by <code>lead_id</code> or <code>email</code>)</li>
+                        <li><code style="color:#ffffff !important">POST /api/zapier/leads</code> — Create or update a lead</li>
+                        <li><code style="color:#ffffff !important">POST /api/zapier/enrich</code> — Enrich a lead via Apollo (by <code style="color:#ffffff !important">lead_id</code> or <code style="color:#ffffff !important">email</code>)</li>
                     </ul>
                 </section>
 
@@ -162,7 +162,7 @@ export default function ApiDocs() {
                     </h2>
                     <div class="mb-4">
                         <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-900/50 text-green-400 border border-green-700">POST</span>
-                        <code class="ml-3 text-green-400">/api/zapier/enrich</code>
+                        <code class="ml-3" style="color:#ffffff !important">/api/zapier/enrich</code>
                     </div>
                     <p class="text-gray-400 mb-4">Enrich a lead with Apollo. We derive user/workspace context from your API key.</p>
                     <div class="bg-gray-800 rounded-lg p-4 border border-gray-700 mb-4">
