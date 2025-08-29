@@ -132,9 +132,10 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
         .from('subscriptions')
         .select('*')
         .eq('user_id', currentUser.id)
-        .single();
+        .maybeSingle();
 
-      if (subErr) {
+      // Ignore PGRST116 (no rows) and handle with explicit no-subscription branch below
+      if (subErr && (subErr as any).code !== 'PGRST116') {
         console.error('Failed to fetch subscription for seat check', subErr);
         return res.status(500).json({ message: 'Failed to validate seat limits', error: subErr });
       }
