@@ -112,23 +112,28 @@ export default function MessagingCenter() {
     else setSelectedProvider(null);
     console.log('Provider status:', status, 'First connected:', firstConnected);
 
-    // Check REX (agent mode) and add Replies link if enabled
+    // Check REX (agent mode) from user_settings and add Replies link at position below Inbox
     try {
-      const { data: agent } = await fetch(`${API_BASE_URL}/agent-mode`, { headers: { 'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` } }).then(r => r.json());
-      const enabled = !!agent?.agent_mode_enabled;
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      let enabled = false;
+      if (authUser) {
+        const { data: settings } = await supabase
+          .from('user_settings')
+          .select('agent_mode_enabled')
+          .eq('user_id', authUser.id)
+          .maybeSingle();
+        enabled = !!settings?.agent_mode_enabled;
+      }
       setFolders(prev => {
-        const hasReplies = prev.some(f => f.name === 'Replies');
-        if (enabled && !hasReplies) {
-          return [ { name: 'Replies', icon: <FaInbox /> }, ...prev ];
+        const without = prev.filter(f => f.name !== 'Replies');
+        if (enabled) {
+          const next = [...without];
+          next.splice(1, 0, { name: 'Replies', icon: <FaInbox /> });
+          return next;
         }
-        if (!enabled && hasReplies) {
-          return prev.filter(f => f.name !== 'Replies');
-        }
-        return prev;
+        return without;
       });
-    } catch (e) {
-      // noop if endpoint not available
-    }
+    } catch (_) {}
   };
 
   // Fetch messages for a folder
