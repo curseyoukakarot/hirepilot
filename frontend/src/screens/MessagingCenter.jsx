@@ -116,17 +116,19 @@ export default function MessagingCenter() {
     try {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       let enabled = false;
+      let roleAllowed = false;
       if (authUser) {
-        const { data: settings } = await supabase
-          .from('user_settings')
-          .select('agent_mode_enabled')
-          .eq('user_id', authUser.id)
-          .maybeSingle();
+        const [{ data: settings }, { data: userRow }] = await Promise.all([
+          supabase.from('user_settings').select('agent_mode_enabled').eq('user_id', authUser.id).maybeSingle(),
+          supabase.from('users').select('role').eq('id', authUser.id).maybeSingle(),
+        ]);
         enabled = !!settings?.agent_mode_enabled;
+        const role = (userRow?.role || '').toString();
+        roleAllowed = ['team_admin','admin','RecruitPro','recruiter','SuperAdmin','super_admin'].includes(role);
       }
       setFolders(prev => {
         const without = prev.filter(f => f.name !== 'Replies');
-        if (enabled) {
+        if (enabled || roleAllowed) {
           const next = [...without];
           next.splice(1, 0, { name: 'Replies', icon: <FaInbox /> });
           return next;
