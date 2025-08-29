@@ -37,6 +37,7 @@ export async function sendViaProvider(
         replyTo: `msg_${trackingMessageId}.u_${userId}.c_${lead.campaign_id}@${process.env.INBOUND_PARSE_DOMAIN || 'reply.thehirepilot.com'}`
       };
       const [response] = await sgMail.send(msg);
+      const sgMsgId = (response as any)?.headers?.['x-message-id'];
       const now = new Date();
       await supabaseDb.from('messages').insert({
         user_id: userId,
@@ -47,7 +48,7 @@ export async function sendViaProvider(
         from_address: data.default_sender,
         subject: msg.subject,
         content: bodyHtml,
-        sg_message_id: response.headers['x-message-id'],
+        sg_message_id: sgMsgId,
         provider: 'sendgrid',
         status: 'sent',
         sent_at: now.toISOString(),
@@ -68,7 +69,7 @@ export async function sendViaProvider(
         event_type: 'sent',
         provider: 'sendgrid',
         event_timestamp: now.toISOString(),
-        metadata: { subject: msg.subject, sg_message_id: response.headers['x-message-id'] }
+        metadata: { subject: msg.subject, sg_message_id: sgMsgId }
       });
       return true;
     }

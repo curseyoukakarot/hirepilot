@@ -55,10 +55,34 @@ export async function sendgridEventsHandler(req: express.Request, res: express.R
         custom_args = {}
       } = ev || {};
 
-      const { user_id, campaign_id, lead_id, message_id: customMessageId } = (custom_args as any) || {};
+      let { user_id, campaign_id, lead_id, message_id: customMessageId } = (custom_args as any) || {};
       const eventTimestamp = new Date((Number(ts) || Math.floor(Date.now() / 1000)) * 1000).toISOString();
 
       const resolvedMessageId = customMessageId || sg_message_id || ev['smtp-id'] || ev['smtp_id'] || null;
+
+      // Fallback attribution: if any ids are missing, try to resolve from messages by sg_message_id or headers
+      if (!user_id || !campaign_id || !lead_id) {
+        try {
+          const ors: string[] = [];
+          if (sg_message_id) ors.push(`sg_message_id.eq.${sg_message_id}`);
+          if (resolvedMessageId) ors.push(`message_id_header.eq.${resolvedMessageId}`);
+          if (ors.length) {
+            const { data: msg } = await supabase
+              .from('messages')
+              .select('user_id,campaign_id,lead_id')
+              .or(ors.join(','))
+              .limit(1)
+              .maybeSingle();
+            if (msg) {
+              user_id = user_id || (msg as any).user_id || null;
+              campaign_id = campaign_id || (msg as any).campaign_id || null;
+              lead_id = lead_id || (msg as any).lead_id || null;
+            }
+          }
+        } catch (e) {
+          // best-effort; ignore
+        }
+      }
 
       // Idempotent upsert by sg_event_id where available; fallback to (sg_message_id, event, ts)
       const row: any = {
