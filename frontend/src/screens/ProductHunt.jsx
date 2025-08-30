@@ -267,19 +267,19 @@ export default function ProductHunt() {
             <h3 class="text-xl font-semibold mb-1">Starter</h3>
             <p class="text-3xl font-bold mb-2">$99<span class="text-base font-normal text-gray-400">/mo</span></p>
             <p class="text-gray-300 mb-4">Perfect for solo recruiters</p>
-            <a href="/signup?plan=starter&utm_source=producthunt&utm_medium=landing&utm_campaign=ph_launch" class="btn hover:bg-white/10">Choose Starter</a>
+            <a href="/pricing?select=starter&utm_source=producthunt&utm_medium=landing&utm_campaign=ph_launch" class="btn hover:bg-white/10">Choose Starter</a>
           </div>
           <div class="p-6 card border-blue-500">
             <h3 class="text-xl font-semibold mb-1">Pro</h3>
             <p class="text-3xl font-bold mb-2">$249<span class="text-base font-normal text-gray-400">/mo</span></p>
             <p class="text-gray-300 mb-4">Best for small teams</p>
-            <a href="/signup?plan=pro&utm_source=producthunt&utm_medium=landing&utm_campaign=ph_launch" class="btn hover:bg-white/10">Choose Pro</a>
+            <a href="/pricing?select=pro&utm_source=producthunt&utm_medium=landing&utm_campaign=ph_launch" class="btn hover:bg-white/10">Choose Pro</a>
           </div>
           <div class="p-6 card">
             <h3 class="text-xl font-semibold mb-1">Team</h3>
             <p class="text-3xl font-bold mb-2">$499<span class="text-base font-normal text-gray-400">/mo</span></p>
             <p class="text-gray-300 mb-4">For growing agencies</p>
-            <a href="/signup?plan=team&utm_source=producthunt&utm_medium=landing&utm_campaign=ph_launch" class="btn hover:bg-white/10">Choose Team</a>
+            <a href="/pricing?select=team&utm_source=producthunt&utm_medium=landing&utm_campaign=ph_launch" class="btn hover:bg-white/10">Choose Team</a>
           </div>
         </div>
         <p class="text-center text-gray-400 text-sm mt-4">Annual: $79 / $199 / $350 per month (billed annually).</p>
