@@ -208,27 +208,32 @@ router.post('/chat', async (req: Request, res: Response) => {
     const CANONICAL = 'https://thehirepilot.com';
 
     function salesPrompt(): string {
-      const pricing = settings['pricing_tiers'] ? `Pricing tiers: ${JSON.stringify(settings['pricing_tiers'])}. Link: https://thehirepilot.com/pricing.` : 'Pricing available at https://thehirepilot.com/pricing.';
+      const pricing = settings['pricing_tiers']
+        ? `Pricing tiers: ${JSON.stringify(settings['pricing_tiers'])}. Link: https://thehirepilot.com/pricing.`
+        : 'Pricing available at https://thehirepilot.com/pricing.';
       const demo = settings['rex_demo_url'] ? `Demo: ${settings['rex_demo_url']}.` : '';
       const cal = settings['rex_calendly_url'] ? `Book: ${settings['rex_calendly_url']}.` : '';
-      const company = context?.rb2b?.company?.name ? `The visitor appears to be from ${context?.rb2b?.company?.name}. Tailor 1-2 sentences to their industry/size.` : '';
-      const citations = sources?.length ? `When referencing docs/blog, include concise citations from provided sources.` : '';
       const faqs = Array.isArray(settings['rex_sales_faq']) && settings['rex_sales_faq'].length
-        ? `Known FAQs (prefer these verbatim if the user's question matches): ${JSON.stringify(settings['rex_sales_faq'])}.`
+        ? `Known FAQs: ${JSON.stringify(settings['rex_sales_faq'])}.`
         : '';
+      const company = context?.rb2b?.company?.name
+        ? `The visitor appears to be from ${context?.rb2b?.company?.name}. Consider their industry/size.`
+        : '';
+
       return [
-        `You are HirePilot Sales Assistant for domain ${CANONICAL}. Be concise, value-forward.`,
-        `Ground every answer strictly on in-domain content from ${CANONICAL} (homepage, pricing, blog, docs).`,
-        'Only answer if you can directly quote or summarize from the provided Context snippets or linked in-domain pages. If you cannot, respond: "No verified answer available" and suggest Book a Demo or Contact Support. Do NOT guess.',
+        `You are REX, the AI recruiting assistant inside HirePilot for domain ${CANONICAL}.`,
+        'You help visitors understand HirePilot’s product, pricing, and features — and guide them toward the next best action (demo, trial, or signup).',
+        `You’ve been trained on in-domain content from ${CANONICAL} (homepage, pricing, blog, docs).`,
+        'You may confidently answer questions based on that knowledge, even if citations are not present — as long as you don’t invent features.',
+        'Use RAG context and citations where helpful, but don’t block answers if RAG is missing. If unsure, briefly say so and link to support, docs, or pricing.',
+        'Use a helpful, natural tone. Speak clearly, avoid robotic or repetitive phrases. Prefer links to: Pricing, Blog, Book a Demo.',
         pricing,
-        'Offer next steps when helpful: Watch demo and Book Calendly.',
         demo,
         cal,
-        company,
-        citations,
         faqs,
-        'Never invent features. If unknown, say so briefly and provide the most relevant in-domain link.',
-        'Output JSON only with keys {"content", "sources", "tutorial"}. "sources" should be an array of {title,url} you actually cited; "tutorial" usually null in sales.'
+        company,
+        'Never say "No verified answer." Instead, offer your best available insight and point the user toward the next step.',
+        'Output valid JSON with keys: {content, sources, tutorial}. Limit content to 120 words unless you are giving a tutorial.'
       ].filter(Boolean).join(' ');
     }
 
@@ -254,7 +259,7 @@ router.post('/chat', async (req: Request, res: Response) => {
     }
 
     const sys = mode === 'sales' ? salesPrompt() : mode === 'support' ? supportPrompt() : rexPrompt();
-    const citationBlock = sources?.length ? `\n\nWhen answering, reference these sources where relevant:\n${sources.map(s => `- ${s.title} (${s.url})`).join('\n')}` : '';
+    const citationBlock = sources?.length ? `\n\nSources:\n${sources.map(s => `- ${s.title} (${s.url})`).join('\n')}` : '';
 
     // Include RAG snippets to ground the answer
     // Deterministic knowledge routing for common questions
@@ -288,9 +293,12 @@ router.post('/chat', async (req: Request, res: Response) => {
       }
     }
 
-    const ragBlock = contextSnippets.length ? `\n\nContext (prefer blog articles when available):\n${contextSnippets.map((s, i) => `(${i+1}) ${s}`).join('\n')}` : '';
+    const ragBlock = contextSnippets.length ? `\n\nContext:\n${contextSnippets.map((s, i) => `(${i + 1}) ${s}`).join('\n')}` : '';
     const buildGroundedMessages = () => ([
-      { role: 'system', content: `${sys}${citationBlock}${ragBlock}\nReturn ONLY a JSON object with keys \"content\", \"sources\", \"tutorial\". Ensure this is valid JSON. Limit content to 120 words unless steps are required.` },
+      {
+        role: 'system',
+        content: `${sys}${citationBlock}${ragBlock}\n\nReturn ONLY JSON: {content, sources, tutorial}.`,
+      },
       ...messages.map(m => ({ role: m.role, content: m.text })) as any,
     ]);
 
@@ -327,14 +335,18 @@ router.post('/chat', async (req: Request, res: Response) => {
         "here's what i found",
         'thanks!',
         'i recommend you to book a demo',
+        'i’m not sure',
+        "i'm not sure",
+        'i cannot answer',
       ];
       const noSourcesWeak = intent === 'greeting_smalltalk' ? false : ((outSources || []).length === 0);
       return weakPhrases.some(p => t.includes(p)) || noSourcesWeak;
     }
 
-    // Guardrail: if sales info intent and no sources, avoid fabrication
+    // Relaxed guardrail: prefer confident, helpful guidance; only soft-disclaim when clearly unsure
     if ((/price|pricing|pro plan|plans?|what is hirepilot|compare|different|vs\b/i.test(lastUser?.text || '')) && (!sources || sources.length === 0) && plan.intent !== 'greeting_smalltalk') {
-      content = "I’m not sure based on what I can see. Want me to point you to docs or connect you with a human?";
+      content = 'Here’s a quick overview based on what I know. For the latest details, check our pricing page or book a quick demo.';
+      if (!outSources.find((s: any) => /pricing/i.test(s.title))) outSources.push({ title: 'HirePilot Pricing', url: 'https://thehirepilot.com/pricing' });
     }
 
     // If still generic and we have RAG snippets, nudge a second pass to produce concrete steps.
@@ -394,6 +406,12 @@ router.post('/chat', async (req: Request, res: Response) => {
         content = 'Please see our pricing page for up-to-date plan details.';
       }
       if (!outSources.find((s: any) => /pricing/i.test(s.title))) outSources.push({ title: 'HirePilot Pricing', url: 'https://thehirepilot.com/pricing' });
+    }
+
+    // Final safety: if response is empty, offer useful next steps (never say "No verified answer")
+    if (!content || !content.trim()) {
+      const cal = settings['rex_calendly_url'];
+      content = `I’m not totally sure — but you can ${cal ? `[Book a Demo](${cal})` : 'book a demo'} or check out our [Pricing Page](https://thehirepilot.com/pricing). Want help choosing a plan?`;
     }
 
     // Optional: debug diagnostics
