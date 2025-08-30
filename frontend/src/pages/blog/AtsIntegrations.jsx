@@ -256,7 +256,7 @@ export default function AtsIntegrations() {
       {/* Related articles */}
       <div id="related-articles" className="bg-gray-800 py-16">
         <div className="max-w-6xl mx-auto px-6">
-          <h2 className="text-3xl font-bold text-center mb-12">Keep Reading</h2>
+          <h2 className="text-3xl font-bold text-center mb-12 force-white">Keep Reading</h2>
           <div className="grid md:grid-cols-3 gap-8">
             <article className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300">
               <img
@@ -266,7 +266,7 @@ export default function AtsIntegrations() {
               />
               <div className="p-6">
                 <span className="text-blue-400 text-sm font-medium">Automation</span>
-                <h3 className="text-xl font-semibold mt-2 mb-3"><a href="/blog/zapierguide" className="hover:underline">HirePilot + Zapier/Make: No-Code Recruiting Superpowers</a></h3>
+                <h3 className="text-xl font-semibold mt-2 mb-3 force-white"><a href="/blog/zapierguide" className="hover:underline">HirePilot + Zapier/Make: No-Code Recruiting Superpowers</a></h3>
                 <p className="text-gray-400 mb-4">Connect HirePilot to your stack and automate end-to-end workflows.</p>
                 <div className="flex items-center text-sm text-gray-500">
                   <span>Aug 9, 2025</span>
@@ -283,7 +283,7 @@ export default function AtsIntegrations() {
               />
               <div className="p-6">
                 <span className="text-blue-400 text-sm font-medium">Analytics</span>
-                <h3 className="text-xl font-semibold mt-2 mb-3"><a href="/blog/AutomateRecruiting5" className="hover:underline">Build an Engagement Dashboard in Sheets</a></h3>
+                <h3 className="text-xl font-semibold mt-2 mb-3 force-white"><a href="/blog/AutomateRecruiting5" className="hover:underline">Automate Recruiiting - Your Recruiting OS</a></h3>
                 <p className="text-gray-400 mb-4">Pipe your events into Sheets or BI tools for pipeline analytics.</p>
                 <div className="flex items-center text-sm text-gray-500">
                   <span>Mar 28, 2025</span>
@@ -300,7 +300,7 @@ export default function AtsIntegrations() {
               />
               <div className="p-6">
                 <span className="text-blue-400 text-sm font-medium">Best Practices</span>
-                <h3 className="text-xl font-semibold mt-2 mb-3"><a href="/blog/AutomateRecruiting4" className="hover:underline">Automating Interview Prep with Checklists</a></h3>
+                <h3 className="text-xl font-semibold mt-2 mb-3 force-white"><a href="/blog/AutomateRecruiting4" className="hover:underline">Automate Recruiiting - Pipeline Automation</a></h3>
                 <p className="text-gray-400 mb-4">Turn pipeline stage changes into organized interview prep.</p>
                 <div className="flex items-center text-sm text-gray-500">
                   <span>Mar 22, 2025</span>
