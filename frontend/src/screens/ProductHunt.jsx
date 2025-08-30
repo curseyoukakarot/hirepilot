@@ -1,4 +1,6 @@
 import React from 'react';
+import PublicNavbar from '../components/PublicNavbar';
+import PublicFooter from '../components/PublicFooter';
 
 export default function ProductHunt() {
   const html = `<!doctype html>
@@ -57,6 +59,7 @@ export default function ProductHunt() {
     .gradient-text{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
     .card{background:#0f172a80;border:1px solid #334155;border-radius:16px}
     .btn{padding:.9rem 1.25rem;border-radius:.75rem;border:1px solid #e2e8f0}
+    header{display:none!important}
   </style>
 </head>
 <body class="bg-gray-900 text-white overflow-x-hidden">
@@ -408,13 +411,17 @@ export default function ProductHunt() {
 </html>`;
 
   return (
-    <div style={{ width: '100%', height: '100vh' }}>
-      <iframe
-        title="HirePilot Product Hunt"
-        srcDoc={html}
-        style={{ width: '100%', height: '100%', border: '0' }}
-      />
-    </div>
+    <>
+      <PublicNavbar />
+      <div style={{ width: '100%', minHeight: '100vh', paddingTop: '80px' }}>
+        <iframe
+          title="HirePilot Product Hunt"
+          srcDoc={html}
+          style={{ width: '100%', height: '100%', border: '0' }}
+        />
+      </div>
+      <PublicFooter />
+    </>
   );
 }
 
