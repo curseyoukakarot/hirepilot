@@ -373,21 +373,23 @@ router.post('/chat', async (req: Request, res: Response) => {
         const resp = await openai.chat.completions.create({
           model: 'gpt-4o-mini',
           temperature: 0.2,
-          response_format: { type: 'json_object' },
-          messages: gm
+          messages: [
+            {
+              role: 'system',
+              content: 'Rewrite the following weak or generic answer into a confident, helpful, product-aware response. Use provided context where possible. Return JSON: {content, sources, tutorial}.',
+            },
+            {
+              role: 'user',
+              content: `Answer: ${content}\n\nContext:\n${contextSnippets.join('\n')}`,
+            },
+          ],
         });
-        const raw = resp.choices?.[0]?.message?.content || '';
         try {
+          const raw = resp.choices?.[0]?.message?.content || '';
           const parsed = JSON.parse(raw);
-          if (parsed && typeof parsed === 'object') {
-            if (parsed.content) content = parsed.content;
-            if (Array.isArray(parsed.sources) && parsed.sources.length) {
-              outSources = parsed.sources;
-            } else if (sources && sources.length) {
-              outSources = sources;
-            }
-            if (parsed.tutorial) tutorial = parsed.tutorial;
-          }
+          content = parsed.content || content;
+          if (parsed.sources) outSources = parsed.sources;
+          if (parsed.tutorial) tutorial = parsed.tutorial;
         } catch {}
       } catch (fallbackErr) {
         await logEvent('rex_widget_grounded_fallback_error', { error: String(fallbackErr) });
