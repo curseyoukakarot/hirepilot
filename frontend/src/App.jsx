@@ -328,6 +328,9 @@ function InnerApp() {
         // Expose to the vanilla popup snippet in index.html
         if (typeof window !== 'undefined') {
           window.__REX_FLAGS__ = { isProductHuntMode: flags.producthunt, isPopupEnabled: flags.popup };
+          try {
+            window.dispatchEvent(new CustomEvent('rex_flags_ready', { detail: window.__REX_FLAGS__ }));
+          } catch {}
         }
       } catch {
         // leave defaults

@@ -122,14 +122,22 @@
           });
         }
         // Admin toggles (reads from window.__REX_FLAGS__ if available)
-        var flags = (window.__REX_FLAGS__) || {};
-        var isProductHuntMode = typeof flags.isProductHuntMode === 'boolean' ? flags.isProductHuntMode : false;
-        var isPopupEnabled = typeof flags.isPopupEnabled === 'boolean' ? flags.isPopupEnabled : false;
-        if (isProductHuntMode && isPopupEnabled) {
+        function applyRexFlags() {
+          var flags = (window.__REX_FLAGS__) || {};
+          var isProductHuntMode = !!flags.isProductHuntMode;
+          var isPopupEnabled = !!flags.isPopupEnabled;
           var host = document.getElementById('rex-popup');
-          if (host) host.style.display = 'block';
-          if (typeof window.hideREXChatbot === 'function') window.hideREXChatbot();
+          if (!host) return;
+          if (isProductHuntMode && isPopupEnabled) {
+            host.style.display = 'block';
+            if (typeof window.hideREXChatbot === 'function') window.hideREXChatbot();
+          } else {
+            host.style.display = 'none';
+          }
         }
+        // run now and when flags become ready
+        applyRexFlags();
+        window.addEventListener('rex_flags_ready', applyRexFlags);
       })();
     </script>
     <script>
