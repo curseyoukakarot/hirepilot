@@ -59,6 +59,7 @@ import { setRefCookie } from './lib/affiliate';
 import PartnersRouteGuard from './pages/partners/PartnersRouteGuard';
 const RequirePartnersAuth = ({ children }) => <PartnersRouteGuard>{children}</PartnersRouteGuard>;
 import RexWidget from './widgets/rex/RexWidget';
+import PromoBanner from './components/PromoBanner';
 // Blog article pages
 const FlowOfHirePilot = lazy(() => import("./pages/blog/FlowOfHirePilot"));
 const MessageCenterSetup = lazy(() => import("./pages/blog/MessageCenterSetup"));
@@ -265,6 +266,7 @@ function InnerApp() {
   const isPartnerArea = location.pathname.startsWith('/partners');
   // Only the marketing page "/rex" should be treated as public; do NOT blanket-match all "/rex*" paths
   const isAuthPage = landingPages.includes(location.pathname) || location.pathname.startsWith('/blog') || isPartnerArea;
+  const isBlog = location.pathname.startsWith('/blog');
 
   // If partners routes are hit on the main domain, redirect to affiliates subdomain
   useEffect(() => {
@@ -490,6 +492,10 @@ function InnerApp() {
             calendlyUrl: (import.meta?.env && import.meta.env.VITE_CALENDLY_URL) || undefined,
           }}
         />
+      )}
+      {/* Promo banner for public pages except blog */}
+      {isAuthPage && !isBlog && (
+        <PromoBanner show={true} />
       )}
     </div>
   );
