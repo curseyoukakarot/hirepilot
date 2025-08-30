@@ -210,8 +210,6 @@ export default function ProductHunt() {
           <blockquote class="p-8 card">
             <p class="text-lg mb-6">“I landed my first client in 3 weeks with HirePilot!”</p>
             <div class="flex items-center">
-              <img loading="lazy" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg"
-                   alt="Sarah J. headshot" class="w-12 h-12 rounded-full mr-4" />
               <div>
                 <p class="font-semibold">Sarah J.</p>
                 <p class="text-gray-400 text-sm">Freelance Tech Recruiter</p>
@@ -221,8 +219,6 @@ export default function ProductHunt() {
           <blockquote class="p-8 card">
             <p class="text-lg mb-6">“I made 8k in my first 6 weeks”</p>
             <div class="flex items-center">
-              <img loading="lazy" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg"
-                   alt="Dejanira (Dej) L. headshot" class="w-12 h-12 rounded-full mr-4" />
               <div>
                 <p class="font-semibold">Dejanira (Dej) L.</p>
                 <p class="text-gray-400 text-sm">Freelance Tech Recruiter</p>
@@ -232,8 +228,6 @@ export default function ProductHunt() {
           <blockquote class="p-8 card">
             <p class="text-lg mb-6">“The automated scheduling and engagement features have saved countless hours of manual work.”</p>
             <div class="flex items-center">
-              <img loading="lazy" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-5.jpg"
-                   alt="Emily R. headshot" class="w-12 h-12 rounded-full mr-4" />
               <div>
                 <p class="font-semibold">Emily R.</p>
                 <p class="text-gray-400 text-sm">Talent Lead</p>
