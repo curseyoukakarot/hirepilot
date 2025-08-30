@@ -112,7 +112,7 @@ export default function ProductHunt() {
         <figure class="mt-14">
           <img
             class="w-full max-w-4xl mx-auto rounded-2xl shadow-2xl"
-            src="https://storage.googleapis.com/uxpilot-auth.appspot.com/94e0c2ce29-6a37c2555e93e404ff49.png"
+            src="/product-hunt-hero.png"
             alt="HirePilot dashboard showing candidate pipeline and automated outreach"
             width="1280" height="720" />
           <figcaption class="sr-only">HirePilot product dashboard</figcaption>
