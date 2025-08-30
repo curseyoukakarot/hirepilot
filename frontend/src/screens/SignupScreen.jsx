@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { FaBriefcase, FaGoogle, FaLinkedin, FaCircleCheck, FaCircleExclamation, FaMicrosoft } from 'react-icons/fa6';
 import { supabase } from '../lib/supabase';
 import { apiPost } from '../lib/api';
@@ -7,9 +8,23 @@ import { toast } from 'react-hot-toast';
 export default function SignupScreen() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const urlParams = new URLSearchParams(window.location.search);
   const checkoutSessionId = urlParams.get('session_id');
+
+  // Require plan selection or Stripe session; otherwise route to pricing
+  useEffect(() => {
+    const plan = urlParams.get('plan');
+    const hasSession = !!checkoutSessionId;
+    if (!plan && !hasSession) {
+      // preserve any UTM params when sending to pricing
+      const query = location.search && location.search.length > 1 ? location.search : '';
+      navigate(`/pricing${query}`, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
