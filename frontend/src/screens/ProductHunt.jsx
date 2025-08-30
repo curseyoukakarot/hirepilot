@@ -208,35 +208,35 @@ export default function ProductHunt() {
         <h2 class="text-4xl font-bold text-center mb-12">What Our Users Say</h2>
         <div class="grid md:grid-cols-3 gap-6">
           <blockquote class="p-8 card">
-            <p class="text-lg mb-6">“HirePilot helped us fill two roles in weeks. Game-changer.”</p>
+            <p class="text-lg mb-6">“I landed my first client in 3 weeks with HirePilot!”</p>
             <div class="flex items-center">
               <img loading="lazy" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg"
-                   alt="Ashley headshot" class="w-12 h-12 rounded-full mr-4" />
+                   alt="Sarah J. headshot" class="w-12 h-12 rounded-full mr-4" />
               <div>
-                <p class="font-semibold">Ashley</p>
-                <p class="text-gray-400 text-sm">Head of Talent</p>
+                <p class="font-semibold">Sarah J.</p>
+                <p class="text-gray-400 text-sm">Freelance Tech Recruiter</p>
               </div>
             </div>
           </blockquote>
           <blockquote class="p-8 card">
-            <p class="text-lg mb-6">“The AI sourcing saves us 10+ hours per week. Incredible ROI.”</p>
+            <p class="text-lg mb-6">“I made 8k in my first 6 weeks”</p>
             <div class="flex items-center">
               <img loading="lazy" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg"
-                   alt="Marcus headshot" class="w-12 h-12 rounded-full mr-4" />
+                   alt="Dejanira (Dej) L. headshot" class="w-12 h-12 rounded-full mr-4" />
               <div>
-                <p class="font-semibold">Marcus</p>
-                <p class="text-gray-400 text-sm">Recruiting Manager</p>
+                <p class="font-semibold">Dejanira (Dej) L.</p>
+                <p class="text-gray-400 text-sm">Freelance Tech Recruiter</p>
               </div>
             </div>
           </blockquote>
           <blockquote class="p-8 card">
-            <p class="text-lg mb-6">“Finally, a recruiting tool that actually works as advertised.”</p>
+            <p class="text-lg mb-6">“The automated scheduling and engagement features have saved countless hours of manual work.”</p>
             <div class="flex items-center">
               <img loading="lazy" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-5.jpg"
-                   alt="Sarah headshot" class="w-12 h-12 rounded-full mr-4" />
+                   alt="Emily R. headshot" class="w-12 h-12 rounded-full mr-4" />
               <div>
-                <p class="font-semibold">Sarah</p>
-                <p class="text-gray-400 text-sm">VP of People</p>
+                <p class="font-semibold">Emily R.</p>
+                <p class="text-gray-400 text-sm">Talent Lead</p>
               </div>
             </div>
           </blockquote>
