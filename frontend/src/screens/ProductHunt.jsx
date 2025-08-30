@@ -403,7 +403,7 @@ export default function ProductHunt() {
           const h = Math.floor((remain % 86400000) / 3600000);
           const m = Math.floor((remain % 3600000) / 60000);
           const el = document.getElementById('ph-countdown');
-          if (el) el.textContent = \`${d}d ${h}h ${m}m\`;
+          if (el) el.textContent = \`\${d}d \${h}h \${m}m\`;
           if (remain > 0) setTimeout(tick, 30000);
         }
         tick();
