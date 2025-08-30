@@ -295,7 +295,7 @@ export default function ProductHunt() {
       <div class="container mx-auto max-w-4xl">
         <h2 class="text-5xl font-bold mb-6">Ready to Hire Smarter?</h2>
         <a id="cta-bottom-start"
-           href="/signup?utm_source=producthunt&utm_medium=landing&utm_campaign=ph_launch"
+           href="/pricing?utm_source=producthunt&utm_medium=landing&utm_campaign=ph_launch"
            class="px-12 py-5 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg text-xl font-semibold hover:opacity-90 transition-opacity shadow-lg">
           Start Free Trial
         </a>
