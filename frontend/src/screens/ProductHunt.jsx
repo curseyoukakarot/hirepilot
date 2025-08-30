@@ -258,31 +258,34 @@ export default function ProductHunt() {
       </div>
     </section>
 
-    <!-- Pricing strip -->
+    <!-- Pricing strip (simplified) -->
     <section id="pricing" class="py-16 px-6">
       <div class="container mx-auto max-w-6xl">
         <h2 class="text-3xl font-bold text-center mb-8">Simple, Flexible Pricing</h2>
         <div class="grid sm:grid-cols-3 gap-6">
           <div class="p-6 card">
-            <h3 class="text-xl font-semibold mb-1">Starter</h3>
-            <p class="text-3xl font-bold mb-2">$99<span class="text-base font-normal text-gray-400">/mo</span></p>
-            <p class="text-gray-300 mb-4">Perfect for solo recruiters</p>
-            <a href="/pricing?select=starter&utm_source=producthunt&utm_medium=landing&utm_campaign=ph_launch" class="btn hover:bg-white/10">Choose Starter</a>
+            <h3 class="text-xl font-semibold mb-2">Starter</h3>
+            <p class="text-gray-300 mb-4">For solo recruiters</p>
+            <ul class="text-gray-300 space-y-2 mb-6 text-sm">
+              <li>LinkedIn and Apollo Lead Sources</li>
+              <li>Access to Zapier and Make</li>
+            </ul>
+            <a href="/pricing?select=starter&utm_source=producthunt&utm_medium=landing&utm_campaign=ph_launch" class="btn hover:bg-white/10">Get Started</a>
           </div>
           <div class="p-6 card border-blue-500">
-            <h3 class="text-xl font-semibold mb-1">Pro</h3>
-            <p class="text-3xl font-bold mb-2">$249<span class="text-base font-normal text-gray-400">/mo</span></p>
-            <p class="text-gray-300 mb-4">Best for small teams</p>
-            <a href="/pricing?select=pro&utm_source=producthunt&utm_medium=landing&utm_campaign=ph_launch" class="btn hover:bg-white/10">Choose Pro</a>
+            <h3 class="text-xl font-semibold mb-2">Pro and Team</h3>
+            <p class="text-gray-300 mb-4">For teams & agencies</p>
+            <ul class="text-gray-300 space-y-2 mb-6 text-sm">
+              <li>Access to REX — your Recruiting AI Assistant</li>
+            </ul>
+            <a href="/pricing?select=pro&utm_source=producthunt&utm_medium=landing&utm_campaign=ph_launch" class="btn hover:bg-white/10">Get Started</a>
           </div>
           <div class="p-6 card">
-            <h3 class="text-xl font-semibold mb-1">Team</h3>
-            <p class="text-3xl font-bold mb-2">$499<span class="text-base font-normal text-gray-400">/mo</span></p>
-            <p class="text-gray-300 mb-4">For growing agencies</p>
-            <a href="/pricing?select=team&utm_source=producthunt&utm_medium=landing&utm_campaign=ph_launch" class="btn hover:bg-white/10">Choose Team</a>
+            <h3 class="text-xl font-semibold mb-2">DFY</h3>
+            <p class="text-gray-300 mb-4">Let our team run the playbook for you</p>
+            <a href="/handsfree" class="btn hover:bg-white/10">Contact Us</a>
           </div>
         </div>
-        <p class="text-center text-gray-400 text-sm mt-4">Annual: $79 / $199 / $350 per month (billed annually).</p>
       </div>
     </section>
 

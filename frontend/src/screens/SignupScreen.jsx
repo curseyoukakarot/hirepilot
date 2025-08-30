@@ -71,6 +71,22 @@ export default function SignupScreen() {
     }
 
     setSuccess(true);
+
+    // Attempt to grant Product Hunt promo credits if cookie present
+    try {
+      if (document.cookie.includes('hp_ref=ph')) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          await fetch((import.meta.env.VITE_BACKEND_URL || '') + '/api/promotions/grant-ph', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${session.access_token}` },
+            credentials: 'include'
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('PH promo grant failed (non-blocking)', err);
+    }
   };
 
   // OAuth signup handlers
