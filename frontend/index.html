@@ -121,9 +121,10 @@
             panel.classList.add('hidden');
           });
         }
-        // Admin toggles (hardcoded for now; wire dynamically later)
-        var isProductHuntMode = true;
-        var isPopupEnabled = true;
+        // Admin toggles (reads from window.__REX_FLAGS__ if available)
+        var flags = (window.__REX_FLAGS__) || {};
+        var isProductHuntMode = typeof flags.isProductHuntMode === 'boolean' ? flags.isProductHuntMode : false;
+        var isPopupEnabled = typeof flags.isPopupEnabled === 'boolean' ? flags.isPopupEnabled : false;
         if (isProductHuntMode && isPopupEnabled) {
           var host = document.getElementById('rex-popup');
           if (host) host.style.display = 'block';

@@ -279,6 +279,7 @@ function InnerApp() {
   const [dbRole, setDbRole] = useState(null);
   const [paymentWarning, setPaymentWarning] = useState(false);
   const [isSuspended, setIsSuspended] = useState(false);
+  const [rexFlags, setRexFlags] = useState({ producthunt: false, popup: false });
   useGAPageViews();
 
   // set hp_ref cookie if present on any public route
@@ -311,6 +312,27 @@ function InnerApp() {
       setUserLoaded(true);
     };
     fetchRole();
+  }, []);
+
+  // Fetch public toggle flags for REX popup/chat behavior
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('system_settings')
+          .select('key,value')
+          .in('key', ['rex_producthunt_mode', 'rex_popup_enabled']);
+        const map = Object.fromEntries((data || []).map(r => [r.key, String(r.value) === 'true' || r.value === true]));
+        const flags = { producthunt: !!map.rex_producthunt_mode, popup: !!map.rex_popup_enabled };
+        setRexFlags(flags);
+        // Expose to the vanilla popup snippet in index.html
+        if (typeof window !== 'undefined') {
+          window.__REX_FLAGS__ = { isProductHuntMode: flags.producthunt, isPopupEnabled: flags.popup };
+        }
+      } catch {
+        // leave defaults
+      }
+    })();
   }, []);
 
   useEffect(() => {
@@ -456,14 +478,16 @@ function InnerApp() {
           </Suspense>
         </main>
       </div>
-      {/* REX widget mounted globally */}
-      <RexWidget
-        mode={isAuthPage ? 'sales' : 'support'}
-        config={{
-          demoUrl: (import.meta?.env && import.meta.env.VITE_DEMO_URL) || undefined,
-          calendlyUrl: (import.meta?.env && import.meta.env.VITE_CALENDLY_URL) || undefined,
-        }}
-      />
+      {/* REX widget mounted globally unless PH non-chat popup is active */}
+      {!(rexFlags.producthunt && rexFlags.popup && isAuthPage) && (
+        <RexWidget
+          mode={isAuthPage ? 'sales' : 'support'}
+          config={{
+            demoUrl: (import.meta?.env && import.meta.env.VITE_DEMO_URL) || undefined,
+            calendlyUrl: (import.meta?.env && import.meta.env.VITE_CALENDLY_URL) || undefined,
+          }}
+        />
+      )}
     </div>
   );
 }
