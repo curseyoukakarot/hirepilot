@@ -18,6 +18,119 @@
   <body>
     <div id="root"></div>
     </div>
+    <!-- REX Non-Chat FAQ Popup (enabled via admin toggles) -->
+    <div id="rex-popup" class="fixed bottom-6 right-6 z-50" style="display: none;">
+      <button id="rex-popup-toggle" class="px-4 py-2 rounded-full shadow-lg bg-white text-slate-800 border border-slate-200 hover:bg-slate-50 text-sm">
+        💬 Questions? Ask REX
+      </button>
+      <div id="rex-popup-panel" class="hidden mt-3 w-[380px] max-h-[80vh] overflow-y-auto rounded-2xl shadow-2xl border border-slate-200 bg-white">
+        <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white">
+          <div class="text-sm font-semibold text-slate-900">REX – Helpful FAQs</div>
+          <button id="rex-popup-close" class="text-slate-500 hover:text-slate-700" aria-label="Close">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <div class="p-4 space-y-3 text-slate-800">
+          <!-- FAQ Accordion -->
+          <details class="border border-slate-200 rounded-lg p-3">
+            <summary class="cursor-pointer font-medium">1. What exactly does HirePilot do?</summary>
+            <p class="mt-2 text-sm text-slate-600">HirePilot is an AI-powered recruiting platform that automates sourcing, outreach, and scheduling so your team can fill roles faster without ballooning headcount.</p>
+          </details>
+          <details class="border border-slate-200 rounded-lg p-3">
+            <summary class="cursor-pointer font-medium">2. What’s included in the Pro plan?</summary>
+            <p class="mt-2 text-sm text-slate-600">The Pro plan includes AI sourcing via Apollo and LinkedIn, campaign management, enrichment, Chrome extension, Slack alerts, and up to 2,500 credits/month. <a class="text-blue-600 underline" href="https://thehirepilot.com/pricing" target="_blank" rel="noopener">View pricing</a></p>
+          </details>
+          <details class="border border-slate-200 rounded-lg p-3">
+            <summary class="cursor-pointer font-medium">3. Do you integrate with Slack?</summary>
+            <p class="mt-2 text-sm text-slate-600">Yes! You can receive instant alerts in Slack when leads respond, credits are used, or campaigns go live.</p>
+          </details>
+          <details class="border border-slate-200 rounded-lg p-3">
+            <summary class="cursor-pointer font-medium">4. How do I launch a campaign?</summary>
+            <p class="mt-2 text-sm text-slate-600">Go to “Campaigns” → click “New Campaign” → choose a list or lead source → write your AI message → launch.</p>
+          </details>
+          <details class="border border-slate-200 rounded-lg p-3">
+            <summary class="cursor-pointer font-medium">5. What if I don’t have an ATS?</summary>
+            <p class="mt-2 text-sm text-slate-600">No problem. HirePilot works as a full recruiting system — no ATS required. But you can also integrate with your ATS if needed.</p>
+          </details>
+          <details class="border border-slate-200 rounded-lg p-3">
+            <summary class="cursor-pointer font-medium">6. How do I connect Apollo?</summary>
+            <p class="mt-2 text-sm text-slate-600">Add your Apollo API key in Settings → Integrations. Leads will automatically flow into campaigns with enrichment data.</p>
+          </details>
+          <details class="border border-slate-200 rounded-lg p-3">
+            <summary class="cursor-pointer font-medium">7. Where do I see replies from leads?</summary>
+            <p class="mt-2 text-sm text-slate-600">Check the “Replies” tab or Inbox inside your campaign dashboard. You'll also get Slack/email notifications when a reply comes in.</p>
+          </details>
+          <details class="border border-slate-200 rounded-lg p-3">
+            <summary class="cursor-pointer font-medium">8. Do you integrate with Zapier?</summary>
+            <p class="mt-2 text-sm text-slate-600">Yes — HirePilot offers full Zapier support with triggers like: lead converted, reply received, candidate hired, etc.</p>
+          </details>
+          <details class="border border-slate-200 rounded-lg p-3">
+            <summary class="cursor-pointer font-medium">9. Can I send connection requests on LinkedIn?</summary>
+            <p class="mt-2 text-sm text-slate-600">Yes — using the Chrome Extension or our automation, you can send connection requests with optional messages, powered by smart limits and proxy protection.</p>
+          </details>
+          <details class="border border-slate-200 rounded-lg p-3">
+            <summary class="cursor-pointer font-medium">10. What if I need help?</summary>
+            <p class="mt-2 text-sm text-slate-600">Scroll down and send us a message through the support form — we’ll respond quickly!</p>
+          </details>
+
+          <!-- Support Form -->
+          <form id="rex-support-form" class="mt-4 space-y-3">
+            <div>
+              <label class="block text-xs text-slate-600 mb-1">Name</label>
+              <input type="text" name="name" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" placeholder="Your name" />
+            </div>
+            <div>
+              <label class="block text-xs text-slate-600 mb-1">Email</label>
+              <input type="email" name="email" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" placeholder="you@company.com" />
+            </div>
+            <div>
+              <label class="block text-xs text-slate-600 mb-1">Message</label>
+              <textarea name="message" rows="4" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" placeholder="How can we help?" ></textarea>
+            </div>
+            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-md px-3 py-2 text-sm">Send</button>
+          </form>
+
+          <!-- CTA bar -->
+          <div class="mt-4 border-t border-slate-200 pt-3 flex items-center justify-between text-sm">
+            <a class="text-blue-600 hover:underline" href="https://thehirepilot.com/demo" target="_blank" rel="noopener">🎥 Watch Demo</a>
+            <a class="text-blue-600 hover:underline" href="https://thehirepilot.com/book" target="_blank" rel="noopener">📅 Book Demo</a>
+            <a class="text-blue-600 hover:underline" href="https://thehirepilot.com/start" target="_blank" rel="noopener">🚀 Start Free Trial</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      (function() {
+        // Button toggle behavior
+        var btn = document.getElementById('rex-popup-toggle');
+        var panel = document.getElementById('rex-popup-panel');
+        var closeBtn = document.getElementById('rex-popup-close');
+        if (btn && panel) {
+          btn.addEventListener('click', function(){ panel.classList.toggle('hidden'); });
+        }
+        if (closeBtn && panel) {
+          closeBtn.addEventListener('click', function(){ panel.classList.add('hidden'); });
+        }
+        // Fake submit
+        var form = document.getElementById('rex-support-form');
+        if (form) {
+          form.addEventListener('submit', function(e){
+            e.preventDefault();
+            try { console.log('REX support form submitted', Object.fromEntries(new FormData(form))); } catch {}
+            alert('Thanks! We\'ll be in touch.');
+            panel.classList.add('hidden');
+          });
+        }
+        // Admin toggles (hardcoded for now; wire dynamically later)
+        var isProductHuntMode = true;
+        var isPopupEnabled = true;
+        if (isProductHuntMode && isPopupEnabled) {
+          var host = document.getElementById('rex-popup');
+          if (host) host.style.display = 'block';
+          if (typeof window.hideREXChatbot === 'function') window.hideREXChatbot();
+        }
+      })();
+    </script>
     <script>
       (function () {
         var path = window.location.pathname;
