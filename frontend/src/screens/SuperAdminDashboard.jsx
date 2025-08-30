@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import AppHealthCard from '../components/AppHealthCard';
+import REXChatToggleCard from '../components/REXChatToggleCard';
 import useAppHealth from '../hooks/useAppHealth';
 
 export default function SuperAdminDashboard() {
@@ -99,6 +100,12 @@ export default function SuperAdminDashboard() {
           </div>
           {/* App Health Monitor */}
           <AppHealthCard />
+          <div className="bg-gray-800 p-4 rounded-lg shadow-md">
+            <h2 className="text-lg font-semibold mb-4 text-gray-100">Assistant Configuration</h2>
+            <div className="bg-white rounded-xl p-4">
+              <REXChatToggleCard />
+            </div>
+          </div>
           {/* Quick Actions */}
           <div id="quick-actions" className="bg-gray-800 p-4 rounded-lg shadow-md">
             <h2 className="text-lg font-semibold mb-4 text-gray-100">Quick Actions</h2>
