@@ -263,25 +263,25 @@ export default function ProductHunt() {
     <section id="pricing" class="py-16 px-6">
       <div class="container mx-auto max-w-6xl">
         <h2 class="text-3xl font-bold text-center mb-8">Simple, Flexible Pricing</h2>
-        <div class="grid sm:grid-cols-3 gap-6">
-          <div class="p-6 card">
+        <div class="grid sm:grid-cols-3 gap-6 items-stretch">
+          <div class="p-6 card flex flex-col">
             <h3 class="text-xl font-semibold mb-2">Starter</h3>
             <p class="text-gray-300 mb-4">For solo recruiters</p>
-            <ul class="text-gray-300 space-y-2 mb-6 text-sm">
+            <ul class="text-gray-300 space-y-2 mb-6 text-sm flex-1">
               <li>LinkedIn and Apollo Lead Sources</li>
               <li>Access to Zapier and Make</li>
             </ul>
             <a href="/pricing?select=starter&utm_source=producthunt&utm_medium=landing&utm_campaign=ph_launch" class="btn hover:bg-white/10">Get Started</a>
           </div>
-          <div class="p-6 card border-blue-500">
+          <div class="p-6 card border-blue-500 flex flex-col">
             <h3 class="text-xl font-semibold mb-2">Pro and Team</h3>
             <p class="text-gray-300 mb-4">For teams & agencies</p>
-            <ul class="text-gray-300 space-y-2 mb-6 text-sm">
+            <ul class="text-gray-300 space-y-2 mb-6 text-sm flex-1">
               <li>Access to REX — your Recruiting AI Assistant</li>
             </ul>
             <a href="/pricing?select=pro&utm_source=producthunt&utm_medium=landing&utm_campaign=ph_launch" class="btn hover:bg-white/10">Get Started</a>
           </div>
-          <div class="p-6 card">
+          <div class="p-6 card flex flex-col">
             <h3 class="text-xl font-semibold mb-2">DFY</h3>
             <p class="text-gray-300 mb-4">Let our team run the playbook for you</p>
             <a href="/handsfree" class="btn hover:bg-white/10">Contact Us</a>
