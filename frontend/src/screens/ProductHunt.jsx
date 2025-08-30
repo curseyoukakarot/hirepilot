@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import PublicNavbar from '../components/PublicNavbar';
 import PublicFooter from '../components/PublicFooter';
 
@@ -413,15 +413,55 @@ export default function ProductHunt() {
   return (
     <>
       <PublicNavbar />
-      <div style={{ width: '100%', minHeight: '100vh', paddingTop: '80px' }}>
-        <iframe
-          title="HirePilot Product Hunt"
-          srcDoc={html}
-          style={{ width: '100%', height: '100%', border: '0' }}
-        />
-      </div>
+      <IFrameEmbed html={html} />
       <PublicFooter />
     </>
+  );
+}
+
+
+function IFrameEmbed({ html }) {
+  const iframeRef = useRef(null);
+  const [heightPx, setHeightPx] = useState('calc(100vh - 80px)');
+
+  const recalc = () => {
+    try {
+      const iframe = iframeRef.current;
+      if (!iframe) return;
+      const doc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
+      if (!doc) return;
+      const body = doc.body;
+      const htmlEl = doc.documentElement;
+      const newHeight = Math.max(
+        body ? body.scrollHeight : 0,
+        htmlEl ? htmlEl.scrollHeight : 0,
+        body ? body.offsetHeight : 0,
+        htmlEl ? htmlEl.offsetHeight : 0
+      );
+      if (newHeight && Number.isFinite(newHeight)) {
+        setHeightPx(`${newHeight}px`);
+      }
+    } catch (_) {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    const onResize = () => recalc();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  return (
+    <div style={{ width: '100%', paddingTop: '80px' }}>
+      <iframe
+        ref={iframeRef}
+        title="HirePilot Product Hunt"
+        srcDoc={html}
+        style={{ width: '100%', height: heightPx, border: '0', display: 'block' }}
+        onLoad={recalc}
+      />
+    </div>
   );
 }
 
