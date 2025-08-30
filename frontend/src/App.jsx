@@ -47,6 +47,7 @@ import TermsPage from './screens/TermsPage';
 import RexSupport from './screens/RexSupport';
 import ApiDocs from './screens/ApiDocs';
 import AffiliateProgram from './screens/AffiliateProgram';
+import ProductHunt from './screens/ProductHunt';
 import SniperTargets from './screens/SniperTargets';
 import PartnersDashboard from './pages/partners/AffiliateDashboard';
 import AffiliatePayouts from './pages/partners/AffiliatePayouts';
@@ -259,7 +260,7 @@ export default function App() {
 
 function InnerApp() {
   const location = useLocation();
-  const landingPages = ["/", "/signup", "/login", "/reset-password", "/copilot", "/handsfree", "/pricing", "/rex", "/rexsupport", "/chromeextension", "/chromeextension/privacy", "/terms", "/apidoc", "/test-gmail", "/affiliates", "/blog/zapierguide"];
+  const landingPages = ["/", "/signup", "/login", "/reset-password", "/copilot", "/handsfree", "/pricing", "/rex", "/rexsupport", "/chromeextension", "/chromeextension/privacy", "/terms", "/apidoc", "/test-gmail", "/affiliates", "/blog/zapierguide", "/producthunt"];
   // Treat blog landing and article pages as public landing pages (no dashboard UI)
   const isPartnerArea = location.pathname.startsWith('/partners');
   // Only the marketing page "/rex" should be treated as public; do NOT blanket-match all "/rex*" paths
@@ -416,6 +417,7 @@ function InnerApp() {
               <Route path="/rexsupport" element={<RexSupport />} />
               <Route path="/apidoc" element={<ApiDocs />} />
               <Route path="/affiliates" element={<AffiliateProgram />} />
+              <Route path="/producthunt" element={<ProductHunt />} />
               <Route path="/partners/login" element={<PartnersLogin />} />
               <Route path="/partners/signup" element={<PartnersSignup />} />
               <Route path="/partners/dashboard" element={<RequirePartnersAuth><PartnersDashboard /></RequirePartnersAuth>} />

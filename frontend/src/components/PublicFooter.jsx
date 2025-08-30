@@ -46,6 +46,7 @@ export default function PublicFooter() {
             <ul className="space-y-3 text-gray-400">
               <li><a href="/blog" className="hover:text-white">Blog</a></li>
               <li><a href="/affiliates" className="hover:text-white">Earn Money</a></li>
+              <li><a href="/producthunt" className="hover:text-white">Product Hunt Launch</a></li>
             </ul>
           </div>
           <div>
