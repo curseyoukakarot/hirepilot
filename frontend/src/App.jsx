@@ -493,9 +493,9 @@ function InnerApp() {
           }}
         />
       )}
-      {/* Promo banner for public pages except blog */}
+      {/* Promo banner for public pages except blog (temporarily hidden) */}
       {isAuthPage && !isBlog && (
-        <PromoBanner show={true} />
+        <PromoBanner show={false} />
       )}
     </div>
   );
