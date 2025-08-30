@@ -8,6 +8,7 @@ export default function ProductHunt() {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <base target="_top" />
 
   <title>HirePilot — AI Recruiting Copilot (Product Hunt)</title>
   <meta name="description" content="Automate sourcing & outreach. Fill roles in weeks, not months. Product Hunt exclusive offer live now." />
@@ -365,6 +366,7 @@ export default function ProductHunt() {
         // Set PH source cookie for 90 days
         const d = new Date(); d.setDate(d.getDate() + 90);
         document.cookie = "hp_ref=ph; path=/; SameSite=Lax; expires=" + d.toUTCString();
+        try { if (window.top && window.top !== window) { window.top.document.cookie = "hp_ref=ph; path=/; SameSite=Lax; expires=" + d.toUTCString(); } } catch {}
 
         // DataLayer events (works with GTM if present)
         window.dataLayer = window.dataLayer || [];
@@ -382,11 +384,11 @@ export default function ProductHunt() {
         bindTrack('cta-mid-affiliate', 'ph_cta_click_affiliate');
         bindTrack('cta-claim-offer', 'ph_claim_offer');
 
-        // Smooth scroll for in-page anchors
+        // Smooth scroll for in-page anchors (within _top navigation context)
         document.querySelectorAll('a[href^="#"]').forEach(a => {
           a.addEventListener('click', (e) => {
             e.preventDefault();
-            document.querySelector(a.getAttribute('href'))?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            (window.top || window).document.querySelector(a.getAttribute('href'))?.scrollIntoView({ behavior: 'smooth', block: 'start' });
           });
         });
 
