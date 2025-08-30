@@ -156,25 +156,25 @@ export default function ProductHunt() {
         <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
           <figure class="text-center">
             <img loading="lazy" class="w-full h-48 object-cover rounded-xl mb-3"
-                 src="https://storage.googleapis.com/uxpilot-auth.appspot.com/883d19ea0e-23e33a25574e5d1e0d07.png"
+                 src="/hero-1.png"
                  alt="Campaign dashboard with candidate pipeline and performance metrics" width="600" height="320" />
             <figcaption class="text-gray-300 font-medium">Campaign Dashboard</figcaption>
           </figure>
           <figure class="text-center">
             <img loading="lazy" class="w-full h-48 object-cover rounded-xl mb-3"
-                 src="https://storage.googleapis.com/uxpilot-auth.appspot.com/7a09d025bd-9c025f31e423b5873e82.png"
+                 src="/homepage-hero-1.png"
                  alt="Lead profile enrichment with contact details and sources" width="600" height="320" />
             <figcaption class="text-gray-300 font-medium">Lead Profile Enrichment</figcaption>
           </figure>
           <figure class="text-center">
             <img loading="lazy" class="w-full h-48 object-cover rounded-xl mb-3"
-                 src="https://storage.googleapis.com/uxpilot-auth.appspot.com/c1b25b65a6-27c8b8ab24d17df5a817.png"
+                 src="/REX-2.png"
                  alt="REX AI copilot chat composing outreach to candidates" width="600" height="320" />
             <figcaption class="text-gray-300 font-medium">REX — Your Recruiting Copilot</figcaption>
           </figure>
           <figure class="text-center">
             <img loading="lazy" class="w-full h-48 object-cover rounded-xl mb-3"
-                 src="https://storage.googleapis.com/uxpilot-auth.appspot.com/4bc65f9b27-25f19f0f37d079af8a32.png"
+                 src="/slack-integration.png"
                  alt="Slack integration sending automated hiring notifications" width="600" height="320" />
             <figcaption class="text-gray-300 font-medium">Slack Integration</figcaption>
           </figure>
