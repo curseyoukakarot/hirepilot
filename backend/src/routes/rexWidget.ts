@@ -48,6 +48,7 @@ router.post('/chat', async (req: Request, res: Response) => {
 
     // Upsert or create session
     let sessionId = threadId || null;
+    let createdNewSession = false;
     if (sessionId) {
       await supabase
         .from('rex_widget_sessions')
@@ -60,12 +61,23 @@ router.post('/chat', async (req: Request, res: Response) => {
         .single();
       if (se) throw se;
       sessionId = s.id;
+      createdNewSession = true;
     }
 
     // Persist last user message
     const lastUser = [...messages].reverse().find(m => m.role === 'user');
     if (lastUser) {
       await supabase.from('rex_widget_messages').insert({ session_id: sessionId, role: 'user', text: lastUser.text });
+      // Notify Slack on first engagement (session created now)
+      if (createdNewSession) {
+        const slackUrl = process.env.SLACK_WIDGET_WEBHOOK_URL || process.env.SLACK_WEBHOOK_URL;
+        if (slackUrl) {
+          try {
+            const shortTxt = (lastUser.text || '').slice(0, 300);
+            await axios.post(slackUrl, { text: `REX Widget: New conversation started\nSession: ${sessionId}\nMessage: ${shortTxt}` });
+          } catch {}
+        }
+      }
     }
 
     // RAG sources (all modes now): hybrid semantic + keyword
@@ -429,6 +441,16 @@ router.post('/chat', async (req: Request, res: Response) => {
 
     // Persist assistant message
     await supabase.from('rex_widget_messages').insert({ session_id: sessionId, role: 'assistant', text: content, sources: outSources as any, tutorial });
+    // Optional Slack mirror of assistant responses (trim to avoid noisy payloads)
+    try {
+      const slackMirror = String(process.env.SLACK_WIDGET_MIRROR || '').toLowerCase() === 'true';
+      const slackUrl = process.env.SLACK_WIDGET_WEBHOOK_URL || process.env.SLACK_WEBHOOK_URL;
+      if (slackMirror && slackUrl && lastUser?.text) {
+        const u = (lastUser.text || '').slice(0, 300);
+        const a = (content || '').slice(0, 500);
+        await axios.post(slackUrl, { text: `REX Widget Reply\nSession: ${sessionId}\nUser: ${u}\nAssistant: ${a}` });
+      }
+    } catch {}
     // Persist session meta updates
     const newMeta: SessionMeta = { ...meta, state: (plan.state || plan.state_patch?.state) as any, last_intent: (plan.intent as any) || meta.last_intent, collected: { ...(meta.collected||{}), ...(plan.state_patch?.collected||{}) }, support_ctx: { ...(meta.support_ctx||{}), ...(plan.state_patch?.support_ctx||{}) } };
     await supabase.from('rex_widget_sessions').update({ meta: newMeta }).eq('id', sessionId);
