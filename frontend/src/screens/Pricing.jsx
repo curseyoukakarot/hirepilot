@@ -189,33 +189,33 @@ export default function Pricing() {
             <p className="text-gray-400 max-w-2xl mx-auto">Let our expert team handle everything for you. Choose the package that matches your requirements.</p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 max-w-7xl mx-auto">
-            <div id="dfy-basic" className="bg-gray-800 rounded-2xl p-8 border border-gray-700">
+          <div className="grid md:grid-cols-3 gap-8 max-w-7xl mx-auto items-stretch">
+            <div id="dfy-basic" className="bg-gray-800 rounded-2xl p-8 border border-gray-700 flex flex-col">
               <h3 className="text-xl font-bold text-white mb-4">Done-For-You – 1-3 Roles</h3>
               <p className="text-gray-400 mb-6">Perfect for single position hiring</p>
               <div className="flex items-center justify-center mb-8">
                 <i className="fa-solid fa-user-tie text-4xl text-blue-400"></i>
               </div>
-              <a href="https://form.typeform.com/to/UubjS8Rh" target="_blank" rel="noopener" className="block text-center w-full bg-blue-500 text-white py-3 rounded-xl font-semibold hover:bg-blue-600 transition-colors">Contact Us</a>
+              <a href="https://form.typeform.com/to/UubjS8Rh" target="_blank" rel="noopener" className="block text-center w-full bg-blue-500 text-white py-3 rounded-xl font-semibold hover:bg-blue-600 transition-colors mt-auto">Contact Us</a>
             </div>
 
-            <div id="dfy-standard" className="bg-gray-800 rounded-2xl p-8 border border-gray-700">
+            <div id="dfy-standard" className="bg-gray-800 rounded-2xl p-8 border border-gray-700 flex flex-col">
               <h3 className="text-xl font-bold text-white mb-4">Done-For-You – 4-6 Roles</h3>
               <p className="text-gray-400 mb-6">Ideal for multiple position monthly hiring</p>
               <div className="flex items-center justify-center mb-8">
                 <i className="fa-solid fa-users text-4xl text-blue-400"></i>
               </div>
-              <a href="https://form.typeform.com/to/UubjS8Rh" target="_blank" rel="noopener" className="block text-center w-full bg-blue-500 text-white py-3 rounded-xl font-semibold hover:bg-blue-600 transition-colors">Contact Us</a>
+              <a href="https://form.typeform.com/to/UubjS8Rh" target="_blank" rel="noopener" className="block text-center w-full bg-blue-500 text-white py-3 rounded-xl font-semibold hover:bg-blue-600 transition-colors mt-auto">Contact Us</a>
             </div>
 
-            <div id="dfy-premium" className="bg-gray-800 rounded-2xl p-8 border border-gray-700">
+            <div id="dfy-premium" className="bg-gray-800 rounded-2xl p-8 border border-gray-700 flex flex-col">
               <h3 className="text-xl font-bold text-white mb-4">Done-For-You – 7-10 Roles</h3>
               <p className="text-gray-400 mb-6">Best for department-wide hiring</p>
               <p className="text-gray-400 mb-6">More than 10? Happy to support - Let us know what your needs are!</p>
               <div className="flex items-center justify-center mb-8">
                 <i className="fa-solid fa-building-user text-4xl text-blue-400"></i>
               </div>
-              <a href="https://form.typeform.com/to/UubjS8Rh" target="_blank" rel="noopener" className="block text-center w-full bg-blue-500 text-white py-3 rounded-xl font-semibold hover:bg-blue-600 transition-colors">Contact Us</a>
+              <a href="https://form.typeform.com/to/UubjS8Rh" target="_blank" rel="noopener" className="block text-center w-full bg-blue-500 text-white py-3 rounded-xl font-semibold hover:bg-blue-600 transition-colors mt-auto">Contact Us</a>
             </div>
           </div>
         </div>
