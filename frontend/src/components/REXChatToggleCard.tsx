@@ -16,7 +16,7 @@ export default function REXChatToggleCard() {
   useEffect(() => {
     (async () => {
       const { data } = await supabase
-        .from('settings')
+        .from('system_settings')
         .select('key,value')
         .in('key', ['rex_producthunt_mode', 'rex_popup_enabled']);
       if (data) {
@@ -35,7 +35,7 @@ export default function REXChatToggleCard() {
     const newVal = !settings[key];
     setSettings({ ...settings, [key]: newVal });
     await supabase
-      .from('settings')
+      .from('system_settings')
       .upsert([{ key, value: String(newVal) }]);
   }
 
