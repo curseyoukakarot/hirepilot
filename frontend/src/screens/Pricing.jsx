@@ -58,15 +58,21 @@ export default function Pricing() {
           </div>
         </div>
 
+        {/* All-features banner */}
+        <div className="max-w-4xl mx-auto px-6 text-center mb-10" aria-label="all-features-banner">
+          <h3 className="text-xl font-semibold text-gray-900">All plans include every feature.</h3>
+          <p className="text-gray-600 mt-2">Pick the credit volume that fits your hiring pace. REX AI, enrichment, outreach, integrations, analytics—everything is unlocked.</p>
+        </div>
+
         {/* Pricing Plans */}
-        <div id="pricing-plans" className="max-w-7xl mx-auto px-6 mb-24">
+        <div id="pricing-plans" className="max-w-7xl mx-auto px-6 mb-16">
           <div className="grid md:grid-cols-3 gap-8 items-stretch">
             {/* Starter Plan */}
             <div id="starter-plan" className="bg-white rounded-2xl p-8 border border-gray-200 shadow-lg hover:shadow-xl transition-shadow duration-300">
               <div className="flex justify-between items-start mb-6">
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900">Starter</h2>
-                  <p className="text-gray-500 mt-1">Perfect for individuals</p>
+                  <p className="text-gray-500 mt-1">Perfect for individuals & small teams</p>
                 </div>
                 <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm">Popular</span>
               </div>
@@ -79,14 +85,16 @@ export default function Pricing() {
                   </div>
                 );
               })()}
-              <ul className="space-y-4 mb-8 flex-1">
-                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>350 credits/month</span></li>
-                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Enrichment Integrations with Apollo, Linkedin, and email tools</span></li>
-                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Connect to Zapier or Make</span></li>
-                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Access to REX - your Recruiting AI assistant</span></li>
-                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Unlimited Job Reqs</span></li>
-                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Credit rollover</span></li>
+              <div className="text-gray-700 mb-4" aria-label="credit-info-starter">
+                <div className="font-semibold">350 credits / month</div>
+              </div>
+              <ul className="space-y-4 mb-8 flex-1" aria-label="starter-features">
+                <li className="flex items-start text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3 mt-1"></i><span>All features included: REX AI assistant, campaigns & sequences, inbox + reply tracking, enrichment (Apollo/Hunter/Skrapp), LinkedIn request automation, Chrome Extension, Slack & email integrations, Zapier/Make triggers, ATS sync, calendar scheduling, analytics dashboard.</span></li>
+                <li className="flex items-center text-gray-700"><i className="fa-solid fa-recycle text-green-500 mr-3"></i><span>Credit rollover while subscribed</span></li>
+                <li className="flex items-center text-gray-700"><i className="fa-solid fa-plug text-blue-600 mr-3"></i><span>Unlimited job reqs & campaigns</span></li>
+                <li className="flex items-center text-gray-700"><i className="fa-solid fa-wrench text-gray-600 mr-3"></i><span>Add credits anytime from Billing</span></li>
               </ul>
+              <p className="text-gray-500 text-sm mb-6">Ideal for: 1 active role, light weekly sourcing, fast validation.</p>
               <button className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold hover:bg-blue-700 transition-colors" onClick={() => handleCheckout('starter')}>Get Started for Free</button>
             </div>
 
@@ -95,7 +103,7 @@ export default function Pricing() {
               <div className="flex justify-between items-start mb-6">
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900">Pro</h2>
-                  <p className="text-gray-500 mt-1">Best for small teams</p>
+                  <p className="text-gray-500 mt-1">Built for growing teams</p>
                 </div>
                 <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm">Best Value</span>
               </div>
@@ -108,12 +116,14 @@ export default function Pricing() {
                   </div>
                 );
               })()}
-              <ul className="space-y-4 mb-8 flex-1">
-                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Everything in Starter plus:</span></li>
-                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>1000 credits/month</span></li>
-                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Connect to Zapier or Make</span></li>
-                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Access to REX - your Recruiting AI assistant</span></li>
-                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Credit rollover</span></li>
+              <div className="text-gray-700 mb-4" aria-label="credit-info-pro">
+                <div className="font-semibold">1,000 credits / month</div>
+              </div>
+              <ul className="space-y-4 mb-8 flex-1" aria-label="pro-features">
+                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Everything in Starter (all features unlocked)</span></li>
+                <li className="flex items-center text-gray-700"><i className="fa-solid fa-recycle text-green-500 mr-3"></i><span>Credit rollover while subscribed</span></li>
+                <li className="flex items-center text-gray-700"><i className="fa-solid fa-repeat text-blue-600 mr-3"></i><span>Higher-volume outreach + enrichment</span></li>
+                <li className="flex items-center text-gray-700"><i className="fa-solid fa-chart-line text-purple-600 mr-3"></i><span>Perfect for 2–3 concurrent roles and A/B testing</span></li>
               </ul>
               <button className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold hover:bg-blue-700 transition-colors" onClick={() => handleCheckout('pro')}>Get Started for Free</button>
             </div>
@@ -128,24 +138,48 @@ export default function Pricing() {
                 <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm">Enterprise</span>
               </div>
               {(() => {
-                const price = annual ? 69 : 99;
+                const price = annual ? 399 : 499;
                 return (
                   <div className="mb-6">
                     <span className="text-5xl font-bold text-gray-900">${price}</span>
-                    <span className="text-gray-500">/month per user</span>
+                    <span className="text-gray-500">/month</span>
                   </div>
                 );
               })()}
-              <p className="text-gray-700 font-medium mb-4">Everything in Starter and Pro plus:</p>
-              <ul className="space-y-4 mb-8 flex-1">
-                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>5,000 credits/month</span></li>
-                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>5 users</span></li>
-                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Access to live customer chat support</span></li>
-                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Hiring Scaling Support</span></li>
-                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>API Access</span></li>
+              <div className="text-gray-700 mb-4" aria-label="credit-info-team">
+                <div className="font-semibold">5,000 credits / month</div>
+              </div>
+              <ul className="space-y-4 mb-8 flex-1" aria-label="team-features">
+                <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Everything in Starter & Pro (all features unlocked)</span></li>
+                <li className="flex items-center text-gray-700"><i className="fa-solid fa-recycle text-green-500 mr-3"></i><span>Credit rollover while subscribed</span></li>
+                <li className="flex items-center text-gray-700"><i className="fa-solid fa-brain text-purple-600 mr-3"></i><span>High-throughput sourcing + automations</span></li>
+                <li className="flex items-center text-gray-700"><i className="fa-solid fa-folder-tree text-blue-600 mr-3"></i><span>Great for multi-role pipelines and weekly hiring cycles</span></li>
               </ul>
               <button className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold hover:bg-blue-700 transition-colors" onClick={() => handleCheckout('team')}>Get Started for Free</button>
             </div>
+          </div>
+        </div>
+
+        {/* All features included checklist */}
+        <div className="max-w-6xl mx-auto px-6 mb-6">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8">
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">All features included</h3>
+            <div className="grid sm:grid-cols-2 gap-3 text-gray-700">
+              <div className="flex items-start"><span className="mr-3">🤖</span><span>REX AI: candidate analysis, message drafts, smart follow-ups</span></div>
+              <div className="flex items-start"><span className="mr-3">🧰</span><span>Campaigns & Sequences with reply tracking</span></div>
+              <div className="flex items-start"><span className="mr-3">🔎</span><span>Enrichment (Apollo/Hunter/Skrapp) with graceful fallbacks</span></div>
+              <div className="flex items-start"><span className="mr-3">🔗</span><span>LinkedIn requests & profile capture (via extension/automation)</span></div>
+              <div className="flex items-start"><span className="mr-3">✉️</span><span>Email sending + deliverability helpers</span></div>
+              <div className="flex items-start"><span className="mr-3">🧵</span><span>Unified Inbox (see replies per campaign/lead)</span></div>
+              <div className="flex items-start"><span className="mr-3">🧭</span><span>Analytics Dashboard (success rate, replies, interviews, hires)</span></div>
+              <div className="flex items-start"><span className="mr-3">🧩</span><span>Integrations: Slack, Zapier, Make, ATS, Webhooks</span></div>
+              <div className="flex items-start"><span className="mr-3">📅</span><span>Calendar scheduling & interview coordination</span></div>
+              <div className="flex items-start"><span className="mr-3">🧑‍💼</span><span>Unlimited job reqs (no caps)</span></div>
+            </div>
+            <p className="text-sm text-gray-500 mt-4">Credits power enrichment, AI analysis, automations, and outreach actions. Add more credits any time.</p>
+          </div>
+          <div className="text-xs text-gray-500 mt-3" aria-label="credits-explainer">
+            How credits work: Each sourcing/enrichment/automation step consumes credits (e.g., enrichment lookups, AI analysis, outbound actions). Credits roll over while your plan is active, and you can buy top-ups at any time.
           </div>
         </div>
 
