@@ -371,7 +371,6 @@ export default function ProductHunt() {
           <a href="/pricing" class="text-gray-300 hover:text-white">Pricing</a>
           <a href="/blog" class="text-gray-300 hover:text-white">Blog</a>
           <a href="/affiliates" class="text-gray-300 hover:text-white">Affiliates</a>
-          <a href="/contact" class="text-gray-300 hover:text-white">Contact</a>
         </nav>
         <a href="https://www.producthunt.com/" target="_blank" rel="noopener" class="inline-flex items-center px-3 py-1 bg-orange-500/20 border border-orange-500/30 rounded-full text-orange-300 text-sm">
           🚀 We launched on Product Hunt!
