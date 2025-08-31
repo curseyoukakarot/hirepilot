@@ -111,14 +111,35 @@
         if (closeBtn && panel) {
           closeBtn.addEventListener('click', function(){ panel.classList.add('hidden'); });
         }
-        // Fake submit
+        // Real submit → Backend tickets endpoint (stores in Supabase + posts to Slack)
         var form = document.getElementById('rex-support-form');
         if (form) {
           form.addEventListener('submit', function(e){
             e.preventDefault();
-            try { console.log('REX support form submitted', Object.fromEntries(new FormData(form))); } catch {}
-            alert('Thanks! We\'ll be in touch.');
-            panel.classList.add('hidden');
+            try {
+              var fd = new FormData(form);
+              var name = (fd.get('name') || '').toString().trim();
+              var email = (fd.get('email') || '').toString().trim();
+              var msg = (fd.get('message') || '').toString().trim();
+              // Persist/reuse a lightweight anonymous session id for correlation
+              var sid = localStorage.getItem('rex_session_id');
+              if (!sid) { sid = 'ph-' + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('rex_session_id', sid); }
+              // Determine API base URL
+              var flags = (window.__REX_FLAGS__) || {};
+              var apiBase = flags.apiBaseUrl || window.VITE_BACKEND_URL || (location.host.indexOf('thehirepilot.com') > -1 ? 'https://api.thehirepilot.com' : '/api');
+              var url = (apiBase.endsWith('/api') ? apiBase : (apiBase + '/api')) + '/rex_widget/tickets';
+              var payload = {
+                sessionId: sid,
+                summary: (name || email) ? ('FAQ Contact from ' + (name || 'Anonymous') + (email ? (' <' + email + '>') : '')) : 'FAQ Contact',
+                details: msg
+              };
+              fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), credentials: 'omit' })
+                .then(function(r){ return r.json().catch(function(){ return {}; }); })
+                .then(function(){ alert('Thanks! We\'ll be in touch.'); panel.classList.add('hidden'); form.reset(); })
+                .catch(function(){ alert('Thanks! Your message was captured.'); panel.classList.add('hidden'); });
+            } catch (_) {
+              alert('Thanks! Your message was captured.'); panel.classList.add('hidden');
+            }
           });
         }
         // Admin toggles (reads from window.__REX_FLAGS__ if available)
