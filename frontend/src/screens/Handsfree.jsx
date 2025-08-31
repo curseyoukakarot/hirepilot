@@ -11,8 +11,8 @@ export default function Handsfree() {
 
         {/* Hero Section */}
         <section id="hero" className="pt-32 pb-20 bg-gradient-to-b from-blue-500 via-blue-200 to-white">
-          <div className="max-w-7xl mx-auto px-6 md:px-10 flex flex-col md:flex-row items-center justify-between gap-12">
-            <div className="w-full md:w-1/2 text-center md:text-left">
+          <div className="max-w-7xl mx-auto px-6 md:px-10 flex flex-col items-center justify-center gap-12">
+            <div className="w-full max-w-3xl text-center">
               <h1 className="text-4xl md:text-6xl font-bold leading-tight text-gray-900">
                 We Find.<br />You Interview.
               </h1>
@@ -27,11 +27,6 @@ export default function Handsfree() {
                 <a href="/pricing" className="bg-blue-900 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:bg-blue-800 transition-all duration-200">
                   Get Started Free
                 </a>
-              </div>
-            </div>
-            <div className="w-full md:w-1/2">
-              <div className="rounded-xl overflow-hidden shadow-2xl">
-                <img className="w-full h-auto" src="/handsfree-hp.png" alt="HirePilot handsfree hiring dashboard" />
               </div>
             </div>
           </div>
@@ -49,7 +44,7 @@ export default function Handsfree() {
                   <img
                     src="/dfy-dashboard.png"
                     alt="Client Dashboard"
-                    className="w-[92%] md:w-[85%] lg:w-[75%] max-w-6xl rounded-2xl shadow-2xl border border-white/10"
+                    className="w-[100%] md:w-[100%] lg:w-[100%] max-w-6xl rounded-2xl shadow-2xl border border-white/10"
                   />
                 </div>
               </div>
