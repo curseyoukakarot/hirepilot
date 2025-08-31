@@ -66,8 +66,9 @@ export default function Pricing() {
         </div>
 
         {/* Pricing Plans */}
-        <div id="pricing-plans" className="max-w-7xl mx-auto px-6 mb-16 bg-gray-200">
-          <div className="grid md:grid-cols-3 gap-8 items-stretch">
+        <div className="w-full bg-gray-200 py-10">
+          <div id="pricing-plans" className="max-w-7xl mx-auto px-6">
+            <div className="grid md:grid-cols-3 gap-8 items-stretch">
             {/* Starter Plan */}
             <div id="starter-plan" className="bg-white rounded-2xl p-8 border border-gray-200 shadow-lg hover:shadow-xl transition-shadow duration-300">
               <div className="flex justify-between items-start mb-6">
@@ -159,6 +160,7 @@ export default function Pricing() {
               <button className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold hover:bg-blue-700 transition-colors" onClick={() => handleCheckout('team')}>Get Started for Free</button>
             </div>
           </div>
+        </div>
         </div>
 
         {/* All features included checklist */}
