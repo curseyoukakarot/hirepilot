@@ -56,7 +56,7 @@ const HomePage = () => {
               </p>
               <div className="mt-12 flex justify-center">
                 <img
-                  src="/lead-drawer.png"
+                  src="/lead-drawer2.png"
                   alt="Lead Profile Drawer product mockup"
                   className="w-[90%] md:w-[80%] lg:w-[70%] max-w-6xl rounded-2xl shadow-2xl border border-white/10"
                 />
