@@ -481,8 +481,8 @@ router.post('/leads', async (req: Request, res: Response) => {
 
     const id = data.id as string;
 
-    // Fan-out: Slack
-    const slackUrl = process.env.SLACK_WEBHOOK_URL;
+    // Fan-out: Slack (use widget-specific webhook if present)
+    const slackUrl = process.env.SLACK_WIDGET_WEBHOOK_URL || process.env.SLACK_WEBHOOK_URL;
     if (slackUrl) {
       try { await axios.post(slackUrl, { text: `New lead (REX Widget): ${body.full_name} <${body.work_email}>\nCompany: ${body.company || '-'}\nInterest: ${body.interest || '-'}\nNotes: ${body.notes || '-'}` }); } catch {}
     }
