@@ -37,62 +37,61 @@ export default function Handsfree() {
           </div>
         </section>
 
-        {/* Features Section */}
-        <section id="features" className="py-20 bg-white">
-          <div className="max-w-6xl mx-auto px-6">
-            <h2 className="text-3xl font-bold text-center mb-4">Everything You Need to Hire Fast</h2>
-            <p className="text-gray-600 text-center mb-12 max-w-2xl mx-auto">A complete recruiting solution that handles sourcing, scheduling, and everything in between.</p>
-
-            <div className="grid md:grid-cols-2 gap-12">
-              <div className="space-y-8">
-                <div id="feature-1" className="flex gap-4 items-start bg-gray-50 p-6 rounded-xl hover:bg-gray-100 transition-colors">
-                  <i className="fa-solid fa-briefcase text-blue-600 text-2xl"></i>
-                  <div>
-                    <h4 className="font-semibold text-lg">Full-Service Sourcing</h4>
-                    <p className="text-gray-600">You send us the job. We find and engage top candidates.</p>
-                  </div>
-                </div>
-
-                <div id="feature-2" className="flex gap-4 items-start bg-gray-50 p-6 rounded-xl hover:bg-gray-100 transition-colors">
-                  <i className="fa-solid fa-users text-blue-600 text-2xl"></i>
-                  <div>
-                    <h4 className="font-semibold text-lg">Unlimited Team Access</h4>
-                    <p className="text-gray-600">Invite hiring managers, ops, and execs to collaborate.</p>
-                  </div>
-                </div>
-
-                <div id="feature-3" className="flex gap-4 items-start bg-gray-50 p-6 rounded-xl hover:bg-gray-100 transition-colors">
-                  <i className="fa-brands fa-slack text-blue-600 text-2xl"></i>
-                  <div>
-                    <h4 className="font-semibold text-lg">Slack-first Collaboration</h4>
-                    <p className="text-gray-600">Review candidates and track status inside Slack.</p>
-                  </div>
-                </div>
-
-                <div id="feature-4" className="flex gap-4 items-start bg-gray-50 p-6 rounded-xl hover:bg-gray-100 transition-colors">
-                  <i className="fa-solid fa-plug text-blue-600 text-2xl"></i>
-                  <div>
-                    <h4 className="font-semibold text-lg">ATS Integration</h4>
-                    <p className="text-gray-600">Seamlessly sync with your hiring stack.</p>
-                  </div>
-                </div>
-
-                <div id="feature-5" className="flex gap-4 items-start bg-gray-50 p-6 rounded-xl hover:bg-gray-100 transition-colors">
-                  <i className="fa-regular fa-calendar-check text-blue-600 text-2xl"></i>
-                  <div>
-                    <h4 className="font-semibold text-lg">Calendar-Ready Interviews</h4>
-                    <p className="text-gray-600">Just show up. We schedule every call for you.</p>
-                  </div>
+        {/* DFY Dashboard Showcase Section */}
+        <section id="dfy-dashboard-showcase" className="relative">
+          <div className="w-full">
+            {/* Full-bleed gradient area with big screenshot */}
+            <div className="w-screen relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] bg-gradient-to-b from-blue-600 via-blue-300 to-white">
+              <div className="max-w-7xl mx-auto px-6 pt-20 pb-10 text-center">
+                <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">Everything You Need to Hire Fast</h2>
+                <p className="text-blue-50/90 max-w-2xl mx-auto mb-10">Track sourcing, collaboration, and success rates in one dashboard.</p>
+                <div className="flex justify-center">
+                  <img
+                    src="/dfy-dashboard.png"
+                    alt="Client Dashboard"
+                    className="w-[92%] md:w-[85%] lg:w-[75%] max-w-6xl rounded-2xl shadow-2xl border border-white/10"
+                  />
                 </div>
               </div>
+            </div>
 
-              <div className="relative">
-                <div className="sticky top-32">
-                  <img className="rounded-xl shadow-2xl" src="/hp-copilot.png" alt="HirePilot platform pipeline view" />
-                  <div className="absolute -bottom-6 right-6 bg-white p-4 rounded-xl shadow-lg">
-                    <div className="flex items-center gap-3">
-                      <i className="fa-solid fa-check-circle text-green-500 text-xl"></i>
-                      <span className="text-sm font-medium">Connected with Slack</span>
+            {/* Context cards on white background */}
+            <div className="bg-white">
+              <div className="max-w-7xl mx-auto px-6 py-12">
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="flex gap-4 items-start bg-gray-50 p-6 rounded-xl border border-gray-100 shadow-sm">
+                    <i className="fa-solid fa-box-open text-blue-600 text-2xl"></i>
+                    <div>
+                      <h4 className="font-semibold text-lg">Full-Service Sourcing</h4>
+                      <p className="text-gray-600">You send us the job. We find and engage top candidates.</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-4 items-start bg-gray-50 p-6 rounded-xl border border-gray-100 shadow-sm">
+                    <i className="fa-solid fa-users text-blue-600 text-2xl"></i>
+                    <div>
+                      <h4 className="font-semibold text-lg">Unlimited Team Access</h4>
+                      <p className="text-gray-600">Invite hiring managers, ops, and execs to collaborate.</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-4 items-start bg-gray-50 p-6 rounded-xl border border-gray-100 shadow-sm">
+                    <i className="fa-brands fa-slack text-blue-600 text-2xl"></i>
+                    <div>
+                      <h4 className="font-semibold text-lg">Slack-first Collaboration</h4>
+                      <p className="text-gray-600">Review candidates and track status inside Slack.</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-4 items-start bg-gray-50 p-6 rounded-xl border border-gray-100 shadow-sm">
+                    <i className="fa-solid fa-plug text-blue-600 text-2xl"></i>
+                    <div>
+                      <h4 className="font-semibold text-lg">ATS Integration</h4>
+                      <p className="text-gray-600">Seamlessly sync with your hiring stack.</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-4 items-start bg-gray-50 p-6 rounded-xl border border-gray-100 shadow-sm">
+                    <i className="fa-regular fa-calendar-check text-blue-600 text-2xl"></i>
+                    <div>
+                      <h4 className="font-semibold text-lg">Calendar-Ready Interviews</h4>
+                      <p className="text-gray-600">Just show up. We schedule every call for you.</p>
                     </div>
                   </div>
                 </div>
