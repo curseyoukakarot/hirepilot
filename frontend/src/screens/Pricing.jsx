@@ -66,7 +66,7 @@ export default function Pricing() {
         </div>
 
         {/* Pricing Plans */}
-        <div id="pricing-plans" className="max-w-7xl mx-auto px-6 mb-16">
+        <div id="pricing-plans" className="max-w-7xl mx-auto px-6 mb-16 bg-gray-200">
           <div className="grid md:grid-cols-3 gap-8 items-stretch">
             {/* Starter Plan */}
             <div id="starter-plan" className="bg-white rounded-2xl p-8 border border-gray-200 shadow-lg hover:shadow-xl transition-shadow duration-300">
