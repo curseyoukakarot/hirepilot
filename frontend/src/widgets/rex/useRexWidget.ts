@@ -195,10 +195,12 @@ export function useRexWidget(options?: UseRexWidgetOptions) {
   const showSalesCtas = mode === 'sales' && (salesTurns >= 2 || salesCtaOverride);
   const shouldPulse = !hasOpened;
 
-  const sendHandoff = useCallback(async (reason?: string) => {
+  const sendHandoff = useCallback(async (reason?: string | any) => {
     try {
+      // Normalize reason (avoid passing SyntheticEvent which is circular)
+      const safeReason: string | undefined = typeof reason === 'string' ? reason : undefined;
       // Debug: verify base URL resolution
-      try { console.debug('[REX] sendHandoff', { API_BASE, threadId, reason }); } catch {}
+      try { console.debug('[REX] sendHandoff', { API_BASE, threadId, reason: safeReason }); } catch {}
 
       // Ensure a session exists. If no thread yet, create one without sending a user message
       let ensuredThreadId = threadId;
@@ -225,7 +227,7 @@ export function useRexWidget(options?: UseRexWidgetOptions) {
       const resp = await fetch(`${API_BASE}/api/rex_widget/handoff`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-rex-anon-id': anonIdRef.current },
-        body: JSON.stringify({ threadId: ensuredThreadId, reason }),
+        body: JSON.stringify({ threadId: ensuredThreadId, reason: safeReason }),
       });
       try {
         const clone = resp.clone();
