@@ -243,7 +243,16 @@ export function useRexWidget(options?: UseRexWidgetOptions) {
         text: 'Got it — I notified our team. If someone is available now, they will reply here in this chat shortly. Otherwise we will follow up by email.',
         ts: Date.now(),
       }]));
-    } catch {}
+    } catch (e) {
+      try { console.error('[REX] handoff failed', e); } catch {}
+      try { (await import('react-hot-toast')).toast.error('Failed to notify team — please try again or email support@thehirepilot.com'); } catch {}
+      setMessages(prev => prev.concat([{
+        id: `h_${Date.now()}`,
+        role: 'assistant',
+        text: 'Error notifying the team — please try again or contact support@thehirepilot.com directly.',
+        ts: Date.now(),
+      }]));
+    }
   }, [threadId, API_BASE, mode]);
 
   const sendLead = useCallback(async (payload: RexLeadPayload) => {
