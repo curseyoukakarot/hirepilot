@@ -38,7 +38,7 @@
           </details>
           <details class="border border-slate-200 rounded-lg p-3">
             <summary class="cursor-pointer font-medium">2. What’s included in the Pro plan?</summary>
-            <p class="mt-2 text-sm text-slate-600">The Pro plan includes AI sourcing via Apollo and LinkedIn, campaign management, enrichment, Chrome extension, Slack alerts, and up to 2,500 credits/month. <a class="text-blue-600 underline" href="https://thehirepilot.com/pricing" target="_blank" rel="noopener">View pricing</a></p>
+            <p class="mt-2 text-sm text-slate-600">The Pro plan includes AI sourcing via Apollo and LinkedIn, campaign management, enrichment, Chrome extension, Slack alerts, and up to 1,000 credits/month. <a class="text-blue-600 underline" href="https://thehirepilot.com/pricing" target="_blank" rel="noopener">View pricing</a></p>
           </details>
           <details class="border border-slate-200 rounded-lg p-3">
             <summary class="cursor-pointer font-medium">3. Do you integrate with Slack?</summary>
@@ -66,7 +66,7 @@
           </details>
           <details class="border border-slate-200 rounded-lg p-3">
             <summary class="cursor-pointer font-medium">9. Can I send connection requests on LinkedIn?</summary>
-            <p class="mt-2 text-sm text-slate-600">Yes — using the Chrome Extension or our automation, you can send connection requests with optional messages, powered by smart limits and proxy protection.</p>
+            <p class="mt-2 text-sm text-slate-600">Yes — Our Linkedin Requests in the lead drawer or REX, you can send connection requests with optional messages, powered by smart limits and proxy protection.</p>
           </details>
           <details class="border border-slate-200 rounded-lg p-3">
             <summary class="cursor-pointer font-medium">10. What if I need help?</summary>
@@ -92,9 +92,9 @@
 
           <!-- CTA bar -->
           <div class="mt-4 border-t border-slate-200 pt-3 flex items-center justify-between text-sm">
-            <a class="text-blue-600 hover:underline" href="https://thehirepilot.com/demo" target="_blank" rel="noopener">🎥 Watch Demo</a>
-            <a class="text-blue-600 hover:underline" href="https://thehirepilot.com/book" target="_blank" rel="noopener">📅 Book Demo</a>
-            <a class="text-blue-600 hover:underline" href="https://thehirepilot.com/start" target="_blank" rel="noopener">🚀 Start Free Trial</a>
+            <a id="rex-cta-demo" class="text-blue-600 hover:underline" href="#" target="_blank" rel="noopener">🎥 Watch Demo</a>
+            <a class="text-blue-600 hover:underline" href="https://form.typeform.com/to/cnUZ9PgW" target="_blank" rel="noopener">📅 Book Demo</a>
+            <a class="text-blue-600 hover:underline" href="/pricing" target="_blank" rel="noopener">🚀 Start Free Trial</a>
           </div>
         </div>
       </div>
@@ -134,6 +134,15 @@
           } else {
             host.style.display = 'none';
           }
+
+          // Wire demo link from env if available
+          try {
+            var demoEl = document.getElementById('rex-cta-demo');
+            if (demoEl) {
+              var demo = (window.__REX_FLAGS__ && window.__REX_FLAGS__.demoUrl) || (window.VITE_DEMO_URL) || null;
+              if (demo) demoEl.href = demo;
+            }
+          } catch (e) { /* noop */ }
         }
         // run now and when flags become ready
         applyRexFlags();
