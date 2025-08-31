@@ -19,31 +19,26 @@ const HomePage = () => {
       {/* Hero Section */}
       <section id="hero" className="pt-24 pb-16 bg-gradient-to-b from-blue-600 to-white min-h-[900px] flex items-center">
         <div className="w-full px-6">
-          <div className="max-w-7xl mx-auto">
-            <div className="grid lg:grid-cols-5 gap-12 items-center">
-              <div className="lg:col-span-2 space-y-8">
-                <div className="space-y-4">
-                  <h1 className="text-5xl lg:text-6xl font-bold text-gray-900 leading-tight">
-                    Your AI Recruiting Agent — 
-                    <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> Find, Engage & Hire</span>{' '}at Scale
-                  </h1>
-                  <p className="text-xl text-gray-600 leading-relaxed">
-                    Automate sourcing, messaging, follow-ups, and tracking—all powered by smart AI agents and workflow automations that plug into your tools.
-                  </p>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <a href="/pricing" className="bg-white text-blue-600 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-100 transition-colors flex items-center justify-center space-x-2">
-                    <span>Start Free</span>
-                    <i className="fas fa-arrow-right"></i>
-                  </a>
-                  <a href="https://form.typeform.com/to/cnUZ9PgW" target="_blank" rel="noopener" className="border border-white text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white/10 transition-colors flex items-center justify-center space-x-2">
-                    <i className="fas fa-play"></i>
-                    <span>Watch Demo</span>
-                  </a>
-                </div>
+          <div className="max-w-5xl mx-auto text-center">
+            <div className="space-y-8">
+              <div className="space-y-4">
+                <h1 className="text-5xl lg:text-6xl font-bold text-gray-900 leading-tight">
+                  Your AI Recruiting Agent — 
+                  <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> Find, Engage & Hire</span>{' '}at Scale
+                </h1>
+                <p className="text-xl text-gray-600 leading-relaxed">
+                  Automate sourcing, messaging, follow-ups, and tracking—all powered by smart AI agents and workflow automations that plug into your tools.
+                </p>
               </div>
-              <div className="lg:col-span-3 relative flex justify-center">
-                <img className="w-full h-auto object-contain rounded-xl shadow-2xl" src="/homepage-hero-1.png" alt="modern AI recruiting dashboard interface with chat bot, candidate profiles, and automation workflows, sleek dark UI design" />
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <a href="/pricing" className="bg-white text-blue-600 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-100 transition-colors flex items-center justify-center space-x-2">
+                  <span>Start Free</span>
+                  <i className="fas fa-arrow-right"></i>
+                </a>
+                <a href="https://form.typeform.com/to/cnUZ9PgW" target="_blank" rel="noopener" className="border border-white text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white/10 transition-colors flex items-center justify-center space-x-2">
+                  <i className="fas fa-play"></i>
+                  <span>Watch Demo</span>
+                </a>
               </div>
             </div>
           </div>
