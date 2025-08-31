@@ -53,7 +53,7 @@ export default function Dashboard() {
               .eq('id', data.user.id)
               .maybeSingle();
             const roleLc = String(userRow?.role || data.user.user_metadata?.role || '').toLowerCase();
-            roleEnabled = ['teamadmin','team_admin','superadmin','super_admin','admin','recruitpro'].includes(roleLc);
+            roleEnabled = ['teamadmin','team_admin','superadmin','super_admin','admin','recruitpro','member'].includes(roleLc);
           } catch {}
           setRexEnabled(integEnabled || roleEnabled);
         } catch {

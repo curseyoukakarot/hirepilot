@@ -267,7 +267,7 @@ export default function RexChatBox() {
       }
 
       const roleLc = (userType || '').toLowerCase();
-      setEligible(["recruitpro","teamadmin","team_admin","superadmin","super_admin","admin"].includes(roleLc) || rexEnabled);
+      setEligible(["recruitpro","teamadmin","team_admin","superadmin","super_admin","admin","member"].includes(roleLc) || rexEnabled);
     })();
   }, []);
 

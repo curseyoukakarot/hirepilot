@@ -39,7 +39,7 @@ export default function Sidebar() {
 
       }
       const roleLc = (role || '').toLowerCase();
-      const premiumRoles = ['recruitpro','teamadmin','team_admin','superadmin','super_admin','admin'];
+      const premiumRoles = ['recruitpro','teamadmin','team_admin','superadmin','super_admin','admin','member'];
       setIsPremium(premiumRoles.includes(roleLc) || rexEnabled);
       setIsSuperAdmin(role === 'super_admin');
     };
