@@ -100,7 +100,7 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
     }
 
     const { firstName, lastName, email, company, role } = req.body as TeamInviteRequest;
-    const permissions = (req.body as any).permissions || {};
+    const permissions = (req.body as any).permissions || { rexAccess: true, zapierAccess: true };
     const currentUser = currentUserResolved;
 
     // If current user is a super admin, bypass seat-limit checks entirely
@@ -309,7 +309,7 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
       try {
         // Initialize integrations table flags as well
         await supabaseDb.from('integrations').upsert([
-          { user_id: userData.user.id, provider: 'rex', status: permissions.rexAccess ? 'enabled' : 'disabled' },
+          { user_id: userData.user.id, provider: 'rex', status: 'enabled' },
           { user_id: userData.user.id, provider: 'zapier', status: permissions.zapierAccess ? 'enabled' : 'disabled' }
         ], { onConflict: 'user_id,provider' });
       } catch (settingsErr) {
