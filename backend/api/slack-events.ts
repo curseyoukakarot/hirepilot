@@ -21,6 +21,9 @@ function verifySlackSignature(req: express.Request, signingSecret: string): bool
 
 export async function slackEventsHandler(req: express.Request, res: express.Response) {
   try {
+    console.log('[slack-events] hit');
+    try { console.log('[slack-events] headers', JSON.stringify(req.headers)); } catch {}
+    try { console.log('[slack-events] body raw?', typeof (req as any).rawBody === 'string'); } catch {}
     const secret = process.env.SLACK_SIGNING_SECRET;
     if (!secret) {
       res.status(500).send('SLACK_SIGNING_SECRET not set');
@@ -39,6 +42,7 @@ export async function slackEventsHandler(req: express.Request, res: express.Resp
     }
 
     const event = (req.body as any)?.event;
+    try { console.log('[slack-events] event', JSON.stringify(event)); } catch {}
     if (!event) { res.status(200).json({ ok: true }); return; }
 
     // Only handle message events in threads, ignore bots

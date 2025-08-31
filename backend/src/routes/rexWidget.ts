@@ -3,6 +3,7 @@ import rateLimit from 'express-rate-limit';
 import axios from 'axios';
 import OpenAI from 'openai';
 import { supabase } from '../lib/supabase';
+import { WebClient } from '@slack/web-api';
 import { planTurn as legacyPlanTurn, SessionMeta } from '../rex/agent';
 import type { SessionState, Config as AgentConfig } from '../rex/agent/types';
 let strictPlanTurn: any = null;
@@ -529,9 +530,48 @@ router.post('/handoff', async (req: Request, res: Response) => {
       .limit(50);
 
     const transcript = (msgs || []).map((m: any) => `${m.created_at} - ${m.role.toUpperCase()}: ${m.text}`).join('\n');
-    const slackUrl = process.env.SLACK_WEBHOOK_URL;
-    if (slackUrl) {
-      try { await axios.post(slackUrl, { text: `REX Widget Handoff (${reason || 'general'})\nSession: ${threadId}\n\n${transcript}` }); } catch {}
+
+    // Prefer Slack Web API (to capture thread_ts) if configured; fallback to webhook otherwise
+    const botToken = process.env.SLACK_BOT_TOKEN;
+    const channelId = process.env.SLACK_CHANNEL_ID; // e.g., C123...
+    let threadTs: string | null = null;
+    if (botToken && channelId) {
+      try {
+        const slack = new WebClient(botToken);
+        const result = await slack.chat.postMessage({
+          channel: channelId,
+          text: `REX Widget Handoff (${reason || 'general'})\nSession: ${threadId}\n\n${transcript}`,
+          unfurl_links: false,
+          unfurl_media: false,
+        });
+        threadTs = (result as any)?.ts || null;
+      } catch (e) {
+        console.error('[rex_widget/handoff] Slack Web API post failed, falling back to webhook', e);
+      }
+    }
+
+    if (!threadTs) {
+      const slackUrl = process.env.SLACK_WEBHOOK_URL;
+      if (slackUrl) {
+        try { await axios.post(slackUrl, { text: `REX Widget Handoff (${reason || 'general'})\nSession: ${threadId}\n\n${transcript}` }); } catch {}
+      }
+    }
+
+    // Create live session row if we have a root thread ts + channel id
+    if (threadTs && channelId) {
+      try {
+        await supabase
+          .from('rex_live_sessions')
+          .insert({
+            widget_session_id: threadId,
+            slack_channel_id: channelId,
+            slack_thread_ts: threadTs,
+            user_email: null,
+            user_name: null,
+          });
+      } catch (insErr) {
+        console.error('[rex_widget/handoff] failed to insert rex_live_sessions', insErr);
+      }
     }
     const zapierUrl = process.env.ZAPIER_HOOK_URL;
     if (zapierUrl) { try { await axios.post(zapierUrl, { type: 'rex_widget_handoff', threadId, reason, transcript }); } catch {} }
