@@ -34,7 +34,24 @@ type UseRexWidgetOptions = {
 
 export function useRexWidget(options?: UseRexWidgetOptions) {
   const { initialMode = 'sales', config } = options || {};
-  const API_BASE = (import.meta as any).env?.VITE_REX_API_BASE || '';
+  // Determine backend base URL (no trailing /api). Works on marketing site and local dev.
+  const API_BASE = ((): string => {
+    const envBase = (import.meta as any).env?.VITE_REX_API_BASE;
+    // @ts-ignore
+    const flagsBase = (typeof window !== 'undefined' && (window as any).__REX_FLAGS__?.apiBaseUrl) || undefined;
+    // @ts-ignore
+    const windowBase = (typeof window !== 'undefined' && (window as any).VITE_BACKEND_URL) || undefined;
+    if (envBase) return String(envBase);
+    if (flagsBase) return String(flagsBase);
+    if (windowBase) return String(windowBase);
+    if (typeof window !== 'undefined') {
+      const origin = window.location.origin;
+      if (/thehirepilot\.com$/i.test(window.location.hostname)) return 'https://api.thehirepilot.com';
+      // Fallback to local backend
+      return 'http://localhost:8080';
+    }
+    return '';
+  })();
 
   const [isOpen, setIsOpen] = useState<boolean>(() => {
     try { return JSON.parse(localStorage.getItem(OPEN_KEY) || 'false'); } catch { return false; }
@@ -180,6 +197,8 @@ export function useRexWidget(options?: UseRexWidgetOptions) {
 
   const sendHandoff = useCallback(async (reason?: string) => {
     try {
+      // Debug: verify base URL resolution
+      try { console.debug('[REX] sendHandoff', { API_BASE, threadId, reason }); } catch {}
       await fetch(`${API_BASE}/api/rex_widget/handoff`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-rex-anon-id': anonIdRef.current },
