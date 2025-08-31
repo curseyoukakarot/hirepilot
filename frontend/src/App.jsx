@@ -330,7 +330,14 @@ function InnerApp() {
         setRexFlags(flags);
         // Expose to the vanilla popup snippet in index.html
         if (typeof window !== 'undefined') {
-          window.__REX_FLAGS__ = { isProductHuntMode: flags.producthunt, isPopupEnabled: flags.popup };
+          window.__REX_FLAGS__ = {
+            isProductHuntMode: flags.producthunt,
+            isPopupEnabled: flags.popup,
+            // Surface env-configured URLs so the non-React FAQ popup in index.html can read them
+            demoUrl: (import.meta?.env && import.meta.env.VITE_DEMO_URL) || undefined,
+            calendlyUrl: (import.meta?.env && import.meta.env.VITE_CALENDLY_URL) || undefined,
+            apiBaseUrl: (import.meta?.env && import.meta.env.VITE_BACKEND_URL) || undefined,
+          };
           try {
             window.dispatchEvent(new CustomEvent('rex_flags_ready', { detail: window.__REX_FLAGS__ }));
           } catch {}
