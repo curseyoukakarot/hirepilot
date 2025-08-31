@@ -82,6 +82,7 @@ import slackCallback from './src/api/slack/callback';
 import slackDisconnect from './src/api/slack/disconnect';
 import slackTestPost from './src/api/slack/testPost';
 import bodyParser from 'body-parser';
+import slackEventsHandler from './api/slack-events';
 import slackSlash from './src/api/slack/slash';
 import getAdvancedInfo from './api/getAdvancedInfo';
 import appHealth from './api/appHealth';
@@ -114,6 +115,7 @@ import salesThreadRouter from './src/routes/sales/thread.routes';
 import { salesInboundWorker } from './src/workers/sales.inbound.worker';
 import { salesSendWorker } from './src/workers/sales.send.worker';
 import { salesSweepWorker } from './src/workers/sales.sweep.worker';
+import sendLiveChatFallbacksRouter from './cron/sendLiveChatFallbacks';
 
 declare module 'express-list-endpoints';
 
@@ -172,6 +174,13 @@ app.post('/api/stripe/webhook', bodyParser.raw({ type: 'application/json' }), st
 // Signed SendGrid Event Webhook must receive raw body for signature verification
 app.post('/api/sendgrid/events', bodyParser.raw({ type: 'application/json' }), (req: expressNs.Request, res: expressNs.Response) => {
   return sendgridEventsHandler(req, res);
+});
+
+// Slack Events API: must also receive raw body for signature verification
+app.post('/api/slack-events', bodyParser.raw({ type: 'application/json' }), (req: expressNs.Request, res: expressNs.Response) => {
+  // Attach raw body for signature calculation
+  (req as any).rawBody = (req as any).body;
+  return slackEventsHandler(req, res);
 });
 
 // Parse JSON bodies for all other routes
@@ -285,6 +294,8 @@ app.post('/api/rex/tools/linkedin_connect', linkedinConnectHandler);
 // Attaching requireAuth here would unintentionally protect ALL '/api/*' routes,
 // including public OAuth callbacks like '/api/auth/outlook/callback'.
 app.use('/api', rexConversationsRouter);
+// Cron-safe fallback email endpoint
+app.use('/api/cron', sendLiveChatFallbacksRouter);
 app.post('/api/integrations/slack/enabled', slackToggle);
 app.get('/api/slack/connect', slackConnect);
 app.get('/api/slack/callback', slackCallback);

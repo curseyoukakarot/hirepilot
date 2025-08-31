@@ -1,0 +1,85 @@
+import crypto from 'crypto';
+import type express from 'express';
+import { supabase } from '../src/lib/supabase';
+import { sendMessageToWidget } from '../src/lib/widgetBridge';
+
+function verifySlackSignature(req: express.Request, signingSecret: string): boolean {
+  const timestamp = req.headers['x-slack-request-timestamp'] as string | undefined;
+  const signature = req.headers['x-slack-signature'] as string | undefined;
+  if (!timestamp || !signature) return false;
+  // Prevent replay (5 min window)
+  const now = Math.floor(Date.now() / 1000);
+  if (Math.abs(now - Number(timestamp)) > 60 * 5) return false;
+
+  const rawBody: Buffer | string = (req as any).rawBody || (req as any).bodyRaw || (req as any).body;
+  const body = Buffer.isBuffer(rawBody) ? rawBody.toString('utf8') : typeof rawBody === 'string' ? rawBody : JSON.stringify(rawBody || {});
+  const base = `v0:${timestamp}:${body}`;
+  const hmac = crypto.createHmac('sha256', signingSecret).update(base).digest('hex');
+  const expected = `v0=${hmac}`;
+  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+}
+
+export async function slackEventsHandler(req: express.Request, res: express.Response) {
+  try {
+    const secret = process.env.SLACK_SIGNING_SECRET;
+    if (!secret) {
+      res.status(500).send('SLACK_SIGNING_SECRET not set');
+      return;
+    }
+
+    // Slack URL verification challenge
+    if ((req.body as any)?.type === 'url_verification' && (req.body as any)?.challenge) {
+      res.send((req.body as any).challenge);
+      return;
+    }
+
+    if (!verifySlackSignature(req, secret)) {
+      res.status(401).send('invalid signature');
+      return;
+    }
+
+    const event = (req.body as any)?.event;
+    if (!event) { res.status(200).json({ ok: true }); return; }
+
+    // Only handle message events in threads, ignore bots
+    if (event.type === 'message' && event.thread_ts && !event.subtype && event.user) {
+      const thread = event.thread_ts as string;
+      const channel = event.channel as string;
+      const text = (event.text || '').toString();
+
+      // Lookup live session by slack_thread_ts
+      const { data: session, error } = await supabase
+        .from('rex_live_sessions')
+        .select('id, widget_session_id, user_name')
+        .eq('slack_thread_ts', thread)
+        .eq('slack_channel_id', channel)
+        .maybeSingle();
+      if (error) {
+        console.error('[slack-events] session lookup error', error);
+      }
+
+      if (session?.widget_session_id) {
+        await sendMessageToWidget(session.widget_session_id, {
+          from: 'human',
+          name: session.user_name || null,
+          message: text,
+          timestamp: new Date().toISOString(),
+        });
+        // Update last_human_reply
+        await supabase
+          .from('rex_live_sessions')
+          .update({ last_human_reply: new Date().toISOString() })
+          .eq('id', session.id);
+      }
+    }
+
+    res.status(200).json({ ok: true });
+  } catch (err) {
+    console.error('[slack-events] error', err);
+    res.status(500).json({ error: 'internal_error' });
+  }
+}
+
+export default slackEventsHandler;
+
+

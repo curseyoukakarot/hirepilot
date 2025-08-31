@@ -86,7 +86,7 @@ export default function SuperAdminDashboard() {
               </div>
               <div className="bg-gray-700 p-3 rounded-md">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-200">API Calls</span>
+                  
                   <span className="text-blue-600">
                     <i className="fa-solid fa-code"></i>
                   </span>

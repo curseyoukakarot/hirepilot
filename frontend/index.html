@@ -128,23 +128,41 @@
               var flags = (window.__REX_FLAGS__) || {};
               var apiBase = flags.apiBaseUrl || window.VITE_BACKEND_URL || (location.origin.indexOf('thehirepilot.com') > -1 ? 'https://api.thehirepilot.com' : 'http://localhost:8080');
               var baseWithApi = apiBase.endsWith('/api') ? apiBase : (apiBase + '/api');
-              var url = baseWithApi + '/rex_widget/tickets';
+              var ticketsUrl = baseWithApi + '/rex_widget/tickets';
+              var leadsUrl = baseWithApi + '/rex_widget/leads';
               var payload = {
                 sessionId: sid,
                 summary: (name || email) ? ('FAQ Contact from ' + (name || 'Anonymous') + (email ? (' <' + email + '>') : '')) : 'FAQ Contact',
                 details: msg
               };
-              fetch(url, {
+              // Submit both: create support ticket and create lead (Slack notification on both code paths)
+              var ticketReq = fetch(ticketsUrl, {
                 method: 'POST',
                 mode: 'cors',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
                 credentials: 'omit',
                 keepalive: true
-              })
-                .then(function(r){ return r.ok ? r.json().catch(function(){ return {}; }) : Promise.reject(r); })
+              }).then(function(r){ return r.ok ? r.json().catch(function(){ return {}; }) : Promise.reject(r); });
+
+              var leadBody = {
+                full_name: name || 'Anonymous',
+                work_email: email || '',
+                interest: 'FAQ Popup',
+                notes: msg
+              };
+              var leadReq = fetch(leadsUrl, {
+                method: 'POST',
+                mode: 'cors',
+                headers: { 'Content-Type': 'application/json', 'x-rex-anon-id': sid },
+                body: JSON.stringify(leadBody),
+                credentials: 'omit',
+                keepalive: true
+              }).then(function(r){ return r.ok ? r.json().catch(function(){ return {}; }) : Promise.reject(r); });
+
+              Promise.allSettled([ticketReq, leadReq])
                 .then(function(){ alert('Thanks! We\'ll be in touch.'); panel.classList.add('hidden'); form.reset(); })
-                .catch(function(err){ console.warn('ticket submit failed', err); alert('Thanks! Your message was captured.'); panel.classList.add('hidden'); });
+                .catch(function(err){ console.warn('faq popup submit failed', err); alert('Thanks! Your message was captured.'); panel.classList.add('hidden'); });
             } catch (_) {
               alert('Thanks! Your message was captured.'); panel.classList.add('hidden');
             }
