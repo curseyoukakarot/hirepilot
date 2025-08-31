@@ -29,10 +29,16 @@ export const ChatPanel: React.FC<Props> = ({ isOpen, onClose, onSend, loading, m
         <div className="text-sm font-semibold text-gray-900">{mode === 'sales' ? 'Sales Assistant' : mode === 'support' ? 'Support Assistant' : 'REX Assistant'}</div>
         <div className="flex items-center gap-2">
           {mode === 'sales' && (
-            <button onClick={onOpenLead} className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100">Get Support</button>
+            <>
+              <button onClick={onOpenLead} className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100">Get Support</button>
+              <button onClick={onHandoff} className="rounded-full border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100">Talk to a human</button>
+            </>
           )}
           {mode === 'support' && (
-            <button onClick={onContactSupport} className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100">Contact Support</button>
+            <>
+              <button onClick={onContactSupport} className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100">Contact Support</button>
+              <button onClick={onHandoff} className="rounded-full border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100">Talk to a human</button>
+            </>
           )}
           <button onClick={onClose} aria-label="Close chat" className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5"><path fillRule="evenodd" d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 01-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z" clipRule="evenodd"/></svg>
