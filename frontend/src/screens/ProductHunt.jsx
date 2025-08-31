@@ -166,7 +166,7 @@ export default function ProductHunt() {
           </figure>
           <figure class="text-center">
             <img loading="lazy" class="w-full h-48 object-cover rounded-xl mb-3"
-                 src="/homepage-hero-1.png"
+                 src="/lead-drawer2.png"
                  alt="Lead profile enrichment with contact details and sources" width="600" height="320" />
             <figcaption class="text-gray-300 font-medium">Lead Profile Enrichment</figcaption>
           </figure>
