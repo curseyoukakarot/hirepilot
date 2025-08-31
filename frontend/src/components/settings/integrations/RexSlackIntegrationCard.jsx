@@ -21,6 +21,8 @@ export default function RexSlackIntegrationCard({ user }) {
     "Recruiter",
     "super_admin",
     "admin",
+    "member",
+    "Member",
   ].includes(roleValue);
 
   const planAccess = ["pro", "team", "enterprise"].includes(String(planTier || "").toLowerCase());
@@ -78,7 +80,7 @@ export default function RexSlackIntegrationCard({ user }) {
     setEnabled(newVal);
     if (user?.id) {
       await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/integrations/slack/enabled`, {
-        method: 'POST',
+        method: ' POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, enabled: newVal })
       });
