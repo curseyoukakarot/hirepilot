@@ -309,19 +309,49 @@ export default function ProductHunt() {
         <div class="space-y-4">
           <details class="p-5 card">
             <summary class="cursor-pointer font-semibold">Is there a free trial?</summary>
-            <p class="mt-2 text-gray-300">Yes — start free. No credit card required for the trial.</p>
+            <p class="mt-2 text-gray-300">Yes! Every plan starts with a 7-day free trial. You’ll get full access to all features (REX AI, enrichment, campaigns, integrations) with starter credits included so you can see results before committing.</p>
           </details>
           <details class="p-5 card">
             <summary class="cursor-pointer font-semibold">What integrations are supported?</summary>
-            <p class="mt-2 text-gray-300">LinkedIn (workflows), Apollo, Slack, Zapier, and more.</p>
+            <div class="mt-2 text-gray-300">
+              <p>HirePilot connects with the tools recruiters already use:</p>
+              <ul class="list-disc list-inside space-y-1 mt-2">
+                <li>LinkedIn (Sales Navigator + workflows)</li>
+                <li>Apollo, Hunter.io, Skrapp for enrichment</li>
+                <li>Slack for collaboration + alerts</li>
+                <li>Zapier &amp; Make for automations</li>
+                <li>ATS sync + calendar scheduling</li>
+              </ul>
+              <p class="mt-2">We’re continuously expanding integrations — if you need something specific, let us know.</p>
+            </div>
           </details>
           <details class="p-5 card">
             <summary class="cursor-pointer font-semibold">Can I cancel anytime?</summary>
-            <p class="mt-2 text-gray-300">Absolutely. Plans are monthly or annual with a discount.</p>
+            <p class="mt-2 text-gray-300">Absolutely. Plans are month-to-month or annual (with a discount). You can cancel anytime from your dashboard. Your credits and data remain yours — no hidden fees, no lock-in.</p>
           </details>
           <details class="p-5 card">
             <summary class="cursor-pointer font-semibold">Is my data secure?</summary>
-            <p class="mt-2 text-gray-300">We use industry-standard encryption and least-privilege access.</p>
+            <p class="mt-2 text-gray-300">Yes. We use industry-standard encryption, role-based permissions, and least-privilege access. HirePilot is built on secure infrastructure (Supabase, Vercel, Railway), and we never sell or share your data. Enterprise clients can request a DPA (Data Processing Agreement).</p>
+          </details>
+          <details class="p-5 card">
+            <summary class="cursor-pointer font-semibold">What counts as a “credit”?</summary>
+            <div class="mt-2 text-gray-300">
+              <p>Credits are used for enrichment, AI analysis, and outreach actions. Example:</p>
+              <ul class="list-disc list-inside space-y-1 mt-2">
+                <li>Enrichment lookup = 2 credits</li>
+                <li>AI profile analysis = 1 credit</li>
+                <li>Outreach message = 1 credit</li>
+              </ul>
+              <p class="mt-2">Credits roll over as long as your subscription is active, and you can top up anytime.</p>
+            </div>
+          </details>
+          <details class="p-5 card">
+            <summary class="cursor-pointer font-semibold">Do all plans include REX AI?</summary>
+            <p class="mt-2 text-gray-300">Yes! Every plan includes full access to REX — your Recruiting Copilot. REX helps write outreach, analyze candidate profiles, and even trigger automations. The only difference between plans is the number of credits you get each month.</p>
+          </details>
+          <details class="p-5 card">
+            <summary class="cursor-pointer font-semibold">Can HirePilot scale with my team?</summary>
+            <p class="mt-2 text-gray-300">Definitely. Start with Starter or Pro, and upgrade to Team as you scale. Team plans include higher credit volumes and support for multi-role hiring pipelines. Plus, you can invite unlimited collaborators at no extra cost.</p>
           </details>
         </div>
       </div>
