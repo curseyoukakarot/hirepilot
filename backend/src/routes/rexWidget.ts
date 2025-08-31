@@ -521,6 +521,10 @@ router.post('/leads', async (req: Request, res: Response) => {
 
 router.post('/handoff', async (req: Request, res: Response) => {
   try {
+    console.log('[handoff] hit', {
+      headers: req.headers,
+      body: req.body,
+    });
     const { threadId, reason } = req.body as { threadId: string; reason?: string };
     const { data: msgs } = await supabase
       .from('rex_widget_messages')

@@ -222,11 +222,19 @@ export function useRexWidget(options?: UseRexWidgetOptions) {
         } catch {}
       }
 
-      await fetch(`${API_BASE}/api/rex_widget/handoff`, {
+      const resp = await fetch(`${API_BASE}/api/rex_widget/handoff`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-rex-anon-id': anonIdRef.current },
         body: JSON.stringify({ threadId: ensuredThreadId, reason }),
       });
+      try {
+        const clone = resp.clone();
+        const body = await clone.json().catch(() => ({}));
+        console.log('[REX] handoff response', { status: resp.status, body });
+        if (!resp.ok) {
+          try { (await import('react-hot-toast')).toast.error('Error connecting to support — please try again.'); } catch {}
+        }
+      } catch {}
 
       // Immediate UX feedback so users know we notified the team
       setMessages(prev => prev.concat([{
