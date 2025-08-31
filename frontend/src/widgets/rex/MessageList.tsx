@@ -40,7 +40,7 @@ export const MessageList: React.FC<Props> = ({ messages }) => {
               normalizeText(m)
             )}
           </div>
-          {!!m.sources?.length && (
+          {!!(Array.isArray(m.sources) && m.sources.length) && (
             <div className="mt-1 flex flex-wrap gap-2 text-xs">
               {m.sources.map((s, i) => (
                 <a

@@ -439,8 +439,18 @@ router.post('/chat', async (req: Request, res: Response) => {
       });
     }
 
+    // Normalize sources to array of {title,url}
+    const normalizeSources = (val: any): { title: string; url: string }[] => {
+      try {
+        if (!val) return [];
+        const v = Array.isArray(val) ? val : (typeof val === 'object' && Array.isArray((val as any).sources) ? (val as any).sources : []);
+        return (v as any[]).filter(Boolean).map((s: any) => ({ title: String(s?.title || '').slice(0, 200), url: String(s?.url || '') })).filter(s => !!s.title && !!s.url);
+      } catch { return []; }
+    };
+    const safeSources = normalizeSources(outSources);
+
     // Persist assistant message
-    await supabase.from('rex_widget_messages').insert({ session_id: sessionId, role: 'assistant', text: content, sources: outSources as any, tutorial });
+    await supabase.from('rex_widget_messages').insert({ session_id: sessionId, role: 'assistant', text: content, sources: safeSources as any, tutorial });
     // Optional Slack mirror of assistant responses (trim to avoid noisy payloads)
     try {
       const slackMirror = String(process.env.SLACK_WIDGET_MIRROR || '').toLowerCase() === 'true';
@@ -455,7 +465,7 @@ router.post('/chat', async (req: Request, res: Response) => {
     const newMeta: SessionMeta = { ...meta, state: (plan.state || plan.state_patch?.state) as any, last_intent: (plan.intent as any) || meta.last_intent, collected: { ...(meta.collected||{}), ...(plan.state_patch?.collected||{}) }, support_ctx: { ...(meta.support_ctx||{}), ...(plan.state_patch?.support_ctx||{}) } };
     await supabase.from('rex_widget_sessions').update({ meta: newMeta }).eq('id', sessionId);
 
-    res.json({ threadId: sessionId, message: { text: content, sources: outSources, tutorial }, cta: (plan.response?.cta || plan.cta), state: (plan.state || plan.state_patch?.state), intent: plan.intent });
+    res.json({ threadId: sessionId, message: { text: content, sources: safeSources, tutorial }, cta: (plan.response?.cta || plan.cta), state: (plan.state || plan.state_patch?.state), intent: plan.intent });
   } catch (err: any) {
     await logEvent('rex_widget_error', { route: 'chat', error: err?.message || String(err), stack: err?.stack, body: req.body });
     res.status(500).json({ error: err?.message || 'Internal error' });
