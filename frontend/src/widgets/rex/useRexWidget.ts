@@ -199,13 +199,44 @@ export function useRexWidget(options?: UseRexWidgetOptions) {
     try {
       // Debug: verify base URL resolution
       try { console.debug('[REX] sendHandoff', { API_BASE, threadId, reason }); } catch {}
+
+      // Ensure a session exists. If no thread yet, create one without sending a user message
+      let ensuredThreadId = threadId;
+      if (!ensuredThreadId) {
+        try {
+          const resp = await fetch(`${API_BASE}/api/rex_widget/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-rex-anon-id': anonIdRef.current },
+            body: JSON.stringify({
+              mode,
+              messages: [],
+              context: {
+                url: typeof window !== 'undefined' ? window.location.href : '',
+                pathname: typeof window !== 'undefined' ? window.location.pathname : '',
+                rb2b: (typeof window !== 'undefined' ? (window as any).rb2b : null) ?? null,
+              },
+            }),
+          });
+          const data = await resp.json().catch(() => null);
+          if (data?.threadId) { ensuredThreadId = data.threadId; setThreadId(data.threadId); }
+        } catch {}
+      }
+
       await fetch(`${API_BASE}/api/rex_widget/handoff`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-rex-anon-id': anonIdRef.current },
-        body: JSON.stringify({ threadId, reason }),
+        body: JSON.stringify({ threadId: ensuredThreadId, reason }),
       });
+
+      // Immediate UX feedback so users know we notified the team
+      setMessages(prev => prev.concat([{
+        id: `h_${Date.now()}`,
+        role: 'assistant',
+        text: 'Got it — I notified our team. If someone is available now, they will reply here in this chat shortly. Otherwise we will follow up by email.',
+        ts: Date.now(),
+      }]));
     } catch {}
-  }, [threadId, API_BASE]);
+  }, [threadId, API_BASE, mode]);
 
   const sendLead = useCallback(async (payload: RexLeadPayload) => {
     const rb2b = (typeof window !== 'undefined' ? (window as any).rb2b : null) ?? null;
