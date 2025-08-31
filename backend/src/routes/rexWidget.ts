@@ -535,11 +535,14 @@ router.post('/handoff', async (req: Request, res: Response) => {
 // Create a support ticket
 router.post('/tickets', async (req: Request, res: Response) => {
   try {
-    const { sessionId, summary, details } = req.body as { sessionId: string; summary: string; details?: string };
+    const { sessionId, summary, details } = req.body as { sessionId?: string; summary: string; details?: string };
     const anonId = getAnonId(req);
+    // Accept non-UUID session identifiers from public pages; coerce invalid to null
+    const isUuid = typeof sessionId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sessionId);
+    const sessionIdOrNull = isUuid ? sessionId : null;
     const { data, error } = await supabase
       .from('rex_tickets')
-      .insert({ session_id: sessionId, anon_id: anonId, summary, details: details || null })
+      .insert({ session_id: sessionIdOrNull, anon_id: anonId, summary, details: details || null })
       .select('id')
       .single();
     if (error) throw error;
