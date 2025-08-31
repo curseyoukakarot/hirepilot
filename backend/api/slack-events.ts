@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import type express from 'express';
 import { supabase } from '../src/lib/supabase';
 import { sendMessageToWidget } from '../src/lib/widgetBridge';
+import { WebClient } from '@slack/web-api';
 
 function verifySlackSignature(req: express.Request, signingSecret: string): boolean {
   const timestamp = req.headers['x-slack-request-timestamp'] as string | undefined;
@@ -52,7 +53,7 @@ export async function slackEventsHandler(req: express.Request, res: express.Resp
       const text = (event.text || '').toString();
 
       // Lookup live session by slack_thread_ts
-      const { data: session, error } = await supabase
+      let { data: session, error } = await supabase
         .from('rex_live_sessions')
         .select('id, widget_session_id, user_name')
         .eq('slack_thread_ts', thread)
@@ -60,6 +61,35 @@ export async function slackEventsHandler(req: express.Request, res: express.Resp
         .maybeSingle();
       if (error) {
         console.error('[slack-events] session lookup error', error);
+      }
+
+      // Fallback: if no session mapping exists yet, try to resolve the widget_session_id by
+      // reading the parent message (posted by our mirror or handoff) and parsing "Session: <uuid>"
+      if (!session && process.env.SLACK_BOT_TOKEN) {
+        try {
+          const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
+          const r = await slack.conversations.replies({ channel, ts: thread, limit: 1 });
+          const starter = (r.messages || [])[0] as any;
+          const parentText: string = (starter?.text || '').toString();
+          const m = parentText.match(/Session:\s*([0-9a-fA-F-]{36})/);
+          const widgetSessionId = m?.[1] || null;
+          if (widgetSessionId) {
+            await supabase
+              .from('rex_live_sessions')
+              .insert({ widget_session_id: widgetSessionId, slack_channel_id: channel, slack_thread_ts: thread })
+              .select('id, widget_session_id')
+              .single();
+            const { data: sess2 } = await supabase
+              .from('rex_live_sessions')
+              .select('id, widget_session_id, user_name')
+              .eq('slack_thread_ts', thread)
+              .eq('slack_channel_id', channel)
+              .maybeSingle();
+            session = sess2 as any;
+          }
+        } catch (e) {
+          console.error('[slack-events] fallback session resolution failed', e);
+        }
       }
 
       if (session?.widget_session_id) {
