@@ -138,11 +138,11 @@ export default function Pricing() {
                 <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm">Enterprise</span>
               </div>
               {(() => {
-                const price = annual ? 399 : 499;
+                const price = annual ? 69 : 99;
                 return (
                   <div className="mb-6">
                     <span className="text-5xl font-bold text-gray-900">${price}</span>
-                    <span className="text-gray-500">/month</span>
+                    <span className="text-gray-500">/month per user</span>
                   </div>
                 );
               })()}
