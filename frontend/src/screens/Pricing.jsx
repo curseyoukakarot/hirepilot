@@ -221,7 +221,7 @@ export default function Pricing() {
           <div className="max-w-7xl mx-auto text-center mb-16">
             <span className="inline-block text-blue-400 bg-blue-900 rounded-full px-4 py-1 text-sm mb-4">Done-For-You</span>
             <h2 className="text-3xl font-bold text-white mb-4">Premium Done-For-You Packages</h2>
-            <p className="text-gray-400 max-w-2xl mx-auto">Let our expert team handle everything for you. Choose the package that matches your requirements.</p>
+            <p className="text-gray-400 max-w-2xl mx-auto">Unlimited candidates. Let our expert team handle everything for you. Choose the package that matches your requirements.</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8 max-w-7xl mx-auto items-stretch">
