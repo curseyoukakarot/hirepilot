@@ -225,12 +225,91 @@ export default function DfyDashboard() {
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div class="bg-white rounded-xl shadow-sm p-6 border">
                     <h3 class="text-lg font-semibold text-gray-900 mb-4">Pipeline Conversion Funnel</h3>
-                    <div id="funnel-chart" class="h-80"></div>
+                    <div class="space-y-4">
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-sm text-gray-600">Outreach Sent</span>
+                                <span class="text-sm font-semibold text-orange-600">1,847</span>
+                            </div>
+                            <div class="h-4 rounded-full bg-orange-100">
+                                <div class="h-4 rounded-full bg-gradient-to-r from-orange-400 to-orange-600" style="width:100%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-sm text-gray-600">Replies Received</span>
+                                <span class="text-sm font-semibold text-purple-600">234</span>
+                            </div>
+                            <div class="h-4 rounded-full bg-purple-100">
+                                <div class="h-4 rounded-full bg-gradient-to-r from-purple-400 to-purple-600" style="width:13%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-sm text-gray-600">Interviews</span>
+                                <span class="text-sm font-semibold text-blue-600">142</span>
+                            </div>
+                            <div class="h-4 rounded-full bg-blue-100">
+                                <div class="h-4 rounded-full bg-gradient-to-r from-blue-400 to-blue-600" style="width:8%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-sm text-gray-600">Hires</span>
+                                <span class="text-sm font-semibold text-emerald-600">24</span>
+                            </div>
+                            <div class="h-4 rounded-full bg-emerald-100">
+                                <div class="h-4 rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600" style="width:4%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-4 text-xs text-gray-500">Funnel shows relative conversion at each stage.</div>
                 </div>
 
                 <div class="bg-white rounded-xl shadow-sm p-6 border">
                     <h3 class="text-lg font-semibold text-gray-900 mb-4">Activity Over Time</h3>
-                    <div id="activity-chart" class="h-80"></div>
+                    <div class="mb-3 flex items-center gap-4 text-xs">
+                        <span class="inline-flex items-center gap-2"><span class="w-3 h-3 rounded-sm bg-orange-500"></span>Outreach</span>
+                        <span class="inline-flex items-center gap-2"><span class="w-3 h-3 rounded-sm bg-purple-500"></span>Replies</span>
+                        <span class="inline-flex items-center gap-2"><span class="w-3 h-3 rounded-sm bg-blue-500"></span>Interviews</span>
+                        <span class="inline-flex items-center gap-2"><span class="w-3 h-3 rounded-sm bg-emerald-500"></span>Hires</span>
+                    </div>
+                    <div class="h-64 flex items-end gap-8">
+                        <!-- Week 1 -->
+                        <div class="flex items-end gap-2">
+                            <div class="w-4 bg-orange-500 rounded-t" style="height:138px" title="Outreach 450"></div>
+                            <div class="w-4 bg-purple-500 rounded-t" style="height:20px" title="Replies 65"></div>
+                            <div class="w-4 bg-blue-500 rounded-t" style="height:13px" title="Interviews 42"></div>
+                            <div class="w-4 bg-emerald-500 rounded-t" style="height:5px" title="Hires 8"></div>
+                        </div>
+                        <!-- Week 2 -->
+                        <div class="flex items-end gap-2">
+                            <div class="w-4 bg-orange-500 rounded-t" style="height:160px" title="Outreach 520"></div>
+                            <div class="w-4 bg-purple-500 rounded-t" style="height:22px" title="Replies 72"></div>
+                            <div class="w-4 bg-blue-500 rounded-t" style="height:12px" title="Interviews 38"></div>
+                            <div class="w-4 bg-emerald-500 rounded-t" style="height:4px" title="Hires 7"></div>
+                        </div>
+                        <!-- Week 3 -->
+                        <div class="flex items-end gap-2">
+                            <div class="w-4 bg-orange-500 rounded-t" style="height:148px" title="Outreach 480"></div>
+                            <div class="w-4 bg-purple-500 rounded-t" style="height:18px" title="Replies 58"></div>
+                            <div class="w-4 bg-blue-500 rounded-t" style="height:11px" title="Interviews 35"></div>
+                            <div class="w-4 bg-emerald-500 rounded-t" style="height:4px" title="Hires 6"></div>
+                        </div>
+                        <!-- Week 4 -->
+                        <div class="flex items-end gap-2">
+                            <div class="w-4 bg-orange-500 rounded-t" style="height:122px" title="Outreach 397"></div>
+                            <div class="w-4 bg-purple-500 rounded-t" style="height:14px" title="Replies 39"></div>
+                            <div class="w-4 bg-blue-500 rounded-t" style="height:9px" title="Interviews 27"></div>
+                            <div class="w-4 bg-emerald-500 rounded-t" style="height:3px" title="Hires 3"></div>
+                        </div>
+                    </div>
+                    <div class="mt-3 grid grid-cols-4 text-center text-xs text-gray-500">
+                        <div>Week 1</div>
+                        <div>Week 2</div>
+                        <div>Week 3</div>
+                        <div>Week 4</div>
+                    </div>
                 </div>
             </div>
         </section>
