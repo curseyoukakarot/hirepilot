@@ -107,7 +107,10 @@ export default function DfyDashboard() {
 <div class="flex">
     <aside id="sidebar" class="w-64 bg-white shadow-lg h-screen fixed left-0 top-0 z-10">
         <div class="p-6 border-b">
-            <h2 class="text-xl font-bold text-gray-800">DFY Platform</h2>
+            <div class="flex items-center space-x-3">
+                <img src="/logo.png" alt="HirePilot Logo" class="h-8 w-8" />
+                <span class="text-xl font-bold text-gray-800">HirePilot</span>
+            </div>
         </div>
         <nav class="mt-6">
             <span class="flex items-center px-6 py-3 text-gray-600 hover:bg-gray-100 cursor-pointer">
