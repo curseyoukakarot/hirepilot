@@ -22,9 +22,11 @@ function verifySlackSignature(req: express.Request, signingSecret: string): bool
 
 export async function slackEventsHandler(req: express.Request, res: express.Response) {
   try {
-    console.log('[slack-events] hit');
-    try { console.log('[slack-events] headers', JSON.stringify(req.headers)); } catch {}
-    try { console.log('[slack-events] body raw?', typeof (req as any).rawBody === 'string'); } catch {}
+    console.log('[slack-events] incoming request', {
+      headers: req.headers,
+      hasRaw: typeof (req as any).rawBody === 'string',
+      bodyType: typeof (req as any).body,
+    });
     const secret = process.env.SLACK_SIGNING_SECRET;
     if (!secret) {
       res.status(500).send('SLACK_SIGNING_SECRET not set');
@@ -38,6 +40,15 @@ export async function slackEventsHandler(req: express.Request, res: express.Resp
     }
 
     if (!verifySlackSignature(req, secret)) {
+      try {
+        const timestamp = req.headers['x-slack-request-timestamp'] as string | '';
+        const signature = req.headers['x-slack-signature'] as string | '';
+        const rawBody: Buffer | string = (req as any).rawBody || (req as any).bodyRaw || (req as any).body || '';
+        const body = Buffer.isBuffer(rawBody) ? rawBody.toString('utf8') : typeof rawBody === 'string' ? rawBody : JSON.stringify(rawBody || {});
+        const base = `v0:${timestamp}:${body}`;
+        const calc = require('crypto').createHmac('sha256', secret).update(base).digest('hex');
+        console.warn('[slack-events] signature mismatch', { provided: signature, expected: `v0=${calc}` });
+      } catch {}
       res.status(401).send('invalid signature');
       return;
     }

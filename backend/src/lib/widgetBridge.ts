@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { supabase } from '../lib/supabase';
 
 export interface WidgetHumanMessagePayload {
   from: 'human';
@@ -18,7 +19,18 @@ export async function sendMessageToWidget(sessionId: string, payload: WidgetHuma
       console.warn('[sendMessageToWidget] relay failed, ignoring in dev mode', err);
     }
   }
-  // No-op stub. Integrate with your actual widget transport.
+  // Broadcast via Supabase Realtime channel
+  try {
+    const channel = supabase.channel(`rex_widget:${sessionId}`);
+    // Send as broadcast event
+    await channel.send({
+      type: 'broadcast',
+      event: 'human_reply',
+      payload,
+    } as any);
+  } catch (e) {
+    console.error('[sendMessageToWidget] realtime send failed', e);
+  }
 }
 
 

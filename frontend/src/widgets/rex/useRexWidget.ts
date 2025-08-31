@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RexConfig, RexMessage, RexMode, RexLeadPayload, RexCta } from './types';
+import { supabase } from '../../lib/supabase';
 
 const OPEN_KEY = 'rex:open';
 const ANON_KEY = 'rex:anonId';
@@ -123,6 +124,29 @@ export function useRexWidget(options?: UseRexWidgetOptions) {
   }, []);
 
   const clear = useCallback(() => setMessages([]), []);
+
+  // Listen for human replies via Supabase Realtime
+  useEffect(() => {
+    if (!threadId) return;
+    const channel = supabase
+      .channel(`rex_widget:${threadId}`)
+      .on('broadcast', { event: 'human_reply' }, (payload: any) => {
+        try {
+          const p = payload?.payload || payload;
+          const text: string = p?.message || p?.text || '';
+          const name: string | undefined = p?.name || undefined;
+          if (!text) return;
+          setMessages(prev => prev.concat([{
+            id: `hr_${Date.now()}`,
+            role: 'assistant',
+            text: name ? `${name}: ${text}` : text,
+            ts: Date.now(),
+          }]));
+        } catch {}
+      })
+      .subscribe();
+    return () => { try { channel.unsubscribe(); } catch {} };
+  }, [threadId]);
 
   const sendMessage = useCallback(async (text: string) => {
     const trimmed = text.trim();
