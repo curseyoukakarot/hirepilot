@@ -338,9 +338,8 @@ export default function ProductHunt() {
             <div class="mt-2 text-gray-300">
               <p>Credits are used for enrichment, AI analysis, and outreach actions. Example:</p>
               <ul class="list-disc list-inside space-y-1 mt-2">
-                <li>Enrichment lookup = 2 credits</li>
+                <li>Enrichment lookup = 1 credits</li>
                 <li>AI profile analysis = 1 credit</li>
-                <li>Outreach message = 1 credit</li>
               </ul>
               <p class="mt-2">Credits roll over as long as your subscription is active, and you can top up anytime.</p>
             </div>
