@@ -62,6 +62,7 @@ export default function Pricing() {
         <div className="max-w-4xl mx-auto px-6 text-center mb-10" aria-label="all-features-banner">
           <h3 className="text-xl font-semibold text-gray-900">All plans include every feature.</h3>
           <p className="text-gray-600 mt-2">Pick the credit volume that fits your hiring pace. REX AI, enrichment, outreach, integrations, analytics—everything is unlocked.</p>
+          <p className="text-gray-700 mt-4">All features included: REX AI assistant, campaigns & sequences, inbox + reply tracking, enrichment (Apollo/Hunter/Skrapp), LinkedIn request automation, Chrome Extension, Slack & email integrations, Zapier/Make triggers, ATS sync, calendar scheduling, analytics dashboard.</p>
         </div>
 
         {/* Pricing Plans */}
@@ -89,7 +90,6 @@ export default function Pricing() {
                 <div className="font-semibold">350 credits / month</div>
               </div>
               <ul className="space-y-4 mb-8 flex-1" aria-label="starter-features">
-                <li className="flex items-start text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3 mt-1"></i><span>All features included: REX AI assistant, campaigns & sequences, inbox + reply tracking, enrichment (Apollo/Hunter/Skrapp), LinkedIn request automation, Chrome Extension, Slack & email integrations, Zapier/Make triggers, ATS sync, calendar scheduling, analytics dashboard.</span></li>
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-recycle text-green-500 mr-3"></i><span>Credit rollover while subscribed</span></li>
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-plug text-blue-600 mr-3"></i><span>Unlimited job reqs & campaigns</span></li>
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-wrench text-gray-600 mr-3"></i><span>Add credits anytime from Billing</span></li>
