@@ -50,6 +50,41 @@ const HomePage = () => {
         </div>
       </section>
 
+      {/* Lead Profile Drawer Showcase (full-bleed) */}
+      <section id="lead-profile-showcase" className="relative">
+        <div className="w-full">
+          <div className="w-screen relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 text-white">
+            <div className="pt-20 pb-24 text-center">
+              <h2 className="text-4xl lg:text-5xl font-bold mb-4">See Your Perfect Lead, Fully Enriched</h2>
+              <p className="text-lg lg:text-xl text-gray-300 max-w-3xl mx-auto">
+                AI-powered candidate insights, contact enrichment, and outreach in one clean view.
+              </p>
+              <div className="mt-12 flex justify-center">
+                <img
+                  src="/lead-drawer.png"
+                  alt="Lead Profile Drawer product mockup"
+                  className="w-[90%] md:w-[80%] lg:w-[70%] max-w-6xl rounded-2xl shadow-2xl border border-white/10"
+                />
+              </div>
+              <div className="mt-10 grid sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-6xl mx-auto px-6">
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-left">
+                  <div className="text-xl">🎯 80% Likely to Move scoring</div>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-left">
+                  <div className="text-xl">🔗 Apollo + LinkedIn enrichment</div>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-left">
+                  <div className="text-xl">🤖 AI-powered profile analysis</div>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-left">
+                  <div className="text-xl">💌 One-click outreach & conversion</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Problem Section */}
       <section id="problem" className="py-16 bg-gray-900 text-white">
         <div className="container mx-auto px-6 text-center">
