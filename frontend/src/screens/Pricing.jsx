@@ -43,7 +43,7 @@ export default function Pricing() {
 
       <div id="pricing-page" className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
         {/* Page Header (hero) */}
-        <div id="hero-header" className="pt-32 pb-20 px-6 text-center">
+        <div id="hero-header" className="pt-32 pb-20 px-6 text-center bg-gray-200">
           <span className="inline-block text-blue-600 bg-blue-50 rounded-full px-4 py-1 text-sm mb-4">Pricing</span>
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Choose Your Perfect Plan</h1>
           <p className="text-gray-600 max-w-2xl mx-auto">Select the plan that best fits your needs. All plans include a 7-day free trial with full access to all features.</p>
@@ -59,10 +59,12 @@ export default function Pricing() {
         </div>
 
         {/* All-features banner */}
-        <div className="max-w-4xl mx-auto px-6 text-center mb-10" aria-label="all-features-banner">
-          <h3 className="text-xl font-semibold text-gray-900">All plans include every feature.</h3>
-          <p className="text-gray-600 mt-2">Pick the credit volume that fits your hiring pace. REX AI, enrichment, outreach, integrations, analytics—everything is unlocked.</p>
-          <p className="text-gray-700 mt-4">All features included: REX AI assistant, campaigns & sequences, inbox + reply tracking, enrichment (Apollo/Hunter/Skrapp), LinkedIn request automation, Chrome Extension, Slack & email integrations, Zapier/Make triggers, ATS sync, calendar scheduling, analytics dashboard.</p>
+        <div className="w-full bg-gray-200 py-6">
+          <div className="max-w-4xl mx-auto px-6 text-center" aria-label="all-features-banner">
+            <h3 className="text-xl font-semibold text-gray-900">All plans include every feature.</h3>
+            <p className="text-gray-600 mt-2">Pick the credit volume that fits your hiring pace. REX AI, enrichment, outreach, integrations, analytics—everything is unlocked.</p>
+            <p className="text-gray-700 mt-4">All features included: REX AI assistant, campaigns & sequences, inbox + reply tracking, enrichment (Apollo/Hunter/Skrapp), LinkedIn request automation, Chrome Extension, Slack & email integrations, Zapier/Make triggers, ATS sync, calendar scheduling, analytics dashboard.</p>
+          </div>
         </div>
 
         {/* Pricing Plans */}
@@ -164,25 +166,27 @@ export default function Pricing() {
         </div>
 
         {/* All features included checklist */}
-        <div className="max-w-6xl mx-auto px-6 mb-6">
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8">
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">All features included</h3>
-            <div className="grid sm:grid-cols-2 gap-3 text-gray-700">
-              <div className="flex items-start"><span className="mr-3">🤖</span><span>REX AI: candidate analysis, message drafts, smart follow-ups</span></div>
-              <div className="flex items-start"><span className="mr-3">🧰</span><span>Campaigns & Sequences with reply tracking</span></div>
-              <div className="flex items-start"><span className="mr-3">🔎</span><span>Enrichment (Apollo/Hunter/Skrapp) with graceful fallbacks</span></div>
-              <div className="flex items-start"><span className="mr-3">🔗</span><span>LinkedIn requests & profile capture (via extension/automation)</span></div>
-              <div className="flex items-start"><span className="mr-3">✉️</span><span>Email sending + deliverability helpers</span></div>
-              <div className="flex items-start"><span className="mr-3">🧵</span><span>Unified Inbox (see replies per campaign/lead)</span></div>
-              <div className="flex items-start"><span className="mr-3">🧭</span><span>Analytics Dashboard (success rate, replies, interviews, hires)</span></div>
-              <div className="flex items-start"><span className="mr-3">🧩</span><span>Integrations: Slack, Zapier, Make, ATS, Webhooks</span></div>
-              <div className="flex items-start"><span className="mr-3">📅</span><span>Calendar scheduling & interview coordination</span></div>
-              <div className="flex items-start"><span className="mr-3">🧑‍💼</span><span>Unlimited job reqs (no caps)</span></div>
+        <div className="w-full bg-gray-200 py-10">
+          <div className="max-w-6xl mx-auto px-6">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8">
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">All features included</h3>
+              <div className="grid sm:grid-cols-2 gap-3 text-gray-700">
+                <div className="flex items-start"><span className="mr-3">🤖</span><span>REX AI: candidate analysis, message drafts, smart follow-ups</span></div>
+                <div className="flex items-start"><span className="mr-3">🧰</span><span>Campaigns & Sequences with reply tracking</span></div>
+                <div className="flex items-start"><span className="mr-3">🔎</span><span>Enrichment (Apollo/Hunter/Skrapp) with graceful fallbacks</span></div>
+                <div className="flex items-start"><span className="mr-3">🔗</span><span>LinkedIn requests & profile capture (via extension/automation)</span></div>
+                <div className="flex items-start"><span className="mr-3">✉️</span><span>Email sending + deliverability helpers</span></div>
+                <div className="flex items-start"><span className="mr-3">🧵</span><span>Unified Inbox (see replies per campaign/lead)</span></div>
+                <div className="flex items-start"><span className="mr-3">🧭</span><span>Analytics Dashboard (success rate, replies, interviews, hires)</span></div>
+                <div className="flex items-start"><span className="mr-3">🧩</span><span>Integrations: Slack, Zapier, Make, ATS, Webhooks</span></div>
+                <div className="flex items-start"><span className="mr-3">📅</span><span>Calendar scheduling & interview coordination</span></div>
+                <div className="flex items-start"><span className="mr-3">🧑‍💼</span><span>Unlimited job reqs (no caps)</span></div>
+              </div>
+              <p className="text-sm text-gray-500 mt-4">Credits power enrichment, AI analysis, automations, and outreach actions. Add more credits any time.</p>
             </div>
-            <p className="text-sm text-gray-500 mt-4">Credits power enrichment, AI analysis, automations, and outreach actions. Add more credits any time.</p>
-          </div>
-          <div className="text-xs text-gray-500 mt-3" aria-label="credits-explainer">
-            How credits work: Each sourcing/enrichment/automation step consumes credits (e.g., enrichment lookups, AI analysis, outbound actions). Credits roll over while your plan is active, and you can buy top-ups at any time.
+            <div className="text-xs text-gray-500 mt-3" aria-label="credits-explainer">
+              How credits work: Each sourcing/enrichment/automation step consumes credits (e.g., enrichment lookups, AI analysis, outbound actions). Credits roll over while your plan is active, and you can buy top-ups at any time.
+            </div>
           </div>
         </div>
 
