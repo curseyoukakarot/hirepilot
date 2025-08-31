@@ -151,6 +151,7 @@ export default function Pricing() {
               </div>
               <ul className="space-y-4 mb-8 flex-1" aria-label="team-features">
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Everything in Starter & Pro (all features unlocked)</span></li>
+                <li className="flex items-center text-gray-700"><i className="fa-solid fa-users text-blue-600 mr-3"></i><span>5 users included (contact us if you need more)</span></li>
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-recycle text-green-500 mr-3"></i><span>Credit rollover while subscribed</span></li>
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-brain text-purple-600 mr-3"></i><span>High-throughput sourcing + automations</span></li>
                 <li className="flex items-center text-gray-700"><i className="fa-solid fa-folder-tree text-blue-600 mr-3"></i><span>Great for multi-role pipelines and weekly hiring cycles</span></li>
