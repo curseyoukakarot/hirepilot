@@ -19,7 +19,7 @@ function getSlack(): WebClient | null {
 function getSupabase(): SupabaseClient {
   if (!supabase) {
     const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.SUPABASE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || (process.env as any).SUPABASE_SERVICE_ROLE;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || (process.env as any).SUPABASE_SERVICE_ROLE;
     if (!url || !key) {
       throw new Error('[live-chat] Supabase env missing (SUPABASE_URL and SUPABASE_KEY/SUPABASE_SERVICE_ROLE_KEY required)');
     }

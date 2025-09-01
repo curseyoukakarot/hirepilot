@@ -219,12 +219,22 @@
         if (messageInput) messageInput.addEventListener('keypress', function(e){ if (e.key === 'Enter') sendMessage(); });
 
         // Poll messages every 3s to render team replies
+        var lastMessagesHash = '';
         setInterval(function(){
           if (!sessionId) return;
           fetch(getApiBase() + '/getMessages?sessionId=' + encodeURIComponent(sessionId))
-            .then(function(r){ return r.ok ? r.json() : []; })
+            .then(function(r){
+              if (r.status === 304) return null; // no changes
+              if (!r.ok) return null;
+              return r.json();
+            })
             .then(function(messages){
+              if (!messages) return; // no changes or error
               if (!Array.isArray(messages)) return;
+              var hash;
+              try { hash = JSON.stringify(messages); } catch (_) { hash = String(Date.now()); }
+              if (hash === lastMessagesHash) return;
+              lastMessagesHash = hash;
               chatMessages.innerHTML = '';
               messages.forEach(function(m){ addMessageToChat(m.text, m.sender); });
               chatMessages.scrollTop = chatMessages.scrollHeight;
