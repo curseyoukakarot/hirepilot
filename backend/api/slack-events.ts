@@ -3,6 +3,7 @@ import type express from 'express';
 import { supabase } from '../src/lib/supabase';
 import { sendMessageToWidget } from '../src/lib/widgetBridge';
 import { WebClient } from '@slack/web-api';
+import { storeTeamReply } from '../src/routes/slackService';
 
 function verifySlackSignature(req: express.Request, signingSecret: string): boolean {
   const timestamp = req.headers['x-slack-request-timestamp'] as string | undefined;
@@ -113,6 +114,8 @@ export async function slackEventsHandler(req: express.Request, res: express.Resp
           .eq('slack_thread_ts', thread)
           .maybeSingle();
 
+        let widgetIdFromParent: string | null = null;
+
         // Fallback mapping by parsing parent message
         if (!session && process.env.SLACK_BOT_TOKEN) {
           try {
@@ -122,6 +125,7 @@ export async function slackEventsHandler(req: express.Request, res: express.Resp
             const m = parent.match(/Session:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
             const widgetId = m?.[1] || null;
             if (widgetId) {
+              widgetIdFromParent = widgetId;
               // Ensure mapping without relying on unique constraint
               const { data: byWidget } = await supabase
                 .from('rex_live_sessions')
@@ -173,7 +177,9 @@ export async function slackEventsHandler(req: express.Request, res: express.Resp
           }
         } catch {}
 
-        if (session?.widget_session_id) {
+        const widgetSessionId = session?.widget_session_id || widgetIdFromParent;
+
+        if (widgetSessionId) {
           // Fetch user name (best-effort)
           let userName: string | null = null;
           try {
@@ -190,25 +196,33 @@ export async function slackEventsHandler(req: express.Request, res: express.Resp
             const { data: current } = await supabase
               .from('rex_live_sessions')
               .select('human_engaged_at, rex_disabled')
-              .eq('widget_session_id', session.widget_session_id)
+              .eq('widget_session_id', widgetSessionId)
               .maybeSingle();
             if (current && !current.human_engaged_at) {
               await supabase
                 .from('rex_live_sessions')
                 .update({ human_engaged_at: new Date().toISOString() })
-                .eq('widget_session_id', session.widget_session_id);
+                .eq('widget_session_id', widgetSessionId);
               console.log('[slack-events] marked engaged');
             } else if (current) {
               console.log('[slack-events] already engaged');
             }
           } catch {}
 
-          await sendMessageToWidget(session.widget_session_id, {
+          // Bridge to legacy widget system (if present)
+          await sendMessageToWidget(widgetSessionId, {
             from: 'human',
             name: userName,
             message: text,
             timestamp: new Date().toISOString(),
           });
+
+          // ALSO store for the new live chat popup so polling displays team replies
+          try {
+            await storeTeamReply(widgetSessionId, text);
+          } catch (e) {
+            console.error('[slack-events] storeTeamReply failed', e);
+          }
           await supabase
             .from('rex_live_sessions')
             .update({ last_human_reply: new Date().toISOString() })
