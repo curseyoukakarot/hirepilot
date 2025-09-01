@@ -1,19 +1,46 @@
 import { WebClient } from '@slack/web-api';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
-const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_KEY!);
+let slack: WebClient | null = null;
+let supabase: SupabaseClient | null = null;
+
+function getSlack(): WebClient | null {
+  if (!slack) {
+    const token = process.env.SLACK_BOT_TOKEN;
+    if (!token) {
+      console.warn('[live-chat] SLACK_BOT_TOKEN not set; Slack posts will be skipped');
+      return null;
+    }
+    slack = new WebClient(token);
+  }
+  return slack;
+}
+
+function getSupabase(): SupabaseClient {
+  if (!supabase) {
+    const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || (process.env as any).SUPABASE_SERVICE_ROLE;
+    if (!url || !key) {
+      throw new Error('[live-chat] Supabase env missing (SUPABASE_URL and SUPABASE_KEY/SUPABASE_SERVICE_ROLE_KEY required)');
+    }
+    supabase = createClient(url, key);
+  }
+  return supabase;
+}
 
 export async function sendToSlack(name: string, email: string, message: string, sessionId: string) {
   try {
-    await slack.chat.postMessage({
-      channel: process.env.SLACK_CHANNEL_ID!,
-      text: `New live chat message (Session: ${sessionId}) from ${name} (${email}):\n${message}`,
-      unfurl_links: false,
-      unfurl_media: false,
-    });
+    const slackClient = getSlack();
+    if (slackClient && process.env.SLACK_CHANNEL_ID) {
+      await slackClient.chat.postMessage({
+        channel: process.env.SLACK_CHANNEL_ID!,
+        text: `New live chat message (Session: ${sessionId}) from ${name} (${email}):\n${message}`,
+        unfurl_links: false,
+        unfurl_media: false,
+      });
+    }
 
-    await supabase.from('live_chat_messages').insert({
+    await getSupabase().from('live_chat_messages').insert({
       session_id: sessionId,
       sender: 'user',
       text: message,
@@ -28,7 +55,7 @@ export async function sendToSlack(name: string, email: string, message: string, 
 
 export async function getMessages(sessionId: string) {
   try {
-    const { data } = await supabase
+    const { data } = await getSupabase()
       .from('live_chat_messages')
       .select('*')
       .eq('session_id', sessionId)
@@ -42,7 +69,7 @@ export async function getMessages(sessionId: string) {
 
 export async function storeTeamReply(sessionId: string, text: string) {
   try {
-    await supabase.from('live_chat_messages').insert({
+    await getSupabase().from('live_chat_messages').insert({
       session_id: sessionId,
       sender: 'team',
       text,
