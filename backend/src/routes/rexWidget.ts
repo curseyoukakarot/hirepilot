@@ -596,6 +596,17 @@ router.post('/chat', async (req: Request, res: Response) => {
     let outSources = sources || [];
     let tutorial = null as any;
 
+    // Use clean handler flow for REX mode
+    if (mode === 'rex' && lastUser?.text) {
+      try {
+        const rex = await handleRexMessage(lastUser.text);
+        content = rex.content || content;
+        // Allow string links; normalize later
+        outSources = (rex.sources as any) || [];
+        tutorial = rex.tutorial ?? tutorial;
+      } catch {}
+    }
+
     function answerIsWeak(txt: string, intent?: string) {
       const t = (txt || '').toLowerCase();
       const weakPhrases = [
@@ -612,14 +623,16 @@ router.post('/chat', async (req: Request, res: Response) => {
       return weakPhrases.some(p => t.includes(p)) || noSourcesWeak;
     }
 
-    // Relaxed guardrail: prefer confident, helpful guidance; only soft-disclaim when clearly unsure
-    if ((/price|pricing|pro plan|plans?|what is hirepilot|compare|different|vs\b/i.test(lastUser?.text || '')) && (!sources || sources.length === 0) && plan.intent !== 'greeting_smalltalk') {
-      content = 'Here’s a quick overview based on what I know. For the latest details, check our pricing page or book a quick demo.';
-      if (!outSources.find((s: any) => /pricing/i.test(s.title))) outSources.push({ title: 'HirePilot Pricing', url: 'https://thehirepilot.com/pricing' });
+    // Relaxed guardrail (skip for rex mode since handler already does fallbacks)
+    if (mode !== 'rex') {
+      if ((/price|pricing|pro plan|plans?|what is hirepilot|compare|different|vs\b/i.test(lastUser?.text || '')) && (!sources || sources.length === 0) && plan.intent !== 'greeting_smalltalk') {
+        content = 'Here’s a quick overview based on what I know. For the latest details, check our pricing page or book a quick demo.';
+        if (!outSources.find((s: any) => /pricing/i.test(s.title))) outSources.push({ title: 'HirePilot Pricing', url: 'https://thehirepilot.com/pricing' });
+      }
     }
 
     // If still generic and we have RAG snippets, nudge a second pass to produce concrete steps.
-    if (!tutorial && mode !== 'sales' && contextSnippets.length && /refer to|documentation|support resources/i.test(content)) {
+    if (mode !== 'rex' && !tutorial && mode !== 'sales' && contextSnippets.length && /refer to|documentation|support resources/i.test(content)) {
       const follow = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         temperature: 0.2,
@@ -634,7 +647,7 @@ router.post('/chat', async (req: Request, res: Response) => {
     }
 
     // Grounded fallback: if planner response looks weak, produce grounded answer (content only), keep CTA/state
-    if (lastUser?.text && plan.intent !== 'greeting_smalltalk' && (answerIsWeak(content, plan.intent) || contextSnippets.length === 0)) {
+    if (mode !== 'rex' && lastUser?.text && plan.intent !== 'greeting_smalltalk' && (answerIsWeak(content, plan.intent) || contextSnippets.length === 0)) {
       try {
         // Add competitor context if relevant
         await maybeAddCompetitorContext(lastUser.text);
@@ -661,7 +674,7 @@ router.post('/chat', async (req: Request, res: Response) => {
     }
 
     // Heuristic: pricing → only summarize if settings provide tiers. Never invent.
-    if (/\b(price|pricing|pro plan|plans?|cost|how\s*much)\b/i.test(lastUser?.text || '')) {
+    if (mode !== 'rex' && /\b(price|pricing|pro plan|plans?|cost|how\s*much)\b/i.test(lastUser?.text || '')) {
       const tiers = settings['pricing_tiers'];
       if (Array.isArray(tiers) && tiers.length) {
         try {
@@ -675,7 +688,7 @@ router.post('/chat', async (req: Request, res: Response) => {
     }
 
     // Final safety: if response is empty, offer useful next steps (never say "No verified answer")
-    if (!content || !content.trim()) {
+    if (mode !== 'rex' && (!content || !content.trim())) {
       const cal = settings['rex_calendly_url'];
       content = `I’m not totally sure — but you can ${cal ? `[Book a Demo](${cal})` : 'book a demo'} or check out our [Pricing Page](https://thehirepilot.com/pricing). Want help choosing a plan?`;
     }
@@ -696,7 +709,18 @@ router.post('/chat', async (req: Request, res: Response) => {
       try {
         if (!val) return [];
         const v = Array.isArray(val) ? val : (typeof val === 'object' && Array.isArray((val as any).sources) ? (val as any).sources : []);
-        return (v as any[]).filter(Boolean).map((s: any) => ({ title: String(s?.title || '').slice(0, 200), url: String(s?.url || '') })).filter(s => !!s.title && !!s.url);
+        const mapped = (v as any[]).filter(Boolean).map((s: any) => {
+          if (typeof s === 'string') {
+            const url = s;
+            try {
+              const u = new URL(url);
+              const host = u.hostname.replace(/^www\./, '');
+              return { title: host, url };
+            } catch { return { title: 'Source', url }; }
+          }
+          return { title: String(s?.title || '').slice(0, 200), url: String(s?.url || '') };
+        });
+        return mapped.filter(s => !!s.title && !!s.url);
       } catch { return []; }
     };
     const safeSources = normalizeSources(outSources);
