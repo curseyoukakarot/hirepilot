@@ -86,6 +86,8 @@ export function useRexWidget(options?: UseRexWidgetOptions) {
   const [salesTurns, setSalesTurns] = useState<number>(0);
   const [salesCtaOverride, setSalesCtaOverride] = useState<boolean>(false);
   const [hasOpened, setHasOpened] = useState<boolean>(false);
+  const [isLive, setIsLive] = useState(false);
+  const [liveStatus, setLiveStatus] = useState<'idle' | 'connecting' | 'online' | 'connected'>('idle');
 
   useEffect(() => {
     try { localStorage.setItem(OPEN_KEY, JSON.stringify(isOpen)); } catch {}
@@ -142,6 +144,8 @@ export function useRexWidget(options?: UseRexWidgetOptions) {
             text: name ? `${name}: ${text}` : text,
             ts: Date.now(),
           }]));
+          setIsLive(true);
+          setLiveStatus('connected');
         } catch {}
       })
       .subscribe();
@@ -183,6 +187,10 @@ export function useRexWidget(options?: UseRexWidgetOptions) {
         }),
       });
       const data = await resp.json().catch(() => null);
+      if (data?.state === 'live') {
+        setIsLive(true);
+        setLiveStatus('connected');
+      }
 
       const assistantMessage: RexMessage = {
         id: `a_${Date.now()}`,
@@ -225,6 +233,8 @@ export function useRexWidget(options?: UseRexWidgetOptions) {
       const safeReason: string | undefined = typeof reason === 'string' ? reason : undefined;
       // Debug: verify base URL resolution
       try { console.debug('[REX] sendHandoff', { API_BASE, threadId, reason: safeReason }); } catch {}
+      setIsLive(true);
+      setLiveStatus('connecting');
 
       // Ensure a session exists. If no thread yet, create one without sending a user message
       let ensuredThreadId = threadId;
@@ -269,6 +279,7 @@ export function useRexWidget(options?: UseRexWidgetOptions) {
         text: 'Got it — I notified our team. If someone is available now, they will reply here in this chat shortly. Otherwise we will follow up by email.',
         ts: Date.now(),
       }]));
+      setLiveStatus('online');
     } catch (e) {
       try { console.error('[REX] handoff failed', e); } catch {}
       try { (await import('react-hot-toast')).toast.error('Failed to notify team — please try again or email support@thehirepilot.com'); } catch {}
@@ -278,6 +289,7 @@ export function useRexWidget(options?: UseRexWidgetOptions) {
         text: 'Error notifying the team — please try again or contact support@thehirepilot.com directly.',
         ts: Date.now(),
       }]));
+      setLiveStatus('idle');
     }
   }, [threadId, API_BASE, mode]);
 

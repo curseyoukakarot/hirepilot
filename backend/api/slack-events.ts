@@ -134,6 +134,28 @@ export async function slackEventsHandler(req: express.Request, res: express.Resp
           }
         }
 
+        // Manual overrides via text commands in thread: rex-off / rex-on
+        try {
+          const cmdMatch = /\brex[-_ ]?(off|on)\b/i.exec(text);
+          if (cmdMatch) {
+            const disable = cmdMatch[1].toLowerCase() === 'off';
+            await supabase
+              .from('rex_live_sessions')
+              .update({ rex_disabled: disable })
+              .eq('slack_channel_id', channel)
+              .eq('slack_thread_ts', thread);
+            console.log('[slack-events] rex manual toggle', { disable });
+            // Acknowledge in thread
+            try {
+              const botToken = process.env.SLACK_BOT_TOKEN;
+              if (botToken) {
+                const slack = new WebClient(botToken);
+                await slack.chat.postMessage({ channel, thread_ts: thread, text: `REX ${disable ? 'disabled' : 'enabled'} for this thread.` });
+              }
+            } catch {}
+          }
+        } catch {}
+
         if (session?.widget_session_id) {
           // Fetch user name (best-effort)
           let userName: string | null = null;

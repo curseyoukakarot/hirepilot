@@ -38,6 +38,8 @@ export type RexWidgetProps = {
   mode?: RexMode;
   config?: RexConfig;
   className?: string;
+  isLive?: boolean;
+  liveStatus?: 'idle' | 'connecting' | 'online' | 'connected';
 };
 
 export type RexLeadInterest = 'Recruiting' | 'Sourcing' | 'Pricing' | 'Demo';
