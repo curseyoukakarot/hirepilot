@@ -182,6 +182,9 @@ export default function AdminAffiliatesManager(){
             <table className="min-w-full text-sm">
               <thead className="bg-gray-50 sticky top-0 z-10">
                 <tr className="text-left text-gray-600">
+                  <th className="px-4 py-3">First Name</th>
+                  <th className="px-4 py-3">Last Name</th>
+                  <th className="px-4 py-3">Email</th>
                   <th className="px-4 py-3">User ID</th>
                   <th className="px-4 py-3">Referral Code</th>
                   <th className="px-4 py-3">Status</th>
@@ -194,6 +197,9 @@ export default function AdminAffiliatesManager(){
               <tbody>
                 {filtered.map((r, idx)=>(
                   <tr key={r.id} className={`${idx%2===0?'bg-white':'bg-gray-50'} hover:bg-gray-100 transition-colors`}>
+                    <td className="px-4 py-3">{r.first_name || '-'}</td>
+                    <td className="px-4 py-3">{r.last_name || '-'}</td>
+                    <td className="px-4 py-3">{r.email || '-'}</td>
                     <td className="px-4 py-3 font-mono text-xs">{r.user_id}</td>
                     <td className="px-4 py-3">{r.referral_code}</td>
                     <td className="px-4 py-3">
