@@ -747,6 +747,11 @@ router.post('/chat', async (req: Request, res: Response) => {
       } catch {}
     }
 
+    // Ensure outSources is an array to avoid runtime errors in downstream heuristics
+    if (!Array.isArray(outSources)) {
+      outSources = [] as any;
+    }
+
     function answerIsWeak(txt: string, intent?: string) {
       const t = (txt || '').toLowerCase();
       const weakPhrases = [
