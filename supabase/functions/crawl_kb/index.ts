@@ -65,12 +65,13 @@ async function embed(texts: string[]): Promise<number[][]> {
     throw new Error(`Embedding failed: ${t}`);
   }
   const data = await resp.json();
-  return data.data.map((d: any: any) => d.embedding);
+  return data.data.map((d: any) => d.embedding);
 }
 
 async function upsertKbPagesAndChunks(pages: Page[]) {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') || Deno.env.get('SVC_SUPABASE_URL');
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SVC_SUPABASE_SERVICE_ROLE_KEY');
+  if (!supabaseUrl || !serviceKey) throw new Error('Missing Supabase service credentials in function env');
   const headers = { 'Content-Type': 'application/json', 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` };
 
   // Upsert pages
@@ -126,8 +127,9 @@ serve(async (req) => {
       .slice(0, MAX_PAGES);
 
     // Fetch existing URLs
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || Deno.env.get('SVC_SUPABASE_URL');
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SVC_SUPABASE_SERVICE_ROLE_KEY');
+    if (!supabaseUrl || !serviceKey) throw new Error('Missing Supabase service credentials in function env');
     const headers = { 'Content-Type': 'application/json', 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` };
     const existingResp = await fetch(`${supabaseUrl}/rest/v1/rex_kb_pages?select=url`, { headers });
     const existingRows = await existingResp.json();
