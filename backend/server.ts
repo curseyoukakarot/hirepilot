@@ -117,6 +117,7 @@ import { salesInboundWorker } from './src/workers/sales.inbound.worker';
 import { salesSendWorker } from './src/workers/sales.send.worker';
 import { salesSweepWorker } from './src/workers/sales.sweep.worker';
 import sendLiveChatFallbacksRouter from './cron/sendLiveChatFallbacks';
+import chatRoutes from './src/routes/chatRoutes';
 
 declare module 'express-list-endpoints';
 
@@ -266,6 +267,8 @@ app.use('/api/phantom', phantomStatusUpdate);
 app.use('/api/phantom', phantomPoll);
 // REX Widget endpoints
 app.use('/api/rex_widget', rexWidgetRouter);
+// Live chat (FAQ popup) endpoints
+app.use('/api', chatRoutes);
 app.delete('/api/deleteJobRequisitions', deleteJobRequisitions);
 app.use('/api/team', teamRouter);
   app.use('/api', slackApiRouter);

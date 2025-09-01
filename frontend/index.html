@@ -18,156 +18,195 @@
   <body>
     <div id="root"></div>
     </div>
-    <!-- REX Non-Chat FAQ Popup (enabled via admin toggles) -->
+    <!-- Live Chat Popup (replaces old FAQ popup) -->
     <div id="rex-popup" class="fixed bottom-6 right-6 z-50" style="display: none;">
-      <button id="rex-popup-toggle" class="px-4 py-2 rounded-full shadow-lg bg-white text-slate-800 border border-slate-200 hover:bg-slate-50 text-sm">
-        💬 Questions? Ask REX
-      </button>
-      <div id="rex-popup-panel" class="hidden mt-3 w-[380px] max-h-[80vh] overflow-y-auto rounded-2xl shadow-2xl border border-slate-200 bg-white">
-        <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white">
-          <div class="text-sm font-semibold text-slate-900">REX – Helpful FAQs</div>
-          <button id="rex-popup-close" class="text-slate-500 hover:text-slate-700" aria-label="Close">
-            <i class="fa-solid fa-xmark"></i>
+      <div id="faq-panel" class="w-96 h-[600px] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col">
+        <div id="faq-header" class="p-6 border-b border-gray-100">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-xl font-bold text-gray-900">REX – Helpful FAQs</h3>
+            <button id="close-faq" class="p-2 hover:bg-gray-100 rounded-full transition" aria-label="Close">
+              <i class="fa-solid fa-times text-gray-500"></i>
+            </button>
+          </div>
+          <button id="chat-with-team-btn" class="w-full px-3 py-2 rounded-full bg-blue-100 text-blue-700 text-sm font-medium hover:bg-blue-200 transition flex items-center justify-center gap-2">
+            <i class="fa-solid fa-headset"></i>
+            Chat with Team
           </button>
         </div>
-        <div class="p-4 space-y-3 text-slate-800">
-          <!-- FAQ Accordion -->
-          <details class="border border-slate-200 rounded-lg p-3">
-            <summary class="cursor-pointer font-medium">1. What exactly does HirePilot do?</summary>
-            <p class="mt-2 text-sm text-slate-600">HirePilot is an AI-powered recruiting platform that automates sourcing, outreach, and scheduling so your team can fill roles faster without ballooning headcount.</p>
-          </details>
-          <details class="border border-slate-200 rounded-lg p-3">
-            <summary class="cursor-pointer font-medium">2. What’s included in the Pro plan?</summary>
-            <p class="mt-2 text-sm text-slate-600">The Pro plan includes AI sourcing via Apollo and LinkedIn, campaign management, enrichment, Chrome extension, Slack alerts, and up to 1,000 credits/month. <a class="text-blue-600 underline" href="https://thehirepilot.com/pricing" target="_blank" rel="noopener">View pricing</a></p>
-          </details>
-          <details class="border border-slate-200 rounded-lg p-3">
-            <summary class="cursor-pointer font-medium">3. Do you integrate with Slack?</summary>
-            <p class="mt-2 text-sm text-slate-600">Yes! You can receive instant alerts in Slack when leads respond, credits are used, or campaigns go live.</p>
-          </details>
-          <details class="border border-slate-200 rounded-lg p-3">
-            <summary class="cursor-pointer font-medium">4. How do I launch a campaign?</summary>
-            <p class="mt-2 text-sm text-slate-600">Go to “Campaigns” → click “New Campaign” → choose a list or lead source → write your AI message → launch.</p>
-          </details>
-          <details class="border border-slate-200 rounded-lg p-3">
-            <summary class="cursor-pointer font-medium">5. What if I don’t have an ATS?</summary>
-            <p class="mt-2 text-sm text-slate-600">No problem. HirePilot works as a full recruiting system — no ATS required. But you can also integrate with your ATS if needed.</p>
-          </details>
-          <details class="border border-slate-200 rounded-lg p-3">
-            <summary class="cursor-pointer font-medium">6. How do I connect Apollo?</summary>
-            <p class="mt-2 text-sm text-slate-600">Add your Apollo API key in Settings → Integrations. Leads will automatically flow into campaigns with enrichment data.</p>
-          </details>
-          <details class="border border-slate-200 rounded-lg p-3">
-            <summary class="cursor-pointer font-medium">7. Where do I see replies from leads?</summary>
-            <p class="mt-2 text-sm text-slate-600">Check the “Replies” tab or Inbox inside your campaign dashboard. You'll also get Slack/email notifications when a reply comes in.</p>
-          </details>
-          <details class="border border-slate-200 rounded-lg p-3">
-            <summary class="cursor-pointer font-medium">8. Do you integrate with Zapier?</summary>
-            <p class="mt-2 text-sm text-slate-600">Yes — HirePilot offers full Zapier support with triggers like: lead converted, reply received, candidate hired, etc.</p>
-          </details>
-          <details class="border border-slate-200 rounded-lg p-3">
-            <summary class="cursor-pointer font-medium">9. Can I send connection requests on LinkedIn?</summary>
-            <p class="mt-2 text-sm text-slate-600">Yes — Our Linkedin Requests in the lead drawer or REX, you can send connection requests with optional messages, powered by smart limits and proxy protection.</p>
-          </details>
-          <details class="border border-slate-200 rounded-lg p-3">
-            <summary class="cursor-pointer font-medium">10. What if I need help?</summary>
-            <p class="mt-2 text-sm text-slate-600">Scroll down and send us a message through the support form — we’ll respond quickly!</p>
-          </details>
+        <div id="faq-content" class="flex-1 p-6 overflow-y-auto">
+          <div class="space-y-4">
+            <div class="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition">
+              <h4 class="font-semibold text-gray-900 mb-2">How do I create a job posting?</h4>
+              <p class="text-sm text-gray-600">Click on "Post a Job" and follow the guided setup process...</p>
+            </div>
+            <div class="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition">
+              <h4 class="font-semibold text-gray-900 mb-2">How does candidate matching work?</h4>
+              <p class="text-sm text-gray-600">Our AI analyzes your job requirements and matches them with candidate profiles...</p>
+            </div>
+            <div class="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition">
+              <h4 class="font-semibold text-gray-900 mb-2">Can I integrate with my ATS?</h4>
+              <p class="text-sm text-gray-600">Yes, we support integrations with major ATS platforms...</p>
+            </div>
+            <div class="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition">
+              <h4 class="font-semibold text-gray-900 mb-2">What are the pricing plans?</h4>
+              <p class="text-sm text-gray-600">We offer flexible pricing based on your hiring volume...</p>
+            </div>
+          </div>
+        </div>
+      </div>
 
-          <!-- Support Form -->
-          <form id="rex-support-form" class="mt-4 space-y-3">
-            <div>
-              <label class="block text-xs text-slate-600 mb-1">Name</label>
-              <input type="text" name="name" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" placeholder="Your name" />
+      <div id="live-chat-panel" class="w-96 h-[600px] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col hidden">
+        <div id="chat-header" class="p-6 border-b border-gray-100">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-3">
+              <button id="back-to-faq" class="p-2 hover:bg-gray-100 rounded-full transition" aria-label="Back">
+                <i class="fa-solid fa-arrow-left text-gray-500"></i>
+              </button>
+              <h3 class="text-lg font-bold text-gray-900">Live Chat with HirePilot Team</h3>
             </div>
-            <div>
-              <label class="block text-xs text-slate-600 mb-1">Email</label>
-              <input type="email" name="email" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" placeholder="you@company.com" />
-            </div>
-            <div>
-              <label class="block text-xs text-slate-600 mb-1">Message</label>
-              <textarea name="message" rows="4" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" placeholder="How can we help?" ></textarea>
-            </div>
-            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-md px-3 py-2 text-sm">Send</button>
-          </form>
+            <button id="close-chat" class="p-2 hover:bg-gray-100 rounded-full transition" aria-label="Close">
+              <i class="fa-solid fa-times text-gray-500"></i>
+            </button>
+          </div>
+          <p class="text-sm text-gray-600 ml-11">You're chatting with a real human. Ask us anything!</p>
+          <div id="status-indicator" class="ml-11 mt-2 flex items-center gap-2 text-xs text-green-600">
+            <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            Team is online
+          </div>
+        </div>
 
-          <!-- CTA bar -->
-          <div class="mt-4 border-t border-slate-200 pt-3 flex items-center justify-between text-sm">
-            <a id="rex-cta-demo" class="text-blue-600 hover:underline" href="#" target="_blank" rel="noopener">🎥 Watch Demo</a>
-            <a class="text-blue-600 hover:underline" href="https://form.typeform.com/to/cnUZ9PgW" target="_blank" rel="noopener">📅 Book Demo</a>
-            <a class="text-blue-600 hover:underline" href="/pricing" target="_blank" rel="noopener">🚀 Start Free Trial</a>
+        <div id="chat-messages" class="flex-1 p-4 overflow-y-auto space-y-4">
+          <div class="flex items-start gap-3">
+            <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">HP</div>
+            <div class="flex-1">
+              <div class="bg-gray-100 rounded-2xl px-4 py-3 max-w-xs">
+                <p class="text-sm text-gray-900">Hi there! Welcome to HirePilot. How can we help you today?</p>
+              </div>
+              <span class="text-xs text-gray-500 mt-1 block">HirePilot Team • Just now</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="message-input-section" class="p-4 border-t border-gray-100">
+          <div id="user-info-form" class="mb-4 space-y-3">
+            <input type="text" id="user-name" placeholder="Your name" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+            <input type="email" id="user-email" placeholder="Your email" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+          </div>
+          <div class="flex gap-2">
+            <input type="text" id="message-input" placeholder="Type your message..." class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+            <button id="send-message" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition flex items-center gap-2">
+              <i class="fa-solid fa-paper-plane"></i>
+              Send
+            </button>
           </div>
         </div>
       </div>
     </div>
     <script>
       (function() {
-        // Button toggle behavior
-        var btn = document.getElementById('rex-popup-toggle');
-        var panel = document.getElementById('rex-popup-panel');
-        var closeBtn = document.getElementById('rex-popup-close');
-        if (btn && panel) {
-          btn.addEventListener('click', function(){ panel.classList.toggle('hidden'); });
-        }
-        if (closeBtn && panel) {
-          closeBtn.addEventListener('click', function(){ panel.classList.add('hidden'); });
-        }
-        // Real submit → Backend tickets endpoint (stores in Supabase + posts to Slack)
-        var form = document.getElementById('rex-support-form');
-        if (form) {
-          form.addEventListener('submit', function(e){
-            e.preventDefault();
-            try {
-              var fd = new FormData(form);
-              var name = (fd.get('name') || '').toString().trim();
-              var email = (fd.get('email') || '').toString().trim();
-              var msg = (fd.get('message') || '').toString().trim();
-              // Persist/reuse a lightweight anonymous session id for correlation
-              var sid = localStorage.getItem('rex_session_id');
-              if (!sid) { sid = 'ph-' + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('rex_session_id', sid); }
-              // Determine API base URL
-              var flags = (window.__REX_FLAGS__) || {};
-              var apiBase = flags.apiBaseUrl || window.VITE_BACKEND_URL || (location.origin.indexOf('thehirepilot.com') > -1 ? 'https://api.thehirepilot.com' : 'http://localhost:8080');
-              var baseWithApi = apiBase.endsWith('/api') ? apiBase : (apiBase + '/api');
-              var ticketsUrl = baseWithApi + '/rex_widget/tickets';
-              var leadsUrl = baseWithApi + '/rex_widget/leads';
-              var payload = {
-                sessionId: sid,
-                summary: (name || email) ? ('FAQ Contact from ' + (name || 'Anonymous') + (email ? (' <' + email + '>') : '')) : 'FAQ Contact',
-                details: msg
-              };
-              // Submit both: create support ticket and create lead (Slack notification on both code paths)
-              var ticketReq = fetch(ticketsUrl, {
-                method: 'POST',
-                mode: 'cors',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-                credentials: 'omit',
-                keepalive: true
-              }).then(function(r){ return r.ok ? r.json().catch(function(){ return {}; }) : Promise.reject(r); });
+        var faqPanel = document.getElementById('faq-panel');
+        var liveChatPanel = document.getElementById('live-chat-panel');
+        var chatWithTeamBtn = document.getElementById('chat-with-team-btn');
+        var backToFaqBtn = document.getElementById('back-to-faq');
+        var closeFaqBtn = document.getElementById('close-faq');
+        var closeChatBtn = document.getElementById('close-chat');
+        var sendMessageBtn = document.getElementById('send-message');
+        var messageInput = document.getElementById('message-input');
+        var chatMessages = document.getElementById('chat-messages');
+        var userNameInput = document.getElementById('user-name');
+        var userEmailInput = document.getElementById('user-email');
+        var userInfoForm = document.getElementById('user-info-form');
 
-              var leadBody = {
-                full_name: name || 'Anonymous',
-                work_email: email || '',
-                interest: 'FAQ Popup',
-                notes: msg
-              };
-              var leadReq = fetch(leadsUrl, {
-                method: 'POST',
-                mode: 'cors',
-                headers: { 'Content-Type': 'application/json', 'x-rex-anon-id': sid },
-                body: JSON.stringify(leadBody),
-                credentials: 'omit',
-                keepalive: true
-              }).then(function(r){ return r.ok ? r.json().catch(function(){ return {}; }) : Promise.reject(r); });
+        var userName = '';
+        var userEmail = '';
+        var userInfoProvided = false;
 
-              Promise.allSettled([ticketReq, leadReq])
-                .then(function(){ alert('Thanks! We\'ll be in touch.'); panel.classList.add('hidden'); form.reset(); })
-                .catch(function(err){ console.warn('faq popup submit failed', err); alert('Thanks! Your message was captured.'); panel.classList.add('hidden'); });
-            } catch (_) {
-              alert('Thanks! Your message was captured.'); panel.classList.add('hidden');
-            }
-          });
+        if (chatWithTeamBtn) chatWithTeamBtn.addEventListener('click', function(){ faqPanel.classList.add('hidden'); liveChatPanel.classList.remove('hidden'); });
+        if (backToFaqBtn) backToFaqBtn.addEventListener('click', function(){ liveChatPanel.classList.add('hidden'); faqPanel.classList.remove('hidden'); });
+        if (closeFaqBtn) closeFaqBtn.addEventListener('click', function(){ var host = document.getElementById('rex-popup'); if (host) host.style.display = 'none'; });
+        if (closeChatBtn) closeChatBtn.addEventListener('click', function(){ var host = document.getElementById('rex-popup'); if (host) host.style.display = 'none'; });
+
+        function addMessageToChat(message, sender) {
+          var messageDiv = document.createElement('div');
+          messageDiv.className = 'flex items-start gap-3';
+          if (sender === 'user') {
+            messageDiv.classList.add('flex-row-reverse');
+            messageDiv.innerHTML = '\n              <div class="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">' + (userName ? userName.charAt(0).toUpperCase() : 'U') + '</div>\n              <div class="flex-1">\n                <div class="bg-blue-600 text-white rounded-2xl px-4 py-3 max-w-xs ml-auto">\n                  <p class="text-sm">' + message + '</p>\n                </div>\n                <span class="text-xs text-gray-500 mt-1 block text-right">You • Now</span>\n              </div>\n            ';
+          } else {
+            messageDiv.innerHTML = '\n              <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">HP</div>\n              <div class="flex-1">\n                <div class="bg-gray-100 rounded-2xl px-4 py-3 max-w-xs">\n                  <p class="text-sm text-gray-900">' + message + '</p>\n                </div>\n                <span class="text-xs text-gray-500 mt-1 block">HirePilot Team • Now</span>\n              </div>\n            ';
+          }
+          chatMessages.appendChild(messageDiv);
+          chatMessages.scrollTop = chatMessages.scrollHeight;
         }
+
+        function showTypingIndicator() {
+          var typingDiv = document.createElement('div');
+          typingDiv.id = 'typing-indicator';
+          typingDiv.className = 'flex items-center gap-2 text-sm text-gray-500 p-4';
+          typingDiv.innerHTML = '\n            <div class="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs font-semibold">HP</div>\n            <span>Team member is typing...</span>\n            <div class="flex gap-1">\n              <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>\n              <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>\n              <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>\n            </div>\n          ';
+          chatMessages.appendChild(typingDiv);
+          chatMessages.scrollTop = chatMessages.scrollHeight;
+          setTimeout(function(){
+            typingDiv.remove();
+            addMessageToChat('Thanks for reaching out! Someone from our team will get back to you soon. In the meantime, feel free to ask any other questions.', 'team');
+          }, 3000);
+        }
+
+        // Generate or reuse a sessionId
+        var sessionId = localStorage.getItem('chatSessionId');
+        if (!sessionId && window.crypto && window.crypto.randomUUID) {
+          sessionId = window.crypto.randomUUID();
+          localStorage.setItem('chatSessionId', sessionId);
+        } else if (!sessionId) {
+          sessionId = 'sess-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+          localStorage.setItem('chatSessionId', sessionId);
+        }
+
+        function sendToSlack(name, email, message) {
+          try {
+            fetch('/api/sendToSlack', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name: name, email: email, message: message, sessionId: sessionId })
+            }).then(function(resp){ if(!resp.ok) throw new Error('Failed'); }).catch(function(){ addMessageToChat('Sorry, there was an error sending your message. Please try again.', 'team'); });
+          } catch (e) {
+            addMessageToChat('Sorry, there was an error sending your message. Please try again.', 'team');
+          }
+        }
+
+        function sendMessage() {
+          var message = (messageInput && messageInput.value ? messageInput.value.trim() : '');
+          if (!message) return;
+          if (!userInfoProvided) {
+            userName = (userNameInput && userNameInput.value ? userNameInput.value.trim() : '');
+            userEmail = (userEmailInput && userEmailInput.value ? userEmailInput.value.trim() : '');
+            if (!userName || !userEmail) { alert('Please provide your name and email before sending a message.'); return; }
+            userInfoProvided = true;
+            if (userInfoForm) userInfoForm.classList.add('hidden');
+          }
+          addMessageToChat(message, 'user');
+          if (messageInput) messageInput.value = '';
+          sendToSlack(userName, userEmail, message);
+          showTypingIndicator();
+        }
+
+        if (sendMessageBtn) sendMessageBtn.addEventListener('click', sendMessage);
+        if (messageInput) messageInput.addEventListener('keypress', function(e){ if (e.key === 'Enter') sendMessage(); });
+
+        // Poll messages every 3s to render team replies
+        setInterval(function(){
+          if (!sessionId) return;
+          fetch('/api/getMessages?sessionId=' + encodeURIComponent(sessionId))
+            .then(function(r){ return r.ok ? r.json() : []; })
+            .then(function(messages){
+              if (!Array.isArray(messages)) return;
+              chatMessages.innerHTML = '';
+              messages.forEach(function(m){ addMessageToChat(m.text, m.sender); });
+              chatMessages.scrollTop = chatMessages.scrollHeight;
+            })
+            .catch(function(){});
+        }, 3000);
+
         // Admin toggles (reads from window.__REX_FLAGS__ if available)
         function applyRexFlags() {
           var flags = (window.__REX_FLAGS__) || {};
@@ -181,17 +220,7 @@
           } else {
             host.style.display = 'none';
           }
-
-          // Wire demo link from env if available
-          try {
-            var demoEl = document.getElementById('rex-cta-demo');
-            if (demoEl) {
-              var demo = (window.__REX_FLAGS__ && window.__REX_FLAGS__.demoUrl) || (window.VITE_DEMO_URL) || null;
-              if (demo) demoEl.href = demo;
-            }
-          } catch (e) { /* noop */ }
         }
-        // run now and when flags become ready
         applyRexFlags();
         window.addEventListener('rex_flags_ready', applyRexFlags);
       })();
@@ -216,6 +245,16 @@
         !function(key) { if (window.reb2b) return; window.reb2b = { loaded: true }; var s = document.createElement('script'); s.async = true; s.src = 'https://ddwl4m2hdecbv.cloudfront.net/b/' + key + '/' + key + '.js.gz'; var firstScript = document.getElementsByTagName('script')[0]; if (firstScript && firstScript.parentNode) { firstScript.parentNode.insertBefore(s, firstScript); } else { document.head.appendChild(s); } }('VN080HXJK06J');
       })();
     </script>
+    <!-- Fonts and Icons for the popup -->
+    <script> window.FontAwesomeConfig = { autoReplaceSvg: 'nest'};</script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap">
+    <style>
+      .fa, .fas, .far, .fal, .fab { font-family: "Font Awesome 6 Free", "Font Awesome 6 Brands" !important; }
+      #rex-popup * { font-family: 'Inter', sans-serif; }
+      #rex-popup ::-webkit-scrollbar { display: none; }
+    </style>
     <script type="module" src="/src/main.jsx"></script>
 
   </body>
