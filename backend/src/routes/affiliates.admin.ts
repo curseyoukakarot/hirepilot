@@ -12,6 +12,15 @@ r.get('/', async (_req, res) => {
       .order('id', { ascending: false });
     if (affErr) return res.status(400).json({ error: affErr.message });
     const ids = (affs||[]).map(a=>a.id);
+    const userIds = Array.from(new Set((affs||[]).map(a=>a.user_id).filter(Boolean)));
+    const userById: Record<string, { first_name?: string; last_name?: string; email?: string }> = {};
+    if (userIds.length){
+      const { data: users } = await supabaseAdmin
+        .from('users')
+        .select('id, first_name, last_name, email')
+        .in('id', userIds);
+      for (const u of users||[]) userById[u.id] = { first_name: (u as any).first_name, last_name: (u as any).last_name, email: (u as any).email };
+    }
     // Earnings (lifetime)
     const earnings: Record<string, number> = {};
     for (const id of ids) {
@@ -30,7 +39,14 @@ r.get('/', async (_req, res) => {
         .maybeSingle();
       recent[id] = error ? 0 : (data?.deal_cents ?? 0);
     }
-    res.json((affs||[]).map(a=>({ ...a, earnings_cents: earnings[a.id]||0, recent_deal_cents: recent[a.id]||0 })));
+    res.json((affs||[]).map(a=>({
+      ...a,
+      first_name: userById[a.user_id]?.first_name || null,
+      last_name: userById[a.user_id]?.last_name || null,
+      email: userById[a.user_id]?.email || null,
+      earnings_cents: earnings[a.id]||0,
+      recent_deal_cents: recent[a.id]||0
+    })));
   } catch (e:any) { res.status(500).json({ error: e.message||'failed' }); }
 });
 
