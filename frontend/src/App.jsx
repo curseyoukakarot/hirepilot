@@ -447,6 +447,7 @@ function InnerApp() {
               <Route path="/admin/puppet-health" element={<AdminPuppetHealth />} />
               <Route path="/admin/proxy-management" element={<AdminProxyManagement />} />
               <Route path="/admin/affiliates" element={<AdminAffiliatesManager />} />
+              <Route path="/super-admin/affiliates" element={<AdminAffiliatesManager />} />
               <Route path="/blog" element={<BlogLandingPage />} />
               <Route path="/chromeextension" element={<ChromeExtension />} />
               <Route path="/chromeextension/privacy" element={<ChromeExtensionPrivacy />} />
