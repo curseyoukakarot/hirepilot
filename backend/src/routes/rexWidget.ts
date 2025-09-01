@@ -298,7 +298,7 @@ router.post('/chat', async (req: Request, res: Response) => {
     function checkCuratedFAQ(message: string | undefined): { content: string; sources: string[]; tutorial: string | null } | null {
       const q = (message || '').toLowerCase();
       if (!q) return null;
-      const entries: Array<{ pattern: RegExp; answer: { content: string; sources: string[]; tutorial: string | null } }> = [
+      const entries: Array<{ pattern: RegExp; answer: { content: string; sources: string[]; tutorial: string | null } | null }> = [
         {
           pattern: /how\s+(do|can)?\s*i\s*(launch|start|create|set\s*up)\s+(a\s*)?campaign/i,
           answer: {
@@ -336,14 +336,7 @@ router.post('/chat', async (req: Request, res: Response) => {
         },
         {
           pattern: /compare|versus|vs\.?\s+.*(greenhouse|lever|outreach|gem|clay|sales\s*nav|sales\s*navigator|linkedin\s*recruiter)/i,
-          answer: {
-            content: [
-              'High level: ATS/CRM tools manage candidates after they apply; HirePilot focuses on AI-powered sourcing and outreach before they enter your ATS.',
-              'We can work alongside Greenhouse/Lever — HirePilot finds and engages candidates, then you track them in the ATS.',
-            ].join('\n'),
-            sources: ['https://thehirepilot.com/blog'],
-            tutorial: null,
-          },
+          answer: null, // let tool-enabled flow handle dynamic comparisons
         },
         {
           pattern: /integrations?|connect.*(ats|greenhouse|lever|workable|bullhorn|zapier)/i,
@@ -370,7 +363,15 @@ router.post('/chat', async (req: Request, res: Response) => {
         },
       ];
       const hit = entries.find(e => e.pattern.test(q));
-      return hit ? hit.answer : null;
+      return hit && hit.answer ? hit.answer : null;
+    }
+
+    function determineUrlForQuery(q: string | undefined): string | null {
+      const low = (q || '').toLowerCase();
+      if (/launch|start|create|set\s*up/.test(low) && /campaign/.test(low)) return 'https://thehirepilot.com/blog/flow-of-hirepilot';
+      if (/pro\s*plan|pricing|cost|plans?/.test(low)) return 'https://thehirepilot.com/pricing';
+      if (/what\s+is\s+hirepilot|explain\s+hirepilot/.test(low)) return 'https://thehirepilot.com/';
+      return null;
     }
 
     async function matchKbChunks(query: string | undefined): Promise<{ snippets: string[]; links: string[] }> {
@@ -410,6 +411,17 @@ router.post('/chat', async (req: Request, res: Response) => {
           }
         }
       } catch {}
+      // If still empty and web fallback allowed, browse a deterministic URL for the query type
+      if (snippets.length === 0 && ALLOW_WEB_FALLBACK) {
+        const detUrl = determineUrlForQuery(query);
+        if (detUrl) {
+          try {
+            const tool = await browsePageTool(detUrl, `Extract relevant content for: ${q}. Focus on steps, features, or definitions.`);
+            if (tool?.content) snippets.push(String(tool.content).slice(0, 1800));
+            links.push(detUrl);
+          } catch {}
+        }
+      }
       const uniqueLinks = Array.from(new Set(links));
       const uniqueSnippets = Array.from(new Set(snippets)).slice(0, 4);
       if (uniqueSnippets.length < 2) { try { await logEvent('rex_rag_miss', { query: q }); } catch {} }
@@ -637,6 +649,8 @@ router.post('/chat', async (req: Request, res: Response) => {
         faqs,
         company,
         'Never say "No verified answer." Instead, offer your best available insight and point the user toward the next step.',
+        'Prioritize direct, factual answers using provided context/sources. For comparisons, use tools and format results as Markdown tables when helpful (e.g., | Feature | HirePilot | Competitor |). Only suggest a demo after directly answering the question.',
+        'No hardcoded prices — use settings or sources only.',
         'Output valid JSON with keys: {content, sources, tutorial}. If no sources are found, you may still answer confidently using product knowledge. Never say "no verified answer" — instead, say what you do know and offer a link or next step.'
       ].filter(Boolean).join(' ');
     }
@@ -796,23 +810,12 @@ router.post('/chat', async (req: Request, res: Response) => {
       try {
         // Add competitor context if relevant
         await maybeAddCompetitorContext(lastUser.text);
-        // Recompute rag block to include any newly added context
-        const dynamicRagBlock = contextSnippets.length ? `\n\nContext:\n${contextSnippets.map((s, i) => `(${i + 1}) ${s}`).join('\n')}` : '';
-        const resp = await openai.chat.completions.create({
-          model: 'gpt-4o-mini',
-          temperature: 0.2,
-          messages: [
-            { role: 'system', content: `${sys}${citationBlock}${dynamicRagBlock}\n\nRewrite the following weak or generic answer into a confident, helpful, product-aware response. Use provided context where possible. Return JSON: {content, sources, tutorial}.` },
-            { role: 'user', content: `Answer: ${content}` },
-          ],
-        });
-        try {
-          const raw = resp.choices?.[0]?.message?.content || '';
-          const parsed = JSON.parse(raw);
-          content = parsed.content || content;
-          if (parsed.sources) outSources = parsed.sources;
-          if (parsed.tutorial) tutorial = parsed.tutorial;
-        } catch {}
+        const looksComparative = /(compare|versus|vs\.?|differ)/i.test(lastUser.text);
+        const gptFn = looksComparative ? callGPTWithTools : callGPT;
+        const grounded = await gptFn({ prompt: sys, context: contextSnippets, userMessage: lastUser.text });
+        content = grounded.content || content;
+        if (Array.isArray(grounded.sources)) outSources = grounded.sources as any;
+        if (grounded.tutorial) tutorial = grounded.tutorial;
       } catch (fallbackErr) {
         await logEvent('rex_widget_grounded_fallback_error', { error: String(fallbackErr) });
       }
