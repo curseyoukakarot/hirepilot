@@ -6,25 +6,29 @@ const r = Router();
 // List affiliates with metrics (earnings, tier, recent deal)
 r.get('/', async (_req, res) => {
   try {
-    const { data: affs } = await supabaseAdmin.from('affiliates').select('id,user_id,referral_code,status,tier,created_at').order('created_at', { ascending: false });
+    const { data: affs, error: affErr } = await supabaseAdmin
+      .from('affiliates')
+      .select('id,user_id,referral_code,status,tier,created_at')
+      .order('id', { ascending: false });
+    if (affErr) return res.status(400).json({ error: affErr.message });
     const ids = (affs||[]).map(a=>a.id);
     // Earnings (lifetime)
     const earnings: Record<string, number> = {};
     for (const id of ids) {
-      const { data } = await supabaseAdmin.rpc('sum_commissions_cents', { p_affiliate_id: id, p_status: 'paid' });
-      earnings[id] = data?.sum ?? 0;
+      const { data, error } = await supabaseAdmin.rpc('sum_commissions_cents', { p_affiliate_id: id, p_status: 'paid' });
+      earnings[id] = error ? 0 : (data?.sum ?? 0);
     }
     // Recent deal (last referral deal size)
     const recent: Record<string, number> = {};
     for (const id of ids) {
-      const { data } = await supabaseAdmin
+      const { data, error } = await supabaseAdmin
         .from('referrals')
         .select('deal_cents')
         .eq('affiliate_id', id)
         .order('first_attributed_at', { ascending: false })
         .limit(1)
         .maybeSingle();
-      recent[id] = data?.deal_cents ?? 0;
+      recent[id] = error ? 0 : (data?.deal_cents ?? 0);
     }
     res.json((affs||[]).map(a=>({ ...a, earnings_cents: earnings[a.id]||0, recent_deal_cents: recent[a.id]||0 })));
   } catch (e:any) { res.status(500).json({ error: e.message||'failed' }); }
