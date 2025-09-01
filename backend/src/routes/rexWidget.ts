@@ -39,20 +39,22 @@ function getAnonId(req: Request): string | null {
 router.post('/chat', async (req: Request, res: Response) => {
   try {
     const chatSchema = z.object({
-      threadId: z.string().uuid().optional(),
+      threadId: z.string().optional(),
       mode: z.enum(['sales', 'support', 'rex']),
       messages: z.array(z.object({ role: z.enum(['user', 'assistant', 'system']), text: z.string().max(2000) })).max(20),
-      context: z.object({ url: z.string().url().optional(), pathname: z.string().optional(), rb2b: z.any().optional(), userId: z.string().uuid().nullable().optional() }).optional(),
+      context: z.object({ url: z.string().url().optional(), pathname: z.string().optional(), rb2b: z.any().optional(), userId: z.string().nullable().optional() }).optional(),
     });
     const validated = chatSchema.safeParse(req.body);
     if (!validated.success) {
       res.status(400).json({ error: 'Invalid input', details: validated.error.issues });
       return;
     }
-    const { threadId, mode, messages, context } = validated.data;
+    const { threadId: rawThreadId, mode, messages, context } = validated.data;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const threadId = typeof rawThreadId === 'string' && uuidRegex.test(rawThreadId) ? rawThreadId : undefined;
 
     const anonId = getAnonId(req);
-    const userId = context?.userId || null;
+    const userId = (context?.userId && typeof context.userId === 'string' && uuidRegex.test(context.userId)) ? context.userId : null;
 
     // Upsert or create session
     let sessionId = threadId || null;
