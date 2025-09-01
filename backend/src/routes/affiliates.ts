@@ -20,7 +20,7 @@ r.post('/register', async (req, res) => {
 
   const { data, error } = await supabaseAdmin
     .from('affiliates')
-    .upsert({ user_id: userId, referral_code: code }, { onConflict: 'user_id' })
+    .upsert({ user_id: userId, referral_code: code, status: 'active' }, { onConflict: 'user_id' })
     .select()
     .single();
 
@@ -77,7 +77,9 @@ r.post('/connect/onboarding', async (req, res) => {
 // Overview stats
 r.get('/overview', async (req, res) => {
   const userId = (req as any).user.id;
-  const { data: aff } = await supabaseAdmin.from('affiliates').select('id,tier').eq('user_id', userId).single();
+  const { data: aff } = await supabaseAdmin.from('affiliates').select('id,tier,status').eq('user_id', userId).single();
+  if (!aff) return res.status(404).json({ error: 'No affiliate' });
+  if (aff.status && aff.status !== 'active') return res.status(403).json({ error: 'Affiliate disabled' });
   if (!aff) return res.status(404).json({ error: 'No affiliate' });
 
   const [{ data: lifetime }, { data: month }, { data: next }] = await Promise.all([
@@ -96,8 +98,9 @@ r.get('/overview', async (req, res) => {
 // Lists
 r.get('/referrals', async (req, res) => {
   const userId = (req as any).user.id;
-  const { data: aff } = await supabaseAdmin.from('affiliates').select('id').eq('user_id', userId).single();
+  const { data: aff } = await supabaseAdmin.from('affiliates').select('id,status').eq('user_id', userId).single();
   if (!aff) return res.status(404).json({ error: 'No affiliate' });
+  if (aff.status && aff.status !== 'active') return res.status(403).json({ error: 'Affiliate disabled' });
   const { data, error } = await supabaseAdmin.from('referrals').select('*').eq('affiliate_id', aff.id).order('first_attributed_at', { ascending: false });
   if (error) return res.status(400).json({ error: error.message });
   res.json(data);
@@ -105,7 +108,9 @@ r.get('/referrals', async (req, res) => {
 
 r.get('/commissions', async (req, res) => {
   const userId = (req as any).user.id;
-  const { data: aff } = await supabaseAdmin.from('affiliates').select('id').eq('user_id', userId).single();
+  const { data: aff } = await supabaseAdmin.from('affiliates').select('id,status').eq('user_id', userId).single();
+  if (!aff) return res.status(404).json({ error: 'No affiliate' });
+  if (aff.status && aff.status !== 'active') return res.status(403).json({ error: 'Affiliate disabled' });
   const { data, error } = await supabaseAdmin.from('commissions').select('*').eq('affiliate_id', aff!.id).order('created_at', { ascending: false });
   if (error) return res.status(400).json({ error: error.message });
   res.json(data);
@@ -113,7 +118,9 @@ r.get('/commissions', async (req, res) => {
 
 r.get('/payouts', async (req, res) => {
   const userId = (req as any).user.id;
-  const { data: aff } = await supabaseAdmin.from('affiliates').select('id').eq('user_id', userId).single();
+  const { data: aff } = await supabaseAdmin.from('affiliates').select('id,status').eq('user_id', userId).single();
+  if (!aff) return res.status(404).json({ error: 'No affiliate' });
+  if (aff.status && aff.status !== 'active') return res.status(403).json({ error: 'Affiliate disabled' });
   const { data, error } = await supabaseAdmin.from('payouts').select('*').eq('affiliate_id', aff!.id).order('created_at', { ascending: false });
   if (error) return res.status(400).json({ error: error.message });
   res.json(data);

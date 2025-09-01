@@ -90,6 +90,7 @@ import { incrementApiCalls, incrementFailedCalls } from './metrics/appMetrics';
 import userCreatedWebhook from './api/webhooks/userCreated';
 import stripeRouter from './routes/stripe';
 import affiliatesRouter from './src/routes/affiliates';
+import affiliatesAdminRouter from './src/routes/affiliates.admin';
 import payoutsRouter from './src/routes/payouts';
 import checkoutRouter from './src/routes/checkout';
 import partnerPassRouter from './src/routes/partnerPass';
@@ -306,6 +307,7 @@ app.post('/webhooks/user-created', userCreatedWebhook);
   app.use('/api/stripe', stripeRouter);
   // Affiliates + payouts APIs (require auth)
   app.use('/api/affiliates', requireAuth as any, affiliatesRouter);
+  app.use('/api/admin/affiliates', requireAuth as any, affiliatesAdminRouter);
   app.use('/api/payouts', requireAuth as any, payoutsRouter);
   app.use('/api/checkout', requireAuth as any, checkoutRouter);
   app.use('/api/partner-pass', requireAuth as any, partnerPassRouter);
