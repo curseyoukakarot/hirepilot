@@ -22,118 +22,146 @@ function verifySlackSignature(req: express.Request, signingSecret: string): bool
 
 export async function slackEventsHandler(req: express.Request, res: express.Response) {
   try {
+    const rawBuf: Buffer = Buffer.isBuffer((req as any).body)
+      ? (req as any).body
+      : Buffer.isBuffer((req as any).rawBody)
+        ? (req as any).rawBody
+        : Buffer.from(typeof (req as any).body === 'string' ? (req as any).body : JSON.stringify((req as any).body || {}), 'utf8');
+
     console.log('[slack-events] incoming request', {
       headers: req.headers,
-      hasRaw: typeof (req as any).rawBody === 'string',
+      hasRaw: Buffer.isBuffer((req as any).body),
       bodyType: typeof (req as any).body,
+      rawLen: rawBuf.length,
     });
 
-    // Handle Slack URL verification (must respond immediately with the challenge)
-    try {
-      const raw = (req as any).rawBody || (req as any).body || '';
-      const asStr = Buffer.isBuffer(raw) ? raw.toString('utf8') : (typeof raw === 'string' ? raw : '');
-      const parsed = asStr ? JSON.parse(asStr) : undefined;
-      if (parsed && parsed.type === 'url_verification') {
-        console.log('[slack-events] handling url_verification', { challenge: parsed.challenge });
-        res.status(200).send(parsed.challenge);
-        return;
-      }
-    } catch {}
     const secret = process.env.SLACK_SIGNING_SECRET;
     if (!secret) {
       res.status(500).send('SLACK_SIGNING_SECRET not set');
       return;
     }
 
-    // Slack URL verification challenge
-    if ((req.body as any)?.type === 'url_verification' && (req.body as any)?.challenge) {
-      res.send((req.body as any).challenge);
+    // Signature verification on raw body
+    const timestamp = req.headers['x-slack-request-timestamp'] as string | undefined;
+    const signature = req.headers['x-slack-signature'] as string | undefined;
+    if (!timestamp || !signature) {
+      res.status(400).send('missing headers');
+      return;
+    }
+    const now = Math.floor(Date.now() / 1000);
+    if (Math.abs(now - Number(timestamp)) > 60 * 5) {
+      res.status(400).send('stale');
+      return;
+    }
+    const base = `v0:${timestamp}:${rawBuf.toString('utf8')}`;
+    const expected = `v0=${crypto.createHmac('sha256', secret).update(base).digest('hex')}`;
+    if (!crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature))) {
+      console.warn('[slack-events] signature mismatch', { expected, provided: signature });
+      res.status(400).send('bad signature');
       return;
     }
 
-    if (!verifySlackSignature(req, secret)) {
-      try {
-        const timestamp = req.headers['x-slack-request-timestamp'] as string | '';
-        const signature = req.headers['x-slack-signature'] as string | '';
-        const rawBody: Buffer | string = (req as any).rawBody || (req as any).bodyRaw || (req as any).body || '';
-        const body = Buffer.isBuffer(rawBody) ? rawBody.toString('utf8') : typeof rawBody === 'string' ? rawBody : JSON.stringify(rawBody || {});
-        const base = `v0:${timestamp}:${body}`;
-        const calc = require('crypto').createHmac('sha256', secret).update(base).digest('hex');
-        console.warn('[slack-events] signature mismatch', { provided: signature, expected: `v0=${calc}` });
-      } catch {}
-      res.status(401).send('invalid signature');
+    // Parse after signature verification
+    let payload: any = undefined;
+    try {
+      payload = JSON.parse(rawBuf.toString('utf8'));
+    } catch (e) {
+      console.error('[slack-events] parse error', e);
+      res.status(400).send('parse error');
+      return;
+    }
+    console.log('[slack-events] parsed payload', payload);
+
+    // URL verification
+    if (payload?.type === 'url_verification') {
+      res.status(200).send(payload.challenge || '');
       return;
     }
 
-    const event = (req.body as any)?.event;
-    try { console.log('[slack-events] event', JSON.stringify(event)); } catch {}
-    if (!event) { res.status(200).json({ ok: true }); return; }
+    // Ack immediately
+    res.status(200).json({ ok: true });
 
-    // Only handle message events in threads, ignore bots
-    if (event.type === 'message' && event.thread_ts && !event.subtype && event.user) {
-      const thread = event.thread_ts as string;
-      const channel = event.channel as string;
-      const text = (event.text || '').toString();
+    // Process event callbacks
+    if (payload?.type === 'event_callback') {
+      const event = payload.event;
+      if (!event) { console.log('[slack-events] no event in callback'); return; }
+      console.log('[slack-events] event', event);
 
-      // Lookup live session by slack_thread_ts
-      let { data: session, error } = await supabase
-        .from('rex_live_sessions')
-        .select('id, widget_session_id, user_name')
-        .eq('slack_thread_ts', thread)
-        .eq('slack_channel_id', channel)
-        .maybeSingle();
-      if (error) {
-        console.error('[slack-events] session lookup error', error);
-      }
+      if (event.type === 'message' && event.thread_ts) {
+        const channel = event.channel as string;
+        const thread = event.thread_ts as string;
+        const text = String(event.text || '');
 
-      // Fallback: if no session mapping exists yet, try to resolve the widget_session_id by
-      // reading the parent message (posted by our mirror or handoff) and parsing "Session: <uuid>"
-      if (!session && process.env.SLACK_BOT_TOKEN) {
+        // Skip bot self-messages
         try {
-          const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
-          const r = await slack.conversations.replies({ channel, ts: thread, limit: 1 });
-          const starter = (r.messages || [])[0] as any;
-          const parentText: string = (starter?.text || '').toString();
-          const m = parentText.match(/Session:\s*([0-9a-fA-F-]{36})/);
-          const widgetSessionId = m?.[1] || null;
-          if (widgetSessionId) {
-            await supabase
-              .from('rex_live_sessions')
-              .insert({ widget_session_id: widgetSessionId, slack_channel_id: channel, slack_thread_ts: thread })
-              .select('id, widget_session_id')
-              .single();
-            const { data: sess2 } = await supabase
-              .from('rex_live_sessions')
-              .select('id, widget_session_id, user_name')
-              .eq('slack_thread_ts', thread)
-              .eq('slack_channel_id', channel)
-              .maybeSingle();
-            session = sess2 as any;
+          const botToken = process.env.SLACK_BOT_TOKEN;
+          if (botToken) {
+            const slack = new WebClient(botToken);
+            const auth = await slack.auth.test();
+            if (event.user && auth?.user_id && event.user === auth.user_id) {
+              console.log('[slack-events] skipping bot message');
+              return;
+            }
           }
-        } catch (e) {
-          console.error('[slack-events] fallback session resolution failed', e);
+        } catch {}
+
+        // Lookup session mapping
+        let { data: session } = await supabase
+          .from('rex_live_sessions')
+          .select('id, widget_session_id, user_name')
+          .eq('slack_channel_id', channel)
+          .eq('slack_thread_ts', thread)
+          .maybeSingle();
+
+        // Fallback mapping by parsing parent message
+        if (!session && process.env.SLACK_BOT_TOKEN) {
+          try {
+            const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
+            const { messages } = await slack.conversations.history({ channel, latest: thread, inclusive: true, limit: 1 });
+            const parent = (messages?.[0]?.text || '') as string;
+            const m = parent.match(/Session:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+            const widgetId = m?.[1] || null;
+            if (widgetId) {
+              await supabase.from('rex_live_sessions').insert({ widget_session_id: widgetId, slack_channel_id: channel, slack_thread_ts: thread });
+              session = { id: null, widget_session_id: widgetId, user_name: null } as any;
+              console.log('[slack-events] fallback created session', widgetId);
+            }
+          } catch (e) {
+            console.error('[slack-events] fallback mapping error', e);
+          }
+        }
+
+        if (session?.widget_session_id) {
+          // Fetch user name (best-effort)
+          let userName: string | null = null;
+          try {
+            const botToken = process.env.SLACK_BOT_TOKEN;
+            if (botToken && event.user) {
+              const slack = new WebClient(botToken);
+              const ui = await slack.users.info({ user: event.user });
+              userName = (ui.user as any)?.real_name || (ui.user as any)?.name || null;
+            }
+          } catch {}
+
+          await sendMessageToWidget(session.widget_session_id, {
+            from: 'human',
+            name: userName,
+            message: text,
+            timestamp: new Date().toISOString(),
+          });
+          await supabase
+            .from('rex_live_sessions')
+            .update({ last_human_reply: new Date().toISOString() })
+            .eq('slack_channel_id', channel)
+            .eq('slack_thread_ts', thread);
+        } else {
+          console.warn('[slack-events] no session mapping found for thread', { channel, thread });
         }
       }
-
-      if (session?.widget_session_id) {
-        await sendMessageToWidget(session.widget_session_id, {
-          from: 'human',
-          name: session.user_name || null,
-          message: text,
-          timestamp: new Date().toISOString(),
-        });
-        // Update last_human_reply
-        await supabase
-          .from('rex_live_sessions')
-          .update({ last_human_reply: new Date().toISOString() })
-          .eq('id', session.id);
-      }
     }
-
-    res.status(200).json({ ok: true });
   } catch (err) {
     console.error('[slack-events] error', err);
-    res.status(500).json({ error: 'internal_error' });
+    try { res.status(500).json({ error: 'internal_error' }); } catch {}
   }
 }
 
