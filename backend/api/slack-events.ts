@@ -29,12 +29,16 @@ export async function slackEventsHandler(req: express.Request, res: express.Resp
     });
 
     // Handle Slack URL verification (must respond immediately with the challenge)
-    if (req.body && (req.body as any).type === 'url_verification') {
-      const ch = (req.body as any).challenge;
-      console.log('[slack-events] handling url_verification', { challenge: ch });
-      res.status(200).json({ challenge: ch });
-      return;
-    }
+    try {
+      const raw = (req as any).rawBody || (req as any).body || '';
+      const asStr = Buffer.isBuffer(raw) ? raw.toString('utf8') : (typeof raw === 'string' ? raw : '');
+      const parsed = asStr ? JSON.parse(asStr) : undefined;
+      if (parsed && parsed.type === 'url_verification') {
+        console.log('[slack-events] handling url_verification', { challenge: parsed.challenge });
+        res.status(200).send(parsed.challenge);
+        return;
+      }
+    } catch {}
     const secret = process.env.SLACK_SIGNING_SECRET;
     if (!secret) {
       res.status(500).send('SLACK_SIGNING_SECRET not set');
