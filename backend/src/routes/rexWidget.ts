@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import { z } from 'zod';
 import rateLimit from 'express-rate-limit';
 import axios from 'axios';
 import OpenAI from 'openai';
@@ -37,12 +38,18 @@ function getAnonId(req: Request): string | null {
 
 router.post('/chat', async (req: Request, res: Response) => {
   try {
-    const { threadId, mode, messages, context } = req.body as {
-      threadId?: string;
-      mode: 'sales' | 'support' | 'rex';
-      messages: { role: 'user' | 'assistant' | 'system'; text: string }[];
-      context?: { url?: string; pathname?: string; rb2b?: any; userId?: string | null };
-    };
+    const chatSchema = z.object({
+      threadId: z.string().uuid().optional(),
+      mode: z.enum(['sales', 'support', 'rex']),
+      messages: z.array(z.object({ role: z.enum(['user', 'assistant', 'system']), text: z.string().max(2000) })).max(20),
+      context: z.object({ url: z.string().url().optional(), pathname: z.string().optional(), rb2b: z.any().optional(), userId: z.string().uuid().nullable().optional() }).optional(),
+    });
+    const validated = chatSchema.safeParse(req.body);
+    if (!validated.success) {
+      res.status(400).json({ error: 'Invalid input', details: validated.error.issues });
+      return;
+    }
+    const { threadId, mode, messages, context } = validated.data;
 
     const anonId = getAnonId(req);
     const userId = context?.userId || null;
@@ -258,7 +265,8 @@ router.post('/chat', async (req: Request, res: Response) => {
     const CANONICAL = 'https://thehirepilot.com';
 
     // Clean-slate REX system prompt (used by the modular handler below)
-    const rexSystemPrompt = [
+    // Optionally load from system_settings to allow prompt updates without deploy
+    let rexSystemPrompt = [
       'You are REX, the official AI recruiting assistant for HirePilot — a modern AI-powered sourcing and outreach platform.',
       '',
       'Your job is to confidently and helpfully answer questions about HirePilot’s product features, pricing, integrations, automation capabilities, and use cases. You may also compare HirePilot to other tools like Greenhouse, Lever, Outreach.io, or Clay — and explain how HirePilot is different.',
@@ -269,6 +277,9 @@ router.post('/chat', async (req: Request, res: Response) => {
       '',
       'Your tone is expert, modern, and helpful. You are never vague. You always give the best possible answer — even without exact documentation.',
       '',
+      'For comparisons, structure the answer as a Markdown table when helpful.',
+      'Sources must be an array of URLs only.',
+      '',
       'Respond in this JSON format:',
       '{',
       '  "content": "<your answer as Markdown>",',
@@ -276,6 +287,10 @@ router.post('/chat', async (req: Request, res: Response) => {
       '  "tutorial": "<if applicable, short how-to steps, else null>"',
       '}',
     ].join('\n');
+    try {
+      const { data: promptRow } = await supabase.from('system_settings').select('value').eq('key', 'rex_system_prompt').maybeSingle();
+      if (promptRow?.value && typeof promptRow.value === 'string') rexSystemPrompt = promptRow.value;
+    } catch {}
 
     // === Helpers for clean REX handler ===
     function checkCuratedFAQ(message: string | undefined): { content: string; sources: string[]; tutorial: string | null } | null {
@@ -393,7 +408,10 @@ router.post('/chat', async (req: Request, res: Response) => {
           }
         }
       } catch {}
-      return { snippets: snippets.slice(0, 4), links: Array.from(new Set(links)).slice(0, 6) };
+      const uniqueLinks = Array.from(new Set(links));
+      const uniqueSnippets = Array.from(new Set(snippets)).slice(0, 4);
+      if (uniqueSnippets.length < 2) { try { await logEvent('rex_rag_miss', { query: q }); } catch {} }
+      return { snippets: uniqueSnippets, links: uniqueLinks.slice(0, 6) };
     }
 
     function isWeakAnswer(content: string | undefined | null): boolean {
@@ -431,7 +449,7 @@ router.post('/chat', async (req: Request, res: Response) => {
         { role: 'system', content: `${prompt}${contextBlock}\n\nReturn ONLY valid JSON with keys {content, sources, tutorial}.` },
         { role: 'user', content: userMessage },
       ] as any;
-      const resp = await openai.chat.completions.create({ model: 'gpt-4o', temperature: 0.2, messages });
+      const resp = await openai.chat.completions.create({ model: 'gpt-4o', temperature: 0.2, max_tokens: 800, messages });
       const raw = resp.choices?.[0]?.message?.content || '';
       try {
         const parsed = JSON.parse(raw);
@@ -506,25 +524,32 @@ router.post('/chat', async (req: Request, res: Response) => {
           },
         },
       ] as any;
-      const first = await openai.chat.completions.create({ model: 'gpt-4o', temperature: 0.2, messages, tools, tool_choice: 'auto' as any });
+      const first = await openai.chat.completions.create({ model: 'gpt-4o', temperature: 0.2, max_tokens: 400, messages, tools, tool_choice: 'auto' as any });
       const mc = first.choices?.[0]?.message as any;
       let toolData: any[] = [];
       if (mc?.tool_calls && mc.tool_calls.length) {
-        for (const tc of mc.tool_calls) {
+        const capped = mc.tool_calls.slice(0, 3);
+        const toolResponses = await Promise.all(capped.map(async (tc: any) => {
           const name = tc.function?.name;
           let args: any = {};
           try { args = JSON.parse(tc.function?.arguments || '{}'); } catch {}
-          if (name === 'web_search') {
-            const data = await webSearchTool(String(args.query || ''));
-            toolData.push({ name, args, data });
-            messages.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(data) });
-          } else if (name === 'browse_page') {
-            const data = await browsePageTool(String(args.url || ''), String(args.instructions || ''));
-            toolData.push({ name, args, data });
-            messages.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(data) });
+          let data: any;
+          try {
+            if (name === 'web_search') {
+              data = await webSearchTool(String(args.query || ''));
+            } else if (name === 'browse_page') {
+              data = await browsePageTool(String(args.url || ''), String(args.instructions || ''));
+            } else {
+              data = { error: 'unknown_tool' };
+            }
+          } catch (toolErr: any) {
+            data = { error: String(toolErr?.message || toolErr) };
           }
-        }
-        const second = await openai.chat.completions.create({ model: 'gpt-4o', temperature: 0.2, messages });
+          toolData.push({ name, args, data });
+          return { role: 'tool', tool_call_id: tc.id, content: JSON.stringify(data) };
+        }));
+        messages.push(...toolResponses);
+        const second = await openai.chat.completions.create({ model: 'gpt-4o', temperature: 0.2, max_tokens: 800, messages });
         const raw2 = second.choices?.[0]?.message?.content || '';
         try {
           const parsed = JSON.parse(raw2);
