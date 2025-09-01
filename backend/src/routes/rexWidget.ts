@@ -257,6 +257,220 @@ router.post('/chat', async (req: Request, res: Response) => {
 
     const CANONICAL = 'https://thehirepilot.com';
 
+    // Clean-slate REX system prompt (used by the modular handler below)
+    const rexSystemPrompt = [
+      'You are REX, the official AI recruiting assistant for HirePilot — a modern AI-powered sourcing and outreach platform.',
+      '',
+      'Your job is to confidently and helpfully answer questions about HirePilot’s product features, pricing, integrations, automation capabilities, and use cases. You may also compare HirePilot to other tools like Greenhouse, Lever, Outreach.io, or Clay — and explain how HirePilot is different.',
+      '',
+      'Always speak with clarity and confidence. Never say “as an AI...” — you are a team member at HirePilot, not an external tool.',
+      '',
+      'If the user asks “how to” questions, respond with a clear, friendly numbered list of steps. If they ask a comparison question, give a concise but thoughtful answer. If you\'re unsure, answer helpfully based on available information and offer to connect them to the team or provide a demo link.',
+      '',
+      'Your tone is expert, modern, and helpful. You are never vague. You always give the best possible answer — even without exact documentation.',
+      '',
+      'Respond in this JSON format:',
+      '{',
+      '  "content": "<your answer as Markdown>",',
+      '  "sources": ["<linked source or blog>", "..."],',
+      '  "tutorial": "<if applicable, short how-to steps, else null>"',
+      '}',
+    ].join('\n');
+
+    // === Helpers for clean REX handler ===
+    function checkCuratedFAQ(message: string | undefined): { content: string; sources: string[]; tutorial: string | null } | null {
+      const m = (message || '').toLowerCase();
+      if (!m) return null;
+      const curated: Array<{ test: (s: string) => boolean; answer: { content: string; sources: string[]; tutorial: string | null } }> = [
+        {
+          test: s => /launch\s+a\s+campaign|start\s+a\s+campaign/.test(s),
+          answer: {
+            content: [
+              'To launch a campaign in HirePilot:',
+              '',
+              '1. Go to the Campaigns tab.',
+              '2. Click “New Campaign”.',
+              '3. Add a title, audience tags, and your messaging.',
+              '4. Click Launch — HirePilot will handle outreach and tracking.',
+            ].join('\n'),
+            sources: ['https://thehirepilot.com/blog/flow-of-hirepilot'],
+            tutorial: '1) Campaigns → New Campaign → Fill details → Launch',
+          },
+        },
+        {
+          test: s => /what\s+is\s+hirepilot|explain\s+hirepilot|what\s+do\s+you\s+do/.test(s),
+          answer: {
+            content: 'HirePilot is an AI recruiting platform that finds candidates, automates outreach, and helps you turn leads into interviews — before they enter your ATS.',
+            sources: ['https://thehirepilot.com/'],
+            tutorial: null,
+          },
+        },
+        {
+          test: s => /pricing|cost|plans?/.test(s),
+          answer: {
+            content: 'We offer multiple plans tailored to team size and needs. See our up-to-date options here: https://thehirepilot.com/pricing. If you want help choosing, I can connect you for a quick demo.',
+            sources: ['https://thehirepilot.com/pricing'],
+            tutorial: null,
+          },
+        },
+        {
+          test: s => /compare|difference.*greenhouse|greenhouse/.test(s),
+          answer: {
+            content: [
+              'Great question! Greenhouse is an ATS, while HirePilot focuses on sourcing, AI-assisted outreach, and top-of-funnel recruiting workflows.',
+              '',
+              '- Greenhouse manages candidates once they apply.',
+              '- HirePilot helps you find and engage candidates before they enter the ATS.',
+              '',
+              'They work well together, but solve different problems.',
+            ].join('\n'),
+            sources: ['https://thehirepilot.com/blog'],
+            tutorial: null,
+          },
+        },
+        {
+          test: s => /integrations?|connect.*ats|greenhouse|lever|workable|bullhorn/.test(s),
+          answer: {
+            content: 'HirePilot integrates into your workflow and can complement ATS tools like Greenhouse or Lever. For specific integrations, tell me which tool and I\'ll outline the best approach.',
+            sources: ['https://thehirepilot.com/blog'],
+            tutorial: null,
+          },
+        },
+        {
+          test: s => /how\s+to\s+write|compose\s+message|sequence|outreach/.test(s),
+          answer: {
+            content: [
+              'To compose effective outreach in HirePilot:',
+              '',
+              '1. Choose your audience and tags.',
+              '2. Start with a short value-led opener.',
+              '3. Add 2–3 follow-ups spaced a few days apart.',
+              '4. Personalize tokens like company or role where possible.',
+            ].join('\n'),
+            sources: ['https://thehirepilot.com/blog'],
+            tutorial: '1) Select audience → 2) Draft opener → 3) Add follow-ups → 4) Personalize',
+          },
+        },
+      ];
+      const hit = curated.find(c => c.test(m));
+      return hit ? hit.answer : null;
+    }
+
+    async function matchKbChunks(query: string | undefined): Promise<{ snippets: string[]; links: string[] }> {
+      if (!query) return { snippets: [], links: [] };
+      const q = query.slice(0, 1000);
+      const snippets: string[] = [];
+      const links: string[] = [];
+      try {
+        const emb = await openai.embeddings.create({ model: 'text-embedding-3-small', input: q });
+        const embedding = emb.data?.[0]?.embedding as any;
+        if (embedding) {
+          const { data: vec } = await supabase.rpc('match_kb_chunks', { query_embedding: embedding, match_count: 8 });
+          if (Array.isArray(vec) && vec.length) {
+            const picked = (vec as any[]).slice(0, 6);
+            picked.forEach((r: any) => {
+              if (r?.content) snippets.push(String(r.content).slice(0, 1800));
+              if (r?.url) links.push(String(r.url));
+            });
+          }
+        }
+        if (snippets.length === 0) {
+          const { data: pages } = await supabase
+            .from('rex_kb_pages')
+            .select('id,url,title')
+            .textSearch('text', q, { type: 'websearch' })
+            .limit(4);
+          if (pages?.length) {
+            links.push(...pages.map((p: any) => p.url).filter(Boolean));
+            const ids = pages.map((p: any) => p.id);
+            const { data: chunks } = await supabase
+              .from('rex_kb_chunks')
+              .select('content,page_id,ordinal')
+              .in('page_id', ids)
+              .order('ordinal', { ascending: true })
+              .limit(8);
+            (chunks || []).forEach((c: any) => { if (c?.content) snippets.push(String(c.content).slice(0, 1800)); });
+          }
+        }
+      } catch {}
+      return { snippets: snippets.slice(0, 4), links: Array.from(new Set(links)).slice(0, 6) };
+    }
+
+    function isWeakAnswer(content: string | undefined | null): boolean {
+      const t = (content || '').trim();
+      if (t.length < 40) return true;
+      const weakPhrases = [
+        'no verified answer',
+        'not sure',
+        'i\'m not sure',
+        'book a demo',
+        'here\'s what i found',
+      ];
+      const lowInfo = ['how to', 'feature', 'pricing', 'integration', 'campaign'].some(k => t.toLowerCase().includes(k));
+      return weakPhrases.some(p => t.toLowerCase().includes(p)) && !lowInfo;
+    }
+
+    function isValidAnswer(content: string | undefined | null): boolean {
+      const t = (content || '').trim();
+      return t.length >= 40;
+    }
+
+    async function sendSlackTicket(userMessage: string | undefined): Promise<void> {
+      try {
+        const slackUrl = process.env.SLACK_WIDGET_WEBHOOK_URL || process.env.SLACK_WEBHOOK_URL;
+        if (!slackUrl || !userMessage) return;
+        await axios.post(slackUrl, { text: `REX Escalation Needed\nMessage: ${userMessage}` });
+      } catch {}
+    }
+
+    async function callGPT(params: { prompt: string; context: string[]; userMessage: string }): Promise<{ content: string; sources: string[]; tutorial: any }> {
+      const { prompt, context, userMessage } = params;
+      const contextBlock = context.length ? `\n\nContext:\n${context.map((s, i) => `(${i + 1}) ${s}`).join('\n')}` : '';
+      const messages = [
+        { role: 'system', content: `${prompt}${contextBlock}\n\nReturn ONLY valid JSON with keys {content, sources, tutorial}.` },
+        { role: 'user', content: userMessage },
+      ] as any;
+      const resp = await openai.chat.completions.create({ model: 'gpt-4o', temperature: 0.2, messages });
+      const raw = resp.choices?.[0]?.message?.content || '';
+      try {
+        const parsed = JSON.parse(raw);
+        const content = typeof parsed?.content === 'string' ? parsed.content : '';
+        const sources = Array.isArray(parsed?.sources) ? parsed.sources.map((s: any) => String(s)).filter(Boolean).slice(0, 8) : [];
+        const tutorial = parsed?.tutorial ?? null;
+        return { content, sources, tutorial };
+      } catch {
+        return { content: '', sources: [], tutorial: null };
+      }
+    }
+
+    async function handleRexMessage(userMessage: string): Promise<{ content: string; sources: string[]; tutorial: any }> {
+      // 1) Curated FAQ
+      const curated = checkCuratedFAQ(userMessage);
+      if (curated) return curated;
+
+      // 2) KB match and grounded GPT
+      const kb = await matchKbChunks(userMessage);
+      const grounded = await callGPT({ prompt: rexSystemPrompt, context: kb.snippets, userMessage });
+      if (!isWeakAnswer(grounded.content)) {
+        const mergedSources = Array.from(new Set([...(grounded.sources || []), ...(kb.links || [])])).slice(0, 8);
+        return { content: grounded.content, sources: mergedSources, tutorial: grounded.tutorial };
+      }
+
+      // 3) Fallback GPT with no context
+      const fallback = await callGPT({ prompt: rexSystemPrompt, context: [], userMessage });
+      if (isValidAnswer(fallback.content)) {
+        return fallback;
+      }
+
+      // 4) Escalation to Slack and polite fallback
+      await sendSlackTicket(userMessage);
+      return {
+        content: 'I wasn\'t able to answer that fully — but I\'ve pinged the team for help! You can also check our [blog](https://thehirepilot.com/blog) or [schedule a quick demo](https://thehirepilot.com/demo).',
+        sources: [],
+        tutorial: null,
+      };
+    }
+
     function salesPrompt(): string {
       const pricing = settings['pricing_tiers']
         ? `Pricing tiers: ${JSON.stringify(settings['pricing_tiers'])}. Link: https://thehirepilot.com/pricing.`
