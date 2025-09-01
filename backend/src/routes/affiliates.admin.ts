@@ -8,7 +8,7 @@ r.get('/', async (_req, res) => {
   try {
     const { data: affs, error: affErr } = await supabaseAdmin
       .from('affiliates')
-      .select('id,user_id,referral_code,status,tier,created_at')
+      .select('id,user_id,referral_code,status,tier')
       .order('id', { ascending: false });
     if (affErr) return res.status(400).json({ error: affErr.message });
     const ids = (affs||[]).map(a=>a.id);
