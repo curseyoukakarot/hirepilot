@@ -21,7 +21,7 @@ export const MessageComposer: React.FC<Props> = ({ onSend, isSending, quickActio
         <textarea
           className="flex-1 resize-none rounded-lg border border-gray-300 p-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           rows={2}
-          placeholder="Ask REX..."
+          placeholder="Ask REX or chat with the HirePilot Team"
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
