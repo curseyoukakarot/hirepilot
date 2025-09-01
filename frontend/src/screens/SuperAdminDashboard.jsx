@@ -14,25 +14,23 @@ export default function SuperAdminDashboard() {
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
   useEffect(() => {
-    const fetchLatestUser = async () => {
+    const fetchLatestUsers = async () => {
       try {
         const token = (await supabase.auth.getSession()).data.session?.access_token;
-        const res = await fetch(`${BACKEND_URL}/api/admin/users`, {
+        const res = await fetch(`${BACKEND_URL}/api/admin/latest-users`, {
           headers: { 'Authorization': `Bearer ${token}` },
         });
         if (!res.ok) throw new Error('Failed to fetch users');
         const users = await res.json();
-        // Get the most recent user
-        const sortedUsers = users.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        setLatestUser(sortedUsers[0]);
+        setLatestUser(users.slice(0,5));
         setActiveUsers(users.length);
       } catch (err) {
-        console.error('Failed to fetch latest user:', err);
+        console.error('Failed to fetch latest users:', err);
       } finally {
         setLoading(false);
       }
     };
-    fetchLatestUser();
+    fetchLatestUsers();
   }, []);
 
   return (
@@ -166,26 +164,25 @@ export default function SuperAdminDashboard() {
                       Loading...
                     </td>
                   </tr>
-                ) : latestUser ? (
-                  <tr>
+                ) : Array.isArray(latestUser) && latestUser.length ? (
+                  latestUser.map((u)=> (
+                  <tr key={u.id}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="h-8 w-8 rounded-full bg-gray-600 flex items-center justify-center">
-                          <span className="text-xs">{latestUser.firstName?.[0]}{latestUser.lastName?.[0]}</span>
+                          <span className="text-xs">{(u.firstName||u.first_name||'')[0]}{(u.lastName||u.last_name||'')[0]}</span>
                         </div>
                         <div className="ml-3">
-                          <div className="text-sm font-medium">{latestUser.firstName} {latestUser.lastName}</div>
+                          <div className="text-sm font-medium">{u.firstName||u.first_name} {u.lastName||u.last_name}</div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{latestUser.email}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{u.email}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 py-1 text-xs font-medium bg-blue-900 text-blue-200 rounded-full">{latestUser.role}</span>
+                      <span className="px-2 py-1 text-xs font-medium bg-blue-900 text-blue-200 rounded-full">{u.role}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-200">Direct</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-200">
-                      {new Date(latestUser.createdAt).toLocaleDateString()}
-                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-200">{u.created_at ? new Date(u.created_at).toLocaleDateString() : '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-200">
                       <div className="flex space-x-2">
                         <button className="text-blue-600 hover:text-blue-800">
@@ -197,6 +194,7 @@ export default function SuperAdminDashboard() {
                       </div>
                     </td>
                   </tr>
+                  ))
                 ) : (
                   <tr>
                     <td colSpan="6" className="px-6 py-4 text-center text-sm text-gray-400">
@@ -208,54 +206,7 @@ export default function SuperAdminDashboard() {
             </table>
           </div>
         </div>
-        {/* Cookie Session Monitor */}
-        <div id="cookie-monitor" className="bg-gray-800 p-4 rounded-lg shadow-md">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-semibold text-gray-100">Cookie Session Monitor</h2>
-            <button className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm">
-              <i className="fa-solid fa-sync mr-1"></i> Refresh All
-            </button>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-700">
-              <thead className="bg-gray-700">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">User</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Service</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Last Refreshed</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Expiration ETA</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Action</th>
-                </tr>
-              </thead>
-              <tbody className="bg-gray-700 divide-y divide-gray-700">
-                {/* Example rows, replace with dynamic data */}
-                <tr>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-white">John Doe</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <i className="fa-brands fa-linkedin text-blue-500 mr-2"></i>
-                      <span className="text-sm text-white">LinkedIn</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-white">Jun 12, 2023 (2 days ago)</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-white">12 days</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 py-1 text-xs font-medium bg-green-900 text-green-200 rounded-full">Healthy</span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <button className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs">
-                      Refresh
-                    </button>
-                  </td>
-                </tr>
-                {/* Add more rows as needed */}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        {/* Cookie Session Monitor removed */}
       </div>
     </div>
   );
