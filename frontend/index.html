@@ -20,6 +20,10 @@
     </div>
     <!-- Live Chat Popup (replaces old FAQ popup) -->
     <div id="rex-popup" class="fixed bottom-6 right-6 z-50" style="display: none;">
+      <!-- Sticky toggle pill to reopen popup -->
+      <button id="rex-popup-toggle" class="px-4 py-2 rounded-full shadow-lg bg-white text-slate-800 border border-slate-200 hover:bg-slate-50 text-sm mb-3 hidden">
+        💬 Chat with HirePilot
+      </button>
       <div id="faq-panel" class="w-96 h-[600px] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col">
         <div id="faq-header" class="p-6 border-b border-gray-100">
           <div class="flex items-center justify-between mb-3">
@@ -106,6 +110,7 @@
       (function() {
         var faqPanel = document.getElementById('faq-panel');
         var liveChatPanel = document.getElementById('live-chat-panel');
+        var popupToggle = document.getElementById('rex-popup-toggle');
         var chatWithTeamBtn = document.getElementById('chat-with-team-btn');
         var backToFaqBtn = document.getElementById('back-to-faq');
         var closeFaqBtn = document.getElementById('close-faq');
@@ -123,8 +128,19 @@
 
         if (chatWithTeamBtn) chatWithTeamBtn.addEventListener('click', function(){ faqPanel.classList.add('hidden'); liveChatPanel.classList.remove('hidden'); });
         if (backToFaqBtn) backToFaqBtn.addEventListener('click', function(){ liveChatPanel.classList.add('hidden'); faqPanel.classList.remove('hidden'); });
-        if (closeFaqBtn) closeFaqBtn.addEventListener('click', function(){ var host = document.getElementById('rex-popup'); if (host) host.style.display = 'none'; });
-        if (closeChatBtn) closeChatBtn.addEventListener('click', function(){ var host = document.getElementById('rex-popup'); if (host) host.style.display = 'none'; });
+        function hidePanelsShowToggle(){
+          if (faqPanel) faqPanel.classList.add('hidden');
+          if (liveChatPanel) liveChatPanel.classList.add('hidden');
+          if (popupToggle) popupToggle.classList.remove('hidden');
+        }
+        function showFaqHideToggle(){
+          if (faqPanel) faqPanel.classList.remove('hidden');
+          if (liveChatPanel) liveChatPanel.classList.add('hidden');
+          if (popupToggle) popupToggle.classList.add('hidden');
+        }
+        if (popupToggle) popupToggle.addEventListener('click', function(){ showFaqHideToggle(); });
+        if (closeFaqBtn) closeFaqBtn.addEventListener('click', function(){ hidePanelsShowToggle(); });
+        if (closeChatBtn) closeChatBtn.addEventListener('click', function(){ hidePanelsShowToggle(); });
 
         function addMessageToChat(message, sender) {
           var messageDiv = document.createElement('div');
@@ -162,9 +178,18 @@
           localStorage.setItem('chatSessionId', sessionId);
         }
 
+        // Compute API base (mirror existing non-React snippet logic)
+        function getApiBase(){
+          try {
+            var flags = (window.__REX_FLAGS__) || {};
+            var apiBase = flags.apiBaseUrl || (window).VITE_BACKEND_URL || (location.origin.indexOf('thehirepilot.com') > -1 ? 'https://api.thehirepilot.com' : 'http://localhost:8080');
+            return apiBase.endsWith('/api') ? apiBase : (apiBase + '/api');
+          } catch (_) { return '/api'; }
+        }
+
         function sendToSlack(name, email, message) {
           try {
-            fetch('/api/sendToSlack', {
+            fetch(getApiBase() + '/sendToSlack', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ name: name, email: email, message: message, sessionId: sessionId })
@@ -196,7 +221,7 @@
         // Poll messages every 3s to render team replies
         setInterval(function(){
           if (!sessionId) return;
-          fetch('/api/getMessages?sessionId=' + encodeURIComponent(sessionId))
+          fetch(getApiBase() + '/getMessages?sessionId=' + encodeURIComponent(sessionId))
             .then(function(r){ return r.ok ? r.json() : []; })
             .then(function(messages){
               if (!Array.isArray(messages)) return;
@@ -216,6 +241,11 @@
           if (!host) return;
           if (isProductHuntMode && isPopupEnabled) {
             host.style.display = 'block';
+            // On load, keep toggle hidden only if panels are visible
+            if (popupToggle) {
+              var anyOpen = faqPanel && !faqPanel.classList.contains('hidden');
+              if (!anyOpen) popupToggle.classList.remove('hidden');
+            }
             if (typeof window.hideREXChatbot === 'function') window.hideREXChatbot();
           } else {
             host.style.display = 'none';
