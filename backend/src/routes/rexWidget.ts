@@ -283,7 +283,7 @@ router.post('/chat', async (req: Request, res: Response) => {
         faqs,
         company,
         'Never say "No verified answer." Instead, offer your best available insight and point the user toward the next step.',
-        'Output valid JSON with keys: {content, sources, tutorial}. Limit content to 120 words unless you are giving a tutorial.'
+        'Output valid JSON with keys: {content, sources, tutorial}. If no sources are found, you may still answer confidently using product knowledge. Never say "no verified answer" — instead, say what you do know and offer a link or next step.'
       ].filter(Boolean).join(' ');
     }
 
@@ -319,7 +319,7 @@ router.post('/chat', async (req: Request, res: Response) => {
       'what is hirepilot': [ { title: 'HirePilot Home', url: 'https://thehirepilot.com/' } ],
     };
     const key = (lastUser?.text || '').toLowerCase().trim();
-    const deterministic = Object.keys(deterministicKnowledge).find(k => key.includes(k));
+    const deterministic = Object.keys(deterministicKnowledge).find(k => k.split(' ').every(w => key.includes(w)));
     if (deterministic) {
       const forced = deterministicKnowledge[deterministic];
       sources = forced.concat(sources || []).slice(0, 4);
@@ -342,6 +342,11 @@ router.post('/chat', async (req: Request, res: Response) => {
         }
       }
     }
+    
+    // Basic RAG diagnostics
+    console.log('[rex_widget/chat] 🧠 Query:', lastUser?.text);
+    console.log('[rex_widget/chat] 🔍 RAG snippets count:', contextSnippets.length);
+    console.log('[rex_widget/chat] 📚 Sources:', sources);
 
     const ragBlock = contextSnippets.length ? `\n\nContext:\n${contextSnippets.map((s, i) => `(${i + 1}) ${s}`).join('\n')}` : '';
     const buildGroundedMessages = () => ([
@@ -415,23 +420,18 @@ router.post('/chat', async (req: Request, res: Response) => {
     }
 
     // Grounded fallback: if planner response looks weak, produce grounded answer (content only), keep CTA/state
-    if (lastUser?.text && plan.intent !== 'greeting_smalltalk' && answerIsWeak(content, plan.intent)) {
+    if (lastUser?.text && plan.intent !== 'greeting_smalltalk' && (answerIsWeak(content, plan.intent) || contextSnippets.length === 0)) {
       try {
         // Add competitor context if relevant
         await maybeAddCompetitorContext(lastUser.text);
-        const gm = buildGroundedMessages();
+        // Recompute rag block to include any newly added context
+        const dynamicRagBlock = contextSnippets.length ? `\n\nContext:\n${contextSnippets.map((s, i) => `(${i + 1}) ${s}`).join('\n')}` : '';
         const resp = await openai.chat.completions.create({
           model: 'gpt-4o-mini',
           temperature: 0.2,
           messages: [
-            {
-              role: 'system',
-              content: 'Rewrite the following weak or generic answer into a confident, helpful, product-aware response. Use provided context where possible. Return JSON: {content, sources, tutorial}.',
-            },
-            {
-              role: 'user',
-              content: `Answer: ${content}\n\nContext:\n${contextSnippets.join('\n')}`,
-            },
+            { role: 'system', content: `${sys}${citationBlock}${dynamicRagBlock}\n\nRewrite the following weak or generic answer into a confident, helpful, product-aware response. Use provided context where possible. Return JSON: {content, sources, tutorial}.` },
+            { role: 'user', content: `Answer: ${content}` },
           ],
         });
         try {
