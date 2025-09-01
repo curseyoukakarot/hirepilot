@@ -122,9 +122,12 @@ export async function slackEventsHandler(req: express.Request, res: express.Resp
             const m = parent.match(/Session:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
             const widgetId = m?.[1] || null;
             if (widgetId) {
-              await supabase.from('rex_live_sessions').insert({ widget_session_id: widgetId, slack_channel_id: channel, slack_thread_ts: thread });
+              const { error: upErr } = await supabase
+                .from('rex_live_sessions')
+                .upsert({ widget_session_id: widgetId, slack_channel_id: channel, slack_thread_ts: thread }, { onConflict: 'widget_session_id' });
+              if (upErr) console.error('[slack-events] fallback upsert error', upErr);
+              else console.log('[slack-events] fallback upsert session', widgetId);
               session = { id: null, widget_session_id: widgetId, user_name: null } as any;
-              console.log('[slack-events] fallback created session', widgetId);
             }
           } catch (e) {
             console.error('[slack-events] fallback mapping error', e);
@@ -145,12 +148,19 @@ export async function slackEventsHandler(req: express.Request, res: express.Resp
 
           // Mark human engaged if not already
           try {
-            if (!session.human_engaged_at) {
+            const { data: current } = await supabase
+              .from('rex_live_sessions')
+              .select('human_engaged_at')
+              .eq('widget_session_id', session.widget_session_id)
+              .maybeSingle();
+            if (current && !current.human_engaged_at) {
               await supabase
                 .from('rex_live_sessions')
                 .update({ human_engaged_at: new Date().toISOString() })
-                .eq('id', session.id as any);
-              console.log('[slack-events] marked human_engaged_at');
+                .eq('widget_session_id', session.widget_session_id);
+              console.log('[slack-events] marked engaged');
+            } else if (current) {
+              console.log('[slack-events] already engaged');
             }
           } catch {}
 

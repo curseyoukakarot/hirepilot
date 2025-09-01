@@ -601,17 +601,18 @@ router.post('/handoff', async (req: Request, res: Response) => {
     // Create live session row if we have a root thread ts + channel id
     if (threadTs && channelId) {
       try {
-        await supabase
+        const { error } = await supabase
           .from('rex_live_sessions')
-          .insert({
+          .upsert({
             widget_session_id: threadId,
             slack_channel_id: channelId,
             slack_thread_ts: threadTs,
             user_email: null,
             user_name: null,
-          });
+          }, { onConflict: 'widget_session_id' });
+        if (error) console.error('[handoff] upsert error', error);
       } catch (insErr) {
-        console.error('[rex_widget/handoff] failed to insert rex_live_sessions', insErr);
+        console.error('[rex_widget/handoff] upsert failed', insErr);
       }
     }
     const zapierUrl = process.env.ZAPIER_HOOK_URL;
