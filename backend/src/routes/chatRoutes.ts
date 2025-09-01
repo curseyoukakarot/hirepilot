@@ -58,4 +58,24 @@ router.post('/slack/events', async (req: express.Request, res: express.Response)
 
 export default router;
 
+// Admin diagnostics endpoint to inspect messages for a session
+router.get('/admin/chat-messages/:sessionId', async (req: express.Request, res: express.Response) => {
+  try {
+    const token = (req.headers['x-admin-token'] as string) || '';
+    if (!process.env.ADMIN_TOKEN || token !== process.env.ADMIN_TOKEN) {
+      res.status(401).json({ error: 'unauthorized' });
+      return;
+    }
+    const { sessionId } = req.params as { sessionId: string };
+    if (!sessionId) {
+      res.status(400).json({ error: 'missing sessionId' });
+      return;
+    }
+    const messages = await getMessages(sessionId);
+    res.json(messages);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch messages' });
+  }
+});
+
 
