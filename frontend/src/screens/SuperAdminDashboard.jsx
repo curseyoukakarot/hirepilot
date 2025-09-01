@@ -110,9 +110,9 @@ export default function SuperAdminDashboard() {
           <div id="quick-actions" className="bg-gray-800 p-4 rounded-lg shadow-md">
             <h2 className="text-lg font-semibold mb-4 text-gray-100">Quick Actions</h2>
             <div className="grid grid-cols-2 gap-3">
-              <button className="flex flex-col items-center justify-center p-4 bg-gray-700 rounded-md hover:bg-gray-600 transition-colors" onClick={() => navigate('/phantom/cookie-refresh')}>
-                <i className="fa-solid fa-sync text-blue-600 text-xl mb-2"></i>
-                <span className="text-sm text-gray-200">Refresh Cookies</span>
+              <button className="flex flex-col items-center justify-center p-4 bg-gray-700 rounded-md hover:bg-gray-600 transition-colors" onClick={() => navigate('/admin/affiliates')}>
+                <i className="fa-solid fa-handshake text-blue-600 text-xl mb-2"></i>
+                <span className="text-sm text-gray-200">Affiliate Manager</span>
               </button>
               <button className="flex flex-col items-center justify-center p-4 bg-gray-700 rounded-md hover:bg-gray-600 transition-colors" onClick={() => navigate('/admin/users')}>
                 <i className="fa-solid fa-user-shield text-blue-600 text-xl mb-2"></i>
