@@ -279,80 +279,80 @@ router.post('/chat', async (req: Request, res: Response) => {
 
     // === Helpers for clean REX handler ===
     function checkCuratedFAQ(message: string | undefined): { content: string; sources: string[]; tutorial: string | null } | null {
-      const m = (message || '').toLowerCase();
-      if (!m) return null;
-      const curated: Array<{ test: (s: string) => boolean; answer: { content: string; sources: string[]; tutorial: string | null } }> = [
+      const q = (message || '').toLowerCase();
+      if (!q) return null;
+      const entries: Array<{ pattern: RegExp; answer: { content: string; sources: string[]; tutorial: string | null } }> = [
         {
-          test: s => /launch\s+a\s+campaign|start\s+a\s+campaign/.test(s),
+          pattern: /how\s+(do|can)?\s*i\s*(launch|start|create|set\s*up)\s+(a\s*)?campaign/i,
           answer: {
             content: [
-              'To launch a campaign in HirePilot:',
+              'Launching a campaign in HirePilot is straightforward:',
               '',
-              '1. Go to the Campaigns tab.',
-              '2. Click “New Campaign”.',
-              '3. Add a title, audience tags, and your messaging.',
-              '4. Click Launch — HirePilot will handle outreach and tracking.',
+              '1. Go to Campaigns → New Campaign.',
+              '2. Name it, select your audience or import a list.',
+              '3. Customize your AI outreach sequence and follow-ups.',
+              '4. Set sender details and schedule.',
+              '5. Click Launch — automation handles the rest.',
             ].join('\n'),
             sources: ['https://thehirepilot.com/blog/flow-of-hirepilot'],
-            tutorial: '1) Campaigns → New Campaign → Fill details → Launch',
+            tutorial: '1) Campaigns → New Campaign → Audience → Messages → Launch',
           },
         },
         {
-          test: s => /what\s+is\s+hirepilot|explain\s+hirepilot|what\s+do\s+you\s+do/.test(s),
+          pattern: /what(\s+is|'s)\s+included\s+in\s+(pro|professional)\s+plan|what\s+do\s+i\s+get\s+with\s+pro/i,
           answer: {
-            content: 'HirePilot is an AI recruiting platform that finds candidates, automates outreach, and helps you turn leads into interviews — before they enter your ATS.',
-            sources: ['https://thehirepilot.com/'],
-            tutorial: null,
-          },
-        },
-        {
-          test: s => /pricing|cost|plans?/.test(s),
-          answer: {
-            content: 'We offer multiple plans tailored to team size and needs. See our up-to-date options here: https://thehirepilot.com/pricing. If you want help choosing, I can connect you for a quick demo.',
+            content: [
+              'The Pro plan includes AI sourcing, full campaign automation, data enrichment, Chrome extension, Slack alerts, and advanced analytics. It\'s ideal for teams scaling recruiting with automation.',
+              'See current details here: https://thehirepilot.com/pricing',
+            ].join('\n'),
             sources: ['https://thehirepilot.com/pricing'],
             tutorial: null,
           },
         },
         {
-          test: s => /compare|difference.*greenhouse|greenhouse/.test(s),
+          pattern: /pricing|cost|plans?/i,
+          answer: {
+            content: 'We offer multiple plans for different team sizes. For the latest tiers and inclusions, see https://thehirepilot.com/pricing. I can also help you pick the right plan.',
+            sources: ['https://thehirepilot.com/pricing'],
+            tutorial: null,
+          },
+        },
+        {
+          pattern: /compare|versus|vs\.?\s+.*(greenhouse|lever|outreach|gem|clay|sales\s*nav|sales\s*navigator|linkedin\s*recruiter)/i,
           answer: {
             content: [
-              'Great question! Greenhouse is an ATS, while HirePilot focuses on sourcing, AI-assisted outreach, and top-of-funnel recruiting workflows.',
-              '',
-              '- Greenhouse manages candidates once they apply.',
-              '- HirePilot helps you find and engage candidates before they enter the ATS.',
-              '',
-              'They work well together, but solve different problems.',
+              'High level: ATS/CRM tools manage candidates after they apply; HirePilot focuses on AI-powered sourcing and outreach before they enter your ATS.',
+              'We can work alongside Greenhouse/Lever — HirePilot finds and engages candidates, then you track them in the ATS.',
             ].join('\n'),
             sources: ['https://thehirepilot.com/blog'],
             tutorial: null,
           },
         },
         {
-          test: s => /integrations?|connect.*ats|greenhouse|lever|workable|bullhorn/.test(s),
+          pattern: /integrations?|connect.*(ats|greenhouse|lever|workable|bullhorn|zapier)/i,
           answer: {
-            content: 'HirePilot integrates into your workflow and can complement ATS tools like Greenhouse or Lever. For specific integrations, tell me which tool and I\'ll outline the best approach.',
+            content: 'HirePilot complements common ATS tools and supports flexible workflows. Tell me which tool you use and I\'ll outline the best setup.',
             sources: ['https://thehirepilot.com/blog'],
             tutorial: null,
           },
         },
         {
-          test: s => /how\s+to\s+write|compose\s+message|sequence|outreach/.test(s),
+          pattern: /how\s+to\s+write|compose\s+message|sequence|outreach/i,
           answer: {
             content: [
               'To compose effective outreach in HirePilot:',
               '',
               '1. Choose your audience and tags.',
-              '2. Start with a short value-led opener.',
+              '2. Lead with a short, value-forward opener.',
               '3. Add 2–3 follow-ups spaced a few days apart.',
-              '4. Personalize tokens like company or role where possible.',
+              '4. Personalize tokens like company or role.',
             ].join('\n'),
             sources: ['https://thehirepilot.com/blog'],
             tutorial: '1) Select audience → 2) Draft opener → 3) Add follow-ups → 4) Personalize',
           },
         },
       ];
-      const hit = curated.find(c => c.test(m));
+      const hit = entries.find(e => e.pattern.test(q));
       return hit ? hit.answer : null;
     }
 
@@ -415,11 +415,12 @@ router.post('/chat', async (req: Request, res: Response) => {
       return t.length >= 40;
     }
 
-    async function sendSlackTicket(userMessage: string | undefined): Promise<void> {
+    async function sendSlackTicket(userMessage: string | undefined, extras?: Record<string, any>): Promise<void> {
       try {
         const slackUrl = process.env.SLACK_WIDGET_WEBHOOK_URL || process.env.SLACK_WEBHOOK_URL;
         if (!slackUrl || !userMessage) return;
-        await axios.post(slackUrl, { text: `REX Escalation Needed\nMessage: ${userMessage}` });
+        const tail = extras ? `\nExtras: ${JSON.stringify(extras).slice(0, 1500)}` : '';
+        await axios.post(slackUrl, { text: `REX Escalation Needed\nMessage: ${userMessage}${tail}` });
       } catch {}
     }
 
@@ -443,6 +444,110 @@ router.post('/chat', async (req: Request, res: Response) => {
       }
     }
 
+    // Web tools for function calling
+    async function webSearchTool(query: string): Promise<any> {
+      if (!ALLOW_WEB_FALLBACK) return { results: [] };
+      const SERP = process.env.SERPAPI_KEY;
+      try {
+        if (SERP) {
+          const r = await axios.get('https://serpapi.com/search.json', { params: { engine: 'google', q: query, api_key: SERP, num: 5 }, timeout: 6000 });
+          const items = (r.data?.organic_results || []).slice(0, 5).map((it: any) => ({ title: it.title, link: it.link, snippet: it.snippet }));
+          return { results: items };
+        }
+      } catch {}
+      // Fallback: no external API → return empty
+      return { results: [] };
+    }
+
+    async function browsePageTool(url: string, instructions: string): Promise<any> {
+      if (!ALLOW_WEB_FALLBACK) return { url, content: '' };
+      try {
+        const r = await axios.get(url, { timeout: 6000 });
+        const txt = htmlToText(String(r.data || '')).slice(0, 4000);
+        return { url, content: txt, instructions };
+      } catch {
+        return { url, content: '', instructions };
+      }
+    }
+
+    async function callGPTWithTools(params: { prompt: string; context: string[]; userMessage: string }): Promise<{ content: string; sources: string[]; tutorial: any; toolData?: any }> {
+      const { prompt, context, userMessage } = params;
+      const contextBlock = context.length ? `\n\nContext:\n${context.map((s, i) => `(${i + 1}) ${s}`).join('\n')}` : '';
+      let messages: any[] = [
+        { role: 'system', content: `${prompt}${contextBlock}\n\nUse tools when you need external info for comparisons. Return ONLY valid JSON {content, sources, tutorial}.` },
+        { role: 'user', content: userMessage },
+      ];
+      const tools = [
+        {
+          type: 'function',
+          function: {
+            name: 'web_search',
+            description: 'Search the web for up-to-date info on recruiting tools (features, pricing, pros/cons).',
+            parameters: {
+              type: 'object',
+              properties: { query: { type: 'string', description: 'Search query like “Greenhouse features pricing 2025”' } },
+              required: ['query'],
+            },
+          },
+        },
+        {
+          type: 'function',
+          function: {
+            name: 'browse_page',
+            description: 'Fetch and summarize content from a specific URL, such as pricing pages.',
+            parameters: {
+              type: 'object',
+              properties: {
+                url: { type: 'string', description: 'URL to fetch' },
+                instructions: { type: 'string', description: 'What to extract, e.g., pricing or features' },
+              },
+              required: ['url', 'instructions'],
+            },
+          },
+        },
+      ] as any;
+      const first = await openai.chat.completions.create({ model: 'gpt-4o', temperature: 0.2, messages, tools, tool_choice: 'auto' as any });
+      const mc = first.choices?.[0]?.message as any;
+      let toolData: any[] = [];
+      if (mc?.tool_calls && mc.tool_calls.length) {
+        for (const tc of mc.tool_calls) {
+          const name = tc.function?.name;
+          let args: any = {};
+          try { args = JSON.parse(tc.function?.arguments || '{}'); } catch {}
+          if (name === 'web_search') {
+            const data = await webSearchTool(String(args.query || ''));
+            toolData.push({ name, args, data });
+            messages.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(data) });
+          } else if (name === 'browse_page') {
+            const data = await browsePageTool(String(args.url || ''), String(args.instructions || ''));
+            toolData.push({ name, args, data });
+            messages.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(data) });
+          }
+        }
+        const second = await openai.chat.completions.create({ model: 'gpt-4o', temperature: 0.2, messages });
+        const raw2 = second.choices?.[0]?.message?.content || '';
+        try {
+          const parsed = JSON.parse(raw2);
+          const content = typeof parsed?.content === 'string' ? parsed.content : '';
+          const sources = Array.isArray(parsed?.sources) ? parsed.sources.map((s: any) => String(s)).filter(Boolean).slice(0, 8) : [];
+          const tutorial = parsed?.tutorial ?? null;
+          return { content, sources, tutorial, toolData };
+        } catch {
+          return { content: '', sources: [], tutorial: null, toolData };
+        }
+      }
+      const raw = mc?.content || '';
+      try {
+        const parsed = JSON.parse(raw);
+        const content = typeof parsed?.content === 'string' ? parsed.content : '';
+        const sources = Array.isArray(parsed?.sources) ? parsed.sources.map((s: any) => String(s)).filter(Boolean).slice(0, 8) : [];
+        const tutorial = parsed?.tutorial ?? null;
+        return { content, sources, tutorial, toolData };
+      } catch {
+        return { content: '', sources: [], tutorial: null, toolData };
+      }
+    }
+
     async function handleRexMessage(userMessage: string): Promise<{ content: string; sources: string[]; tutorial: any }> {
       // 1) Curated FAQ
       const curated = checkCuratedFAQ(userMessage);
@@ -456,16 +561,24 @@ router.post('/chat', async (req: Request, res: Response) => {
         return { content: grounded.content, sources: mergedSources, tutorial: grounded.tutorial };
       }
 
-      // 3) Fallback GPT with no context
+      // 3) Tool-using GPT for comparisons or when grounded is weak
+      const looksComparative = /(compare|versus|vs\.?)/i.test(userMessage) || /(greenhouse|lever|outreach|gem|clay|sales\s*nav|sales\s*navigator|linkedin\s*recruiter)/i.test(userMessage);
+      const withTools = await callGPTWithTools({ prompt: rexSystemPrompt, context: looksComparative ? kb.snippets : [], userMessage });
+      if (!isWeakAnswer(withTools.content)) {
+        const mergedSources = Array.from(new Set([...(withTools.sources || []), ...(kb.links || [])])).slice(0, 8);
+        return { content: withTools.content, sources: mergedSources, tutorial: withTools.tutorial };
+      }
+
+      // 4) Fallback GPT with no context
       const fallback = await callGPT({ prompt: rexSystemPrompt, context: [], userMessage });
       if (isValidAnswer(fallback.content)) {
         return fallback;
       }
 
-      // 4) Escalation to Slack and polite fallback
-      await sendSlackTicket(userMessage);
+      // 5) Escalation to Slack with tool data and polite fallback
+      await sendSlackTicket(userMessage, { kb_links: kb.links?.slice(0, 5), tools: 'used' });
       return {
-        content: 'I wasn\'t able to answer that fully — but I\'ve pinged the team for help! You can also check our [blog](https://thehirepilot.com/blog) or [schedule a quick demo](https://thehirepilot.com/demo).',
+        content: 'I wasn\'t able to answer that fully — but I\'ve pinged the team for help. Meanwhile, here are quick links: [Blog](https://thehirepilot.com/blog) · [Pricing](https://thehirepilot.com/pricing) · [Demo](https://thehirepilot.com/demo).',
         sources: [],
         tutorial: null,
       };
