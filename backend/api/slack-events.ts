@@ -27,6 +27,14 @@ export async function slackEventsHandler(req: express.Request, res: express.Resp
       hasRaw: typeof (req as any).rawBody === 'string',
       bodyType: typeof (req as any).body,
     });
+
+    // Handle Slack URL verification (must respond immediately with the challenge)
+    if (req.body && (req.body as any).type === 'url_verification') {
+      const ch = (req.body as any).challenge;
+      console.log('[slack-events] handling url_verification', { challenge: ch });
+      res.status(200).json({ challenge: ch });
+      return;
+    }
     const secret = process.env.SLACK_SIGNING_SECRET;
     if (!secret) {
       res.status(500).send('SLACK_SIGNING_SECRET not set');
