@@ -334,6 +334,8 @@ export function useRexWidget(options?: UseRexWidgetOptions) {
     shouldPulse,
     config: config || {},
     cta,
+    isLive,
+    liveStatus,
   } as const;
 }
 

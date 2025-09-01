@@ -19,14 +19,26 @@ type Props = {
   onOpenLead?: () => void;
   onContactSupport?: () => void;
   cta?: RexCta | null;
+  isLive?: boolean;
+  liveStatus?: 'idle' | 'connecting' | 'online' | 'connected';
 };
 
-export const ChatPanel: React.FC<Props> = ({ isOpen, onClose, onSend, loading, messages, mode, demoUrl, calendlyUrl, showSalesCtas, onHandoff, onOpenLead, onContactSupport, cta }) => {
+export const ChatPanel: React.FC<Props> = ({ isOpen, onClose, onSend, loading, messages, mode, demoUrl, calendlyUrl, showSalesCtas, onHandoff, onOpenLead, onContactSupport, cta, isLive, liveStatus }) => {
   if (!isOpen) return null;
   return (
     <div className="fixed bottom-24 right-6 z-50 w-[380px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl animate-in data-[state=open]:slide-in-from-bottom-4">
       <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-        <div className="text-sm font-semibold text-gray-900">{mode === 'sales' ? 'Sales Assistant' : mode === 'support' ? 'Support Assistant' : 'REX Assistant'}</div>
+        <div className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+          <span>{mode === 'sales' ? 'Sales Assistant' : mode === 'support' ? 'Support Assistant' : 'REX Assistant'}</span>
+          {isLive && (
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600">
+              <span className={`inline-block h-2 w-2 rounded-full ${liveStatus==='connected'?'bg-green-600 animate-pulse': liveStatus==='online'?'bg-amber-500 animate-pulse':'bg-gray-400'}`}></span>
+              {liveStatus==='connecting' && 'HirePilot team member connecting...'}
+              {liveStatus==='online' && 'HirePilot team member online...'}
+              {liveStatus==='connected' && 'Connected...'}
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           {mode === 'sales' && (
             <>

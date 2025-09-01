@@ -23,6 +23,8 @@ export const RexWidget: React.FC<RexWidgetProps> = ({ mode = 'sales', config, cl
     sendLead,
     shouldPulse,
     setSalesCtaOverride,
+    isLive,
+    liveStatus,
   } = useRexWidget({ initialMode: mode, config });
   const [leadOpen, setLeadOpen] = useState(false);
 
@@ -40,6 +42,8 @@ export const RexWidget: React.FC<RexWidgetProps> = ({ mode = 'sales', config, cl
         calendlyUrl={config?.calendlyUrl}
         showSalesCtas={showSalesCtas}
         onHandoff={sendHandoff}
+        isLive={isLive}
+        liveStatus={liveStatus}
         onOpenLead={() => setLeadOpen(true)}
         onContactSupport={async () => {
           try { await sendHandoff('support'); } catch {}
