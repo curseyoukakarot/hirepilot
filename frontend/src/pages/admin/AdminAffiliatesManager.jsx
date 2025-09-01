@@ -10,8 +10,8 @@ export default function AdminAffiliatesManager(){
   async function authHeaders(){
     const { data: { session } } = await supabase.auth.getSession();
     const h = { 'Content-Type':'application/json' };
-    if (session?.access_token) (h as any).Authorization = `Bearer ${session.access_token}`;
-    return h as any;
+    if (session?.access_token) h.Authorization = `Bearer ${session.access_token}`;
+    return h;
   }
 
   async function load(){
@@ -21,7 +21,7 @@ export default function AdminAffiliatesManager(){
       if(!res.ok) throw new Error('Failed to load');
       const data = await res.json();
       setRows(data);
-    }catch(e:any){ setError(e.message||'Failed'); }
+    }catch(e){ setError(e.message||'Failed'); }
     setLoading(false);
   }
 
@@ -36,7 +36,7 @@ export default function AdminAffiliatesManager(){
       if(!res.ok) throw new Error('Create failed');
       setForm({ user_id:'', referral_code:'', status:'active', tier:'' });
       await load();
-    }catch(e:any){ setError(e.message||'Failed'); }
+    }catch(e){ setError(e.message||'Failed'); }
   }
 
   async function update(id, patch){
@@ -47,7 +47,7 @@ export default function AdminAffiliatesManager(){
       });
       if(!res.ok) throw new Error('Update failed');
       await load();
-    }catch(e:any){ setError(e.message||'Failed'); }
+    }catch(e){ setError(e.message||'Failed'); }
   }
 
   async function remove(id){
@@ -59,7 +59,7 @@ export default function AdminAffiliatesManager(){
       });
       if(!res.ok) throw new Error('Delete failed');
       await load();
-    }catch(e:any){ setError(e.message||'Failed'); }
+    }catch(e){ setError(e.message||'Failed'); }
   }
 
   async function reassign(id){
@@ -71,7 +71,7 @@ export default function AdminAffiliatesManager(){
       });
       if(!res.ok) throw new Error('Reassign failed');
       await load();
-    }catch(e:any){ setError(e.message||'Failed'); }
+    }catch(e){ setError(e.message||'Failed'); }
   }
 
   return (
@@ -109,7 +109,7 @@ export default function AdminAffiliatesManager(){
               </tr>
             </thead>
             <tbody>
-              {rows.map((r:any)=>(
+              {rows.map((r)=> (
                 <tr key={r.id} className="border-b">
                   <td className="py-2 pr-4 font-mono text-xs">{r.user_id}</td>
                   <td className="py-2 pr-4">{r.referral_code}</td>
