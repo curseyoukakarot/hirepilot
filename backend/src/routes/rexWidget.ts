@@ -1097,10 +1097,42 @@ router.post('/kb/reindex', async (req: Request, res: Response) => {
       res.status(401).json({ error: 'unauthorized' });
       return;
     }
-    // Call Supabase Edge Function
-    const fnUrl = `${process.env.SUPABASE_URL}/functions/v1/crawl_kb`;
-    const r = await axios.post(fnUrl, {}, { headers: { Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}` } });
-    res.json(r.data);
+    // Call Supabase Edge Function with robust fallback attempts
+    const supabaseUrl = String(process.env.SUPABASE_URL || '').replace(/\/$/, '');
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !serviceKey) {
+      res.status(500).json({ error: 'missing_supabase_env', details: { SUPABASE_URL: !!supabaseUrl, SUPABASE_SERVICE_ROLE_KEY: !!serviceKey } });
+      return;
+    }
+    const preferred = process.env.SUPABASE_REINDEX_FUNCTION_NAME || 'crawl_kb';
+    const candidates = Array.from(new Set([preferred, 'crawl-kb', 'kb_reindex', 'kb-reindex', 'reindex_kb']));
+    const errors: any[] = [];
+    for (const name of candidates) {
+      try {
+        const url = `${supabaseUrl}/functions/v1/${name}`;
+        const r = await axios.post(url, {}, { headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey, 'Content-Type': 'application/json' }, timeout: 10000 });
+        if (r.status >= 200 && r.status < 300) {
+          res.json({ ok: true, function: name, result: r.data });
+          return;
+        }
+        errors.push({ function: name, status: r.status, data: r.data });
+      } catch (e: any) {
+        errors.push({ function: name, error: e?.response?.status || e?.message || String(e) });
+      }
+    }
+    // Final fallback: try supabase-js functions.invoke with the preferred name
+    try {
+      // @ts-ignore functions may not be configured with service key in this client
+      const inv = await (supabase as any).functions.invoke(preferred, { body: {} });
+      if (inv?.data) {
+        res.json({ ok: true, function: preferred, result: inv.data, method: 'functions.invoke' });
+        return;
+      }
+      errors.push({ function: preferred, method: 'functions.invoke', result: inv });
+    } catch (e: any) {
+      errors.push({ function: preferred, method: 'functions.invoke', error: e?.message || String(e) });
+    }
+    res.status(502).json({ error: 'edge_function_not_found', attempts: errors });
   } catch (err: any) {
     await logEvent('rex_widget_error', { route: 'kb/reindex', error: err?.message || String(err), stack: err?.stack });
     res.status(500).json({ error: err?.message || 'Internal error' });
