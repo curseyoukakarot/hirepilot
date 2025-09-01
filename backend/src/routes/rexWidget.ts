@@ -83,25 +83,40 @@ router.post('/chat', async (req: Request, res: Response) => {
 
     // If human takeover is engaged or REX is disabled, suppress AI and optionally relay to Slack
     try {
-      const { data: live } = await supabase
+      const { data: live, error: liveErr } = await supabase
         .from('rex_live_sessions')
         .select('slack_channel_id, slack_thread_ts, human_engaged_at, rex_disabled')
         .eq('widget_session_id', sessionId)
-        .maybeSingle();
-      const suppressAI = !!(live && (live.human_engaged_at || live.rex_disabled));
-      if (suppressAI) {
+        .single();
+      if (liveErr) {
+        console.error('[rex_widget/chat] live query error', liveErr);
+      }
+      console.log('[rex_widget/chat] live session check', { sessionId, live: live ? { human_engaged_at: live.human_engaged_at, rex_disabled: live.rex_disabled } : 'none' });
+      if (live && (live.human_engaged_at || live.rex_disabled)) {
+        console.log('[rex_widget/chat] suppressing AI - live engaged');
         // Relay user's message to Slack thread if available
-        if (lastUser && live?.slack_channel_id && live?.slack_thread_ts && process.env.SLACK_BOT_TOKEN) {
+        const botToken = process.env.SLACK_BOT_TOKEN;
+        if (lastUser && live.slack_channel_id && live.slack_thread_ts && botToken) {
           try {
-            const slack = new (require('@slack/web-api').WebClient)(process.env.SLACK_BOT_TOKEN);
-            await slack.chat.postMessage({ channel: live.slack_channel_id, thread_ts: live.slack_thread_ts, text: `User: ${lastUser.text}` });
-          } catch {}
+            const { WebClient } = require('@slack/web-api');
+            const slack = new WebClient(botToken);
+            await slack.chat.postMessage({
+              channel: live.slack_channel_id,
+              thread_ts: live.slack_thread_ts,
+              text: `User: ${lastUser.text}`,
+              unfurl_links: false,
+              unfurl_media: false,
+            });
+            console.log('[rex_widget/chat] relayed user to Slack');
+          } catch (e: any) {
+            console.error('[rex_widget/chat] Slack relay failed', e?.message || e);
+          }
         }
         // Return without generating assistant content
-        res.json({ threadId: sessionId, message: null, cta: null });
+        res.json({ threadId: sessionId, message: { text: 'Message sent to team — awaiting reply' }, cta: null, state: 'live', intent: 'handoff' });
         return;
       }
-    } catch {}
+    } catch (e: any) { console.error('[rex_widget/chat] live guard error', e?.message || e); }
 
     // RAG sources (all modes now): hybrid semantic + keyword
     let sources: { title: string; url: string }[] | undefined = undefined;
