@@ -108,7 +108,7 @@ export async function slackEventsHandler(req: express.Request, res: express.Resp
         // Lookup session mapping
         let { data: session } = await supabase
           .from('rex_live_sessions')
-          .select('id, widget_session_id, user_name, human_engaged_at')
+          .select('id, widget_session_id, user_name, human_engaged_at, rex_disabled')
           .eq('slack_channel_id', channel)
           .eq('slack_thread_ts', thread)
           .maybeSingle();
@@ -122,11 +122,28 @@ export async function slackEventsHandler(req: express.Request, res: express.Resp
             const m = parent.match(/Session:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
             const widgetId = m?.[1] || null;
             if (widgetId) {
-              const { error: upErr } = await supabase
+              // Ensure mapping without relying on unique constraint
+              const { data: byWidget } = await supabase
                 .from('rex_live_sessions')
-                .upsert({ widget_session_id: widgetId, slack_channel_id: channel, slack_thread_ts: thread }, { onConflict: 'widget_session_id' });
-              if (upErr) console.error('[slack-events] fallback upsert error', upErr);
-              else console.log('[slack-events] fallback upsert session', widgetId);
+                .select('id')
+                .eq('widget_session_id', widgetId)
+                .maybeSingle();
+              if (byWidget?.id) {
+                await supabase.from('rex_live_sessions').update({ slack_channel_id: channel, slack_thread_ts: thread }).eq('id', byWidget.id);
+              } else {
+                const { data: byThread } = await supabase
+                  .from('rex_live_sessions')
+                  .select('id')
+                  .eq('slack_channel_id', channel)
+                  .eq('slack_thread_ts', thread)
+                  .maybeSingle();
+                if (byThread?.id) {
+                  await supabase.from('rex_live_sessions').update({ widget_session_id: widgetId }).eq('id', byThread.id);
+                } else {
+                  await supabase.from('rex_live_sessions').insert({ widget_session_id: widgetId, slack_channel_id: channel, slack_thread_ts: thread });
+                }
+              }
+              console.log('[slack-events] ensured mapping for session', widgetId);
               session = { id: null, widget_session_id: widgetId, user_name: null } as any;
             }
           } catch (e) {
@@ -172,7 +189,7 @@ export async function slackEventsHandler(req: express.Request, res: express.Resp
           try {
             const { data: current } = await supabase
               .from('rex_live_sessions')
-              .select('human_engaged_at')
+              .select('human_engaged_at, rex_disabled')
               .eq('widget_session_id', session.widget_session_id)
               .maybeSingle();
             if (current && !current.human_engaged_at) {

@@ -87,7 +87,7 @@ router.post('/chat', async (req: Request, res: Response) => {
         .from('rex_live_sessions')
         .select('slack_channel_id, slack_thread_ts, human_engaged_at, rex_disabled')
         .eq('widget_session_id', sessionId)
-        .single();
+        .maybeSingle();
       if (liveErr) {
         console.error('[rex_widget/chat] live query error', liveErr);
       }
@@ -601,18 +601,44 @@ router.post('/handoff', async (req: Request, res: Response) => {
     // Create live session row if we have a root thread ts + channel id
     if (threadTs && channelId) {
       try {
-        const { error } = await supabase
+        // Try to find existing by widget_session_id
+        const { data: existingByWidget } = await supabase
           .from('rex_live_sessions')
-          .upsert({
-            widget_session_id: threadId,
-            slack_channel_id: channelId,
-            slack_thread_ts: threadTs,
-            user_email: null,
-            user_name: null,
-          }, { onConflict: 'widget_session_id' });
-        if (error) console.error('[handoff] upsert error', error);
+          .select('id')
+          .eq('widget_session_id', threadId)
+          .maybeSingle();
+        if (existingByWidget?.id) {
+          await supabase
+            .from('rex_live_sessions')
+            .update({ slack_channel_id: channelId, slack_thread_ts: threadTs })
+            .eq('id', existingByWidget.id);
+        } else {
+          // Check existing by channel/thread
+          const { data: existingByThread } = await supabase
+            .from('rex_live_sessions')
+            .select('id')
+            .eq('slack_channel_id', channelId)
+            .eq('slack_thread_ts', threadTs)
+            .maybeSingle();
+          if (existingByThread?.id) {
+            await supabase
+              .from('rex_live_sessions')
+              .update({ widget_session_id: threadId })
+              .eq('id', existingByThread.id);
+          } else {
+            await supabase
+              .from('rex_live_sessions')
+              .insert({
+                widget_session_id: threadId,
+                slack_channel_id: channelId,
+                slack_thread_ts: threadTs,
+                user_email: null,
+                user_name: null,
+              });
+          }
+        }
       } catch (insErr) {
-        console.error('[rex_widget/handoff] upsert failed', insErr);
+        console.error('[rex_widget/handoff] ensure live session mapping failed', insErr);
       }
     }
     const zapierUrl = process.env.ZAPIER_HOOK_URL;
