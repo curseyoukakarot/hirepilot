@@ -28,6 +28,7 @@ import { supabase } from "./lib/supabase";
 import AdminUserManagement from './screens/AdminUserManagement';
 import AdminPuppetHealth from './screens/AdminPuppetHealth';
 import AdminProxyManagement from './screens/AdminProxyManagement';
+import AdminAffiliatesManager from './pages/admin/AdminAffiliatesManager';
 import LeadSyncFailures from './screens/LeadSyncFailures';
 import PhantomConfig from './screens/PhantomConfig';
 import WebhookLogs from './screens/WebhookLogs';
@@ -445,6 +446,7 @@ function InnerApp() {
               <Route path="/admin/users" element={<AdminUserManagement />} />
               <Route path="/admin/puppet-health" element={<AdminPuppetHealth />} />
               <Route path="/admin/proxy-management" element={<AdminProxyManagement />} />
+              <Route path="/admin/affiliates" element={<AdminAffiliatesManager />} />
               <Route path="/blog" element={<BlogLandingPage />} />
               <Route path="/chromeextension" element={<ChromeExtension />} />
               <Route path="/chromeextension/privacy" element={<ChromeExtensionPrivacy />} />
