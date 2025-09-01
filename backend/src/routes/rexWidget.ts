@@ -319,8 +319,8 @@ router.post('/chat', async (req: Request, res: Response) => {
           pattern: /what(\s+is|'s)\s+included\s+in\s+(pro|professional)\s+plan|what\s+do\s+i\s+get\s+with\s+pro/i,
           answer: {
             content: [
-              'The Pro plan includes AI sourcing, full campaign automation, data enrichment, Chrome extension, Slack alerts, and advanced analytics. It\'s ideal for teams scaling recruiting with automation.',
-              'See current details here: https://thehirepilot.com/pricing',
+              'Pro plan includes: AI sourcing (Apollo/LinkedIn), campaign management, enrichment, Chrome extension, Slack alerts, and up to ~1,000 credits/month. Ideal for teams scaling recruiting automation.',
+              'See current details here: https://thehirepilot.com/pricing (no hardcoded prices).',
             ].join('\n'),
             sources: ['https://thehirepilot.com/pricing'],
             tutorial: null,
@@ -329,8 +329,16 @@ router.post('/chat', async (req: Request, res: Response) => {
         {
           pattern: /pricing|cost|plans?/i,
           answer: {
-            content: 'We offer multiple plans for different team sizes. For the latest tiers and inclusions, see https://thehirepilot.com/pricing. I can also help you pick the right plan.',
+            content: 'We offer multiple plans for different team sizes. For the latest tiers and inclusions, see https://thehirepilot.com/pricing. I can also help you pick the right plan. No hardcoded prices — please refer to the page or settings.',
             sources: ['https://thehirepilot.com/pricing'],
+            tutorial: null,
+          },
+        },
+        {
+          pattern: /what(\s+is|'s)\s+hirepilot|explain\s+hirepilot/i,
+          answer: {
+            content: 'HirePilot is an AI-powered recruiting platform that automates sourcing, outreach, and scheduling to help teams fill roles faster. Key features: AI sourcing (Apollo/LinkedIn), campaign management, data enrichment, Chrome extension, Slack alerts, and Zapier integration. It differs from ATS like Greenhouse by focusing on pre-ATS automation.',
+            sources: ['https://thehirepilot.com/'],
             tutorial: null,
           },
         },
@@ -370,7 +378,7 @@ router.post('/chat', async (req: Request, res: Response) => {
       const low = (q || '').toLowerCase();
       if (/launch|start|create|set\s*up/.test(low) && /campaign/.test(low)) return 'https://thehirepilot.com/blog/flow-of-hirepilot';
       if (/pro\s*plan|pricing|cost|plans?/.test(low)) return 'https://thehirepilot.com/pricing';
-      if (/what\s+is\s+hirepilot|explain\s+hirepilot/.test(low)) return 'https://thehirepilot.com/';
+      if (/what\s+is\s+hirepilot|explain\s+hirepilot|hirepilot\s+is/.test(low)) return 'https://thehirepilot.com/';
       return null;
     }
 
@@ -424,22 +432,27 @@ router.post('/chat', async (req: Request, res: Response) => {
       }
       const uniqueLinks = Array.from(new Set(links));
       const uniqueSnippets = Array.from(new Set(snippets)).slice(0, 4);
-      if (uniqueSnippets.length < 2) { try { await logEvent('rex_rag_miss', { query: q }); } catch {} }
+      if (uniqueSnippets.length < 2) {
+        try { console.log('[rex_rag_miss] Query:', query, 'No matches - check KB index'); } catch {}
+        try { await logEvent('rex_rag_miss', { query: q }); } catch {}
+      }
       return { snippets: uniqueSnippets, links: uniqueLinks.slice(0, 6) };
     }
 
     function isWeakAnswer(content: string | undefined | null): boolean {
-      const t = (content || '').trim();
+      const t = (content || '').toLowerCase().trim();
       if (t.length < 40) return true;
       const weakPhrases = [
         'no verified answer',
         'not sure',
-        'i\'m not sure',
+        "i'm not sure",
         'book a demo',
-        'here\'s what i found',
+        "here's what i found",
+        'short answer',
+        'got it',
+        'want a quick demo',
       ];
-      const lowInfo = ['how to', 'feature', 'pricing', 'integration', 'campaign'].some(k => t.toLowerCase().includes(k));
-      return weakPhrases.some(p => t.toLowerCase().includes(p)) && !lowInfo;
+      return weakPhrases.some(p => t.includes(p));
     }
 
     function isValidAnswer(content: string | undefined | null): boolean {
@@ -494,11 +507,12 @@ router.post('/chat', async (req: Request, res: Response) => {
     async function browsePageTool(url: string, instructions: string): Promise<any> {
       if (!ALLOW_WEB_FALLBACK) return { url, content: '' };
       try {
-        const r = await axios.get(url, { timeout: 6000 });
+        const r = await axios.get(url, { timeout: 10000 });
         const txt = htmlToText(String(r.data || '')).slice(0, 4000);
         return { url, content: txt, instructions };
-      } catch {
-        return { url, content: '', instructions };
+      } catch (e: any) {
+        try { console.error('[browse_tool_error]', url, e?.message || e); } catch {}
+        return { url, content: '', instructions, error: String(e?.message || e) };
       }
     }
 
