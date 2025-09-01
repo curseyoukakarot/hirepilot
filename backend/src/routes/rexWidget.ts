@@ -81,6 +81,28 @@ router.post('/chat', async (req: Request, res: Response) => {
       }
     }
 
+    // If human takeover is engaged or REX is disabled, suppress AI and optionally relay to Slack
+    try {
+      const { data: live } = await supabase
+        .from('rex_live_sessions')
+        .select('slack_channel_id, slack_thread_ts, human_engaged_at, rex_disabled')
+        .eq('widget_session_id', sessionId)
+        .maybeSingle();
+      const suppressAI = !!(live && (live.human_engaged_at || live.rex_disabled));
+      if (suppressAI) {
+        // Relay user's message to Slack thread if available
+        if (lastUser && live?.slack_channel_id && live?.slack_thread_ts && process.env.SLACK_BOT_TOKEN) {
+          try {
+            const slack = new (require('@slack/web-api').WebClient)(process.env.SLACK_BOT_TOKEN);
+            await slack.chat.postMessage({ channel: live.slack_channel_id, thread_ts: live.slack_thread_ts, text: `User: ${lastUser.text}` });
+          } catch {}
+        }
+        // Return without generating assistant content
+        res.json({ threadId: sessionId, message: null, cta: null });
+        return;
+      }
+    } catch {}
+
     // RAG sources (all modes now): hybrid semantic + keyword
     let sources: { title: string; url: string }[] | undefined = undefined;
     let contextSnippets: string[] = [];

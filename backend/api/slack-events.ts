@@ -108,7 +108,7 @@ export async function slackEventsHandler(req: express.Request, res: express.Resp
         // Lookup session mapping
         let { data: session } = await supabase
           .from('rex_live_sessions')
-          .select('id, widget_session_id, user_name')
+          .select('id, widget_session_id, user_name, human_engaged_at')
           .eq('slack_channel_id', channel)
           .eq('slack_thread_ts', thread)
           .maybeSingle();
@@ -140,6 +140,17 @@ export async function slackEventsHandler(req: express.Request, res: express.Resp
               const slack = new WebClient(botToken);
               const ui = await slack.users.info({ user: event.user });
               userName = (ui.user as any)?.real_name || (ui.user as any)?.name || null;
+            }
+          } catch {}
+
+          // Mark human engaged if not already
+          try {
+            if (!session.human_engaged_at) {
+              await supabase
+                .from('rex_live_sessions')
+                .update({ human_engaged_at: new Date().toISOString() })
+                .eq('id', session.id as any);
+              console.log('[slack-events] marked human_engaged_at');
             }
           } catch {}
 
