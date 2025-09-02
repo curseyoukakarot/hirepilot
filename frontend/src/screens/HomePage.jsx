@@ -35,7 +35,7 @@ const HomePage = () => {
                   <span>Start Free</span>
                   <i className="fas fa-arrow-right"></i>
                 </a>
-                <a href="https://form.typeform.com/to/cnUZ9PgW" target="_blank" rel="noopener" className="border border-white text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white/10 transition-colors flex items-center justify-center space-x-2">
+                <a href="https://youtu.be/rTSGSxK0A7s" target="_blank" rel="noopener" className="border border-white text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white/10 transition-colors flex items-center justify-center space-x-2">
                   <i className="fas fa-play"></i>
                   <span>Watch Demo</span>
                 </a>
@@ -331,7 +331,7 @@ const HomePage = () => {
             <p className="text-xl text-blue-100">Recruiting shouldn't be slow. Let HirePilot automate it for you.</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <a href="/pricing" className="bg-white text-blue-600 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-100 transition-colors">Get Started Free</a>
-              <a href="https://form.typeform.com/to/cnUZ9PgW" target="_blank" rel="noopener" className="border border-white text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white/10 transition-colors">Watch Demo</a>
+              <a href="https://youtu.be/rTSGSxK0A7s" target="_blank" rel="noopener" className="border border-white text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white/10 transition-colors">Watch Demo</a>
             </div>
           </div>
         </div>
