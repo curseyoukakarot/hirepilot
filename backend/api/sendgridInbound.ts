@@ -3,6 +3,7 @@ import multer from 'multer';
 import { createClient } from '@supabase/supabase-js';
 import sgMail from '@sendgrid/mail';
 import { simpleParser } from 'mailparser';
+import { SourcingNotifications } from '../src/lib/notifications';
 
 const upload = multer();
 const router = express.Router();
@@ -350,7 +351,7 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
     } catch {}
 
     // Save reply to database using parsed data
-    await supabase.from('email_replies').insert({
+    const { data: replyRow } = await supabase.from('email_replies').insert({
       user_id: userId,
       campaign_id: campaignId,
       lead_id,
@@ -360,7 +361,7 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
       text_body: parsed.text,
       html_body: parsed.html,
       raw: req.body
-    });
+    }).select().single();
 
     // Also store an event into email_events for convenience
     await supabase.from('email_events').insert({
@@ -375,6 +376,24 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
     });
 
     console.log(`[sendgrid/inbound] Saved reply from ${parsed.from} for message ${messageId}`);
+
+    // Create Action Inbox notification (in-app) for the user
+    try {
+      if (userId) {
+        await SourcingNotifications.newReply({
+          userId,
+          campaignId: (campaignId ?? 'none') as any,
+          leadId: (lead_id ?? 'none') as any,
+          replyId: (replyRow as any)?.id || messageId,
+          classification: 'neutral',
+          subject: parsed.subject || '',
+          fromEmail: parsed.from || 'unknown@unknown.com',
+          body: parsed.text || parsed.html || ''
+        });
+      }
+    } catch (notifErr) {
+      console.warn('[sendgrid/inbound] Failed to create Action Inbox notification:', notifErr);
+    }
 
     // Forward reply to user's inbox
     try {

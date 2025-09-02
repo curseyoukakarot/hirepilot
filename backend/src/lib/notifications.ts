@@ -80,6 +80,7 @@ export async function pushNotification(card: Card) {
       body_md: validated.body_md,
       type: validated.type,
       actions: validated.actions,
+      metadata: validated.metadata,
       created_at: new Date().toISOString()
     })
     .select()

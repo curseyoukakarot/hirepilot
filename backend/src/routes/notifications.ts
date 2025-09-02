@@ -380,4 +380,95 @@ router.post('/agent-mode/team', requireAuth, async (req: ApiRequest, res: Respon
   }
 });
 
+// Admin-only: backfill Action Inbox notifications from existing email replies
+router.post('/notifications/backfill/email-replies', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const requesterId = getUserId(req);
+    if (!requesterId) return res.status(401).json({ error: 'Unauthorized' });
+
+    // Optional filter controls
+    const { user_id, since, limit } = req.body as {
+      user_id?: string;
+      since?: string;
+      limit?: number;
+    };
+
+    // Verify requester has admin flag (lightweight check)
+    const { data: requester } = await supabase
+      .from('users')
+      .select('is_admin')
+      .eq('id', requesterId)
+      .maybeSingle();
+    if (!requester?.is_admin) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    // Fetch replies missing notifications
+    let query = supabase
+      .from('email_replies')
+      .select('id, user_id, campaign_id, lead_id, from_email, subject, text_body, html_body, created_at')
+      .order('created_at', { ascending: false });
+
+    if (user_id) query = query.eq('user_id', user_id);
+    if (since) query = query.gte('created_at', since);
+    if (limit) query = query.limit(limit);
+    else query = query.limit(500);
+
+    const { data: replies, error } = await query;
+    if (error) throw error;
+
+    let created = 0;
+
+    for (const r of replies || []) {
+      const threadKey = r.campaign_id && r.lead_id ? `sourcing:${r.campaign_id}:${r.lead_id}` : undefined;
+
+      // Skip if a notification already exists for this reply (by thread and created_at proximity)
+      if (threadKey) {
+        const { data: existing } = await supabase
+          .from('notifications')
+          .select('id')
+          .eq('user_id', r.user_id)
+          .eq('thread_key', threadKey)
+          .gte('created_at', r.created_at)
+          .limit(1);
+        if (existing && existing.length > 0) continue;
+      }
+
+      const actions: any[] = [
+        { id: 'reply_draft', type: 'button', label: '🤖 Draft with REX', style: 'primary' },
+        { id: 'book_meeting', type: 'button', label: '📅 Book Meeting', style: 'secondary' },
+        { id: 'disqualify', type: 'button', label: '❌ Disqualify', style: 'danger' },
+        { id: 'free_text', type: 'input', placeholder: 'Type an instruction…' }
+      ];
+
+      const { error: insertErr } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: r.user_id,
+          source: 'inapp',
+          thread_key: threadKey,
+          title: `New reply from ${r.from_email || 'candidate'}`,
+          body_md: `${(r.text_body || r.html_body || '').slice(0, 700)}`,
+          type: 'sourcing_reply',
+          actions,
+          metadata: {
+            campaign_id: r.campaign_id,
+            lead_id: r.lead_id,
+            reply_id: r.id,
+            from_email: r.from_email,
+            subject: r.subject
+          },
+          created_at: new Date(r.created_at || Date.now()).toISOString()
+        });
+
+      if (!insertErr) created += 1;
+    }
+
+    return res.json({ ok: true, scanned: replies?.length || 0, created });
+  } catch (e: any) {
+    console.error('Backfill error:', e);
+    return res.status(500).json({ error: e.message });
+  }
+});
+
 export default router;
