@@ -1,5 +1,7 @@
 import express from 'express';
-import { sendToSlack, getMessages, extractSessionId, storeTeamReply } from './slackService';
+import { sendToSlack, getMessages } from './slackService';
+import { WebClient } from '@slack/web-api';
+import { createClient } from '@supabase/supabase-js';
 
 const router = express.Router();
 
@@ -33,28 +35,7 @@ router.get('/getMessages', async (req: express.Request, res: express.Response) =
   }
 });
 
-// Slack events webhook for team responses
-router.post('/slack/events', async (req: express.Request, res: express.Response) => {
-  const payload = req.body as any;
-  if (payload?.type === 'url_verification') {
-    res.json({ challenge: payload.challenge });
-    return;
-  }
-  try {
-    const event = payload?.event;
-    if (event && event.type === 'message' && !event.subtype && typeof event.text === 'string') {
-      const text: string = event.text;
-      const sessionId = extractSessionId(text);
-      if (sessionId) {
-        const replyText = text.replace(/\[session:\s*[0-9a-f-]{36}\]/i, '').trim();
-        await storeTeamReply(sessionId, replyText);
-      }
-    }
-  } catch (err) {
-    console.error('Slack events error:', err);
-  }
-  res.json({ ok: true });
-});
+// Slack Events webhook is handled centrally in server.ts via /api/slack-events
 
 export default router;
 
@@ -75,6 +56,63 @@ router.get('/admin/chat-messages/:sessionId', async (req: express.Request, res: 
     res.json(messages);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch messages' });
+  }
+});
+
+// Manual sync endpoint: scans recent Slack messages in the configured channel
+// and stores any replies containing a [session: <uuid>] tag into Supabase.
+router.post('/slack/sync', async (req: express.Request, res: express.Response) => {
+  try {
+    const adminToken = (req.headers['x-admin-token'] as string) || '';
+    if (!process.env.ADMIN_TOKEN || adminToken !== process.env.ADMIN_TOKEN) {
+      res.status(401).json({ error: 'unauthorized' });
+      return;
+    }
+    const slackToken = process.env.SLACK_BOT_TOKEN;
+    const channel = process.env.SLACK_CHANNEL_ID;
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
+    if (!slackToken || !channel || !supabaseUrl || !supabaseKey) {
+      res.status(400).json({ error: 'missing env' });
+      return;
+    }
+
+    const slack = new WebClient(slackToken);
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Fetch recent messages (last 200)
+    const hist = await slack.conversations.history({ channel, limit: 200 });
+    const messages = (hist.messages || []) as Array<{ text?: string; thread_ts?: string; ts?: string; user?: string }>;
+
+    let inserted = 0;
+    for (const m of messages) {
+      const text = String(m.text || '');
+      const match = text.match(/\[session:\s*([0-9a-f-]{36})\]/i);
+      if (!match) continue;
+      const sessionId = match[1];
+      const cleaned = text.replace(/\[session:\s*[0-9a-f-]{36}\]/i, '').trim();
+      if (!cleaned) continue;
+      // Check if we already have a similar message to avoid duplicates (best-effort)
+      const { data: existing } = await supabase
+        .from('live_chat_messages')
+        .select('id')
+        .eq('session_id', sessionId)
+        .eq('sender', 'team')
+        .eq('text', cleaned)
+        .limit(1);
+      if (existing && existing.length) continue;
+      const { error } = await supabase.from('live_chat_messages').insert({
+        session_id: sessionId,
+        sender: 'team',
+        text: cleaned
+      });
+      if (!error) inserted++;
+    }
+
+    res.json({ ok: true, inserted });
+  } catch (err) {
+    console.error('slack/sync error', err);
+    res.status(500).json({ error: 'internal_error' });
   }
 });
 

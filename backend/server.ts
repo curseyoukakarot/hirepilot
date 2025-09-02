@@ -184,6 +184,13 @@ app.post('/api/slack-events', bodyParser.raw({ type: 'application/json' }), (req
   (req as any).rawBody = (req as any).body;
   return slackEventsHandler(req, res);
 });
+// Alias to support either hyphenated or nested path from Slack config
+app.post('/api/slack/events', bodyParser.raw({ type: 'application/json' }), (req: expressNs.Request, res: expressNs.Response) => {
+  (req as any).rawBody = (req as any).body;
+  return slackEventsHandler(req, res);
+});
+// Lightweight ping to verify routing from Slack dashboard manually
+app.get('/api/slack-events/ping', (_req, res) => res.json({ ok: true }));
 
 // Parse JSON bodies for all other routes
 app.use(express.json());
