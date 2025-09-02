@@ -73,6 +73,28 @@ export default function CampaignDetailPage() {
     }
   }, [id]);
 
+  // Realtime: refresh campaign details when status or related fields change
+  useEffect(() => {
+    if (!id) return;
+    let channel: any;
+    (async () => {
+      try {
+        channel = supabase
+          .channel(`sourcing-campaign-${id}`)
+          .on('postgres_changes', {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'sourcing_campaigns',
+            filter: `id=eq.${id}`
+          }, async () => {
+            await loadCampaign();
+          });
+        await channel.subscribe();
+      } catch {}
+    })();
+    return () => { if (channel) supabase.removeChannel(channel); };
+  }, [id]);
+
   useEffect(() => {
     (async () => {
       try {
