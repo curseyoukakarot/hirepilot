@@ -505,9 +505,9 @@ function InnerApp() {
           }}
         />
       )}
-      {/* Promo banner: show on Product Hunt landing page */}
-      {isAuthPage && !isBlog && (
-        <PromoBanner show={location.pathname === '/producthunt'} />
+      {/* Promo banner: show on all public pages and blog landing (exclude blog articles) */}
+      {isAuthPage && !location.pathname.startsWith('/blog/') && (
+        <PromoBanner show={true} />
       )}
     </div>
   );
