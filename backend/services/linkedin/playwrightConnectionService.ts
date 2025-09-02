@@ -520,6 +520,12 @@ export class PlaywrightConnectionService {
       const initialScreenshotBuffer = await page.screenshot();
       screenshots.push(initialScreenshotBuffer.toString('base64'));
       
+      // Safety: Dismiss common cookie/overlay banners
+      await this.dismissCommonOverlays(page, logs).catch(() => {});
+
+      // Ensure we start at the top of the page before looking for primary actions
+      await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+
       // Step 4: Attempt to find and click connect button
       const connectionResult = await this.performConnectionFlow(page, message, logs);
       
@@ -1102,6 +1108,34 @@ export class PlaywrightConnectionService {
         message: 'Error during connection flow',
         error: error.message
       };
+    }
+  }
+
+  /**
+   * Best-effort dismissal of common LinkedIn and browser overlays/banners
+   */
+  private static async dismissCommonOverlays(page: Page, logs: string[]): Promise<void> {
+    const candidates = [
+      'button:has-text("Accept")',
+      'button[aria-label*="Accept" i]',
+      'button[aria-label*="Dismiss" i]',
+      'button[aria-label*="Close" i]',
+      '.artdeco-dismiss',
+      '.artdeco-modal__dismiss',
+    ];
+
+    for (const selector of candidates) {
+      try {
+        const el = await page.$(selector);
+        if (el && await el.isVisible()) {
+          await el.click({ delay: 50 }).catch(() => {});
+          logs.push(`Dismissed overlay using selector: ${selector}`);
+          // small wait to allow UI to settle
+          await page.waitForTimeout(200);
+        }
+      } catch {
+        // ignore
+      }
     }
   }
 }
