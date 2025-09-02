@@ -123,6 +123,59 @@ export class PlaywrightConnectionService {
 
     
     try {
+      // Optional headful mode: launch local non-headless browser and skip /unblock
+      if (process.env.HEADFUL === 'true') {
+        logs.push('HEADFUL mode enabled - launching local Chromium (non-headless)');
+        console.log('[PlaywrightConnection] HEADFUL mode enabled - launching local Chromium');
+
+        browser = await puppeteer.launch({
+          headless: false,
+          defaultViewport: { width: 1366, height: 768 },
+          args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--disable-gpu',
+          ]
+        });
+        page = await browser.newPage();
+
+        // Realistic UA
+        const realisticUA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
+        await page.setUserAgent(realisticUA);
+        await page.setViewport({ width: 1366, height: 768 });
+        logs.push('Configured headful browser with realistic UA');
+
+        // Inject cookies
+        const cookies = this.parseCookiesForPlaywright(decryptedCookie);
+        await page.goto('https://www.linkedin.com', { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await page.setCookie(...cookies as any);
+        logs.push('Cookies injected into headful session');
+
+        // Directly navigate to profile (skip feed/notifications)
+        await page.goto(profileUrl.replace('http://', 'https://'), {
+          waitUntil: 'domcontentloaded',
+          timeout: 60000
+        });
+        logs.push('Navigated to profile in headful mode');
+
+        // Perform connection flow
+        const connectionResult = await this.performConnectionFlow(page, message, logs);
+        const screenshotBuffer = await page.screenshot().catch(() => null);
+        if (screenshotBuffer) screenshots.push(screenshotBuffer.toString('base64'));
+        await browser.close().catch(() => {});
+        return {
+          success: connectionResult.success,
+          message: connectionResult.message,
+          error: connectionResult.error,
+          screenshots,
+          logs
+        };
+      }
+
       // Use Browserless.io /unblock API for enhanced LinkedIn anti-detection
       console.log('[PlaywrightConnection] Using Browserless.io /unblock API for LinkedIn...');
       logs.push('Using Browserless.io /unblock API for enterprise anti-detection');
