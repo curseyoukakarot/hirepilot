@@ -389,28 +389,30 @@ router.post('/notifications/backfill/email-replies', requireAuth, async (req: Ap
     // Optional filter controls
     const { user_id, since, limit } = req.body as {
       user_id?: string;
-      since?: string;
+      since?: string; // Ignored if email_replies has no created_at
       limit?: number;
     };
 
-    // Verify requester has admin flag (lightweight check)
+    // Verify requester is privileged: allow token role or DB flag
+    const role = (req as any).user?.role;
     const { data: requester } = await supabase
       .from('users')
       .select('is_admin')
       .eq('id', requesterId)
       .maybeSingle();
-    if (!requester?.is_admin) {
+    const isPrivileged = role === 'super_admin' || role === 'admin' || requester?.is_admin;
+    if (!isPrivileged) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
     // Fetch replies missing notifications
     let query = supabase
       .from('email_replies')
-      .select('id, user_id, campaign_id, lead_id, from_email, subject, text_body, html_body, created_at')
-      .order('created_at', { ascending: false });
+      .select('id, user_id, campaign_id, lead_id, from_email, subject, text_body, html_body')
+      .order('id', { ascending: false });
 
     if (user_id) query = query.eq('user_id', user_id);
-    if (since) query = query.gte('created_at', since);
+    // Note: email_replies may not have created_at; ignoring 'since' filter for portability
     if (limit) query = query.limit(limit);
     else query = query.limit(500);
 
@@ -422,16 +424,17 @@ router.post('/notifications/backfill/email-replies', requireAuth, async (req: Ap
     for (const r of replies || []) {
       const threadKey = r.campaign_id && r.lead_id ? `sourcing:${r.campaign_id}:${r.lead_id}` : undefined;
 
-      // Skip if a notification already exists for this reply (by thread and created_at proximity)
+      // Skip if a notification already exists for this reply (by metadata.reply_id)
       if (threadKey) {
-        const { data: existing } = await supabase
+        const { data: existing, error: existErr } = await supabase
           .from('notifications')
           .select('id')
           .eq('user_id', r.user_id)
+          .eq('type', 'sourcing_reply')
           .eq('thread_key', threadKey)
-          .gte('created_at', r.created_at)
+          .contains('metadata', { reply_id: r.id })
           .limit(1);
-        if (existing && existing.length > 0) continue;
+        if (!existErr && existing && existing.length > 0) continue;
       }
 
       const actions: any[] = [
@@ -457,8 +460,7 @@ router.post('/notifications/backfill/email-replies', requireAuth, async (req: Ap
             reply_id: r.id,
             from_email: r.from_email,
             subject: r.subject
-          },
-          created_at: new Date(r.created_at || Date.now()).toISOString()
+          }
         });
 
       if (!insertErr) created += 1;
