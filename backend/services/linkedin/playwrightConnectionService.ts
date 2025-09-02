@@ -128,9 +128,12 @@ export class PlaywrightConnectionService {
         logs.push('HEADFUL mode enabled - launching local Chromium (non-headless)');
         console.log('[PlaywrightConnection] HEADFUL mode enabled - launching local Chromium');
 
+        const macChrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+        const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || (process.platform === 'darwin' ? macChrome : undefined);
         browser = await puppeteer.launch({
           headless: false,
           defaultViewport: { width: 1366, height: 768 },
+          executablePath,
           args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
