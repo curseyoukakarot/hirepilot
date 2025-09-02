@@ -768,7 +768,7 @@ export default function SettingsIntegrations() {
         .from('user_integrations')
         .select('hunter_api_key, skrapp_api_key')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
         console.error('Error fetching enrichment keys:', error);

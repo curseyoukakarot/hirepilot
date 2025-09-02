@@ -56,7 +56,7 @@ export default function RexSlackIntegrationCard({ user }) {
         .from('slack_accounts')
         .select('team_name')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
       if (slackRow) {
         setConnected(true);
         if (slackRow.team_name) setChannel(slackRow.team_name);
@@ -70,7 +70,7 @@ export default function RexSlackIntegrationCard({ user }) {
       .from('slack_accounts')
       .select('team_name')
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
     setConnected(Boolean(slackRow));
     if (slackRow?.team_name) setChannel(slackRow.team_name);
   };

@@ -368,7 +368,7 @@ export default function CampaignDetailPage() {
                 onClick={async()=>{
                   setSenderSaving(true);
                   try {
-                    await api(`/api/campaign-config/${id}/sender`, { method: 'POST', body: JSON.stringify({ senderBehavior, senderEmail }) });
+                    await api(`/api/sourcing/campaign-config/${id}/sender`, { method: 'POST', body: JSON.stringify({ senderBehavior, senderEmail }) });
                   } catch {}
                   setSenderSaving(false);
                 }}
@@ -393,7 +393,7 @@ export default function CampaignDetailPage() {
                 onClick={async()=>{
                   setSenderSaving(true);
                   try {
-                    await api(`/api/campaign-config/${id}/sender`, { method: 'POST', body: JSON.stringify({ senderBehavior, senderEmails }) });
+                    await api(`/api/sourcing/campaign-config/${id}/sender`, { method: 'POST', body: JSON.stringify({ senderBehavior, senderEmails }) });
                   } catch {}
                   setSenderSaving(false);
                 }}
@@ -410,7 +410,7 @@ export default function CampaignDetailPage() {
                 onClick={async()=>{
                   setSenderSaving(true);
                   try {
-                    await api(`/api/campaign-config/${id}/sender`, { method: 'POST', body: JSON.stringify({ senderBehavior }) });
+                    await api(`/api/sourcing/campaign-config/${id}/sender`, { method: 'POST', body: JSON.stringify({ senderBehavior }) });
                   } catch {}
                   setSenderSaving(false);
                 }}

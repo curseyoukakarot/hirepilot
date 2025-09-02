@@ -304,20 +304,79 @@ router.post('/sequences/:id/enroll', requireAuth, async (req: ApiRequest, res) =
     const toInsertEnrollments: any[] = [];
     const toInsertRuns: any[] = [];
 
+    let skippedCount = 0;
     for (const leadId of leadIds) {
+      // Resolve lead IDs that may come from sourcing_leads by creating/finding a corresponding row in leads
+      let resolvedLeadId: string | null = null;
+      // 1) Check if the provided ID is already a valid leads.id
+      const { data: leadRow } = await supabaseDb
+        .from('leads')
+        .select('id')
+        .eq('id', leadId)
+        .maybeSingle();
+      if (leadRow?.id) {
+        resolvedLeadId = leadRow.id;
+      } else {
+        // 2) Otherwise try to interpret it as sourcing_leads.id and upsert into leads
+        const { data: sLead } = await supabaseDb
+          .from('sourcing_leads')
+          .select('email, name, title, company, linkedin_url')
+          .eq('id', leadId)
+          .maybeSingle();
+        if (sLead) {
+          // If the sourcing lead has an email, attempt to dedupe by (user_id,email)
+          if (sLead.email) {
+            const { data: existingByEmail } = await supabaseDb
+              .from('leads')
+              .select('id')
+              .eq('user_id', userId)
+              .eq('email', sLead.email)
+              .maybeSingle();
+            if (existingByEmail?.id) {
+              resolvedLeadId = existingByEmail.id;
+            } else {
+              const insertPayload: any = {
+                user_id: userId,
+                name: sLead.name || sLead.email,
+                email: sLead.email,
+                title: sLead.title || null,
+                company: sLead.company || null,
+                linkedin_url: sLead.linkedin_url || null,
+                source: 'sourcing_campaign'
+              };
+              const { data: created, error: createErr } = await supabaseDb
+                .from('leads')
+                .insert(insertPayload)
+                .select('id')
+                .single();
+              if (createErr) throw createErr;
+              resolvedLeadId = created.id;
+            }
+          } else {
+            // No email present - skip enrollment for this lead as it cannot receive emails yet
+            skippedCount += 1;
+            continue;
+          }
+        } else {
+          // Unknown lead ID
+          skippedCount += 1;
+          continue;
+        }
+      }
+
       // Upsert enrollment (unique sequence_id, lead_id)
       const { data: existing } = await supabaseDb
         .from('sequence_enrollments')
         .select('id, current_step_order')
         .eq('sequence_id', sequenceId)
-        .eq('lead_id', leadId)
+        .eq('lead_id', resolvedLeadId as string)
         .maybeSingle();
 
       let enrollmentId: string | null = null;
       if (!existing) {
         const { data: ins, error: insErr } = await supabaseDb
           .from('sequence_enrollments')
-          .insert({ sequence_id: sequenceId, lead_id: leadId, enrolled_by_user_id: userId, status: 'active', current_step_order: 1, provider: provider || null })
+          .insert({ sequence_id: sequenceId, lead_id: resolvedLeadId as string, enrolled_by_user_id: userId, status: 'active', current_step_order: 1, provider: provider || null })
           .select('id')
           .single();
         if (insErr) throw insErr;
@@ -350,7 +409,7 @@ router.post('/sequences/:id/enroll', requireAuth, async (req: ApiRequest, res) =
       if (runsErr) throw runsErr;
     }
 
-    res.status(201).json({ enrolled: leadIds.length, first_send_at: baseUtc.toISO() });
+    res.status(201).json({ enrolled: leadIds.length - skippedCount, skipped: skippedCount, first_send_at: baseUtc.toISO() });
   } catch (e: any) {
     res.status(500).json({ error: e.message || 'Failed to enroll leads' });
   }
