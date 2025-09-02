@@ -70,24 +70,52 @@ export type Interaction = z.infer<typeof InteractionSchema>;
 export async function pushNotification(card: Card) {
   const validated = CardSchema.parse(card);
   
-  const { data, error } = await supabase
-    .from('notifications')
-    .insert({
-      user_id: validated.user_id,
-      source: validated.source,
-      thread_key: validated.thread_key,
-      title: validated.title,
-      body_md: validated.body_md,
-      type: validated.type,
-      actions: validated.actions,
-      metadata: validated.metadata,
-      created_at: new Date().toISOString()
-    })
-    .select()
-    .single();
-    
-  if (error) throw error;
-  return data;
+  // Attempt insert including metadata; if schema lacks column, retry without
+  let insertError: any | null = null;
+  let inserted: any | null = null;
+  try {
+    const r = await supabase
+      .from('notifications')
+      .insert({
+        user_id: validated.user_id,
+        source: validated.source,
+        thread_key: validated.thread_key,
+        title: validated.title,
+        body_md: validated.body_md,
+        type: validated.type,
+        actions: validated.actions,
+        metadata: validated.metadata,
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+    inserted = r.data;
+    insertError = r.error;
+  } catch (e: any) {
+    insertError = e;
+  }
+
+  if (insertError && `${insertError?.message || ''}`.toLowerCase().includes("metadata")) {
+    const { data, error } = await supabase
+      .from('notifications')
+      .insert({
+        user_id: validated.user_id,
+        source: validated.source,
+        thread_key: validated.thread_key,
+        title: validated.title,
+        body_md: validated.body_md,
+        type: validated.type,
+        actions: validated.actions,
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  if (insertError) throw insertError;
+  return inserted;
 }
 
 /**

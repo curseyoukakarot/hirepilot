@@ -444,26 +444,51 @@ router.post('/notifications/backfill/email-replies', requireAuth, async (req: Ap
         { id: 'free_text', type: 'input', placeholder: 'Type an instruction…' }
       ];
 
-      const { error: insertErr } = await supabase
-        .from('notifications')
-        .insert({
-          user_id: r.user_id,
-          source: 'inapp',
-          thread_key: threadKey,
-          title: `New reply from ${r.from_email || 'candidate'}`,
-          body_md: `${(r.text_body || r.html_body || '').slice(0, 700)}`,
-          type: 'sourcing_reply',
-          actions,
-          metadata: {
-            campaign_id: r.campaign_id,
-            lead_id: r.lead_id,
-            reply_id: r.id,
-            from_email: r.from_email,
-            subject: r.subject
-          }
-        });
+      // Try insert with metadata; if schema doesn't have column, retry without
+      let insertErr: any | null = null;
+      try {
+        const { error } = await supabase
+          .from('notifications')
+          .insert({
+            user_id: r.user_id,
+            source: 'inapp',
+            thread_key: threadKey,
+            title: `New reply from ${r.from_email || 'candidate'}`,
+            body_md: `${(r.text_body || r.html_body || '').slice(0, 700)}`,
+            type: 'sourcing_reply',
+            actions,
+            metadata: {
+              campaign_id: r.campaign_id,
+              lead_id: r.lead_id,
+              reply_id: r.id,
+              from_email: r.from_email,
+              subject: r.subject
+            }
+          });
+        insertErr = error;
+      } catch (e: any) {
+        insertErr = e;
+      }
 
-      if (!insertErr) created += 1;
+      if (insertErr) {
+        const msg = `${insertErr?.message || ''}`.toLowerCase();
+        if (msg.includes('metadata')) {
+          const { error: retryErr } = await supabase
+            .from('notifications')
+            .insert({
+              user_id: r.user_id,
+              source: 'inapp',
+              thread_key: threadKey,
+              title: `New reply from ${r.from_email || 'candidate'}`,
+              body_md: `${(r.text_body || r.html_body || '').slice(0, 700)}`,
+              type: 'sourcing_reply',
+              actions
+            });
+          if (!retryErr) created += 1;
+        }
+      } else {
+        created += 1;
+      }
     }
 
     return res.json({ ok: true, scanned: replies?.length || 0, created });

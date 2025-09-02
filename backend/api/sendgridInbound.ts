@@ -389,6 +389,24 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
           subject: parsed.subject || '',
           fromEmail: parsed.from || 'unknown@unknown.com',
           body: parsed.text || parsed.html || ''
+        }).catch(async (e:any) => {
+          // Fallback path if notifications schema lacks metadata column
+          console.warn('[sendgrid/inbound] newReply failed, inserting minimal notification:', e?.message);
+          await supabase.from('notifications').insert({
+            user_id: userId,
+            source: 'inapp',
+            thread_key: (campaignId && lead_id) ? `sourcing:${campaignId}:${lead_id}` : null,
+            title: `New reply from ${parsed.from || 'candidate'}`,
+            body_md: `${(parsed.text || parsed.html || '').slice(0,700)}`,
+            type: 'sourcing_reply',
+            actions: [
+              { id: 'reply_draft', type: 'button', label: '🤖 Draft with REX', style: 'primary' },
+              { id: 'book_meeting', type: 'button', label: '📅 Book Meeting', style: 'secondary' },
+              { id: 'disqualify', type: 'button', label: '❌ Disqualify', style: 'danger' },
+              { id: 'free_text', type: 'input', placeholder: 'Type an instruction…' }
+            ],
+            created_at: new Date().toISOString()
+          });
         });
       }
     } catch (notifErr) {
