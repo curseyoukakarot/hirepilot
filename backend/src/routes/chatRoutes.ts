@@ -116,4 +116,35 @@ router.post('/slack/sync', async (req: express.Request, res: express.Response) =
   }
 });
 
+// Admin: get rex_live_sessions by widget_session_id
+router.get('/admin/live-session/:sessionId', async (req: express.Request, res: express.Response) => {
+  try {
+    const token = (req.headers['x-admin-token'] as string) || '';
+    if (!process.env.ADMIN_TOKEN || token !== process.env.ADMIN_TOKEN) {
+      res.status(401).json({ error: 'unauthorized' });
+      return;
+    }
+    const { sessionId } = req.params as { sessionId: string };
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
+    if (!supabaseUrl || !supabaseKey) {
+      res.status(400).json({ error: 'missing env' });
+      return;
+    }
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { data, error } = await supabase
+      .from('rex_live_sessions')
+      .select('*')
+      .eq('widget_session_id', sessionId)
+      .maybeSingle();
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+    res.json(data || null);
+  } catch (err) {
+    res.status(500).json({ error: 'internal_error' });
+  }
+});
+
 

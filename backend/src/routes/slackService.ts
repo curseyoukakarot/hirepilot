@@ -31,13 +31,27 @@ function getSupabase(): SupabaseClient {
 export async function sendToSlack(name: string, email: string, message: string, sessionId: string) {
   try {
     const slackClient = getSlack();
+    let parentTs: string | undefined;
     if (slackClient && process.env.SLACK_CHANNEL_ID) {
-      await slackClient.chat.postMessage({
+      const post = await slackClient.chat.postMessage({
         channel: process.env.SLACK_CHANNEL_ID!,
         text: `New live chat message (Session: ${sessionId}) from ${name} (${email}):\n${message}`,
         unfurl_links: false,
         unfurl_media: false,
       });
+      parentTs = (post as any)?.ts as string | undefined;
+      // Upsert live session mapping so Slack Events can correlate thread replies back to the widget session
+      try {
+        await getSupabase().from('rex_live_sessions').upsert({
+          widget_session_id: sessionId,
+          user_name: name || null,
+          user_email: email || null,
+          slack_channel_id: process.env.SLACK_CHANNEL_ID!,
+          slack_thread_ts: parentTs || null,
+        }, { onConflict: 'widget_session_id' });
+      } catch (e) {
+        console.warn('[live-chat] rex_live_sessions upsert failed (table missing or perms?)', e);
+      }
     }
 
     await getSupabase().from('live_chat_messages').insert({
