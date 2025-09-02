@@ -9,6 +9,8 @@ export default function SuperAdminDashboard() {
   const navigate = useNavigate();
   const [latestUser, setLatestUser] = useState(null);
   const [activeUsers, setActiveUsers] = useState(0);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [totalCreditsUsed, setTotalCreditsUsed] = useState(0);
   const [loading, setLoading] = useState(true);
   const { data: health } = useAppHealth();
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
@@ -31,6 +33,24 @@ export default function SuperAdminDashboard() {
       }
     };
     fetchLatestUsers();
+  }, []);
+
+  useEffect(() => {
+    const fetchOverview = async () => {
+      try {
+        const token = (await supabase.auth.getSession()).data.session?.access_token;
+        const res = await fetch(`${BACKEND_URL}/api/admin/stats/overview`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Failed to fetch admin overview');
+        const data = await res.json();
+        setTotalUsers(Number(data.total_users) || 0);
+        setTotalCreditsUsed(Number(data.total_credits_used) || 0);
+      } catch (e) {
+        console.error('Failed to fetch admin overview:', e);
+      }
+    };
+    fetchOverview();
   }, []);
 
   return (
@@ -56,6 +76,19 @@ export default function SuperAdminDashboard() {
                 <div className="mt-2">
                   <span className="text-2xl font-bold text-gray-100">{activeUsers}</span>
                   <span className="text-green-600 text-xs ml-2">+5%</span>
+                </div>
+              </div>
+              {/* Total Users mini card */}
+              <div className="bg-gray-700 p-3 rounded-md">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-200">Total Users</span>
+                  <span className="text-blue-600">
+                    <i className="fa-solid fa-users"></i>
+                  </span>
+                </div>
+                <div className="mt-2">
+                  <span className="text-2xl font-bold text-gray-100">{totalUsers}</span>
+                  <span className="text-gray-400 text-xs ml-2">All time</span>
                 </div>
               </div>
               <div className="bg-gray-700 p-3 rounded-md">
@@ -84,7 +117,7 @@ export default function SuperAdminDashboard() {
               </div>
               <div className="bg-gray-700 p-3 rounded-md">
                 <div className="flex justify-between items-center">
-                  
+                  <span className="text-sm text-gray-200">API Calls</span>
                   <span className="text-blue-600">
                     <i className="fa-solid fa-code"></i>
                   </span>
@@ -92,6 +125,19 @@ export default function SuperAdminDashboard() {
                 <div className="mt-2">
                   <span className="text-2xl font-bold text-gray-100">{health?.api?.today ?? 0}</span>
                   <span className="text-gray-400 text-xs ml-2">Today</span>
+                </div>
+              </div>
+              {/* Total Credit Consumption mini card */}
+              <div className="bg-gray-700 p-3 rounded-md">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-200">Total Credit Consumption</span>
+                  <span className="text-yellow-500">
+                    <i className="fa-solid fa-coins"></i>
+                  </span>
+                </div>
+                <div className="mt-2">
+                  <span className="text-2xl font-bold text-gray-100">{totalCreditsUsed}</span>
+                  <span className="text-gray-400 text-xs ml-2">Used</span>
                 </div>
               </div>
             </div>

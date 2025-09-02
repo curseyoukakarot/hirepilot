@@ -309,6 +309,34 @@ router.get('/latest-users', requireAuth, requireSuperAdmin, async (req: Request,
   }
 });
 
+// GET /api/admin/stats/overview - basic admin stats for dashboard
+router.get('/stats/overview', requireAuth, requireSuperAdmin, async (_req: Request, res: Response) => {
+  try {
+    // Total users (exact count via head query)
+    const { count: totalUsers, error: countErr } = await supabaseDb
+      .from('users')
+      .select('id', { count: 'exact', head: true });
+    if (countErr) {
+      res.status(500).json({ error: countErr.message });
+      return;
+    }
+
+    // Total credit consumption (sum used_credits across user_credits)
+    const { data: creditRows, error: creditErr } = await supabaseDb
+      .from('user_credits')
+      .select('used_credits');
+    if (creditErr) {
+      res.status(500).json({ error: creditErr.message });
+      return;
+    }
+    const totalCreditsUsed = (creditRows || []).reduce((sum: number, r: any) => sum + (Number(r.used_credits) || 0), 0);
+
+    res.json({ total_users: totalUsers || 0, total_credits_used: totalCreditsUsed });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
 // PATCH /api/admin/users/:id/password - Set password (Super Admin)
 router.patch('/users/:id/password', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
   const userId = req.params.id;
