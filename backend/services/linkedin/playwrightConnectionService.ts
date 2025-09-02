@@ -140,7 +140,7 @@ export class PlaywrightConnectionService {
         console.log('[PlaywrightConnection] Converted WebSocket URL to HTTP for /unblock API');
       }
       const API_TIMEOUT = 60000;          // hard upper-bound per Browserless docs
-      const unblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&proxySticky=true&timeout=${API_TIMEOUT}`;
+      const unblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&proxySticky=true&proxyCountry=US&timeout=${API_TIMEOUT}`;
       
       console.log(`[PlaywrightConnection] Unblock URL: ${baseUrl}`);
       logs.push(`Using unblock endpoint: ${baseUrl}`);
@@ -332,10 +332,9 @@ export class PlaywrightConnectionService {
         throw new Error('Session invalid - redirected to login during warmup');
       }
       
-      // CRITICAL: Staggered navigation to avoid scraper detection
-      // Pattern: feed → notifications → profile (not direct feed → profile)
-      console.log('[PlaywrightConnection] Staggered navigation: visiting notifications first...');
-      logs.push('Staggered navigation: feed → notifications → profile');
+      // Skip notifications hop to reduce request surface and avoid geo/ads redirects
+      console.log('[PlaywrightConnection] Skipping notifications hop; proceeding to profile');
+      logs.push('Skipping notifications; going directly to profile');
       
       // Step 1.5: Enhanced human-like browsing pattern
       logs.push('Starting realistic browsing pattern: feed → notifications → profile');
@@ -357,26 +356,7 @@ export class PlaywrightConnectionService {
       
       await page.waitForTimeout(1200 + Math.random() * 1300); // Random 1.2-2.5s total
       
-      // Visit notifications page (skip if it redirects to login)
-      try {
-        await page.goto('https://www.linkedin.com/notifications/', { 
-          waitUntil: 'domcontentloaded',
-          timeout: 60000 
-        });
-        const notifUrl = page.url();
-        if (notifUrl.includes('/login')) {
-          logs.push('Notifications redirected to login; skipping notifications step');
-        } else {
-          logs.push('Visited notifications page for realistic browsing pattern');
-          // Human-like behavior on notifications (longer engagement)
-          await page.waitForTimeout(1500 + Math.random() * 1500); // Random 1.5-3s delay
-          // Full page scroll on notifications to appear engaged
-          await page.evaluate(() => { try { if (document && document.body) window.scrollTo(0, document.body.scrollHeight); } catch {} });
-          await page.waitForTimeout(800 + Math.random() * 800); // Random 0.8-1.6s delay
-        }
-      } catch (e) {
-        logs.push('Skipping notifications due to error: ' + (e as any)?.message);
-      }
+      // No notifications browsing
       
       // Step 2: Unblock the target profile using second /unblock API call with retry
       console.log(`[PlaywrightConnection] Unblocking target profile: ${profileUrl}`);
@@ -387,7 +367,7 @@ export class PlaywrightConnectionService {
       
       // Only use officially supported query parameters: timeout, proxy, proxyCountry, proxySticky, token
       const profileUnblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}` +
-                                `&proxy=residential&proxySticky=true&timeout=${API_TIMEOUT}`;
+                                `&proxy=residential&proxySticky=true&proxyCountry=US&timeout=${API_TIMEOUT}`;
       
       let profileUnblockResponse;
       let profileRetryCount = 0;
