@@ -315,8 +315,14 @@ export class PlaywrightConnectionService {
       // Multiple human-like interactions
       await page.evaluate(() => {
         // Random scroll pattern
-        window.scrollTo(0, 150 + Math.random() * 300);
-        setTimeout(() => window.scrollTo(0, 50 + Math.random() * 100), 500);
+        try {
+          if (document && document.body) {
+            window.scrollTo(0, 150 + Math.random() * 300);
+            setTimeout(() => {
+              if (document && document.body) window.scrollTo(0, 50 + Math.random() * 100);
+            }, 500);
+          }
+        } catch {}
       });
       
       await page.waitForTimeout(1000 + Math.random() * 1000); // Additional delay
@@ -336,35 +342,41 @@ export class PlaywrightConnectionService {
       
       // Enhanced scroll behavior on feed (mimic quick skim)
       await page.evaluate(() => {
-        const maxScroll = Math.min(2000, document.body.scrollHeight);
-        const steps = 6;
-        const stepSize = maxScroll / steps;
-        
-        for (let i = 0; i < steps; i++) {
-          setTimeout(() => {
-            window.scrollTo(0, stepSize * i);
-          }, i * 200); // 200ms between scroll steps
-        }
+        try {
+          if (!document || !document.body) return;
+          const maxScroll = Math.min(2000, document.body.scrollHeight || 2000);
+          const steps = 6;
+          const stepSize = maxScroll / steps;
+          for (let i = 0; i < steps; i++) {
+            setTimeout(() => {
+              try { if (document && document.body) window.scrollTo(0, stepSize * i); } catch {}
+            }, i * 200); // 200ms between scroll steps
+          }
+        } catch {}
       });
       
       await page.waitForTimeout(1200 + Math.random() * 1300); // Random 1.2-2.5s total
       
-      // Visit notifications page
-      await page.goto('https://www.linkedin.com/notifications/', { 
-        waitUntil: 'domcontentloaded',
-        timeout: 60000 
-      });
-      logs.push('Visited notifications page for realistic browsing pattern');
-      
-      // Human-like behavior on notifications (longer engagement)
-      await page.waitForTimeout(1500 + Math.random() * 1500); // Random 1.5-3s delay
-      
-      // Full page scroll on notifications to appear engaged
-      await page.evaluate(() => {
-        window.scrollTo(0, document.body.scrollHeight);
-      });
-      
-      await page.waitForTimeout(800 + Math.random() * 800); // Random 0.8-1.6s delay
+      // Visit notifications page (skip if it redirects to login)
+      try {
+        await page.goto('https://www.linkedin.com/notifications/', { 
+          waitUntil: 'domcontentloaded',
+          timeout: 60000 
+        });
+        const notifUrl = page.url();
+        if (notifUrl.includes('/login')) {
+          logs.push('Notifications redirected to login; skipping notifications step');
+        } else {
+          logs.push('Visited notifications page for realistic browsing pattern');
+          // Human-like behavior on notifications (longer engagement)
+          await page.waitForTimeout(1500 + Math.random() * 1500); // Random 1.5-3s delay
+          // Full page scroll on notifications to appear engaged
+          await page.evaluate(() => { try { if (document && document.body) window.scrollTo(0, document.body.scrollHeight); } catch {} });
+          await page.waitForTimeout(800 + Math.random() * 800); // Random 0.8-1.6s delay
+        }
+      } catch (e) {
+        logs.push('Skipping notifications due to error: ' + (e as any)?.message);
+      }
       
       // Step 2: Unblock the target profile using second /unblock API call with retry
       console.log(`[PlaywrightConnection] Unblocking target profile: ${profileUrl}`);
