@@ -281,10 +281,19 @@
           if (!host) return;
           if (isProductHuntMode && isPopupEnabled) {
             host.style.display = 'block';
-            // On load, keep toggle hidden only if panels are visible
-            if (popupToggle) {
-              var anyOpen = faqPanel && !faqPanel.classList.contains('hidden');
-              if (!anyOpen) popupToggle.classList.remove('hidden');
+            // Detect mobile and keep popup closed by default on small screens
+            var isMobile = false;
+            try { isMobile = (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) || /Mobi|Android/i.test(navigator.userAgent); } catch (_) {}
+            if (isMobile) {
+              if (faqPanel) faqPanel.classList.add('hidden');
+              if (liveChatPanel) liveChatPanel.classList.add('hidden');
+              if (popupToggle) popupToggle.classList.remove('hidden');
+            } else {
+              // On desktop, keep toggle hidden only if panels are visible
+              if (popupToggle) {
+                var anyOpen = faqPanel && !faqPanel.classList.contains('hidden');
+                if (!anyOpen) popupToggle.classList.remove('hidden');
+              }
             }
             if (typeof window.hideREXChatbot === 'function') window.hideREXChatbot();
           } else {
