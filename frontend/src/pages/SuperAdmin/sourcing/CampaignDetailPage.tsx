@@ -514,6 +514,9 @@ export default function CampaignDetailPage() {
                       try{
                         const leadIds = data.leads.map(l=>l.id);
                         await api(`/api/sequences/${selectedSequenceId}/enroll`, { method:'POST', body: JSON.stringify({ leadIds }) });
+                        // Mark campaign as running so it appears active in Agent Mode
+                        try { await api(`/api/sourcing/campaigns/${id}/resume`, { method: 'POST' }); } catch {}
+                        await loadCampaign();
                         alert('Sequence attached and scheduled for current leads.');
                       }catch(err){ console.error(err); alert('Failed to attach sequence'); }
                       setEnrolling(false);
