@@ -1141,14 +1141,14 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
               <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
                 <div className="flex space-x-4">
                   <button
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center whitespace-nowrap shrink-0"
                     onClick={handleMessageAgain}
                   >
                     <i className="fa-regular fa-paper-plane mr-2"></i>
                     Message
                   </button>
                   <button
-                    className="px-4 py-2 bg-white border border-gray-300 rounded-lg flex items-center"
+                    className="px-4 py-2 bg-white border border-gray-300 rounded-lg flex items-center whitespace-nowrap shrink-0"
                     onClick={handleConvertToCandidate}
                     disabled={isConverting}
                   >
@@ -1156,7 +1156,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                     {isConverting ? 'Converting...' : 'Convert to Candidate'}
                   </button>
                   <button
-                    className={`px-4 py-2 rounded-lg flex items-center ${
+                    className={`px-4 py-2 rounded-lg flex items-center whitespace-nowrap shrink-0 ${
                       (!localLead?.linkedin_url || dailyLinkedInCount >= 20) 
                         ? 'bg-gray-400 cursor-not-allowed' 
                         : 'bg-linkedin hover:bg-blue-700'
@@ -1211,7 +1211,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                     
                     return (
                       <button
-                        className={`px-4 py-2 rounded-lg flex items-center disabled:opacity-50 ${buttonClass}`}
+                        className={`px-4 py-2 rounded-lg flex items-center whitespace-nowrap shrink-0 disabled:opacity-50 ${buttonClass}`}
                         onClick={handleEnrich}
                         disabled={isEnriching}
                         title={tooltipText}
