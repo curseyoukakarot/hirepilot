@@ -74,6 +74,10 @@ export async function getMessages(sessionId: string) {
       .select('*')
       .eq('session_id', sessionId)
       .order('created_at', { ascending: true });
+    const count = Array.isArray(data) ? data.length : 0;
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[live-chat] getMessages', { sessionId, count });
+    }
     return data || [];
   } catch (error) {
     console.error('Get messages error:', error);

@@ -220,6 +220,7 @@ export async function slackEventsHandler(req: express.Request, res: express.Resp
           // ALSO store for the new live chat popup so polling displays team replies
           try {
             await storeTeamReply(widgetSessionId, text);
+            console.log('[slack-events] storeTeamReply success', { widgetSessionId, textSnippet: String(text).slice(0, 80) });
           } catch (e) {
             console.error('[slack-events] storeTeamReply failed', e);
           }
