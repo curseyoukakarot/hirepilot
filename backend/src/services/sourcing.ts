@@ -48,6 +48,26 @@ export async function addLeads(campaignId: string, leads: any[], options?: { sou
   const { error } = await supabase.from('sourcing_leads').insert(payload);
   if (error) throw error;
 
+  // If campaign is in draft, flip to running after adding leads
+  try {
+    const { data: campaign, error: fetchErr } = await supabase
+      .from('sourcing_campaigns')
+      .select('id, status')
+      .eq('id', campaignId)
+      .single();
+    if (!fetchErr && campaign && (campaign as any).status === 'draft') {
+      const { error: updateErr } = await supabase
+        .from('sourcing_campaigns')
+        .update({ status: 'running' })
+        .eq('id', campaignId);
+      if (updateErr) {
+        console.warn('[sourcing.addLeads] failed to auto-activate campaign:', updateErr);
+      }
+    }
+  } catch (e) {
+    console.warn('[sourcing.addLeads] non-fatal activation error:', e);
+  }
+
   // Optional: deduct credits if these leads originated from Apollo via REX
   try {
     if (options?.source === 'apollo' && options?.userId) {

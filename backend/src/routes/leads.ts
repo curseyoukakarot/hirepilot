@@ -1507,6 +1507,28 @@ router.post('/attach-to-campaign', requireAuth, async (req: ApiRequest, res: Res
       });
     }
 
+    // If the campaign is currently in draft, flip it to active
+    try {
+      const { data: c, error: fetchCampaignStatusErr } = await supabase
+        .from('campaigns')
+        .select('id, status')
+        .eq('id', campaignId)
+        .eq('user_id', userId)
+        .single();
+      if (!fetchCampaignStatusErr && c && (c as any).status === 'draft') {
+        const { error: setActiveErr } = await supabase
+          .from('campaigns')
+          .update({ status: 'active', launched_at: new Date().toISOString() })
+          .eq('id', campaignId)
+          .eq('user_id', userId);
+        if (setActiveErr) {
+          console.warn('Failed to auto-activate campaign after attaching leads:', setActiveErr);
+        }
+      }
+    } catch (e) {
+      console.warn('Non-fatal: could not set campaign active after attaching leads', e);
+    }
+
     res.json({
       success: true,
       message: `Successfully attached ${leadIds.length} lead(s) to campaign`,
