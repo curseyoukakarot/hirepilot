@@ -194,6 +194,52 @@ export class PlaywrightConnectionService {
           Object.defineProperty(navigator, 'language', { get: () => 'en-US' });
         });
 
+        // Headful stealth evasions
+        await page.evaluateOnNewDocument(() => {
+          try {
+            // webdriver flag
+            Object.defineProperty(navigator, 'webdriver', { get: () => false });
+
+            // chrome runtime presence
+            // @ts-ignore
+            window.chrome = window.chrome || {}; // minimal chrome object
+            // @ts-ignore
+            window.chrome.runtime = window.chrome.runtime || {};
+
+            // plugins length
+            Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4] as any });
+
+            // permissions query spoofing for notifications
+            const originalQuery = (navigator as any).permissions?.query?.bind((navigator as any).permissions);
+            if (originalQuery) {
+              (navigator as any).permissions.query = (parameters: any) => {
+                if (parameters && parameters.name === 'notifications') {
+                  return Promise.resolve({ state: Notification.permission });
+                }
+                return originalQuery(parameters);
+              };
+            }
+
+            // WebGL vendor/renderer
+            const getParameter = WebGLRenderingContext.prototype.getParameter;
+            WebGLRenderingContext.prototype.getParameter = function (parameter) {
+              // UNMASKED_VENDOR_WEBGL = 37445, UNMASKED_RENDERER_WEBGL = 37446
+              if (parameter === 37445) return 'Intel Inc.';
+              if (parameter === 37446) return 'Intel(R) Iris(TM) OpenGL Engine';
+              return getParameter.call(this, parameter);
+            } as any;
+
+            // misc metrics
+            try { Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 }); } catch {}
+            try { Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 }); } catch {}
+
+            // scroll restoration & dimensions
+            try { history.scrollRestoration = 'manual'; } catch {}
+            try { Object.defineProperty(window, 'outerWidth', { get: () => window.innerWidth }); } catch {}
+            try { Object.defineProperty(window, 'outerHeight', { get: () => window.innerHeight + 88 }); } catch {}
+          } catch {}
+        });
+
         // Observe 4xx/5xx to detect feed warmup issues
         let sawFeed400 = false;
         page.on('response', (resp) => {
@@ -215,7 +261,8 @@ export class PlaywrightConnectionService {
         try {
           await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'domcontentloaded', timeout: 60000 });
           logs.push('Headful warmup: visited feed');
-          await page.waitForTimeout(4000 + Math.floor(Math.random() * 2000));
+          // Longer warmup dwell
+          await page.waitForTimeout(8000 + Math.floor(Math.random() * 4000));
           await page.evaluate(() => {
             try {
               if (document && document.body) {
@@ -224,14 +271,14 @@ export class PlaywrightConnectionService {
               }
             } catch {}
           });
-          await page.waitForTimeout(1200 + Math.floor(Math.random() * 800));
+          await page.waitForTimeout(1800 + Math.floor(Math.random() * 1400));
           // If feed returned 400, retry once after brief delay
           if (sawFeed400) {
             logs.push('Headful warmup saw 4xx; retrying feed once');
             await page.waitForTimeout(2000);
             sawFeed400 = false;
             await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'domcontentloaded', timeout: 60000 });
-            await page.waitForTimeout(3000);
+            await page.waitForTimeout(5000);
           }
         } catch (e: any) {
           logs.push(`Headful warmup failed (continuing): ${e?.message || e}`);
@@ -239,8 +286,21 @@ export class PlaywrightConnectionService {
 
         // Navigate to profile after warmup
         await page.setExtraHTTPHeaders({ 'Referer': 'https://www.linkedin.com/feed/' });
-        await page.goto(profileUrl.replace('http://', 'https://'), { waitUntil: 'domcontentloaded', timeout: 60000 });
-        logs.push('Navigated to profile in headful mode');
+        try {
+          await page.goto(profileUrl.replace('http://', 'https://'), { waitUntil: 'domcontentloaded', timeout: 60000 });
+          logs.push('Navigated to profile in headful mode');
+        } catch (err: any) {
+          logs.push(`Profile navigation error: ${err?.message || err}. Retrying once via feed hop.`);
+          try {
+            await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'domcontentloaded', timeout: 60000 });
+            await page.waitForTimeout(3000 + Math.floor(Math.random() * 2000));
+            await page.goto(profileUrl.replace('http://', 'https://'), { waitUntil: 'domcontentloaded', timeout: 60000 });
+            logs.push('Second attempt: navigated to profile after feed hop');
+          } catch (err2: any) {
+            logs.push(`Second profile navigation failed: ${err2?.message || err2}`);
+            throw err2;
+          }
+        }
 
         // If WAF page shows a Reload button, click it once and wait
         try {
