@@ -436,6 +436,8 @@ export class PlaywrightConnectionService {
       
       // CRITICAL: Enhanced fingerprint stability - match cookie creation environment
       // TODO: In production, match Accept-Language to proxy IP geolocation
+      // Add X-Forwarded-For with a random US-like IP for geo consistency
+      const randomIp = `23.${Math.floor(Math.random()*256)}.${Math.floor(Math.random()*256)}.${Math.floor(Math.random()*256)}`;
       await page.setExtraHTTPHeaders({
         'Accept-Language': 'en-US,en;q=0.9',  // Should match proxy IP geo in production
         'Accept-Encoding': 'gzip, deflate, br',
@@ -448,7 +450,8 @@ export class PlaywrightConnectionService {
         'Upgrade-Insecure-Requests': '1',
         'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="126", "Google Chrome";v="126"',
         'Sec-Ch-Ua-Mobile': '?0',
-        'Sec-Ch-Ua-Platform': '"macOS"'  // Sync with viewport and UA
+        'Sec-Ch-Ua-Platform': '"macOS"',  // Sync with viewport and UA
+        'X-Forwarded-For': randomIp
       });
       
       // Set realistic timezone and language to match macOS/US fingerprint
@@ -501,6 +504,15 @@ export class PlaywrightConnectionService {
           console.warn(`[PlaywrightConnection] Challenge/Checkpoint detected: ${response.url()}`);
           logs.push(`⚠️ LinkedIn challenge detected: ${response.url()}`);
         }
+        // Extra diagnostics for 4xx on key pages
+        try {
+          const url = response.url();
+          if ((url.includes('/feed') || url.includes('/in/')) && (response.status() === 400 || response.status() === 401 || response.status() === 403 || response.status() === 429)) {
+            const hdrs = response.headers();
+            const hdrSnippet = Object.entries(hdrs).slice(0, 8).map(([k,v]) => `${k}: ${String(v).slice(0,80)}`).join(' | ');
+            logs.push(`HTTP ${response.status()} on ${url} | ${hdrSnippet}`);
+          }
+        } catch {}
       });
       
       // Session already unblocked via /unblock API - proceed with cookie injection and warmup
@@ -685,9 +697,73 @@ export class PlaywrightConnectionService {
           logs.push('❌ Profile loading timed out after 12s');
           logs.push(`🔥 Likely burned session: ${sessionId} - timeout suggests WAF blocking proxy IP`);
           console.error(`[PlaywrightConnection] PROFILE_TIMEOUT: Session ${sessionId} likely burned (timeout)`);
-          throw new Error('WAF_CHALLENGE - Profile timeout, likely WAF blocking. Retry with fresh proxy.');
+          // continue to rotation retry below
         }
-        throw error; // Re-throw other errors
+        // Forced rotation retry on WAF/redirect issues
+        const shouldRotate = true;
+        if (shouldRotate) {
+          logs.push('Rate limit/redirect detected - forcing proxy rotation (proxySticky=false) and retrying once');
+          try { await browser.close().catch(() => {}); } catch {}
+
+          // Re-unblock profile with sticky=false
+          const rotatedProfileUnblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}` +
+                                          `&proxy=${proxyParam}&proxySticky=false&proxyCountry=US&timeout=${API_TIMEOUT}`;
+          let rotatedResp;
+          try {
+            rotatedResp = await fetch(rotatedProfileUnblockUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                url: profileUrl.replace('http://', 'https://'),
+                browserWSEndpoint: true,
+                cookies: true,
+                content: false,
+                screenshot: false,
+                ttl: 30000
+              })
+            });
+          } catch (e: any) {
+            logs.push(`❌ Rotated profile unblock fetch failed: ${e?.message || e}`);
+            throw error;
+          }
+          if (!rotatedResp.ok) {
+            const t = await rotatedResp.text();
+            logs.push(`❌ Rotated profile unblock failed: ${rotatedResp.status} - ${t}`);
+            throw error;
+          }
+          const rotatedJson = await rotatedResp.json();
+          const rotatedEndpoint = rotatedJson.browserWSEndpoint as string;
+          if (!rotatedEndpoint) {
+            logs.push('❌ Rotated unblock missing browserWSEndpoint');
+            throw error;
+          }
+          logs.push('✅ Rotated profile unblock succeeded - retrying navigation');
+
+          // Connect to rotated endpoint
+          try {
+            browser = await puppeteer.connect({ browserWSEndpoint: rotatedEndpoint, defaultViewport: { width: 1920, height: 1080 } });
+            page = await browser.newPage();
+            await page.setUserAgent(realisticUA);
+            await page.setViewport({ width: 1920, height: 1080 });
+            await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9', 'X-Forwarded-For': randomIp, 'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="126", "Google Chrome";v="126"', 'Sec-Ch-Ua-Mobile': '?0', 'Sec-Ch-Ua-Platform': '"macOS"' });
+            await page.goto('https://www.linkedin.com', { waitUntil: 'domcontentloaded', timeout: 30000 });
+            await page.setCookie(...cookies);
+            await page.setExtraHTTPHeaders({ 'Referer': 'https://www.linkedin.com/feed/' });
+            await page.goto(profileUrl.replace('http://', 'https://'), { waitUntil: 'domcontentloaded', timeout: 60000 });
+            // Fast-fail again
+            await Promise.race([
+              page.waitForSelector('main [data-profile-section], main .pv-text-details__left-panel', { timeout: PROFILE_TIMEOUT }),
+              page.waitForSelector('button.blue-button, [class*="error"], [class*="reload"]', { timeout: PROFILE_TIMEOUT }),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('PROFILE_TIMEOUT_ROTATED')), PROFILE_TIMEOUT))
+            ]);
+          } catch (e2: any) {
+            logs.push(`❌ Rotated profile navigation still failed: ${e2?.message || e2}`);
+            throw error;
+          }
+          logs.push('✅ Rotated profile loaded successfully');
+        } else {
+          throw error; // Should not reach here
+        }
       }
       
       // Check for auth redirects
