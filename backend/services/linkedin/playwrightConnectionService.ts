@@ -177,6 +177,34 @@ export class PlaywrightConnectionService {
         await page.setViewport({ width: 1366, height: 768 });
         logs.push('Configured headful browser with realistic UA');
 
+        // Match headers and language like headless path for consistency
+        await page.setExtraHTTPHeaders({
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'none',
+          'Upgrade-Insecure-Requests': '1',
+        });
+        await page.evaluateOnNewDocument(() => {
+          Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+          Object.defineProperty(navigator, 'language', { get: () => 'en-US' });
+        });
+
+        // Observe 4xx/5xx to detect feed warmup issues
+        let sawFeed400 = false;
+        page.on('response', (resp) => {
+          try {
+            if (resp.url().includes('/feed') && resp.status() >= 400) {
+              sawFeed400 = true;
+              logs.push(`Headful warmup response ${resp.status()} on feed: ${resp.url()}`);
+            }
+          } catch {}
+        });
+
         // Inject cookies
         const cookies = this.parseCookiesForPlaywright(decryptedCookie);
         await page.goto('https://www.linkedin.com', { waitUntil: 'domcontentloaded', timeout: 30000 });
@@ -197,13 +225,32 @@ export class PlaywrightConnectionService {
             } catch {}
           });
           await page.waitForTimeout(1200 + Math.floor(Math.random() * 800));
+          // If feed returned 400, retry once after brief delay
+          if (sawFeed400) {
+            logs.push('Headful warmup saw 4xx; retrying feed once');
+            await page.waitForTimeout(2000);
+            sawFeed400 = false;
+            await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'domcontentloaded', timeout: 60000 });
+            await page.waitForTimeout(3000);
+          }
         } catch (e: any) {
           logs.push(`Headful warmup failed (continuing): ${e?.message || e}`);
         }
 
         // Navigate to profile after warmup
+        await page.setExtraHTTPHeaders({ 'Referer': 'https://www.linkedin.com/feed/' });
         await page.goto(profileUrl.replace('http://', 'https://'), { waitUntil: 'domcontentloaded', timeout: 60000 });
         logs.push('Navigated to profile in headful mode');
+
+        // If WAF page shows a Reload button, click it once and wait
+        try {
+          const reloadBtn = await page.$('button.blue-button, button:has-text("Reload")');
+          if (reloadBtn) {
+            logs.push('WAF Reload button detected; clicking once');
+            await reloadBtn.click().catch(() => {});
+            await page.waitForTimeout(4000);
+          }
+        } catch {}
 
         // Perform connection flow
         const connectionResult = await this.performConnectionFlow(page, message, logs);
