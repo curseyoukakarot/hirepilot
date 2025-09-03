@@ -196,7 +196,8 @@ export class PlaywrightConnectionService {
         console.log('[PlaywrightConnection] Converted WebSocket URL to HTTP for /unblock API');
       }
       const API_TIMEOUT = 60000;          // hard upper-bound per Browserless docs
-      const unblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&proxySticky=true&proxyCountry=US&timeout=${API_TIMEOUT}`;
+      const PROXY_STICKY = process.env.PROXY_STICKY !== 'false';
+      const unblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&proxySticky=${PROXY_STICKY ? 'true' : 'false'}&proxyCountry=US&timeout=${API_TIMEOUT}`;
       
       console.log(`[PlaywrightConnection] Unblock URL: ${baseUrl}`);
       logs.push(`Using unblock endpoint: ${baseUrl}`);
@@ -423,7 +424,7 @@ export class PlaywrightConnectionService {
       
       // Only use officially supported query parameters: timeout, proxy, proxyCountry, proxySticky, token
       const profileUnblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}` +
-                                `&proxy=residential&proxySticky=true&proxyCountry=US&timeout=${API_TIMEOUT}`;
+                                `&proxy=residential&proxySticky=${PROXY_STICKY ? 'true' : 'false'}&proxyCountry=US&timeout=${API_TIMEOUT}`;
       
       let profileUnblockResponse;
       let profileRetryCount = 0;
