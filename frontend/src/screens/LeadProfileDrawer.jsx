@@ -1967,6 +1967,61 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                         )}
                       </div>
                     </div>
+                    {/* Enhanced Company Insights (data view) */}
+                    {localLead?.has_enhanced_enrichment ? (
+                      hasEnhancedOrgData(localLead) ? (
+                        <div className="mt-6">
+                          <div className="flex items-center justify-between mb-3">
+                            <h3 className="text-lg font-semibold">Enhanced Company Insights</h3>
+                            {getOrganization(localLead)?.name && (
+                              <span className="text-xs text-gray-500">{getOrganization(localLead)?.name}</span>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="p-4 border rounded-lg">
+                              <div className="text-sm text-gray-500">Revenue</div>
+                              <div className="text-sm font-medium">{getAnnualRevenue(getOrganization(localLead)) || '—'}</div>
+                            </div>
+                            <div className="p-4 border rounded-lg">
+                              <div className="text-sm text-gray-500">Funding</div>
+                              {(() => {
+                                const f = getFunding(localLead);
+                                const parts = [f.stage, f.total].filter(Boolean).join(' · ');
+                                return <div className="text-sm font-medium">{parts || '—'}</div>;
+                              })()}
+                            </div>
+                            <div className="p-4 border rounded-lg">
+                              <div className="text-sm text-gray-500">Founded</div>
+                              <div className="text-sm font-medium">{getFoundedYear(getOrganization(localLead)) || '—'}</div>
+                            </div>
+                            <div className="p-4 border rounded-lg">
+                              <div className="text-sm text-gray-500">Industry</div>
+                              <div className="text-sm font-medium">{getIndustry(getOrganization(localLead)) || '—'}</div>
+                            </div>
+                          </div>
+                          <div className="mt-4">
+                            <div className="text-sm font-semibold mb-2">Keywords</div>
+                            <div className="flex flex-wrap gap-2">
+                              {getKeywords(getOrganization(localLead)).length > 0 ? getKeywords(getOrganization(localLead)).map((kw, idx) => (
+                                <span key={idx} className="px-3 py-1 bg-gray-100 rounded-full text-sm">{kw}</span>
+                              )) : <span className="text-gray-400 text-sm">—</span>}
+                            </div>
+                          </div>
+                          <div className="mt-4">
+                            <div className="text-sm font-semibold mb-2">Technologies</div>
+                            <div className="flex flex-wrap gap-2">
+                              {getTechnologies(localLead).length > 0 ? getTechnologies(localLead).map((t, idx) => (
+                                <span key={idx} className="px-3 py-1 bg-gray-100 rounded-full text-sm">{t}</span>
+                              )) : <span className="text-gray-400 text-sm">—</span>}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-6 p-3 border rounded-lg bg-gray-50 text-gray-600 text-sm">
+                          Enhanced insights are unlocked, but no organization details are available for this lead.
+                        </div>
+                      )
+                    ) : null}
                     {/* Skills */}
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
