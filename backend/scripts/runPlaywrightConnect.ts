@@ -19,8 +19,10 @@ async function main() {
     process.exit(1);
   }
 
-  if (!process.env.BROWSERLESS_TOKEN) {
-    console.error('Missing BROWSERLESS_TOKEN env.');
+  // Only require Browserless token in headless mode. Headful mode launches local Chrome.
+  const isHeadful = process.env.HEADFUL === 'true';
+  if (!process.env.BROWSERLESS_TOKEN && !isHeadful) {
+    console.error('Missing BROWSERLESS_TOKEN env. (not required when HEADFUL=true)');
     process.exit(1);
   }
 
