@@ -49,6 +49,8 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   const [loadingEnrollment, setLoadingEnrollment] = useState(false);
   const enrollmentLastFetchRef = React.useRef({ leadId: null, at: 0 });
   const enrollmentAbortRef = React.useRef(null);
+  const lastLeadFetchRef = React.useRef({ leadId: null, at: 0 });
+  const prevIsOpenRef = React.useRef(false);
 
   useEffect(() => {
     // Parse enrichment_data if it's a string or array-like object
@@ -91,21 +93,45 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     }
     setLocalLead(parsed);
 
-    // When drawer opens, pull the freshest lead data from backend
+    // Detect drawer opening edge to run one-time per open
+    const wasOpen = prevIsOpenRef.current;
+    prevIsOpenRef.current = isOpen;
+    const opening = isOpen && !wasOpen;
+
+    // When drawer opens or lead changes, pull freshest data (throttled)
     if (isOpen && (lead?.lead_id || lead?.id)) {
       const lid = lead.lead_id || lead.id;
-      fetchLatestLead(lid);
-      fetchDailyLinkedInCount();
-      fetchUserCredits();
-      fetchUserRole();
-      // Debounce enrollment fetch to avoid rapid prop churn flicker
+
+      // Only run these once per open
+      if (opening) {
+        fetchDailyLinkedInCount();
+        fetchUserCredits();
+        fetchUserRole();
+      }
+
       const now = Date.now();
-      if (!enrollmentLastFetchRef.current || enrollmentLastFetchRef.current.leadId !== lid || now - enrollmentLastFetchRef.current.at > 800) {
+
+      // Throttle latest lead fetch to avoid loops from parent prop churn
+      const shouldFetchLead = !lastLeadFetchRef.current
+        || lastLeadFetchRef.current.leadId !== lid
+        || now - lastLeadFetchRef.current.at > 10000; // 10s throttle
+
+      if (shouldFetchLead) {
+        lastLeadFetchRef.current = { leadId: lid, at: now };
+        fetchLatestLead(lid);
+      }
+
+      // Throttle enrollment fetch similarly
+      const shouldFetchEnrollment = !enrollmentLastFetchRef.current
+        || enrollmentLastFetchRef.current.leadId !== lid
+        || now - enrollmentLastFetchRef.current.at > 10000; // 10s throttle
+
+      if (shouldFetchEnrollment) {
         enrollmentLastFetchRef.current = { leadId: lid, at: now };
         fetchSequenceEnrollment(lid);
       }
     }
-  }, [lead, isOpen]);
+  }, [isOpen, lead?.id, lead?.lead_id]);
 
   // Toast helper (replace with your own toast if needed)
   const showToast = (msg, type = 'success') => {
@@ -821,7 +847,6 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
         }
       }
       setLocalLead(parsed);
-      onLeadUpdated?.(parsed);
     } catch (e) {
       // ignore
     }
