@@ -12,19 +12,28 @@ interface Lead {
   [key: string]: any;
 }
 
-export async function sendEmail(lead: Lead, message: string, userId: string): Promise<boolean> {
+export async function sendEmail(
+  lead: Lead,
+  message: string,
+  userId: string,
+  explicitSubject?: string
+): Promise<boolean> {
   // Ensure placeholders are replaced regardless of upstream processing.
   const templated = personalizeMessage(message, lead);
-  // Parse subject/body from original (before HTML conversion)
-  const lines = templated.split('\n');
-  let subject = 'Message from HirePilot';
-  let bodyText = templated;
-  if (lines.length > 1 && lines[0].length < 100 && !lines[0].includes('<')) {
-    subject = lines[0].trim();
-    bodyText = lines.slice(1).join('\n').trim();
+  // Prefer explicit subject when provided (from sequence builder/scheduler)
+  let subject = explicitSubject && explicitSubject.trim().length > 0 ? explicitSubject.trim() : 'Message from HirePilot';
+  // If no explicit subject was provided, attempt legacy parsing of first line
+  if (!explicitSubject) {
+    const lines = templated.split('\n');
+    if (lines.length > 1 && lines[0].length < 100 && !lines[0].includes('<')) {
+      subject = lines[0].trim();
+      message = lines.slice(1).join('\n').trim();
+    }
   }
   // Convert plain newlines to <br/> for HTML content
-  const processedMessage = bodyText.replace(/\n/g, '<br/>');
+  const processedMessage = templated === message
+    ? message.replace(/\n/g, '<br/>')
+    : message.replace(/\n/g, '<br/>');
   
   try {
     // Prefer SendGrid if configured; else fall back to Google

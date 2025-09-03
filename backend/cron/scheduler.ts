@@ -133,7 +133,9 @@ export async function processScheduledMessages(){
         continue;
       }
       const sendProvider=require('../services/emailProviderService');
-      const sent=await sendProvider.sendEmail(leadRes.data,msg.content,msg.user_id,msg.sender_meta);
+      // Use stored subject if present; fall back to parsing handled inside service
+      const explicitSubject = (msg as any)?.subject || undefined;
+      const sent=await sendProvider.sendEmail(leadRes.data,msg.content,msg.user_id,explicitSubject);
       await supabaseDb.from('messages').update({ status: sent?'sent':'failed', sent_at:new Date().toISOString() }).eq('id',msg.id);
     }catch(e){
       console.error('[processScheduledMessages]',e);
@@ -238,7 +240,7 @@ export async function processSequenceStepRuns(){
         sent = await sendViaProvider(preferredProvider as any, leadRes, body, leadRes.user_id, subj);
       } else {
         const ep = await import('../services/emailProviderService');
-        sent = await ep.sendEmail(leadRes, body, leadRes.user_id);
+        sent = await ep.sendEmail(leadRes, body, leadRes.user_id, subject);
       }
 
       if (!sent){
