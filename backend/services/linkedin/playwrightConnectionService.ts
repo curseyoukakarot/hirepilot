@@ -662,6 +662,16 @@ export class PlaywrightConnectionService {
         timeout: 60000 
       });
       logs.push('Profile navigation initiated');
+
+      // If LinkedIn shows a Reload page, click it once and wait before fast-fail
+      try {
+        const reloadBtn = await page.$('button.blue-button, button:has-text("Reload")');
+        if (reloadBtn) {
+          logs.push('Reload button detected on profile; clicking once');
+          await reloadBtn.click().catch(() => {});
+          await page.waitForTimeout(4000);
+        }
+      } catch {}
       
       // CRITICAL: Fast-fail WAF detection with Promise.race (12s max)
       const PROFILE_TIMEOUT = 12000; // 12 seconds
@@ -750,6 +760,15 @@ export class PlaywrightConnectionService {
             await page.setCookie(...cookies);
             await page.setExtraHTTPHeaders({ 'Referer': 'https://www.linkedin.com/feed/' });
             await page.goto(profileUrl.replace('http://', 'https://'), { waitUntil: 'domcontentloaded', timeout: 60000 });
+            // Handle Reload once on rotated nav
+            try {
+              const reloadBtn2 = await page.$('button.blue-button, button:has-text("Reload")');
+              if (reloadBtn2) {
+                logs.push('Reload button detected after rotation; clicking once');
+                await reloadBtn2.click().catch(() => {});
+                await page.waitForTimeout(4000);
+              }
+            } catch {}
             // Fast-fail again
             await Promise.race([
               page.waitForSelector('main [data-profile-section], main .pv-text-details__left-panel', { timeout: PROFILE_TIMEOUT }),
