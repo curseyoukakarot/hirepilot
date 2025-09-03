@@ -2,6 +2,14 @@ import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import * as crypto from 'crypto';
 import { Browser, Page } from 'puppeteer';
+// Optional human-like cursor (ghost-cursor)
+let createCursor: any | null = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  createCursor = require('ghost-cursor').createCursor;
+} catch {
+  createCursor = null;
+}
 
 // Enable stealth plugin for maximum anti-detection
 puppeteer.use(StealthPlugin());
@@ -673,6 +681,8 @@ export class PlaywrightConnectionService {
    */
   private static async performConnectionFlow(page: Page, message: string, logs: string[]): Promise<{success: boolean, message: string, error?: string}> {
     try {
+      const useGhost = process.env.USE_GHOST_CURSOR === 'true' && !!createCursor;
+      const cursor = useGhost ? createCursor(page) : null;
       // Check if already connected first (if Message button exists but no Connect) - Fixed for Puppeteer
       const messageButton = await page.$('button[aria-label*="Message"]');
       if (messageButton) {
@@ -935,14 +945,33 @@ export class PlaywrightConnectionService {
       
       try {
         // Hover before clicking (human-like)
-        await page.hover(connectButton.selector!);
-        await page.waitForTimeout(400 + Math.random() * 300); // Random hover delay
-        logs.push('Hovering over Connect button...');
-        
-        // Click with human-like delay
-        logs.push('Clicking Connect button...');
-        await page.waitForTimeout(500 + Math.random() * 500); // Random delay before click
-        await connectButton.click();
+        if (cursor) {
+          try {
+            const box = await connectButton.boundingBox();
+            if (box) {
+              await cursor.moveTo({ x: box.x + box.width / 2, y: box.y + box.height / 2 });
+              await page.waitForTimeout(200 + Math.random() * 200);
+              await cursor.click();
+            } else {
+              await page.hover(connectButton.selector!);
+              await page.waitForTimeout(200);
+              await connectButton.click();
+            }
+          } catch {
+            await page.hover(connectButton.selector!);
+            await page.waitForTimeout(200);
+            await connectButton.click();
+          }
+        } else {
+          await page.hover(connectButton.selector!);
+          await page.waitForTimeout(400 + Math.random() * 300); // Random hover delay
+          logs.push('Hovering over Connect button...');
+          
+          // Click with human-like delay
+          logs.push('Clicking Connect button...');
+          await page.waitForTimeout(500 + Math.random() * 500); // Random delay before click
+          await connectButton.click();
+        }
         
       } catch (interactionError: any) {
         if (interactionError.message.includes('context') || interactionError.message.includes('destroyed')) {
@@ -1061,7 +1090,23 @@ export class PlaywrightConnectionService {
       
       // Click send with human delay
       await page.waitForTimeout(500 + Math.random() * 500);
-      await sendButton.click();
+      if (process.env.USE_GHOST_CURSOR === 'true' && createCursor) {
+        try {
+          const box = await sendButton.boundingBox();
+          const cursor2 = createCursor(page);
+          if (box) {
+            await cursor2.moveTo({ x: box.x + box.width / 2, y: box.y + box.height / 2 });
+            await page.waitForTimeout(120 + Math.random() * 120);
+            await cursor2.click();
+          } else {
+            await sendButton.click();
+          }
+        } catch {
+          await sendButton.click();
+        }
+      } else {
+        await sendButton.click();
+      }
       
       // Wait for success/error indicators
       await page.waitForTimeout(3000);
@@ -1175,8 +1220,23 @@ export class PlaywrightConnectionService {
       if (items.length <= index) { logs.push(`Overflow has ${items.length} items; need ${index + 1}`); return false; }
       const target = items[index];
       const label = (await target.evaluate(el => (el.textContent || '').trim()).catch(() => '')) || '';
-      try { await target.hover(); } catch {}
-      try { await target.click({ delay: 50 }); } catch {}
+      try {
+        const useGhost = process.env.USE_GHOST_CURSOR === 'true' && !!createCursor;
+        if (useGhost) {
+          const box = await target.boundingBox();
+          const cursor = createCursor(page);
+          if (box) {
+            await cursor.moveTo({ x: box.x + box.width / 2, y: box.y + box.height / 2 });
+            await page.waitForTimeout(120 + Math.random() * 120);
+            await cursor.click();
+          } else {
+            await target.click({ delay: 50 }).catch(() => {});
+          }
+        } else {
+          await target.hover().catch(() => {});
+          await target.click({ delay: 50 }).catch(() => {});
+        }
+      } catch {}
       logs.push(`Clicked menu item #${index + 1}: "${label}"`);
       return true;
     } catch (e: any) {
