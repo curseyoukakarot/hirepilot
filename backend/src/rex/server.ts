@@ -721,7 +721,26 @@ server.registerCapabilities({
       },
       handler: async ({ userId, campaignId, filters }) => {
         await assertPremium(userId);
-        return await filterLeads({ userId, campaignId, filters });
+        // If user intends to search their own enriched database, apply organization filters
+        // Supported extra filters:
+        //  - min_revenue: number/string (compared to organization.estimated_annual_revenue)
+        //  - funding_stage: string (equals organization.latest_funding_stage when present)
+        //  - tech_stack: string[] or string (includes organization.technology_names.name)
+        //  - industry: string (matches organization.industry or keywords)
+        //  - requires_enhanced: boolean (skip leads where has_enhanced_enrichment === false)
+        const result = await filterLeads({ userId, campaignId, filters });
+        const out = { ...result } as any;
+        if (out?.leads && Array.isArray(out.leads)) {
+          // Light post-filtering where JSON selectors are not already supported in SQL path
+          out.leads = out.leads.filter((l: any) => {
+            // Fetch full row only if necessary is deferred to the tool itself; here we best-effort rely on shaped data
+            // Skip gate if requires_enhanced
+            if (filters?.requires_enhanced && (l.has_enhanced_enrichment === false)) return false;
+            return true;
+          });
+          out.count = out.leads.length;
+        }
+        return out;
       }
     },
     enrich_lead_advanced: {

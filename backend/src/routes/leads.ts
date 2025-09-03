@@ -8,6 +8,7 @@ import { searchAndEnrichPeople } from '../../utils/apolloApi';
 import { ApiRequest } from '../../types/api';
 import { EmailEventService } from '../../services/emailEventService';
 import { CreditService } from '../../services/creditService';
+import { emitZapEvent, ZAP_EVENT_TYPES, createLeadEventData } from '../../lib/zapEventEmitter';
 import axios from 'axios';
 import decodoRouter from './leads/decodo/salesNavigatorScraper';
 import enrichmentRouter from './leads/decodo/enrichLeadProfile';
@@ -296,6 +297,78 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
       message: 'Internal server error during enrichment',
       error: error.message
     });
+  }
+});
+
+// POST /api/leads/:id/unlock-enhanced - Deduct 1 credit and unlock enhanced enrichment for this lead
+router.post('/:id/unlock-enhanced', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const leadId = req.params.id;
+    const userId = (req as any).user?.id as string;
+
+    if (!leadId || !userId) {
+      res.status(400).json({ error: 'Missing leadId or userId' });
+      return;
+    }
+
+    // Fetch lead
+    const { data: lead, error: leadErr } = await supabase
+      .from('leads')
+      .select('*')
+      .eq('id', leadId)
+      .maybeSingle();
+    if (leadErr || !lead) {
+      res.status(404).json({ error: 'Lead not found' });
+      return;
+    }
+
+    // If already unlocked, return early
+    if ((lead as any).has_enhanced_enrichment === true) {
+      res.json({ lead });
+      return;
+    }
+
+    // Check credits (1 credit)
+    const hasCredits = await CreditService.hasSufficientCredits(userId, 1);
+    if (!hasCredits) {
+      res.status(402).json({ error: 'Insufficient credits', requiredCredits: 1 });
+      return;
+    }
+
+    // Deduct 1 credit (logs usage appropriately)
+    await CreditService.deductCredits(userId, 1, 'api_usage', 'Unlock enhanced enrichment');
+
+    // Update lead flag
+    const { data: updatedLead, error: updErr } = await supabase
+      .from('leads')
+      .update({ has_enhanced_enrichment: true, updated_at: new Date().toISOString() })
+      .eq('id', leadId)
+      .select('*')
+      .maybeSingle();
+
+    if (updErr || !updatedLead) {
+      res.status(500).json({ error: 'Failed to update lead flag' });
+      return;
+    }
+
+    // Emit event for analytics/automation
+    try {
+      await emitZapEvent({
+        userId,
+        eventType: ZAP_EVENT_TYPES.LEAD_UPDATED,
+        eventData: createLeadEventData(updatedLead, {
+          event_type: 'enhanced_enrichment_unlocked',
+          metadata: { leadId, orgId: updatedLead.enrichment_data?.apollo?.organization?.id || null, userId }
+        }),
+        sourceTable: 'leads',
+        sourceId: leadId
+      });
+    } catch {}
+
+    res.json({ lead: updatedLead });
+  } catch (error: any) {
+    console.error('[unlock-enhanced] error', error);
+    res.status(500).json({ error: error?.message || 'Internal server error' });
   }
 });
 

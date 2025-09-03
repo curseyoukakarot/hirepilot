@@ -440,6 +440,30 @@ export async function filterLeads({
     query = query.filter('enrichment_data->apollo->>email_status', 'eq', 'verified');
   }
 
+  // Enhanced organization filters (local DB search)
+  if (typeof filters?.min_revenue !== 'undefined') {
+    query = query.filter('enrichment_data->apollo->organization->>estimated_annual_revenue', 'gte', String(filters.min_revenue));
+  }
+  if (typeof filters?.funding_stage === 'string' && filters.funding_stage.trim()) {
+    // Try multiple paths commonly seen in payloads
+    const fs = String(filters.funding_stage).trim();
+    query = query.or([
+      `enrichment_data->apollo->>latest_funding_stage.eq.${fs}`,
+      `enrichment_data->apollo->organization->>latest_funding_stage.eq.${fs}`
+    ].join(','));
+  }
+  if (typeof filters?.industry === 'string' && filters.industry.trim()) {
+    const ind = `%${String(filters.industry).trim()}%`;
+    query = query.or([
+      `enrichment_data->apollo->organization->>industry.ilike.${ind}`,
+      `enrichment_data->apollo->organization->keywords.cs.{"${String(filters.industry).trim()}"}`
+    ].join(','));
+  }
+  if (filters?.requires_enhanced) {
+    // Only return leads where the UI flag has been unlocked
+    query = query.eq('has_enhanced_enrichment', true);
+  }
+
   // Pre-filter by title tokens/synonyms at the DB level, then refine in-memory
   let requestedTitles: string[] | undefined;
   if (filters?.title) {

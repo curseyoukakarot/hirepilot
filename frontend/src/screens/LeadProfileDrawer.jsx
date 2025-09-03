@@ -498,6 +498,28 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     return [];
   };
 
+  // Enhanced Company Insights helpers (from existing Apollo organization payload)
+  const getOrganization = (lead) => lead?.enrichment_data?.apollo?.organization || null;
+  const getAnnualRevenue = (org) => org?.annual_revenue_printed || org?.estimated_annual_revenue || org?.annual_revenue || null;
+  const getFunding = (lead) => {
+    const apollo = lead?.enrichment_data?.apollo || {};
+    // Support a few common shapes without new API calls
+    const stage = apollo.latest_funding_stage || apollo.funding_stage || apollo.organization?.latest_funding_stage || null;
+    const total = apollo.total_funding || apollo.total_raised || apollo.funding_total || apollo.organization?.total_funding || null;
+    return { stage, total };
+  };
+  const getFoundedYear = (org) => org?.founded_year || null;
+  const getIndustry = (org) => org?.industry || null;
+  const getKeywords = (org) => Array.isArray(org?.keywords) ? org.keywords.slice(0, 10) : [];
+  const getTechnologies = (lead) => {
+    const tech = lead?.enrichment_data?.apollo?.organization?.technology_names;
+    if (Array.isArray(tech)) {
+      // Accept either array of strings or array of { name }
+      return tech.map(t => (typeof t === 'string' ? t : t?.name)).filter(Boolean).slice(0, 8);
+    }
+    return [];
+  };
+
   // Helper to determine if lead is enriched – any non-empty enrichment_data counts
   const isEnriched = Boolean(
     localLead.enrichment_data && Object.keys(localLead.enrichment_data).length > 0
