@@ -905,49 +905,28 @@ export class PlaywrightConnectionService {
       }
       
       if (!connectButton) {
-        // Enhanced fallback: check if already connected
-        if (messageButton) {
-          logs.push('No Connect button found but Message button exists - likely already connected');
+        // BRUTE FALLBACK: open More and select 5th item
+        logs.push('Brute fallback: attempting to open More and click 5th item (index 4)');
+        const bruteClicked = await PlaywrightConnectionService.bruteConnectViaMore(page, logs);
+        if (!bruteClicked) {
+          // Enhanced fallback: check if already connected
+          if (messageButton) {
+            logs.push('No Connect button found but Message button exists - likely already connected');
+            return {
+              success: false,
+              message: 'Already connected to this profile',
+              error: 'ALREADY_CONNECTED'
+            };
+          }
+          // Minimal debug
+          try { const pageContent = await page.content(); logs.push(`Page HTML length: ${pageContent.length} chars`); } catch {}
           return {
             success: false,
-            message: 'Already connected to this profile',
-            error: 'ALREADY_CONNECTED'
+            message: 'Connect button not found - may already be connected or profile not accessible',
+            error: 'NO_CONNECT_BUTTON'
           };
         }
-        
-        // Log page content for debugging (with context destruction handling)
-        try {
-          const pageContent = await page.content();
-          logs.push(`Page HTML length: ${pageContent.length} chars`);
-          
-          // Handle potential context destruction during button analysis
-          try {
-            const buttonInfo = await page.$$eval('button, [role="button"]', buttons => 
-              buttons.slice(0, 10).map(b => b.textContent?.trim() || b.getAttribute('aria-label') || 'unnamed').join(', ')
-            );
-            logs.push('Available buttons: ' + buttonInfo);
-          } catch (evalError: any) {
-            if (evalError.message.includes('context') || evalError.message.includes('destroyed')) {
-              logs.push('⚠️ Page context destroyed during button analysis - LinkedIn SPA navigation detected');
-              // Attempt to wait and retry
-              await page.waitForTimeout(2000);
-              const retryButtonInfo = await page.$$eval('button, [role="button"]', buttons => 
-                buttons.slice(0, 5).map(b => b.textContent?.trim() || 'unnamed').join(', ')
-              ).catch(() => 'Unable to analyze buttons due to context issues');
-              logs.push('Available buttons (retry): ' + retryButtonInfo);
-            } else {
-              logs.push('Could not analyze buttons: ' + evalError.message);
-            }
-          }
-        } catch (e: any) {
-          logs.push('Could not analyze page content: ' + e.message);
-        }
-        
-        return {
-          success: false,
-          message: 'Connect button not found - may already be connected or profile not accessible',
-          error: 'NO_CONNECT_BUTTON'
-        };
+        logs.push('Brute fallback clicked item from More; proceeding');
       }
       
       // Enhanced human-like connect button interaction with context destruction handling
@@ -1156,6 +1135,77 @@ export class PlaywrightConnectionService {
         message: 'Error during connection flow',
         error: error.message
       };
+    }
+  }
+
+  // Brute fallback helpers
+  private static async bruteConnectViaMore(page: Page, logs: string[]): Promise<boolean> {
+    const byIndex = await PlaywrightConnectionService.clickConnectFromMoreByIndexPuppeteer(page, 4, logs);
+    if (byIndex) return true;
+    const byKeys = await PlaywrightConnectionService.clickConnectFromMoreByKeysPuppeteer(page, 5, logs);
+    return byKeys;
+  }
+
+  private static async clickConnectFromMoreByIndexPuppeteer(page: Page, index: number, logs: string[]): Promise<boolean> {
+    try {
+      // Open More/overflow menu
+      const moreCandidates = [
+        'button[aria-label*="More" i]',
+        '[data-control-name*="overflow" i]',
+        'button.artdeco-dropdown-trigger'
+      ];
+      let opened = false;
+      for (const sel of moreCandidates) {
+        const btn = await page.$(sel).catch(() => null);
+        if (!btn) continue;
+        const text = await btn.evaluate(el => (el.textContent || '').toLowerCase()).catch(() => '');
+        if (text.includes('more') || sel.includes('overflow')) {
+          await btn.click({ delay: 50 }).catch(() => {});
+          opened = true;
+          logs.push(`Opened More menu via ${sel}`);
+          break;
+        }
+      }
+      if (!opened) return false;
+
+      const menu = await page.waitForSelector('[role="menu"]', { timeout: 2000 }).catch(() => null);
+      if (!menu) return false;
+      const items = await page.$$('[role="menuitem"], .artdeco-dropdown__item');
+      if (items.length <= index) { logs.push(`Overflow has ${items.length} items; need ${index + 1}`); return false; }
+      const target = items[index];
+      const label = (await target.evaluate(el => (el.textContent || '').trim()).catch(() => '')) || '';
+      try { await target.hover(); } catch {}
+      try { await target.click({ delay: 50 }); } catch {}
+      logs.push(`Clicked menu item #${index + 1}: "${label}"`);
+      return true;
+    } catch (e: any) {
+      logs.push(`Index brute select failed: ${e?.message || e}`);
+      return false;
+    }
+  }
+
+  private static async clickConnectFromMoreByKeysPuppeteer(page: Page, downCount: number, logs: string[]): Promise<boolean> {
+    try {
+      let menu = await page.$('[role="menu"]').catch(() => null);
+      if (!menu) {
+        const btn = await page.$('button[aria-label*="More" i], [data-control-name*="overflow" i]').catch(() => null);
+        if (!btn) return false;
+        await btn.click({ delay: 50 }).catch(() => {});
+        menu = await page.waitForSelector('[role="menu"]', { timeout: 1500 }).catch(() => null);
+        if (!menu) return false;
+      }
+      const first = await page.$('[role="menuitem"], .artdeco-dropdown__item');
+      if (first) { try { await (first as any).focus(); } catch {} }
+      for (let i = 0; i < downCount - 1; i++) {
+        await page.keyboard.press('ArrowDown');
+        await page.waitForTimeout(80 + Math.floor(Math.random() * 60));
+      }
+      await page.keyboard.press('Enter');
+      logs.push(`Keyboard-selected More item #${downCount}`);
+      return true;
+    } catch (e: any) {
+      logs.push(`Keys brute select failed: ${e?.message || e}`);
+      return false;
     }
   }
 
