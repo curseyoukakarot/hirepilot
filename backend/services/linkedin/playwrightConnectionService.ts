@@ -138,6 +138,9 @@ export class PlaywrightConnectionService {
 
         const macChrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
         const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || (process.platform === 'darwin' ? macChrome : undefined);
+        const decodoHost = process.env.DECODO_PROXY_HOST;
+        const decodoPort = process.env.DECODO_PROXY_PORT;
+        const proxyArg = decodoHost && decodoPort ? `--proxy-server=http://${decodoHost}:${decodoPort}` : null;
         browser = await puppeteer.launch({
           headless: false,
           defaultViewport: { width: 1366, height: 768 },
@@ -150,9 +153,23 @@ export class PlaywrightConnectionService {
             '--no-first-run',
             '--no-zygote',
             '--disable-gpu',
+            ...(proxyArg ? [proxyArg] : [])
           ]
         });
         page = await browser.newPage();
+
+        // If using authenticated HTTP proxy (Decodo), provide credentials
+        if (decodoHost && decodoPort && process.env.DECODO_PROXY_USERNAME && process.env.DECODO_PROXY_PASSWORD) {
+          try {
+            await page.authenticate({
+              username: process.env.DECODO_PROXY_USERNAME as string,
+              password: process.env.DECODO_PROXY_PASSWORD as string
+            });
+            logs.push(`Configured headful proxy via Decodo: ${decodoHost}:${decodoPort}`);
+          } catch (e: any) {
+            logs.push(`Failed to authenticate to Decodo proxy: ${e?.message || e}`);
+          }
+        }
 
         // Realistic UA
         const realisticUA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
@@ -166,11 +183,26 @@ export class PlaywrightConnectionService {
         await page.setCookie(...cookies as any);
         logs.push('Cookies injected into headful session');
 
-        // Directly navigate to profile (skip feed/notifications)
-        await page.goto(profileUrl.replace('http://', 'https://'), {
-          waitUntil: 'domcontentloaded',
-          timeout: 60000
-        });
+        // Headful warmup: visit feed to build trust before profile
+        try {
+          await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'domcontentloaded', timeout: 60000 });
+          logs.push('Headful warmup: visited feed');
+          await page.waitForTimeout(4000 + Math.floor(Math.random() * 2000));
+          await page.evaluate(() => {
+            try {
+              if (document && document.body) {
+                window.scrollTo(0, 300 + Math.random() * 300);
+                setTimeout(() => { try { window.scrollTo(0, 80 + Math.random() * 120); } catch {} }, 400);
+              }
+            } catch {}
+          });
+          await page.waitForTimeout(1200 + Math.floor(Math.random() * 800));
+        } catch (e: any) {
+          logs.push(`Headful warmup failed (continuing): ${e?.message || e}`);
+        }
+
+        // Navigate to profile after warmup
+        await page.goto(profileUrl.replace('http://', 'https://'), { waitUntil: 'domcontentloaded', timeout: 60000 });
         logs.push('Navigated to profile in headful mode');
 
         // Perform connection flow
@@ -205,7 +237,15 @@ export class PlaywrightConnectionService {
       }
       const API_TIMEOUT = 60000;          // hard upper-bound per Browserless docs
       const PROXY_STICKY = process.env.PROXY_STICKY !== 'false';
-      const unblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&proxySticky=${PROXY_STICKY ? 'true' : 'false'}&proxyCountry=US&timeout=${API_TIMEOUT}`;
+      // If Decodo creds provided, use them as the Browserless proxy value; else fallback to Browserless residential pool
+      const decodoUser = process.env.DECODO_PROXY_USERNAME;
+      const decodoPass = process.env.DECODO_PROXY_PASSWORD;
+      const decodoHost = process.env.DECODO_PROXY_HOST;
+      const decodoPort = process.env.DECODO_PROXY_PORT;
+      const proxyParam = (decodoUser && decodoPass && decodoHost && decodoPort)
+        ? `http://${encodeURIComponent(decodoUser)}:${encodeURIComponent(decodoPass)}@${decodoHost}:${decodoPort}`
+        : 'residential';
+      const unblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}&proxy=${proxyParam}&proxySticky=${PROXY_STICKY ? 'true' : 'false'}&proxyCountry=US&timeout=${API_TIMEOUT}`;
       
       console.log(`[PlaywrightConnection] Unblock URL: ${baseUrl}`);
       logs.push(`Using unblock endpoint: ${baseUrl}`);
@@ -432,7 +472,7 @@ export class PlaywrightConnectionService {
       
       // Only use officially supported query parameters: timeout, proxy, proxyCountry, proxySticky, token
       const profileUnblockUrl = `${baseUrl}/chromium/unblock?token=${process.env.BROWSERLESS_TOKEN}` +
-                                `&proxy=residential&proxySticky=${PROXY_STICKY ? 'true' : 'false'}&proxyCountry=US&timeout=${API_TIMEOUT}`;
+                                `&proxy=${proxyParam}&proxySticky=${PROXY_STICKY ? 'true' : 'false'}&proxyCountry=US&timeout=${API_TIMEOUT}`;
       
       let profileUnblockResponse;
       let profileRetryCount = 0;
