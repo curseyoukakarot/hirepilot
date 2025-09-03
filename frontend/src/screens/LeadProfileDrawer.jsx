@@ -526,24 +526,46 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
 
   // Enhanced Company Insights helpers (from existing Apollo organization payload)
   const getOrganization = (lead) => lead?.enrichment_data?.apollo?.organization || null;
-  const getAnnualRevenue = (org) => org?.annual_revenue_printed || org?.estimated_annual_revenue || org?.annual_revenue || null;
+  const getAnnualRevenue = (org) =>
+    org?.organization_revenue_printed ||
+    org?.organization_revenue ||
+    org?.estimated_annual_revenue ||
+    org?.annual_revenue_printed ||
+    org?.annual_revenue ||
+    null;
   const getFunding = (lead) => {
     const apollo = lead?.enrichment_data?.apollo || {};
-    // Support a few common shapes without new API calls
-    const stage = apollo.latest_funding_stage || apollo.funding_stage || apollo.organization?.latest_funding_stage || null;
-    const total = apollo.total_funding || apollo.total_raised || apollo.funding_total || apollo.organization?.total_funding || null;
+    const org = apollo.organization || {};
+    const stage = apollo.latest_funding_stage || org.latest_funding_stage || null;
+    const total = apollo.total_funding_printed || org.total_funding_printed || apollo.total_funding || org.total_funding || null;
     return { stage, total };
   };
   const getFoundedYear = (org) => org?.founded_year || null;
   const getIndustry = (org) => org?.industry || null;
   const getKeywords = (org) => Array.isArray(org?.keywords) ? org.keywords.slice(0, 10) : [];
   const getTechnologies = (lead) => {
-    const tech = lead?.enrichment_data?.apollo?.organization?.technology_names;
-    if (Array.isArray(tech)) {
-      // Accept either array of strings or array of { name }
-      return tech.map(t => (typeof t === 'string' ? t : t?.name)).filter(Boolean).slice(0, 8);
-    }
-    return [];
+    const org = lead?.enrichment_data?.apollo?.organization || {};
+    const techA = Array.isArray(org.technology_names)
+      ? org.technology_names.map(t => (typeof t === 'string' ? t : t?.name)).filter(Boolean)
+      : [];
+    const techB = Array.isArray(org.current_technologies)
+      ? org.current_technologies.map(t => (typeof t === 'string' ? t : t?.name)).filter(Boolean)
+      : [];
+    return Array.from(new Set([...techA, ...techB])).slice(0, 8);
+  };
+
+  // Determine if we actually have any enhanced org data to show
+  const hasEnhancedOrgData = (lead) => {
+    const org = getOrganization(lead);
+    if (!org) return false;
+    if (getAnnualRevenue(org)) return true;
+    const f = getFunding(lead);
+    if (f.stage || f.total) return true;
+    if (getFoundedYear(org)) return true;
+    if (getIndustry(org)) return true;
+    if (getKeywords(org)?.length > 0) return true;
+    if (getTechnologies(lead)?.length > 0) return true;
+    return false;
   };
 
   // Helper to determine if lead is enriched – any non-empty enrichment_data counts
@@ -1836,6 +1858,65 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                       </div>
                     </div>
                   )}
+                </div>
+
+                {/* Enhanced Insights CTA: always visible below Work History header */}
+                <div className="mt-4">
+                  {(() => {
+                    const unlocked = Boolean(localLead?.has_enhanced_enrichment);
+                    const canShowData = hasEnhancedOrgData(localLead);
+                    if (!unlocked) {
+                      return (
+                        <div className="p-3 border rounded-lg bg-yellow-50 border-yellow-200 flex items-center justify-between">
+                          <div className="text-sm text-gray-700">
+                            Unlock Enhanced Company Insights (revenue, funding, technologies, keywords)
+                          </div>
+                          <button
+                            className="ml-3 inline-flex items-center px-3 py-1.5 rounded border border-yellow-500 text-yellow-700 bg-white hover:bg-yellow-100 text-sm"
+                            onClick={async () => {
+                              try {
+                                const { data: { session } } = await supabase.auth.getSession();
+                                const token = session?.access_token;
+                                const resp = await fetch(`${API_BASE_URL}/leads/${localLead.id}/unlock-enhanced`, {
+                                  method: 'POST',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                    ...(token ? { Authorization: `Bearer ${token}` } : {})
+                                  }
+                                });
+                                if (!resp.ok) {
+                                  const err = await resp.json().catch(() => ({}));
+                                  showToast(err?.error || 'Failed to unlock insights', 'error');
+                                  return;
+                                }
+                                const { lead } = await resp.json();
+                                setLocalLead((prev) => ({ ...prev, ...lead }));
+                                onLeadUpdated?.(lead);
+                                if (!hasEnhancedOrgData(lead)) {
+                                  showToast('Enhanced unlocked, but no organization details were found for this lead.', 'info');
+                                } else {
+                                  showToast('Enhanced insights unlocked!', 'success');
+                                }
+                              } catch (e) {
+                                showToast('Failed to unlock insights', 'error');
+                              }
+                            }}
+                          >
+                            🔓 Unlock Enhanced Insights (+1 credit)
+                          </button>
+                        </div>
+                      );
+                    }
+                    // Unlocked: if no data, notify gently inline
+                    if (unlocked && !canShowData) {
+                      return (
+                        <div className="p-3 border rounded-lg bg-gray-50 text-gray-600 text-sm">
+                          Enhanced insights are unlocked, but we didn’t find company-level details from Apollo for this lead.
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
 
                 {/* Blur the rest if not enriched */}
