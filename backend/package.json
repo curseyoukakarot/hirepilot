@@ -34,6 +34,7 @@
         "start": "node dist/server.js",
         "_postinstall_disabled": "npm run build:ultra-fast",
         "backfill-credits": "ts-node scripts/backfillUserCredits.ts",
+        "backfill-activate-campaigns": "ts-node scripts/backfillActivateCampaigns.ts",
         "_postinstall_note": "Playwright browsers installed via Dockerfile",
         "test": "jest"
     },
