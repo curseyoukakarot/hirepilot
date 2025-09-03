@@ -20,7 +20,7 @@ async function backfillLegacyCampaigns() {
     if ((count || 0) > 0) {
       const { error: updErr } = await supabase
         .from('campaigns')
-        .update({ status: 'active', launched_at: new Date().toISOString() })
+        .update({ status: 'active' })
         .eq('id', c.id);
       if (updErr) throw updErr;
       activated++;

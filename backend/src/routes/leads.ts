@@ -1518,7 +1518,7 @@ router.post('/attach-to-campaign', requireAuth, async (req: ApiRequest, res: Res
       if (!fetchCampaignStatusErr && c && (c as any).status === 'draft') {
         const { error: setActiveErr } = await supabase
           .from('campaigns')
-          .update({ status: 'active', launched_at: new Date().toISOString() })
+          .update({ status: 'active' })
           .eq('id', campaignId)
           .eq('user_id', userId);
         if (setActiveErr) {
