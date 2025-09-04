@@ -78,6 +78,7 @@ router.post('/sendgrid/webhook', async (req, res) => {
           campaign_id,
           lead_id,
           message_id: resolvedMessageId || `sg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          sg_message_id,
           provider: 'sendgrid',
           event_timestamp: new Date(timestamp * 1000).toISOString(),
           metadata: {
