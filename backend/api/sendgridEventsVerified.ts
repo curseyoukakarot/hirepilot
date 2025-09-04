@@ -37,8 +37,22 @@ export async function sendgridEventsHandler(req: express.Request, res: express.R
       console.warn('[sendgridEventsHandler] missing signature/public key; processing unsigned payload');
     }
 
-    const events = JSON.parse(bodyBuffer.toString('utf8'));
-    const batch = Array.isArray(events) ? events : [events];
+    let parsed: any;
+    try {
+      if (Buffer.isBuffer(req.body)) {
+        parsed = JSON.parse((req.body as Buffer).toString('utf8'));
+      } else if (typeof req.body === 'string') {
+        parsed = JSON.parse(req.body as any);
+      } else {
+        parsed = req.body;
+      }
+    } catch (e) {
+      console.error('[sendgridEventsHandler] failed to parse body as JSON', e);
+      res.status(400).send('invalid json');
+      return;
+    }
+
+    const batch = Array.isArray(parsed) ? parsed : [parsed];
 
     for (const ev of batch) {
       const {
@@ -100,35 +114,44 @@ export async function sendgridEventsHandler(req: express.Request, res: express.R
         }
       };
 
-      await supabase
+      const { error: upsertError } = await supabase
         .from('email_events')
         .upsert(row, { onConflict: 'sg_event_id' });
+      if (upsertError) {
+        console.error('[sendgridEventsHandler] upsert email_events failed:', upsertError);
+      }
 
       // Update message flags/status for quick UI access
       if (eventType === 'delivered' || eventType === 'bounce' || eventType === 'dropped') {
         const status = eventType === 'delivered' ? 'delivered' : 'failed';
         if (sg_message_id) {
-          await supabase.from('messages').update({ status }).eq('sg_message_id', sg_message_id);
+          const { error: updErr } = await supabase.from('messages').update({ status }).eq('sg_message_id', sg_message_id);
+          if (updErr) console.error('[sendgridEventsHandler] update messages status failed (sg_message_id):', updErr);
         } else if (resolvedMessageId) {
-          await supabase.from('messages').update({ status }).eq('message_id_header', resolvedMessageId);
+          const { error: updErr } = await supabase.from('messages').update({ status }).eq('message_id_header', resolvedMessageId);
+          if (updErr) console.error('[sendgridEventsHandler] update messages status failed (message_id_header):', updErr);
         }
       }
 
       if (eventType === 'open') {
         const update = { opened: true } as any;
         if (sg_message_id) {
-          await supabase.from('messages').update(update).eq('sg_message_id', sg_message_id);
+          const { error: updErr } = await supabase.from('messages').update(update).eq('sg_message_id', sg_message_id);
+          if (updErr) console.error('[sendgridEventsHandler] set opened failed (sg_message_id):', updErr);
         } else if (resolvedMessageId) {
-          await supabase.from('messages').update(update).eq('message_id_header', resolvedMessageId);
+          const { error: updErr } = await supabase.from('messages').update(update).eq('message_id_header', resolvedMessageId);
+          if (updErr) console.error('[sendgridEventsHandler] set opened failed (message_id_header):', updErr);
         }
       }
 
       if (eventType === 'click') {
         const update = { clicked: true } as any;
         if (sg_message_id) {
-          await supabase.from('messages').update(update).eq('sg_message_id', sg_message_id);
+          const { error: updErr } = await supabase.from('messages').update(update).eq('sg_message_id', sg_message_id);
+          if (updErr) console.error('[sendgridEventsHandler] set clicked failed (sg_message_id):', updErr);
         } else if (resolvedMessageId) {
-          await supabase.from('messages').update(update).eq('message_id_header', resolvedMessageId);
+          const { error: updErr } = await supabase.from('messages').update(update).eq('message_id_header', resolvedMessageId);
+          if (updErr) console.error('[sendgridEventsHandler] set clicked failed (message_id_header):', updErr);
         }
       }
     }
