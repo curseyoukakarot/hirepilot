@@ -174,7 +174,12 @@ app.use(cookieParser());
 app.post('/api/stripe/webhook', bodyParser.raw({ type: 'application/json' }), stripeWebhookHandler);
 
 // Signed SendGrid Event Webhook must receive raw body for signature verification
-app.post('/api/sendgrid/events', bodyParser.raw({ type: 'application/json' }), (req: expressNs.Request, res: expressNs.Response) => {
+// Accept any content-type to avoid mismatches like 'application/json; charset=utf-8'
+app.post('/api/sendgrid/events', bodyParser.raw({ type: '*/*' }), (req: expressNs.Request, res: expressNs.Response) => {
+  return sendgridEventsHandler(req, res);
+});
+// Alias to cover common misconfigured paths
+app.post('/api/sendgrid/event', bodyParser.raw({ type: '*/*' }), (req: expressNs.Request, res: expressNs.Response) => {
   return sendgridEventsHandler(req, res);
 });
 

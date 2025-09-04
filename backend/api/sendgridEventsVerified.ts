@@ -40,11 +40,12 @@ export async function sendgridEventsHandler(req: express.Request, res: express.R
     let parsed: any;
     try {
       if (Buffer.isBuffer(req.body)) {
-        parsed = JSON.parse((req.body as Buffer).toString('utf8'));
+        const raw = (req.body as Buffer).toString('utf8');
+        parsed = raw ? JSON.parse(raw) : [];
       } else if (typeof req.body === 'string') {
-        parsed = JSON.parse(req.body as any);
+        parsed = (req.body as string) ? JSON.parse(req.body as any) : [];
       } else {
-        parsed = req.body;
+        parsed = req.body || [];
       }
     } catch (e) {
       console.error('[sendgridEventsHandler] failed to parse body as JSON', e);
