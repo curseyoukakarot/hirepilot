@@ -95,6 +95,24 @@ export async function sendgridEventsHandler(req: express.Request, res: express.R
         }
       }
 
+      // Final best-effort: match by recipient email to most recent message
+      if ((!user_id || !campaign_id) && email) {
+        try {
+          const { data: msg2 } = await supabase
+            .from('messages')
+            .select('user_id,campaign_id,lead_id')
+            .eq('to_email', email)
+            .order('sent_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (msg2) {
+            user_id = user_id || (msg2 as any).user_id || null;
+            campaign_id = campaign_id || (msg2 as any).campaign_id || null;
+            lead_id = lead_id || (msg2 as any).lead_id || null;
+          }
+        } catch {}
+      }
+
       // Idempotent upsert by sg_event_id where available; fallback to (sg_message_id, event, ts)
       const row: any = {
         user_id: user_id || null,
