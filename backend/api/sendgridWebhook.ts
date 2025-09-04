@@ -32,17 +32,44 @@ router.post('/sendgrid/webhook', async (req, res) => {
       console.log(`📧 Processing SendGrid event: ${eventType} for ${email} (msg: ${sg_message_id})`);
 
       // Extract tracking data from custom_args
-      const {
+      let {
         user_id,
         campaign_id,
         lead_id
-      } = custom_args;
+      } = custom_args as any;
+
+      // Attempt attribution fallback from our messages table
+      // Prefer lookup by sg_message_id; fallback to SMTP Message-ID header if present
+      const smtpId: string | undefined = (event['smtp-id'] || event['smtp_id']) as any;
+      const resolvedMessageId = sg_message_id || smtpId || null;
+      if ((!user_id || !campaign_id || !lead_id) && (sg_message_id || smtpId)) {
+        try {
+          const ors: string[] = [];
+          if (sg_message_id) ors.push(`sg_message_id.eq.${sg_message_id}`);
+          if (smtpId) ors.push(`message_id_header.eq.${smtpId}`);
+          if (ors.length) {
+            const { data: msg } = await supabase
+              .from('messages')
+              .select('user_id,campaign_id,lead_id')
+              .or(ors.join(','))
+              .limit(1)
+              .maybeSingle();
+            if (msg) {
+              user_id = user_id || (msg as any).user_id || null;
+              campaign_id = campaign_id || (msg as any).campaign_id || null;
+              lead_id = lead_id || (msg as any).lead_id || null;
+            }
+          }
+        } catch (e) {
+          // best-effort only
+        }
+      }
 
       if (!user_id) {
         console.warn(`⚠️ SendGrid event missing user_id: ${sg_message_id}`);
       }
 
-      // Store the event in Supabase
+      // Store the event in Supabase (idempotency handled on analytics layer; legacy route keeps inserts)
       const { error } = await supabase
         .from('email_events')
         .insert({
@@ -50,13 +77,14 @@ router.post('/sendgrid/webhook', async (req, res) => {
           user_id,
           campaign_id,
           lead_id,
-          message_id: sg_message_id || `sg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          message_id: resolvedMessageId || `sg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           provider: 'sendgrid',
           event_timestamp: new Date(timestamp * 1000).toISOString(),
           metadata: {
             email,
             sg_message_id,
             sg_event_id,
+            smtp_id: smtpId,
             event_source: 'sendgrid_webhook'
           }
         });
@@ -67,17 +95,17 @@ router.post('/sendgrid/webhook', async (req, res) => {
         console.log(`✅ Stored SendGrid ${eventType} event for ${email}`);
       }
 
-      // Update message status in messages table
+      // Update message status/flags in messages table
       if (eventType === 'delivered' || eventType === 'bounce' || eventType === 'dropped') {
         const status = eventType === 'delivered' ? 'delivered' : 'failed';
         const { error: updateError } = await supabase
           .from('messages')
           .update({ status })
-          .eq('sg_message_id', sg_message_id);
-        
-        if (updateError) {
-          console.error('❌ Error updating message status:', updateError);
-        }
+          .or([
+            sg_message_id ? `sg_message_id.eq.${sg_message_id}` : '',
+            resolvedMessageId ? `message_id_header.eq.${resolvedMessageId}` : ''
+          ].filter(Boolean).join(','));
+        if (updateError) console.error('❌ Error updating message status:', updateError);
 
         // If bounced/dropped, mark related enrollments as bounced and skip pending runs
         if (eventType === 'bounce' || eventType === 'dropped') {
@@ -105,6 +133,28 @@ router.post('/sendgrid/webhook', async (req, res) => {
             console.error('❌ Error marking enrollment bounced:', err);
           }
         }
+      }
+
+      if (eventType === 'open') {
+        const { error: updateError } = await supabase
+          .from('messages')
+          .update({ opened: true })
+          .or([
+            sg_message_id ? `sg_message_id.eq.${sg_message_id}` : '',
+            resolvedMessageId ? `message_id_header.eq.${resolvedMessageId}` : ''
+          ].filter(Boolean).join(','));
+        if (updateError) console.error('❌ Error updating message opened flag:', updateError);
+      }
+
+      if (eventType === 'click') {
+        const { error: updateError } = await supabase
+          .from('messages')
+          .update({ clicked: true })
+          .or([
+            sg_message_id ? `sg_message_id.eq.${sg_message_id}` : '',
+            resolvedMessageId ? `message_id_header.eq.${resolvedMessageId}` : ''
+          ].filter(Boolean).join(','));
+        if (updateError) console.error('❌ Error updating message clicked flag:', updateError);
       }
     }
 

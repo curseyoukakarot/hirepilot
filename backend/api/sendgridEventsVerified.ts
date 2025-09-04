@@ -107,10 +107,31 @@ export async function sendgridEventsHandler(req: express.Request, res: express.R
         .from('email_events')
         .upsert(row, { onConflict: 'sg_event_id' });
 
+      // Update message flags/status for quick UI access
       if (eventType === 'delivered' || eventType === 'bounce' || eventType === 'dropped') {
         const status = eventType === 'delivered' ? 'delivered' : 'failed';
         if (sg_message_id) {
           await supabase.from('messages').update({ status }).eq('sg_message_id', sg_message_id);
+        } else if (resolvedMessageId) {
+          await supabase.from('messages').update({ status }).eq('message_id_header', resolvedMessageId);
+        }
+      }
+
+      if (eventType === 'open') {
+        const update = { opened: true } as any;
+        if (sg_message_id) {
+          await supabase.from('messages').update(update).eq('sg_message_id', sg_message_id);
+        } else if (resolvedMessageId) {
+          await supabase.from('messages').update(update).eq('message_id_header', resolvedMessageId);
+        }
+      }
+
+      if (eventType === 'click') {
+        const update = { clicked: true } as any;
+        if (sg_message_id) {
+          await supabase.from('messages').update(update).eq('sg_message_id', sg_message_id);
+        } else if (resolvedMessageId) {
+          await supabase.from('messages').update(update).eq('message_id_header', resolvedMessageId);
         }
       }
     }
