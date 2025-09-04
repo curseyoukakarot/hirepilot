@@ -128,6 +128,7 @@ async function sendViaSendGrid(lead: any, content: string, userId: string, templ
       subject,
       content: body,
       sg_message_id: response.headers['x-message-id'],
+      message_id: trackingMessageId,
       provider: 'sendgrid',
       status: 'sent',
       sent_at: currentTime.toISOString(),

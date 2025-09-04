@@ -54,6 +54,7 @@ export async function sendViaProvider(
         sent_at: now.toISOString(),
         created_at: now.toISOString(),
         updated_at: now.toISOString(),
+        message_id: trackingMessageId,
         sender: 'You',
         avatar: `https://ui-avatars.com/api/?name=You&background=random`,
         preview: bodyHtml.replace(/<[^>]+>/g, '').slice(0, 100),

@@ -131,6 +131,7 @@ router.post('/sendgrid/send', async (req, res) => {
           sg_message_id: response.headers['x-message-id'],
           status: 'sent',
           message_id_header: messageIdHeader,
+          message_id: trackingMessageId,
           sender_identity_id: senderIdentityId,
           from_email: fromEmail
         })
@@ -150,6 +151,7 @@ router.post('/sendgrid/send', async (req, res) => {
           status: 'sent',
           sent_at: new Date().toISOString(),
           message_id_header: messageIdHeader,
+          message_id: trackingMessageId,
           sender_identity_id: senderIdentityId,
           from_email: fromEmail
         });
