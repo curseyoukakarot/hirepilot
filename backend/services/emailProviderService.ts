@@ -63,10 +63,48 @@ export async function sendEmail(
         processedMessage
       ).toString('base64url');
 
-      await gmail.users.messages.send({
+      const sendResp = await gmail.users.messages.send({
         userId: 'me',
         requestBody: { raw },
       });
+
+      // Persist minimal message + analytics rows for consistency with SendGrid path
+      const now = new Date();
+      const messageId = sendResp.data.id || undefined;
+
+      try {
+        // Try to resolve campaign_id if present on the incoming lead object
+        const campaignId = (lead as any).campaign_id || null;
+
+        await supabaseDb.from('messages').insert({
+          user_id: userId,
+          lead_id: lead.id,
+          campaign_id: campaignId,
+          to_email: lead.email,
+          recipient: lead.email,
+          from_address: 'you@gmail.com',
+          subject,
+          content: processedMessage,
+          message_id: messageId,
+          provider: 'gmail',
+          status: 'sent',
+          sent_at: now.toISOString(),
+          created_at: now.toISOString(),
+          updated_at: now.toISOString(),
+        });
+
+        await supabaseDb.from('email_events').insert({
+          user_id: userId,
+          campaign_id: campaignId,
+          lead_id: lead.id,
+          message_id: messageId || null,
+          event_type: 'sent',
+          provider: 'gmail',
+          event_timestamp: now.toISOString()
+        });
+      } catch (e) {
+        console.warn('[emailProviderService] failed to persist gmail send analytics', e);
+      }
 
       return true;
     }
