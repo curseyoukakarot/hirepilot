@@ -10,10 +10,10 @@ export default function ActionInbox() {
   const [filter, setFilter] = useState('all');
   const [stats, setStats] = useState({ total: 0, unread: 0 });
 
-  // Get current user ID (replace with your auth system)
-  const getCurrentUserId = useCallback(() => {
-    // TODO: Replace with actual user ID from your auth system
-    return 'current-user-id';
+  // Get current user ID from Supabase
+  const getCurrentUserId = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    return user?.id || '';
   }, []);
 
   // Load notifications from API
@@ -52,9 +52,11 @@ export default function ActionInbox() {
   // Handle user interaction with notification actions
   const interact = async (card, action, data = {}) => {
     try {
+      const userId = await getCurrentUserId();
+      if (!userId) throw new Error('Not authenticated');
       // Prepare interaction data
       const interactionData = {
-        user_id: getCurrentUserId(),
+        user_id: userId,
         source: 'inapp',
         thread_key: card.thread_key,
         action_type: action.type === 'input' ? 'input' : 

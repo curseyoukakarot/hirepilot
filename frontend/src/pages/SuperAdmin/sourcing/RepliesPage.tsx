@@ -59,10 +59,13 @@ export default function RepliesPage() {
     try {
       setActionLoading(`${reply.id}-${actionId}`);
       
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.id) throw new Error('Not authenticated');
+
       await api('/api/agent-interactions', {
         method: 'POST',
         body: JSON.stringify({
-          user_id: 'current-user', // TODO: Replace with actual user ID
+          user_id: user.id,
           source: 'inapp',
           thread_key: `sourcing:${reply.campaign_id}:${reply.lead_id}`,
           action_type: 'button',
