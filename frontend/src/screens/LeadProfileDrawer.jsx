@@ -568,6 +568,32 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     return false;
   };
 
+  // Funding events helper
+  const getFundingEvents = (lead) => {
+    const events = lead?.enrichment_data?.apollo?.organization?.funding_events;
+    return Array.isArray(events) ? events : [];
+  };
+
+  // Quick jump into REX with filter intent
+  const openRexWithFilter = async (kind, value) => {
+    try {
+      const { data: { session, user } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const headers = { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+      const text = kind === 'tech'
+        ? `search my database for contacts at companies using ${value}; requires_enhanced = true; show top 25`
+        : `search my database for contacts at companies with keyword "${value}"; requires_enhanced = true; show top 25`;
+      await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/rex/chat`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ userId: user?.id, messages: [{ role: 'user', content: text }] })
+      }).catch(()=>{});
+      window.open('/rex-chat', '_blank');
+    } catch (e) {
+      showToast('Failed to open REX', 'error');
+    }
+  };
+
   // Helper to determine if lead is enriched – any non-empty enrichment_data counts
   const isEnriched = Boolean(
     localLead.enrichment_data && Object.keys(localLead.enrichment_data).length > 0
@@ -2003,7 +2029,14 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                             <div className="text-sm font-semibold mb-2">Keywords</div>
                             <div className="flex flex-wrap gap-2">
                               {getKeywords(getOrganization(localLead)).length > 0 ? getKeywords(getOrganization(localLead)).map((kw, idx) => (
-                                <span key={idx} className="px-3 py-1 bg-gray-100 rounded-full text-sm">{kw}</span>
+                                <button
+                                  key={idx}
+                                  onClick={() => openRexWithFilter('keyword', kw)}
+                                  className="px-3 py-1 bg-gray-100 rounded-full text-sm hover:bg-gray-200"
+                                  title={`Search with keyword '${kw}' in REX`}
+                                >
+                                  {kw}
+                                </button>
                               )) : <span className="text-gray-400 text-sm">—</span>}
                             </div>
                           </div>
@@ -2011,10 +2044,37 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                             <div className="text-sm font-semibold mb-2">Technologies</div>
                             <div className="flex flex-wrap gap-2">
                               {getTechnologies(localLead).length > 0 ? getTechnologies(localLead).map((t, idx) => (
-                                <span key={idx} className="px-3 py-1 bg-gray-100 rounded-full text-sm">{t}</span>
+                                <button
+                                  key={idx}
+                                  onClick={() => openRexWithFilter('tech', t)}
+                                  className="px-3 py-1 bg-gray-100 rounded-full text-sm hover:bg-gray-200"
+                                  title={`Search companies using '${t}' in REX`}
+                                >
+                                  {t}
+                                </button>
                               )) : <span className="text-gray-400 text-sm">—</span>}
                             </div>
                           </div>
+                          {/* Funding Events (expandable) */}
+                          {getFundingEvents(localLead).length > 0 && (
+                            <details className="mt-4">
+                              <summary className="text-sm font-semibold cursor-pointer select-none">Funding Events</summary>
+                              <div className="mt-2 space-y-2">
+                                {getFundingEvents(localLead).map((ev, idx) => (
+                                  <div key={idx} className="p-3 border rounded-lg bg-white">
+                                    <div className="text-sm font-medium">{ev.type || 'Round'}{ev.amount ? ` · ${ev.amount}` : ''}</div>
+                                    <div className="text-xs text-gray-600">{ev.date ? new Date(ev.date).toLocaleDateString() : '—'}</div>
+                                    {ev.investors && (
+                                      <div className="text-xs text-gray-700 mt-1">Investors: {ev.investors}</div>
+                                    )}
+                                    {ev.news_url && (
+                                      <a href={ev.news_url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline mt-1 inline-block">News</a>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </details>
+                          )}
                         </div>
                       ) : (
                         <div className="mt-6 p-3 border rounded-lg bg-gray-50 text-gray-600 text-sm">
