@@ -25,8 +25,10 @@ app.use(cors({
 // Parse raw body for Stripe webhooks
 app.use('/api/stripe/webhook', bodyParser.raw({ type: 'application/json' }));
 
-// Parse JSON bodies for all other routes
-app.use(bodyParser.json());
+// Parse JSON bodies for all other routes (increase limit for bulk operations)
+app.use(bodyParser.json({ limit: '25mb' }));
+// Parse URL-encoded bodies as well with increased limit
+app.use(bodyParser.urlencoded({ limit: '25mb', extended: true }));
 
 // Register routes
 app.use('/api/billing', billingRoutes);

@@ -192,11 +192,11 @@ app.post('/api/slack/events', bodyParser.raw({ type: 'application/json' }), (req
 // Lightweight ping to verify routing from Slack dashboard manually
 app.get('/api/slack-events/ping', (_req, res) => res.json({ ok: true }));
 
-// Parse JSON bodies for all other routes
-app.use(express.json());
+// Parse JSON bodies for all other routes (increase limit for bulk operations)
+app.use(express.json({ limit: '25mb' }));
 
-// Parse URL-encoded bodies
-app.use(bodyParser.urlencoded({ extended: true }));
+// Parse URL-encoded bodies (increase limit for bulk operations)
+app.use(bodyParser.urlencoded({ limit: '25mb', extended: true }));
 
 // Debug middleware
 app.use((req, res, next) => {
