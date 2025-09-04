@@ -58,7 +58,6 @@ export default function ActionInbox() {
       const interactionData = {
         user_id: userId,
         source: 'inapp',
-        thread_key: card.thread_key,
         action_type: action.type === 'input' ? 'input' : 
                      action.type === 'select' ? 'select' :
                      action.type === 'chips' ? 'chips' : 'button',
@@ -67,6 +66,9 @@ export default function ActionInbox() {
               { text: inputs[card.id] || '' } : 
               data
       };
+      if (card.thread_key) {
+        interactionData.thread_key = card.thread_key;
+      }
 
       // Send interaction to backend
       await api('/api/agent-interactions', { method: 'POST', body: JSON.stringify(interactionData) });
