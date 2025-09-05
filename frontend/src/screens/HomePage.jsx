@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import PublicNavbar from '../components/PublicNavbar';
 import PublicFooter from '../components/PublicFooter';
+import StackedVisualCards from '../components/StackedVisualCards';
 
 const HomePage = () => {
   useEffect(() => {
@@ -51,6 +52,23 @@ const HomePage = () => {
     };
   }, []);
 
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('in-view');
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.15 }
+    );
+    const elements = document.querySelectorAll('.scroll-fade-in');
+    elements.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <div className="bg-black text-white">
       <style>{`
@@ -62,6 +80,8 @@ const HomePage = () => {
         .gradient-text { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
         .feature-card { transform: translateY(0); transition: transform 0.3s ease; }
         .feature-card:hover { transform: translateY(-10px); }
+        .scroll-fade-in { opacity: 0; transform: translateY(40px); transition: all 0.6s ease-out; }
+        .scroll-fade-in.in-view { opacity: 1; transform: translateY(0); }
       `}</style>
 
       {/* Header */}
@@ -74,7 +94,7 @@ const HomePage = () => {
           <div className="max-w-4xl mx-auto">
             <h1 className="text-5xl md:text-7xl font-bold mb-8">
               AI-Powered <span className="gradient-text">Recruiting</span>
-            </h1>
+                </h1>
             <div className="bg-gray-900 rounded-xl p-8 mb-8 text-left max-w-2xl mx-auto">
               <div className="flex items-center mb-4">
                 <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
@@ -82,7 +102,7 @@ const HomePage = () => {
                 <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
                 <span className="text-gray-400 text-sm ml-4">HirePilot AI Assistant</span>
               </div>
-              <div className="text-green-400 mb-2">$ hirepilot search</div>
+              <div className="text-green-400 mb-2">$ REX</div>
               <div id="typing-text" className="text-white text-lg typing-animation">Find senior React developers in San Francisco</div>
             </div>
             <p className="text-xl text-gray-300 mb-8">Automate candidate sourcing, screening, and outreach with AI</p>
@@ -98,6 +118,9 @@ const HomePage = () => {
         </div>
       </section>
 
+      {/* Stacked Visual Cards */}
+      <StackedVisualCards />
+
       {/* Feature Card Stack */}
       <section id="feature-stack" className="py-24 bg-gray-950">
         <div className="container mx-auto px-6">
@@ -106,7 +129,7 @@ const HomePage = () => {
             <p className="text-xl text-gray-400">From sourcing to closing, HirePilot handles it all</p>
           </div>
           <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            <div className="feature-card bg-gradient-to-br from-blue-900/50 to-blue-800/30 p-8 rounded-2xl border border-blue-700/30">
+            <div className="feature-card bg-gradient-to-br from-blue-900/50 to-blue-800/30 p-8 rounded-2xl border border-blue-700/30 scroll-fade-in">
               <div className="w-16 h-16 bg-blue-600 rounded-xl flex items-center justify-center mb-6">
                 <i className="fa-solid fa-search text-2xl text-white"></i>
               </div>
@@ -118,7 +141,7 @@ const HomePage = () => {
                 <li><i className="fa-solid fa-check text-green-500 mr-2"></i>Skill matching algorithms</li>
               </ul>
             </div>
-            <div className="feature-card bg-gradient-to-br from-purple-900/50 to-purple-800/30 p-8 rounded-2xl border border-purple-700/30">
+            <div className="feature-card bg-gradient-to-br from-purple-900/50 to-purple-800/30 p-8 rounded-2xl border border-purple-700/30 scroll-fade-in">
               <div className="w-16 h-16 bg-purple-600 rounded-xl flex items-center justify-center mb-6">
                 <i className="fa-solid fa-robot text-2xl text-white"></i>
               </div>
@@ -130,7 +153,7 @@ const HomePage = () => {
                 <li><i className="fa-solid fa-check text-green-500 mr-2"></i>Response tracking</li>
               </ul>
             </div>
-            <div className="feature-card bg-gradient-to-br from-cyan-900/50 to-cyan-800/30 p-8 rounded-2xl border border-cyan-700/30">
+            <div className="feature-card bg-gradient-to-br from-cyan-900/50 to-cyan-800/30 p-8 rounded-2xl border border-cyan-700/30 scroll-fade-in">
               <div className="w-16 h-16 bg-cyan-600 rounded-xl flex items-center justify-center mb-6">
                 <i className="fa-solid fa-chart-line text-2xl text-white"></i>
               </div>
@@ -163,39 +186,39 @@ const HomePage = () => {
               <div className="text-center">
                 <div className="text-3xl font-bold text-cyan-500 mb-2">1,000s</div>
                 <div className="text-gray-300">Hours Saved</div>
-              </div>
             </div>
-            <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-              <div className="bg-gray-800 p-8 rounded-xl">
-                <p className="text-lg mb-6">"I landed my first client in 3 weeks with HirePilot!"</p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            <div className="bg-gray-800 p-8 rounded-xl">
+              <p className="text-lg mb-6">"I landed my first client in 3 weeks with HirePilot!"</p>
                 <div className="flex items-center">
                   <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg" alt="Sarah J." className="w-12 h-12 rounded-full mr-4" />
-                  <div>
-                    <div className="font-semibold">Sarah J.</div>
-                    <div className="text-gray-400">Freelance Tech Recruiter</div>
+              <div>
+                <div className="font-semibold">Sarah J.</div>
+                <div className="text-gray-400">Freelance Tech Recruiter</div>
                   </div>
-                </div>
               </div>
-              <div className="bg-gray-800 p-8 rounded-xl">
-                <p className="text-lg mb-6">"I made 8k in my first 6 weeks"</p>
+            </div>
+            <div className="bg-gray-800 p-8 rounded-xl">
+              <p className="text-lg mb-6">"I made 8k in my first 6 weeks"</p>
                 <div className="flex items-center">
                   <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-5.jpg" alt="Dejanira L." className="w-12 h-12 rounded-full mr-4" />
-                  <div>
-                    <div className="font-semibold">Dejanira (Dej) L.</div>
-                    <div className="text-gray-400">Freelance Tech Recruiter</div>
+              <div>
+                <div className="font-semibold">Dejanira (Dej) L.</div>
+                <div className="text-gray-400">Freelance Tech Recruiter</div>
                   </div>
-                </div>
               </div>
-              <div className="bg-gray-800 p-8 rounded-xl">
+            </div>
+            <div className="bg-gray-800 p-8 rounded-xl">
                 <p className="text-lg mb-6">"The engagement features have saved countless hours."</p>
                 <div className="flex items-center">
                   <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-6.jpg" alt="Emily R." className="w-12 h-12 rounded-full mr-4" />
-                  <div>
-                    <div className="font-semibold">Emily R.</div>
-                    <div className="text-gray-400">Talent Lead</div>
-                  </div>
-                </div>
+              <div>
+                <div className="font-semibold">Emily R.</div>
+                <div className="text-gray-400">Talent Lead</div>
               </div>
+            </div>
+          </div>
             </div>
           </div>
         </div>
