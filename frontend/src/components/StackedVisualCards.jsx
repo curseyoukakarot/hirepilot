@@ -33,7 +33,7 @@ const StackedVisualCards = () => {
         .stack-card { transition: opacity 0.5s ease, transform 0.5s ease, filter 0.5s ease, box-shadow 0.5s ease; }
         .stack-card.stack-faded { opacity: 0; transform: translateY(-24px) scale(0.985); filter: blur(1px); }
       `}</style>
-      <div className="max-w-5xl mx-auto space-y-[-180px] md:space-y-[-200px] lg:space-y-[-220px] relative z-10 px-4 pb-24">
+      <div className="max-w-5xl mx-auto space-y-[-160px] md:space-y-[-160px] lg:space-y-[-160px] relative z-10 px-4 pb-24">
         {/* Card 1 */}
         <div className="stack-card bg-white rounded-2xl shadow-[0_30px_80px_-20px_rgba(0,0,0,0.7)] ring-1 ring-black/10 border border-gray-200 overflow-hidden transform hover:-translate-y-1 transition-all duration-500 scroll-fade-in relative">
           <img

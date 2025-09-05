@@ -186,39 +186,31 @@ const HomePage = () => {
               <div className="text-center">
                 <div className="text-3xl font-bold text-cyan-500 mb-2">1,000s</div>
                 <div className="text-gray-300">Hours Saved</div>
+              </div>
             </div>
           </div>
+
           <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
             <div className="bg-gray-800 p-8 rounded-xl">
               <p className="text-lg mb-6">"I landed my first client in 3 weeks with HirePilot!"</p>
-                <div className="flex items-center">
-                  <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg" alt="Sarah J." className="w-12 h-12 rounded-full mr-4" />
-              <div>
+              <div className="text-center">
                 <div className="font-semibold">Sarah J.</div>
                 <div className="text-gray-400">Freelance Tech Recruiter</div>
-                  </div>
               </div>
             </div>
             <div className="bg-gray-800 p-8 rounded-xl">
               <p className="text-lg mb-6">"I made 8k in my first 6 weeks"</p>
-                <div className="flex items-center">
-                  <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-5.jpg" alt="Dejanira L." className="w-12 h-12 rounded-full mr-4" />
-              <div>
+              <div className="text-center">
                 <div className="font-semibold">Dejanira (Dej) L.</div>
                 <div className="text-gray-400">Freelance Tech Recruiter</div>
-                  </div>
               </div>
             </div>
             <div className="bg-gray-800 p-8 rounded-xl">
-                <p className="text-lg mb-6">"The engagement features have saved countless hours."</p>
-                <div className="flex items-center">
-                  <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-6.jpg" alt="Emily R." className="w-12 h-12 rounded-full mr-4" />
-              <div>
+              <p className="text-lg mb-6">"The engagement features have saved countless hours."</p>
+              <div className="text-center">
                 <div className="font-semibold">Emily R.</div>
                 <div className="text-gray-400">Talent Lead</div>
               </div>
-            </div>
-          </div>
             </div>
           </div>
         </div>
