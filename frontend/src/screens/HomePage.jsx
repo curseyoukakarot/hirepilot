@@ -170,7 +170,8 @@ const HomePage = () => {
       </section>
 
       {/* Social Proof */}
-      <section id="social-proof" className="py-24 bg-gray-900">
+      <section id="social-proof" className="relative py-24 bg-gray-900">
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
         <div className="container mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold mb-8">Built for teams that want more hires in less time</h2>
@@ -213,6 +214,7 @@ const HomePage = () => {
               </div>
             </div>
           </div>
+          <div className="mt-16 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
         </div>
       </section>
 
