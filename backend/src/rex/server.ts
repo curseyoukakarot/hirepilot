@@ -104,11 +104,13 @@ async function apiAsUser(userId: string, endpoint: string, options: { method: st
 // Minimal REX MCP server (stdio transport)
 // ---------------------------------------------------------------------------------
 const server = new Server({ name: 'REX Server', version: '0.1.0' });
+// Capture registered tools so HTTP rexChat can invoke them directly
+const toolCapsRef: any = { tools: {} };
 export { api };
 
 // ------------------ Tool capabilities ------------------
 server.registerCapabilities({
-  tools: {
+  tools: Object.assign(toolCapsRef.tools, {
     // ===== rex_widget_support toolset (safe, read-only) =====
     ...Object.fromEntries(Object.entries(widgetTools).map(([k,v]) => [k, { parameters:{}, handler: v.handler } ])),
     add_numbers: {
@@ -1233,8 +1235,12 @@ server.registerCapabilities({
         return out;
       }
     }
-  }
+  })
 });
+
+// Expose capabilities for in-process HTTP callers
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(server as any).getCapabilities = () => toolCapsRef;
 
 // NOTE: Additional tool registration for Sales Agent is disabled in production
 // because the current MCP Server instance doesn't expose a .tool() API.
