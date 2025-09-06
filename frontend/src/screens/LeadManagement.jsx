@@ -1188,6 +1188,7 @@ function LeadManagement() {
         {isLeadsLoading ? (
           <LeadsTableSkeleton rows={12} />
         ) : (
+        <>
         {/* Search and Filters */}
         <div className="bg-white rounded-lg shadow-sm border p-4 mb-4">
           <div className="flex flex-col gap-4">
@@ -1614,6 +1615,7 @@ function LeadManagement() {
             </button>
           </div>
         </div>
+        </>
         )}
       </main>
 
