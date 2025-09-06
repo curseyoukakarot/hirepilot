@@ -6,7 +6,19 @@ import { supabase } from '../lib/supabase';
 
 function uid(req: Request){
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (req as any).user?.id || req.headers['x-user-id'];
+  try {
+    // Prefer explicit header from MCP server / REX
+    const headerId = String(req.header('x-user-id') || '').trim();
+    if (headerId) return headerId;
+    // Fallback to auth middleware-populated user
+    // @ts-ignore
+    if ((req as any).user?.id) return String((req as any).user.id);
+    // Fallback: try supabase JWT payload if present
+    // @ts-ignore
+    const sub = (req as any).auth?.user?.id || (req as any).auth?.sub;
+    if (sub) return String(sub);
+  } catch {}
+  return null as any;
 }
 
 export function registerSniperRoutes(app: Application) {

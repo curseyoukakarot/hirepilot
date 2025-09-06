@@ -115,6 +115,48 @@ server.registerCapabilities({
       parameters: { a: { type: 'number' }, b: { type: 'number' } },
       handler: async ({ a, b }: { a: number; b: number }) => a + b
     },
+    // Convenience: one-shot collect from a LinkedIn post and return leads
+    sniper_collect_post: {
+      parameters: {
+        userId: { type: 'string' },
+        post_url: { type: 'string' },
+        limit: { type: 'number', optional: true }
+      },
+      handler: async ({ userId, post_url, limit }) => {
+        await assertPremium(userId);
+        if (!/^https?:\/\//i.test(String(post_url))) throw new Error('post_url must be a valid URL');
+
+        // 1) Create a Sniper target for this post
+        const target = await apiAsUser(userId, `/api/sniper/targets`, {
+          method: 'POST',
+          body: JSON.stringify({ type: 'own', post_url })
+        });
+
+        // 2) Trigger a capture run immediately
+        await apiAsUser(userId, `/api/sniper/targets/${target.id}/capture-now`, { method: 'POST' });
+
+        // 3) Return latest leads from the micro-campaign created/linked to this target
+        const campaignId = target.campaign_id;
+        if (!campaignId) return { campaign_id: null, leads: [], message: 'No campaign id on target; capture may have failed' };
+
+        // Read directly from supabase to fetch campaign leads
+        const max = Math.max(1, Math.min(Number(limit || 50), 200));
+        const { data: leads, error } = await supabase
+          .from('sourcing_leads')
+          .select('id, name, title, company, email, linkedin_url, enriched, created_at')
+          .eq('campaign_id', campaignId)
+          .order('created_at', { ascending: false })
+          .limit(max);
+        if (error) throw new Error(`Failed to fetch leads for campaign ${campaignId}: ${error.message}`);
+
+        return {
+          campaign_id: campaignId,
+          count: (leads || []).length,
+          leads: leads || [],
+          message: 'Sniper collected leads. Use sourcing_add_leads or review in UI as needed.'
+        };
+      }
+    },
     schedule_campaign: {
       parameters: { userId:{type:'string'}, campaign_id:{type:'string'}, send_time:{type:'string'} },
       handler: async ({ userId, campaign_id, send_time }) => {
