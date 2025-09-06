@@ -24,7 +24,20 @@ async function getLinkedInCookies(user_id: string): Promise<{ li_at: string; jse
 }
 
 export async function ensureMicroCampaignForTarget(t: Target) {
-  if (t.campaign_id) return t.campaign_id;
+  if (t.campaign_id) {
+    // Ensure legacy campaigns get created_by filled for Agent Mode visibility
+    try {
+      const { data: existing } = await supabase
+        .from('sourcing_campaigns')
+        .select('id,created_by')
+        .eq('id', t.campaign_id)
+        .maybeSingle();
+      if (existing && !existing.created_by) {
+        await supabase.from('sourcing_campaigns').update({ created_by: t.user_id }).eq('id', t.campaign_id);
+      }
+    } catch {}
+    return t.campaign_id;
+  }
   const base = t.type === 'keyword' ? (t.keyword_match || 'keyword') : (t.post_url || 'post');
   const title = `Sniper – ${base.slice(0, 40)} – ${dayjs().format('YYYY[W]WW')}`;
   const { data, error } = await supabase

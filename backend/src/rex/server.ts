@@ -203,7 +203,9 @@ server.registerCapabilities({
             .maybeSingle();
           runInfo = runRow || null;
         } catch {}
-        return { campaign_id: campaignId, count: (leads || []).length, leads: leads || [], next_cursor: nextCursor, status: 'ok', run: runInfo };
+        // Derive coarse status
+        const status = (runInfo?.error_count || 0) > 0 ? 'error' : ((leads||[]).length > 0 ? 'done' : 'pending');
+        return { campaign_id: campaignId, count: (leads || []).length, leads: leads || [], next_cursor: nextCursor, status, run: runInfo };
       }
     },
     schedule_campaign: {
