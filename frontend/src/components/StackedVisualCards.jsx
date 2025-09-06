@@ -30,9 +30,11 @@ const StackedVisualCards = () => {
   return (
     <section id="stacked-feature-visuals" className="relative py-32 overflow-hidden bg-black">
       <div className="container mx-auto px-6">
-        <h2 className="text-3xl md:text-4xl font-bold text-center mb-16">
-          Search any Candidate with <span className="gradient-text">Enhanced Enrichment</span>
-        </h2>
+        <div className="sticky top-20 z-20">
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-16 inline-block mx-auto px-4 py-2 rounded-xl bg-black/30 backdrop-blur-sm border border-white/10">
+            Search any Candidate with <span className="gradient-text">Enhanced Enrichment</span>
+          </h2>
+        </div>
       </div>
       <style>{`
         .stack-card { transition: opacity 0.5s ease, transform 0.5s ease, filter 0.5s ease, box-shadow 0.5s ease; }
