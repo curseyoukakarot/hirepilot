@@ -25,6 +25,20 @@ export default async function rexChat(req: Request, res: Response) {
   res.set('Access-Control-Allow-Origin', '*');
 
   try {
+    const withTimeout = async <T>(p: Promise<T>, ms = 25000): Promise<T> => {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), ms);
+      try {
+        // OpenAI SDK respects global timeout via client, but for any fetches we pass signal when possible
+        // For generic promises, race with a timeout
+        return await Promise.race([
+          p,
+          new Promise<T>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))
+        ] as [Promise<T>, Promise<T>]);
+      } finally {
+        clearTimeout(t);
+      }
+    };
     // Forward auth header for RLS-bound internal calls
     const authHeader = req.headers.authorization || '';
 
@@ -171,11 +185,11 @@ If the user asks to "go to this LinkedIn post" or to "pull everyone who liked/co
 CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` : ''}`
     } as any;
 
-    let completion = await openai.chat.completions.create({
+    let completion = await withTimeout(openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [contextMessage, ...messages],
       tools,
-    });
+    }), 30000);
 
     let assistantMessage = completion.choices[0].message;
     let executedSourcing = false;
@@ -214,7 +228,7 @@ CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` :
     }
 
     // If tool call requested
-    const call = completion.choices[0].message.tool_calls?.[0] as any;
+    let call = completion.choices[0].message.tool_calls?.[0] as any;
     if (call) {
       // OpenAI returns { id, function: { name, arguments } }
       const toolName: string | undefined = call.function?.name || call.name;
@@ -257,7 +271,13 @@ CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` :
         throw new Error(`Tool handler not found for ${toolName}`);
       }
 
-      const toolResult = await capabilities.tools[toolName].handler(args);
+      let toolResult: any = null;
+      try {
+        toolResult = await withTimeout(capabilities.tools[toolName].handler(args), 45000);
+      } catch (toolErr: any) {
+        console.error('[rexChat] tool error', toolName, toolErr?.message || toolErr);
+        toolResult = { error: String(toolErr?.message || toolErr) };
+      }
       lastToolResult = toolResult;
       executedSourcing = ['source_leads','filter_leads'].includes(toolName);
 
@@ -272,7 +292,7 @@ CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` :
         } as any
       );
 
-      completion = await openai.chat.completions.create({ model: 'gpt-4o-mini', messages });
+      completion = await withTimeout(openai.chat.completions.create({ model: 'gpt-4o-mini', messages }), 30000);
       assistantMessage = completion.choices[0].message;
       // Persist the final assistant message (post-tools) only to the SAME conversation
       try {
@@ -304,6 +324,29 @@ CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` :
       } catch (persistFinalErr) {
         console.error('[rexChat] persist final reply error', persistFinalErr);
       }
+    } else {
+      // Deterministic fallback: if user asked for LinkedIn post likers, call sniper_collect_post directly
+      try {
+        const lastUserMsg = [...(messages || [])].reverse().find(m => m.role === 'user');
+        const text = String(lastUserMsg?.content || '').toLowerCase();
+        const urlMatch = /https?:\/\/[^\s]*linkedin\.com\/posts\/[^\s]+/i.exec(String(lastUserMsg?.content || ''));
+        const wantsLikers = /like|liked|likers/.test(text);
+        if (urlMatch && wantsLikers) {
+          const postUrl = urlMatch[0];
+          const { server: rexServer } = await import('../rex/server');
+          const capabilities = rexServer.getCapabilities?.();
+          const tool = capabilities?.tools?.['sniper_collect_post'];
+          if (tool?.handler) {
+            const toolResult = await withTimeout(tool.handler({ userId, post_url: postUrl, limit: 50 }), 45000);
+            assistantMessage = {
+              role: 'assistant',
+              content: JSON.stringify(toolResult)
+            } as any;
+          }
+        }
+      } catch (fallbackErr) {
+        console.error('[rexChat] fallback error', fallbackErr);
+      }
     }
 
     // After a successful lead sourcing request without explicit outreach intent, gently append a nudge
@@ -334,7 +377,7 @@ CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` :
 
     return res.status(200).json({ reply: assistantMessage });
   } catch (err: any) {
-    console.error('[rexChat] Error:', err);
+    console.error('[rexChat] Error:', err?.stack || err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 } 
