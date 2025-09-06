@@ -9,18 +9,18 @@ export default function MeetRex() {
       <PublicNavbar />
 
       {/* Hero */}
-      <section id="hero" className="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white h-[700px] flex items-center pt-28 lg:pt-0">
-        <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-12 items-center">
+      <section id="hero" className="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white min-h-[560px] lg:h-[700px] flex items-start lg:items-center pt-24 pb-10 lg:pt-0">
+        <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
           <div>
-            <h1 className="text-5xl lg:text-6xl font-bold mb-6 leading-tight">
+            <h1 className="text-3xl sm:text-4xl lg:text-6xl font-bold mb-4 sm:mb-6 leading-tight">
               Meet REX – Your AI <span className="gradient-text">Recruiting Co-Pilot</span>
             </h1>
-            <p className="text-xl text-slate-300 mb-8 leading-relaxed">
+            <p className="text-base sm:text-lg lg:text-xl text-slate-300 mb-6 sm:mb-8 leading-relaxed">
               Source leads. Enrich data. Send outreach. Book interviews.<br />All inside one smart assistant—powered by your workflow.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
-              <a href="/pricing" className="gradient-bg px-8 py-4 rounded-lg font-semibold text-lg hover:shadow-2xl transition-shadow">Try REX Free</a>
-              <a href="#chat-preview" className="border-2 border-white/30 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-white/10 transition-colors flex items-center gap-2"><i className="fa-solid fa-play" />See REX in Action</a>
+              <a href="/pricing" className="gradient-bg px-6 py-3 sm:px-8 sm:py-4 rounded-lg font-semibold text-base sm:text-lg hover:shadow-2xl transition-shadow">Try REX Free</a>
+              <a href="#chat-preview" className="border-2 border-white/30 px-6 py-3 sm:px-8 sm:py-4 rounded-lg font-semibold text-base sm:text-lg hover:bg-white/10 transition-colors flex items-center gap-2"><i className="fa-solid fa-play" />See REX in Action</a>
             </div>
           </div>
           <div className="relative">
