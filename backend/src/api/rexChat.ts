@@ -325,7 +325,7 @@ CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` :
         console.error('[rexChat] persist final reply error', persistFinalErr);
       }
     } else {
-      // Deterministic fallback: if user asked for LinkedIn post likers, call sniper_collect_post directly
+      // Deterministic fallback: if user asked for LinkedIn post likers, call sniper_collect_post directly (queued)
       try {
         const lastUserMsg = [...(messages || [])].reverse().find(m => m.role === 'user');
         const text = String(lastUserMsg?.content || '').toLowerCase();
@@ -337,11 +337,9 @@ CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` :
           const capabilities = rexServer.getCapabilities?.();
           const tool = capabilities?.tools?.['sniper_collect_post'];
           if (tool?.handler) {
-            const toolResult = await withTimeout(tool.handler({ userId, post_url: postUrl, limit: 50 }), 45000);
-            assistantMessage = {
-              role: 'assistant',
-              content: JSON.stringify(toolResult)
-            } as any;
+            const toolResultAny: any = await withTimeout(tool.handler({ userId, post_url: postUrl, limit: 0 }), 45000);
+            const summary = `Sniper queued capture for this post. target_id=${toolResultAny?.target_id || ''} campaign_id=${toolResultAny?.campaign_id || ''} (ETA ~${toolResultAny?.eta_seconds || 60}s). Say: "poll sniper ${toolResultAny?.target_id}" to fetch results.`;
+            assistantMessage = { role: 'assistant', content: summary } as any;
           }
         }
       } catch (fallbackErr) {

@@ -117,7 +117,7 @@ server.registerCapabilities({
       parameters: { a: { type: 'number' }, b: { type: 'number' } },
       handler: async ({ a, b }: { a: number; b: number }) => a + b
     },
-    // Convenience: one-shot collect from a LinkedIn post and return leads
+    // Convenience: queue collection from a LinkedIn post and return queued status immediately
     sniper_collect_post: {
       parameters: {
         userId: { type: 'string' },
@@ -134,29 +134,64 @@ server.registerCapabilities({
           body: JSON.stringify({ type: 'own', post_url })
         });
 
-        // 2) Trigger a capture run immediately
-        await apiAsUser(userId, `/api/sniper/targets/${target.id}/capture-now`, { method: 'POST' });
+        // NOTE: Route /api/sniper/targets already enqueues a capture job via BullMQ.
+        // Do NOT await scraping here to avoid Railway edge timeouts.
+        const campaignId = (target as any).campaign_id || null;
+        const estSeconds = 60; // lightweight default; real ETA determined by worker
+        const out: any = { status: 'queued', target_id: target.id, campaign_id: campaignId, eta_seconds: estSeconds };
 
-        // 3) Return latest leads from the micro-campaign created/linked to this target
-        const campaignId = target.campaign_id;
-        if (!campaignId) return { campaign_id: null, leads: [], message: 'No campaign id on target; capture may have failed' };
+        // Optionally return any already-existing leads if caller provided limit and there are cached rows
+        if (campaignId && Number(limit || 0) > 0) {
+          const max = Math.max(1, Math.min(Number(limit || 0), 50));
+          if (max > 0) {
+            const { data } = await supabase
+              .from('sourcing_leads')
+              .select('id, name, title, company, email, linkedin_url, enriched, created_at')
+              .eq('campaign_id', campaignId)
+              .order('created_at', { ascending: false })
+              .limit(max);
+            out.leads = data || [];
+            out.count = (data || []).length;
+          }
+        }
+        return out;
+      }
+    },
+    // Poll latest leads for a sniper target or campaign (paginated)
+    sniper_poll_leads: {
+      parameters: {
+        userId: { type: 'string' },
+        target_id: { type: 'string', optional: true },
+        campaign_id: { type: 'string', optional: true },
+        limit: { type: 'number', optional: true },
+        cursor: { type: 'string', optional: true } // ISO created_at; return rows created_before cursor
+      },
+      handler: async ({ userId, target_id, campaign_id, limit, cursor }) => {
+        await assertPremium(userId);
+        let campaignId = campaign_id as string | null;
+        if (!campaignId && target_id) {
+          const { data: targetRow, error: tErr } = await supabase
+            .from('sniper_targets')
+            .select('id,campaign_id')
+            .eq('id', target_id)
+            .maybeSingle();
+          if (tErr) throw new Error(`Failed to load target ${target_id}: ${tErr.message}`);
+          campaignId = (targetRow as any)?.campaign_id || null;
+        }
+        if (!campaignId) return { campaign_id: null, leads: [], next_cursor: null, status: 'pending' };
 
-        // Read directly from supabase to fetch campaign leads
         const max = Math.max(1, Math.min(Number(limit || 50), 200));
-        const { data: leads, error } = await supabase
+        let q = supabase
           .from('sourcing_leads')
           .select('id, name, title, company, email, linkedin_url, enriched, created_at')
           .eq('campaign_id', campaignId)
           .order('created_at', { ascending: false })
           .limit(max);
+        if (cursor) q = q.lt('created_at', cursor);
+        const { data: leads, error } = await q;
         if (error) throw new Error(`Failed to fetch leads for campaign ${campaignId}: ${error.message}`);
-
-        return {
-          campaign_id: campaignId,
-          count: (leads || []).length,
-          leads: leads || [],
-          message: 'Sniper collected leads. Use sourcing_add_leads or review in UI as needed.'
-        };
+        const nextCursor = (leads && leads.length > 0) ? leads[leads.length - 1].created_at : null;
+        return { campaign_id: campaignId, count: (leads || []).length, leads: leads || [], next_cursor: nextCursor, status: 'ok' };
       }
     },
     schedule_campaign: {
