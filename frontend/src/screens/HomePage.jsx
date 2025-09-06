@@ -260,7 +260,7 @@ const HomePage = () => {
                 {String(item).startsWith('fa-') ? (
                   <i className={`${item} text-white text-3xl md:text-4xl opacity-95`} aria-label={alt} title={alt} />
                 ) : (
-                  <img src={item} alt={alt} className="h-8 md:h-10 w-auto filter invert brightness-200 opacity-95 drop-shadow transition duration-300" />
+                  <img src={item} alt={alt} className="h-8 md:h-10 w-auto brightness-0 invert opacity-95 drop-shadow transition duration-300" />
                 )}
               </div>
             ))}
