@@ -249,15 +249,19 @@ const HomePage = () => {
             Sync your HirePilot recruiting flows with tools you already have
           </h3>
           <div className="grid grid-cols-3 sm:grid-cols-5 gap-8 md:gap-12 justify-items-center max-w-5xl mx-auto">
-            {[ 
+            {[
               ['/apollo-logo-v2.png','Apollo'],
-              ['/linkedin-sn.png','LinkedIn'],
-              ['/slack-integration.png','Slack'],
+              ['fa-brands fa-linkedin','LinkedIn'],
+              ['fa-brands fa-slack','Slack'],
               ['/zapier-icon.png','Zapier'],
               ['/make-logo-v1.png','Make'],
-            ].map(([src, alt]) => (
+            ].map(([item, alt]) => (
               <div key={alt} className="group rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm p-3 md:p-4 hover:bg-white/10 transition-colors duration-300 w-[88px] h-[72px] md:w-[104px] md:h-[88px] flex items-center justify-center">
-                <img src={src} alt={alt} className="h-8 md:h-10 w-auto opacity-80 grayscale group-hover:grayscale-0 group-hover:opacity-100 transition duration-300" />
+                {String(item).startsWith('fa-') ? (
+                  <i className={`${item} text-white text-3xl md:text-4xl opacity-95`} aria-label={alt} title={alt} />
+                ) : (
+                  <img src={item} alt={alt} className="h-8 md:h-10 w-auto filter invert brightness-200 opacity-95 drop-shadow transition duration-300" />
+                )}
               </div>
             ))}
           </div>
