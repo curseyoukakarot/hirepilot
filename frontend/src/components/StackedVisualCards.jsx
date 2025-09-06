@@ -56,6 +56,12 @@ const StackedVisualCards = () => {
             alt="REX Enrichment Card"
             className="w-full h-auto object-cover"
           />
+          {/* Secondary title between first and second cards (right aligned) */}
+          <div className="pointer-events-none absolute right-3 md:right-6 -bottom-12 md:-bottom-16 z-20 px-2 md:px-4">
+            <h3 className="text-xl md:text-3xl font-semibold text-right inline-block bg-black/40 backdrop-blur-sm rounded-lg border border-white/10 px-3 py-2">
+              Enhance your search with <span className="gradient-text">Detailed Company Insights</span>
+            </h3>
+          </div>
         </div>
 
         {/* Card 2 */}
