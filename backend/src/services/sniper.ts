@@ -4,6 +4,7 @@ import fetch from 'node-fetch';
 import { LinkedInClient } from '../lib/linkedin/client';
 import { sniperOpenerQueue } from '../queues/redis';
 import { decryptGCM } from '../lib/crypto';
+import sgMail from '@sendgrid/mail';
 
 type Target = {
   id: string; user_id: string; type: 'own'|'competitor'|'keyword';
@@ -48,6 +49,60 @@ export async function ensureMicroCampaignForTarget(t: Target) {
   if (error) throw error;
   await supabase.from('sniper_targets').update({ campaign_id: data.id }).eq('id', t.id);
   return data.id;
+}
+
+// ---------------- Notifications -----------------
+async function getUserNotifySettings(userId: string): Promise<{ email?: string; slack?: string }> {
+  try {
+    const { data } = await supabase
+      .from('user_settings')
+      .select('email, slack_webhook_url')
+      .eq('user_id', userId)
+      .maybeSingle();
+    return { email: (data as any)?.email, slack: (data as any)?.slack_webhook_url };
+  } catch { return {}; }
+}
+
+export async function notifySniperQueued(userId: string, targetId: string, campaignId?: string, postUrl?: string) {
+  const { email, slack } = await getUserNotifySettings(userId);
+  const text = `Sniper job queued${postUrl ? ` for ${postUrl}` : ''}. Target: ${targetId}${campaignId ? `, Campaign: ${campaignId}` : ''}.`;
+  if (slack) {
+    try { await (await import('axios')).default.post(slack, { text }); } catch {}
+  }
+  if (email && process.env.SENDGRID_API_KEY && process.env.SENDGRID_FROM) {
+    try {
+      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+      await sgMail.send({ to: email, from: process.env.SENDGRID_FROM, subject: 'Sniper queued', text });
+    } catch {}
+  }
+}
+
+export async function notifySniperCompleted(userId: string, targetId: string, campaignId: string, found: number, enriched: number) {
+  const { email, slack } = await getUserNotifySettings(userId);
+  const text = `Sniper completed. Target: ${targetId}, Campaign: ${campaignId}. Found=${found}, Enriched=${enriched}.`;
+  if (slack) {
+    try { await (await import('axios')).default.post(slack, { text }); } catch {}
+  }
+  if (email && process.env.SENDGRID_API_KEY && process.env.SENDGRID_FROM) {
+    try {
+      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+      await sgMail.send({ to: email, from: process.env.SENDGRID_FROM, subject: 'Sniper completed', text });
+    } catch {}
+  }
+}
+
+export async function notifySniperFailed(userId: string, targetId: string, errorMsg: string) {
+  const { email, slack } = await getUserNotifySettings(userId);
+  const text = `Sniper failed. Target: ${targetId}. Error: ${errorMsg}`;
+  if (slack) {
+    try { await (await import('axios')).default.post(slack, { text }); } catch {}
+  }
+  if (email && process.env.SENDGRID_API_KEY && process.env.SENDGRID_FROM) {
+    try {
+      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+      await sgMail.send({ to: email, from: process.env.SENDGRID_FROM, subject: 'Sniper failed', text });
+    } catch {}
+  }
 }
 
 export async function addTarget(userId: string, body: { type:'own'|'competitor'|'keyword', post_url?:string, keyword_match?:string, daily_cap?:number }) {
@@ -147,9 +202,16 @@ export async function captureOnce(targetId: string) {
     }
 
     await supabase.from('sniper_runs').insert({ target_id: targetId, success_count: found });
+    if (found > 0) {
+      try { await notifySniperCompleted(t.user_id, targetId, await ensureMicroCampaignForTarget(t), found, enriched); } catch {}
+    }
     return { found, enriched };
   } catch (e:any) {
     await supabase.from('sniper_runs').insert({ target_id: targetId, error_count: 1, log: String(e?.message || e) });
+    try {
+      await supabase.from('sniper_targets').update({ status: 'failed' }).eq('id', targetId);
+      await notifySniperFailed(t.user_id, targetId, String(e?.message || e));
+    } catch {}
     return { error: String(e?.message || e) };
   } finally {
     await li.cleanup();

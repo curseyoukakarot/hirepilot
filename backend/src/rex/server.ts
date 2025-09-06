@@ -133,6 +133,11 @@ server.registerCapabilities({
           method: 'POST',
           body: JSON.stringify({ type: 'own', post_url })
         });
+        try {
+          // Best-effort queued notification
+          const { notifySniperQueued } = await import('../services/sniper');
+          await notifySniperQueued(userId, target.id, target.campaign_id, post_url);
+        } catch {}
 
         // NOTE: Route /api/sniper/targets already enqueues a capture job via BullMQ.
         // Do NOT await scraping here to avoid Railway edge timeouts.

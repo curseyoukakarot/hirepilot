@@ -15,4 +15,9 @@ export const sniperWorker = new Worker('sniper:capture', async (job) => {
   return res;
 }, { connection });
 
+// If the process is started as a standalone worker, keep it alive
+if (require.main === module) {
+  console.log('✅ Sniper worker online (queue: sniper:capture)');
+}
+
 
