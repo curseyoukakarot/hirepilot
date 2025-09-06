@@ -18,9 +18,15 @@ const StackedVisualCards = () => {
               card.classList.remove('stack-faded');
             }
           });
+
+          // Reveal thresholds per card (hide 2nd a bit longer)
+          const ratio = entry.intersectionRatio;
+          const threshold = index === 1 ? 0.75 : index === 2 ? 0.55 : 0.3;
+          if (ratio >= threshold) entry.target.classList.add('visible');
+          else entry.target.classList.remove('visible');
         });
       },
-      { threshold: 0.45 }
+      { threshold: [0, 0.25, 0.5, 0.75, 1] }
     );
 
     cards.forEach((c) => observer.observe(c));
@@ -37,12 +43,14 @@ const StackedVisualCards = () => {
         </div>
       </div>
       <style>{`
-        .stack-card { transition: opacity 0.5s ease, transform 0.5s ease, filter 0.5s ease, box-shadow 0.5s ease; }
-        .stack-card.stack-faded { opacity: 0; transform: translateY(-24px) scale(0.985); filter: blur(1px); }
+        .stack-card { transition: opacity 0.6s ease, transform 0.6s ease, filter 0.6s ease, box-shadow 0.6s ease; }
+        .stack-card.stack-faded { opacity: 0; transform: translateY(-28px) scale(0.985); filter: blur(1px); }
+        .reveal-card { opacity: 0; transform: translateY(48px); }
+        .reveal-card.visible { opacity: 1; transform: translateY(0); }
       `}</style>
       <div className="max-w-5xl mx-auto space-y-[-160px] md:space-y-[-160px] lg:space-y-[-160px] relative z-10 px-4 pb-24">
         {/* Card 1 */}
-        <div className="stack-card bg-white rounded-2xl shadow-[0_30px_80px_-20px_rgba(0,0,0,0.7)] ring-1 ring-black/10 border border-gray-200 overflow-hidden transform hover:-translate-y-1 transition-all duration-500 scroll-fade-in relative">
+        <div className="stack-card reveal-card bg-white rounded-2xl shadow-[0_50px_120px_-35px_rgba(0,0,0,0.9)] ring-1 ring-black/20 border border-gray-200 overflow-hidden transform hover:-translate-y-1 transition-all duration-500 relative">
           <img
             src="/lead-drawer2.png"
             alt="REX Enrichment Card"
@@ -51,7 +59,7 @@ const StackedVisualCards = () => {
         </div>
 
         {/* Card 2 */}
-        <div className="stack-card bg-white rounded-2xl shadow-[0_30px_80px_-20px_rgba(0,0,0,0.7)] ring-1 ring-black/10 border border-gray-200 overflow-hidden transform hover:-translate-y-1 transition-all duration-500 scroll-fade-in relative">
+        <div className="stack-card reveal-card bg-white rounded-2xl shadow-[0_50px_120px_-35px_rgba(0,0,0,0.9)] ring-1 ring-black/20 border border-gray-200 overflow-hidden transform hover:-translate-y-1 transition-all duration-500 relative">
           <img
             src="/enhanced-company-insights.png"
             alt="Company Insights Card"
@@ -60,7 +68,7 @@ const StackedVisualCards = () => {
         </div>
 
         {/* Card 3 */}
-        <div className="stack-card bg-white rounded-2xl shadow-[0_30px_80px_-20px_rgba(0,0,0,0.7)] ring-1 ring-black/10 border border-gray-200 overflow-hidden transform hover:-translate-y-1 transition-all duration-500 scroll-fade-in relative">
+        <div className="stack-card reveal-card bg-white rounded-2xl shadow-[0_50px_120px_-35px_rgba(0,0,0,0.9)] ring-1 ring-black/20 border border-gray-200 overflow-hidden transform hover:-translate-y-1 transition-all duration-500 relative">
           <img
             src="/features-callout.png"
             alt="Feature Highlights Card"
