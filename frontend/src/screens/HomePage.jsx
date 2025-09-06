@@ -239,6 +239,32 @@ const HomePage = () => {
         </div>
       </section>
 
+      {/* Integrations (Dark Mode) */}
+      <section id="integrations-dark" className="relative py-20 md:py-24 bg-gray-950 text-white overflow-hidden">
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+        <div className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 h-64 w-[36rem] rounded-full bg-gradient-to-b from-blue-500/10 to-purple-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-28 left-1/3 h-64 w-[28rem] rounded-full bg-gradient-to-t from-purple-500/10 to-blue-500/10 blur-3xl" />
+        <div className="container mx-auto px-6 text-center relative">
+          <h3 className="text-3xl md:text-5xl font-bold tracking-tight leading-tight mb-10 md:mb-12">
+            Sync your HirePilot recruiting flows with tools you already have
+          </h3>
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-8 md:gap-12 justify-items-center max-w-5xl mx-auto">
+            {[ 
+              ['/apollo-logo-v2.png','Apollo'],
+              ['/linkedin-sn.png','LinkedIn'],
+              ['/slack-integration.png','Slack'],
+              ['/zapier-icon.png','Zapier'],
+              ['/make-logo-v1.png','Make'],
+            ].map(([src, alt]) => (
+              <div key={alt} className="group rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm p-3 md:p-4 hover:bg-white/10 transition-colors duration-300 w-[88px] h-[72px] md:w-[104px] md:h-[88px] flex items-center justify-center">
+                <img src={src} alt={alt} className="h-8 md:h-10 w-auto opacity-80 grayscale group-hover:grayscale-0 group-hover:opacity-100 transition duration-300" />
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      </section>
+
       {/* Pricing CTA */}
       <section id="pricing-cta" className="py-20 bg-gradient-to-r from-blue-600 to-purple-600 text-white">
         <div className="container mx-auto px-6 text-center">
