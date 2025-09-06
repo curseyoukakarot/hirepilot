@@ -89,14 +89,18 @@ export default function MeetRex() {
             {[
               ['fa-magnifying-glass','Candidate Discovery','AI-powered sourcing across multiple platforms'],
               ['fa-robot','AI Messaging','Personalized outreach at scale'],
-              ['fa-slack','Slack & Calendar Integration','Seamless workflow integration'],
+              ['/slack-integration.png','Slack & Calendar Integration','Seamless workflow integration'],
               ['fa-plug','Zapier & Make Triggers','Connect with 1000+ apps'],
               ['fa-phone','Phone & Email Lookup','Complete contact enrichment'],
               ['fa-gears','Custom Workflows','Tailored automation rules']
             ].map(([icon,title,desc])=> (
               <div key={title} className="bg-white p-8 rounded-xl border border-slate-200 hover-lift">
-                <div className="w-12 h-12 rounded-lg flex items-center justify-center mb-4">
-                  <i className={`fa-solid ${icon} text-slate-800 text-3xl`} />
+                <div className="w-12 h-12 rounded-lg flex items-center justify-center mb-4 overflow-hidden">
+                  {String(icon).endsWith('.png') ? (
+                    <img src={icon} alt={title} className="h-10 w-10 object-contain" />
+                  ) : (
+                    <i className={`fa-solid ${icon} text-slate-800 text-3xl`} />
+                  )}
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 mb-2">{title}</h3>
                 <p className="text-slate-600">{desc}</p>
