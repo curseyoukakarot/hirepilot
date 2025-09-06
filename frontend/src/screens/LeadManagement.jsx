@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import LeadsTableSkeleton from '../components/leads/LeadsTableSkeleton';
 import { useSearchParams } from 'react-router-dom';
 import LeadProfileDrawer from './LeadProfileDrawer';
 import { getLeads } from '../services/leadsService';
@@ -83,6 +84,7 @@ function LeadManagement() {
   const LEADS_PER_PAGE = 50;
   const [currentPage, setCurrentPage] = useState(1);
   const [showSelectMenu, setShowSelectMenu] = useState(false);
+  const [isLeadsLoading, setIsLeadsLoading] = useState(true);
 
   // Bulk tagging state
   const [showBulkTagModal, setShowBulkTagModal] = useState(false);
@@ -112,6 +114,7 @@ function LeadManagement() {
   // Load leads function with campaign filtering support
   const loadLeads = async (campaignId = selectedCampaign) => {
     try {
+      setIsLeadsLoading(true);
       // Use the backend API for all cases (with or without campaign filtering)
       const rawLeads = await getLeads(campaignId);
 
@@ -172,6 +175,9 @@ function LeadManagement() {
       setLeads(mapped);
     } catch (error) {
       console.error('Failed to load leads', error);
+    }
+    finally {
+      setIsLeadsLoading(false);
     }
   };
 
@@ -1179,6 +1185,9 @@ function LeadManagement() {
 
       {/* Main Content */}
       <main className="max-w-[2000px] mx-auto px-6 py-8">
+        {isLeadsLoading ? (
+          <LeadsTableSkeleton rows={12} />
+        ) : (
         {/* Search and Filters */}
         <div className="bg-white rounded-lg shadow-sm border p-4 mb-4">
           <div className="flex flex-col gap-4">
@@ -1605,6 +1614,7 @@ function LeadManagement() {
             </button>
           </div>
         </div>
+        )}
       </main>
 
       {/* Delete Confirmation Dialog */}
