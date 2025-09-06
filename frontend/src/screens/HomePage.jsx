@@ -155,9 +155,9 @@ const HomePage = () => {
                 <i className="fa-solid fa-search text-2xl text-white"></i>
               </div>
               <h3 className="text-2xl font-bold mb-4">AI Candidate Sourcing</h3>
-              <p className="text-gray-300 mb-6">Find qualified candidates across 50+ platforms using natural language search</p>
+              <p className="text-gray-300 mb-6">Find qualified candidates across multiple platforms using natural language search</p>
               <ul className="space-y-2 text-gray-400">
-                <li><i className="fa-solid fa-check text-green-500 mr-2"></i>LinkedIn, GitHub, Stack Overflow</li>
+                <li><i className="fa-solid fa-check text-green-500 mr-2"></i>LinkedIn, Apollo, and more</li>
                 <li><i className="fa-solid fa-check text-green-500 mr-2"></i>Real-time profile analysis</li>
                 <li><i className="fa-solid fa-check text-green-500 mr-2"></i>Skill matching algorithms</li>
               </ul>
