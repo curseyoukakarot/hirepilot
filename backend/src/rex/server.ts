@@ -191,7 +191,19 @@ server.registerCapabilities({
         const { data: leads, error } = await q;
         if (error) throw new Error(`Failed to fetch leads for campaign ${campaignId}: ${error.message}`);
         const nextCursor = (leads && leads.length > 0) ? leads[leads.length - 1].created_at : null;
-        return { campaign_id: campaignId, count: (leads || []).length, leads: leads || [], next_cursor: nextCursor, status: 'ok' };
+        // Also report latest run status if available
+        let runInfo: any = null;
+        try {
+          const { data: runRow } = await supabase
+            .from('sniper_runs')
+            .select('success_count,error_count,created_at')
+            .eq('target_id', target_id || '')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          runInfo = runRow || null;
+        } catch {}
+        return { campaign_id: campaignId, count: (leads || []).length, leads: leads || [], next_cursor: nextCursor, status: 'ok', run: runInfo };
       }
     },
     schedule_campaign: {

@@ -27,7 +27,11 @@ export async function ensureMicroCampaignForTarget(t: Target) {
   if (t.campaign_id) return t.campaign_id;
   const base = t.type === 'keyword' ? (t.keyword_match || 'keyword') : (t.post_url || 'post');
   const title = `Sniper – ${base.slice(0, 40)} – ${dayjs().format('YYYY[W]WW')}`;
-  const { data, error } = await supabase.from('sourcing_campaigns').insert({ title, audience_tag: 'sniper' }).select().single();
+  const { data, error } = await supabase
+    .from('sourcing_campaigns')
+    .insert({ title, audience_tag: 'sniper', created_by: t.user_id })
+    .select()
+    .single();
   if (error) throw error;
   await supabase.from('sniper_targets').update({ campaign_id: data.id }).eq('id', t.id);
   return data.id;
