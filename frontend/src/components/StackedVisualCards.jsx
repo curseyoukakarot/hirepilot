@@ -79,12 +79,14 @@ const StackedVisualCards = () => {
         </div>
 
         {/* Card 3 */}
-        <div className="stack-card reveal-card bg-white rounded-2xl shadow-[0_50px_120px_-35px_rgba(0,0,0,0.9)] ring-1 ring-black/20 border border-gray-200 overflow-hidden transform hover:-translate-y-1 transition-all duration-500 relative">
-          <img
-            src="/features-callout.png"
-            alt="Feature Highlights Card"
-            className="w-full h-auto object-cover"
-          />
+        <div className="pt-10 md:pt-12 lg:pt-16">
+          <div className="stack-card reveal-card bg-white rounded-2xl shadow-[0_50px_120px_-35px_rgba(0,0,0,0.9)] ring-1 ring-black/20 border border-gray-200 overflow-hidden transform hover:-translate-y-1 transition-all duration-500 relative">
+            <img
+              src="/features-callout.png"
+              alt="Feature Highlights Card"
+              className="w-full h-auto object-cover"
+            />
+          </div>
         </div>
       </div>
     </section>
