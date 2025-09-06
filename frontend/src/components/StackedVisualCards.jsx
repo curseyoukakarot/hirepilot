@@ -21,12 +21,12 @@ const StackedVisualCards = () => {
 
           // Reveal thresholds per card (hide 2nd a bit longer)
           const ratio = entry.intersectionRatio;
-          const threshold = index === 1 ? 0.75 : index === 2 ? 0.55 : 0.3;
+          const threshold = index === 1 ? 0.6 : index === 2 ? 0.45 : 0.25;
           if (ratio >= threshold) entry.target.classList.add('visible');
           else entry.target.classList.remove('visible');
         });
       },
-      { threshold: [0, 0.25, 0.5, 0.75, 1] }
+      { threshold: [0, 0.2, 0.4, 0.6, 0.8, 1] }
     );
 
     cards.forEach((c) => observer.observe(c));
@@ -48,7 +48,7 @@ const StackedVisualCards = () => {
         .reveal-card { opacity: 0; transform: translateY(48px); }
         .reveal-card.visible { opacity: 1; transform: translateY(0); }
       `}</style>
-      <div className="max-w-5xl mx-auto space-y-[-160px] md:space-y-[-160px] lg:space-y-[-160px] relative z-10 px-4 pb-24">
+      <div className="max-w-5xl mx-auto space-y-[-120px] md:space-y-[-130px] lg:space-y-[-140px] relative z-10 px-4 pb-32">
         {/* Card 1 */}
         <div className="stack-card reveal-card bg-white rounded-2xl shadow-[0_50px_120px_-35px_rgba(0,0,0,0.9)] ring-1 ring-black/20 border border-gray-200 overflow-hidden transform hover:-translate-y-1 transition-all duration-500 relative">
           <img
