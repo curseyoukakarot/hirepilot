@@ -48,7 +48,8 @@ const StackedVisualCards = () => {
         .reveal-card { opacity: 0; transform: translateY(48px); }
         .reveal-card.visible { opacity: 1; transform: translateY(0); }
       `}</style>
-      <div className="max-w-5xl mx-auto space-y-[-120px] md:space-y-[-130px] lg:space-y-[-140px] relative z-10 px-4 pb-32">
+      {/* First Card (no overlap wrapper) */}
+      <div className="max-w-5xl mx-auto px-4 pb-6">
         {/* Card 1 */}
         <div className="stack-card reveal-card bg-white rounded-2xl shadow-[0_50px_120px_-35px_rgba(0,0,0,0.9)] ring-1 ring-black/20 border border-gray-200 overflow-hidden transform hover:-translate-y-1 transition-all duration-500 relative">
           <img
@@ -56,14 +57,18 @@ const StackedVisualCards = () => {
             alt="REX Enrichment Card"
             className="w-full h-auto object-cover"
           />
-          {/* Secondary title between first and second cards (right aligned) */}
-          <div className="pointer-events-none absolute right-3 md:right-6 -bottom-12 md:-bottom-16 z-20 px-2 md:px-4">
-            <h3 className="text-xl md:text-3xl font-semibold text-right inline-block bg-black/40 backdrop-blur-sm rounded-lg border border-white/10 px-3 py-2">
-              Enhance your search with <span className="gradient-text">Detailed Company Insights</span>
-            </h3>
-          </div>
         </div>
+      </div>
 
+      {/* Secondary Title in flow (right-aligned) */}
+      <div className="max-w-5xl mx-auto px-4 mb-8 md:mb-10 flex justify-end">
+        <h3 className="text-xl md:text-3xl font-semibold text-right inline-block px-3 py-2 rounded-lg bg-black/30 backdrop-blur-sm border border-white/10">
+          Enhance your search with <span className="gradient-text">Detailed Company Insights</span>
+        </h3>
+      </div>
+
+      {/* Remaining stack with light overlap */}
+      <div className="max-w-5xl mx-auto space-y-[-100px] md:space-y-[-110px] lg:space-y-[-120px] relative z-10 px-4 pb-32">
         {/* Card 2 */}
         <div className="stack-card reveal-card bg-white rounded-2xl shadow-[0_50px_120px_-35px_rgba(0,0,0,0.9)] ring-1 ring-black/20 border border-gray-200 overflow-hidden transform hover:-translate-y-1 transition-all duration-500 relative">
           <img
