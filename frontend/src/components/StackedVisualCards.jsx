@@ -68,7 +68,7 @@ const StackedVisualCards = () => {
       </div>
 
       {/* Remaining stack with light overlap */}
-      <div className="max-w-5xl mx-auto space-y-[-100px] md:space-y-[-110px] lg:space-y-[-120px] relative z-10 px-4 pb-32">
+      <div className="max-w-5xl mx-auto space-y-[-70px] md:space-y-[-90px] lg:space-y-[-100px] relative z-10 px-4 pb-32">
         {/* Card 2 */}
         <div className="stack-card reveal-card bg-white rounded-2xl shadow-[0_50px_120px_-35px_rgba(0,0,0,0.9)] ring-1 ring-black/20 border border-gray-200 overflow-hidden transform hover:-translate-y-1 transition-all duration-500 relative">
           <img
@@ -79,7 +79,7 @@ const StackedVisualCards = () => {
         </div>
 
         {/* Card 3 */}
-        <div className="pt-10 md:pt-12 lg:pt-16">
+        <div className="pt-24 md:pt-28 lg:pt-36">
           <div className="stack-card reveal-card bg-white rounded-2xl shadow-[0_50px_120px_-35px_rgba(0,0,0,0.9)] ring-1 ring-black/20 border border-gray-200 overflow-hidden transform hover:-translate-y-1 transition-all duration-500 relative">
             <img
               src="/features-callout.png"
