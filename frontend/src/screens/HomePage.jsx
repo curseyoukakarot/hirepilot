@@ -1,9 +1,10 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import PublicNavbar from '../components/PublicNavbar';
 import PublicFooter from '../components/PublicFooter';
 import StackedVisualCards from '../components/StackedVisualCards';
 
 const HomePage = () => {
+  const [isDemoOpen, setIsDemoOpen] = useState(false);
   useEffect(() => {
     const texts = [
       'Find senior React developers in San Francisco',
@@ -82,6 +83,8 @@ const HomePage = () => {
         .feature-card:hover { transform: translateY(-10px); }
         .scroll-fade-in { opacity: 0; transform: translateY(40px); transition: all 0.6s ease-out; }
         .scroll-fade-in.in-view { opacity: 1; transform: translateY(0); }
+        .accordion { max-height: 0; overflow: hidden; opacity: 0; transition: max-height 0.6s ease, opacity 0.4s ease; }
+        .accordion.open { max-height: 900px; opacity: 1; }
       `}</style>
 
       {/* Header */}
@@ -107,12 +110,30 @@ const HomePage = () => {
             </div>
             <p className="text-xl text-gray-300 mb-8">Automate candidate sourcing, screening, and outreach with AI</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button className="bg-blue-600 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-blue-700 transition-colors">
+              <a href="/pricing" className="bg-blue-600 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-blue-700 transition-colors">
                 Start Free Trial
-              </button>
-              <button className="border border-gray-600 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-800 transition-colors">
+              </a>
+              <button onClick={() => setIsDemoOpen((v) => !v)} aria-expanded={isDemoOpen} className="border border-gray-600 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-800 transition-colors">
                 <i className="fa-solid fa-play mr-2"></i>Watch Demo
               </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Demo Accordion */}
+      <section id="demo-accordion" className="container mx-auto px-6">
+        <div className={`accordion ${isDemoOpen ? 'open' : ''} bg-gray-900/70 border border-white/10 rounded-2xl shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)] backdrop-blur-sm max-w-4xl mx-auto`}> 
+          <div className="p-4 sm:p-6">
+            <div className="aspect-video w-full rounded-xl overflow-hidden">
+              <iframe
+                className="w-full h-full"
+                src="https://www.youtube.com/embed/zhwZg_8ruyU?rel=0&modestbranding=1"
+                title="HirePilot Demo"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              />
             </div>
           </div>
         </div>
@@ -225,8 +246,8 @@ const HomePage = () => {
             <h2 className="text-4xl font-bold">Start hiring smarter with AI</h2>
             <p className="text-xl text-blue-100">Recruiting shouldn't be slow. Let HirePilot automate it for you.</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <span className="bg-white text-blue-600 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-100 transition-colors cursor-pointer">Get Started Free</span>
-              <span className="border border-white text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white/10 transition-colors cursor-pointer" rel="noopener" target="_blank">Watch Demo</span>
+              <a href="/pricing" className="bg-white text-blue-600 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-100 transition-colors">Get Started Free</a>
+              <a href="https://youtu.be/zhwZg_8ruyU" target="_blank" rel="noopener" className="border border-white text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white/10 transition-colors">Watch Demo</a>
             </div>
           </div>
         </div>
