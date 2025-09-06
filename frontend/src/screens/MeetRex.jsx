@@ -9,7 +9,7 @@ export default function MeetRex() {
       <PublicNavbar />
 
       {/* Hero */}
-      <section id="hero" className="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white h-[700px] flex items-center">
+      <section id="hero" className="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white h-[700px] flex items-center pt-28 lg:pt-0">
         <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-12 items-center">
           <div>
             <h1 className="text-5xl lg:text-6xl font-bold mb-6 leading-tight">

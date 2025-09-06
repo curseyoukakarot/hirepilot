@@ -4,7 +4,7 @@ import PublicFooter from '../components/PublicFooter';
 
 export default function ApiDocs() {
   const html = String.raw`
-    <main class="max-w-6xl mx-auto px-6 py-10">
+    <main class="max-w-6xl mx-auto px-6 pt-28 pb-10">
         <section id="hero" class="mb-12">
             <div class="text-center mb-8">
                 <h1 class="text-4xl font-bold mb-4 text-blue-400">
