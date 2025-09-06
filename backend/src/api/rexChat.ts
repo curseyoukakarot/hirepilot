@@ -81,6 +81,29 @@ export default async function rexChat(req: Request, res: Response) {
       return res.status(403).json({ error: 'REX access forbidden for this user' });
     }
 
+    // Hard short-circuit: Sniper LinkedIn post collection (avoid model decision-making)
+    try {
+      const lastUserMsgEarly = [...(messages || [])].reverse().find(m => m.role === 'user');
+      const textEarly = String(lastUserMsgEarly?.content || '').toLowerCase();
+      const urlEarly = /https?:\/\/[^\s]*linkedin\.com\/posts\/[^\s]+/i.exec(String(lastUserMsgEarly?.content || ''))?.[0];
+      const wantsLikersEarly = /like|liked|likers/.test(textEarly);
+      if (urlEarly && wantsLikersEarly) {
+        const { server: rexServer } = await import('../rex/server');
+        const caps = rexServer.getCapabilities?.();
+        const sniper = caps?.tools?.['sniper_collect_post'];
+        if (sniper?.handler) {
+          const queued: any = await (async () => {
+            try { return await sniper.handler({ userId, post_url: urlEarly, limit: 0 }); }
+            catch (e:any) { return { error: String(e?.message || e) }; }
+          })();
+          const summary = queued?.error
+            ? `Sniper queue failed: ${queued.error}`
+            : `Sniper queued capture for this post. target_id=${queued?.target_id || ''} campaign_id=${queued?.campaign_id || ''} (ETA ~${queued?.eta_seconds || 60}s). Say: "poll sniper ${queued?.target_id}" to fetch results.`;
+          return res.status(200).json({ reply: { role: 'assistant', content: summary } });
+        }
+      }
+    } catch {}
+
     // Tool definitions (sync with server capabilities). Add new tools here so the model knows they exist.
     const tools: any = [
       {
