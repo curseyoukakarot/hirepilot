@@ -161,8 +161,9 @@ export default async function rexChat(req: Request, res: Response) {
       // New pipeline tools
       { type:'function',function:{name:'move_candidate',parameters:{ type:'object', properties:{ userId:{type:'string'}, candidateId:{type:'string'}, newStage:{type:'string'} }, required:['userId','candidateId','newStage']}}},
       { type:'function',function:{name:'move_candidate_to_stage',parameters:{ type:'object', properties:{ userId:{type:'string'}, candidate:{type:'string'}, stage:{type:'string'}, jobId:{type:'string'} }, required:['userId','candidate','stage']}}},
-      // Sniper one-shot collector for LinkedIn post likers/commenters
-      { type:'function', function:{ name:'sniper_collect_post', parameters:{ type:'object', properties:{ userId:{type:'string'}, post_url:{type:'string'}, limit:{type:'number'} }, required:['userId','post_url'] } } }
+      // Sniper tools
+      { type:'function', function:{ name:'sniper_collect_post', parameters:{ type:'object', properties:{ userId:{type:'string'}, post_url:{type:'string'}, limit:{type:'number'} }, required:['userId','post_url'] } } },
+      { type:'function', function:{ name:'sniper_poll_leads', parameters:{ type:'object', properties:{ userId:{type:'string'}, target_id:{type:'string'}, campaign_id:{type:'string'}, limit:{type:'number'}, cursor:{type:'string'} }, required:['userId'] } } }
     ];
 
     // Lightweight endpoint: weekly check-in hook (called by cron)
@@ -204,7 +205,8 @@ If the user specifies the source, immediately call the tool 'source_leads' with 
 If the user doesn’t answer the clarifying question, default to Apollo after one follow-up.
 Be concise. Do not output generic plans when a tool can fulfill the request.
 Note: If 'linkedin' is chosen and it is not available, clearly state that LinkedIn sourcing is queued and offer to proceed with Apollo.
-If the user asks to "go to this LinkedIn post" or to "pull everyone who liked/commented on a post" and provides a LinkedIn post URL, call the tool 'sniper_collect_post' with { userId, post_url: <url>, limit: 50 }. Do not send outreach; simply return collected leads and the campaign id.
+If the user asks to "go to this LinkedIn post" or to "pull everyone who liked/commented on a post" and provides a LinkedIn post URL, call the tool 'sniper_collect_post' with { userId, post_url: <url>, limit: 0 }. Do not send outreach; simply return queued status (target_id, campaign_id) and ETA.
+If the user says "poll sniper <target_id>" or asks to check results for a target/campaign, call 'sniper_poll_leads' with { userId, target_id: <uuid>, limit: 50 } and return leads plus last run status.
 CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` : ''}`
     } as any;
 
