@@ -179,11 +179,14 @@ export async function captureOnce(targetId: string) {
   await li.init({ li_at, jsession });
 
   try {
+    console.log(JSON.stringify({ scope:'sniper', event:'visit_start', targetId, type: t.type }));
     if (t.type === 'keyword') await li.searchKeyword(t.keyword_match!);
     else await li.gotoPost(t.post_url!);
+    console.log(JSON.stringify({ scope:'sniper', event:'visit_ok', targetId }));
 
     const limit = Math.min(remaining, Number(process.env.SNIPER_MAX_PER_RUN || 25));
     const people = await li.collectProfiles(limit);
+    console.log(JSON.stringify({ scope:'sniper', event:'collected_profiles', targetId, count: people.length }));
 
     let found = 0, enriched = 0;
     for (const p of people) {
@@ -218,9 +221,11 @@ export async function captureOnce(targetId: string) {
         await supabase.from('sourcing_campaigns').update({ status: (count || 0) > 0 ? 'active' : 'draft' }).eq('id', campaignId);
       }
     } catch {}
+    console.log(JSON.stringify({ scope:'sniper', event:'run_done', targetId, found, enriched }));
     try { await notifySniperCompleted(t.user_id, targetId, campaignId, found, enriched); } catch {}
     return { found, enriched };
   } catch (e:any) {
+    console.error(JSON.stringify({ scope:'sniper', event:'run_error', targetId, error: String(e?.message || e) }));
     await supabase.from('sniper_runs').insert({ target_id: targetId, error_count: 1, log: String(e?.message || e) });
     try {
       await supabase.from('sniper_targets').update({ status: 'failed' }).eq('id', targetId);
