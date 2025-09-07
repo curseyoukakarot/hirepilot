@@ -8,7 +8,7 @@ async function main() {
     .from('sniper_targets')
     .select('id, updated_at')
     .eq('status', 'running')
-    .lt('updated_at', since);
+    .lt('created_at', since);
   if (error) throw error;
   if (!data || data.length === 0) {
     console.log('Watchdog: no stuck running targets.');
