@@ -167,6 +167,9 @@ export async function captureOnce(targetId: string) {
   if (t.status && t.status !== 'active') return { skipped:true, reason:t.status };
   // Mark as running while this capture executes
   try { await supabase.from('sniper_targets').update({ status: 'running' }).eq('id', targetId); } catch {}
+  // Ensure a campaign exists and mark it running for UI
+  const campaignId = await ensureMicroCampaignForTarget(t);
+  try { await supabase.from('sourcing_campaigns').update({ status: 'running' }).eq('id', campaignId); } catch {}
 
   const remaining = Math.max(0, (t.daily_cap || 15) - (await todayCount(targetId)));
   if (remaining <= 0) return { found:0, enriched:0, limit:true };
@@ -189,8 +192,7 @@ export async function captureOnce(targetId: string) {
       found++;
       const e = await enrichLead(p.linkedin_url, p.name);
       if (e?.email) {
-        const cid = await ensureMicroCampaignForTarget(t);
-        await upsertLead(cid, p, e);
+        await upsertLead(campaignId, p, e);
         enriched++;
       }
       const min = Number(process.env.SNIPER_MIN_WAIT_MS || 800);
@@ -204,12 +206,25 @@ export async function captureOnce(targetId: string) {
     }
 
     await supabase.from('sniper_runs').insert({ target_id: targetId, success_count: found });
-    try { await notifySniperCompleted(t.user_id, targetId, await ensureMicroCampaignForTarget(t), found, enriched); } catch {}
+    // Update campaign status based on whether any leads exist (this run or historically)
+    try {
+      if (enriched > 0) {
+        await supabase.from('sourcing_campaigns').update({ status: 'active' }).eq('id', campaignId);
+      } else {
+        const { count } = await supabase
+          .from('sourcing_leads')
+          .select('id', { count: 'exact', head: true })
+          .eq('campaign_id', campaignId);
+        await supabase.from('sourcing_campaigns').update({ status: (count || 0) > 0 ? 'active' : 'draft' }).eq('id', campaignId);
+      }
+    } catch {}
+    try { await notifySniperCompleted(t.user_id, targetId, campaignId, found, enriched); } catch {}
     return { found, enriched };
   } catch (e:any) {
     await supabase.from('sniper_runs').insert({ target_id: targetId, error_count: 1, log: String(e?.message || e) });
     try {
       await supabase.from('sniper_targets').update({ status: 'failed' }).eq('id', targetId);
+      await supabase.from('sourcing_campaigns').update({ status: 'failed' }).eq('id', campaignId);
       await notifySniperFailed(t.user_id, targetId, String(e?.message || e));
     } catch {}
     return { error: String(e?.message || e) };
