@@ -6,7 +6,7 @@ async function main() {
   const since = dayjs().subtract(thresholdMin, 'minute').toISOString();
   const { data, error } = await supabase
     .from('sniper_targets')
-    .select('id, updated_at')
+    .select('id, created_at')
     .eq('status', 'running')
     .lt('created_at', since);
   if (error) throw error;
