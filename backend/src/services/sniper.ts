@@ -108,7 +108,7 @@ export async function notifySniperFailed(userId: string, targetId: string, error
 export async function addTarget(userId: string, body: { type:'own'|'competitor'|'keyword', post_url?:string, keyword_match?:string, daily_cap?:number }) {
   if (body.type !== 'keyword' && !body.post_url) throw new Error('post_url required for own/competitor');
   if (body.type === 'keyword' && !body.keyword_match) throw new Error('keyword_match required');
-  const { data, error } = await supabase.from('sniper_targets').insert({ user_id: userId, ...body, daily_cap: body.daily_cap ?? 15 }).select().single();
+  const { data, error } = await supabase.from('sniper_targets').insert({ user_id: userId, ...body, daily_cap: body.daily_cap ?? 15, status: 'active' }).select().single();
   if (error) throw error;
   const campaign_id = await ensureMicroCampaignForTarget(data as any);
   return { ...(data as any), campaign_id };
@@ -164,7 +164,9 @@ export async function enrichLead(linkedin_url: string, name?: string) {
 
 export async function captureOnce(targetId: string) {
   const t = await getTarget(targetId);
-  if (t.status !== 'active') return { skipped:true, reason:'paused' };
+  if (t.status && t.status !== 'active') return { skipped:true, reason:t.status };
+  // Mark as running while this capture executes
+  try { await supabase.from('sniper_targets').update({ status: 'running' }).eq('id', targetId); } catch {}
 
   const remaining = Math.max(0, (t.daily_cap || 15) - (await todayCount(targetId)));
   if (remaining <= 0) return { found:0, enriched:0, limit:true };
@@ -202,9 +204,7 @@ export async function captureOnce(targetId: string) {
     }
 
     await supabase.from('sniper_runs').insert({ target_id: targetId, success_count: found });
-    if (found > 0) {
-      try { await notifySniperCompleted(t.user_id, targetId, await ensureMicroCampaignForTarget(t), found, enriched); } catch {}
-    }
+    try { await notifySniperCompleted(t.user_id, targetId, await ensureMicroCampaignForTarget(t), found, enriched); } catch {}
     return { found, enriched };
   } catch (e:any) {
     await supabase.from('sniper_runs').insert({ target_id: targetId, error_count: 1, log: String(e?.message || e) });
@@ -214,6 +214,8 @@ export async function captureOnce(targetId: string) {
     } catch {}
     return { error: String(e?.message || e) };
   } finally {
+    // Return to active if not failed
+    try { await supabase.from('sniper_targets').update({ status: 'active' }).eq('id', targetId).neq('status','failed'); } catch {}
     await li.cleanup();
   }
 }
