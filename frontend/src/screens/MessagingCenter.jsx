@@ -68,6 +68,7 @@ export default function MessagingCenter() {
   const [showTemplateEditor, setShowTemplateEditor] = useState(false);
   const [templateName, setTemplateName] = useState('');
   const [templateSubject, setTemplateSubject] = useState('');
+  const [templateType, setTemplateType] = useState('email'); // 'email' | 'linkedin_request'
   const [templateContent, setTemplateContent] = useState('');
 
   // Helper to map folder to status
@@ -372,6 +373,7 @@ export default function MessagingCenter() {
     setEditingTemplate(null);
     setTemplateName('');
     setTemplateSubject('');
+    setTemplateType('email');
     setTemplateContent('');
     setShowTemplateEditor(true);
   };
@@ -380,6 +382,7 @@ export default function MessagingCenter() {
     setEditingTemplate(template);
     setTemplateName(template.name);
     setTemplateSubject(template.subject);
+    setTemplateType((template.subject||'')==='linkedin_request' ? 'linkedin_request' : 'email');
     setTemplateContent(template.content);
     setShowTemplateEditor(true);
   };
@@ -392,7 +395,7 @@ export default function MessagingCenter() {
       const templateData = {
         user_id: user.id,
         name: templateName,
-        subject: templateSubject,
+        subject: templateType === 'linkedin_request' ? 'linkedin_request' : templateSubject,
         content: templateContent,
         updated_at: new Date().toISOString()
       };
@@ -797,17 +800,32 @@ export default function MessagingCenter() {
                 />
               </div>
               
-              {/* Template Subject */}
+              {/* Template Type */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
-                <input
-                  type="text"
+                <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                <select
                   className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2 px-3 border"
-                  value={templateSubject}
-                  onChange={e => setTemplateSubject(e.target.value)}
-                  placeholder="Enter subject line..."
-                />
+                  value={templateType}
+                  onChange={e => setTemplateType(e.target.value)}
+                >
+                  <option value="email">Email</option>
+                  <option value="linkedin_request">LinkedIn Request (≤300 chars)</option>
+                </select>
               </div>
+              
+              {/* Subject (email only) */}
+              {templateType === 'email' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+                  <input
+                    type="text"
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2 px-3 border"
+                    value={templateSubject}
+                    onChange={e => setTemplateSubject(e.target.value)}
+                    placeholder="Enter subject line..."
+                  />
+                </div>
+              )}
               
               {/* Insert Field dropdown */}
               <div className="mb-2">
@@ -841,18 +859,34 @@ export default function MessagingCenter() {
               </div>
               
               {/* Template Content */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Content</label>
-                <div className="border border-gray-300 rounded-md shadow-sm">
-                  <ReactQuill
-                    theme="snow"
-                    value={templateContent}
-                    onChange={setTemplateContent}
-                    className="min-h-[300px]"
-                    modules={quillModules}
-                  />
+              {templateType === 'email' ? (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Content</label>
+                  <div className="border border-gray-300 rounded-md shadow-sm">
+                    <ReactQuill
+                      theme="snow"
+                      value={templateContent}
+                      onChange={setTemplateContent}
+                      className="min-h-[300px]"
+                      modules={quillModules}
+                    />
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">LinkedIn Message (max 300 chars)</label>
+                  <textarea
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    maxLength={300}
+                    rows={4}
+                    value={templateContent}
+                    onChange={e => setTemplateContent(e.target.value)}
+                    placeholder="Hi {{first_name}} — great to connect! ..."
+                  />
+                  <div className="mt-1 text-xs text-gray-500 text-right">{templateContent.length}/300</div>
+                  <p className="mt-1 text-xs text-gray-500">Tokens supported: {{first_name}}, {{last_name}}, {{company}}, {{title}}</p>
+                </div>
+              )}
             </div>
             
             <div className="flex justify-end gap-3 mt-6">
@@ -865,7 +899,7 @@ export default function MessagingCenter() {
               <button
                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
                 onClick={handleSaveTemplate}
-                disabled={!templateName.trim() || !templateContent.trim()}
+                disabled={!templateName.trim() || !templateContent.trim() || (templateType==='email' && !templateSubject.trim()) || (templateType==='linkedin_request' && templateContent.length>300)}
               >
                 {editingTemplate ? 'Update Template' : 'Create Template'}
               </button>
@@ -1091,7 +1125,9 @@ export default function MessagingCenter() {
                         <div className="flex justify-between items-start">
                           <div className="flex-1 min-w-0">
                             <h4 className="text-lg font-medium text-gray-900 truncate">{template.name}</h4>
-                            <p className="text-sm text-gray-600 mt-1">{template.subject}</p>
+                            <p className="text-sm text-gray-600 mt-1">
+                              {(template.subject||'')==='linkedin_request' ? 'LinkedIn Request' : (template.subject||'')}
+                            </p>
                             <div className="text-sm text-gray-500 mt-2 line-clamp-2">
                               {(template.content || '').replace(/<[^>]+>/g, '').slice(0, 150)}...
                             </div>

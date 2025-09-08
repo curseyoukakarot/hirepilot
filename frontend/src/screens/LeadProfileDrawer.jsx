@@ -4,6 +4,7 @@ import { FiX } from "react-icons/fi";
 import { FaCog } from 'react-icons/fa';
 import { FaWandMagicSparkles } from 'react-icons/fa6';
 import { supabase } from '../lib/supabase';
+import { replaceTokens } from '../utils/tokenReplace';
 import ActivityLogSection from '../components/ActivityLogSection';
 import MetadataModal from '../components/MetadataModal';
 
@@ -27,6 +28,13 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   const [isLoadingLinkedInCount, setIsLoadingLinkedInCount] = useState(false);
   const [userCredits, setUserCredits] = useState(0);
   const [showMetadata, setShowMetadata] = useState(false);
+
+  // TODO: Re-enable Playwright once stable
+  const USE_PLAYWRIGHT_AUTOMATION = false;
+
+  // LinkedIn templates state
+  const [liTemplates, setLiTemplates] = useState([]);
+  const [selectedLiTemplateId, setSelectedLiTemplateId] = useState('');
   
   // REX Mode state (Prompt 8 enhancement)
   const [rexMode, setRexMode] = useState('manual'); // 'auto' or 'manual'
@@ -107,6 +115,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
         fetchDailyLinkedInCount();
         fetchUserCredits();
         fetchUserRole();
+        fetchLinkedInTemplates();
       }
 
       const now = Date.now();
@@ -136,6 +145,62 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   // Toast helper (replace with your own toast if needed)
   const showToast = (msg, type = 'success') => {
     window.alert(msg); // Replace with your toast system
+  };
+
+  // Helper to validate LinkedIn profile URLs and build extension trigger URL
+  const isValidLinkedInProfileUrl = (profileUrl) => {
+    try {
+      const parsed = new URL(profileUrl);
+      if (parsed.hostname !== 'www.linkedin.com') return false;
+      return parsed.pathname.startsWith('/in/');
+    } catch {
+      return false;
+    }
+  };
+
+  const buildExtensionConnectUrl = (profileUrl) => {
+    try {
+      const u = new URL(profileUrl);
+      u.searchParams.set('hirepilot_connect', '1');
+      return u.toString();
+    } catch {
+      return null;
+    }
+  };
+
+  // Temporary bypass handler: prefer Chrome extension over Playwright
+  const handleLinkedInRequestClick = () => {
+    if (!localLead?.linkedin_url) {
+      showToast('No LinkedIn URL found for this lead', 'error');
+      return;
+    }
+    if (!isValidLinkedInProfileUrl(localLead.linkedin_url)) {
+      showToast('Invalid LinkedIn URL.', 'error');
+      return;
+    }
+
+    if (USE_PLAYWRIGHT_AUTOMATION) {
+      // TODO: Re-enable Playwright once stable
+      if (shouldShowComingSoon()) {
+        setShowComingSoonModal(true);
+      } else {
+        fetchUserCredits();
+        setShowCreditConfirm(true);
+      }
+      return;
+    }
+
+    const connectUrl = buildExtensionConnectUrl(localLead.linkedin_url);
+    if (!connectUrl) {
+      showToast('Invalid LinkedIn URL.', 'error');
+      return;
+    }
+
+    // Open modal to compose/select template before triggering extension
+    setShowLinkedInModal(true);
+
+    // Bonus: notify user about extension handling
+    showToast("Your LinkedIn connection request is being handled by the Chrome Extension. Ensure it's installed.", 'info');
   };
 
   const fetchSequenceEnrollment = async (leadId) => {
@@ -199,6 +264,25 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       console.error('Failed to fetch daily LinkedIn count:', error);
     } finally {
       setIsLoadingLinkedInCount(false);
+    }
+  };
+
+  // Fetch LinkedIn templates (we use email_templates with subject = 'linkedin_request')
+  const fetchLinkedInTemplates = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data, error } = await supabase
+        .from('email_templates')
+        .select('id,name,subject,content,created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      if (!error && data) {
+        const onlyLinkedIn = (data || []).filter(t => (t.subject || '').toLowerCase() === 'linkedin_request');
+        setLiTemplates(onlyLinkedIn);
+      }
+    } catch (e) {
+      // ignore
     }
   };
 
@@ -1058,89 +1142,74 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       showToast('No LinkedIn URL found for this lead', 'error');
       return;
     }
-
     // Validate consent checkbox
     if (!consentAccepted) {
       showToast('You must consent to HirePilot acting on your behalf for LinkedIn automation', 'error');
       return;
     }
 
-    // Validate message
-    if (!linkedInMessage.trim()) {
-      showToast('Please provide a message for your LinkedIn connection request', 'error');
+    // Build token data and determine message (custom or template), applying token replacement in both cases
+    const tokenData = {
+      Candidate: {
+        FirstName: getDisplayName(localLead)?.split(' ')[0] || '',
+        LastName: (getDisplayName(localLead)?.split(' ').slice(1).join(' ')) || '',
+        Company: getEnrichedCompany(localLead) || localLead.company || '',
+        Job: getEnrichedTitle(localLead) || localLead.title || '',
+        Email: localLead.email || '',
+        LinkedIn: localLead.linkedin_url || ''
+      },
+      first_name: getDisplayName(localLead)?.split(' ')[0] || '',
+      last_name: (getDisplayName(localLead)?.split(' ').slice(1).join(' ')) || '',
+      full_name: getDisplayName(localLead) || '',
+      company: getEnrichedCompany(localLead) || localLead.company || '',
+      title: getEnrichedTitle(localLead) || localLead.title || '',
+      email: localLead.email || ''
+    };
+
+    let message = (linkedInMessage || '').trim();
+    if (!message && selectedLiTemplateId) {
+      const tpl = liTemplates.find(t => t.id === selectedLiTemplateId);
+      if (tpl) {
+        message = tpl.content || '';
+      }
+    }
+    if (message) {
+      message = replaceTokens(message, tokenData).slice(0, 300);
+    }
+
+    if (!message) {
+      showToast('Please provide a message or select a template', 'error');
+      return;
+    }
+    if (message.length > 300) {
+      showToast('Message cannot exceed 300 characters', 'error');
       return;
     }
 
-    setIsSubmittingLinkedIn(true);
+    // If Playwright path enabled, fallback to existing automation submit
+    if (USE_PLAYWRIGHT_AUTOMATION) {
+      // Fall back to previous automation flow
+      // Note: keeping the old request path is out of scope for this temporary change
+      return;
+    }
+
+    // Otherwise, open LinkedIn with extension param and pass message/template metadata
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('Not authenticated');
-
-      // Use new n8n automation endpoint for LinkedIn connections
-      const response = await fetch(`${API_BASE_URL}/linkedin/send-connect`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          linkedin_url: localLead.linkedin_url,
-          message: linkedInMessage.trim(),
-          lead_id: localLead.id || null,
-          campaign_id: localLead.campaign_id || null
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        
-        // Handle specific error types
-        if (errorData.action_required === 'refresh_linkedin_cookies') {
-          showToast('LinkedIn authentication required. Please refresh your LinkedIn session in Settings.', 'error');
-          return;
-        } else if (errorData.action_required === 'use_regular_linkedin_url') {
-          showToast('This lead has a Sales Navigator URL which cannot be used for connection requests. Please update the LinkedIn URL to a regular profile format.', 'error');
-          return;
-        } else if (errorData.error?.includes('Daily connection limit')) {
-          showToast(errorData.error || 'Daily connection limit reached', 'error');
-          return;
-        } else if (errorData.error?.includes('Invalid LinkedIn URL')) {
-          showToast('Invalid LinkedIn profile URL format', 'error');
-          return;
-        } else if (errorData.error?.includes('exceed 300 characters')) {
-          showToast('Message cannot exceed 300 characters', 'error');
-          return;
-        } else {
-          showToast(errorData.error || 'Failed to queue LinkedIn request', 'error');
-          return;
-        }
+      const u = new URL(localLead.linkedin_url);
+      u.searchParams.set('hirepilot_connect', '1');
+      if (selectedLiTemplateId) {
+        u.searchParams.set('hp_tpl', selectedLiTemplateId);
       }
-
-      const responseData = await response.json();
-      
-      // Show success message with automation details
-      const successMessage = `🤖 LinkedIn connection request queued for automation! Workflow ID: ${responseData.workflow_id?.substring(0, 8)}...`;
-      showToast(successMessage);
-      
-      // Additional success notification about automation timing
-      setTimeout(() => {
-        showToast('⏱️ Automation will complete within 30-60 seconds', 'info');
-      }, 2000);
-      
+      if (message) {
+        u.searchParams.set('hp_msg', message);
+      }
+      window.open(u.toString(), '_blank');
+      showToast('Opening LinkedIn profile. Chrome Extension will send your request.', 'info');
       setShowLinkedInModal(false);
-      setShowCreditConfirm(false);
       setLinkedInMessage('');
-      setConsentAccepted(false); // Reset for next time
-      
-      // Refresh daily count by fetching current count
-      await fetchDailyLinkedInCount();
-      
-      // Refresh user credits
-      fetchUserCredits();
-    } catch (error) {
-      showToast(`Failed to queue LinkedIn request: ${error.message}`, 'error');
-    } finally {
-      setIsSubmittingLinkedIn(false);
+      setSelectedLiTemplateId('');
+    } catch (e) {
+      showToast('Failed to open LinkedIn profile', 'error');
     }
   };
 
@@ -1256,14 +1325,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                         ? 'bg-gray-400 cursor-not-allowed' 
                         : 'bg-linkedin hover:bg-blue-700'
                     } text-white`}
-                    onClick={() => {
-                      if (shouldShowComingSoon()) {
-                        setShowComingSoonModal(true);
-                      } else {
-                        fetchUserCredits();
-                        setShowCreditConfirm(true);
-                      }
-                    }}
+                    onClick={handleLinkedInRequestClick}
                     disabled={!localLead?.linkedin_url || dailyLinkedInCount >= 20}
                     style={{backgroundColor: (!localLead?.linkedin_url || dailyLinkedInCount >= 20) ? undefined : '#0077B5'}}
                     title={
@@ -2352,9 +2414,27 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
             </div>
 
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Personal message *
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Personal message (or select template)
+                </label>
+                <div className="text-xs text-gray-500">
+                  {linkedInMessage.length}/300
+                </div>
+              </div>
+              {/* Template selector */}
+              <div className="mb-2">
+                <select
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={selectedLiTemplateId}
+                  onChange={(e) => setSelectedLiTemplateId(e.target.value)}
+                >
+                  <option value="">-- Select LinkedIn template (optional) --</option>
+                  {liTemplates.map(t => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
               <textarea
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                 placeholder="Add a personal message to your connection request..."
@@ -2363,9 +2443,9 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                 value={linkedInMessage}
                 onChange={(e) => setLinkedInMessage(e.target.value)}
               />
-              <div className="mt-1 text-xs text-gray-500 text-right">
-                {linkedInMessage.length}/300 characters
-              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                Tip: Use tokens like {{first_name}}, {{company}}, {{title}}. Max 300 chars.
+              </p>
             </div>
             
             {/* Consent Checkbox */}
@@ -2401,7 +2481,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                 onClick={handleLinkedInSubmit}
                 className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
                 style={{backgroundColor: '#0077B5'}}
-                disabled={isSubmittingLinkedIn || !consentAccepted || !linkedInMessage.trim() || userCredits < 10}
+                disabled={isSubmittingLinkedIn || !consentAccepted || userCredits < 10}
               >
                 {isSubmittingLinkedIn ? (
                   <>
