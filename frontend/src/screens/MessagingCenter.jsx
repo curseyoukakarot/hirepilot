@@ -884,7 +884,7 @@ export default function MessagingCenter() {
                     placeholder="Hi {{first_name}} — great to connect! ..."
                   />
                   <div className="mt-1 text-xs text-gray-500 text-right">{templateContent.length}/300</div>
-                  <p className="mt-1 text-xs text-gray-500">Tokens supported: {{first_name}}, {{last_name}}, {{company}}, {{title}}</p>
+                  <p className="mt-1 text-xs text-gray-500">Tokens supported: {"{{first_name}}"}, {"{{last_name}}"}, {"{{company}}"}, {"{{title}}"}</p>
                 </div>
               )}
             </div>

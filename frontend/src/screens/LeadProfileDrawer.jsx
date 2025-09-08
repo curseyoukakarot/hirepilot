@@ -2444,7 +2444,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                 onChange={(e) => setLinkedInMessage(e.target.value)}
               />
               <p className="mt-1 text-xs text-gray-500">
-                Tip: Use tokens like {{first_name}}, {{company}}, {{title}}. Max 300 chars.
+                Tip: Use tokens like {"{{first_name}}"}, {"{{company}}"}, {"{{title}}"}. Max 300 chars.
               </p>
             </div>
             
