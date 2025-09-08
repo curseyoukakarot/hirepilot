@@ -40,16 +40,22 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
       });
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
-      // Fetch role from users table to override plan gating for super admins
+      // Fetch role from users table; fall back to auth metadata if needed
       let role: string | null = null;
       try {
         const { data: userRow, error: roleErr } = await supabase
           .from('users')
           .select('role')
           .eq('id', session.user.id)
-          .single();
-        if (!roleErr) role = (userRow as any)?.role || null;
+          .maybeSingle();
+        if (!roleErr && userRow) role = (userRow as any)?.role || null;
       } catch {}
+      if (!role) {
+        try {
+          const { data: authUser } = await supabase.auth.getUser();
+          role = (authUser?.user?.user_metadata as any)?.role || null;
+        } catch {}
+      }
       setInfo({
         plan: data?.plan || null,
         remaining_credits: typeof data?.remaining_credits === 'number' ? data.remaining_credits : null,

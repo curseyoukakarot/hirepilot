@@ -10,14 +10,27 @@ export default function OnboardingModals() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
+        // Super admin should never see onboarding
+        try {
+          const { data: authUser } = await supabase.auth.getUser();
+          const roleFromAuth = authUser?.user?.user_metadata?.role;
+          const normalized = String(roleFromAuth || '').toLowerCase().replace(/\s|-/g, '_');
+          if (['super_admin','superadmin'].includes(normalized)) { setVisible(false); return; }
+        } catch {}
         const backend = import.meta.env.VITE_BACKEND_URL || '';
         const res = await fetch(`${backend}/api/user/settings`, {
           headers: { 'Authorization': `Bearer ${session.access_token}` },
           credentials: 'include'
         });
-        // Fetch onboarding flag from users table
-        const { data: userData } = await supabase.from('users').select('onboarding_complete').single();
-        if (!userData?.onboarding_complete) setVisible(true);
+        // Fetch onboarding flag from users table (filter by current user id)
+        const { data: userData } = await supabase
+          .from('users')
+          .select('onboarding_complete')
+          .eq('id', session.user.id)
+          .maybeSingle();
+        // Handle cases where no single row was returned
+        const completed = userData?.onboarding_complete === true || false;
+        if (!completed) setVisible(true);
       } catch {}
     })();
   }, []);
