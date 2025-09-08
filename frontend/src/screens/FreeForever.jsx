@@ -27,7 +27,7 @@ export default function FreeForever() {
             <div id="section-header" className="text-center mb-16">
               <h1 className="text-5xl md:text-6xl font-bold text-white mb-6">Hire Smarter — for Free.</h1>
               <p className="text-xl text-gray-300 max-w-3xl mx-auto leading-relaxed">
-                REX finds the leads, writes the messages, and helps you reach out — all without paying a dime.<br />
+                our AI Agent, REX, finds the leads, writes the messages, and helps you reach out — all without paying a dime.<br />
                 <span className="font-semibold text-gray-200">No credit card required. No fluff. Just real recruiting power.</span>
               </p>
             </div>
@@ -103,14 +103,11 @@ export default function FreeForever() {
                   </div>
                 </div>
 
-                {/* Testimonial */}
+                {/* Testimonial (no profile picture) */}
                 <div id="testimonial" className="mt-8 bg-gray-800 p-6 rounded-xl border border-gray-600 shadow-sm">
-                  <div className="flex items-start">
-                    <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-5.jpg" alt="User" className="w-12 h-12 rounded-full mr-4" />
-                    <div>
-                      <p className="text-gray-300 italic">"I booked 2 interviews using just the free plan."</p>
-                      <p className="text-sm text-gray-400 mt-2">Sarah M., Technical Recruiter</p>
-                    </div>
+                  <div>
+                    <p className="text-gray-300 italic">"I booked 2 interviews using just the free plan."</p>
+                    <p className="text-sm text-gray-400 mt-2">Sarah M., Technical Recruiter</p>
                   </div>
                 </div>
               </div>
