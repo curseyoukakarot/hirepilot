@@ -111,7 +111,7 @@ export default function MeetRex() {
             ].map(([icon,title,desc])=> (
               <div key={title} className="bg-gray-800 p-8 rounded-xl border border-gray-700 hover-lift">
                 <div className="w-12 h-12 rounded-lg flex items-center justify-center mb-4 overflow-hidden">
-                  <i className={`${icon.startsWith('fa-') ? 'fa-brands' : ''} ${icon} text-white text-3xl`} />
+                  <i className={`fa-${icon === 'fa-slack' ? 'brands' : 'solid'} ${icon} text-white text-3xl`} />
                 </div>
                 <h3 className="text-xl font-bold text-white mb-2">{title}</h3>
                 <p className="text-gray-300">{desc}</p>
