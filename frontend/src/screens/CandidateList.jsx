@@ -7,6 +7,7 @@ import {
   FaFileExport,
   FaPlus,
   FaDownload,
+  FaTimes,
 } from 'react-icons/fa';
 import LeadProfileDrawer from './LeadProfileDrawer';
 import MetadataModal from '../components/MetadataModal';
@@ -49,6 +50,10 @@ export default function CandidateList() {
   const [addingToPipeline, setAddingToPipeline] = useState(false);
   const [showMetadata, setShowMetadata] = useState(false);
   const [metadataContext, setMetadataContext] = useState(null);
+  // Add Candidate modal state
+  const [showAddCandidateModal, setShowAddCandidateModal] = useState(false);
+  const [newCandidate, setNewCandidate] = useState({ first_name: '', last_name: '', email: '', phone: '', status: 'sourced' });
+  const [creatingCandidate, setCreatingCandidate] = useState(false);
   const navigate = useNavigate();
 
   /** ------------------------------------------------------------------
@@ -394,7 +399,7 @@ export default function CandidateList() {
             <FaDownload className="mr-2" /> Export CSV
           </button>
           <button
-            onClick={() => setShowAddToPipelineModal(true)}
+            onClick={() => setShowAddCandidateModal(true)}
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm flex items-center shadow transition-all duration-150"
           >
             <FaPlus className="mr-2" /> Add Candidate
@@ -723,6 +728,140 @@ export default function CandidateList() {
           candidateId={metadataContext?.candidateId}
           leadId={metadataContext?.leadId}
         />
+      )}
+
+      {showAddCandidateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg w-full max-w-md mx-4">
+            <div className="p-4 border-b flex justify-between items-center">
+              <h2 className="text-lg font-semibold">Add Candidate</h2>
+              <button
+                onClick={() => setShowAddCandidateModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <FaTimes />
+              </button>
+            </div>
+            <form
+              className="p-4 space-y-4"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                try {
+                  setCreatingCandidate(true);
+                  const { data: { session } } = await supabase.auth.getSession();
+                  if (!session) throw new Error('Not authenticated');
+                  const headers = {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                  };
+                  // Prefer backend route to enforce ownership and defaults
+                  const resp = await fetch(`${BACKEND_URL}/api/leads/candidates`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify(newCandidate)
+                  });
+                  if (!resp.ok) {
+                    // Fallback: attempt direct insert through Supabase if backend lacks POST
+                    try {
+                      const { data: userRes } = await supabase.auth.getUser();
+                      const { error } = await supabase.from('candidates').insert({
+                        user_id: userRes?.user?.id,
+                        first_name: newCandidate.first_name || null,
+                        last_name: newCandidate.last_name || null,
+                        email: newCandidate.email || null,
+                        phone: newCandidate.phone || null,
+                        status: newCandidate.status || 'sourced'
+                      });
+                      if (error) throw error;
+                    } catch (fallbackErr) {
+                      const txt = await resp.text().catch(() => 'Failed to create candidate');
+                      throw new Error(txt || 'Failed to create candidate');
+                    }
+                  }
+                  setShowAddCandidateModal(false);
+                  setNewCandidate({ first_name: '', last_name: '', email: '', phone: '', status: 'sourced' });
+                  await refreshCandidates();
+                  alert('Candidate added');
+                } catch (err) {
+                  alert(err.message || 'Failed to add candidate');
+                } finally {
+                  setCreatingCandidate(false);
+                }
+              }}
+            >
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                <input
+                  type="text"
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  value={newCandidate.first_name}
+                  onChange={(e) => setNewCandidate(prev => ({ ...prev, first_name: e.target.value }))}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                <input
+                  type="text"
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  value={newCandidate.last_name}
+                  onChange={(e) => setNewCandidate(prev => ({ ...prev, last_name: e.target.value }))}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input
+                  type="email"
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  value={newCandidate.email}
+                  onChange={(e) => setNewCandidate(prev => ({ ...prev, email: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                <input
+                  type="tel"
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  value={newCandidate.phone}
+                  onChange={(e) => setNewCandidate(prev => ({ ...prev, phone: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  value={newCandidate.status}
+                  onChange={(e) => setNewCandidate(prev => ({ ...prev, status: e.target.value }))}
+                >
+                  <option value="sourced">Sourced</option>
+                  <option value="contacted">Contacted</option>
+                  <option value="responded">Responded</option>
+                  <option value="interviewing">Interviewing</option>
+                  <option value="hired">Hired</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddCandidateModal(false)}
+                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                  disabled={creatingCandidate}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  disabled={creatingCandidate}
+                >
+                  {creatingCandidate ? 'Adding…' : 'Add Candidate'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );
