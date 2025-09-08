@@ -5,6 +5,7 @@ const links = [
   { label: 'Meet REX', href: '/rex' },
   { label: 'Your Recruiting Co-Pilot', href: '/copilot' },
   { label: 'Done For You Hiring', href: '/handsfree' },
+  { label: 'Free Forever', href: '/freeforever' },
   { label: 'Pricing', href: '/pricing' },
 ];
 

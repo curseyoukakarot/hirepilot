@@ -104,18 +104,14 @@ export default function MeetRex() {
             {[
               ['fa-magnifying-glass','Candidate Discovery','AI-powered sourcing across multiple platforms'],
               ['fa-robot','AI Messaging','Personalized outreach at scale'],
-              ['/slack-integration.png','Slack & Calendar Integration','Seamless workflow integration'],
+              ['fa-slack','Slack & Calendar Integration','Seamless workflow integration'],
               ['fa-plug','Zapier & Make Triggers','Connect with 1000+ apps'],
               ['fa-phone','Phone & Email Lookup','Complete contact enrichment'],
               ['fa-gears','Custom Workflows','Tailored automation rules']
             ].map(([icon,title,desc])=> (
               <div key={title} className="bg-gray-800 p-8 rounded-xl border border-gray-700 hover-lift">
                 <div className="w-12 h-12 rounded-lg flex items-center justify-center mb-4 overflow-hidden">
-                  {String(icon).endsWith('.png') ? (
-                    <img src={icon} alt={title} className="h-10 w-10 object-contain" />
-                  ) : (
-                    <i className={`fa-solid ${icon} text-white text-3xl`} />
-                  )}
+                  <i className={`${icon.startsWith('fa-') ? 'fa-brands' : ''} ${icon} text-white text-3xl`} />
                 </div>
                 <h3 className="text-xl font-bold text-white mb-2">{title}</h3>
                 <p className="text-gray-300">{desc}</p>
@@ -203,12 +199,12 @@ export default function MeetRex() {
       <section id="trust" className="py-16 bg-gray-900 fade-in">
         <div className="max-w-6xl mx-auto px-6 text-center">
           <p className="text-gray-300 mb-8">Sync your HirePilot recruiting flows with tools you already have</p>
-          <div className="flex justify-center items-center space-x-12 opacity-70">
-            <img src="/apollo-logo-v2.png" alt="Apollo" className="h-8" />
-            <i className="fa-brands fa-linkedin text-4xl text-gray-400" />
-            <i className="fa-brands fa-slack text-4xl text-gray-400" />
-            <img src="/zapier-icon.png" alt="Zapier" className="h-8 filter grayscale brightness-75" />
-            <img src="/make-logo-v1.png" alt="Make" className="h-8 w-auto filter grayscale brightness-75" />
+          <div className="flex justify-center items-center space-x-12 opacity-80">
+            <img src="/apollo-logo-v2.png" alt="Apollo" className="h-8 brightness-0 invert" />
+            <i className="fa-brands fa-linkedin text-4xl text-white" />
+            <i className="fa-brands fa-slack text-4xl text-white" />
+            <img src="/zapier-icon.png" alt="Zapier" className="h-8 brightness-0 invert" />
+            <img src="/make-logo-v1.png" alt="Make" className="h-8 w-auto brightness-0 invert" />
           </div>
         </div>
       </section>

@@ -38,6 +38,7 @@ export default function PublicFooter() {
               <li><a href="/copilot" className="hover:text-white">Your Recruiting Co-Pilot</a></li>
               <li><a href="/handsfree" className="hover:text-white">Done For You Hiring</a></li>
               <li><a href="/chromeextension" className="hover:text-white">Chrome Extension</a></li>
+              <li><a href="/freeforever" className="hover:text-white">Free Forever</a></li>
               <li><a href="/pricing" className="hover:text-white">Pricing</a></li>
             </ul>
           </div>

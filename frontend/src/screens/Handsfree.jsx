@@ -15,8 +15,11 @@ export default function Handsfree() {
         {/* Header */}
         <PublicNavbar />
 
+        {/* Gradient wrapper for hero + top showcase */}
+        <div className="bg-gradient-to-b from-blue-900 via-blue-800 to-gray-900">
+
         {/* Hero Section */}
-        <section id="hero" className="pt-32 pb-20 bg-gradient-to-b from-blue-900 via-blue-800 to-gray-900 fade-in">
+        <section id="hero" className="pt-32 pb-20 fade-in">
           <div className="max-w-7xl mx-auto px-6 md:px-10 flex flex-col items-center justify-center gap-12">
             <div className="w-full max-w-3xl text-center">
               <h1 className="text-4xl md:text-6xl font-bold leading-tight text-white">
@@ -42,7 +45,7 @@ export default function Handsfree() {
         <section id="dfy-dashboard-showcase" className="relative fade-in">
           <div className="w-full">
             {/* Full-bleed gradient area with big screenshot */}
-            <div className="w-screen relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] bg-gradient-to-b from-blue-900 via-blue-700 to-gray-900">
+            <div className="w-screen relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw]">
               <div className="max-w-7xl mx-auto px-6 pt-20 pb-10 text-center">
                 <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">Everything You Need to Hire Fast</h2>
                 <p className="text-blue-100/90 max-w-2xl mx-auto mb-10">Track sourcing, collaboration, and success rates in one dashboard.</p>
@@ -55,7 +58,13 @@ export default function Handsfree() {
                 </div>
               </div>
             </div>
+            </div>
+        </section>
+        </div>
 
+        {/* DFY Context Cards on dark background */}
+        <section className="relative fade-in">
+          <div className="w-full">
             {/* Context cards on white background */}
             <div className="bg-gray-900">
               <div className="max-w-7xl mx-auto px-6 py-12">
