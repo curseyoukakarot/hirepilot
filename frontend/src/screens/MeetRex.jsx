@@ -1,15 +1,30 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import PublicNavbar from '../components/PublicNavbar';
 import PublicFooter from '../components/PublicFooter';
 
 export default function MeetRex() {
+  useEffect(() => {
+    const io = new IntersectionObserver((entries)=>{
+      entries.forEach(e=>{ if (e.isIntersecting){ e.target.classList.add('in-view'); io.unobserve(e.target);} });
+    },{ threshold:0.15 });
+    document.querySelectorAll('.fade-in').forEach(el=>io.observe(el));
+    return () => io.disconnect();
+  }, []);
   return (
-    <div className="bg-slate-50 font-sans">
+    <div className="bg-gray-900 text-white font-sans">
+      <style>{`
+        .fade-in{opacity:0;transform:translateY(12px);transition:opacity .6s ease,transform .6s ease}
+        .fade-in.in-view{opacity:1;transform:none}
+        .hover-lift{transition:transform .25s ease, box-shadow .25s ease}
+        .hover-lift:hover{transform:translateY(-4px)}
+        .gradient-bg{background:linear-gradient(135deg,#3b82f6 0%,#8b5cf6 100%)}
+        .gradient-text{background:linear-gradient(135deg,#60a5fa 0%,#a78bfa 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+      `}</style>
       {/* Header */}
       <PublicNavbar />
 
       {/* Hero */}
-      <section id="hero" className="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white min-h-[560px] lg:h-[700px] flex items-start lg:items-center pt-24 pb-10 lg:pt-0">
+      <section id="hero" className="bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 text-white min-h-[560px] lg:h-[700px] flex items-start lg:items-center pt-24 pb-10 lg:pt-0 fade-in">
         <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
           <div>
             <h1 className="text-3xl sm:text-4xl lg:text-6xl font-bold mb-4 sm:mb-6 leading-tight">
@@ -42,11 +57,11 @@ export default function MeetRex() {
       </section>
 
       {/* How It Works */}
-      <section id="how-it-works" className="py-20 bg-white">
+      <section id="how-it-works" className="py-20 bg-gray-900 fade-in">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-slate-900 mb-4">How REX Works</h2>
-            <p className="text-xl text-slate-600">Three simple steps to transform your recruiting workflow</p>
+            <h2 className="text-4xl font-bold text-white mb-4">How REX Works</h2>
+            <p className="text-xl text-gray-300">Three simple steps to transform your recruiting workflow</p>
           </div>
           <div className="grid lg:grid-cols-3 gap-8">
             {[
@@ -68,10 +83,10 @@ export default function MeetRex() {
             ].map(c => (
               <div key={c.title} className="text-center hover-lift">
                 <div className="w-20 h-20 gradient-bg rounded-full flex items-center justify-center mx-auto mb-6">
-                  <i className={`fa-solid ${c.icon} text-slate-900 text-2xl`} />
+                  <i className={`fa-solid ${c.icon} text-white text-2xl`} />
                 </div>
-                <h3 className="text-2xl font-bold text-slate-900 mb-4">{c.title}</h3>
-                <p className="text-slate-600 leading-relaxed">{c.desc}</p>
+                <h3 className="text-2xl font-bold text-white mb-4">{c.title}</h3>
+                <p className="text-gray-300 leading-relaxed">{c.desc}</p>
               </div>
             ))}
           </div>
@@ -79,11 +94,11 @@ export default function MeetRex() {
       </section>
 
       {/* Features Grid */}
-      <section id="features" className="py-20 bg-gradient-to-b from-white via-blue-200 via-blue-500 to-white">
+      <section id="features" className="py-20 bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 fade-in">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-slate-900 mb-4">What Can REX Do?</h2>
-            <p className="text-xl text-slate-600">Everything you need to recruit smarter, not harder</p>
+            <h2 className="text-4xl font-bold text-white mb-4">What Can REX Do?</h2>
+            <p className="text-xl text-gray-300">Everything you need to recruit smarter, not harder</p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
@@ -94,16 +109,16 @@ export default function MeetRex() {
               ['fa-phone','Phone & Email Lookup','Complete contact enrichment'],
               ['fa-gears','Custom Workflows','Tailored automation rules']
             ].map(([icon,title,desc])=> (
-              <div key={title} className="bg-white p-8 rounded-xl border border-slate-200 hover-lift">
+              <div key={title} className="bg-gray-800 p-8 rounded-xl border border-gray-700 hover-lift">
                 <div className="w-12 h-12 rounded-lg flex items-center justify-center mb-4 overflow-hidden">
                   {String(icon).endsWith('.png') ? (
                     <img src={icon} alt={title} className="h-10 w-10 object-contain" />
                   ) : (
-                    <i className={`fa-solid ${icon} text-slate-800 text-3xl`} />
+                    <i className={`fa-solid ${icon} text-white text-3xl`} />
                   )}
                 </div>
-                <h3 className="text-xl font-bold text-slate-900 mb-2">{title}</h3>
-                <p className="text-slate-600">{desc}</p>
+                <h3 className="text-xl font-bold text-white mb-2">{title}</h3>
+                <p className="text-gray-300">{desc}</p>
               </div>
             ))}
           </div>
@@ -111,10 +126,10 @@ export default function MeetRex() {
       </section>
 
       {/* Use Cases */}
-      <section id="use-cases" className="py-20 bg-gradient-to-b from-white via-blue-200 to-blue-500">
+      <section id="use-cases" className="py-20 bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 fade-in">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-slate-900 mb-4">Built for Busy Recruiters</h2>
+            <h2 className="text-4xl font-bold text-white mb-4">Built for Busy Recruiters</h2>
           </div>
           <div className="grid lg:grid-cols-3 gap-8">
             {[
@@ -123,10 +138,10 @@ export default function MeetRex() {
               {icon:'fa-user',title:'Solopreneurs',desc:'Full automation, no extra tools needed'}
             ].map(c=>(
               <div key={c.title} className="text-center">
-                <div className="bg-white/30 backdrop-blur-sm p-8 rounded-xl mb-6">
-                  <i className={`fa-solid ${c.icon} text-4xl text-purple-600 mb-4`} />
-                  <h3 className="text-2xl font-bold text-slate-900 mb-4">{c.title}</h3>
-                  <p className="text-slate-600">{c.desc}</p>
+                <div className="bg-white/10 backdrop-blur-sm p-8 rounded-xl mb-6 border border-white/10">
+                  <i className={`fa-solid ${c.icon} text-4xl text-purple-400 mb-4`} />
+                  <h3 className="text-2xl font-bold text-white mb-4">{c.title}</h3>
+                  <p className="text-gray-300">{c.desc}</p>
                 </div>
               </div>
             ))}
@@ -157,10 +172,10 @@ export default function MeetRex() {
       </section>
 
       {/* Chat Preview */}
-      <section id="chat-preview" className="py-20 bg-slate-100">
+      <section id="chat-preview" className="py-20 bg-gray-900 fade-in">
         <div className="max-w-4xl mx-auto px-6 text-center">
-          <h2 className="text-4xl font-bold text-slate-900 mb-8">Try Chatting with REX on Slack</h2>
-          <div className="bg-white rounded-2xl p-8 border border-slate-200 max-w-2xl mx-auto">
+          <h2 className="text-4xl font-bold text-white mb-8">Try Chatting with REX on Slack</h2>
+          <div className="bg-gray-800 rounded-2xl p-8 border border-gray-700 max-w-2xl mx-auto">
             <div className="mb-6 flex justify-center">
               <img src="/REX-slack.gif" alt="REX Slack Preview" className="rounded-xl max-w-full" />
             </div>
@@ -170,28 +185,28 @@ export default function MeetRex() {
       </section>
 
       {/* Pricing CTA */}
-      <section id="pricing-cta" className="py-20 bg-white">
+      <section id="pricing-cta" className="py-20 bg-gray-900 fade-in">
         <div className="max-w-4xl mx-auto px-6 text-center">
-          <div className="bg-gradient-to-r from-purple-200 to-blue-300 rounded-2xl p-12 border border-purple-300/30">
-            <h2 className="text-4xl font-bold text-slate-900 mb-6">Ready to Meet REX?</h2>
-            <p className="text-xl text-slate-600 mb-8">REX is included with Pro and Team plans. Start your 7-day free trial today.</p>
+          <div className="bg-gradient-to-r from-purple-900/40 to-blue-900/40 rounded-2xl p-12 border border-purple-500/30">
+            <h2 className="text-4xl font-bold text-white mb-6">Ready to Meet REX?</h2>
+            <p className="text-xl text-gray-300 mb-8">REX is included with Pro and Team plans. Start your 7-day free trial today.</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
-              <a href="/pricing" className="bg-white text-blue-600 border-2 border-blue-600 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-blue-50">Start for Free →</a>
-              <a href="/pricing" className="border-2 border-purple-200 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-purple-50">View Pricing</a>
+              <a href="/pricing" className="bg-white text-blue-700 border-2 border-blue-600 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-blue-50">Start for Free →</a>
+              <a href="/pricing" className="border-2 border-purple-400 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-purple-900/30">View Pricing</a>
             </div>
-            <p className="text-sm text-slate-500">Start for free. Credits used for enrichment</p>
+            <p className="text-sm text-gray-400">Start for free. Credits used for enrichment</p>
           </div>
         </div>
       </section>
 
       {/* Trust Section */}
-      <section id="trust" className="py-16 bg-slate-50">
+      <section id="trust" className="py-16 bg-gray-900 fade-in">
         <div className="max-w-6xl mx-auto px-6 text-center">
-          <p className="text-slate-600 mb-8">Sync your HirePilot recruiting flows with tools you already have</p>
-          <div className="flex justify-center items-center space-x-12 opacity-60">
+          <p className="text-gray-300 mb-8">Sync your HirePilot recruiting flows with tools you already have</p>
+          <div className="flex justify-center items-center space-x-12 opacity-70">
             <img src="/apollo-logo-v2.png" alt="Apollo" className="h-8" />
-            <i className="fa-brands fa-linkedin text-4xl text-slate-400" />
-            <i className="fa-brands fa-slack text-4xl text-slate-400" />
+            <i className="fa-brands fa-linkedin text-4xl text-gray-400" />
+            <i className="fa-brands fa-slack text-4xl text-gray-400" />
             <img src="/zapier-icon.png" alt="Zapier" className="h-8 filter grayscale brightness-75" />
             <img src="/make-logo-v1.png" alt="Make" className="h-8 w-auto filter grayscale brightness-75" />
           </div>
