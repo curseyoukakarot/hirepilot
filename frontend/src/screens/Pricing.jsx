@@ -87,10 +87,10 @@ export default function Pricing() {
           </div>
         </div>
 
-        {/* Pricing Plans */}
-        <div className="w-full bg-gray-200 py-10">
-          <div id="pricing-plans" className="max-w-7xl mx-auto px-6">
-            <div className="grid md:grid-cols-3 gap-8 items-stretch">
+        {/* Pricing Plans (full-width, 4 across on xl) */}
+        <div className="w-full py-12">
+          <div id="pricing-plans" className="max-w-screen-2xl 2xl:max-w-[1800px] mx-auto px-6 lg:px-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 items-stretch">
             {/* Free Forever Plan */}
             <div id="free-plan" className="relative bg-white rounded-2xl p-8 border border-green-200 shadow-lg hover:shadow-xl transition-shadow duration-300">
               <div className="absolute -top-3 left-4 bg-green-600 text-white text-xs px-2 py-1 rounded-full">New</div>
@@ -147,7 +147,7 @@ export default function Pricing() {
             </div>
 
             {/* Pro Plan */}
-            <div id="pro-plan" className="bg-white rounded-2xl p-8 border-2 border-blue-500 shadow-lg hover:shadow-xl transition-shadow duration-300 transform scale-105">
+            <div id="pro-plan" className="bg-white rounded-2xl p-8 border-2 border-blue-500 shadow-lg hover:shadow-xl transition-shadow duration-300">
               <div className="flex justify-between items-start mb-6">
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900">Pro</h2>
