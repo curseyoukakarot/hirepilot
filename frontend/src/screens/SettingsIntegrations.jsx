@@ -11,7 +11,7 @@ import { api } from '../lib/api';
 import { usePlan } from '../context/PlanContext';
 
 export default function SettingsIntegrations() {
-  const { isFree } = usePlan();
+  const { isFree, role } = usePlan();
   const [integrations, setIntegrations] = useState([
     {
       id: 'google',
@@ -847,7 +847,9 @@ export default function SettingsIntegrations() {
 
   if (loading) return <div className="p-6">Loading integrations...</div>;
 
-  if (isFree) {
+  const normalizedRole = String(role || '').toLowerCase().replace(/\s|-/g, '_');
+  const isSuperAdmin = ['super_admin','superadmin'].includes(normalizedRole);
+  if (isFree && !isSuperAdmin) {
     return (
       <div className="p-6">
         <div className="max-w-3xl mx-auto">

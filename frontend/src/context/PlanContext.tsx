@@ -72,7 +72,11 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
     loading,
     plan: info.plan,
     // Super admins should never be treated as free
-    isFree: (info.plan || 'free') === 'free' && (info.role || '').toLowerCase() !== 'super_admin',
+    isFree: (() => {
+      const normalizedRole = (info.role || '').toLowerCase().replace(/\s|-/g, '_');
+      const isSuperAdmin = ['super_admin', 'superadmin'].includes(normalizedRole);
+      return (info.plan || 'free') === 'free' && !isSuperAdmin;
+    })(),
     remainingCredits: info.remaining_credits,
     monthlyCredits: info.monthly_credits,
     role: info.role,

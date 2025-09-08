@@ -7,7 +7,7 @@ import ActionInboxPanel from './ActionInboxPanel';
 import SalesAgentSettingsCard from './SalesAgentSettingsCard';
 
 export default function AgentModeCenter() {
-  const { isFree } = usePlan() as any;
+  const { isFree, role } = usePlan() as any;
   const [tab, setTab] = useState<'campaigns' | 'sniper' | 'inbox'>(() => {
     const params = new URLSearchParams(window.location.search);
     const t = (params.get('tab') || '').toLowerCase();
@@ -19,7 +19,10 @@ export default function AgentModeCenter() {
       active ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
     }`;
 
-  if (isFree) {
+  // Never block super admins regardless of plan
+  const normalizedRole = String(role || '').toLowerCase().replace(/\s|-/g, '_');
+  const isSuperAdmin = ['super_admin','superadmin'].includes(normalizedRole);
+  if (isFree && !isSuperAdmin) {
     return (
       <div className="p-6 w-full min-h-screen bg-gray-900">
         <div className="max-w-3xl mx-auto">
