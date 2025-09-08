@@ -30,6 +30,8 @@ router.get('/status', async (req, res) => {
     const userId = await getUserIdFromAuthHeader(req);
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
+    // Ensure monthly reset for Free tier before reporting
+    try { await (CreditService as any).ensureMonthlyFreeReset?.(userId); } catch {}
     const creditStatus = await CreditService.checkCreditStatus(userId);
     if (!creditStatus) {
       res.status(404).json({ error: 'No credit record found' });
@@ -48,6 +50,17 @@ router.post('/purchase', async (req, res) => {
   try {
     const userId = await getUserIdFromAuthHeader(req);
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    // Block purchases for Free plan users
+    const { data: sub } = await supabase
+      .from('subscriptions')
+      .select('plan_tier')
+      .eq('user_id', userId)
+      .maybeSingle();
+    const planTier = (sub?.plan_tier || '').toLowerCase();
+    if (planTier === 'free') {
+      return res.status(403).json({ error: 'Free plan cannot purchase credits. Upgrade to Pro.' });
+    }
 
     const { packageId } = req.body;
     // Map known small packs to requested pricing per UI spec

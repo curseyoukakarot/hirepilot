@@ -290,13 +290,9 @@ export async function sourceLeads({
       // 3) Deduct credits and log
       try {
         const { CreditService } = await import('../services/creditService');
-        await CreditService.useCreditsEffective(userId, normalizedLeads.length);
-        await CreditService.logCreditUsage(
-          userId,
-          normalizedLeads.length,
-          'api_usage',
-          `REX sourcing: imported ${normalizedLeads.length} leads into campaign ${stdCampaignId}`
-        );
+        // 3 credits per lead for Apollo house account sourcing
+        const totalCost = normalizedLeads.length * 3;
+        await CreditService.deductCredits(userId, totalCost, 'api_usage', `REX sourcing (Apollo): ${normalizedLeads.length} leads → ${totalCost} credits`);
       } catch (creditErr) {
         console.error('[sourceLeads] credit deduction failed (non-fatal):', creditErr);
       }
@@ -2342,23 +2338,14 @@ export async function linkedin_connect({
     }
 
     // Calculate total credits needed
-    const creditCostPerRequest = 20;
+    // Free plan auto-send cost = 5 credits per message
+    const creditCostPerRequest = 5;
     const totalCreditsNeeded = linkedin_urls.length * creditCostPerRequest;
 
-    // Check user credits
-    const { data: userCredits, error: creditsError } = await supabaseDb
-      .from('users')
-      .select('credits')
-      .eq('id', userId)
-      .single();
-
-    if (creditsError) {
-      throw new Error(`Failed to check user credits: ${creditsError.message}`);
-    }
-
-    if (!userCredits || userCredits.credits < totalCreditsNeeded) {
-      throw new Error(`Insufficient credits. Need ${totalCreditsNeeded} credits, have ${userCredits?.credits || 0}`);
-    }
+    // Check user credits via unified CreditService
+    const { CreditService } = await import('../services/creditService');
+    const hasEnough = await CreditService.hasSufficientCredits(userId, totalCreditsNeeded);
+    if (!hasEnough) throw new Error(`Insufficient credits. Need ${totalCreditsNeeded} credits.`);
 
     // Check for duplicate URLs
     const { data: existingRequests, error: duplicateError } = await supabaseDb
@@ -2397,31 +2384,8 @@ export async function linkedin_connect({
       throw new Error(`Failed to queue LinkedIn requests: ${insertError.message}`);
     }
 
-    // Deduct credits
-    const { error: updateCreditsError } = await supabaseDb
-      .from('users')
-      .update({ credits: userCredits.credits - totalCreditsNeeded })
-      .eq('id', userId);
-
-    if (updateCreditsError) {
-      // Rollback queue items if credit deduction fails
-      await supabaseDb
-        .from('linkedin_outreach_queue')
-        .delete()
-        .in('id', insertedItems!.map(item => item.id));
-      
-      throw new Error(`Failed to deduct credits: ${updateCreditsError.message}`);
-    }
-
-    // Log the action
-    await supabaseDb
-      .from('credit_transactions')
-      .insert({
-        user_id: userId,
-        credits_used: totalCreditsNeeded,
-        action: 'linkedin_request',
-        details: { urls: linkedin_urls, message: message?.substring(0, 50) }
-      });
+    // Deduct credits and log
+    await CreditService.deductCredits(userId, totalCreditsNeeded, 'api_usage', `LinkedIn auto-send for ${linkedin_urls.length} requests`);
 
     return {
       success: true,

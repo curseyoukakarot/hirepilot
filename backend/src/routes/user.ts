@@ -6,6 +6,73 @@ import { requireAuth } from '../../middleware/authMiddleware';
 import { ApiRequest } from '../../types/api';
 
 const router = express.Router();
+// GET /api/user/plan
+router.get('/plan', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const { data, error } = await supabase
+      .from('users')
+      .select('plan, remaining_credits, monthly_credits, plan_updated_at')
+      .eq('id', userId)
+      .single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to get plan' });
+  }
+});
+
+// PATCH /api/user/credits  { delta: number }
+router.patch('/credits', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const { delta = 0 } = (req.body || {});
+    const { data: current, error: readErr } = await supabase
+      .from('users')
+      .select('remaining_credits')
+      .eq('id', userId)
+      .single();
+    if (readErr) return res.status(500).json({ error: readErr.message });
+    const next = Math.max(0, (current?.remaining_credits || 0) + Number(delta));
+    const { data, error } = await supabase
+      .from('users')
+      .update({ remaining_credits: next })
+      .eq('id', userId)
+      .select()
+      .single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to update credits' });
+  }
+});
+
+// POST /api/user/onboarding-complete
+router.post('/onboarding-complete', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+    const { data, error } = await supabase
+      .from('users')
+      .update({ onboarding_complete: true })
+      .eq('id', userId)
+      .select('id, onboarding_complete')
+      .single();
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to set onboarding complete' });
+  }
+});
+
 
 // GET /api/user/settings
 router.get('/settings', requireAuth, async (req: Request, res: Response) => {
@@ -169,5 +236,36 @@ export const updateUser = async (req: ApiRequest, res: Response) => {
     res.status(500).json({ error: 'Failed to update user' });
   }
 };
+
+// POST /api/user/upgrade  { plan: 'starter' | 'pro' | ... , baseCredits: number }
+router.post('/upgrade', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const { plan, baseCredits = 0 } = req.body || {};
+    if (!plan) return res.status(400).json({ error: 'Missing plan' });
+
+    const { data: current, error: readErr } = await supabase
+      .from('users')
+      .select('remaining_credits')
+      .eq('id', userId)
+      .single();
+    if (readErr) return res.status(500).json({ error: readErr.message });
+
+    const currentRemaining = Number(current?.remaining_credits || 0);
+    const newBalance = currentRemaining + Number(baseCredits || 0);
+
+    const { data, error } = await supabase
+      .from('users')
+      .update({ plan, plan_updated_at: new Date().toISOString(), remaining_credits: newBalance })
+      .eq('id', userId)
+      .select()
+      .single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to upgrade plan' });
+  }
+});
 
 export default router; 

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "HirePilot LinkedIn Assistant",
   "short_name": "HirePilot Assistant",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Seamlessly export LinkedIn Sales Navigator leads and authenticate with HirePilot for streamlined recruitment workflows.",
   "action": {
     "default_title": "HirePilot LinkedIn Assistant",
@@ -20,7 +20,7 @@
     "48":  "img/icon48.png",
     "128": "img/icon128.png"
   },
-  "permissions": [ "cookies", "storage", "activeTab" ],
+  "permissions": [ "cookies", "storage", "activeTab", "scripting" ],
   "host_permissions": [
     "https://api.thehirepilot.com/*",
     "https://*.linkedin.com/*",
@@ -39,7 +39,8 @@
         "https://*.linkedin.com/*"
       ],
       "js": ["content.js"],
-      "run_at": "document_idle"
+      "run_at": "document_start",
+      "all_frames": true
     }
   ],
   "content_security_policy": {

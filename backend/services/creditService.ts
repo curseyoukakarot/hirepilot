@@ -41,6 +41,51 @@ interface CreditRecord {
 }
 
 export class CreditService {
+  /**
+   * Ensure a monthly reset for free plan users (50 credits on the 1st, no rollover).
+   */
+  private static async ensureMonthlyFreeReset(userId: string): Promise<void> {
+    try {
+      // Determine if user is on Free plan
+      const { data: sub } = await supabase
+        .from('subscriptions')
+        .select('plan_tier')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      const planTier = (sub?.plan_tier || '').toLowerCase();
+      const isFree = planTier === 'free' || planTier === 'starter_free' || planTier === 'trial_free';
+      if (!isFree) return;
+
+      const firstOfMonth = new Date();
+      firstOfMonth.setUTCDate(1);
+      firstOfMonth.setUTCHours(0, 0, 0, 0);
+
+      const { data: creditsRow } = await supabase
+        .from('user_credits')
+        .select('last_updated')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      const lastUpdated = creditsRow?.last_updated ? new Date(creditsRow.last_updated) : null;
+      const needsReset = !lastUpdated || lastUpdated < firstOfMonth;
+
+      if (needsReset) {
+        await supabase
+          .from('user_credits')
+          .upsert({
+            user_id: userId,
+            total_credits: 50,
+            used_credits: 0,
+            remaining_credits: 50,
+            last_updated: new Date().toISOString(),
+          }, { onConflict: 'user_id' });
+      }
+    } catch (e) {
+      // Non-fatal; don't block usage
+      console.warn('[CreditService.ensureMonthlyFreeReset] warning', e);
+    }
+  }
   private static async getUserCredits(userId: string): Promise<CreditRecord | null> {
     const { data, error } = await supabase
       .from('user_credits')
@@ -135,6 +180,7 @@ export class CreditService {
   }
 
   static async getRemainingCredits(userId: string): Promise<number> {
+    await this.ensureMonthlyFreeReset(userId);
     return this.getEffectiveCreditBalance(userId);
   }
 
@@ -169,6 +215,7 @@ export class CreditService {
    * Get user's current credit balance (considering team admin sharing)
    */
   static async getCreditBalance(userId: string): Promise<number> {
+    await this.ensureMonthlyFreeReset(userId);
     return this.getEffectiveCreditBalance(userId);
   }
 
@@ -288,6 +335,7 @@ export class CreditService {
    * Check if user has sufficient credits (considering team admin sharing)
    */
   static async hasSufficientCredits(userId: string, requiredAmount: number): Promise<boolean> {
+    await this.ensureMonthlyFreeReset(userId);
     const balance = await this.getEffectiveCreditBalance(userId);
     return balance >= requiredAmount;
   }
@@ -369,6 +417,7 @@ export class CreditService {
    * Get effective credit balance for a user (either their own or from team admin)
    */
   static async getEffectiveCreditBalance(userId: string): Promise<number> {
+    await this.ensureMonthlyFreeReset(userId);
     // First check if user has their own credits
     const userCredits = await this.getUserCredits(userId);
     if (userCredits && userCredits.remaining_credits > 0) {

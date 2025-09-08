@@ -51,6 +51,15 @@
       </div>
     </div>
 
+    <!-- Credits + Mode Tabs -->
+    <div class="credits-bar">
+      <div id="creditsText">Credits: --/--</div>
+      <div class="progress"><div id="creditsProgress" class="progress-fill" style="width:0%"></div></div>
+    </div>
+    <div class="mode-tabs">
+      <button id="tabSingle" class="tab active">Single Profile</button>
+    </div>
+
     <!-- Action Buttons -->
     <div class="actions">
       <button id="uploadBtn" class="btn-upload">
@@ -60,16 +69,99 @@
         </svg>
         Upload Full LinkedIn Cookie
       </button>
-      
-      <button id="scrapeBtn" class="btn-scrape">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M17 21V19C17 16.7909 15.2091 15 13 15H5C2.79086 15 1 16.7909 1 19V21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M23 21V19C23 17.1362 21.7252 15.5701 20 15.126" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M16 3.12598C17.7252 3.56987 19 5.13617 19 7C19 8.86383 17.7252 10.4301 16 10.874" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        Scrape Sales Nav Leads
-      </button>
+      <div class="button-row">
+        <button id="scrapeNavBtn" class="btn-pill" style="flex:1">
+          Scrape Sales Nav
+        </button>
+      </div>
+    </div>
+
+    <!-- Single Profile Mode -->
+    <div id="singleMode" class="card">
+      <div class="lead-row">
+        <img id="leadAvatar" src="img/icon48.png" class="avatar"/>
+        <div>
+          <div id="leadName" class="lead-name">-</div>
+          <div id="leadMeta" class="lead-meta">-</div>
+        </div>
+      </div>
+      <button id="enrichBtn" class="btn-primary w-full">Enrich & View Contact Info (2 credits)</button>
+      <label class="label">Message</label>
+      <textarea id="msgBox" rows="4" class="textarea" maxlength="300"></textarea>
+      <div class="row gap" style="margin-top:6px">
+        <button id="rexGenBtn" class="btn">Generate with REX</button>
+      </div>
+      <div class="row space-between">
+        <select id="templateSelect" class="select w-full">
+          <option value="">Select Saved Template</option>
+        </select>
+      </div>
+      <div class="row space-between">
+        <span class="muted">Send Manually</span>
+        <label class="switch">
+          <input id="autoSendToggle" type="checkbox"/>
+          <span class="slider"></span>
+        </label>
+        <span class="muted">Auto-Send (5 credits)</span>
+      </div>
+      <div class="row gap">
+        <button id="copyMsgBtn" class="btn">Copy Message</button>
+        <button id="sendBtn" class="btn success">Send Request</button>
+      </div>
+    </div>
+
+    <!-- Email Accordion (appears when enriched email exists) -->
+    <div id="emailAccordion" class="card hidden">
+      <div id="emailAccordionHeader" class="row space-between" style="cursor:pointer">
+        <div>
+          <div class="lead-name">📧 Email This Lead</div>
+          <div class="lead-meta">We found an email. Personalize and send below.</div>
+        </div>
+        <div id="emailAccordionChevron">▾</div>
+      </div>
+      <div id="emailAccordionBody" class="email-body hidden" style="margin-top:10px">
+        <div class="row space-between">
+          <div class="lead-meta">To: <span id="leadEmailText">-</span> <span id="leadEmailVerified" class="muted"></span></div>
+        </div>
+        <div class="row space-between" style="margin-top:8px">
+          <select id="emailTemplate" class="select w-full">
+            <option value="">Select Email Template</option>
+          </select>
+          <select id="senderSelect" class="select" style="margin-left:8px; max-width:180px">
+            <option value="default">Default sender</option>
+          </select>
+        </div>
+        <label class="label" style="margin-top:8px">Email Body</label>
+        <textarea id="emailBody" rows="6" class="textarea"></textarea>
+        <div class="row space-between" style="margin-top:8px">
+          <span style="flex:1"></span>
+          <button id="sendTestBtn" class="btn">Send test to me</button>
+          <button id="sendEmailBtn" class="btn success">Send Email</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bulk Scrape Mode -->
+    <div id="bulkMode" class="card hidden">
+      <div id="bulkList" class="list"></div>
+      <div class="row space-between">
+        <button id="bulkGenMsg" class="btn">Generate REX messages</button>
+        <select id="bulkTemplate" class="select">
+          <option value="">Apply Template</option>
+        </select>
+      </div>
+      <div class="row space-between">
+        <span class="muted">Manual</span>
+        <label class="switch">
+          <input id="bulkAutoToggle" type="checkbox"/>
+          <span class="slider"></span>
+        </label>
+        <span class="muted">Auto-Send (5 credits)</span>
+      </div>
+      <div class="row gap">
+        <button id="copyAllBtn" class="btn">Copy All Messages</button>
+        <button id="sendSelectedBtn" class="btn success">Send to Selected</button>
+      </div>
     </div>
 
     <!-- Status Section -->

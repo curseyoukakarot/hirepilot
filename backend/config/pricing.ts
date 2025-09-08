@@ -33,6 +33,23 @@ function resolvePriceId(planKey: 'STARTER' | 'PRO' | 'TEAM', interval: 'MONTHLY'
 }
 
 export const PRICING_CONFIG: PricingConfig = {
+  free: {
+    name: 'Free',
+    credits: 50,
+    features: [
+      '50 credits/month',
+      'No sequences or exports',
+      'Chrome extension + basic enrichment',
+    ],
+    priceIds: {
+      monthly: '',
+      annual: ''
+    },
+    prices: {
+      monthly: 0,
+      annual: 0
+    }
+  },
   starter: {
     name: 'Starter',
     credits: 350,

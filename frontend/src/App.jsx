@@ -49,6 +49,7 @@ import RexSupport from './screens/RexSupport';
 import ApiDocs from './screens/ApiDocs';
 import AffiliateProgram from './screens/AffiliateProgram';
 import ProductHunt from './screens/ProductHunt';
+import FreeForever from './screens/FreeForever';
 import DfyDashboard from './screens/DfyDashboard';
 import SniperTargets from './screens/SniperTargets';
 import PartnersDashboard from './pages/partners/AffiliateDashboard';
@@ -62,6 +63,8 @@ import PartnersRouteGuard from './pages/partners/PartnersRouteGuard';
 const RequirePartnersAuth = ({ children }) => <PartnersRouteGuard>{children}</PartnersRouteGuard>;
 import RexWidget from './widgets/rex/RexWidget';
 import PromoBanner from './components/PromoBanner';
+import { PlanProvider } from './context/PlanContext';
+import OnboardingModals from './components/OnboardingModals';
 // Blog article pages
 const FlowOfHirePilot = lazy(() => import("./pages/blog/FlowOfHirePilot"));
 const MessageCenterSetup = lazy(() => import("./pages/blog/MessageCenterSetup"));
@@ -253,7 +256,9 @@ export default function App() {
       <WizardProvider>
         <QueryClientProvider client={queryClient}>
           <BrowserRouter>
-            <InnerApp />
+            <PlanProvider>
+              <InnerApp />
+            </PlanProvider>
           </BrowserRouter>
         </QueryClientProvider>
       </WizardProvider>
@@ -263,7 +268,7 @@ export default function App() {
 
 function InnerApp() {
   const location = useLocation();
-  const landingPages = ["/", "/signup", "/login", "/reset-password", "/copilot", "/handsfree", "/pricing", "/rex", "/rexsupport", "/chromeextension", "/chromeextension/privacy", "/terms", "/apidoc", "/test-gmail", "/affiliates", "/blog/zapierguide", "/producthunt", "/dfydashboard"];
+  const landingPages = ["/", "/signup", "/login", "/reset-password", "/copilot", "/handsfree", "/pricing", "/rex", "/rexsupport", "/chromeextension", "/chromeextension/privacy", "/terms", "/apidoc", "/test-gmail", "/affiliates", "/blog/zapierguide", "/producthunt", "/dfydashboard", "/freeforever"];
   // Treat blog landing and article pages as public landing pages (no dashboard UI)
   const isPartnerArea = location.pathname.startsWith('/partners');
   // Only the marketing page "/rex" should be treated as public; do NOT blanket-match all "/rex*" paths
@@ -398,6 +403,7 @@ function InnerApp() {
       <div className={`flex flex-1 ${!isAuthPage ? 'pt-[72px]' : ''}`}>
         {!isAuthPage && !isPartnerArea && <div className="fixed left-0 top-[72px] bottom-0 w-64"><Sidebar /></div>}
         <main className={`flex-1 ${!isAuthPage && !isPartnerArea ? 'ml-64 p-6 min-h-0 overflow-y-auto' : ''}`}>
+          {!isAuthPage && <OnboardingModals />}
           <Suspense fallback={
             <div className="flex items-center justify-center w-full h-[50vh]">
               <div className="flex items-center gap-3 text-gray-600">
@@ -433,6 +439,7 @@ function InnerApp() {
               <Route path="/leads" element={<LeadManagement />} />
               <Route path="/leads/profile" element={<LeadProfileDrawer />} />
               <Route path="/pricing" element={<Pricing />} />
+              <Route path="/freeforever" element={<FreeForever />} />
               <Route path="/rex" element={<MeetRex />} />
               <Route path="/copilot" element={<Copilot />} />
               <Route path="/handsfree" element={<Handsfree />} />

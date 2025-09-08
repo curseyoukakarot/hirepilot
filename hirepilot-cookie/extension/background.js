@@ -1,4 +1,53 @@
 const API_BASE = 'http://localhost:8080/api';
+let lastLinkedInTabId = null;
+const portsByTab = new Map();
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'complete' && tab?.url?.includes('linkedin.com')) {
+    lastLinkedInTabId = tabId;
+    chrome.storage.local.set({ lastLinkedInTabId });
+  }
+});
+
+chrome.tabs.onActivated.addListener(async (activeInfo) => {
+  try {
+    const tab = await chrome.tabs.get(activeInfo.tabId);
+    if (tab?.url?.includes('linkedin.com')) {
+      lastLinkedInTabId = tab.id;
+      chrome.storage.local.set({ lastLinkedInTabId });
+    }
+  } catch {}
+});
+
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== 'scrape-channel') return;
+  port.onMessage.addListener(async (msg) => {
+    try {
+      const tabId = msg.tabId || lastLinkedInTabId || (await (async()=>{ try { const s = await chrome.storage.local.get('lastLinkedInTabId'); return s.lastLinkedInTabId; } catch { return null; } })());
+      if (!tabId) return port.postMessage({ error: 'No LinkedIn tab detected' });
+      portsByTab.set(tabId, port);
+      if (msg.action === 'scrapeLinkedInSearch') {
+        const resp = await scrapeLinkedInSearchInjected(tabId);
+        port.postMessage(resp);
+      }
+      if (msg.action === 'scrapeSalesNav') {
+        const resp = await scrapeSalesNavInjected(tabId);
+        port.postMessage(resp);
+      }
+      if (msg.action === 'scrapeSingleProfile') {
+        const resp = await scrapeSingleProfileInjected(tabId);
+        port.postMessage(resp);
+      }
+    } catch (e) {
+      port.postMessage({ error: e.message || 'Operation failed' });
+    }
+  });
+  port.onDisconnect.addListener(() => {
+    for (const [tabId, p] of portsByTab.entries()) {
+      if (p === port) portsByTab.delete(tabId);
+    }
+  });
+});
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.action === 'getFullCookie') {
@@ -21,7 +70,149 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
   
   if (msg.action === 'scrapeSalesNav') {
-    // Forward scraping to content script (this stays the same)
+    // Use injected scraper for Sales Navigator People search results
+    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+      const tab = tabs[0];
+      if (!tab?.url?.includes('linkedin.com/sales')) return sendResponse({ error: 'Open a Sales Navigator search page' });
+      try {
+        const resp = await scrapeSalesNavListInjected(tab.id);
+        sendResponse(resp);
+      } catch (e) {
+        sendResponse({ error: e.message || 'Failed to scrape Sales Nav' });
+      }
+    });
+    return true;
+  }
+  // scrapeLinkedInSearch disabled for now
+
+  if (msg.action === 'connectAndSend') {
+    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+      const tab = tabs[0];
+      if (!tab?.url?.includes('linkedin.com')) return sendResponse({ error: 'Not on LinkedIn tab' });
+      try {
+        // Prefer executing in page context to avoid missing content script
+        const [{ result }] = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: connectAndSendInjected,
+          args: [msg.message],
+          world: 'MAIN'
+        });
+        sendResponse(result || { error: 'No result from injected connect' });
+      } catch (e) {
+        // As a fallback, try messaging the content script
+        try {
+          chrome.tabs.sendMessage(tab.id, msg, (response) => {
+            if (chrome.runtime.lastError) {
+              sendResponse({ error: chrome.runtime.lastError.message || 'Failed to message content script' });
+            } else {
+              sendResponse(response);
+            }
+          });
+        } catch (err) {
+          sendResponse({ error: err?.message || 'Failed to auto-connect' });
+        }
+      }
+    });
+    return true;
+  }
+
+  if (msg.action === 'navAndConnect') {
+    const { url, message } = msg;
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tabId = tabs[0]?.id;
+      if (!tabId) return sendResponse({ error: 'No active tab' });
+
+      const onUpdated = (updatedTabId, info) => {
+        if (updatedTabId === tabId && info.status === 'complete') {
+          chrome.tabs.onUpdated.removeListener(onUpdated);
+          chrome.tabs.sendMessage(tabId, { action: 'connectAndSend', message }, (resp) => {
+            sendResponse(resp);
+          });
+        }
+      };
+
+      try {
+        chrome.tabs.onUpdated.addListener(onUpdated);
+        chrome.tabs.update(tabId, { url });
+      } catch (e) {
+        chrome.tabs.onUpdated.removeListener(onUpdated);
+        sendResponse({ error: e.message || 'Failed to navigate' });
+      }
+    });
+    return true;
+  }
+
+  if (msg.action === 'scrapeSingleProfile') {
+    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+      const tab = tabs[0];
+      if (!tab?.url?.includes('linkedin.com')) return sendResponse({ error: 'Not on LinkedIn tab' });
+      try {
+        // Route SN profile pages to dedicated scraper with MAIN world
+        if (/linkedin\.com\/sales\/(people|lead)\//i.test(tab.url)) {
+          const [{ result: prof } = {}] = await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            func: scrapeSalesNavProfileInjected,
+            world: 'MAIN'
+          });
+          if (!prof || !prof.ok) return sendResponse({ error: 'Profile not detected' });
+          return sendResponse({ profile: {
+            name: prof.name,
+            title: prof.headline,
+            company: prof.company,
+            profileUrl: prof.linkedinUrl,
+            avatarUrl: prof.avatarUrl
+          }});
+        }
+        // Standard LinkedIn profile: prefer MAIN-world injected scraper first, then fallback to content script
+        if (/^https?:\/\/(www\.)?linkedin\.com\/in\//i.test(tab.url)) {
+          console.debug('[HP-BG] route: standard /in/');
+          try {
+            const [{ result: prof } = {}] = await chrome.scripting.executeScript({
+              target: { tabId: tab.id },
+              func: scrapeLinkedInProfileInjected,
+              world: 'MAIN'
+            });
+            console.debug('[HP-BG] source injected, hasName:', !!(prof && prof.name));
+            if (prof && prof.ok) {
+              return sendResponse({ profile: {
+                name: prof.name,
+                title: prof.headline,
+                company: prof.company,
+                profileUrl: prof.linkedinUrl,
+                avatarUrl: prof.avatarUrl
+              }});
+            }
+          } catch (e) {
+            // fall through to content
+          }
+          // Fallback to content script scrape
+          chrome.tabs.sendMessage(tab.id, { action: 'scrapeSingleProfile' }, async (r) => {
+            console.debug('[HP-BG] source content, hasName:', !!(r && r.profile && r.profile.name));
+            if (chrome.runtime.lastError || !r || !r.profile || !r.profile.name) {
+              // Last-chance fallback: use older injected LI scraper
+              const inj = await scrapeSingleProfileInjected(tab.id);
+              return sendResponse(inj && inj.profile ? inj : { error: 'Profile not detected' });
+            }
+            return sendResponse(r);
+          });
+          return true; // keep channel open while waiting for content
+        }
+        // Unknown LinkedIn page: try injected first, then content
+        let resp = await scrapeSingleProfileInjected(tab.id);
+        if (resp && resp.profile) return sendResponse(resp);
+        chrome.tabs.sendMessage(tab.id, { action: 'scrapeSingleProfile' }, (r) => {
+          if (chrome.runtime.lastError) return sendResponse({ error: 'Profile not detected' });
+          return sendResponse(r || { error: 'Profile not detected' });
+        });
+        return true;
+      } catch (e) {
+        sendResponse({ error: e.message || 'Failed to scrape profile' });
+      }
+    });
+    return true;
+  }
+
+  if (msg.action === 'prefillLinkedInMessage') {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs[0]?.url?.includes('linkedin.com')) {
         chrome.tabs.sendMessage(tabs[0].id, msg, (response) => {
@@ -31,7 +222,25 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse({ error: 'Not on LinkedIn tab' });
       }
     });
-    return true;  // Keep channel open
+    return true;
+  }
+
+  if (msg.action === 'getCredits') {
+    (async () => {
+      try {
+        const storage = await chrome.storage.local.get('hp_jwt');
+        const jwt = storage.hp_jwt;
+        if (!jwt) return sendResponse({ error: 'Not logged in' });
+        const res = await fetch(`${API_BASE}/credits/status`, {
+          headers: { 'Authorization': `Bearer ${jwt}` }
+        });
+        const data = await res.json();
+        sendResponse({ data });
+      } catch (e) {
+        sendResponse({ error: e.message || 'Failed to fetch credits' });
+      }
+    })();
+    return true;
   }
 
   if (msg.action === 'bulkAddLeads') {
@@ -101,4 +310,527 @@ async function handleBulkAddLeads(leads) {
   const result = await response.json();
   console.log('[HirePilot Background] API response:', result);
   return result;
+}
+
+async function scrapeLinkedInSearchInjected(tabId) {
+  const [{ result: leads = [] } = {}] = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: async () => {
+      try {
+        console.log('Current URL:', location.href);
+        const isPeople = /\/search\/results\/people/i.test(location.href);
+        if (!isPeople) console.log('Not on People Search page - continuing');
+
+        // Enhanced Readiness for broader parent
+        await new Promise((res) => {
+          const targetContainer = '.search-results-container, .reusable-search__entity-result-list';
+          const observer = new MutationObserver(() => {
+            if (document.querySelector(targetContainer)) {
+              console.log('Results container detected');
+              observer.disconnect();
+              res();
+            }
+          });
+          observer.observe(document.body, { childList: true, subtree: true });
+          setTimeout(() => { observer.disconnect(); console.log('Readiness timeout'); res(); }, 20000);
+        });
+
+        // Extended scroll with height checks
+        let lastHeight = document.documentElement.scrollHeight;
+        for (let i = 0; i < 15; i++) {
+          window.scrollBy(0, window.innerHeight);
+          await new Promise(r => setTimeout(r, 2000));
+          const newHeight = document.documentElement.scrollHeight;
+          console.log(`Scrolled page ${i + 1}, height: ${newHeight}`);
+          if (newHeight === lastHeight) {
+            console.log('No more results loading - stopping scroll');
+            break;
+          }
+          lastHeight = newHeight;
+        }
+
+        // Try multiple container selectors with logs
+        const containerSelectors = [
+          'li.reusable-search__result-container',
+          'div.reusable-search__result-container',
+          'ul.reusable-search__entity-result-list > li',
+          'li.entity-result',
+          'div.entity-result__item'
+        ];
+        let items = [];
+        for (const sel of containerSelectors) {
+          const nodeList = document.querySelectorAll(sel);
+          console.log(`Tried selector '${sel}' - found ${nodeList.length} items`);
+          if (nodeList.length > 0) { items = nodeList; break; }
+        }
+        if (items.length === 0) console.log('No containers found - inspect DOM for new classes');
+
+        const toText = (el) => (el && el.textContent ? el.textContent.trim() : '');
+        const normalizeUrl = (href) => {
+          if (!href) return '';
+          let cleaned = href.split('#')[0];
+          const q = cleaned.indexOf('?');
+          if (q > -1) cleaned = cleaned.substring(0, q);
+          if (/^https?:\/\//i.test(cleaned)) return cleaned;
+          if (cleaned.startsWith('/')) return `https://www.linkedin.com${cleaned}`;
+          return `https://www.linkedin.com/${cleaned}`;
+        };
+
+        const leads = [];
+        const seen = new Set();
+        items.forEach((item, index) => {
+          console.log(`Processing item ${index + 1}`);
+          const nameEl = item.querySelector('span.entity-result__title-text span[aria-hidden="true"]')
+            || item.querySelector('span[dir="ltr"] > span[aria-hidden="true"]')
+            || item.querySelector('.entity-result__title-line span[dir="ltr"]')
+            || item.querySelector('.actor-name')
+            || item.querySelector('span[aria-hidden="true"]');
+          const name = nameEl ? nameEl.innerText.trim() : null;
+          if (!name) console.log('No name for this item');
+
+          const titleEl = item.querySelector('.entity-result__primary-subtitle')
+            || item.querySelector('.subline-level-1')
+            || item.querySelector('span.entity-result__summary')
+            || item.querySelector('dd.t-black--light')
+            || item.querySelector('.entity-result__title-line');
+          const title = titleEl ? titleEl.innerText.trim() : null;
+
+          let company = null;
+          const summaryEl = item.querySelector('p.entity-result__summary, div.entity-result__secondary-subtitle, .entity-result__simple-insight-text, .subline-level-2');
+          if (summaryEl) {
+            const summaryText = summaryEl.innerText.trim();
+            const companyMatch = summaryText.match(/\bat\s+([\w\s&.,-]+)(?:$|\s·|\sin)/i) || summaryText.match(/Current:.*?at\s+([\w\s&.,-]+)/i);
+            company = companyMatch ? companyMatch[1].trim() : summaryText.split(' at ')[1]?.split(' · ')[0]?.trim();
+          }
+          if (!company) console.log('No company for this item');
+
+          const linkEl = item.querySelector('a.app-aware-link[href*="/in/"], a.entity-result__content-entity[href*="/in/"], a.search-result__result-link');
+          const link = linkEl ? normalizeUrl(linkEl.href || linkEl.getAttribute('href')) : null;
+
+          const avatarEl = item.querySelector('img.entity-result__image, img.presence-entity__image, img');
+          const avatar = avatarEl ? avatarEl.src : null;
+
+          if (name && link) {
+            if (!seen.has(link)) {
+              seen.add(link);
+              leads.push({ name, title, company, link, avatar });
+            }
+          } else {
+            console.log('Skipped incomplete lead:', { name, title, company, link });
+          }
+        });
+        console.log(`Total extracted leads: ${leads.length}`);
+        return leads;
+      } catch (e) {
+        console.error('Scrape error:', e);
+        return [];
+      }
+    }
+  });
+  if (!leads.length) return { error: 'No visible results on this page. Try scrolling or refining search.' };
+  const result = await handleBulkAddLeads(leads);
+  return { leads, result, mode: 'li_search_injected' };
+}
+
+async function scrapeSalesNavInjected(tabId) {
+  // Placeholder: reuse search injected for now; can add SN-specific list scraping if desired
+  return scrapeLinkedInSearchInjected(tabId);
+}
+
+async function scrapeSalesNavListInjected(tabId) {
+  const [{ result: data = [] } = {}] = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: async () => {
+      // Sales Navigator People Search list scraping
+      const wait = (ms)=> new Promise(r=>setTimeout(r, ms));
+      for (let i=0;i<8;i++){ window.scrollBy(0, window.innerHeight/2); await wait(800); }
+      const containers = [
+        'li.search-results__result-item',
+        'div.search-results__result-item',
+        'li.artdeco-list__item',
+        'div.entity-result__item'
+      ];
+      let items = [];
+      for (const sel of containers) { const n = document.querySelectorAll(sel); if (n.length) { items = n; break; } }
+      const leads = [];
+      const toText = (el)=> (el && el.textContent ? el.textContent.trim() : '');
+      const abs = (href)=>{ if(!href) return ''; const c=href.split('?')[0]; return /^https?:\/\//.test(c)?c:(c.startsWith('/')?`https://www.linkedin.com${c}`:`https://www.linkedin.com/${c}`); };
+      items.forEach((el)=>{
+        const linkEl = el.querySelector('a[data-anonymize="person-name"], a.result-lockup__name, a[href*="/in/"]');
+        const nameEl = el.querySelector('[data-anonymize="person-name"], .result-lockup__name, .artdeco-entity-lockup__title');
+        const titleEl = el.querySelector('[data-anonymize="headline"], .result-lockup__highlight, .artdeco-entity-lockup__subtitle');
+        const companyEl = el.querySelector('[data-anonymize="company-name"], .result-lockup__misc');
+        const avatarEl = el.querySelector('img, .presence-entity__image');
+        const profileUrl = abs(linkEl && (linkEl.getAttribute('href') || linkEl.href));
+        const name = toText(nameEl);
+        const title = toText(titleEl);
+        let company = toText(companyEl);
+        if (!company && /\bat\b/i.test(title)) { const m=title.match(/\bat\s+([^|•,]+)\b/i); if (m) company = m[1].trim(); }
+        const avatarUrl = avatarEl && (avatarEl.getAttribute && avatarEl.getAttribute('src')) ? avatarEl.getAttribute('src') : (avatarEl && avatarEl.src) || '';
+        if (profileUrl && name) leads.push({ name, title, company, profileUrl, avatarUrl });
+      });
+      return leads;
+    }
+  });
+  if (!data.length) return { error: 'No Sales Nav leads found on this page' };
+  const result = await handleBulkAddLeads(data);
+  return { leads: data, result };
+}
+
+async function scrapeSingleProfileInjected(tabId) {
+  const [{ result: profile = null } = {}] = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: async () => {
+      const waitForProfileReady = (timeoutMs = 12000) => new Promise((resolve) => {
+        const start = Date.now();
+        const selectors = [
+          'h1.profile-topcard__name',
+          '.profile-topcard-person-entity__name',
+          'dd[data-anonymize="person-name"]',
+          'h1.top-card-layout__title',
+          '.text-heading-xlarge',
+          '.pv-text-details__left-panel h1',
+          'h1.text-heading-xlarge.inline.t-24.v-align-middle.break-words',
+          'h1.inline.t-24.v-align-middle'
+        ];
+        const found = () => selectors.some(s => document.querySelector(s));
+        if (found()) return resolve(true);
+        const obs = new MutationObserver(() => {
+          if (found()) { obs.disconnect(); resolve(true); }
+          if (Date.now() - start > timeoutMs) { obs.disconnect(); resolve(false); }
+        });
+        obs.observe(document.body, { childList: true, subtree: true });
+        setTimeout(()=>{ obs.disconnect(); resolve(false); }, timeoutMs);
+      });
+
+      // Wait for main profile sections to render
+      await waitForProfileReady(15000);
+
+      const tryText = (sels) => { for (const s of sels) { const el = document.querySelector(s); if (el?.textContent?.trim()) return el.textContent.trim(); } return ''; };
+      const tryAttr = (sels, a) => { for (const s of sels) { const el = document.querySelector(s); const v = el?.getAttribute?.(a); if (v) return v; } return ''; };
+      const url = location.href;
+      const isSN = /linkedin\.com\/sales\//i.test(url);
+      // Prefer JSON-LD for consistent profile data
+      try {
+        const scripts = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
+        for (const sc of scripts) {
+          try {
+            const data = JSON.parse(sc.innerText);
+            const choosePerson = (d) => {
+              if (!d) return null;
+              if (d['@type'] === 'Person') return d;
+              if (d.mainEntity?.['@type'] === 'Person') return d.mainEntity;
+              if (Array.isArray(d['@graph'])) return d['@graph'].find((g)=> g['@type'] === 'Person');
+              return null;
+            };
+            const person = choosePerson(data);
+            if (person) {
+              const name = person.name || '';
+              const title = person.jobTitle || person.headline || person.description || '';
+              let company = (person.worksFor && (person.worksFor.name || (Array.isArray(person.worksFor) && person.worksFor[0]?.name))) || person.affiliation?.name || '';
+              // Extra fallback: parse headline pattern "Title at Company"
+              if (!company && title && /\bat\b/i.test(title)) {
+                const m = title.match(/\bat\s+([^|•,]+)\b/i);
+                if (m) company = m[1].trim();
+              }
+              return {
+                name,
+                title,
+                company,
+                profileUrl: person.url || url,
+                avatarUrl: (person.image && (person.image.contentUrl || person.image.url || person.image)) || ''
+              };
+            }
+          } catch {}
+        }
+      } catch {}
+      // DOM fallbacks for both LI and Sales Nav
+      const name = isSN
+        ? tryText(['h1.profile-topcard__name', '.profile-topcard-person-entity__name', 'dd[data-anonymize="person-name"]', 'h1.top-card-layout__title', '.artdeco-entity-lockup__title'])
+        : tryText(['h1.text-heading-xlarge.inline.t-24.v-align-middle.break-words', '.text-heading-xlarge', '.pv-text-details__left-panel h1', 'h1.inline.t-24.v-align-middle']);
+      const headline = isSN ? tryText(['dd.profile-topcard__headline', '.profile-topcard__summary-position-title', 'dd[data-anonymize="headline"]', '.artdeco-entity-lockup__subtitle']) : tryText(['.text-body-medium.break-words', '.pv-text-details__left-panel .text-body-medium']);
+      let company = isSN ? tryText(['a.profile-topcard__current-position-company', 'a[data-anonymize="company-name"]', '.artdeco-entity-lockup__caption a']) : tryText(['.pv-entity__secondary-title', '.pv-entity__company-summary-info h2']);
+      if (!company && headline && /\bat\b/i.test(headline)) {
+        const m2 = headline.match(/\bat\s+([^|•,]+)\b/i);
+        if (m2) company = m2[1].trim();
+      }
+      const avatarUrl = isSN ? tryAttr(['img.profile-topcard__profile-image', 'img[data-anonymize="headshot-photo"], img.top-card-layout__cta-button--photo'], 'src') : tryAttr(['.pv-top-card__photo img', 'img.pv-top-card-profile-picture__image'], 'src');
+      if (!name && !headline) return null;
+      return { name, title: headline, company, profileUrl: url, avatarUrl: avatarUrl || '' };
+    }
+  });
+  if (!profile) return { error: 'Profile not detected' };
+  return { profile };
+}
+
+// Page-context injected auto-connect flow (works even if content script not loaded yet)
+function connectAndSendInjected(message) {
+  const wait = (ms) => new Promise(r=>setTimeout(r, ms));
+  const dispatchClick = (el) => { try { el && el.dispatchEvent(new MouseEvent('click', { bubbles:true, cancelable:true, view:window })); el?.click?.(); return !!el; } catch { return false; } };
+  const findByText = (root, sel, re) => Array.from((root||document).querySelectorAll(sel)).find(n=>re.test((n.textContent||'').trim())) || null;
+  const clickableByText = (root, sel, re) => { const el = findByText(root, sel, re); return el ? (el.closest('button,a,[role="menuitem"],[role="button"]') || el) : null; };
+  return (async () => {
+    try {
+      // Already connected?
+      const connected = Array.from(document.querySelectorAll('span,button')).some(n=>/pending|message sent|connected/i.test(n.textContent||''));
+      if (connected) return { skipped:true, reason:'Already pending/connected' };
+
+      // Try direct connect
+      let target = clickableByText(document, 'button,[role="button"],a', /^(connect|invite)$/i) || clickableByText(document, 'button,[role="button"],a', /(connect|invite)/i);
+      if (!target) {
+        // Open More
+        const more = clickableByText(document, 'button,[role="button"],a', /^more$/i) || clickableByText(document, 'button,[role="button"],a', /more/i) || document.querySelector('button[aria-label*="More" i]');
+        if (!more) return { error:'Connect button not found (no More menu)' };
+        // Retry with jitter to ensure menu renders under slower pages
+        let opened = false;
+        for (let i=0; i<3 && !opened; i++) {
+          dispatchClick(more);
+          await wait(400 + Math.floor(Math.random()*300));
+          const openMenu = Array.from(document.querySelectorAll('div[role="menu"], ul[role="menu"], .artdeco-dropdown__content-inner, .artdeco-dropdown__content')).find(m => (m.offsetParent !== null));
+          if (openMenu) opened = true;
+        }
+        const menus = Array.from(document.querySelectorAll('div[role="menu"], ul[role="menu"], .artdeco-dropdown__content-inner, .artdeco-dropdown__content'));
+        let menu = menus.find(m => (m.offsetParent !== null)) || menus[0] || document;
+        target = clickableByText(menu, 'div[role="menuitem"],li,button,a,span', /connect|invite/i);
+        if (!target) {
+          const items = Array.from(menu.querySelectorAll('div[role="menuitem"], li, button, a')).filter(n => (n.offsetParent !== null));
+          if (items.length >= 5) target = items[4];
+        }
+      }
+      if (!target) return { error:'Connect button not found' };
+      dispatchClick(target);
+      await wait(700);
+
+      // Add a note
+      const add = clickableByText(document, 'button,[role="button"],a,span', /add a note/i);
+      if (add) { dispatchClick(add); await wait(400); }
+
+      // Fill note
+      const modal = document.querySelector('div[role="dialog"], .artdeco-modal') || document;
+      const inputs = Array.from(modal.querySelectorAll('textarea, div[contenteditable="true"]'));
+      if (!inputs.length) return { error:'Could not find message input' };
+      const input = inputs[0];
+      const max = Number(input.getAttribute('maxlength') || 300);
+      const text = (message || '').slice(0, max);
+      if (input.tagName.toLowerCase() === 'textarea') input.value = text; else input.textContent = text;
+      input.dispatchEvent(new Event('input', { bubbles:true }));
+      await wait(300);
+
+      // Send
+      const send = clickableByText(modal, 'button,[role="button"],a,span', /^send$/i) || clickableByText(modal, 'button,[role="button"],a,span', /send/i);
+      if (!send) return { error:'Send button not found' };
+      dispatchClick(send);
+      await wait(600);
+      return { ok:true };
+    } catch (e) {
+      return { error: e?.message || 'Failed to auto-connect' };
+    }
+  })();
+}
+
+// Injected scraper for standard LinkedIn /in/ profiles
+function scrapeLinkedInProfileInjected() {
+  const debug = (...args) => console.debug('[HP-LI]', ...args);
+  const text = (el) => (el ? el.textContent?.trim().replace(/\s+/g, ' ') : '');
+  const first = (sels, tag) => {
+    for (const s of sels) {
+      const el = document.querySelector(s);
+      const val = text(el);
+      if (val) { debug('matched', tag, s); return val; }
+    }
+    return '';
+  };
+  const firstAttr = (sels, attr, tag) => {
+    for (const s of sels) {
+      const el = document.querySelector(s);
+      const val = el?.getAttribute?.(attr) || '';
+      if (val) { debug('matched', tag, s); return val; }
+    }
+    return '';
+  };
+  const getJSONLD = () => {
+    try {
+      const nodes = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
+      for (const n of nodes) {
+        try {
+          const json = JSON.parse(n.textContent || '{}');
+          if (!json) continue;
+          if (json['@type'] === 'Person') return json;
+          if (json.mainEntity && json.mainEntity['@type'] === 'Person') return json.mainEntity;
+          if (Array.isArray(json['@graph'])) {
+            const p = json['@graph'].find(g => g['@type'] === 'Person');
+            if (p) return p;
+          }
+        } catch {}
+      }
+    } catch {}
+    return null;
+  };
+  const waitFor = (pred, timeoutMs = 12000) => new Promise((resolve) => {
+    const start = Date.now();
+    if (pred()) return resolve(true);
+    const target = document.querySelector('.pv-top-card') || document.head || document.documentElement;
+    const obs = new MutationObserver(() => {
+      requestAnimationFrame(() => {
+        if (pred()) { obs.disconnect(); resolve(true); }
+        else if (Date.now() - start > timeoutMs) { obs.disconnect(); resolve(false); }
+      });
+    });
+    obs.observe(target, { childList: true, subtree: true, attributes: true });
+    setTimeout(() => { obs.disconnect(); resolve(false); }, timeoutMs + 50);
+  });
+
+  return (async () => {
+    try {
+      const readiness = ['h1[data-test="profile"]','h1[dir="auto"]','.text-heading-xlarge','.pv-text-details__left-panel h1','[data-view-name="profile"] h1'];
+
+      // Instant attempt (fast path)
+      const instant = (() => {
+        const ld0 = getJSONLD();
+        const name0 = ld0?.name || first(['h1[dir="auto"]','.text-heading-xlarge','.pv-text-details__left-panel h1','h1[data-test="profile"]','[data-view-name="profile"] h1'],'name0');
+        if (name0) {
+          const headline0 = ld0?.jobTitle || ld0?.description || first(['.text-body-medium.break-words','.pv-text-details__left-panel .text-body-medium','[data-test-profile-subheader]'],'headline0');
+          let company0 = (ld0 && (ld0.worksFor?.name || (Array.isArray(ld0.worksFor) && ld0.worksFor[0]?.name))) || first(['.pv-entity__company-summary-info','a[href*="/company/"]','.pv-text-details__left-panel span.pv-text-details__label'],'company0');
+          if (!company0 && headline0 && /\bat\b/i.test(headline0)) { const m=headline0.match(/\bat\s+([^|•,]+)\b/i); if (m) company0=m[1].trim(); }
+          const loc0 = ld0?.address?.addressLocality || '';
+          const av0 = (ld0 && (ld0.image?.contentUrl || ld0.image)) || firstAttr(['.pv-top-card-profile-picture__image--show','.pv-top-card__photo img','img[alt*="photo"]','img.evi-image.lazy-loaded'],'src','avatar0');
+          const url0 = ld0?.url || firstAttr(['meta[property="og:url"]'],'content','og:url0') || location.href;
+          debug('instant success');
+          return { ok:true, isSalesNav:false, name:name0, headline:headline0, company:company0, location:loc0, avatarUrl:av0, linkedinUrl:url0 };
+        }
+        return null;
+      })();
+      if (instant) return instant;
+
+      await waitFor(() => !!getJSONLD() || readiness.some(s => !!document.querySelector(s)), 5000);
+      debug('ready', readiness.find(s => !!document.querySelector(s)) || 'jsonld');
+
+      const ld = getJSONLD();
+      const name = ld?.name || first([
+        'h1[dir="auto"]',
+        '.text-heading-xlarge.inline.t-24.v-align-middle.break-words',
+        '.text-heading-xlarge',
+        '.pv-text-details__left-panel h1',
+        '.pv-top-card--list .text-heading-xlarge',
+        'h1[data-test="profile"]',
+        '[data-view-name="profile"] h1'
+      ], 'name');
+
+      const headline = ld?.jobTitle || ld?.description || first([
+        '.text-body-medium.break-words',
+        '.pv-text-details__left-panel .text-body-medium',
+        '[data-test-profile-subheader]',
+        'p.text-body-medium.break-words',
+        'div.pv-text-details__left-panel div.text-body-medium'
+      ], 'headline');
+
+      let company = (ld && (ld.worksFor?.name || (Array.isArray(ld.worksFor) && ld.worksFor[0]?.name))) || first([
+        '.pv-entity__company-summary-info',
+        'a[href*="/company/"]',
+        '.pv-text-details__left-panel span.pv-text-details__label'
+      ], 'company');
+      if (!company && headline && /\bat\b/i.test(headline)) {
+        const m = headline.match(/\bat\s+([^|•,]+)\b/i);
+        if (m) { company = m[1].trim(); debug('company from headline'); }
+      }
+
+      const locationText = ld?.address?.addressLocality || first([
+        '.pv-text-details__left-panel span.text-body-small.inline.t-black--light.break-words',
+        '[data-anonymize="location"]'
+      ], 'location');
+
+      const avatarUrl = (ld && (ld.image?.contentUrl || ld.image)) || firstAttr([
+        '.pv-top-card-profile-picture__image--show',
+        '.pv-top-card__photo img',
+        'img[alt*="photo"]',
+        'img.evi-image.lazy-loaded'
+      ], 'src', 'avatar');
+
+      const linkedinUrl = ld?.url || firstAttr(['meta[property="og:url"]'], 'content', 'og:url') || location.href;
+
+      debug('url', location.href); debug('source', ld ? 'jsonld' : 'dom'); debug('final', { name, headline, company, avatar: !!avatarUrl });
+
+      return { ok: !!name, isSalesNav: false, name, headline, company, location: locationText, avatarUrl, linkedinUrl };
+    } catch (e) {
+      return { ok:false, error: e?.message || 'scrape failed' };
+    }
+  })();
+}
+// Robust Sales Navigator profile scraper executed in page context (MAIN world)
+function scrapeSalesNavProfileInjected() {
+  const debug = (...args) => console.debug('[HP-SN]', ...args);
+
+  const getJSONLD = () => {
+    try {
+      const nodes = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
+      for (const n of nodes) {
+        try {
+          const json = JSON.parse(n.textContent || '{}');
+          if (!json) continue;
+          if (json['@type'] === 'Person') return json;
+          if (json.mainEntity && json.mainEntity['@type'] === 'Person') return json.mainEntity;
+          if (Array.isArray(json['@graph'])) {
+            const p = json['@graph'].find(g => g['@type'] === 'Person');
+            if (p) return p;
+          }
+        } catch {}
+      }
+    } catch {}
+    return null;
+  };
+
+  const getApolloState = () => {
+    try {
+      const state = window.__APOLLO_STATE__ || window.__APOLLO_CLIENT__?.cache?.extract?.();
+      if (!state) return null;
+      const personKey = Object.keys(state).find(k => /Person|fsd_profile/i.test(k));
+      if (!personKey) return null;
+      const person = state[personKey];
+      const name = person?.fullName || person?.miniProfile?.firstName && person?.miniProfile?.lastName ? `${person.miniProfile.firstName} ${person.miniProfile.lastName}` : '';
+      const headline = person?.headline || person?.miniProfile?.occupation || '';
+      const publicIdentifier = person?.publicIdentifier || person?.miniProfile?.publicIdentifier;
+      const url = publicIdentifier ? `https://www.linkedin.com/in/${publicIdentifier}` : location.href;
+      let avatar = '';
+      try {
+        const vec = person?.profilePicture?.displayImageReference?.vectorImage;
+        if (vec?.rootUrl && vec?.artifacts?.length) {
+          avatar = vec.rootUrl + vec.artifacts[0].fileIdentifyingUrlPathSegment;
+        }
+      } catch {}
+      return { name, headline, url, avatar };
+    } catch {}
+    return null;
+  };
+
+  const waitFor = (pred, timeoutMs = 10000) => new Promise((resolve) => {
+    const start = Date.now();
+    if (pred()) return resolve(true);
+    const obs = new MutationObserver(() => {
+      if (pred()) { obs.disconnect(); resolve(true); }
+      else if (Date.now() - start > timeoutMs) { obs.disconnect(); resolve(false); }
+    });
+    obs.observe(document.documentElement, { childList: true, subtree: true });
+    setTimeout(() => { obs.disconnect(); resolve(false); }, timeoutMs + 50);
+  });
+
+  const text = (el) => (el ? el.textContent?.trim().replace(/\s+/g, ' ') : '');
+  const first = (sels) => { for (const s of sels) { const el = document.querySelector(s); const val = text(el); if (val) { debug('matched', s); return val; } } return ''; };
+  const firstAttr = (sels, attr) => { for (const s of sels) { const el = document.querySelector(s); const val = el?.getAttribute?.(attr) || ''; if (val) { debug('matched', s); return val; } } return ''; };
+
+  // Readiness
+  waitFor(() => !!getJSONLD() || !!getApolloState() || !!document.querySelector('[data-anonymize="person-name"], h1[dir="auto"], h1.profile-topcard__name, .artdeco-entity-lockup__title'));
+
+  const ap = getApolloState();
+  const ld = getJSONLD();
+
+  const name = ap?.name || ld?.name || first(['[data-anonymize="person-name"]','h1.profile-topcard__name','h1[dir="auto"]','.artdeco-entity-lockup__title']);
+  const headline = ap?.headline || ld?.jobTitle || ld?.headline || first(['dd[data-anonymize="headline"]','.profile-topcard__summary-position-title','.artdeco-entity-lockup__subtitle']);
+  let company = '';
+  if (headline && /\bat\b/i.test(headline)) { const m = headline.match(/\bat\s+([^|•,]+)\b/i); if (m) company = m[1].trim(); }
+  if (!company) company = first(['a.profile-topcard__current-position-company','a[data-anonymize="company-name"]','.artdeco-entity-lockup__caption a']);
+  const avatarUrl = ap?.avatar || ld?.image?.contentUrl || ld?.image || firstAttr(['img.profile-topcard__profile-image','img[data-anonymize="headshot-photo"]','img[alt*="photo"]'],'src');
+  const publicLink = firstAttr(['a[href*="www.linkedin.com/in/"]'],'href');
+  const linkedinUrl = ap?.url || ld?.url || publicLink || location.href;
+
+  return { ok: !!name, isSalesNav: true, name, headline, company, avatarUrl, linkedinUrl };
 }

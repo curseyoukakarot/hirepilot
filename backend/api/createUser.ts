@@ -9,7 +9,7 @@ export default async function createUser(req: Request, res: Response) {
     return;
   }
 
-  const { id, email } = req.body;
+  const { id, email, first_name, last_name, linkedin_url, company, plan } = req.body;
 
   if (!id || !email) {
     res.status(400).json({ error: 'Missing required fields: id or email' });
@@ -17,13 +17,25 @@ export default async function createUser(req: Request, res: Response) {
   }
 
   try {
+    // Default free plan assignment if no paid plan provided or plan=free
+    const assignedPlan = (plan === 'free' || !plan) ? 'free' : plan;
+    const giveFreeCredits = assignedPlan === 'free' ? 50 : 0;
+
     const { data, error } = await supabase
       .from('users')
       .insert([
         {
-          id,        // 🧠 This should match the Supabase Auth ID
-          email,     // 🧠 This saves the user's email
-          onboarding_complete: false
+          id,
+          email,
+          first_name: first_name || null,
+          last_name: last_name || null,
+          linkedin_url: linkedin_url || null,
+          company: company || null,
+          plan: assignedPlan,
+          monthly_credits: assignedPlan === 'free' ? 50 : null,
+          remaining_credits: giveFreeCredits,
+          plan_updated_at: new Date().toISOString(),
+          onboarding_complete: false,
         }
       ]);
 

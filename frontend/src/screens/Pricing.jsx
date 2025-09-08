@@ -70,7 +70,32 @@ export default function Pricing() {
         {/* Pricing Plans */}
         <div className="w-full bg-gray-200 py-10">
           <div id="pricing-plans" className="max-w-7xl mx-auto px-6">
-            <div className="grid md:grid-cols-3 gap-8 items-stretch">
+            <div className="grid md:grid-cols-4 gap-8 items-stretch">
+            {/* Free Forever Plan */}
+            <div id="free-plan" className="relative bg-white rounded-2xl p-8 border border-green-200 shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <div className="absolute -top-3 left-4 bg-green-600 text-white text-xs px-2 py-1 rounded-full">New</div>
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Free Forever</h2>
+                  <p className="text-gray-500 mt-1">Start free. No credit card.</p>
+                </div>
+                <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm">$0/mo</span>
+              </div>
+              <div className="text-gray-700 mb-4" aria-label="credit-info-free">
+                <div className="font-semibold">50 credits / month</div>
+              </div>
+              <ul className="space-y-3 mb-8 flex-1 text-gray-700" aria-label="free-features">
+                <li className="flex items-center"><i className="fa-solid fa-chrome text-blue-600 mr-3"></i><span>Chrome Extension</span></li>
+                <li className="flex items-center"><i className="fa-solid fa-robot text-purple-600 mr-3"></i><span>REX AI (core)</span></li>
+                <li className="flex items-center"><i className="fa-solid fa-envelope text-indigo-600 mr-3"></i><span>Send LinkedIn/emails (no sequences)</span></li>
+                <li className="flex items-center"><i className="fa-solid fa-folder-open text-gray-600 mr-3"></i><span>Save templates</span></li>
+                <li className="flex items-center"><i className="fa-solid fa-briefcase text-gray-600 mr-3"></i><span>3 job reqs & 3 active campaigns</span></li>
+                <li className="flex items-center"><i className="fa-brands fa-slack text-blue-500 mr-3"></i><span>Slack/Gmail/Outlook connect</span></li>
+                <li className="flex items-center"><i className="fa-solid fa-ban text-red-500 mr-3"></i><span>No sequences / exports / Agent Mode</span></li>
+              </ul>
+              <a href="/signup?plan=free" className="block w-full text-center bg-green-600 text-white py-4 rounded-xl font-semibold hover:bg-green-700 transition-colors">Get Started Free</a>
+              <div className="text-xs text-gray-500 mt-2 text-center">No credit card required</div>
+            </div>
             {/* Starter Plan */}
             <div id="starter-plan" className="bg-white rounded-2xl p-8 border border-gray-200 shadow-lg hover:shadow-xl transition-shadow duration-300">
               <div className="flex justify-between items-start mb-6">

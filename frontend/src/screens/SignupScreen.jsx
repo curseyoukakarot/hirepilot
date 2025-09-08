@@ -4,8 +4,10 @@ import { FaBriefcase, FaGoogle, FaLinkedin, FaCircleCheck, FaCircleExclamation, 
 import { supabase } from '../lib/supabase';
 import { apiPost } from '../lib/api';
 import { toast } from 'react-hot-toast';
+import { usePlan } from '../context/PlanContext';
 
 export default function SignupScreen() {
+  const { refresh } = usePlan();
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const navigate = useNavigate();
@@ -13,17 +15,11 @@ export default function SignupScreen() {
 
   const urlParams = new URLSearchParams(window.location.search);
   const checkoutSessionId = urlParams.get('session_id');
+  const planParam = urlParams.get('plan');
 
-  // Require plan selection or Stripe session; otherwise route to pricing
+  // Allow direct signup; default to free plan if no Stripe session
   useEffect(() => {
-    const plan = urlParams.get('plan');
-    const hasSession = !!checkoutSessionId;
-    if (!plan && !hasSession) {
-      // preserve any UTM params when sending to pricing
-      const query = location.search && location.search.length > 1 ? location.search : '';
-      navigate(`/pricing${query}`, { replace: true });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Keep page accessible; no redirect
   }, []);
 
   const handleSubmit = async (e) => {
@@ -35,6 +31,8 @@ export default function SignupScreen() {
     const lastName = e.target['last-name'].value;
     const email = e.target.email.value;
     const password = e.target.password.value;
+    const company = e.target.company?.value || '';
+    const linkedinUrl = e.target.linkedin_url?.value || '';
 
     // Step 1: Sign up user in Supabase auth
     const { data: signupData, error: signupError } = await supabase.auth.signUp({
@@ -61,7 +59,21 @@ export default function SignupScreen() {
       return;
     }
 
-    // User row will now be created automatically via a database trigger
+    // Create user profile row with plan assignment (free by default when not via Stripe)
+    try {
+      const assignedPlan = (planParam === 'free' || !checkoutSessionId) ? 'free' : (planParam || 'free');
+      await apiPost('/api/createUser', {
+        id: userId,
+        email,
+        first_name: firstName,
+        last_name: lastName,
+        company,
+        linkedin_url: linkedinUrl,
+        plan: assignedPlan,
+      }, { requireAuth: false });
+    } catch (err) {
+      console.error('createUser error (non-blocking):', err);
+    }
 
     // Step 2: Send Slack notification (non-blocking)
     try {
@@ -86,6 +98,8 @@ export default function SignupScreen() {
     }
 
     setSuccess(true);
+    // Refresh plan context so UI reacts if user navigates
+    try { await refresh(); } catch {}
 
     // Attempt to grant Product Hunt promo credits if cookie present
     try {
@@ -160,6 +174,17 @@ export default function SignupScreen() {
               <div>
                 <label htmlFor="last-name" className="block text-sm font-medium text-gray-700 mb-1">Last name</label>
                 <input id="last-name" name="last-name" type="text" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition text-sm bg-gray-50" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-1">Company</label>
+                <input id="company" name="company" type="text" placeholder="Company name (optional)" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition text-sm bg-gray-50" />
+              </div>
+              <div>
+                <label htmlFor="linkedin_url" className="block text-sm font-medium text-gray-700 mb-1">LinkedIn Profile URL</label>
+                <input id="linkedin_url" name="linkedin_url" type="url" placeholder="https://www.linkedin.com/in/username" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition text-sm bg-gray-50" />
               </div>
             </div>
 

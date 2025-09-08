@@ -501,7 +501,6 @@
       exports.default = PostgrestTransformBuilder2;
     }
   });
-
   // node_modules/@supabase/postgrest-js/dist/cjs/PostgrestFilterBuilder.js
   var require_PostgrestFilterBuilder = __commonJS({
     "node_modules/@supabase/postgrest-js/dist/cjs/PostgrestFilterBuilder.js"(exports) {
@@ -1302,7 +1301,6 @@
       };
     }
   });
-
   // node_modules/ws/browser.js
   var require_browser = __commonJS({
     "node_modules/ws/browser.js"(exports, module) {
@@ -3631,65 +3629,6 @@
       });
     }
     /**
-     * Get file metadata
-     * @param id the file id to retrieve metadata
-     */
-    // async getMetadata(
-    //   id: string
-    // ): Promise<
-    //   | {
-    //       data: Metadata
-    //       error: null
-    //     }
-    //   | {
-    //       data: null
-    //       error: StorageError
-    //     }
-    // > {
-    //   try {
-    //     const data = await get(this.fetch, `${this.url}/metadata/${id}`, { headers: this.headers })
-    //     return { data, error: null }
-    //   } catch (error) {
-    //     if (isStorageError(error)) {
-    //       return { data: null, error }
-    //     }
-    //     throw error
-    //   }
-    // }
-    /**
-     * Update file metadata
-     * @param id the file id to update metadata
-     * @param meta the new file metadata
-     */
-    // async updateMetadata(
-    //   id: string,
-    //   meta: Metadata
-    // ): Promise<
-    //   | {
-    //       data: Metadata
-    //       error: null
-    //     }
-    //   | {
-    //       data: null
-    //       error: StorageError
-    //     }
-    // > {
-    //   try {
-    //     const data = await post(
-    //       this.fetch,
-    //       `${this.url}/metadata/${id}`,
-    //       { ...meta },
-    //       { headers: this.headers }
-    //     )
-    //     return { data, error: null }
-    //   } catch (error) {
-    //     if (isStorageError(error)) {
-    //       return { data: null, error }
-    //     }
-    //     throw error
-    //   }
-    // }
-    /**
      * Lists all the files within a bucket.
      * @param path The folder path.
      */
@@ -4027,7 +3966,6 @@
       return fetch3(input, Object.assign(Object.assign({}, init), { headers }));
     });
   };
-
   // node_modules/@supabase/supabase-js/dist/module/lib/helpers.js
   var __awaiter7 = function(thisArg, _arguments, P, generator) {
     function adopt(value) {
@@ -4099,7 +4037,6 @@
   };
   var BASE64URL_REGEX = /^([a-z0-9_-]{4})*($|[a-z0-9_-]{3}$|[a-z0-9_-]{2}$)$/i;
   var JWKS_TTL = 6e5;
-
   // node_modules/@supabase/auth-js/dist/module/lib/errors.js
   var AuthError = class extends Error {
     constructor(message, status, code) {
@@ -6969,7 +6906,7 @@
             }
             await this._saveSession(Object.assign({ expires_at: Math.round(Date.now() / 1e3) + data.expires_in }, data));
             await this._notifyAllSubscribers("MFA_CHALLENGE_VERIFIED", data);
-            return { data, error };
+            return { data, error: null };
           });
         } catch (error) {
           if (isAuthError(error)) {
@@ -7409,15 +7346,47 @@
     "https://lqcsassinqfruvpgcooo.supabase.co",
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxxY3Nhc3NpbnFmcnV2cGdjb29vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM0NTYzNTQsImV4cCI6MjA1OTAzMjM1NH0._s3bVTIJCDQCS2WCgOqE5WvMvMDtJ9tjgslR5om7DHw"
   );
-  var q = (id) => document.getElementById(id) || console.warn(`#${id} not found`);
+  var q = (id) => document.getElementById(id) || null;
   var loginSection = q("loginSection");
   var mainSection = q("mainSection");
   var loginStatusEl = q("loginStatus");
   var mainStatusEl = q("mainStatus");
   var loginBtn = q("loginBtn");
   var uploadBtn = q("uploadBtn");
-  var scrapeBtn = q("scrapeBtn");
+  var scrapeNavBtn = q("scrapeNavBtn");
+  var scrapeLiBtn = null; // disabled
   var logoutBtn = q("logoutBtn");
+  var tabSingle = q("tabSingle");
+  var tabBulk = q("tabBulk");
+  var singleMode = q("singleMode");
+  var bulkMode = q("bulkMode");
+  var creditsText = q("creditsText");
+  var creditsProgress = q("creditsProgress");
+  var enrichBtn = q("enrichBtn");
+  var msgBox = q("msgBox");
+  var copyMsgBtn = q("copyMsgBtn");
+  var sendBtn = q("sendBtn");
+  var autoSendToggle = q("autoSendToggle");
+  var leadAvatar = q("leadAvatar");
+  var leadName = q("leadName");
+  var leadMeta = q("leadMeta");
+  var currentProfile = null;
+  var emailAccordion = q("emailAccordion");
+  var emailAccordionHeader = q("emailAccordionHeader");
+  var emailAccordionBody = q("emailAccordionBody");
+  var emailAccordionChevron = q("emailAccordionChevron");
+  var leadEmailText = q("leadEmailText");
+  var leadEmailVerified = q("leadEmailVerified");
+  var emailTemplate = q("emailTemplate");
+  var emailBody = q("emailBody");
+  var sendEmailBtn = q("sendEmailBtn");
+  var sendTestBtn = q("sendTestBtn");
+  var trackOpensToggle = null;
+  var senderSelect = q("senderSelect");
+  var rexGenBtn = q("rexGenBtn");
+  var bulkList = q("bulkList");
+  var sendSelectedBtn = q("sendSelectedBtn");
+  var bulkAutoToggle = q("bulkAutoToggle");
   var API = "http://localhost:8080/api/linkedin/save-cookie";
   var emailInput = q("email");
   var pwInput = q("pw");
@@ -7433,6 +7402,116 @@
     mainSection.classList.remove("hidden");
     mainStatusEl.textContent = "";
     if (userEmail && email) userEmail.textContent = email;
+    // Load credits
+    try {
+      chrome.runtime.sendMessage({ action: 'getCredits' }, (resp)=>{
+        if (resp && resp.data) {
+          var rem = Number(resp.data.remaining_credits || resp.data.creditsRemaining || 0);
+          var total = Number(resp.data.total_credits || resp.data.totalCredits || 50);
+          creditsText.textContent = `Credits: ${rem}/${total}`;
+          var pct = total>0 ? Math.max(0, Math.min(100, Math.round((rem/total)*100))) : 0;
+          if (creditsProgress) creditsProgress.style.width = pct+"%";
+        }
+      });
+    } catch {}
+    // Preload templates and senders
+    (async ()=>{
+      try {
+        const storage = await chrome.storage.local.get(['hp_jwt']);
+        const jwt = storage.hp_jwt;
+        if (!jwt) return;
+        const api = (window.HP_BACKEND || 'http://localhost:8080');
+        // Templates
+        try {
+          const tRes = await fetch(`${api}/api/email/templates`, { headers:{ 'Authorization':`Bearer ${jwt}` } });
+          let templates = [];
+          if (tRes.ok) {
+            const tData = await tRes.json();
+            templates = Array.isArray(tData) ? tData : (tData?.templates || []);
+          }
+          // Fallback: load directly from Supabase if API not available
+          if (!templates || templates.length === 0) {
+            try {
+              const store = await chrome.storage.local.get(['hp_user_id']);
+              const uid = store.hp_user_id;
+              const sb = (window.supabase || (typeof supabase !== 'undefined' ? supabase : null));
+              if (uid && sb) {
+                const { data: tpl, error } = await sb
+                  .from('email_templates')
+                  .select('id, name, subject, content, created_at')
+                  .eq('user_id', uid)
+                  .order('created_at', { ascending: false });
+                if (!error && Array.isArray(tpl)) templates = tpl;
+              }
+            } catch {}
+          }
+          if (Array.isArray(templates) && templates.length) {
+              const hydrateTpl = (sel)=>{
+                if (!sel) return;
+                const keepFirst = sel.options && sel.options.length ? sel.options[0] : null;
+                while (sel.options && sel.options.length) sel.remove(0);
+                if (keepFirst) sel.appendChild(keepFirst);
+                templates.forEach(t=>{ const opt=document.createElement('option'); opt.value = t.id || t.name; opt.textContent = t.name || (t.subject || 'Template'); opt.dataset.subject = t.subject || ''; opt.dataset.content = t.content || ''; sel.appendChild(opt); });
+              };
+              hydrateTpl(emailTemplate);
+              hydrateTpl(templateSelect);
+              if (emailTemplate && !emailTemplate._hp_bound) {
+                emailTemplate.addEventListener('change', ()=>{
+                  const sel = emailTemplate.options[emailTemplate.selectedIndex];
+                  const content = sel?.dataset?.content || '';
+                  window.__hp_current_email_subject = sel?.dataset?.subject || '';
+                  if (content && emailBody) emailBody.value = content;
+                });
+                emailTemplate._hp_bound = true;
+              }
+              if (templateSelect && !templateSelect._hp_bound) {
+                templateSelect.addEventListener('change', ()=>{
+                  const sel = templateSelect.options[templateSelect.selectedIndex];
+                  const content = sel?.dataset?.content || '';
+                  if (content && msgBox) msgBox.value = (content || '').slice(0,300);
+                });
+                templateSelect._hp_bound = true;
+              }
+          } else {
+            // no templates: keep placeholder
+          }
+        } catch {}
+        // Senders
+        try {
+          const sRes = await fetch(`${api}/api/sourcing/senders`, { headers:{ 'Authorization':`Bearer ${jwt}` } });
+          if (sRes.ok) {
+            const sData = await sRes.json();
+            const list = Array.isArray(sData) ? sData : (sData?.senders || sData?.available_senders || []);
+            if (Array.isArray(list) && senderSelect) {
+              while (senderSelect.options && senderSelect.options.length>0) senderSelect.remove(0);
+              if (list.length === 0) {
+                const opt=document.createElement('option'); opt.value='google'; opt.textContent='Google (default)'; senderSelect.appendChild(opt);
+              } else {
+                list.forEach((s)=>{
+                  const email = s.email || s.from || s.from_email || s.address || '';
+                  const label = email ? `${email} (${s.provider||'provider'})` : (s.provider || 'Sender');
+                  const provider = s.provider || 'sendgrid';
+                  const opt=document.createElement('option'); opt.value = provider; opt.textContent = label; senderSelect.appendChild(opt);
+                });
+                // Default select: sendgrid > google > outlook
+                const values = Array.from(senderSelect.options).map(o=>o.value);
+                const pref = ['sendgrid','google','outlook'].find(p=>values.includes(p)) || values[0];
+                senderSelect.value = pref;
+              }
+            }
+          }
+        } catch {}
+      } catch {}
+    })();
+    // Set default mode by URL
+    try {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs)=>{
+        var href = (tabs && tabs[0] && tabs[0].url) || '';
+        var isSearch = /linkedin\.com\/sales\/search/i.test(href);
+        setMode(isSearch ? 'bulk' : 'single');
+        if (!isSearch) loadSingleProfile();
+      });
+    } catch {}
   }
   async function isLoggedIn() {
     const result = await chrome.storage.local.get("hp_user_id");
@@ -7480,6 +7559,286 @@
     await chrome.storage.local.remove(["hp_user_id", "hp_jwt", "hp_user_email"]);
     showLogin();
   });
+  function setMode(mode){
+    if (!tabSingle || !singleMode) return;
+    const hasBulk = !!(tabBulk && bulkMode);
+    if (mode === 'single' || !hasBulk) {
+      tabSingle.classList.add('active');
+      if (tabBulk) tabBulk.classList.remove('active');
+      singleMode.classList.remove('hidden');
+      if (bulkMode) bulkMode.classList.add('hidden');
+      loadSingleProfile();
+    } else {
+      // Only execute bulk UI if present; otherwise fall back to single
+      if (hasBulk) {
+        tabBulk.classList.add('active');
+        tabSingle.classList.remove('active');
+        bulkMode.classList.remove('hidden');
+        singleMode.classList.add('hidden');
+      } else {
+        tabSingle.classList.add('active');
+        singleMode.classList.remove('hidden');
+        loadSingleProfile();
+      }
+    }
+  }
+
+  if (tabSingle) tabSingle.onclick = ()=> setMode('single');
+  if (tabBulk) tabBulk.onclick = ()=> setMode('bulk');
+
+  function loadSingleProfile(){
+    try {
+      // Show loading state
+      if (leadName) leadName.textContent = 'Loading profile…';
+      if (leadMeta) leadMeta.textContent = '';
+      chrome.runtime.sendMessage({ action: 'scrapeSingleProfile' }, (resp)=>{
+        if (resp && resp.profile) {
+          currentProfile = resp.profile;
+          if (leadAvatar) leadAvatar.src = resp.profile.avatarUrl || 'img/icon48.png';
+          if (leadName) leadName.textContent = resp.profile.name || '—';
+          if (leadMeta) leadMeta.textContent = [resp.profile.title, resp.profile.company].filter(Boolean).join(' @ ') || '—';
+          // If enrichment email was cached previously for this profile, show panel
+          chrome.storage.local.get(['hp_last_enrichment'], (store)=>{
+            const info = store.hp_last_enrichment || {};
+            if (info && info.profileUrl && resp.profile.profileUrl && info.profileUrl === resp.profile.profileUrl && info.email) {
+              showEmailPanel(info.email, info.verified);
+            }
+          });
+        } else if (resp && resp.error) {
+          console.warn('Profile scrape error:', resp.error);
+          if (leadName) leadName.textContent = '—';
+          if (leadMeta) leadMeta.textContent = 'Unable to parse profile';
+        }
+      });
+    } catch {}
+  }
+
+  if (enrichBtn) enrichBtn.onclick = async ()=>{
+    showStatus('Enriching (2 credits)...', false);
+    try {
+      const storage = await chrome.storage.local.get(['hp_jwt']);
+      const jwt = storage.hp_jwt;
+      if (!jwt) { showStatus('Not logged in', true); return; }
+      const api = (window.HP_BACKEND || 'http://localhost:8080');
+      const profileUrl = (currentProfile && (currentProfile.profileUrl || currentProfile.linkedinUrl)) || '';
+      // Create the lead using bulk-add (no campaign required)
+      const addRes = await fetch(`${api}/api/leads/bulk-add`, { 
+        method:'POST', 
+        headers:{ 'Authorization':`Bearer ${jwt}`, 'Content-Type':'application/json' }, 
+        body: JSON.stringify({ leads:[{ 
+          name: leadName?.textContent || currentProfile?.name || '-', 
+          title: currentProfile?.title || '', 
+          company: currentProfile?.company || '', 
+          profileUrl: profileUrl 
+        }] }) 
+      });
+      const addJson = await addRes.json().catch(()=>({}));
+      if (addRes.status === 401) { showStatus('Session expired. Please sign in again.', true); return; }
+      if (!addRes.ok) throw new Error(addJson?.error || 'Failed to add lead');
+      const leadId = (addJson && (
+        (addJson.data && addJson.data[0] && addJson.data[0].id) ||
+        (Array.isArray(addJson) && addJson[0] && addJson[0].id) ||
+        addJson.id
+      )) || null;
+      if (!leadId) { throw new Error('Lead id missing from bulk-add response'); }
+      // Poll until the lead becomes readable (avoid race with insert & RLS)
+      const pollLead = async (maxMs=6000)=>{
+        const start = Date.now();
+        while (Date.now()-start < maxMs) {
+          const check = await fetch(`${api}/api/leads/${leadId}`, { headers:{ 'Authorization':`Bearer ${jwt}` } });
+          if (check.status === 401) { showStatus('Session expired. Please sign in again.', true); return null; }
+          if (check.ok) { return await check.json().catch(()=>null); }
+          await new Promise(r=>setTimeout(r, 500));
+        }
+        return null;
+      };
+      await pollLead(3000);
+
+      // Try decodo enrich first, then :id/enrich
+      let resp = await fetch(`${api}/api/leads/decodo/enrich`, { method:'POST', headers:{ 'Authorization':`Bearer ${jwt}`, 'Content-Type':'application/json' }, body: JSON.stringify({ leadId, profileUrl }) });
+      if (resp.status === 401) { showStatus('Session expired. Please sign in again.', true); return; }
+      let data = await resp.json().catch(()=>({}));
+      if (!resp.ok) {
+        const fallback = await fetch(`${api}/api/leads/${leadId}/enrich`, { method:'POST', headers:{ 'Authorization':`Bearer ${jwt}`, 'Content-Type':'application/json' } });
+        if (fallback.status === 401) { showStatus('Session expired. Please sign in again.', true); return; }
+        data = await fallback.json().catch(()=>({}));
+        if (!fallback.ok) {
+          // Final retry after short wait
+          await new Promise(r=>setTimeout(r, 1200));
+          const retry = await fetch(`${api}/api/leads/${leadId}/enrich`, { method:'POST', headers:{ 'Authorization':`Bearer ${jwt}`, 'Content-Type':'application/json' } });
+          if (retry.status === 401) { showStatus('Session expired. Please sign in again.', true); return; }
+          data = await retry.json().catch(()=>({}));
+        }
+      }
+      // If immediate email not present, poll the lead for a few seconds to pick up async updates
+      let email = data?.lead?.email || data?.enrichment?.data?.email || '';
+      if (!email) {
+        for (let i=0; i<8; i++) { // up to ~8s
+          const check = await fetch(`${api}/api/leads/${leadId}`, { headers:{ 'Authorization':`Bearer ${jwt}` } });
+          if (check.status === 401) { showStatus('Session expired. Please sign in again.', true); return; }
+          const lead = await check.json().catch(()=>({}));
+          email = lead?.email || '';
+          if (email) break;
+          await new Promise(r=>setTimeout(r, 1000));
+        }
+      }
+      if (email) { chrome.storage.local.set({ hp_last_enrichment: { profileUrl, email, verified: true } }); showEmailPanel(email, true); showStatus('Enrichment complete. Email available.', false); }
+      else { showStatus('No email found yet', true); }
+    } catch (e) {
+      showStatus('Failed to trigger enrichment', true);
+    }
+  };
+
+  function showEmailPanel(email, verified){
+    if (!emailAccordion || !emailAccordionBody) return;
+    emailAccordion.classList.remove('hidden');
+    leadEmailText && (leadEmailText.textContent = email || '-');
+    leadEmailVerified && (leadEmailVerified.textContent = verified ? 'Verified' : '');
+    emailAccordionBody.classList.remove('hidden');
+    emailAccordionChevron && (emailAccordionChevron.textContent = '▾');
+    // Templates are loaded from API on popup open; do not add mock options here
+    if (emailBody && (!emailBody.value || emailBody.value.length < 5)) {
+      const firstName = (leadName && leadName.textContent.split(' ')[0]) || 'there';
+      emailBody.value = `Hi ${firstName},\n\nLoved your background at ${ (leadMeta && leadMeta.textContent.split(' @ ')[1]) || 'your company' }. Would love to share how we can help.\n\nBest,\n`;
+    }
+  }
+
+  if (emailAccordionHeader) emailAccordionHeader.onclick = ()=>{
+    if (!emailAccordionBody) return;
+    const isHidden = emailAccordionBody.classList.contains('hidden');
+    emailAccordionBody.classList.toggle('hidden', !isHidden);
+    if (emailAccordionChevron) emailAccordionChevron.textContent = isHidden ? '▾' : '▸';
+  };
+
+  if (sendEmailBtn) sendEmailBtn.onclick = async ()=>{
+    try {
+      showStatus('Sending email…', false);
+      const storage = await chrome.storage.local.get(['hp_jwt']);
+      const jwt = storage.hp_jwt;
+      if (!jwt) { showStatus('Not logged in', true); return; }
+      const to = leadEmailText?.textContent || '';
+      const bodyRaw = emailBody?.value || '';
+      if (!to || !bodyRaw) { showStatus('Missing email or body', true); return; }
+      const provider = senderSelect?.value || 'sendgrid';
+      // Prepare personalization data
+      const fullName = (leadName && leadName.textContent) || (currentProfile && currentProfile.name) || '';
+      const firstName = (fullName || '').split(' ')[0] || '';
+      const lastName = (fullName || '').split(' ').slice(1).join(' ') || '';
+      const company = (leadMeta && (leadMeta.textContent.split(' @ ')[1] || '')) || (currentProfile && currentProfile.company) || '';
+      const title = (currentProfile && (currentProfile.title || currentProfile.headline)) || '';
+      const replacements = { first_name: firstName, last_name: lastName, company, title };
+      const replaceTokens = (str='') => {
+        let out = String(str);
+        Object.entries(replacements).forEach(([k,v])=>{ out = out.replace(new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`,'gi'), v || ''); });
+        // Support dot-path tokens used elsewhere
+        out = out.replace(/\{\{\s*Candidate\.FirstName\s*\}\}/gi, firstName || '');
+        out = out.replace(/\{\{\s*Candidate\.LastName\s*\}\}/gi, lastName || '');
+        out = out.replace(/\{\{\s*Candidate\.Company\s*\}\}/gi, company || '');
+        out = out.replace(/\{\{\s*Candidate\.Job\s*\}\}/gi, title || '');
+        return out;
+      };
+      const subject = replaceTokens((window.__hp_current_email_subject || '').trim() || ' ');
+      const body = replaceTokens(bodyRaw);
+      const api = (window.HP_BACKEND || 'http://localhost:8080');
+      const res = await fetch(`${api}/api/message/send`, { method:'POST', headers:{ 'Authorization':`Bearer ${jwt}`, 'Content-Type':'application/json' }, body: JSON.stringify({ to, subject, html: body.replace(/\n/g,'<br/>'), provider, template_data: { Candidate: { FirstName:firstName, LastName:lastName, Company:company, Job:title }, first_name:firstName, last_name:lastName, company, title } }) });
+      if (!res.ok) throw new Error(await res.text());
+      showStatus('Email Sent ✅', false);
+    } catch (e) {
+      showStatus('Failed to send email', true);
+    }
+  };
+
+  if (sendTestBtn) sendTestBtn.onclick = async ()=>{
+    const body = emailBody?.value || '';
+    if (!body) { showStatus('Compose a message first', true); return; }
+    showStatus('Test email sent (simulated) ✅', false);
+  };
+
+  if (copyMsgBtn) copyMsgBtn.onclick = async ()=>{
+    try { await navigator.clipboard.writeText(msgBox.value || ''); showStatus('Message copied', false); } catch { showStatus('Failed to copy', true); }
+  };
+
+  if (rexGenBtn) rexGenBtn.onclick = async ()=>{
+    try {
+      showStatus('Generating message with REX…', false);
+      const api = (window.HP_BACKEND || 'http://localhost:8080');
+      const storage = await chrome.storage.local.get(['hp_jwt','hp_user_id']);
+      const jwt = storage.hp_jwt;
+      const userId = storage.hp_user_id;
+      const prompt = `Write a 300-char LinkedIn connection note for ${leadName?.textContent || 'this lead'} at ${ (leadMeta && leadMeta.textContent.split(' @ ')[1]) || currentProfile?.company || 'their company' }. Keep it friendly, value-focused, avoid salesy tone.`;
+      const res = await fetch(`${api}/api/rex/chat`, { method:'POST', headers:{ 'Authorization':`Bearer ${jwt}`, 'Content-Type':'application/json' }, body: JSON.stringify({ userId, messages:[{ role:'user', content: prompt }] }) });
+      const out = await res.json();
+      const text = out?.reply?.content?.text || out?.reply?.content || '';
+      msgBox.value = (text || '').slice(0, 300);
+      showStatus('REX message generated', false);
+    } catch (e) {
+      showStatus('Failed to generate message', true);
+    }
+  };
+
+  if (sendBtn) sendBtn.onclick = ()=>{
+    const text = msgBox && msgBox.value || '';
+    if (!text) return showStatus('Enter a message first', true);
+    if (autoSendToggle && autoSendToggle.checked) {
+      showStatus('Auto-sending (5 credits)… Using your browser session', false);
+      chrome.runtime.sendMessage({ action:'connectAndSend', message: text }, (resp)=>{
+        if (resp && resp.ok) showStatus('Connection request sent ✅', false);
+        else if (resp && resp.skipped) showStatus('Already pending/connected', false);
+        else showStatus(resp?.error || 'Auto-send failed', true);
+      });
+      return;
+    }
+    // Manual: just prefill the message field on LI
+    chrome.runtime.sendMessage({ action:'prefillLinkedInMessage', text }, (resp)=>{
+      if (resp && resp.ok) showStatus('Message filled. Click Send on LinkedIn.', false);
+      else showStatus(resp?.error || 'Could not prefill message', true);
+    });
+  };
+
+  // Bulk auto-send runner (sequential, safe pacing)
+  if (sendSelectedBtn) sendSelectedBtn.onclick = async ()=>{
+    try {
+      const { data: { session } } = await (window.supabase || { auth:{ getSession: async()=>({ data:{ session:null } }) } }).auth.getSession?.() || { data:{ session:null } };
+    } catch {}
+    const useAuto = bulkAutoToggle && bulkAutoToggle.checked;
+    if (!useAuto) return showStatus('Manual mode: copy or prefill per lead', false);
+    // Gather selected leads (assumes checkboxes with data-url)
+    const rows = (bulkList && bulkList.querySelectorAll('input[type="checkbox"][data-url]:checked')) || [];
+    if (!rows.length) return showStatus('Select at least one lead', true);
+    showStatus('Starting auto-send sequence. Keep Chrome open; running in background tab…', false);
+    const urls = Array.from(rows).map((r)=>r.getAttribute('data-url')).filter(Boolean);
+    const message = (document.getElementById('msgBox') && document.getElementById('msgBox').value) || '';
+    const wait = (ms)=> new Promise(r=>setTimeout(r, ms));
+    const rand = (min,max)=> Math.floor(Math.random()*(max-min+1))+min;
+    let sentThisRun = 0;
+    const dailyCap = 12; // middle of 10–15
+
+    for (let i=0; i<urls.length; i++) {
+      if (sentThisRun >= dailyCap) { showStatus('Daily cap reached; pausing for today', false); break; }
+      const url = urls[i];
+      // Navigate and send on that profile
+      const resp = await new Promise((resolve)=>{
+        chrome.runtime.sendMessage({ action:'navAndConnect', url, message }, (r)=> resolve(r||{}));
+      });
+      if (resp && resp.ok) {
+        sentThisRun++;
+        showStatus(`Sent ${sentThisRun}/${urls.length}. Cooling down…`, false);
+      } else if (resp && resp.skipped) {
+        showStatus(`Skipped (already pending). Cooling down…`, false);
+      } else {
+        showStatus(`Failed to send to this profile. Continuing…`, true);
+      }
+      // After each send: 30–45s with jitter
+      await wait(rand(30000, 45000));
+      // After every 3–5 sends: 2–3 min pause
+      if (sentThisRun>0 && sentThisRun % rand(3,5) === 0) {
+        showStatus('Short rest to respect limits…', false);
+        await wait(rand(120000, 180000));
+      }
+    }
+    showStatus('Auto-send sequence complete.', false);
+  };
+
   if (uploadBtn) uploadBtn.onclick = async () => {
     btnState("uploadBtn", "Uploading\u2026", true, true);
     showStatus("\u231B Grabbing full cookie...", false);
@@ -7541,13 +7900,13 @@
       btnState("uploadBtn", "Upload Full LinkedIn Cookie", false, false);
     }
   };
-  if (scrapeBtn) scrapeBtn.onclick = async () => {
-    btnState("scrapeBtn", "Scraping...", true);
+  if (scrapeNavBtn) scrapeNavBtn.onclick = async () => {
+    btnState("scrapeNavBtn", "Scraping...", true);
     showStatus("\u231B Scraping leads...", false);
     try {
       const response = await new Promise((resolve, reject) => {
         chrome.runtime.sendMessage({ action: "scrapeSalesNav" }, (response2) => {
-          if (chrome.runtime.lastError) {
+          if (chrome.runtime.lastError || (response2 && response2.error)) {
             reject(new Error("Please open a Sales Navigator search page first"));
           } else {
             resolve(response2);
@@ -7561,8 +7920,9 @@
         showStatus(`\u274C ${response.error}`, true);
       } else if (response.leads) {
         const result = response.result || {};
-        const creditsCharged = result.creditsCharged || response.leads.length;
-        showStatus(`\u2705 Added ${response.leads.length} leads to HirePilot! (${creditsCharged} credits charged)`, false);
+        const added = (result && result.data && result.data.length) || response.leads.length;
+        const creditsCharged = result.creditsCharged || added;
+        showStatus(`\u2705 Added ${added} leads to HirePilot! (${creditsCharged} credits charged)`, false);
       } else {
         showStatus("\u274C No response from content script", true);
       }
@@ -7570,9 +7930,11 @@
       console.error("Scrape error:", e);
       showStatus("\u274C Scraping failed - " + e.message, true);
     } finally {
-      btnState("scrapeBtn", "Scrape Sales Nav Leads", false);
+      btnState("scrapeNavBtn", "Scrape Sales Nav", false);
     }
   };
+
+  // Scrape LI Results disabled for now
   function showStatus(msg = "", isErr = false, isLogin = false) {
     const el = isLogin ? loginStatusEl : mainStatusEl;
     if (!el) {

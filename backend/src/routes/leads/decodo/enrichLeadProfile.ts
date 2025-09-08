@@ -586,13 +586,12 @@ router.post('/enrich', requireAuth, async (req: Request, res: Response) => {
              // Deduct credit for successful enrichment
        try {
          const CreditService = (await import('../../../../services/creditService')).CreditService;
-         await CreditService.useCreditsEffective(userId, 1);
-         await CreditService.logCreditUsage(
-           userId, 
-           1, 
-           'api_usage', 
-           `Lead enrichment via ${enrichmentResult.source}: ${lead.first_name} ${lead.last_name}`
-         );
+         await CreditService.deductCredits(
+           userId,
+          2,
+          'api_usage',
+          `Basic profile enrichment: ${lead.first_name} ${lead.last_name}`
+        );
        } catch (creditError) {
          console.error('[enrichLeadProfile] Credit deduction failed:', creditError);
          // Don't fail the request if credit deduction fails

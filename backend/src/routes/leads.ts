@@ -328,7 +328,7 @@ router.post('/:id/unlock-enhanced', requireAuth, async (req: ApiRequest, res: Re
       return;
     }
 
-    // Check credits (1 credit)
+    // Check credits (1 credit for enhanced enrichment toggle)
     const hasCredits = await CreditService.hasSufficientCredits(userId, 1);
     if (!hasCredits) {
       res.status(402).json({ error: 'Insufficient credits', requiredCredits: 1 });
@@ -336,7 +336,7 @@ router.post('/:id/unlock-enhanced', requireAuth, async (req: ApiRequest, res: Re
     }
 
     // Deduct 1 credit (logs usage appropriately)
-    await CreditService.deductCredits(userId, 1, 'api_usage', 'Unlock enhanced enrichment');
+    await CreditService.deductCredits(userId, 1, 'api_usage', 'Enhanced enrichment toggle');
 
     // Update lead flag
     const { data: updatedLead, error: updErr } = await supabase
@@ -885,7 +885,7 @@ router.post('/import', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/leads/bulk-add - Add scraped leads from extension without campaign or credits
+// POST /api/leads/bulk-add - Add scraped leads from extension with credit gating (1 credit per lead)
 router.post('/bulk-add', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = (req as ApiRequest).user?.id;
@@ -930,23 +930,21 @@ router.post('/bulk-add', requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
-    // Check if user has sufficient credits for the leads
-    const hasCredits = await CreditService.hasSufficientCredits(userId, normalizedLeads.length);
-    if (!hasCredits) {
-      res.status(402).json({ error: 'Insufficient credits. You need ' + normalizedLeads.length + ' credits to add these leads.' });
-      return;
-    }
-
-    // Deduct credits for Chrome extension lead scraping (1 credit per lead)
+    // Check and deduct credits for Chrome extension lead scraping (1 credit per lead)
     try {
+      const ok = await CreditService.hasSufficientCredits(userId, normalizedLeads.length);
+      if (!ok) {
+        res.status(402).json({ error: 'Insufficient credits. You need ' + normalizedLeads.length + ' credits to add these leads.' });
+        return;
+      }
       await CreditService.deductCredits(
-        userId, 
-        normalizedLeads.length, 
-        'api_usage', 
-        `Chrome Extension: Scraped ${normalizedLeads.length} leads from Sales Navigator`
+        userId,
+        normalizedLeads.length,
+        'api_usage',
+        `Chrome Extension: Scrape + import ${normalizedLeads.length} profiles`
       );
     } catch (creditError) {
-      res.status(402).json({ error: 'Credit deduction failed: ' + creditError });
+      res.status(402).json({ error: 'Credit deduction failed: ' + (creditError as any)?.message || String(creditError) });
       return;
     }
 

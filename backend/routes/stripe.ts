@@ -29,12 +29,29 @@ async function logWebhookEvent(eventId: string, eventType: string, eventData: an
   }
 }
 
-// Helper to update user credits
+// Helper to update user credits with rollover from free plan (if applicable)
 async function updateUserCredits(userId: string, planTier: string) {
-  const totalCredits = PLAN_CREDITS[planTier as keyof typeof PLAN_CREDITS];
-  
+  const baseCredits = PLAN_CREDITS[planTier as keyof typeof PLAN_CREDITS];
+
   try {
-    // Get current credits
+    // Inspect current user record for free-plan rollover
+    const { data: userRow, error: userErr } = await supabase
+      .from('users')
+      .select('plan, remaining_credits')
+      .eq('id', userId)
+      .single();
+    if (userErr) {
+      console.warn('Could not read user row for rollover check:', userErr);
+    }
+
+    let rollover = 0;
+    if (userRow && userRow.plan === 'free' && typeof userRow.remaining_credits === 'number') {
+      rollover = Math.max(0, userRow.remaining_credits || 0);
+    }
+
+    const newTotal = Math.max(0, baseCredits + rollover);
+
+    // Upsert into user_credits
     const { data: currentCredits } = await supabase
       .from('user_credits')
       .select('*')
@@ -42,26 +59,44 @@ async function updateUserCredits(userId: string, planTier: string) {
       .single();
 
     if (currentCredits) {
-      // Update existing record
       await supabase
         .from('user_credits')
         .update({
-          total_credits: totalCredits,
+          total_credits: newTotal,
           used_credits: 0,
-          remaining_credits: totalCredits,
+          remaining_credits: newTotal,
           last_updated: new Date().toISOString()
         })
         .eq('user_id', userId);
     } else {
-      // Create new record
       await supabase
         .from('user_credits')
         .insert({
           user_id: userId,
-          total_credits: totalCredits,
+          total_credits: newTotal,
           used_credits: 0,
-          remaining_credits: totalCredits
+          remaining_credits: newTotal
         });
+    }
+
+    // Update users table with plan and remaining_credits for consistency with app reads
+    await supabase
+      .from('users')
+      .update({ plan: planTier, plan_updated_at: new Date().toISOString(), remaining_credits: newTotal })
+      .eq('id', userId);
+
+    // Track credits_rolled_over if rollover applied
+    if (rollover > 0) {
+      try {
+        await supabase.from('product_events').insert({
+          user_id: userId,
+          event_name: 'credits_rolled_over',
+          metadata: { rollover, baseCredits, newTotal, plan: planTier },
+          created_at: new Date().toISOString()
+        });
+      } catch (e) {
+        console.warn('Failed to log credits_rolled_over event:', e);
+      }
     }
   } catch (error) {
     console.error('Error updating user credits:', error);
@@ -105,8 +140,25 @@ router.post('/webhook', validateStripeWebhook, async (req, res) => {
           current_period_end: new Date(subscription.current_period_end * 1000).toISOString()
         });
 
-        // Initialize user credits
+        // Initialize user credits (roll over any remaining free credits)
         await updateUserCredits(userId, planTier);
+
+        // Track user_upgraded event
+        try {
+          await supabase.from('product_events').insert({
+            user_id: userId,
+            event_name: 'user_upgraded',
+            metadata: {
+              plan: planTier,
+              interval,
+              stripe_subscription_id: subscription.id,
+              stripe_customer_id: customerId,
+            },
+            created_at: new Date().toISOString()
+          });
+        } catch (e) {
+          console.warn('Failed to log user_upgraded event:', e);
+        }
         break;
       }
 
@@ -164,9 +216,27 @@ router.post('/webhook', validateStripeWebhook, async (req, res) => {
           status: subscription.status
         }).eq('stripe_subscription_id', subscription.id);
 
-        // Handle plan change
+        // Handle plan change (no rollover unless upgrading from free which updateUserCredits handles by checking users.plan)
         if (subscription.status === 'active') {
           await updateUserCredits(userId, planTier);
+        }
+
+        // Track plan_changed event
+        try {
+          await supabase.from('product_events').insert({
+            user_id: userId,
+            event_name: 'plan_changed',
+            metadata: {
+              plan: planTier,
+              status: subscription.status,
+              current_period_end: subscription.current_period_end,
+              current_period_start: subscription.current_period_start,
+              stripe_subscription_id: subscription.id,
+            },
+            created_at: new Date().toISOString()
+          });
+        } catch (e) {
+          console.warn('Failed to log plan_changed event:', e);
         }
 
         if (['past_due','canceled','incomplete_expired','unpaid'].includes(subscription.status)) {

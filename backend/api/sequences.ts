@@ -71,6 +71,16 @@ async function getSequenceWithSteps(sequenceId: string, userId: string) {
 router.post('/sequences', requireAuth, async (req: ApiRequest, res) => {
   try {
     const userId = req.user!.id;
+    // Block for Free plan users
+    try {
+      const { data: sub } = await supabaseDb
+        .from('subscriptions')
+        .select('plan_tier')
+        .eq('user_id', userId)
+        .maybeSingle();
+      const planTier = (sub?.plan_tier || '').toLowerCase();
+      if (planTier === 'free') return res.status(403).json({ error: 'Sequences are available in paid plans.' });
+    } catch {}
     const { name, description, stop_on_reply = true, send_window_start, send_window_end, throttle_per_hour, team_id, steps = [] } = req.body || {};
     if (!name) return res.status(400).json({ error: 'name is required' });
 
@@ -105,6 +115,16 @@ router.post('/sequences', requireAuth, async (req: ApiRequest, res) => {
 router.get('/sequences', requireAuth, async (req: ApiRequest, res) => {
   try {
     const userId = req.user!.id;
+    // Hide sequences for Free plan users
+    try {
+      const { data: sub } = await supabaseDb
+        .from('subscriptions')
+        .select('plan_tier')
+        .eq('user_id', userId)
+        .maybeSingle();
+      const planTier = (sub?.plan_tier || '').toLowerCase();
+      if (planTier === 'free') return res.json([]);
+    } catch {}
     const { team_id, include_steps } = req.query as any;
     let q = supabaseDb.from('message_sequences').select('*').eq('owner_user_id', userId).eq('is_archived', false);
     if (team_id) q = q.eq('team_id', team_id);
@@ -283,6 +303,16 @@ router.post('/sequences/:id/archive', requireAuth, async (req: ApiRequest, res) 
 router.post('/sequences/:id/enroll', requireAuth, async (req: ApiRequest, res) => {
   try {
     const userId = req.user!.id;
+    // Block enrollment for Free plan users
+    try {
+      const { data: sub } = await supabaseDb
+        .from('subscriptions')
+        .select('plan_tier')
+        .eq('user_id', userId)
+        .maybeSingle();
+      const planTier = (sub?.plan_tier || '').toLowerCase();
+      if (planTier === 'free') return res.status(403).json({ error: 'Sequences are available in paid plans.' });
+    } catch {}
     const sequenceId = req.params.id;
     const { leadIds, startTimeLocal, timezone, provider } = req.body || {};
     if (!Array.isArray(leadIds) || !leadIds.length) return res.status(400).json({ error: 'leadIds required' });

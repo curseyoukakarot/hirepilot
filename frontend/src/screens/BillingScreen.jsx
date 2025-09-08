@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { PRICING_CONFIG } from '../config/pricing';
 import { supabase } from '../lib/supabase';
+import { usePlan } from '../context/PlanContext';
 
 // Debug environment variables
 console.log('Environment variables:', {
@@ -20,6 +21,7 @@ if (!stripeKey) {
 const stripePromise = stripeKey ? loadStripe(stripeKey) : null;
 
 export default function BillingScreen() {
+  const { refresh: refreshPlan } = usePlan();
   const [billingOverview, setBillingOverview] = useState({
     subscription: null,
     credits: 0,
@@ -207,6 +209,9 @@ export default function BillingScreen() {
     } catch (err) {
       console.error('Error creating checkout session:', err);
       setError(err.message);
+    } finally {
+      // After returning from checkout, refresh plan context next mount
+      try { await refreshPlan(); } catch {}
     }
   };
 
@@ -306,14 +311,6 @@ export default function BillingScreen() {
                 >
                   Manage Subscription
                 </button>
-                {!currentPlan && (
-                  <button
-                    onClick={() => handleUpgrade('pro', 'monthly')}
-                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
-                  >
-                    Upgrade Plan
-                  </button>
-                )}
               </div>
             )}
           </div>
@@ -387,6 +384,33 @@ export default function BillingScreen() {
             )}
           </div>
         </section>
+
+        {/* Upgrade Section */}
+        {!currentPlan && (
+          <section className="bg-white rounded-xl shadow-sm p-6 mb-8">
+            <h2 className="text-xl font-semibold mb-4">Upgrade Plan</h2>
+            <p className="text-gray-600 mb-6">Choose a plan and billing cycle. Your data remains intact; premium features unlock immediately after checkout.</p>
+            <div className="grid md:grid-cols-3 gap-6">
+              {(['starter','pro','team']).map((planId) => (
+                <div key={planId} className="border border-gray-200 rounded-xl p-5">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-lg font-semibold capitalize">{PRICING_CONFIG[planId].name}</h3>
+                    <span className="text-sm text-gray-500">{PRICING_CONFIG[planId].credits.toLocaleString()} credits/mo</span>
+                  </div>
+                  <ul className="text-sm text-gray-600 space-y-2 mb-4 list-disc pl-5">
+                    {PRICING_CONFIG[planId].features.slice(0,3).map((f, i) => (
+                      <li key={i}>{f}</li>
+                    ))}
+                  </ul>
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => handleUpgrade(planId, 'monthly')} className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">Monthly</button>
+                    <button onClick={() => handleUpgrade(planId, 'annual')} className="flex-1 bg-gray-100 text-gray-800 py-2 rounded-lg hover:bg-gray-200">Annual</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Usage History */}
         <section className="bg-white rounded-xl shadow-sm p-6 mb-8">

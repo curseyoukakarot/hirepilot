@@ -5,6 +5,10 @@ console.log('[HirePilot Extension] Content script loaded on:', window.location.h
 // Listen for messages from popup/background
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   console.log('[HirePilot Extension] Received message:', msg);
+  if (msg.action === 'ping') {
+    sendResponse({ ok: true });
+    return true;
+  }
   
   if (msg.action === 'getFullCookie') {
     try {
@@ -52,6 +56,320 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       sendResponse({ error });
     }
     return true;  // Async response
+  }
+
+  if (msg.action === 'scrapeLinkedInSearch') {
+    (async () => {
+      try {
+        const url = window.location.href || '';
+        // Accept multiple patterns and fallback to DOM detection
+        const urlLooksRight = /linkedin\.com\/search\/results\/(people|all)/i.test(url);
+        const domHasResults = !!document.querySelector('div.reusable-search__result-container, li.reusable-search__result-container, ul.reusable-search__entity-results-list');
+        if (!(urlLooksRight || domHasResults)) {
+          sendResponse({ error: 'Not on LinkedIn People Search results', url });
+          return;
+        }
+
+        const selector = 'div.reusable-search__result-container, li.reusable-search__result-container, ul.reusable-search__entity-results-list > li';
+        const wait = (ms) => new Promise(r=>setTimeout(r, ms));
+        let items = document.querySelectorAll(selector);
+        if (!items.length) {
+          for (let i=0; i<4 && !items.length; i++) {
+            window.scrollBy(0, Math.round(window.innerHeight * 0.6));
+            await wait(600);
+            items = document.querySelectorAll(selector);
+          }
+        }
+
+        const leads = [];
+        const toText = (el) => (el && el.textContent ? el.textContent.trim() : '');
+        const absUrl = (href) => {
+          if (!href) return '';
+          const cleaned = href.split('?')[0];
+          if (/^https?:\/\//i.test(cleaned)) return cleaned;
+          if (cleaned.startsWith('/')) return `https://www.linkedin.com${cleaned}`;
+          return `https://www.linkedin.com/${cleaned}`;
+        };
+        items.forEach((el) => {
+          const linkEl = el.querySelector('a[href*="/in/"], a.app-aware-link[href*="/in/"]');
+          const nameEl = el.querySelector('span.entity-result__title-text a span[aria-hidden="true"], a.app-aware-link span[aria-hidden="true"], span[dir="ltr"]');
+          const titleEl = el.querySelector('.entity-result__primary-subtitle, .entity-result__summary');
+          const companyEl = el.querySelector('.entity-result__secondary-subtitle');
+          const avatarEl = el.querySelector('img');
+          const profileUrl = absUrl(linkEl && linkEl.getAttribute('href'));
+          const name = toText(nameEl);
+          const title = toText(titleEl);
+          const company = toText(companyEl);
+          const avatarUrl = avatarEl && avatarEl.getAttribute('src') ? avatarEl.getAttribute('src') : '';
+          if (profileUrl && name && !/LinkedIn Member/i.test(name)) {
+            leads.push({ name, title, company, profileUrl, avatarUrl });
+          }
+        });
+        if (!leads.length) {
+          sendResponse({ error: 'No leads found on this page', url });
+          return;
+        }
+
+        chrome.runtime.sendMessage({ action: 'bulkAddLeads', leads }, (resp) => {
+          sendResponse({ leads, result: resp, mode: 'li_search' });
+        });
+      } catch (e) {
+        sendResponse({ error: e.message || 'Failed to scrape LinkedIn search' });
+      }
+    })();
+    return true;
+  }
+
+  if (msg.action === 'connectAndSend') {
+    (async () => {
+      try {
+        const { message } = msg;
+        const wait = (ms) => new Promise(r=>setTimeout(r, ms));
+
+        const dispatchClick = (el) => {
+          if (!el) return false;
+          try {
+            el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+            if (typeof el.click === 'function') el.click();
+            return true;
+          } catch { return false; }
+        };
+
+        const findByText = (root, selector, regex) => {
+          const nodes = Array.from((root || document).querySelectorAll(selector));
+          return nodes.find(n => regex.test((n.textContent || '').trim())) || null;
+        };
+
+        const findClickableByText = (root, selector, regex) => {
+          const el = findByText(root, selector, regex);
+          if (!el) return null;
+          // Click the nearest clickable ancestor (button, a, [role="menuitem"], [role="button"])
+          const clickable = el.closest('button, a, [role="menuitem"], [role="button"]') || el;
+          return clickable;
+        };
+
+        // Detect already connected/pending
+        const connected = Array.from(document.querySelectorAll('span,button')).some(n=>/pending|message sent|connected/i.test(n.textContent||''));
+        if (connected) return sendResponse({ skipped: true, reason: 'Already pending/connected' });
+
+        // 1) Try direct Connect/Invite buttons
+        let target = findClickableByText(document, 'button,[role="button"],a', /^(connect|invite)$/i) ||
+                     findClickableByText(document, 'button,[role="button"],a', /(connect|invite)/i);
+
+        // 2) If not found, open More menu and pick Connect
+        if (!target) {
+          const moreBtn = findClickableByText(document, 'button,[role="button"],a', /^more$/i) ||
+                          findClickableByText(document, 'button,[role="button"],a', /more/i) ||
+                          document.querySelector('button[aria-label*="More" i]');
+          if (!moreBtn) return sendResponse({ error: 'Connect button not found (no More menu)' });
+          dispatchClick(moreBtn);
+          await wait(500);
+
+          // Find menu container
+          const menus = Array.from(document.querySelectorAll('div[role="menu"], ul[role="menu"], .artdeco-dropdown__content-inner, .artdeco-dropdown__content'));
+          let menu = menus.find(m => (m.offsetParent !== null)) || menus[0] || document;
+
+          // Try text match first
+          target = findClickableByText(menu, 'div[role="menuitem"],li,button,a,span', /connect|invite/i);
+
+          // Fallback: pick 5th item in the menu (0-index 4)
+          if (!target) {
+            const items = Array.from(menu.querySelectorAll('div[role="menuitem"], li, button, a')).filter(n => (n.offsetParent !== null));
+            if (items.length >= 5) target = items[4];
+          }
+        }
+
+        if (!target) return sendResponse({ error: 'Connect button not found' });
+        dispatchClick(target);
+        await wait(700);
+
+        // 3) Click Add a note (optional)
+        const addNote = findClickableByText(document, 'button,[role="button"],a,span', /add a note/i);
+        if (addNote) { dispatchClick(addNote); await wait(400); }
+
+        // 4) Fill the note
+        const modal = document.querySelector('div[role="dialog"], .artdeco-modal') || document;
+        const inputs = Array.from(modal.querySelectorAll('textarea, div[contenteditable="true"]'));
+        if (!inputs.length) return sendResponse({ error: 'Could not find message input' });
+        const input = inputs[0];
+        const max = Number(input.getAttribute('maxlength') || 300);
+        const text = (message || '').slice(0, max);
+        if (input.tagName.toLowerCase() === 'textarea') { input.value = text; } else { input.textContent = text; }
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        await wait(300);
+
+        // 5) Click Send
+        const sendBtn = findClickableByText(modal, 'button,[role="button"],a,span', /^send$/i) ||
+                        findClickableByText(modal, 'button,[role="button"],a,span', /send/i);
+        if (!sendBtn) return sendResponse({ error: 'Send button not found' });
+        dispatchClick(sendBtn);
+        await wait(600);
+        sendResponse({ ok: true });
+      } catch (e) {
+        sendResponse({ error: e.message || 'Failed to connect and send' });
+      }
+    })();
+    return true;
+  }
+
+  if (msg.action === 'scrapeSingleProfile') {
+    (async () => {
+      try {
+        const url = window.location.href;
+        const isLiProfile = /linkedin\.com\/in\//i.test(url);
+        const isSalesNavProfile = /linkedin\.com\/sales\/(people|profile)/i.test(url) || !!document.querySelector('.profile-topcard, .profile-topcard__content, [data-anonymize="person-name"]');
+        if (!(isLiProfile || isSalesNavProfile)) {
+          sendResponse({ error: 'Not on a LinkedIn or Sales Navigator profile page' });
+          return;
+        }
+
+        const waitFor = (pred, timeoutMs = 12000) => new Promise((resolve) => {
+          const start = Date.now();
+          if (pred()) return resolve(true);
+          const obs = new MutationObserver(() => {
+            if (pred()) { obs.disconnect(); resolve(true); }
+            else if (Date.now() - start > timeoutMs) { obs.disconnect(); resolve(false); }
+          });
+          obs.observe(document.documentElement, { childList: true, subtree: true });
+          setTimeout(()=>{ obs.disconnect(); resolve(false); }, timeoutMs + 50);
+        });
+
+        const nameSelectors = isSalesNavProfile ? [
+          '.profile-topcard-person-entity__name',
+          'h1.profile-topcard__title',
+          '.profile-topcard__content h1',
+          'dd[data-anonymize="person-name"]',
+          '.artdeco-entity-lockup__title'
+        ] : [
+          '.text-heading-xlarge',
+          'h1[dir="auto"]',
+          '.pv-text-details__left-panel h1',
+          'h1.text-heading-xlarge.inline.t-24.v-align-middle.break-words'
+        ];
+
+        await waitFor(() => nameSelectors.some(s => document.querySelector(s)), 12000);
+
+        const tryText = (selectors) => {
+          for (const sel of selectors) {
+            const el = document.querySelector(sel);
+            if (el && el.textContent && el.textContent.trim()) return el.textContent.trim();
+          }
+          return '';
+        };
+
+        const tryAttr = (selectors, attr) => {
+          for (const sel of selectors) {
+            const el = document.querySelector(sel);
+            if (el && el.getAttribute(attr)) return el.getAttribute(attr);
+          }
+          return '';
+        };
+
+        // JSON-LD first (LinkedIn often embeds Person schema)
+        const getJSONLD = () => {
+          try {
+            const nodes = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
+            for (const n of nodes) {
+              try {
+                const json = JSON.parse(n.textContent || '{}');
+                if (!json) continue;
+                if (json['@type'] === 'Person') return json;
+                if (json.mainEntity && json.mainEntity['@type'] === 'Person') return json.mainEntity;
+                if (Array.isArray(json['@graph'])) {
+                  const p = json['@graph'].find(g => g['@type'] === 'Person');
+                  if (p) return p;
+                }
+              } catch {}
+            }
+          } catch {}
+          return null;
+        };
+
+        const ld = getJSONLD();
+        const name = ld?.name || tryText(nameSelectors);
+
+        const headline = isSalesNavProfile ? tryText([
+          '.profile-topcard__summary-position-title',
+          'dd[data-anonymize="headline"]',
+          '.profile-topcard__current-positions .t-14'
+        ]) : tryText([
+          '.text-body-medium.break-words',
+          '.pv-text-details__left-panel .text-body-medium'
+        ]);
+
+        const company = isSalesNavProfile ? tryText([
+          'a[data-anonymize="company-name"]',
+          '.profile-topcard__current-positions a',
+          'dd[data-anonymize="company-name"]'
+        ]) : tryText([
+          '.pv-entity__secondary-title',
+          '.pv-entity__company-summary-info h2',
+          '.pv-text-details__left-panel .inline-show-more-text'
+        ]);
+
+        const avatar = ld?.image?.contentUrl || ld?.image || (isSalesNavProfile ? tryAttr([
+          'img.profile-topcard__profile-image',
+          'img.presence-entity__image',
+          '.artdeco-entity-image img'
+        ], 'src') : tryAttr([
+          '.pv-top-card-profile-picture__image',
+          '.pv-top-card__photo img',
+          'img.pv-top-card-profile-picture__image'
+        ], 'src'));
+
+        // If company not found, attempt from headline pattern
+        let companyFinal = company;
+        if (!companyFinal && headline && /\bat\b/i.test(headline)) {
+          const m = headline.match(/\bat\s+([^|•,]+)\b/i);
+          if (m) companyFinal = m[1].trim();
+        }
+
+        const profile = {
+          name: name || '',
+          title: headline || '',
+          company: companyFinal || '',
+          profileUrl: url,
+          avatarUrl: avatar || ''
+        };
+
+        sendResponse({ profile });
+      } catch (err) {
+        console.error('[HirePilot Extension] Single profile scrape error:', err);
+        sendResponse({ error: err.message || 'Failed to scrape profile' });
+      }
+    })();
+    return true;
+  }
+
+  if (msg.action === 'prefillLinkedInMessage') {
+    try {
+      const { text } = msg;
+      // Try to find LinkedIn message compose textarea
+      const candidates = [
+        'textarea',
+        'div[contenteditable="true"]'
+      ];
+      let filled = false;
+      for (const sel of candidates) {
+        const box = document.querySelector(sel);
+        if (box) {
+          if (box.tagName.toLowerCase() === 'textarea') {
+            box.value = text;
+            box.dispatchEvent(new Event('input', { bubbles: true }));
+          } else {
+            box.textContent = text;
+            box.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+          filled = true;
+          break;
+        }
+      }
+      if (!filled) return sendResponse({ error: 'Could not find LinkedIn message box' });
+      sendResponse({ ok: true });
+    } catch (e) {
+      sendResponse({ error: e.message || 'Failed to prefill' });
+    }
+    return true;
   }
 });
 

@@ -15,6 +15,31 @@ export async function createCampaign(payload: {
   sender_id?: string;
   created_by?: string;
 }) {
+  // Free plan limit: max 3 active campaigns per user
+  try {
+    if (payload.created_by) {
+      const { data: sub } = await supabase
+        .from('subscriptions')
+        .select('plan_tier')
+        .eq('user_id', payload.created_by)
+        .maybeSingle();
+      const planTier = (sub?.plan_tier || '').toLowerCase();
+      if (planTier === 'free') {
+        const { data: countData } = await supabase
+          .from('sourcing_campaigns')
+          .select('id', { count: 'exact', head: true })
+          .eq('created_by', payload.created_by)
+          .in('status', ['running','active','draft']);
+        const activeCount = (countData as any) || 0;
+        if (Number(activeCount) >= 3) {
+          throw new Error('Free plan limit reached: maximum 3 active campaigns.');
+        }
+      }
+    }
+  } catch (e: any) {
+    // Surface gating errors
+    if (e?.message?.includes('Free plan limit')) throw e;
+  }
   const { data, error } = await supabase.from('sourcing_campaigns')
     .insert({
       title: payload.title,

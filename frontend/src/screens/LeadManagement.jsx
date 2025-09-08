@@ -969,8 +969,24 @@ function LeadManagement() {
     }
   };
 
-  // Add export handler
-  const handleBulkExport = () => {
+  // Add export handler (gated for Free plan)
+  const handleBulkExport = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (token) {
+        const resp = await fetch(`${API_BASE_URL}/billing/overview`, { headers: { Authorization: `Bearer ${token}` } });
+        if (resp.ok) {
+          const overview = await resp.json();
+          const planTier = (overview?.subscription?.planTier || '').toLowerCase();
+          if (planTier === 'free') {
+            toast.error('Upgrade to Pro+ to export leads.');
+            setShowBulkExportDialog(false);
+            return;
+          }
+        }
+      }
+    } catch {}
     const selectedLeads = leads.filter(lead => selectedLeadIds.includes(lead.id));
     const exportData = selectedLeads.map(lead => ({
       'Name': lead.name || '',

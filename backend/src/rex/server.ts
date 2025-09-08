@@ -1333,6 +1333,11 @@ async function assertPremium(userId: string) {
     rexEnabled = ['enabled','connected','on','true'].includes(String(integ?.status || '').toLowerCase());
   } catch {}
 
+  // Free plan users are not premium; allow only viewing credits/tooling not execution
+  const { data: sub } = await supabase.from('subscriptions').select('plan_tier').eq('user_id', userId).maybeSingle();
+  const isFree = String(sub?.plan_tier || '').toLowerCase() === 'free';
+  if (isFree) throw new Error('REX access restricted to paid plans.');
+
   if (!(rexEnabled || allowedRoles.has(roleLc))) {
     throw new Error('REX access restricted to premium plans.');
   }
