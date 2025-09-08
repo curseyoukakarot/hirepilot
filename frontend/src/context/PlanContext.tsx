@@ -33,6 +33,14 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
         setInfo({ plan: null, remaining_credits: null, monthly_credits: null, plan_updated_at: null, role: null });
         return;
       }
+      // Preload role from auth metadata immediately to avoid gating flicker
+      try {
+        const { data: authUser } = await supabase.auth.getUser();
+        const preloadRole = (authUser?.user?.user_metadata as any)?.role || null;
+        if (preloadRole && !info.role) {
+          setInfo(prev => ({ ...prev, role: preloadRole }));
+        }
+      } catch {}
       const backend = (import.meta as any)?.env?.VITE_BACKEND_URL || '';
       const res = await fetch(`${backend}/api/user/plan`, {
         headers: { 'Authorization': `Bearer ${session.access_token}` },
