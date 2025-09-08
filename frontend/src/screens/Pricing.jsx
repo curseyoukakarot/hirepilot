@@ -90,9 +90,9 @@ export default function Pricing() {
         {/* Pricing Plans */}
         <div className="w-full bg-gray-200 py-10">
           <div id="pricing-plans" className="max-w-7xl mx-auto px-6">
-            <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-8 items-stretch">
+            <div className="grid md:grid-cols-3 gap-8 items-stretch">
             {/* Free Forever Plan */}
-            <div id="free-plan" className="relative bg-white rounded-2xl p-8 border border-green-200 shadow-lg hover:shadow-xl transition-shadow duration-300 xl:col-span-1 md:col-span-2">
+            <div id="free-plan" className="relative bg-white rounded-2xl p-8 border border-green-200 shadow-lg hover:shadow-xl transition-shadow duration-300">
               <div className="absolute -top-3 left-4 bg-green-600 text-white text-xs px-2 py-1 rounded-full">New</div>
               <div className="flex justify-between items-start mb-6">
                 <div>
@@ -117,7 +117,7 @@ export default function Pricing() {
               <div className="text-xs text-gray-500 mt-2 text-center">No credit card required</div>
             </div>
             {/* Starter Plan */}
-            <div id="starter-plan" className="bg-white rounded-2xl p-8 border border-gray-200 shadow-lg hover:shadow-xl transition-shadow duration-300 xl:col-span-1 md:col-span-2">
+            <div id="starter-plan" className="bg-white rounded-2xl p-8 border border-gray-200 shadow-lg hover:shadow-xl transition-shadow duration-300">
               <div className="flex justify-between items-start mb-6">
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900">Starter</h2>
@@ -147,7 +147,7 @@ export default function Pricing() {
             </div>
 
             {/* Pro Plan */}
-            <div id="pro-plan" className="bg-white rounded-2xl p-8 border-2 border-blue-500 shadow-lg hover:shadow-xl transition-shadow duration-300 transform scale-105 xl:col-span-1 md:col-span-2">
+            <div id="pro-plan" className="bg-white rounded-2xl p-8 border-2 border-blue-500 shadow-lg hover:shadow-xl transition-shadow duration-300 transform scale-105">
               <div className="flex justify-between items-start mb-6">
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900">Pro</h2>
@@ -177,7 +177,7 @@ export default function Pricing() {
             </div>
 
             {/* Team Plan */}
-            <div id="team-plan" className="bg-white rounded-2xl p-8 border border-gray-200 shadow-lg hover:shadow-xl transition-shadow duration-300 xl:col-span-1 md:col-span-2">
+            <div id="team-plan" className="bg-white rounded-2xl p-8 border border-gray-200 shadow-lg hover:shadow-xl transition-shadow duration-300">
               <div className="flex justify-between items-start mb-6">
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900">Team</h2>
@@ -210,26 +210,10 @@ export default function Pricing() {
         </div>
         </div>
 
-        {/* All features included checklist */}
-        <div className="w-full bg-gray-200 py-10">
+        {/* (Removed) duplicate features card below pricing; keep fine print */}
+        <div className="w-full bg-gray-200 py-6">
           <div className="max-w-6xl mx-auto px-6">
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8">
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">All features included</h3>
-              <div className="grid sm:grid-cols-2 gap-3 text-gray-700">
-                <div className="flex items-start"><span className="mr-3">🤖</span><span>REX AI: candidate analysis, message drafts, smart follow-ups</span></div>
-                <div className="flex items-start"><span className="mr-3">🧰</span><span>Campaigns & Sequences with reply tracking</span></div>
-                <div className="flex items-start"><span className="mr-3">🔎</span><span>Enrichment (Apollo/Hunter/Skrapp) with graceful fallbacks</span></div>
-                <div className="flex items-start"><span className="mr-3">🔗</span><span>LinkedIn requests & profile capture (via extension/automation)</span></div>
-                <div className="flex items-start"><span className="mr-3">✉️</span><span>Email sending + deliverability helpers</span></div>
-                <div className="flex items-start"><span className="mr-3">🧵</span><span>Unified Inbox (see replies per campaign/lead)</span></div>
-                <div className="flex items-start"><span className="mr-3">🧭</span><span>Analytics Dashboard (success rate, replies, interviews, hires)</span></div>
-                <div className="flex items-start"><span className="mr-3">🧩</span><span>Integrations: Slack, Zapier, Make, ATS, Webhooks</span></div>
-                <div className="flex items-start"><span className="mr-3">📅</span><span>Calendar scheduling & interview coordination</span></div>
-                <div className="flex items-start"><span className="mr-3">🧑‍💼</span><span>Unlimited job reqs (no caps)</span></div>
-              </div>
-              <p className="text-sm text-gray-500 mt-4">Credits power enrichment, AI analysis, automations, and outreach actions. Add more credits any time.</p>
-            </div>
-            <div className="text-xs text-gray-500 mt-3" aria-label="credits-explainer">
+            <div className="text-xs text-gray-500" aria-label="credits-explainer">
               How credits work: Each sourcing/enrichment/automation step consumes credits (e.g., enrichment lookups, AI analysis, outbound actions). Credits roll over while your plan is active, and you can buy top-ups at any time.
             </div>
           </div>
