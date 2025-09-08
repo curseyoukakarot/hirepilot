@@ -52,7 +52,7 @@ export default function CandidateList() {
   const [metadataContext, setMetadataContext] = useState(null);
   // Add Candidate modal state
   const [showAddCandidateModal, setShowAddCandidateModal] = useState(false);
-  const [newCandidate, setNewCandidate] = useState({ first_name: '', last_name: '', email: '', phone: '', status: 'sourced' });
+  const [newCandidate, setNewCandidate] = useState({ first_name: '', last_name: '', email: '', phone: '', title: '', linkedin_url: '', status: 'sourced' });
   const [creatingCandidate, setCreatingCandidate] = useState(false);
   const navigate = useNavigate();
 
@@ -770,6 +770,8 @@ export default function CandidateList() {
                         last_name: newCandidate.last_name || null,
                         email: newCandidate.email || null,
                         phone: newCandidate.phone || null,
+                        title: newCandidate.title || null,
+                        linkedin_url: newCandidate.linkedin_url || null,
                         status: newCandidate.status || 'sourced'
                       });
                       if (error) throw error;
@@ -779,7 +781,7 @@ export default function CandidateList() {
                     }
                   }
                   setShowAddCandidateModal(false);
-                  setNewCandidate({ first_name: '', last_name: '', email: '', phone: '', status: 'sourced' });
+                  setNewCandidate({ first_name: '', last_name: '', email: '', phone: '', title: '', linkedin_url: '', status: 'sourced' });
                   await refreshCandidates();
                   alert('Candidate added');
                 } catch (err) {
@@ -825,6 +827,25 @@ export default function CandidateList() {
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   value={newCandidate.phone}
                   onChange={(e) => setNewCandidate(prev => ({ ...prev, phone: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Current Job Title</label>
+                <input
+                  type="text"
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  value={newCandidate.title}
+                  onChange={(e) => setNewCandidate(prev => ({ ...prev, title: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">LinkedIn Profile URL</label>
+                <input
+                  type="url"
+                  placeholder="https://www.linkedin.com/in/..."
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  value={newCandidate.linkedin_url}
+                  onChange={(e) => setNewCandidate(prev => ({ ...prev, linkedin_url: e.target.value }))}
                 />
               </div>
               <div>
