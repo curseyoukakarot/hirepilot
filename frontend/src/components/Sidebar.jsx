@@ -3,9 +3,8 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { FaEnvelope, FaChartBar, FaCog, FaSignOutAlt, FaCreditCard, FaShieldAlt, FaRobot, FaExclamationTriangle, FaCookie, FaSlidersH, FaPlug, FaBell, FaUsers } from 'react-icons/fa';
 import { supabase } from '../lib/supabase';
 
-const links = [
+const baseLinks = [
   { to: '/messages', label: 'Messages', icon: <FaEnvelope /> },
-  { to: '/analytics', label: 'Analytics', icon: <FaChartBar /> },
   { to: '/settings', label: 'Settings', icon: <FaCog /> },
   { to: '/billing', label: 'Billing', icon: <FaCreditCard /> },
 ];
@@ -14,6 +13,7 @@ export default function Sidebar() {
   const navigate = useNavigate();
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
+  const [isFree, setIsFree] = useState(false);
 
   useEffect(() => {
     const fetchRole = async () => {
@@ -41,6 +41,7 @@ export default function Sidebar() {
       const roleLc = (role || '').toLowerCase();
       const premiumRoles = ['recruitpro','teamadmin','team_admin','superadmin','super_admin','admin','member'];
       setIsPremium(premiumRoles.includes(roleLc) || rexEnabled);
+      setIsFree(roleLc === 'free');
       setIsSuperAdmin(role === 'super_admin');
     };
     fetchRole();
@@ -65,7 +66,7 @@ export default function Sidebar() {
       <nav className="flex-1 overflow-y-auto">
         <div className="p-4">
           <ul className="space-y-1">
-            {links.map(link => (
+            {[...baseLinks, ...(isFree ? [] : [{ to: '/analytics', label: 'Analytics', icon: <FaChartBar /> }])].map(link => (
               <li key={link.to}>
                 <NavLink
                   to={link.to}

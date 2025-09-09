@@ -89,7 +89,8 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
     isFree: (() => {
       const normalizedRole = (info.role || '').toLowerCase().replace(/\s|-/g, '_');
       const isSuperAdmin = ['super_admin', 'superadmin'].includes(normalizedRole);
-      return (info.plan || 'free') === 'free' && !isSuperAdmin;
+      const planLc = String(info.plan || '').toLowerCase();
+      return (planLc === 'free' || normalizedRole === 'free') && !isSuperAdmin;
     })(),
     remainingCredits: info.remaining_credits,
     monthlyCredits: info.monthly_credits,

@@ -3,6 +3,7 @@ import { Chart } from 'chart.js/auto';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import QuickActionsRexCard from '../components/QuickActionsRexCard';
+import { usePlan } from '../context/PlanContext';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -20,6 +21,7 @@ export default function Dashboard() {
   const [campaignsLoading, setCampaignsLoading] = useState(true);
   const [rexEnabled, setRexEnabled] = useState(false);
   const navigate = useNavigate();
+  const { isFree } = usePlan();
 
   useEffect(() => {
     const fetchUserAndMetrics = async () => {
@@ -188,6 +190,11 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gray-50">
       {/* Main Content */}
       <main className="bg-gray-50 px-8 py-6">
+        {isFree && (
+          <div className="mb-4 px-4 py-3 rounded-lg bg-blue-50 border border-blue-200 text-blue-900">
+            You are on the Free plan. Upgrade anytime from Billing to unlock premium features and higher limits.
+          </div>
+        )}
         {/* Sourcing Snapshot Section */}
         <section className="mb-6">
           <div className="bg-white rounded-2xl shadow-md p-6">

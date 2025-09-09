@@ -24,8 +24,8 @@ export default async function createUser(req: Request, res: Response) {
       .upsert({
         id,
         email,
-        // Default sensible values; tolerate schema differences by keeping minimal set
-        role: 'member'
+        // Default sensible values; use explicit FREE role for free-tier users
+        role: 'free'
       }, { onConflict: 'id' })
       .select('*')
       .single();

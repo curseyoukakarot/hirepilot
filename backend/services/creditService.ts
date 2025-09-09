@@ -53,8 +53,23 @@ export class CreditService {
         .eq('user_id', userId)
         .maybeSingle();
 
+      // Treat missing subscription as free if public.users.plan is 'free' or role is 'free'
+      let isFree = false;
       const planTier = (sub?.plan_tier || '').toLowerCase();
-      const isFree = planTier === 'free' || planTier === 'starter_free' || planTier === 'trial_free';
+      if (planTier) {
+        isFree = planTier === 'free' || planTier === 'starter_free' || planTier === 'trial_free';
+      } else {
+        try {
+          const { data: userRow } = await supabase
+            .from('users')
+            .select('plan, role')
+            .eq('id', userId)
+            .maybeSingle();
+          const planLc = String((userRow as any)?.plan || '').toLowerCase();
+          const roleLc = String((userRow as any)?.role || '').toLowerCase();
+          isFree = planLc === 'free' || roleLc === 'free';
+        } catch {}
+      }
       if (!isFree) return;
 
       const firstOfMonth = new Date();
@@ -225,6 +240,7 @@ export class CreditService {
   static async allocateCreditsBasedOnRole(userId: string, role: string, source: CreditSource = 'admin_grant'): Promise<void> {
     // Define credit amounts based on role
     const creditsByRole: Record<string, number> = {
+      'free': 50,
       'member': 350,
       'admin': 1000,
       'team_admin': 5000,
@@ -232,7 +248,7 @@ export class CreditService {
       'super_admin': 10000
     };
 
-    const creditAmount = creditsByRole[role] || 350; // Default to member credits
+    const creditAmount = creditsByRole[role] ?? 50; // Default to free credits
 
     // Log the allocation
     const { error: insertError } = await supabase

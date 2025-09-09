@@ -1,10 +1,21 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Chart } from 'chart.js/auto';
 import { supabase } from '../lib/supabase';
+import { usePlan } from '../context/PlanContext';
+import { useNavigate } from 'react-router-dom';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 export default function Analytics() {
+  const { isFree } = usePlan();
+  const navigate = useNavigate();
+  // Block free users from accessing analytics
+  useEffect(() => {
+    if (isFree) {
+      navigate('/billing', { replace: true });
+    }
+  }, [isFree, navigate]);
+
   const chartRef = useRef(null);
   const [viewMode, setViewMode] = useState('chart');
   const [user, setUser] = useState(null);

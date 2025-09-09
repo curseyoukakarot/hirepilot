@@ -21,7 +21,7 @@ if (!stripeKey) {
 const stripePromise = stripeKey ? loadStripe(stripeKey) : null;
 
 export default function BillingScreen() {
-  const { refresh: refreshPlan } = usePlan();
+  const { refresh: refreshPlan, plan: planTier, isFree } = usePlan();
   const [billingOverview, setBillingOverview] = useState({
     subscription: null,
     credits: 0,
@@ -42,8 +42,9 @@ export default function BillingScreen() {
 
   const BACKEND = import.meta.env.VITE_BACKEND_URL;
 
-  // Role-based plan mapping
+  // Plan/role-based plan mapping
   const getRolePlanName = (role) => {
+    if (isFree || String(planTier || '').toLowerCase() === 'free') return 'Free Plan';
     const planMap = {
       'member': 'Starter Plan',
       'admin': 'Pro Plan', 
@@ -51,11 +52,12 @@ export default function BillingScreen() {
       'RecruitPro': 'RecruitPro Plan',
       'super_admin': 'Admin Plan'
     };
-    return planMap[role] || 'Starter Plan';
+    return planMap[role] || (planTier ? `${planTier[0].toUpperCase()}${planTier.slice(1)} Plan` : 'Starter Plan');
   };
 
-  // Get role-based credit limits
+  // Get plan/role-based credit limits
   const getRoleCreditLimit = (role) => {
+    if (isFree || String(planTier || '').toLowerCase() === 'free') return 50;
     const creditLimits = {
       'member': 350,
       'admin': 1000,
@@ -101,7 +103,7 @@ export default function BillingScreen() {
 
       if (creditError) {
         console.error('Error fetching credits:', creditError);
-        // Fallback to role-based defaults
+        // Fallback to plan/role-based defaults
         const defaultCredits = getRoleCreditLimit(role);
         setCreditInfo({
           totalCredits: defaultCredits,
@@ -275,7 +277,7 @@ export default function BillingScreen() {
   if (error) return <div className="min-h-screen bg-gray-50 flex items-center justify-center text-red-600">{error}</div>;
 
   const { subscription, credits, recentUsage, recentInvoices, nextInvoice, seatUsage } = billingOverview;
-  const currentPlan = subscription?.planTier ? PRICING_CONFIG[subscription.planTier] : null;
+  const currentPlan = subscription?.planTier ? PRICING_CONFIG[subscription.planTier] : (isFree ? { name: 'Free', credits: 50 } : null);
   
   // Calculate credit usage percentage for animation
   const creditUsagePercentage = creditInfo.totalCredits > 0 
@@ -303,7 +305,7 @@ export default function BillingScreen() {
                 </p>
               )}
             </div>
-            {!isRecruitPro && (
+            {!isRecruitPro && !isFree && (
               <div className="space-x-4">
                 <button
                   onClick={handleManageSubscription}
