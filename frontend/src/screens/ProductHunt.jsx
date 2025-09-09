@@ -262,28 +262,35 @@ export default function ProductHunt() {
     <!-- Pricing strip (simplified) -->
     <section id="pricing" class="py-16 px-6">
       <div class="container mx-auto max-w-6xl">
-        <h2 class="text-3xl font-bold text-center mb-8">Simple, Flexible Pricing</h2>
+        <h2 class="text-3xl font-bold text-center mb-8">Free forever, paid plans when you’re ready.</h2>
         <div class="grid sm:grid-cols-3 gap-6 items-stretch">
           <div class="p-6 card flex flex-col">
-            <h3 class="text-xl font-semibold mb-2">Starter</h3>
-            <p class="text-gray-300 mb-4">For solo recruiters</p>
+            <h3 class="text-xl font-semibold mb-2">Starter (Free Forever)</h3>
+            <p class="text-gray-300 mb-4">Free Forever — For solo recruiters</p>
             <ul class="text-gray-300 space-y-2 mb-6 text-sm flex-1">
-              <li>LinkedIn and Apollo Lead Sources</li>
-              <li>Access to Zapier and Make</li>
+              <li>Access LinkedIn + Apollo lead sources</li>
+              <li>Enrich leads and build campaigns</li>
+              <li>Use Zapier, Make, and our Chrome Extension</li>
             </ul>
             <a href="/pricing?select=starter&utm_source=producthunt&utm_medium=landing&utm_campaign=ph_launch" class="btn hover:bg-white/10 mt-auto">Get Started</a>
           </div>
           <div class="p-6 card border-blue-500 flex flex-col">
-            <h3 class="text-xl font-semibold mb-2">Pro and Team</h3>
-            <p class="text-gray-300 mb-4">For teams & agencies</p>
+            <h3 class="text-xl font-semibold mb-2">Pro & Team</h3>
+            <p class="text-gray-300 mb-4">Pro & Team Plans — Scale with your team</p>
             <ul class="text-gray-300 space-y-2 mb-6 text-sm flex-1">
-              <li>Access to REX — your Recruiting AI Assistant</li>
+              <li>Unlock more credits + advanced features</li>
+              <li>Access to REX — your AI recruiting copilot</li>
+              <li>Add teammates, integrate with Slack, and more</li>
             </ul>
             <a href="/pricing?select=pro&utm_source=producthunt&utm_medium=landing&utm_campaign=ph_launch" class="btn hover:bg-white/10 mt-auto">Get Started</a>
           </div>
           <div class="p-6 card flex flex-col">
-            <h3 class="text-xl font-semibold mb-2">DFY</h3>
-            <p class="text-gray-300 mb-4">Let our team run the playbook for you</p>
+            <h3 class="text-xl font-semibold mb-2">Done-For-You Recruiting</h3>
+            <p class="text-gray-300 mb-4">Don’t lift a finger — our team runs the playbook</p>
+            <ul class="text-gray-300 space-y-2 mb-6 text-sm flex-1">
+              <li>Perfect for funded startups, founders, and execs</li>
+              <li>Let us source, message, and book your interviews</li>
+            </ul>
             <a href="/handsfree" class="btn hover:bg-white/10 mt-auto">Contact Us</a>
           </div>
         </div>
@@ -293,11 +300,11 @@ export default function ProductHunt() {
     <!-- Closing CTA -->
     <section class="py-16 px-6 text-center">
       <div class="container mx-auto max-w-4xl">
-        <h2 class="text-5xl font-bold mb-6">Ready to Hire Smarter?</h2>
+        <h2 class="text-5xl font-bold mb-6">Try HirePilot Free — No Credit Card Needed</h2>
         <a id="cta-bottom-start"
            href="/pricing?utm_source=producthunt&utm_medium=landing&utm_campaign=ph_launch"
            class="px-12 py-5 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg text-xl font-semibold hover:opacity-90 transition-opacity shadow-lg">
-          Start Free Trial
+          Get started in 60 seconds. No setup.
         </a>
       </div>
     </section>
@@ -307,51 +314,14 @@ export default function ProductHunt() {
       <div class="container mx-auto max-w-4xl">
         <h2 class="text-3xl font-bold text-center mb-8">FAQ</h2>
         <div class="space-y-4">
-          <details class="p-5 card">
-            <summary class="cursor-pointer font-semibold">Is there a free trial?</summary>
-            <p class="mt-2 text-gray-300">Yes! Every plan starts with a 7-day free trial. You’ll get full access to all features (REX AI, enrichment, campaigns, integrations) with starter credits included so you can see results before committing.</p>
-          </details>
-          <details class="p-5 card">
-            <summary class="cursor-pointer font-semibold">What integrations are supported?</summary>
-            <div class="mt-2 text-gray-300">
-              <p>HirePilot connects with the tools recruiters already use:</p>
-              <ul class="list-disc list-inside space-y-1 mt-2">
-                <li>LinkedIn (Sales Navigator + workflows)</li>
-                <li>Apollo, Hunter.io, Skrapp for enrichment</li>
-                <li>Slack for collaboration + alerts</li>
-                <li>Zapier &amp; Make for automations</li>
-                <li>ATS sync + calendar scheduling</li>
-              </ul>
-              <p class="mt-2">We’re continuously expanding integrations — if you need something specific, let us know.</p>
-            </div>
-          </details>
-          <details class="p-5 card">
-            <summary class="cursor-pointer font-semibold">Can I cancel anytime?</summary>
-            <p class="mt-2 text-gray-300">Absolutely. Plans are month-to-month or annual (with a discount). You can cancel anytime from your dashboard. Your credits and data remain yours — no hidden fees, no lock-in.</p>
-          </details>
-          <details class="p-5 card">
-            <summary class="cursor-pointer font-semibold">Is my data secure?</summary>
-            <p class="mt-2 text-gray-300">Yes. We use industry-standard encryption, role-based permissions, and least-privilege access. HirePilot is built on secure infrastructure (Supabase, Vercel, Railway), and we never sell or share your data. Enterprise clients can request a DPA (Data Processing Agreement).</p>
-          </details>
-          <details class="p-5 card">
-            <summary class="cursor-pointer font-semibold">What counts as a “credit”?</summary>
-            <div class="mt-2 text-gray-300">
-              <p>Credits are used for enrichment, AI analysis, and outreach actions. Example:</p>
-              <ul class="list-disc list-inside space-y-1 mt-2">
-                <li>Enrichment lookup = 1 credits</li>
-                <li>AI profile analysis = 1 credit</li>
-              </ul>
-              <p class="mt-2">Credits roll over as long as your subscription is active, and you can top up anytime.</p>
-            </div>
-          </details>
-          <details class="p-5 card">
-            <summary class="cursor-pointer font-semibold">Do all plans include REX AI?</summary>
-            <p class="mt-2 text-gray-300">Yes! Every plan includes full access to REX — your Recruiting Copilot. REX helps write outreach, analyze candidate profiles, and even trigger automations. The only difference between plans is the number of credits you get each month.</p>
-          </details>
-          <details class="p-5 card">
-            <summary class="cursor-pointer font-semibold">Can HirePilot scale with my team?</summary>
-            <p class="mt-2 text-gray-300">Definitely. Start with Starter or Pro, and upgrade to Team as you scale. Team plans include higher credit volumes and support for multi-role hiring pipelines. Plus, you can invite unlimited collaborators at no extra cost.</p>
-          </details>
+          <details class="p-5 card"><summary class="cursor-pointer font-semibold">Is there a free plan?</summary><p class="mt-2 text-gray-300">Yes — and it’s forever free. You get 50 credits/month to explore lead sourcing, enrichment, and campaign building. No credit card required.</p></details>
+          <details class="p-5 card"><summary class="cursor-pointer font-semibold">What’s included in the free plan?</summary><div class="mt-2 text-gray-300"><p>Everything you need to start hiring:</p><ul class="list-disc list-inside space-y-1 mt-2"><li>LinkedIn + Apollo sourcing</li><li>Email enrichment (credit-based)</li><li>Campaign builder</li><li>Chrome extension</li><li>Zapier &amp; Make integrations</li></ul></div></details>
+          <details class="p-5 card"><summary class="cursor-pointer font-semibold">What counts as a “credit”?</summary><div class="mt-2 text-gray-300"><p>Credits are used for:</p><ul class="list-disc list-inside space-y-1 mt-2"><li>Enriching leads (email, phone, company info)</li><li>Using advanced REX AI features</li><li>Sending LinkedIn connection requests</li><li>Running bulk actions</li></ul></div></details>
+          <details class="p-5 card"><summary class="cursor-pointer font-semibold">What integrations are supported?</summary><div class="mt-2 text-gray-300"><p>HirePilot connects with:</p><ul class="list-disc list-inside space-y-1 mt-2"><li>LinkedIn (via Chrome Extension)</li><li>Apollo</li><li>Zapier</li><li>Make.com</li><li>Slack (Team plans)</li></ul><p class="mt-2">More integrations (like Greenhouse &amp; Lever) are coming soon.</p></div></details>
+          <details class="p-5 card"><summary class="cursor-pointer font-semibold">Can I cancel or downgrade anytime?</summary><p class="mt-2 text-gray-300">Absolutely. Plans are month-to-month. You can cancel or downgrade anytime inside your billing settings.</p></details>
+          <details class="p-5 card"><summary class="cursor-pointer font-semibold">Is my data secure?</summary><p class="mt-2 text-gray-300">Yes — we use encrypted storage, least-privilege access, and secure APIs across the platform. We never share or sell your data.</p></details>
+          <details class="p-5 card"><summary class="cursor-pointer font-semibold">Do all plans include REX AI?</summary><p class="mt-2 text-gray-300">REX is included in all paid plans. Free users can still use REX in a limited way (campaign suggestions, basic chat), but advanced automations require a paid plan.</p></details>
+          <details class="p-5 card"><summary class="cursor-pointer font-semibold">Can HirePilot scale with my team?</summary><p class="mt-2 text-gray-300">Yes! Add teammates, unlock more credits, connect Slack, and run team-wide campaigns with Team or DFY plans.</p></details>
         </div>
       </div>
     </section>
