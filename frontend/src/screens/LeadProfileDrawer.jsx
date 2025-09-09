@@ -1232,6 +1232,19 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       setShowLinkedInModal(false);
       setLinkedInMessage('');
       setSelectedLiTemplateId('');
+
+      // Charge 5 credits and refresh daily count in background
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          await fetch(`${API_BASE_URL}/linkedin/record-connect`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${session.access_token}` }
+          });
+          fetchDailyLinkedInCount();
+          fetchUserCredits();
+        }
+      } catch {}
     } catch (e) {
       showToast('Failed to open LinkedIn profile', 'error');
     }

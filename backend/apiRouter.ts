@@ -45,6 +45,7 @@ import linkedinDailyCount from './api/linkedinDailyCount';
 import puppetLinkedInRequest from './api/linkedin/puppetRequest';
 import playwrightLinkedInRequest from './api/linkedin/playwrightRequest';
 import sendLinkedInConnect from './api/linkedin/sendConnect';
+import recordLinkedInConnect from './api/linkedin/recordConnect';
 import n8nLinkedInConnect from './api/n8n/linkedinConnect';
 import getUserCredits from './api/getUserCredits';
 import creditsPurchase from './api/creditsPurchase';
@@ -125,6 +126,7 @@ router.get('/linkedin/daily-count', requireAuth, linkedinDailyCount);
 // n8n automation endpoints
 router.post('/linkedin/send-connect', requireAuth, sendLinkedInConnect);
 router.post('/n8n/linkedin-connect', n8nLinkedInConnect); // Public webhook for n8n
+router.post('/linkedin/record-connect', requireAuth, recordLinkedInConnect);
 
 // Proxy assignment endpoints
 import { 
