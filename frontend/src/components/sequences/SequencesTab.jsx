@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { usePlan } from '../../context/PlanContext';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 
 const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
 
 export default function SequencesTab({ onEditSequence }) {
   const { isFree } = usePlan();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState([]);
 
@@ -50,7 +52,19 @@ export default function SequencesTab({ onEditSequence }) {
     }
   };
 
-  if (isFree) return null;
+  if (isFree) {
+    return (
+      <div className="p-6 bg-yellow-50 border border-yellow-200 rounded-xl">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-yellow-800">Sequences are a paid feature</h3>
+            <p className="text-sm text-yellow-700">Upgrade your account to create and run tiered templates.</p>
+          </div>
+          <button className="px-4 py-2 bg-blue-600 text-white rounded" onClick={() => navigate('/billing')}>Go to Billing</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4">

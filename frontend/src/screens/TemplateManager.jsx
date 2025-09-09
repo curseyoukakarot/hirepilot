@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { usePlan } from '../context/PlanContext';
+import { useNavigate } from 'react-router-dom';
 import {
   getTemplates,
   saveTemplate,
@@ -11,6 +12,8 @@ import { StarIcon } from '@heroicons/react/solid';
 
 function TemplateManager({ userId }) {
   const { isFree } = usePlan();
+  const navigate = useNavigate();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [templates, setTemplates] = useState([]);
   const [name, setName] = useState('');
   const [content, setContent] = useState('');
@@ -114,14 +117,15 @@ function TemplateManager({ userId }) {
           <div className="flex gap-2">
             <input type="text" placeholder="Search templates..." className="border px-3 py-2 rounded" />
             <button className="border px-3 py-2 rounded">Filter</button>
-            {!isFree && (
-              <button
-                className="bg-blue-600 text-white px-4 py-2 rounded"
-                onClick={() => setShowForm(true)}
-              >
-                + New Template
-              </button>
-            )}
+            <button
+              className={`px-4 py-2 rounded ${isFree ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-blue-600 text-white'}`}
+              onClick={() => {
+                if (isFree) { setShowUpgradeModal(true); return; }
+                setShowForm(true);
+              }}
+            >
+              + New Template
+            </button>
           </div>
         </div>
 
@@ -229,6 +233,20 @@ function TemplateManager({ userId }) {
               <button className="bg-blue-600 text-white px-4 py-2 rounded" onClick={handleSave}>
                 {editingId ? 'Update' : 'Save'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upgrade modal for free users */}
+      {showUpgradeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-lg">
+            <h3 className="text-lg font-semibold mb-2">Premium feature</h3>
+            <p className="text-sm text-gray-600 mb-4">Creating templates and sequences is available on paid plans. Upgrade to unlock.</p>
+            <div className="flex justify-end gap-2">
+              <button className="px-4 py-2 border rounded" onClick={() => setShowUpgradeModal(false)}>Close</button>
+              <button className="px-4 py-2 bg-blue-600 text-white rounded" onClick={() => navigate('/billing')}>Go to Billing</button>
             </div>
           </div>
         </div>
