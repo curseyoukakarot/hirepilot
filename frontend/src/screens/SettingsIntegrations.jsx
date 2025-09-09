@@ -1329,9 +1329,11 @@ export default function SettingsIntegrations() {
         currentApiKey={apolloApiKey}
       />
       {/* Zapier / Make Integration Card - Visible to all users */}
-      <div className="mt-8">
-        <ZapierIntegrationCard user={currentUser} />
-      </div>
+      {!isFree && (
+        <div className="mt-8">
+          <ZapierIntegrationCard user={currentUser} />
+        </div>
+      )}
       {/* REX Slack Integration Card */}
       <div className="mt-8">
         <RexSlackIntegrationCard user={currentUser} />

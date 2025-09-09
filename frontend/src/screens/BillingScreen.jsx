@@ -94,29 +94,43 @@ export default function BillingScreen() {
       setUserRole(role);
       setIsRecruitPro(role === 'RecruitPro');
 
-      // Get credit information
-      const { data: creditData, error: creditError } = await supabase
-        .from('user_credits')
-        .select('total_credits, used_credits, remaining_credits')
-        .eq('user_id', user.id)
-        .single();
+      // Get credit information with backend fallback
+      let total = 0, used = 0, remaining = 0;
+      try {
+        const { data: creditData } = await supabase
+          .from('user_credits')
+          .select('total_credits, used_credits, remaining_credits')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (creditData) {
+          total = Number(creditData.total_credits || 0);
+          used = Number(creditData.used_credits || 0);
+          remaining = Number(creditData.remaining_credits || 0);
+        }
+      } catch {}
 
-      if (creditError) {
-        console.error('Error fetching credits:', creditError);
-        // Fallback to plan/role-based defaults
-        const defaultCredits = getRoleCreditLimit(role);
-        setCreditInfo({
-          totalCredits: defaultCredits,
-          usedCredits: 0,
-          remainingCredits: defaultCredits
-        });
-      } else if (creditData) {
-        setCreditInfo({
-          totalCredits: creditData.total_credits || getRoleCreditLimit(role),
-          usedCredits: creditData.used_credits || 0,
-          remainingCredits: creditData.remaining_credits || getRoleCreditLimit(role)
-        });
+      if (!total && !remaining) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const resp = await fetch(`${BACKEND}/api/credits/status`, {
+            headers: { 'Authorization': `Bearer ${session?.access_token}` },
+            credentials: 'include'
+          });
+          if (resp.ok) {
+            const js = await resp.json();
+            total = Number(js.total_credits || 0);
+            used = Number(js.used_credits || 0);
+            remaining = Number(js.remaining_credits || 0);
+          }
+        } catch {}
       }
+
+      if (!total && !remaining) {
+        const defaultCredits = getRoleCreditLimit(role);
+        total = defaultCredits; remaining = defaultCredits; used = 0;
+      }
+
+      setCreditInfo({ totalCredits: total, usedCredits: used, remainingCredits: remaining });
     } catch (err) {
       console.error('Error fetching user data:', err);
     }
@@ -388,7 +402,7 @@ export default function BillingScreen() {
         </section>
 
         {/* Upgrade Section */}
-        {!currentPlan && (
+        {(isFree || !currentPlan) && (
           <section className="bg-white rounded-xl shadow-sm p-6 mb-8">
             <h2 className="text-xl font-semibold mb-4">Upgrade Plan</h2>
             <p className="text-gray-600 mb-6">Choose a plan and billing cycle. Your data remains intact; premium features unlock immediately after checkout.</p>

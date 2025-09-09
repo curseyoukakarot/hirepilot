@@ -34,6 +34,11 @@ export default function Settings() {
       const { data: { user } } = await supabase.auth.getUser();
       const role = user?.user_metadata?.role || user?.user_metadata?.account_type;
       let filtered = [...baseTabs];
+      // Hide Team Settings for free users
+      if (String(role || '').toLowerCase() === 'free') {
+        filtered = filtered.filter(t => t.id !== 'team');
+        if (activeTab === 'team') setActiveTab('profile');
+      }
       if (role === 'RecruitPro') {
         filtered = filtered.filter(t => t.id !== 'team' && t.id !== 'api');
       }
