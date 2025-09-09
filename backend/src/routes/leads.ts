@@ -43,18 +43,50 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
     }
 
     // Get lead details for the profile URL
-    const { data: lead, error: leadError } = await supabase
-      .from('leads')
-      .select('*')
-      .eq('id', leadId)
-      .eq('user_id', userId)  // Security: ensure user owns this lead
-      .single();
-
-    if (leadError || !lead) {
-      return res.status(404).json({
-        success: false,
-        message: 'Lead not found or access denied'
-      });
+    // Try to find a lead first; if not found, allow enrichment of a candidate by id (compat with candidate view)
+    let entityType: 'lead' | 'candidate' = 'lead';
+    let lead: any = null;
+    {
+      const { data, error } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('id', leadId)
+        .eq('user_id', userId)  // Security: ensure user owns this lead
+        .maybeSingle();
+      lead = data;
+      if (error) {
+        // proceed to candidate lookup
+      }
+    }
+    if (!lead) {
+      const { data: candidate } = await supabase
+        .from('candidates')
+        .select('*')
+        .eq('id', leadId)
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (candidate) {
+        entityType = 'candidate';
+        // Normalize to lead-like shape expected by enrichment pipeline
+        lead = {
+          id: candidate.id,
+          user_id: candidate.user_id,
+          first_name: candidate.first_name,
+          last_name: candidate.last_name,
+          name: `${candidate.first_name || ''} ${candidate.last_name || ''}`.trim(),
+          email: candidate.email || null,
+          phone: candidate.phone || null,
+          title: candidate.title || null,
+          company: candidate.company || null,
+          linkedin_url: candidate.linkedin_url || null,
+          enrichment_data: candidate.enrichment_data || {},
+        };
+      } else {
+        return res.status(404).json({
+          success: false,
+          message: 'Lead not found or access denied'
+        });
+      }
     }
 
     console.log(`[LeadEnrich] Starting enrichment for lead: ${lead.first_name} ${lead.last_name}`);
@@ -263,19 +295,47 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
       updateData.title = headline;
     }
 
-    const { data: updatedLead, error: updateError } = await supabase
-      .from('leads')
-      .update(updateData)
-      .eq('id', leadId)
-      .select()
-      .single();
+    let updatedLead: any = null;
+    if (entityType === 'lead') {
+      const { data, error: updateError } = await supabase
+        .from('leads')
+        .update(updateData)
+        .eq('id', leadId)
+        .select()
+        .maybeSingle();
+      if (updateError) {
+        console.error('[LeadEnrich] Failed to update lead:', updateError);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to save enrichment data'
+        });
+      }
+      updatedLead = data;
+    } else {
+      // Update candidate record when enrichment performed from candidate view
+      const candidateUpdate: any = {
+        enrichment_data: updateData.enrichment_data,
+        updated_at: new Date().toISOString()
+      };
+      if (updateData.email !== undefined) candidateUpdate.email = updateData.email;
+      if (updateData.phone !== undefined) candidateUpdate.phone = updateData.phone;
+      if (updateData.title !== undefined) candidateUpdate.title = updateData.title;
 
-    if (updateError) {
-      console.error('[LeadEnrich] Failed to update lead:', updateError);
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to save enrichment data'
-      });
+      const { data, error: updateError } = await supabase
+        .from('candidates')
+        .update(candidateUpdate)
+        .eq('id', leadId)
+        .eq('user_id', userId)
+        .select('*')
+        .maybeSingle();
+      if (updateError) {
+        console.error('[LeadEnrich] Failed to update candidate:', updateError);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to save enrichment data'
+        });
+      }
+      updatedLead = data;
     }
 
     console.log(`[LeadEnrich] Enrichment completed. Source: ${enrichmentSource}`);
