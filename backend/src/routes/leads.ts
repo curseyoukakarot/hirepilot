@@ -475,7 +475,7 @@ router.post('/candidates', requireAuth, async (req: ApiRequest, res: Response) =
       user_id: userId,
       first_name: first_name || '',
       last_name: last_name || '',
-      email: email || null,
+      email: email ?? '',
       phone: phone || null,
       title: title || null,
       linkedin_url: linkedin_url || null,
