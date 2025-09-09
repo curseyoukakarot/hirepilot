@@ -241,11 +241,8 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     }
   };
 
-  // Helper function to check if user role should see "Coming Soon!" modal
-  const shouldShowComingSoon = () => {
-    const restrictedRoles = ['member', 'admin', 'team_admin', 'RecruitPro'];
-    return restrictedRoles.includes(userRole);
-  };
+  // All roles are allowed to use LinkedIn Request
+  const shouldShowComingSoon = () => false;
 
   // Fetch daily LinkedIn request count
   const fetchDailyLinkedInCount = async () => {
@@ -2576,28 +2573,9 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
         </div>
       )}
 
-      {/* Coming Soon Modal */}
-      {showComingSoonModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg">
-            <div className="text-center">
-              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 mb-4">
-                <i className="fa-brands fa-linkedin text-2xl text-blue-600"></i>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Coming Soon!</h3>
-              <p className="text-gray-600 mb-6">
-                LinkedIn automation features are being enhanced and will be available for your role soon. 
-                Stay tuned for updates!
-              </p>
-              <button
-                onClick={() => setShowComingSoonModal(false)}
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                Got it
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Coming Soon Modal disabled */}
+      {false && showComingSoonModal && (
+        <div />
       )}
 
       {showMetadata && (
