@@ -9,6 +9,7 @@ import { toast } from 'react-hot-toast';
 import { supabase } from '../lib/supabase';
 import { replaceTokens } from '../utils/tokenReplace';
 import SequencesTab from '../components/sequences/SequencesTab';
+import { usePlan } from '../context/PlanContext';
 import SequenceBuilderModal from '../components/sequences/SequenceBuilderModal';
 
 // Backend base URL (same env var used elsewhere)
@@ -26,6 +27,7 @@ const baseFolders = [
 ];
 
 export default function MessagingCenter() {
+  const { isFree } = usePlan();
   const [selectedMessage, setSelectedMessage] = useState(null);
   const [showComposer, setShowComposer] = useState(true);
   const [messageBody, setMessageBody] = useState('');
@@ -1096,8 +1098,8 @@ export default function MessagingCenter() {
                   </button>
                 ) : (
                   <button
-                    onClick={() => { setEditingSequence(null); setShowSequenceBuilder(true); }}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700"
+                    onClick={() => { if (isFree) { window?.alert?.('Tiered Templates are a paid feature. Visit Billing to upgrade.'); return; } setEditingSequence(null); setShowSequenceBuilder(true); }}
+                    className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm ${isFree ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'text-white bg-purple-600 hover:bg-purple-700'}`}
                   >
                     <FaPlus className="mr-2" />
                     New Tiered Template
