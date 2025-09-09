@@ -449,6 +449,59 @@ router.get('/candidates', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
+// POST /api/leads/candidates - create a new candidate for the authenticated user
+router.post('/candidates', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const {
+      first_name,
+      last_name,
+      email,
+      phone,
+      title,
+      linkedin_url,
+      status
+    } = req.body || {};
+
+    const ALLOWED_STATUS = ['sourced','contacted','responded','interviewed','offered','hired','rejected'];
+    const candidateStatus = ALLOWED_STATUS.includes(status) ? status : 'sourced';
+
+    const insertRow: any = {
+      user_id: userId,
+      first_name: first_name || '',
+      last_name: last_name || '',
+      email: email || null,
+      phone: phone || null,
+      title: title || null,
+      linkedin_url: linkedin_url || null,
+      status: candidateStatus,
+      enrichment_data: null,
+      notes: null
+    };
+
+    const { data, error } = await supabase
+      .from('candidates')
+      .insert(insertRow)
+      .select('*')
+      .single();
+
+    if (error) {
+      res.status(500).json({ error: 'Failed to create candidate' });
+      return;
+    }
+
+    res.status(201).json(data);
+  } catch (e) {
+    console.error('Create candidate (leads router) error:', e);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // PUT /api/leads/candidates/:id - update candidate via leads router (for compatibility)
 router.put('/candidates/:id', requireAuth, async (req: ApiRequest, res: Response) => {
   try {
