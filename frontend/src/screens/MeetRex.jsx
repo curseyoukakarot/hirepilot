@@ -4,12 +4,87 @@ import PublicFooter from '../components/PublicFooter';
 
 export default function MeetRex() {
   useEffect(() => {
+    // fade-in observer (unchanged)
     const io = new IntersectionObserver((entries)=>{
       entries.forEach(e=>{ if (e.isIntersecting){ e.target.classList.add('in-view'); io.unobserve(e.target);} });
     },{ threshold:0.15 });
     document.querySelectorAll('.fade-in').forEach(el=>io.observe(el));
-    return () => io.disconnect();
+
+    // --- LeaderLine setup (for animated arrows in "How REX Works") ---
+    const drawLines = () => {
+      const container = document.getElementById('diagram-container');
+      if (!container || !window.LeaderLine) return;
+
+      // clear old lines
+      document.querySelectorAll('.leader-line').forEach(line => line.remove());
+
+      const options = {
+        color: '#60a5fa',
+        size: 3,
+        path: 'grid',
+        startSocket: 'auto',
+        endSocket: 'auto',
+        hide: true
+      };
+
+      const connect = (startId, endId, extra={}) => {
+        const startEl = document.getElementById(startId);
+        const endEl = document.getElementById(endId);
+        if (startEl && endEl) {
+          return new window.LeaderLine(startEl, endEl, { ...options, ...extra });
+        }
+        return null;
+      };
+
+      const lines = [
+        connect('node-job', 'node-agent'),
+        connect('node-agent', 'node-bool'),
+        connect('node-agent', 'node-leads'),
+        connect('node-agent', 'node-msg'),
+        connect('node-agent', 'node-reply', { path: 'arc' }),
+        connect('node-reply', 'node-sync'),
+        connect('node-agent', 'node-sync'),
+        connect('node-agent', 'node-notion', { path: 'arc' }),
+        connect('node-agent', 'node-linkink')
+      ].filter(Boolean);
+
+      // animate draw
+      setTimeout(() => {
+        lines.forEach(line => line && line.show('draw', { duration: 500, timing: 'ease-in-out' }));
+      }, 100);
+    };
+
+    // load LeaderLine from CDN if needed
+    const ensureLeaderLine = () => {
+      if (window.LeaderLine) {
+        drawLines();
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://unpkg.com/leader-line-new@1.1.9/leader-line.min.js';
+      script.async = true;
+      script.onload = drawLines;
+      document.body.appendChild(script);
+    };
+
+    ensureLeaderLine();
+
+    // redraw on resize (throttled)
+    let resizeTimer;
+    const onResize = () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(drawLines, 250);
+    };
+    window.addEventListener('resize', onResize);
+
+    // cleanup
+    return () => {
+      io.disconnect();
+      window.removeEventListener('resize', onResize);
+      document.querySelectorAll('.leader-line').forEach(line => line.remove());
+    };
   }, []);
+
   return (
     <div className="bg-gray-900 text-white font-sans">
       <style>{`
@@ -20,6 +95,7 @@ export default function MeetRex() {
         .gradient-bg{background:linear-gradient(135deg,#3b82f6 0%,#8b5cf6 100%)}
         .gradient-text{background:linear-gradient(135deg,#60a5fa 0%,#a78bfa 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
       `}</style>
+
       {/* Header */}
       <PublicNavbar />
 
@@ -28,10 +104,10 @@ export default function MeetRex() {
         <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
           <div>
             <h1 className="text-3xl sm:text-4xl lg:text-6xl font-bold mb-4 sm:mb-6 leading-tight">
-              Meet REX – Your AI <span className="gradient-text">Recruiting Co-Pilot</span>
+              Meet REX – Your AI <span className="gradient-text">Recruiting Agent</span>
             </h1>
             <p className="text-base sm:text-lg lg:text-xl text-slate-300 mb-6 sm:mb-8 leading-relaxed">
-              Source leads. Enrich data. Send outreach. Book interviews.<br />All inside one smart assistant—powered by your workflow.
+              Source leads. Enrich data. Send outreach. Book interviews.<br />All inside one smart assistant—powered co-pilot by your workflow.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <a href="/pricing" className="gradient-bg px-6 py-3 sm:px-8 sm:py-4 rounded-lg font-semibold text-base sm:text-lg hover:shadow-2xl transition-shadow">Try REX Free</a>
@@ -59,10 +135,67 @@ export default function MeetRex() {
       {/* How It Works */}
       <section id="how-it-works" className="py-20 bg-gray-900 fade-in">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="text-center mb-16">
+          {/* Section header (kept) */}
+          <div className="text-center mb-10">
             <h2 className="text-4xl font-bold text-white mb-4">How REX Works</h2>
             <p className="text-xl text-gray-300">Three simple steps to transform your recruiting workflow</p>
           </div>
+
+          {/* ⬇️ INSERTED: Animated workflow diagram lives INSIDE this section */}
+          <div className="w-full mb-16">
+            <div
+              id="diagram-container"
+              className="relative w-full max-w-6xl mx-auto h-[700px] md:h-[600px] rounded-xl border border-white/10 overflow-hidden"
+              style={{ backgroundImage: 'linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.06) 1px, transparent 1px)', backgroundSize: '30px 30px' }}
+            >
+              {/* Nodes */}
+              <div id="node-job" className="absolute top-[5%] left-[5%] md:left-[12%] w-52 h-24 bg-amber-300/90 text-black rounded-2xl border border-amber-200 flex items-center justify-center text-center p-2 shadow-lg">
+                <p className="text-xl font-bold leading-tight">Job<br/>Description</p>
+              </div>
+
+              <div id="node-bool" className="absolute top-[35%] left-[2%] md:left-[5%] w-56 h-28 bg-gray-800 rounded-2xl border border-white/10 flex items-center justify-center text-center p-3 shadow-lg">
+                <p className="font-semibold text-gray-100">Generates Boolean Strings + Title Combos</p>
+              </div>
+
+              <div id="node-leads" className="absolute top-[58%] left-[2%] md:left-[5%] w-56 h-28 bg-gray-800 rounded-2xl border border-white/10 flex items-center justify-center text-center p-3 shadow-lg">
+                <p className="font-semibold text-gray-100">Finds Leads From Apollo &amp; LinkedIn</p>
+              </div>
+
+              <div id="node-msg" className="absolute top-[81%] left-[2%] md:left-[5%] w-56 h-28 bg-gray-800 rounded-2xl border border-white/10 flex flex-col items-center justify-center text-center p-3 shadow-lg">
+                <p className="font-semibold text-gray-100">Sends Messages</p>
+                <p className="text-xs text-gray-400">(Your templates or ones it writes)</p>
+              </div>
+
+              <div id="node-agent" className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-56 h-24 bg-gray-100 text-gray-900 rounded-2xl border border-white/20 flex items-center justify-center text-center p-2 shadow-xl">
+                <p className="text-2xl font-bold">🤖 REX</p>
+              </div>
+
+              <div id="node-reply" className="absolute top-[15%] right-[5%] md:right-[10%] w-60 h-32 bg-gray-800 rounded-2xl border border-white/10 flex items-center justify-center text-center p-3 shadow-lg">
+                <p className="font-semibold text-gray-100">Categorizes replies &mdash; handles them or hands off</p>
+              </div>
+
+              <div id="node-sync" className="absolute top-[48%] right-[2%] md:right-[5%] w-64 h-40 bg-gray-800 rounded-2xl border border-white/10 flex flex-col items-center justify-center text-center p-4 shadow-lg">
+                <p className="font-semibold text-gray-100 mb-3">Syncs into your workflow</p>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2 opacity-90">
+                  <span className="text-xs text-gray-300">Zapier</span>
+                  <span className="text-xs text-gray-300">Slack</span>
+                  <span className="text-xs text-gray-300">SendGrid</span>
+                  <span className="text-xs text-gray-300">Gmail</span>
+                </div>
+              </div>
+
+              <div id="node-notion" className="absolute bottom-[3%] right-[15%] md:right-[20%] w-24 h-24 bg-gray-800 rounded-2xl border border-white/10 flex items-center justify-center p-2 shadow-lg">
+                <span className="text-sm font-semibold text-white">Notion</span>
+              </div>
+
+              <div id="node-linkink" className="absolute bottom-[0%] left-1/2 -translate-x-1/2 w-48 h-20 flex items-center justify-center">
+                <span className="text-sm text-gray-300">HirePilot / REX</span>
+              </div>
+            </div>
+          </div>
+          {/* ⬆️ END INSERTED DIAGRAM */}
+
+          {/* Your original 3-card grid (unchanged) */}
           <div className="grid lg:grid-cols-3 gap-8">
             {[
               {
@@ -111,7 +244,7 @@ export default function MeetRex() {
             ].map(([icon,title,desc])=> (
               <div key={title} className="bg-gray-800 p-8 rounded-xl border border-gray-700 hover-lift">
                 <div className="w-12 h-12 rounded-lg flex items-center justify-center mb-4 overflow-hidden">
-                  <i className={`fa-${icon === 'fa-slack' ? 'brands' : 'solid'} ${icon} text-white text-3xl`} />
+                  <i className={`${icon === 'fa-slack' ? 'fa-brands' : 'fa-solid'} ${icon} text-white text-3xl`} />
                 </div>
                 <h3 className="text-xl font-bold text-white mb-2">{title}</h3>
                 <p className="text-gray-300">{desc}</p>
@@ -210,7 +343,6 @@ export default function MeetRex() {
       </section>
 
       <PublicFooter />
-
     </div>
   );
-} 
+}

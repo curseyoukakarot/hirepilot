@@ -109,10 +109,62 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
           };
           targetId = candidateByLead.id;
         } else {
-          return res.status(404).json({
-            success: false,
-            message: 'Lead not found or access denied'
-          });
+          // One last permissive check: try resolving by id without user constraint and allow if same team
+          // Try lead first
+          const { data: leadAny } = await supabase
+            .from('leads')
+            .select('*, user_id')
+            .eq('id', leadId)
+            .maybeSingle();
+          if (leadAny) {
+            // Check team membership
+            const { data: me } = await supabase.from('users').select('id, team_id, role').eq('id', userId).maybeSingle();
+            const { data: owner } = await supabase.from('users').select('id, team_id').eq('id', leadAny.user_id).maybeSingle();
+            const sameTeam = (me as any)?.team_id && owner?.team_id && (me as any).team_id === owner.team_id;
+            const privileged = ['team_admin','super_admin','SuperAdmin'].includes(((me as any)?.role)||'');
+            if (sameTeam || privileged) {
+              entityType = 'lead';
+              lead = leadAny;
+              targetId = leadAny.id;
+            }
+          }
+          // If still not resolved, try candidate without user filter
+          if (!lead) {
+            const { data: candAny } = await supabase
+              .from('candidates')
+              .select('*')
+              .or(`id.eq.${leadId},lead_id.eq.${leadId}`)
+              .maybeSingle();
+            if (candAny) {
+              const { data: me } = await supabase.from('users').select('id, team_id, role').eq('id', userId).maybeSingle();
+              const { data: owner } = await supabase.from('users').select('id, team_id').eq('id', candAny.user_id).maybeSingle();
+              const sameTeam = (me as any)?.team_id && owner?.team_id && (me as any).team_id === owner.team_id;
+              const privileged = ['team_admin','super_admin','SuperAdmin'].includes(((me as any)?.role)||'');
+              if (sameTeam || privileged || candAny.user_id === userId) {
+                entityType = 'candidate';
+                lead = {
+                  id: candAny.id,
+                  user_id: candAny.user_id,
+                  first_name: candAny.first_name,
+                  last_name: candAny.last_name,
+                  name: `${candAny.first_name || ''} ${candAny.last_name || ''}`.trim(),
+                  email: candAny.email || null,
+                  phone: candAny.phone || null,
+                  title: candAny.title || null,
+                  company: candAny.company || null,
+                  linkedin_url: candAny.linkedin_url || null,
+                  enrichment_data: candAny.enrichment_data || {},
+                };
+                targetId = candAny.id;
+              }
+            }
+          }
+          if (!lead) {
+            return res.status(404).json({
+              success: false,
+              message: 'Lead not found or access denied'
+            });
+          }
         }
       }
     }

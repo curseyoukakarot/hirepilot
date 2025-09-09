@@ -10,6 +10,30 @@ export default function FreeForever() {
 
       {/* Content wrapper with top padding to clear fixed navbar */}
       <main className="pt-28">
+        {/* === Top CTA (visible on mobile & desktop) === */}
+        <section id="cta-top" className="bg-gradient-to-r from-blue-600 to-purple-600 py-6">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h2 className="text-2xl sm:text-3xl font-bold mb-4">
+              Start Recruiting Smarter — Free Forever
+            </h2>
+            <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4">
+              <a
+                href="/signup?plan=free"
+                className="inline-flex items-center justify-center bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold"
+              >
+                Get Started Free
+              </a>
+              <a
+                href="/pricing"
+                className="inline-flex items-center justify-center bg-white text-blue-700 hover:bg-gray-100 px-6 py-3 rounded-lg font-semibold"
+              >
+                Compare All Plans
+              </a>
+            </div>
+          </div>
+        </section>
+
+        {/* Top utility row (kept) */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
           <div className="flex items-center justify-center md:justify-between gap-4">
             <a href="/pricing" className="inline-flex items-center text-sm text-blue-300 hover:text-white">
@@ -20,14 +44,15 @@ export default function FreeForever() {
             </a>
           </div>
         </div>
+
         {/* Free Plan Section */}
         <section id="free-plan-section" className="bg-gray-900 py-20">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             {/* Header */}
             <div id="section-header" className="text-center mb-16">
-              <h1 className="text-5xl md:text-6xl font-bold text-white mb-6">Hire Smarter — for Free.</h1>
+              <h1 className="text-5xl md:text-6xl font-bold text-white mb-6">Hire Smarter — for Free. Forever.</h1>
               <p className="text-xl text-gray-300 max-w-3xl mx-auto leading-relaxed">
-                our AI Agent, REX, finds the leads, writes the messages, and helps you reach out — all without paying a dime.<br />
+                Our AI Agent, REX, finds the leads, writes the messages, and helps you reach out — all without paying a dime.<br />
                 <span className="font-semibold text-gray-200">No credit card required. No fluff. Just real recruiting power.</span>
               </p>
             </div>
@@ -203,6 +228,32 @@ export default function FreeForever() {
             </div>
           </div>
         </section>
+
+        {/* === Bottom CTA (visible on mobile & desktop) === */}
+        <section id="cta-bottom" className="bg-gradient-to-r from-purple-700 to-blue-700 py-12">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h2 className="text-3xl sm:text-4xl font-bold mb-3">
+              Ready to Try HirePilot Free Forever?
+            </h2>
+            <p className="text-gray-200 mb-6">
+              Sign up today and get 50 free credits every month — no card required.
+            </p>
+            <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4">
+              <a
+                href="/signup?plan=free"
+                className="inline-flex items-center justify-center bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-lg font-semibold text-lg"
+              >
+                Get Started Free
+              </a>
+              <a
+                href="/pricing"
+                className="inline-flex items-center justify-center border-2 border-white/40 text-white hover:bg-white/10 px-8 py-4 rounded-lg font-semibold text-lg"
+              >
+                View Pricing
+              </a>
+            </div>
+          </div>
+        </section>
       </main>
 
       {/* Public Footer */}
@@ -210,5 +261,3 @@ export default function FreeForever() {
     </div>
   );
 }
-
-
