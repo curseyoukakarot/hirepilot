@@ -40,6 +40,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   const [showExtensionWait, setShowExtensionWait] = useState(false);
   const [extensionCountdown, setExtensionCountdown] = useState(10);
   const extensionTimerRef = React.useRef(null);
+  const lastConnectUrlRef = React.useRef('');
   
   // REX Mode state (Prompt 8 enhancement)
   const [rexMode, setRexMode] = useState('manual'); // 'auto' or 'manual'
@@ -1208,7 +1209,9 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       if (message) {
         u.searchParams.set('hp_msg', message);
       }
-      window.open(u.toString(), '_blank');
+      const finalUrl = u.toString();
+      lastConnectUrlRef.current = finalUrl;
+      window.open(finalUrl, '_blank');
       showToast('Opening LinkedIn profile. Chrome Extension will send your request.', 'info');
       // UX: show a 10-second wait banner with countdown and a Retry button
       setShowExtensionWait(true);
@@ -1318,13 +1321,9 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                     <button
                       className="px-3 py-1 text-sm bg-white border border-blue-300 rounded hover:bg-blue-100"
                       onClick={() => {
-                        // Retry by reopening the profile URL with last-used params if available
-                        if (localLead?.linkedin_url) {
-                          try {
-                            const u = new URL(localLead.linkedin_url);
-                            u.searchParams.set('hirepilot_connect', '1');
-                            window.open(u.toString(), '_blank');
-                          } catch {}
+                        // Retry by reopening the last URL with params if available
+                        if (lastConnectUrlRef.current) {
+                          window.open(lastConnectUrlRef.current, '_blank');
                         }
                       }}
                     >
