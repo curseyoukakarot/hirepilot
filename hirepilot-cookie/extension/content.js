@@ -25,55 +25,65 @@ async function hpConnectAndSendDOM(message) {
   const isVisible = (el) => !!(el && el.offsetParent !== null);
 
   // Prefer searching within top card area to avoid sidebar "More profiles" buttons
-  const topCard = document.querySelector('.pv-top-card, .profile-topcard, [data-view-name="profile"]') || document;
+  const topCard = document.querySelector('.pv-top-card, .profile-topcard, [data-view-name="profile"], section.pv-top-card, .pv-top-card-v2-ctas') || document;
+  const waitForVisible = async (selector, timeout = 18000) => new Promise((resolve) => {
+    const start = Date.now();
+    const tick = () => {
+      const el = document.querySelector(selector);
+      if (el && el.offsetParent !== null) return resolve(true);
+      if (Date.now() - start > timeout) return resolve(false);
+      setTimeout(tick, 300);
+    };
+    tick();
+  });
 
   // Avoid duplicate runs
   if (window.__HP_CONNECT_RUNNING__) return { skipped: true, reason: 'Already running' };
   window.__HP_CONNECT_RUNNING__ = true;
 
   try {
+    // Ensure top-card is present before attempting
+    await waitForVisible('.pv-top-card, .profile-topcard, [data-view-name="profile"], section.pv-top-card, .pv-top-card-v2-ctas');
+
     // Detect already connected/pending
     const connected = Array.from(document.querySelectorAll('span,button')).some(n=>/pending|message sent|connected/i.test(n.textContent||''));
     if (connected) return { skipped: true, reason: 'Already pending/connected' };
 
-    // 1) Try direct Connect/Invite buttons (limit to top card region)
-    let target = findClickableByText(topCard, 'button,[role="button"],a', /^(connect|invite)$/i) ||
-                 findClickableByText(topCard, 'button,[role="button"],a', /(connect|invite)/i);
+    let target = null;
+    // Retry attempts to locate Connect
+    for (let attempt = 0; attempt < 8 && !target; attempt++) {
+      target = findClickableByText(topCard, 'button,[role="button"],a', /^(connect|invite)$/i) ||
+               findClickableByText(topCard, 'button,[role="button"],a', /(connect|invite)/i) ||
+               topCard.querySelector('button[aria-label*="Connect" i], a[aria-label*="Connect" i]');
+      if (target) break;
 
-    // 2) If not found, open More menu and pick Connect
-    if (!target) {
       let moreBtn = findClickableByText(topCard, 'button,[role="button"],a', /^more$/i) ||
                     findClickableByText(topCard, 'button,[role="button"],a', /more/i) ||
                     topCard.querySelector('button[aria-label*="More" i]') ||
                     topCard.querySelector('button.artdeco-dropdown__trigger[aria-haspopup="menu"]') ||
                     topCard.querySelector('button[aria-expanded][aria-controls]');
-      if (!moreBtn) return { error: 'Connect button not found (no More menu)' };
-      // Attempt multiple times with jitter for dynamic menus
-      let opened = false;
-      for (let i=0;i<3 && !opened;i++) {
+      if (moreBtn) {
         dispatchClick(moreBtn);
-        await wait(400 + Math.floor(Math.random()*300));
-        const openMenu = Array.from(document.querySelectorAll('div[role="menu"], ul[role="menu"], .artdeco-dropdown__content-inner, .artdeco-dropdown__content')).find(m => (m.offsetParent !== null));
-        if (openMenu) opened = true;
-      }
-      const menus = Array.from(document.querySelectorAll('div[role="menu"], ul[role="menu"], .artdeco-dropdown__content-inner, .artdeco-dropdown__content'));
-      let menu = menus.find(m => (m.offsetParent !== null)) || menus[0] || document;
-      target = findClickableByText(menu, 'div[role="menuitem"],li,button,a,span', /connect|invite/i);
-      // Fallback: pick 5th item as heuristic
-      if (!target) {
-        const items = Array.from(menu.querySelectorAll('div[role="menuitem"], li, button, a')).filter(n => (n.offsetParent !== null));
-        if (items.length >= 5) target = items[4];
+        await wait(500 + Math.floor(Math.random()*300));
+        const menus = Array.from(document.querySelectorAll('div[role="menu"], ul[role="menu"], .artdeco-dropdown__content-inner, .artdeco-dropdown__content'));
+        const menu = menus.find(m => (m.offsetParent !== null)) || menus[0] || document;
+        target = findClickableByText(menu, 'div[role="menuitem"],li,button,a,span', /connect|invite/i);
+        if (!target) {
+          const items = Array.from(menu.querySelectorAll('div[role="menuitem"], li, button, a')).filter(n => (n.offsetParent !== null));
+          if (items.length) target = items.find(el => /connect|invite/i.test((el.textContent||'').trim())) || items[0];
+        }
       }
 
-      // Last-resort brute search across document for any visible "Connect" within top card region
       if (!target) {
         const brute = Array.from(topCard.querySelectorAll('button,a,[role="menuitem"],li,span'))
           .filter(el => isVisible(el) && /connect|invite/i.test((el.textContent||'').trim()))[0];
         if (brute) target = brute.closest('button,a,[role="menuitem"],[role="button"]') || brute;
       }
+
+      if (!target) await wait(700);
     }
 
-    if (!target) return { error: 'Connect button not found' };
+    if (!target) return { error: 'Connect button not found (no More menu)' };
     dispatchClick(target);
     await wait(700);
 
