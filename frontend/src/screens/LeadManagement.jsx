@@ -325,13 +325,23 @@ function LeadManagement() {
 
     try {
       setIsSubmitting(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
       const response = await fetch(`${API_BASE_URL}/leads/${editedLead.id}`, {
         method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
         body: JSON.stringify(editedLead),
         credentials: 'include'
       });
 
       if (!response.ok) {
+        if (response.status === 409) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.message || 'A lead with this email already exists.');
+        }
         const errorData = await response.json().catch(() => ({ message: 'Failed to update lead' }));
         throw new Error(errorData.message || 'Failed to update lead');
       }
