@@ -21,13 +21,22 @@ router.get('/plan', requireAuth, async (req: ApiRequest, res: Response) => {
     if (!data) {
       try {
         const email = (req as any).user?.email || null;
-        const role = (req as any).user?.role || 'free';
+        // Insert minimal columns to avoid schema mismatches across environments
         await supabase
           .from('users')
-          .upsert({ id: userId, email, role, plan: 'free' } as any, { onConflict: 'id' });
-        await supabase
-          .from('user_credits')
-          .upsert({ user_id: userId, total_credits: 50, used_credits: 0, remaining_credits: 50, last_updated: new Date().toISOString() }, { onConflict: 'user_id' });
+          .upsert({ id: userId, email } as any, { onConflict: 'id' });
+        // Seed credits row (idempotent)
+        try {
+          await supabase
+            .from('user_credits')
+            .upsert({
+              user_id: userId,
+              total_credits: 50,
+              used_credits: 0,
+              remaining_credits: 50,
+              last_updated: new Date().toISOString()
+            }, { onConflict: 'user_id' });
+        } catch {}
 
         const reread = await supabase
           .from('users')
