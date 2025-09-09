@@ -85,15 +85,43 @@ async function hpConnectAndSendDOM(message) {
 
     if (!target) return { error: 'Connect button not found (no More menu)' };
     dispatchClick(target);
-    await wait(700);
+    await wait(800);
 
-    // 3) Click Add a note (optional)
-    const addNote = findClickableByText(document, 'button,[role="button"],a,span', /add a note|note/i);
-    if (addNote) { dispatchClick(addNote); await wait(400); }
+    // 3) Ensure we are in the Add-a-note flow
+    const findAddNoteButton = () => {
+      const dlg = document.querySelector('div[role="dialog"], .artdeco-modal') || document;
+      return (
+        findClickableByText(dlg, 'button,[role="button"],a,span', /^add a note$/i) ||
+        findClickableByText(dlg, 'button,[role="button"],a,span', /add a note/i) ||
+        document.querySelector('button[aria-label*="Add a note" i]')
+      );
+    };
 
-    // 4) Fill the note
+    let addNote = findAddNoteButton();
+    if (addNote) { dispatchClick(addNote); await wait(600); }
+
+    // 4) Fill the note (wait adaptively for the textarea to appear)
     const modal = document.querySelector('div[role="dialog"], .artdeco-modal') || document;
-    const inputs = Array.from(modal.querySelectorAll('textarea, div[contenteditable="true"], .msg-form__contenteditable'));
+    const inputSelectors = [
+      'textarea[name="message"]',
+      'textarea#custom-message',
+      'textarea[id*="custom" i]',
+      'textarea[aria-label*="note" i]',
+      '.msg-form__contenteditable',
+      'div[contenteditable="true"]',
+      'textarea'
+    ];
+    let inputs = Array.from(modal.querySelectorAll(inputSelectors.join(', ')));
+    if (!inputs.length) {
+      // If the initial confirmation modal is open, click Add a note again
+      addNote = findAddNoteButton();
+      if (addNote) { dispatchClick(addNote); await wait(800); }
+      // Retry to locate inputs with a short wait loop
+      for (let i=0; i<8 && !inputs.length; i++) {
+        await wait(300);
+        inputs = Array.from((document.querySelector('div[role="dialog"], .artdeco-modal')||document).querySelectorAll(inputSelectors.join(', ')));
+      }
+    }
     if (!inputs.length) return { error: 'Could not find message input' };
     const input = inputs[0];
     const max = Number(input.getAttribute('maxlength') || 300);
@@ -105,7 +133,8 @@ async function hpConnectAndSendDOM(message) {
     // 5) Click Send
     const sendBtn = findClickableByText(modal, 'button,[role="button"],a,span', /^send$/i) ||
                     findClickableByText(modal, 'button,[role="button"],a,span', /send/i) ||
-                    modal.querySelector('button[aria-label*="Send" i]');
+                    modal.querySelector('button[aria-label*="Send" i]') ||
+                    modal.querySelector('button.artdeco-button--primary');
     if (!sendBtn) return { error: 'Send button not found' };
     dispatchClick(sendBtn);
     await wait(600);
