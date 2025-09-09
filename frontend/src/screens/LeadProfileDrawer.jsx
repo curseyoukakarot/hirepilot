@@ -35,6 +35,11 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   // LinkedIn templates state
   const [liTemplates, setLiTemplates] = useState([]);
   const [selectedLiTemplateId, setSelectedLiTemplateId] = useState('');
+
+  // Extension wait notice state
+  const [showExtensionWait, setShowExtensionWait] = useState(false);
+  const [extensionCountdown, setExtensionCountdown] = useState(10);
+  const extensionTimerRef = React.useRef(null);
   
   // REX Mode state (Prompt 8 enhancement)
   const [rexMode, setRexMode] = useState('manual'); // 'auto' or 'manual'
@@ -1205,6 +1210,22 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       }
       window.open(u.toString(), '_blank');
       showToast('Opening LinkedIn profile. Chrome Extension will send your request.', 'info');
+      // UX: show a 10-second wait banner with countdown and a Retry button
+      setShowExtensionWait(true);
+      setExtensionCountdown(10);
+      if (extensionTimerRef.current) {
+        clearInterval(extensionTimerRef.current);
+      }
+      extensionTimerRef.current = setInterval(() => {
+        setExtensionCountdown(prev => {
+          if (prev <= 1) {
+            clearInterval(extensionTimerRef.current);
+            extensionTimerRef.current = null;
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
       setShowLinkedInModal(false);
       setLinkedInMessage('');
       setSelectedLiTemplateId('');
@@ -1284,6 +1305,46 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto">
+              {/* Extension wait banner */}
+              {showExtensionWait && (
+                <div className="px-6 py-3 bg-blue-50 border-b border-blue-200 flex items-center justify-between">
+                  <div className="flex items-center gap-3 text-blue-800">
+                    <svg className="animate-spin h-4 w-4 text-blue-500" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+                    <span>
+                      Opening LinkedIn... Extension will auto-connect in ~5-10s. Keep the tab open. {extensionCountdown ? `(~${extensionCountdown}s)` : ''}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      className="px-3 py-1 text-sm bg-white border border-blue-300 rounded hover:bg-blue-100"
+                      onClick={() => {
+                        // Retry by reopening the profile URL with last-used params if available
+                        if (localLead?.linkedin_url) {
+                          try {
+                            const u = new URL(localLead.linkedin_url);
+                            u.searchParams.set('hirepilot_connect', '1');
+                            window.open(u.toString(), '_blank');
+                          } catch {}
+                        }
+                      }}
+                    >
+                      Retry
+                    </button>
+                    <button
+                      className="px-3 py-1 text-sm text-blue-700 hover:text-blue-900"
+                      onClick={() => {
+                        setShowExtensionWait(false);
+                        if (extensionTimerRef.current) {
+                          clearInterval(extensionTimerRef.current);
+                          extensionTimerRef.current = null;
+                        }
+                      }}
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              )}
               {/* LinkedIn Limit Warning */}
               {dailyLinkedInCount >= 18 && (
                 <div className="px-6 py-3 bg-yellow-50 border-b border-yellow-200">
