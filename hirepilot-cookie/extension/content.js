@@ -22,6 +22,10 @@ async function hpConnectAndSendDOM(message) {
     if (!el) return null;
     return el.closest('button, a, [role="menuitem"], [role="button"]') || el;
   };
+  const isVisible = (el) => !!(el && el.offsetParent !== null);
+
+  // Prefer searching within top card area to avoid sidebar "More profiles" buttons
+  const topCard = document.querySelector('.pv-top-card, .profile-topcard, [data-view-name="profile"]') || document;
 
   // Avoid duplicate runs
   if (window.__HP_CONNECT_RUNNING__) return { skipped: true, reason: 'Already running' };
@@ -32,15 +36,17 @@ async function hpConnectAndSendDOM(message) {
     const connected = Array.from(document.querySelectorAll('span,button')).some(n=>/pending|message sent|connected/i.test(n.textContent||''));
     if (connected) return { skipped: true, reason: 'Already pending/connected' };
 
-    // 1) Try direct Connect/Invite buttons
-    let target = findClickableByText(document, 'button,[role="button"],a', /^(connect|invite)$/i) ||
-                 findClickableByText(document, 'button,[role="button"],a', /(connect|invite)/i);
+    // 1) Try direct Connect/Invite buttons (limit to top card region)
+    let target = findClickableByText(topCard, 'button,[role="button"],a', /^(connect|invite)$/i) ||
+                 findClickableByText(topCard, 'button,[role="button"],a', /(connect|invite)/i);
 
     // 2) If not found, open More menu and pick Connect
     if (!target) {
-      const moreBtn = findClickableByText(document, 'button,[role="button"],a', /^more$/i) ||
-                      findClickableByText(document, 'button,[role="button"],a', /more/i) ||
-                      document.querySelector('button[aria-label*="More" i]');
+      let moreBtn = findClickableByText(topCard, 'button,[role="button"],a', /^more$/i) ||
+                    findClickableByText(topCard, 'button,[role="button"],a', /more/i) ||
+                    topCard.querySelector('button[aria-label*="More" i]') ||
+                    topCard.querySelector('button.artdeco-dropdown__trigger[aria-haspopup="menu"]') ||
+                    topCard.querySelector('button[aria-expanded][aria-controls]');
       if (!moreBtn) return { error: 'Connect button not found (no More menu)' };
       // Attempt multiple times with jitter for dynamic menus
       let opened = false;
@@ -58,6 +64,13 @@ async function hpConnectAndSendDOM(message) {
         const items = Array.from(menu.querySelectorAll('div[role="menuitem"], li, button, a')).filter(n => (n.offsetParent !== null));
         if (items.length >= 5) target = items[4];
       }
+
+      // Last-resort brute search across document for any visible "Connect" within top card region
+      if (!target) {
+        const brute = Array.from(topCard.querySelectorAll('button,a,[role="menuitem"],li,span'))
+          .filter(el => isVisible(el) && /connect|invite/i.test((el.textContent||'').trim()))[0];
+        if (brute) target = brute.closest('button,a,[role="menuitem"],[role="button"]') || brute;
+      }
     }
 
     if (!target) return { error: 'Connect button not found' };
@@ -65,12 +78,12 @@ async function hpConnectAndSendDOM(message) {
     await wait(700);
 
     // 3) Click Add a note (optional)
-    const addNote = findClickableByText(document, 'button,[role="button"],a,span', /add a note/i);
+    const addNote = findClickableByText(document, 'button,[role="button"],a,span', /add a note|note/i);
     if (addNote) { dispatchClick(addNote); await wait(400); }
 
     // 4) Fill the note
     const modal = document.querySelector('div[role="dialog"], .artdeco-modal') || document;
-    const inputs = Array.from(modal.querySelectorAll('textarea, div[contenteditable="true"]'));
+    const inputs = Array.from(modal.querySelectorAll('textarea, div[contenteditable="true"], .msg-form__contenteditable'));
     if (!inputs.length) return { error: 'Could not find message input' };
     const input = inputs[0];
     const max = Number(input.getAttribute('maxlength') || 300);
@@ -81,7 +94,8 @@ async function hpConnectAndSendDOM(message) {
 
     // 5) Click Send
     const sendBtn = findClickableByText(modal, 'button,[role="button"],a,span', /^send$/i) ||
-                    findClickableByText(modal, 'button,[role="button"],a,span', /send/i);
+                    findClickableByText(modal, 'button,[role="button"],a,span', /send/i) ||
+                    modal.querySelector('button[aria-label*="Send" i]');
     if (!sendBtn) return { error: 'Send button not found' };
     dispatchClick(sendBtn);
     await wait(600);
