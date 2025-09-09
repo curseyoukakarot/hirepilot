@@ -369,14 +369,7 @@ export default function RexChatBox() {
 
   if (eligible === null) return null; // still loading
 
-  if (!eligible) {
-    return (
-      <div className="border rounded-lg p-4 bg-gray-50 text-gray-700">
-        REX is only available on the <span className="font-semibold">$499/month Team</span> plan or
-        RecruitPro program. Upgrade to unlock access.
-      </div>
-    );
-  }
+  // Always allow access; prior gating removed
 
   return (
     <div className="h-full bg-gray-900 text-white font-inter flex">

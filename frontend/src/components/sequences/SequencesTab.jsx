@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
+import { usePlan } from '../../context/PlanContext';
 import { supabase } from '../../lib/supabase';
 
 const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
 
 export default function SequencesTab({ onEditSequence }) {
+  const { isFree } = usePlan();
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState([]);
 
@@ -47,6 +49,8 @@ export default function SequencesTab({ onEditSequence }) {
                   try { (await import('react-hot-toast')).toast.error(e.message || 'Failed'); } catch { /* no-op */ }
     }
   };
+
+  if (isFree) return null;
 
   return (
     <div className="p-4">

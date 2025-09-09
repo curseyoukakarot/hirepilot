@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { usePlan } from '../context/PlanContext';
 import LeadsTableSkeleton from '../components/leads/LeadsTableSkeleton';
 import { useSearchParams } from 'react-router-dom';
 import LeadProfileDrawer from './LeadProfileDrawer';
@@ -23,6 +24,7 @@ const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
 const getAvatarUrl = (name) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
 
 function LeadManagement() {
+  const { isFree } = usePlan();
   const [searchParams, setSearchParams] = useSearchParams();
   const [leads, setLeads] = useState([]);
   const [selectedLead, setSelectedLead] = useState(null);
@@ -1317,6 +1319,7 @@ function LeadManagement() {
           >
             <FaLinkIcon /> Attach to Campaign
           </button>
+          {!isFree && (
           <button
             className={`border px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-purple-50 text-purple-700 border-purple-500 disabled:opacity-50 ${selectedLeadIds.length === 0 ? 'cursor-not-allowed' : 'cursor-pointer'}`}
             disabled={selectedLeadIds.length === 0}
@@ -1324,6 +1327,7 @@ function LeadManagement() {
           >
             Tiered Template
           </button>
+          )}
           <button
             className={`border px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-50 text-blue-700 border-blue-500 disabled:opacity-50 ${selectedLeadIds.length < 2 ? 'cursor-not-allowed' : 'cursor-pointer'}`}
             disabled={selectedLeadIds.length < 2}

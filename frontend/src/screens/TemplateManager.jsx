@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { usePlan } from '../context/PlanContext';
 import {
   getTemplates,
   saveTemplate,
@@ -9,6 +10,7 @@ import toast from 'react-hot-toast';
 import { StarIcon } from '@heroicons/react/solid';
 
 function TemplateManager({ userId }) {
+  const { isFree } = usePlan();
   const [templates, setTemplates] = useState([]);
   const [name, setName] = useState('');
   const [content, setContent] = useState('');
@@ -112,12 +114,14 @@ function TemplateManager({ userId }) {
           <div className="flex gap-2">
             <input type="text" placeholder="Search templates..." className="border px-3 py-2 rounded" />
             <button className="border px-3 py-2 rounded">Filter</button>
-            <button
-              className="bg-blue-600 text-white px-4 py-2 rounded"
-              onClick={() => setShowForm(true)}
-            >
-              + New Template
-            </button>
+            {!isFree && (
+              <button
+                className="bg-blue-600 text-white px-4 py-2 rounded"
+                onClick={() => setShowForm(true)}
+              >
+                + New Template
+              </button>
+            )}
           </div>
         </div>
 
