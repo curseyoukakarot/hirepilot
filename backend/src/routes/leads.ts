@@ -480,7 +480,7 @@ router.post('/candidates', requireAuth, async (req: ApiRequest, res: Response) =
       title: title || null,
       linkedin_url: linkedin_url || null,
       status: candidateStatus,
-      enrichment_data: null,
+      enrichment_data: {},
       notes: null
     };
 
@@ -491,7 +491,7 @@ router.post('/candidates', requireAuth, async (req: ApiRequest, res: Response) =
       .single();
 
     if (error) {
-      res.status(500).json({ error: 'Failed to create candidate' });
+      res.status(500).json({ error: 'Failed to create candidate', details: error?.message || String(error) });
       return;
     }
 
