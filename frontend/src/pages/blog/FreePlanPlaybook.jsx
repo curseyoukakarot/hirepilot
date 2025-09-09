@@ -103,7 +103,7 @@ export default function FreePlanPlaybook() {
             <h3>2️⃣ Build 3 Campaigns</h3>
             <table className="min-w-full border border-gray-700">
               <thead>
-                <tr className="bg-gray-800">
+                <tr className="bg-gray-800 force-white">
                   <th className="p-3 text-left">Campaign</th>
                   <th className="p-3 text-left">Target</th>
                   <th className="p-3 text-left">Purpose</th>
@@ -135,7 +135,7 @@ export default function FreePlanPlaybook() {
             <p>Combine HirePilot’s free tools with this recommended stack:</p>
             <table className="min-w-full border border-gray-700">
               <thead>
-                <tr className="bg-gray-800">
+                <tr className="bg-gray-800 force-white">
                   <th className="p-3 text-left">Tool</th>
                   <th className="p-3 text-left">Use</th>
                   <th className="p-3 text-left">Free?</th>
