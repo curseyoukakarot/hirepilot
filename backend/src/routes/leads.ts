@@ -528,6 +528,26 @@ router.post('/candidates', requireAuth, async (req: ApiRequest, res: Response) =
       status
     } = req.body || {};
 
+    // If no email is provided, generate a unique placeholder to satisfy NOT NULL + UNIQUE(email)
+    // Format: unknown+<userprefix>+<timestamp>@noemail.hirepilot
+    const providedEmail: string | undefined = typeof email === 'string' ? email.trim() : undefined;
+    const safeEmail = providedEmail && providedEmail.length > 0
+      ? providedEmail
+      : `unknown+${(userId || '').slice(0,8)}+${Date.now()}@noemail.hirepilot`;
+
+    // If a real email is provided, proactively check for duplicates to return a clear message
+    if (providedEmail) {
+      const { data: existingAny } = await supabase
+        .from('candidates')
+        .select('id,user_id')
+        .eq('email', providedEmail)
+        .maybeSingle();
+      if (existingAny) {
+        res.status(409).json({ error: 'candidate_email_exists', message: 'A candidate with this email already exists.' });
+        return;
+      }
+    }
+
     const ALLOWED_STATUS = ['sourced','contacted','responded','interviewed','offered','hired','rejected'];
     const candidateStatus = ALLOWED_STATUS.includes(status) ? status : 'sourced';
 
@@ -535,7 +555,7 @@ router.post('/candidates', requireAuth, async (req: ApiRequest, res: Response) =
       user_id: userId,
       first_name: first_name || '',
       last_name: last_name || '',
-      email: email ?? '',
+      email: safeEmail,
       phone: phone || null,
       title: title || null,
       linkedin_url: linkedin_url || null,
@@ -551,7 +571,12 @@ router.post('/candidates', requireAuth, async (req: ApiRequest, res: Response) =
       .single();
 
     if (error) {
-      res.status(500).json({ error: 'Failed to create candidate', details: error?.message || String(error) });
+      // Handle duplicate key conflicts clearly
+      if ((error as any)?.code === '23505') {
+        res.status(409).json({ error: 'candidate_email_exists', message: 'A candidate with this email already exists.' });
+        return;
+      }
+      res.status(500).json({ error: 'Failed to create candidate', details: (error as any)?.message || String(error) });
       return;
     }
 
