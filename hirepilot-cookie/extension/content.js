@@ -9,6 +9,90 @@ if (window.top !== window) {
 }
 
 // Listen for messages from popup/background
+// Shared DOM-based connect flow (no background dependency)
+async function hpConnectAndSendDOM(message) {
+  const wait = (ms) => new Promise(r=>setTimeout(r, ms));
+  const dispatchClick = (el) => { try { el && el.dispatchEvent(new MouseEvent('click', { bubbles:true, cancelable:true, view:window })); el?.click?.(); return !!el; } catch { return false; } };
+  const findByText = (root, selector, regex) => {
+    const nodes = Array.from((root || document).querySelectorAll(selector));
+    return nodes.find(n => regex.test((n.textContent || '').trim())) || null;
+  };
+  const findClickableByText = (root, selector, regex) => {
+    const el = findByText(root, selector, regex);
+    if (!el) return null;
+    return el.closest('button, a, [role="menuitem"], [role="button"]') || el;
+  };
+
+  // Avoid duplicate runs
+  if (window.__HP_CONNECT_RUNNING__) return { skipped: true, reason: 'Already running' };
+  window.__HP_CONNECT_RUNNING__ = true;
+
+  try {
+    // Detect already connected/pending
+    const connected = Array.from(document.querySelectorAll('span,button')).some(n=>/pending|message sent|connected/i.test(n.textContent||''));
+    if (connected) return { skipped: true, reason: 'Already pending/connected' };
+
+    // 1) Try direct Connect/Invite buttons
+    let target = findClickableByText(document, 'button,[role="button"],a', /^(connect|invite)$/i) ||
+                 findClickableByText(document, 'button,[role="button"],a', /(connect|invite)/i);
+
+    // 2) If not found, open More menu and pick Connect
+    if (!target) {
+      const moreBtn = findClickableByText(document, 'button,[role="button"],a', /^more$/i) ||
+                      findClickableByText(document, 'button,[role="button"],a', /more/i) ||
+                      document.querySelector('button[aria-label*="More" i]');
+      if (!moreBtn) return { error: 'Connect button not found (no More menu)' };
+      // Attempt multiple times with jitter for dynamic menus
+      let opened = false;
+      for (let i=0;i<3 && !opened;i++) {
+        dispatchClick(moreBtn);
+        await wait(400 + Math.floor(Math.random()*300));
+        const openMenu = Array.from(document.querySelectorAll('div[role="menu"], ul[role="menu"], .artdeco-dropdown__content-inner, .artdeco-dropdown__content')).find(m => (m.offsetParent !== null));
+        if (openMenu) opened = true;
+      }
+      const menus = Array.from(document.querySelectorAll('div[role="menu"], ul[role="menu"], .artdeco-dropdown__content-inner, .artdeco-dropdown__content'));
+      let menu = menus.find(m => (m.offsetParent !== null)) || menus[0] || document;
+      target = findClickableByText(menu, 'div[role="menuitem"],li,button,a,span', /connect|invite/i);
+      // Fallback: pick 5th item as heuristic
+      if (!target) {
+        const items = Array.from(menu.querySelectorAll('div[role="menuitem"], li, button, a')).filter(n => (n.offsetParent !== null));
+        if (items.length >= 5) target = items[4];
+      }
+    }
+
+    if (!target) return { error: 'Connect button not found' };
+    dispatchClick(target);
+    await wait(700);
+
+    // 3) Click Add a note (optional)
+    const addNote = findClickableByText(document, 'button,[role="button"],a,span', /add a note/i);
+    if (addNote) { dispatchClick(addNote); await wait(400); }
+
+    // 4) Fill the note
+    const modal = document.querySelector('div[role="dialog"], .artdeco-modal') || document;
+    const inputs = Array.from(modal.querySelectorAll('textarea, div[contenteditable="true"]'));
+    if (!inputs.length) return { error: 'Could not find message input' };
+    const input = inputs[0];
+    const max = Number(input.getAttribute('maxlength') || 300);
+    const text = (message || '').slice(0, max);
+    if (input.tagName.toLowerCase() === 'textarea') { input.value = text; } else { input.textContent = text; }
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await wait(300);
+
+    // 5) Click Send
+    const sendBtn = findClickableByText(modal, 'button,[role="button"],a,span', /^send$/i) ||
+                    findClickableByText(modal, 'button,[role="button"],a,span', /send/i);
+    if (!sendBtn) return { error: 'Send button not found' };
+    dispatchClick(sendBtn);
+    await wait(600);
+    return { ok: true };
+  } catch (e) {
+    return { error: e?.message || 'Failed to connect and send' };
+  } finally {
+    window.__HP_CONNECT_RUNNING__ = false;
+  }
+}
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   console.log('[HirePilot Extension] Received message:', msg);
   if (msg.action === 'ping') {
@@ -128,92 +212,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   if (msg.action === 'connectAndSend') {
     (async () => {
-      try {
-        const { message } = msg;
-        const wait = (ms) => new Promise(r=>setTimeout(r, ms));
-
-        const dispatchClick = (el) => {
-          if (!el) return false;
-          try {
-            el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
-            if (typeof el.click === 'function') el.click();
-            return true;
-          } catch { return false; }
-        };
-
-        const findByText = (root, selector, regex) => {
-          const nodes = Array.from((root || document).querySelectorAll(selector));
-          return nodes.find(n => regex.test((n.textContent || '').trim())) || null;
-        };
-
-        const findClickableByText = (root, selector, regex) => {
-          const el = findByText(root, selector, regex);
-          if (!el) return null;
-          // Click the nearest clickable ancestor (button, a, [role="menuitem"], [role="button"])
-          const clickable = el.closest('button, a, [role="menuitem"], [role="button"]') || el;
-          return clickable;
-        };
-
-        // Detect already connected/pending
-        const connected = Array.from(document.querySelectorAll('span,button')).some(n=>/pending|message sent|connected/i.test(n.textContent||''));
-        if (connected) return sendResponse({ skipped: true, reason: 'Already pending/connected' });
-
-        // 1) Try direct Connect/Invite buttons
-        let target = findClickableByText(document, 'button,[role="button"],a', /^(connect|invite)$/i) ||
-                     findClickableByText(document, 'button,[role="button"],a', /(connect|invite)/i);
-
-        // 2) If not found, open More menu and pick Connect
-        if (!target) {
-          const moreBtn = findClickableByText(document, 'button,[role="button"],a', /^more$/i) ||
-                          findClickableByText(document, 'button,[role="button"],a', /more/i) ||
-                          document.querySelector('button[aria-label*="More" i]');
-          if (!moreBtn) return sendResponse({ error: 'Connect button not found (no More menu)' });
-          dispatchClick(moreBtn);
-          await wait(500);
-
-          // Find menu container
-          const menus = Array.from(document.querySelectorAll('div[role="menu"], ul[role="menu"], .artdeco-dropdown__content-inner, .artdeco-dropdown__content'));
-          let menu = menus.find(m => (m.offsetParent !== null)) || menus[0] || document;
-
-          // Try text match first
-          target = findClickableByText(menu, 'div[role="menuitem"],li,button,a,span', /connect|invite/i);
-
-          // Fallback: pick 5th item in the menu (0-index 4)
-          if (!target) {
-            const items = Array.from(menu.querySelectorAll('div[role="menuitem"], li, button, a')).filter(n => (n.offsetParent !== null));
-            if (items.length >= 5) target = items[4];
-          }
-        }
-
-        if (!target) return sendResponse({ error: 'Connect button not found' });
-        dispatchClick(target);
-        await wait(700);
-
-        // 3) Click Add a note (optional)
-        const addNote = findClickableByText(document, 'button,[role="button"],a,span', /add a note/i);
-        if (addNote) { dispatchClick(addNote); await wait(400); }
-
-        // 4) Fill the note
-        const modal = document.querySelector('div[role="dialog"], .artdeco-modal') || document;
-        const inputs = Array.from(modal.querySelectorAll('textarea, div[contenteditable="true"]'));
-        if (!inputs.length) return sendResponse({ error: 'Could not find message input' });
-        const input = inputs[0];
-        const max = Number(input.getAttribute('maxlength') || 300);
-        const text = (message || '').slice(0, max);
-        if (input.tagName.toLowerCase() === 'textarea') { input.value = text; } else { input.textContent = text; }
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-        await wait(300);
-
-        // 5) Click Send
-        const sendBtn = findClickableByText(modal, 'button,[role="button"],a,span', /^send$/i) ||
-                        findClickableByText(modal, 'button,[role="button"],a,span', /send/i);
-        if (!sendBtn) return sendResponse({ error: 'Send button not found' });
-        dispatchClick(sendBtn);
-        await wait(600);
-        sendResponse({ ok: true });
-      } catch (e) {
-        sendResponse({ error: e.message || 'Failed to connect and send' });
-      }
+      const result = await hpConnectAndSendDOM(msg.message || '');
+      sendResponse(result);
     })();
     return true;
   }
@@ -410,19 +410,15 @@ if (window.top === window) {
         }
 
         // If background dispatched a page event, also listen here (defensive)
-        window.addEventListener('hirepilot:auto-connect-start', (e) => {
+        window.addEventListener('hirepilot:auto-connect-start', async (e) => {
           const m = (e && e.detail && e.detail.message) || message || '';
-          chrome.runtime.sendMessage({ action: 'connectAndSend', message: m }, ()=>{});
+          const resp = await hpConnectAndSendDOM(m);
+          console.log('[HirePilot Extension] (event) connect result:', resp);
         }, { once: true });
 
-        // Proactively trigger connect if message param available
-        chrome.runtime.sendMessage({ action: 'connectAndSend', message }, (resp) => {
-          if (chrome.runtime.lastError) {
-            console.warn('[HirePilot Extension] connectAndSend error:', chrome.runtime.lastError.message);
-          } else {
-            console.log('[HirePilot Extension] connectAndSend resp:', resp);
-          }
-        });
+        // Proactively trigger connect entirely in content (no background dependency)
+        const resp = await hpConnectAndSendDOM(message);
+        console.log('[HirePilot Extension] (auto) connect result:', resp);
       }
     } catch (e) {
       console.warn('[HirePilot Extension] Auto-connect error:', e?.message);
