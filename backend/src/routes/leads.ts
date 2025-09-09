@@ -1534,14 +1534,20 @@ export const updateLead = async (req: ApiRequest, res: Response) => {
       return;
     }
 
-    // Update the lead
-    const { data, error } = await supabase
+    // Update the lead, handling unique email conflicts gracefully
+    let { data, error } = await supabase
       .from('leads')
       .update(req.body)
       .eq('id', id)
       .eq('user_id', req.user.id)
       .select()
-      .single();
+      .maybeSingle();
+
+    if (error && (error as any)?.code === '23505' && req.body?.email) {
+      // If the email conflicts, return a clear 409 for the frontend to display
+      res.status(409).json({ error: 'lead_email_exists', message: 'A lead with this email already exists.' });
+      return;
+    }
 
     if (error) {
       res.status(500).json({ error: error.message });
@@ -1667,8 +1673,9 @@ export const getLeadById = async (req: ApiRequest, res: Response) => {
   }
 };
 
-// Add PATCH route for lead updates
+// Add PATCH/PUT routes for lead updates (compat with frontend)
 router.patch('/:id', requireAuth, updateLead);
+router.put('/:id', requireAuth, updateLead);
 // Add DELETE route for single-lead deletion
 router.delete('/:id', requireAuth, deleteLead);
 
