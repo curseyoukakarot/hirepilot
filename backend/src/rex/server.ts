@@ -1306,22 +1306,28 @@ server.connect(new StdioServerTransport());
 console.log('✅ REX MCP server running on stdio');
 
 async function assertPremium(userId: string) {
-  // Allow based on either role OR explicit rex integration flag
+  // Determine role and plan from public.users
   let role = '';
+  let plan: string | null = null;
   try {
-    const { data } = await supabase.from('users').select('role').eq('id', userId).maybeSingle();
+    const { data } = await supabase
+      .from('users')
+      .select('role, plan')
+      .eq('id', userId)
+      .maybeSingle();
     role = data?.role || '';
+    plan = (data as any)?.plan ?? null;
   } catch (e) {
-    // Non-fatal; continue to integration check
+    // Non-fatal; continue to integration/subscription checks
   }
 
-  // Normalize and check broad set of allowed roles (case-insensitive)
+  // Normalize role and enforce premium-only roles (exclude generic "member"/"user")
   const roleLc = String(role || '').toLowerCase();
   const allowedRoles = new Set([
-    'recruitpro', 'recruiter', 'teamadmin', 'team_admin', 'superadmin', 'super_admin', 'admin', 'member', 'user'
+    'recruitpro', 'recruiter', 'teamadmin', 'team_admin', 'superadmin', 'super_admin', 'admin'
   ]);
 
-  // Check rex integration flag as source of truth
+  // Check rex integration flag as a separate gate
   let rexEnabled = false;
   try {
     const { data: integ } = await supabase
@@ -1333,9 +1339,19 @@ async function assertPremium(userId: string) {
     rexEnabled = ['enabled','connected','on','true'].includes(String(integ?.status || '').toLowerCase());
   } catch {}
 
-  // Free plan users are not premium; allow only viewing credits/tooling not execution
-  const { data: sub } = await supabase.from('subscriptions').select('plan_tier').eq('user_id', userId).maybeSingle();
-  const isFree = String(sub?.plan_tier || '').toLowerCase() === 'free';
+  // Block free users: prefer public.users.plan; fallback to subscriptions
+  const normalizedPlan = String(plan || '').toLowerCase();
+  let isFree = normalizedPlan === 'free' || normalizedPlan === '';
+  if (!isFree) {
+    const { data: sub } = await supabase
+      .from('subscriptions')
+      .select('plan_tier')
+      .eq('user_id', userId)
+      .maybeSingle();
+    const subTier = String(sub?.plan_tier || '').toLowerCase();
+    // Treat missing subscription or explicit free tier as free
+    if (!subTier || subTier === 'free') isFree = true;
+  }
   if (isFree) throw new Error('REX access restricted to paid plans.');
 
   if (!(rexEnabled || allowedRoles.has(roleLc))) {

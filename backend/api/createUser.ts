@@ -1,7 +1,7 @@
 // backend/api/createUser.ts
 
 import { Request, Response } from 'express';
-import { supabase } from '../lib/supabase';
+import { supabaseDb } from '../lib/supabase';
 
 export default async function createUser(req: Request, res: Response) {
   if (req.method !== 'POST') {
@@ -17,27 +17,43 @@ export default async function createUser(req: Request, res: Response) {
   }
 
   try {
-    // Default free plan assignment if no paid plan provided or plan=free
-    const assignedPlan = (plan === 'free' || !plan) ? 'free' : plan;
-    const giveFreeCredits = assignedPlan === 'free' ? 50 : 0;
-
-    const { data, error } = await supabase
+    // Minimal users row so Admin can see the user immediately
+    // Use service-role client to bypass RLS on initial provisioning
+    const { data, error } = await supabaseDb
       .from('users')
-      .insert([
-        {
-          id,
-          email,
-          first_name: first_name || null,
-          last_name: last_name || null,
-          linkedin_url: linkedin_url || null,
-          company: company || null,
+      .upsert({
+        id,
+        email,
+        // Default sensible values; tolerate schema differences by keeping minimal set
+        role: 'member'
+      }, { onConflict: 'id' })
+      .select('*')
+      .single();
+
+    // Best-effort: update optional profile/plan fields if these columns exist in schema
+    // Do not fail signup if this update errors due to schema mismatch
+    try {
+      const assignedPlan = (plan === 'free' || !plan) ? 'free' : plan;
+      const giveFreeCredits = assignedPlan === 'free' ? 50 : 0;
+      await supabaseDb
+        .from('users')
+        .update({
+          // Name fields may be camelCase or snake_case in some environments; we only update common fields safely
+          // If your schema uses different casing, a separate migration/trigger will normalize
+          firstName: first_name || undefined,
+          lastName: last_name || undefined,
+          onboardingComplete: false,
           plan: assignedPlan,
           monthly_credits: assignedPlan === 'free' ? 50 : null,
           remaining_credits: giveFreeCredits,
           plan_updated_at: new Date().toISOString(),
-          onboarding_complete: false,
-        }
-      ]);
+          linkedin_url: linkedin_url || undefined,
+          company: company || undefined
+        } as any)
+        .eq('id', id);
+    } catch (e) {
+      console.warn('[createUser] Non-blocking users UPDATE failed (schema variance tolerated):', e);
+    }
 
     if (error) {
       console.error('[createUser] Error inserting user:', error);

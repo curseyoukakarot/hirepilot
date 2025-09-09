@@ -15,6 +15,7 @@ if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
 import express from 'express';
 import cors from 'cors';
 import rexWidgetRouter from './src/routes/rexWidget';
+import authRouter from './src/routes/auth';
 import sendSlackNotification from './api/sendSlackNotification';
 import saveCampaign from './api/saveCampaign';
 import generateMessage from './api/generate-message';
@@ -345,6 +346,9 @@ app.use('/api/payouts', requireAuth as any, payoutsRouter);
   void salesInboundWorker;
   void salesSendWorker;
   void salesSweepWorker;
+
+// Auth routes
+app.use('/api/auth', authRouter);
 
 // Log all endpoints before starting the server
 console.table(

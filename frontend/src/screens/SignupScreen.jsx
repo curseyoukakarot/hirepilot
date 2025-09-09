@@ -34,26 +34,26 @@ export default function SignupScreen() {
     const company = e.target.company?.value || '';
     const linkedinUrl = e.target.linkedin_url?.value || '';
 
-    // Step 1: Sign up user in Supabase auth
-    const { data: signupData, error: signupError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          first_name: firstName,
-          last_name: lastName,
-          onboarding_complete: false,
-        },
-      },
-    });
-
-    if (signupError) {
-      console.error('Signup error:', signupError);
-      setError(signupError.message);
+    // Step 1: Create user via backend (email_confirm true)
+    let userId;
+    try {
+      const created = await apiPost('/api/auth/signup', {
+        email,
+        password,
+        first_name: firstName,
+        last_name: lastName,
+        metadata: {
+          company,
+          linkedin_url: linkedinUrl
+        }
+      }, { requireAuth: false });
+      userId = created?.user?.id;
+    } catch (err) {
+      console.error('Backend signup error:', err);
+      setError(err.message || 'Signup failed');
       return;
     }
 
-    const userId = signupData?.user?.id;
     if (!userId) {
       setError('Signup succeeded but no user ID returned.');
       return;
@@ -75,7 +75,16 @@ export default function SignupScreen() {
       console.error('createUser error (non-blocking):', err);
     }
 
-    // Step 2: Send Slack notification (non-blocking)
+    // Step 2: Sign the user in immediately (session created client-side)
+    try {
+      const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInErr) throw signInErr;
+    } catch (err) {
+      console.error('Immediate sign-in failed:', err);
+      // Continue; user can sign in manually
+    }
+
+    // Step 3: Send Slack notification (non-blocking)
     try {
       await apiPost('/api/sendSlackNotification', {
         event_type: 'user_signed_up',
@@ -98,8 +107,9 @@ export default function SignupScreen() {
     }
 
     setSuccess(true);
-    // Refresh plan context so UI reacts if user navigates
+    // Refresh plan context and navigate into app
     try { await refresh(); } catch {}
+    navigate('/dashboard');
 
     // Attempt to grant Product Hunt promo credits if cookie present
     try {
@@ -225,7 +235,7 @@ export default function SignupScreen() {
               <FaCircleCheck className="text-green-400 mt-1" />
               <div className="ml-3">
                 <h3 className="text-sm font-medium text-green-800">Account created successfully!</h3>
-                <p className="text-sm text-green-700 mt-1">Please check your email to verify your account.</p>
+                <p className="text-sm text-green-700 mt-1">You're being redirected…</p>
               </div>
             </div>
           )}
