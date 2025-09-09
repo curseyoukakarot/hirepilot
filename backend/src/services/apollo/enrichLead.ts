@@ -43,19 +43,42 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
   const errors: string[] = [];
   const fallbacks_used: string[] = [];
   let enrichment_source = 'none';
+  let entityType: 'lead' | 'candidate' = 'lead';
+  let tableName: 'leads' | 'candidates' = 'leads';
+  let record: any = null;
   
   try {
-    // Get the current lead data to preserve original information
-    const { data: lead, error: leadError } = await supabase
-      .from('leads')
-      .select('*')
-      .eq('id', leadId)
-      .eq('user_id', userId)
-      .single();
+    // Fetch the record: prefer lead; fall back to candidate for candidate view
+    {
+      const { data, error } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('id', leadId)
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (!error && data) {
+        entityType = 'lead';
+        tableName = 'leads';
+        record = data;
+      }
+    }
+    if (!record) {
+      const { data: cand } = await supabase
+        .from('candidates')
+        .select('*')
+        .eq('id', leadId)
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (cand) {
+        entityType = 'candidate';
+        tableName = 'candidates';
+        record = cand;
+      }
+    }
 
-    if (leadError || !lead) {
-      const errorMsg = 'Lead not found or access denied';
-      console.error('[Enrichment] Error fetching lead:', leadError);
+    if (!record) {
+      const errorMsg = 'Record not found or access denied';
+      console.error('[Enrichment] Error fetching record for enrichment');
       return {
         success: false,
         provider: 'none',
@@ -66,7 +89,7 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
 
     // NEW: Prioritized enrichment flow - try Hunter.io and Skrapp.io first
     // Only proceed if lead doesn't already have an email
-    if (!lead.email && firstName && lastName && company) {
+    if (!record.email && firstName && lastName && company) {
       console.log('[Enrichment] Starting prioritized enrichment flow for lead:', { leadId, firstName, lastName, company });
       
       try {
@@ -99,7 +122,7 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
               console.log('[Enrichment] Hunter.io found email, updating lead...');
               // Update lead with Hunter.io email
               const enrichmentData = {
-                ...(lead.enrichment_data || {}),
+                ...(record.enrichment_data || {}),
                 hunter: {
                   email: hunterEmail,
                   source: 'hunter.io',
@@ -109,15 +132,20 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
                 }
               };
 
+              // Build update payload depending on entity type
+              const hunterUpdate: any = {
+                email: hunterEmail,
+                enrichment_data: enrichmentData,
+                updated_at: new Date().toISOString()
+              };
+              if (entityType === 'lead') {
+                hunterUpdate.enrichment_source = 'hunter';
+                hunterUpdate.enriched_at = new Date().toISOString();
+              }
+
               const { error: updateError } = await supabase
-                .from('leads')
-                .update({
-                  email: hunterEmail,
-                  enrichment_data: enrichmentData,
-                  enrichment_source: 'hunter',
-                  enriched_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString()
-                })
+                .from(tableName)
+                .update(hunterUpdate)
                 .eq('id', leadId)
                 .eq('user_id', userId);
 
@@ -159,7 +187,7 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
               console.log('[Enrichment] Skrapp.io found email, updating lead...');
               // Update lead with Skrapp.io email
               const enrichmentData = {
-                ...(lead.enrichment_data || {}),
+                ...(record.enrichment_data || {}),
                 skrapp: {
                   email: skrappEmail,
                   source: 'skrapp.io',
@@ -169,15 +197,19 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
                 }
               };
 
+              const skrappUpdate: any = {
+                email: skrappEmail,
+                enrichment_data: enrichmentData,
+                updated_at: new Date().toISOString()
+              };
+              if (entityType === 'lead') {
+                skrappUpdate.enrichment_source = 'skrapp';
+                skrappUpdate.enriched_at = new Date().toISOString();
+              }
+
               const { error: updateError } = await supabase
-                .from('leads')
-                .update({
-                  email: skrappEmail,
-                  enrichment_data: enrichmentData,
-                  enrichment_source: 'skrapp',
-                  enriched_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString()
-                })
+                .from(tableName)
+                .update(skrappUpdate)
                 .eq('id', leadId)
                 .eq('user_id', userId);
 
@@ -219,7 +251,7 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
       }
     } else {
       console.log('[Enrichment] Lead already has email or missing required data, proceeding with Apollo enrichment...');
-      if (lead.email) {
+      if (record.email) {
         errors.push('Lead already has email - enriching profile data only');
       } else {
         errors.push('Missing required data for premium enrichment (name/company)');
@@ -376,15 +408,15 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
     // Update lead with enrichment data - ONLY add contact info, preserve original identity
     const updateData: any = {};
     
-    // Only add email if we found a valid one and lead doesn't already have one
-    if (person.email && !person.email.startsWith('email_not_unlocked') && !lead.email) {
+    // Only add email if we found a valid one and record doesn't already have one
+    if (person.email && !person.email.startsWith('email_not_unlocked') && !record.email) {
       updateData.email = person.email;
     }
     
     // Only add phone if we found one and lead doesn't already have one
     // Apollo Match API returns phone numbers in phone_numbers array
     const phoneNumber = person.phone_numbers?.[0]?.sanitized_number || person.phone;
-    if (phoneNumber && !lead.phone) {
+    if (phoneNumber && !record.phone) {
       updateData.phone = phoneNumber;
     }
     
@@ -402,20 +434,22 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
       apollo_suggested_title: person.title,
       apollo_suggested_company: person.organization?.name,
       // Indicate if Apollo was used as fallback after other providers
-      used_as_fallback: !!(lead.enrichment_data?.hunter || lead.enrichment_data?.skrapp),
+      used_as_fallback: !!(record.enrichment_data?.hunter || record.enrichment_data?.skrapp),
       enriched_at: new Date().toISOString()
     };
 
     updateData.enrichment_data = {
-      ...(lead.enrichment_data || {}),
+      ...(record.enrichment_data || {}),
       apollo: apolloEnrichmentData
     };
     
-    updateData.enrichment_source = enrichment_source;
-    updateData.enriched_at = new Date().toISOString();
+    if (entityType === 'lead') {
+      updateData.enrichment_source = enrichment_source;
+      updateData.enriched_at = new Date().toISOString();
+    }
     
     let { error: updateError } = await supabase
-      .from('leads')
+      .from(tableName)
       .update(updateData)
       .eq('id', leadId)
       .eq('user_id', userId);
@@ -435,7 +469,7 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
         };
         
         const { error: secondError } = await supabase
-          .from('leads')
+          .from(tableName)
           .update(retryUpdateData)
           .eq('id', leadId)
           .eq('user_id', userId);
