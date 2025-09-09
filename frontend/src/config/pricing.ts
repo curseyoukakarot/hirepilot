@@ -21,10 +21,9 @@ export const PRICING_CONFIG: PricingConfig = {
     name: 'Starter',
     credits: 350,
     features: [
-      '350 credits/month',
-      'Basic campaign features',
-      'Email support',
-      'Up to 2 team members'
+      'Credit rollover while subscribed',
+      'Unlimited job reqs & campaigns',
+      'Add credits anytime from Billing'
     ],
     priceIds: {
       monthly: import.meta.env.VITE_STRIPE_PRICE_ID_STARTER_MONTHLY || '',
@@ -39,11 +38,10 @@ export const PRICING_CONFIG: PricingConfig = {
     name: 'Pro',
     credits: 1000,
     features: [
-      '1,000 credits/month',
-      'Advanced campaign features',
-      'Priority support',
-      'Up to 5 team members',
-      'Custom templates'
+      'Everything in Starter (all features unlocked)',
+      'Credit rollover while subscribed',
+      'Higher-volume outreach + enrichment',
+      'Perfect for 2–3 concurrent roles and A/B testing'
     ],
     priceIds: {
       monthly: import.meta.env.VITE_STRIPE_PRICE_ID_PRO_MONTHLY || '',
@@ -56,14 +54,13 @@ export const PRICING_CONFIG: PricingConfig = {
   },
   team: {
     name: 'Team',
-    credits: 2000,
+    credits: 5000,
     features: [
-      '2,000 credits/month',
-      'All Pro features',
-      'Dedicated support',
-      'Unlimited team members',
-      'API access',
-      'Custom integrations'
+      'Everything in Starter & Pro (all features unlocked)',
+      '5 users included (contact us if you need more)',
+      'Credit rollover while subscribed',
+      'High-throughput sourcing + automations',
+      'Great for multi-role pipelines and weekly hiring cycles'
     ],
     priceIds: {
       monthly: import.meta.env.VITE_STRIPE_PRICE_ID_TEAM_MONTHLY || '',
