@@ -84,7 +84,7 @@ export default function Sidebar() {
               </li>
             ))}
             {/* Affiliate nav removed from main dashboard */}
-            {(isPremium || rexEnabled) && (
+            {(isPremium || rexEnabled || isFree) && (
               <>
                 <li>
                   <NavLink

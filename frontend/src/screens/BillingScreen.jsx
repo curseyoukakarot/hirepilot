@@ -85,10 +85,7 @@ export default function BillingScreen() {
         .eq('id', user.id)
         .single();
 
-      if (userError) {
-        console.error('Error fetching user role:', userError);
-        return;
-      }
+      // 406 (PGRST) can happen if no row exists; ignore and continue
 
       const role = userData?.role || user?.user_metadata?.role || user?.user_metadata?.account_type || 'member';
       setUserRole(role);

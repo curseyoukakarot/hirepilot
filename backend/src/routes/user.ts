@@ -92,12 +92,28 @@ router.post('/onboarding-complete', requireAuth, async (req: ApiRequest, res: Re
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
-    const { data, error } = await supabase
+    // Try update; if no row exists, upsert minimal row
+    let { data, error } = await supabase
       .from('users')
       .update({ onboarding_complete: true })
       .eq('id', userId)
       .select('id, onboarding_complete')
-      .single();
+      .maybeSingle();
+
+    if (!data) {
+      const email = (req as any).user?.email || null;
+      await supabase
+        .from('users')
+        .upsert({ id: userId, email, onboarding_complete: true } as any, { onConflict: 'id' });
+      const reread = await supabase
+        .from('users')
+        .select('id, onboarding_complete')
+        .eq('id', userId)
+        .maybeSingle();
+      data = reread.data as any;
+    }
+
+    if (error && data) error = null;
     if (error) {
       res.status(500).json({ error: error.message });
       return;
