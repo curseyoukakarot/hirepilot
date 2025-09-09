@@ -1242,6 +1242,11 @@ router.post('/:id/convert', async (req: Request, res: Response) => {
       firstName = firstName || nameParts[0] || '';
       lastName = lastName || nameParts.slice(1).join(' ') || '';
     }
+    // Ensure an email is always present to satisfy NOT NULL + UNIQUE(email)
+    const providedEmail = typeof lead.email === 'string' ? lead.email.trim() : '';
+    let candidateEmail = providedEmail && providedEmail.length > 0
+      ? providedEmail
+      : `unknown+${(user.id || '').slice(0,8)}+${Date.now()}@noemail.hirepilot`;
     const { data: candidate, error: candidateError } = await supabase
       .from('candidates')
       .insert({
@@ -1249,7 +1254,7 @@ router.post('/:id/convert', async (req: Request, res: Response) => {
         user_id: user.id,
         first_name: firstName || '',
         last_name: lastName || '',
-        email: lead.email || null,
+        email: candidateEmail,
         phone: lead.phone || null,
         avatar_url: lead.avatar_url || null,
         status: 'sourced',
@@ -1267,8 +1272,40 @@ router.post('/:id/convert', async (req: Request, res: Response) => {
 
     if (candidateError) {
       console.error('Candidate insert error:', candidateError);
-      res.status(500).json({ error: 'db error', details: candidateError });
-      return;
+      // Handle duplicate email: retry once with a unique placeholder
+      if ((candidateError as any)?.code === '23505') {
+        const retryEmail = `unknown+${(user.id || '').slice(0,8)}+${Date.now()}-dup@noemail.hirepilot`;
+        const { data: candidate2, error: retryErr } = await supabase
+          .from('candidates')
+          .insert({
+            lead_id: lead.id,
+            user_id: user.id,
+            first_name: firstName || '',
+            last_name: lastName || '',
+            email: retryEmail,
+            phone: lead.phone || null,
+            avatar_url: lead.avatar_url || null,
+            status: 'sourced',
+            enrichment_data: {
+              ...(lead.enrichment_data || {}),
+              current_title: lead.title || null
+            },
+            resume_url: null,
+            notes: null,
+            title: lead.title || null,
+            linkedin_url: lead.linkedin_url || null
+          })
+          .select()
+          .maybeSingle();
+        if (retryErr || !candidate2) {
+          res.status(500).json({ error: 'db error', details: retryErr || candidateError });
+          return;
+        }
+        // Use candidate2 in downstream analytics
+      } else {
+        res.status(500).json({ error: 'db error', details: candidateError });
+        return;
+      }
     }
 
     // 3. Record conversion event for analytics
