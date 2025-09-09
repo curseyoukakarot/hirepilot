@@ -64,10 +64,29 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
           role = (authUser?.user?.user_metadata as any)?.role || null;
         } catch {}
       }
+      // Fallbacks: if plan is missing, infer from role and credits
+      const planServer = data?.plan || null;
+      const creditsRes = await fetch(`${backend}/api/credits/status`, {
+        headers: { 'Authorization': `Bearer ${session.access_token}` },
+        credentials: 'include'
+      }).catch(()=>null);
+      let creditsJson: any = null;
+      if (creditsRes && creditsRes.ok) creditsJson = await creditsRes.json();
+
+      const remainingCredits = typeof creditsJson?.remaining_credits === 'number'
+        ? creditsJson.remaining_credits
+        : (typeof data?.remaining_credits === 'number' ? data.remaining_credits : null);
+
+      const monthlyCredits = typeof creditsJson?.total_credits === 'number'
+        ? creditsJson.total_credits
+        : (typeof data?.monthly_credits === 'number' ? data.monthly_credits : null);
+
+      const resolvedPlan = planServer || ((String(role||'').toLowerCase()==='free' || (remainingCredits===50)) ? 'free' : null);
+
       setInfo({
-        plan: data?.plan || null,
-        remaining_credits: typeof data?.remaining_credits === 'number' ? data.remaining_credits : null,
-        monthly_credits: typeof data?.monthly_credits === 'number' ? data.monthly_credits : null,
+        plan: resolvedPlan,
+        remaining_credits: remainingCredits,
+        monthly_credits: monthlyCredits,
         plan_updated_at: data?.plan_updated_at || null,
         role,
       });

@@ -14,6 +14,7 @@ export default function Sidebar() {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
   const [isFree, setIsFree] = useState(false);
+  const [rexEnabled, setRexEnabled] = useState(false);
 
   useEffect(() => {
     const fetchRole = async () => {
@@ -43,6 +44,7 @@ export default function Sidebar() {
       setIsPremium(premiumRoles.includes(roleLc) || rexEnabled);
       setIsFree(roleLc === 'free');
       setIsSuperAdmin(role === 'super_admin');
+      setRexEnabled(rexEnabled);
     };
     fetchRole();
   }, []);
@@ -82,7 +84,7 @@ export default function Sidebar() {
               </li>
             ))}
             {/* Affiliate nav removed from main dashboard */}
-            {isPremium && (
+            {(isPremium || rexEnabled) && (
               <>
                 <li>
                   <NavLink

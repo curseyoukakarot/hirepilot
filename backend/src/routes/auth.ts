@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { supabase as supabaseDb } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 
 const router = Router();
 
@@ -20,15 +20,33 @@ router.post('/signup', async (req, res) => {
         first_name: first_name || undefined,
         last_name: last_name || undefined,
         onboarding_complete: false,
+        role: 'free',
         ...(metadata || {})
       }
     };
     if (password) payload.password = password;
 
-    const { data: created, error } = await (supabaseDb as any).auth.admin.createUser(payload);
+    const { data: created, error } = await supabase.auth.admin.createUser(payload as any);
     if (error) {
       res.status(400).json({ error: error.message });
       return;
+    }
+
+    const userId = created?.user?.id;
+    const userEmail = created?.user?.email;
+    if (userId && userEmail) {
+      // Ensure public.users row exists immediately
+      try {
+        await supabase
+          .from('users')
+          .upsert({ id: userId, email: userEmail, role: 'free', plan: 'free' } as any, { onConflict: 'id' });
+      } catch {}
+      // Seed free credits
+      try {
+        await supabase
+          .from('user_credits')
+          .upsert({ user_id: userId, total_credits: 50, used_credits: 0, remaining_credits: 50, last_updated: new Date().toISOString() }, { onConflict: 'user_id' });
+      } catch {}
     }
 
     res.json({ user: created?.user });
