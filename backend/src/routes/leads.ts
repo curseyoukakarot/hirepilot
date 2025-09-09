@@ -1534,10 +1534,24 @@ export const updateLead = async (req: ApiRequest, res: Response) => {
       return;
     }
 
+    // Sanitize and map incoming payload to allowed DB columns (avoid camelCase like createdAt)
+    const body = (req.body || {}) as any;
+    const updatePayload: any = {};
+    if (body.name !== undefined) updatePayload.name = body.name;
+    if (body.title !== undefined) updatePayload.title = body.title;
+    if (body.company !== undefined) updatePayload.company = body.company;
+    if (body.email !== undefined) updatePayload.email = body.email;
+    if (body.phone !== undefined) updatePayload.phone = body.phone;
+    if (body.linkedin_url !== undefined) updatePayload.linkedin_url = body.linkedin_url;
+    if (body.status !== undefined) updatePayload.status = body.status;
+    if (body.tags !== undefined) updatePayload.tags = body.tags;
+    if (body.location !== undefined) updatePayload.location = body.location;
+    updatePayload.updated_at = new Date().toISOString();
+
     // Update the lead, handling unique email conflicts gracefully
     let { data, error } = await supabase
       .from('leads')
-      .update(req.body)
+      .update(updatePayload)
       .eq('id', id)
       .eq('user_id', req.user.id)
       .select()
