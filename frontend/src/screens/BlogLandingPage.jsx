@@ -10,6 +10,16 @@ export default function BlogLandingPage() {
 
   const articles = [
     {
+      id: 24,
+      href: '/blog/free-plan-playbook',
+      title: 'How to Win Clients and Close Hires Using the Free Plan',
+      summary: 'A no-budget playbook to book calls, send outbound, and make placements with HirePilot Free.',
+      tag: 'Playbook',
+      gradient: 'from-green-500 to-emerald-600',
+      icon: 'fa-seedling',
+      date: 'Sep 9, 2025',
+    },
+    {
       id: 23,
       href: '/blog/ats-integrations',
       title: 'Integrating HirePilot with Greenhouse, Lever, and Ashby via Zapier & Webhooks',
