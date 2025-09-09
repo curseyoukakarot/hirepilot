@@ -265,8 +265,7 @@ export default function ProductHunt() {
         <h2 class="text-3xl font-bold text-center mb-8">Free forever, paid plans when you’re ready.</h2>
         <div class="grid sm:grid-cols-3 gap-6 items-stretch">
           <div class="p-6 card flex flex-col">
-            <h3 class="text-xl font-semibold mb-2">Starter (Free Forever)</h3>
-            <p class="text-gray-300 mb-4">Free Forever — For solo recruiters</p>
+            <h3 class="text-xl font-semibold mb-2">Free (Free Forever) — For solo recruiters</h3>
             <ul class="text-gray-300 space-y-2 mb-6 text-sm flex-1">
               <li>Access LinkedIn + Apollo lead sources</li>
               <li>Enrich leads and build campaigns</li>
@@ -275,8 +274,8 @@ export default function ProductHunt() {
             <a href="/pricing?select=starter&utm_source=producthunt&utm_medium=landing&utm_campaign=ph_launch" class="btn hover:bg-white/10 mt-auto">Get Started</a>
           </div>
           <div class="p-6 card border-blue-500 flex flex-col">
-            <h3 class="text-xl font-semibold mb-2">Pro & Team</h3>
-            <p class="text-gray-300 mb-4">Pro & Team Plans — Scale with your team</p>
+            <h3 class="text-xl font-semibold mb-2">Starter, Pro & Team</h3>
+            <p class="text-gray-300 mb-4">Starter, Pro & Team Plans — Scale with your team</p>
             <ul class="text-gray-300 space-y-2 mb-6 text-sm flex-1">
               <li>Unlock more credits + advanced features</li>
               <li>Access to REX — your AI recruiting copilot</li>
