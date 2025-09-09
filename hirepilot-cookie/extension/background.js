@@ -6,6 +6,27 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete' && tab?.url?.includes('linkedin.com')) {
     lastLinkedInTabId = tabId;
     chrome.storage.local.set({ lastLinkedInTabId });
+
+    // Auto-connect trigger from URL params (works when user navigates directly)
+    try {
+      const url = new URL(tab.url);
+      if (url.searchParams.get('hirepilot_connect') === '1') {
+        const msg = url.searchParams.get('hp_msg') || '';
+        // Prefer page-context execution to avoid content script race
+        chrome.scripting.executeScript({
+          target: { tabId },
+          func: (message) => {
+            const ev = new CustomEvent('hirepilot:auto-connect-start', { detail: { message } });
+            window.dispatchEvent(ev);
+          },
+          args: [msg],
+          world: 'MAIN'
+        }).catch(()=>{
+          // Fallback to sendMessage to content script
+          chrome.tabs.sendMessage(tabId, { action: 'connectAndSend', message: msg });
+        });
+      }
+    } catch {}
   }
 });
 

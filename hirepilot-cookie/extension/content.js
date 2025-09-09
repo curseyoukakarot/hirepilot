@@ -1,6 +1,12 @@
 // content.js - Injected into LinkedIn pages to handle full cookie access and Sales Nav scraping
 
-console.log('[HirePilot Extension] Content script loaded on:', window.location.href);
+// Ignore subframes; operate only on top frame
+if (window.top !== window) {
+  // Still log for diagnostics, but do nothing
+  console.log('[HirePilot Extension] (iframe) Ignoring subframe:', window.location.href);
+} else {
+  console.log('[HirePilot Extension] Content script loaded on:', window.location.href);
+}
 
 // Listen for messages from popup/background
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -372,6 +378,57 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 });
+
+// Auto-trigger connect when hirepilot_connect=1 in URL
+if (window.top === window) {
+  (async () => {
+    try {
+      const params = new URLSearchParams(location.search);
+      if (params.get('hirepilot_connect') === '1') {
+        // Adaptive wait for profile readiness
+        const waitFor = (pred, timeoutMs = 15000) => new Promise((resolve) => {
+          const start = Date.now();
+          if (pred()) return resolve(true);
+          const obs = new MutationObserver(() => {
+            if (pred()) { obs.disconnect(); resolve(true); }
+            else if (Date.now() - start > timeoutMs) { obs.disconnect(); resolve(false); }
+          });
+          obs.observe(document.documentElement, { childList: true, subtree: true });
+          setTimeout(() => { obs.disconnect(); resolve(false); }, timeoutMs + 50);
+        });
+
+        // Prefill source: hp_msg OR hp_tpl (future: resolve tpl via API/storage)
+        let message = params.get('hp_msg') || '';
+        // TODO: if hp_tpl provided, fetch template by ID from storage/API
+
+        // Wait until a Connect/Invite is actionable
+        const ready = await waitFor(() => {
+          return !!document.querySelector('button,[role="button"],a');
+        }, 15000);
+        if (!ready) {
+          console.warn('[HirePilot Extension] Profile not ready for connect');
+        }
+
+        // If background dispatched a page event, also listen here (defensive)
+        window.addEventListener('hirepilot:auto-connect-start', (e) => {
+          const m = (e && e.detail && e.detail.message) || message || '';
+          chrome.runtime.sendMessage({ action: 'connectAndSend', message: m }, ()=>{});
+        }, { once: true });
+
+        // Proactively trigger connect if message param available
+        chrome.runtime.sendMessage({ action: 'connectAndSend', message }, (resp) => {
+          if (chrome.runtime.lastError) {
+            console.warn('[HirePilot Extension] connectAndSend error:', chrome.runtime.lastError.message);
+          } else {
+            console.log('[HirePilot Extension] connectAndSend resp:', resp);
+          }
+        });
+      }
+    } catch (e) {
+      console.warn('[HirePilot Extension] Auto-connect error:', e?.message);
+    }
+  })();
+}
 
 // Function to scrape leads from Sales Nav page
 async function scrapeLeads() {
