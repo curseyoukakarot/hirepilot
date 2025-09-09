@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { loadStripe } from '@stripe/stripe-js';
+import { usePlan } from '../context/PlanContext';
 
 export default function SettingsCredits() {
+  const { isFree } = usePlan();
   const [status, setStatus] = useState({ total_credits: 0, used_credits: 0, remaining_credits: 0, last_updated: null });
   const [overview, setOverview] = useState({ nextInvoice: null, subscription: null });
   const [history, setHistory] = useState([]);
@@ -109,6 +111,7 @@ export default function SettingsCredits() {
           </div>
         </div>
 
+        {!isFree && (
         <div className="mt-6 bg-white rounded-2xl shadow border p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="text-xl font-semibold text-gray-900">Buy More Credits</div>
@@ -123,6 +126,7 @@ export default function SettingsCredits() {
             <button className="text-indigo-600 underline" onClick={() => setShowMoreModal(true)}>Need More?</button>
           </div>
         </div>
+        )}
 
         <div className="mt-6 bg-white rounded-2xl shadow border p-4">
           <div className="text-xl font-semibold text-gray-900 mb-3">Credit History</div>
@@ -153,7 +157,7 @@ export default function SettingsCredits() {
           </div>
         </div>
       </div>
-      {showMoreModal && (
+      {!isFree && showMoreModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-2xl shadow-lg w-full max-w-lg p-6">
             <div className="mb-2">

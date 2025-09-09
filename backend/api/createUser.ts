@@ -51,6 +51,18 @@ export default async function createUser(req: Request, res: Response) {
           company: company || undefined
         } as any)
         .eq('id', id);
+      // Ensure a user_credits row exists with free allocation for free plan
+      if (assignedPlan === 'free') {
+        await supabaseDb
+          .from('user_credits')
+          .upsert({
+            user_id: id,
+            total_credits: 50,
+            used_credits: 0,
+            remaining_credits: 50,
+            last_updated: new Date().toISOString()
+          }, { onConflict: 'user_id' });
+      }
     } catch (e) {
       console.warn('[createUser] Non-blocking users UPDATE failed (schema variance tolerated):', e);
     }
