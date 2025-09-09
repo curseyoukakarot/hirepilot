@@ -11,11 +11,37 @@ router.get('/plan', requireAuth, async (req: ApiRequest, res: Response) => {
   try {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('users')
       .select('plan, remaining_credits, monthly_credits, plan_updated_at')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
+
+    // If no public.users row exists, create a default FREE row and seed credits (idempotent)
+    if (!data) {
+      try {
+        const email = (req as any).user?.email || null;
+        const role = (req as any).user?.role || 'free';
+        await supabase
+          .from('users')
+          .upsert({ id: userId, email, role, plan: 'free' } as any, { onConflict: 'id' });
+        await supabase
+          .from('user_credits')
+          .upsert({ user_id: userId, total_credits: 50, used_credits: 0, remaining_credits: 50, last_updated: new Date().toISOString() }, { onConflict: 'user_id' });
+
+        const reread = await supabase
+          .from('users')
+          .select('plan, remaining_credits, monthly_credits, plan_updated_at')
+          .eq('id', userId)
+          .maybeSingle();
+        data = reread.data || { plan: 'free', remaining_credits: 50, monthly_credits: 50, plan_updated_at: new Date().toISOString() } as any;
+      } catch (ensureErr) {
+        // If ensure fails, still respond with a sane default so the UI can proceed
+        data = { plan: 'free', remaining_credits: 50, monthly_credits: 50, plan_updated_at: new Date().toISOString() } as any;
+      }
+    }
+
+    if (error && data) error = null; // ignore not-found after ensure
     if (error) return res.status(500).json({ error: error.message });
     res.json(data);
   } catch (e) {
