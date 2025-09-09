@@ -46,6 +46,8 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
     // Try to find a lead first; if not found, allow enrichment of a candidate by id (compat with candidate view)
     let entityType: 'lead' | 'candidate' = 'lead';
     let lead: any = null;
+    // targetId is the primary key we will use for subsequent updates (may differ from the incoming id if we matched candidate by lead_id)
+    let targetId: string = leadId;
     {
       const { data, error } = await supabase
         .from('leads')
@@ -81,11 +83,37 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
           linkedin_url: candidate.linkedin_url || null,
           enrichment_data: candidate.enrichment_data || {},
         };
+        targetId = candidate.id;
       } else {
-        return res.status(404).json({
-          success: false,
-          message: 'Lead not found or access denied'
-        });
+        // Final attempt: sometimes frontend passes lead_id for candidates; look up candidate by lead_id
+        const { data: candidateByLead } = await supabase
+          .from('candidates')
+          .select('*')
+          .eq('lead_id', leadId)
+          .eq('user_id', userId)
+          .maybeSingle();
+        if (candidateByLead) {
+          entityType = 'candidate';
+          lead = {
+            id: candidateByLead.id,
+            user_id: candidateByLead.user_id,
+            first_name: candidateByLead.first_name,
+            last_name: candidateByLead.last_name,
+            name: `${candidateByLead.first_name || ''} ${candidateByLead.last_name || ''}`.trim(),
+            email: candidateByLead.email || null,
+            phone: candidateByLead.phone || null,
+            title: candidateByLead.title || null,
+            company: candidateByLead.company || null,
+            linkedin_url: candidateByLead.linkedin_url || null,
+            enrichment_data: candidateByLead.enrichment_data || {},
+          };
+          targetId = candidateByLead.id;
+        } else {
+          return res.status(404).json({
+            success: false,
+            message: 'Lead not found or access denied'
+          });
+        }
       }
     }
 
@@ -300,7 +328,7 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
       const { data, error: updateError } = await supabase
         .from('leads')
         .update(updateData)
-        .eq('id', leadId)
+        .eq('id', targetId)
         .select()
         .maybeSingle();
       if (updateError) {
@@ -324,7 +352,7 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
       const { data, error: updateError } = await supabase
         .from('candidates')
         .update(candidateUpdate)
-        .eq('id', leadId)
+        .eq('id', targetId)
         .eq('user_id', userId)
         .select('*')
         .maybeSingle();
