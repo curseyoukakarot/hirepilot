@@ -73,6 +73,8 @@ export default function OnboardingModals() {
   ];
 
   const curr = cards[step] || cards[0];
+  const appBase = 'https://app.thehirepilot.com';
+  const hrefAbs = (path) => `${appBase}${path}`;
 
   return (
     <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50">
@@ -86,7 +88,7 @@ export default function OnboardingModals() {
             ))}
           </div>
           <div className="flex gap-3">
-            <a href={curr.cta.href} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">{curr.cta.label}</a>
+            <a href={hrefAbs(curr.cta.href)} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">{curr.cta.label}</a>
             {step < cards.length - 1 ? (
               <button className="px-3 py-2 text-gray-700" onClick={() => setStep(step + 1)}>Next</button>
             ) : (
