@@ -10,28 +10,6 @@ export default function FreeForever() {
 
       {/* Content wrapper with top padding to clear fixed navbar */}
       <main className="pt-28">
-        {/* === Top CTA (visible on mobile & desktop) === */}
-        <section id="cta-top" className="bg-gradient-to-r from-blue-600 to-purple-600 py-6">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h2 className="text-2xl sm:text-3xl font-bold mb-4">
-              Start Recruiting Smarter — Free Forever
-            </h2>
-            <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4">
-              <a
-                href="/signup?plan=free"
-                className="inline-flex items-center justify-center bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold"
-              >
-                Get Started Free
-              </a>
-              <a
-                href="/pricing"
-                className="inline-flex items-center justify-center bg-white text-blue-700 hover:bg-gray-100 px-6 py-3 rounded-lg font-semibold"
-              >
-                Compare All Plans
-              </a>
-            </div>
-          </div>
-        </section>
 
         {/* Top utility row (kept) */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
@@ -229,28 +207,26 @@ export default function FreeForever() {
           </div>
         </section>
 
-        {/* === Bottom CTA (visible on mobile & desktop) === */}
-        <section id="cta-bottom" className="bg-gradient-to-r from-purple-700 to-blue-700 py-12">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h2 className="text-3xl sm:text-4xl font-bold mb-3">
-              Ready to Try HirePilot Free Forever?
-            </h2>
-            <p className="text-gray-200 mb-6">
-              Sign up today and get 50 free credits every month — no card required.
-            </p>
-            <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4">
-              <a
-                href="/signup?plan=free"
-                className="inline-flex items-center justify-center bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-lg font-semibold text-lg"
-              >
-                Get Started Free
-              </a>
-              <a
-                href="/pricing"
-                className="inline-flex items-center justify-center border-2 border-white/40 text-white hover:bg-white/10 px-8 py-4 rounded-lg font-semibold text-lg"
-              >
-                View Pricing
-              </a>
+        {/* === New Pricing CTA === */}
+        <section id="pricing-cta" className="py-20 bg-gray-900 fade-in">
+          <div className="max-w-4xl mx-auto px-6 text-center">
+            <div className="bg-gradient-to-r from-purple-900/40 to-blue-900/40 rounded-2xl p-12 border border-purple-500/30">
+              <h2 className="text-4xl font-bold text-white mb-6">Free Forever. Click here to get started</h2>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+                <a
+                  href="/signup?plan=free"
+                  className="bg-white text-blue-700 border-2 border-blue-600 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-blue-50"
+                >
+                  Start for Free →
+                </a>
+                <a
+                  href="/pricing"
+                  className="border-2 border-purple-400 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-purple-900/30"
+                >
+                  View Other Plans
+                </a>
+              </div>
+              <p className="text-sm text-gray-400">Start for free. Credits used for enrichment</p>
             </div>
           </div>
         </section>
