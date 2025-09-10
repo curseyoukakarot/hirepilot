@@ -4,22 +4,27 @@ import PublicFooter from '../components/PublicFooter';
 
 export default function MeetRex() {
   useEffect(() => {
-    // fade-in observer
-    const io = new IntersectionObserver((entries)=>{
-      entries.forEach(e=>{
-        if (e.isIntersecting){
-          e.target.classList.add('in-view');
-          io.unobserve(e.target);
-        }
-      });
-    },{ threshold:0.15 });
-    document.querySelectorAll('.fade-in').forEach(el=>io.observe(el));
+    // Fade-in observer
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            e.target.classList.add('in-view');
+            io.unobserve(e.target);
+          }
+        });
+      },
+      { threshold: 0.15 }
+    );
+    document.querySelectorAll('.fade-in').forEach((el) => io.observe(el));
 
-    // LeaderLine setup
+    // LeaderLine diagram
     const drawLines = () => {
       const container = document.getElementById('diagram-container');
       if (!container || !window.LeaderLine) return;
-      document.querySelectorAll('.leader-line').forEach(line => line.remove());
+
+      // Clear any existing lines
+      document.querySelectorAll('.leader-line').forEach((line) => line.remove());
 
       const options = {
         color: '#60a5fa',
@@ -27,10 +32,10 @@ export default function MeetRex() {
         path: 'grid',
         startSocket: 'auto',
         endSocket: 'auto',
-        hide: true
+        hide: true,
       };
 
-      const connect = (startId, endId, extra={}) => {
+      const connect = (startId, endId, extra = {}) => {
         const startEl = document.getElementById(startId);
         const endEl = document.getElementById(endId);
         if (startEl && endEl) {
@@ -40,20 +45,20 @@ export default function MeetRex() {
       };
 
       const lines = [
-        connect('node-job','node-agent'),
-        connect('node-agent','node-bool'),
-        connect('node-agent','node-leads'),
-        connect('node-agent','node-msg'),
-        connect('node-agent','node-reply',{ path:'arc' }),
-        connect('node-reply','node-sync'),
-        connect('node-agent','node-sync'),
-        connect('node-agent','node-notion',{ path:'arc' }),
-        connect('node-agent','node-linkink')
+        connect('node-job', 'node-agent'),
+        connect('node-agent', 'node-bool'),
+        connect('node-agent', 'node-leads'),
+        connect('node-agent', 'node-msg'),
+        connect('node-agent', 'node-reply', { path: 'arc' }),
+        connect('node-reply', 'node-sync'),
+        connect('node-agent', 'node-sync'),
+        connect('node-agent', 'node-notion', { path: 'arc' }),
+        connect('node-agent', 'node-linkink'),
       ].filter(Boolean);
 
-      setTimeout(()=>{
-        lines.forEach(line => line && line.show('draw',{duration:600,timing:'ease-in-out'}));
-      },100);
+      setTimeout(() => {
+        lines.forEach((line) => line && line.show('draw', { duration: 600, timing: 'ease-in-out' }));
+      }, 100);
     };
 
     const ensureLeaderLine = () => {
@@ -70,17 +75,19 @@ export default function MeetRex() {
 
     ensureLeaderLine();
 
+    // Redraw on resize (throttled)
     let resizeTimer;
     const onResize = () => {
       clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(drawLines,300);
+      resizeTimer = setTimeout(drawLines, 300);
     };
     window.addEventListener('resize', onResize);
 
+    // Cleanup
     return () => {
       io.disconnect();
       window.removeEventListener('resize', onResize);
-      document.querySelectorAll('.leader-line').forEach(line => line.remove());
+      document.querySelectorAll('.leader-line').forEach((line) => line.remove());
     };
   }, []);
 
@@ -99,7 +106,10 @@ export default function MeetRex() {
       <PublicNavbar />
 
       {/* Hero */}
-      <section id="hero" className="bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 text-white min-h-[560px] lg:h-[700px] flex items-start lg:items-center pt-24 pb-10 lg:pt-0 fade-in">
+      <section
+        id="hero"
+        className="bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 text-white min-h-[560px] lg:h:[700px] flex items-start lg:items-center pt-24 pb-10 lg:pt-0 fade-in"
+      >
         <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
           <div>
             <h1 className="text-3xl sm:text-4xl lg:text-6xl font-bold mb-4 sm:mb-6 leading-tight">
@@ -109,8 +119,19 @@ export default function MeetRex() {
               Source leads. Enrich data. Send outreach. Book interviews.<br />All inside one smart assistant—powered by your workflow.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
-              <a href="/pricing" className="gradient-bg px-6 py-3 sm:px-8 sm:py-4 rounded-lg font-semibold text-base sm:text-lg hover:shadow-2xl transition-shadow">Try REX Free</a>
-              <a href="#chat-preview" className="border-2 border-white/30 px-6 py-3 sm:px-8 sm:py-4 rounded-lg font-semibold text-base sm:text-lg hover:bg-white/10 transition-colors flex items-center gap-2"><i className="fa-solid fa-play" />See REX in Action</a>
+              <a
+                href="/pricing"
+                className="gradient-bg px-6 py-3 sm:px-8 sm:py-4 rounded-lg font-semibold text-base sm:text-lg hover:shadow-2xl transition-shadow"
+              >
+                Try REX Free
+              </a>
+              <a
+                href="#chat-preview"
+                className="border-2 border-white/30 px-6 py-3 sm:px-8 sm:py-4 rounded-lg font-semibold text-base sm:text-lg hover:bg-white/10 transition-colors flex items-center gap-2"
+              >
+                <i className="fa-solid fa-play" />
+                See REX in Action
+              </a>
             </div>
           </div>
           <div className="relative">
@@ -147,36 +168,63 @@ export default function MeetRex() {
               style={{
                 backgroundImage:
                   'linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.06) 1px, transparent 1px)',
-                backgroundSize: '30px 30px'
+                backgroundSize: '30px 30px',
               }}
             >
               {/* Nodes */}
-              <div id="node-job" className="absolute top-[5%] left-[5%] sm:left-[10%] w-40 sm:w-52 h-20 sm:h-24 bg-amber-300/90 text-black rounded-2xl border border-amber-200 flex items-center justify-center text-center p-2 shadow-lg">
-                <p className="text-lg sm:text-xl font-bold leading-tight">Job<br/>Description</p>
+              <div
+                id="node-job"
+                className="absolute top-[5%] left-[5%] sm:left-[10%] w-40 sm:w-52 h-20 sm:h-24 bg-amber-300/90 text-black rounded-2xl border border-amber-200 flex items-center justify-center text-center p-2 shadow-lg"
+              >
+                <p className="text-lg sm:text-xl font-bold leading-tight">
+                  Job
+                  <br />
+                  Description
+                </p>
               </div>
 
-              <div id="node-bool" className="absolute top-[30%] left-[3%] sm:left-[6%] w-44 sm:w-56 h-24 sm:h-28 bg-gray-800 rounded-2xl border border-white/10 flex items-center justify-center text-center p-3 shadow-lg">
+              <div
+                id="node-bool"
+                className="absolute top-[30%] left-[3%] sm:left-[6%] w-44 sm:w-56 h-24 sm:h-28 bg-gray-800 rounded-2xl border border-white/10 flex items-center justify-center text-center p-3 shadow-lg"
+              >
                 <p className="font-semibold text-gray-100 text-sm sm:text-base">Generates Boolean Strings + Title Combos</p>
               </div>
 
-              <div id="node-leads" className="absolute top-[55%] left-[3%] sm:left-[6%] w-44 sm:w-56 h-24 sm:h-28 bg-gray-800 rounded-2xl border border-white/10 flex items-center justify-center text-center p-3 shadow-lg">
+              <div
+                id="node-leads"
+                className="absolute top-[55%] left-[3%] sm:left-[6%] w-44 sm:w-56 h-24 sm:h-28 bg-gray-800 rounded-2xl border border-white/10 flex items-center justify-center text-center p-3 shadow-lg"
+              >
                 <p className="font-semibold text-gray-100 text-sm sm:text-base">Finds Leads From Apollo &amp; LinkedIn</p>
               </div>
 
-              <div id="node-msg" className="absolute top-[80%] left-[3%] sm:left-[6%] w-44 sm:w-56 h-24 sm:h-28 bg-gray-800 rounded-2xl border border-white/10 flex flex-col items-center justify-center text-center p-3 shadow-lg">
+              <div
+                id="node-msg"
+                className="absolute top-[80%] left-[3%] sm:left-[6%] w-44 sm:w-56 h-24 sm:h-28 bg-gray-800 rounded-2xl border border-white/10 flex flex-col items-center justify-center text-center p-3 shadow-lg"
+              >
                 <p className="font-semibold text-gray-100 text-sm sm:text-base">Sends Messages</p>
                 <p className="text-xs text-gray-400">(Your templates or ones it writes)</p>
               </div>
 
-              <div id="node-agent" className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-44 sm:w-56 h-20 sm:h-24 bg-gray-100 text-gray-900 rounded-2xl border border-white/20 flex items-center justify-center text-center p-2 shadow-xl">
+              <div
+                id="node-agent"
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-44 sm:w-56 h-20 sm:h-24 bg-gray-100 text-gray-900 rounded-2xl border border-white/20 flex items-center justify-center text-center p-2 shadow-xl"
+              >
                 <p className="text-xl sm:text-2xl font-bold">🤖 REX</p>
               </div>
 
-              <div id="node-reply" className="absolute top-[10%] right-[5%] sm:right-[10%] w-48 sm:w-60 h-28 sm:h-32 bg-gray-800 rounded-2xl border border-white/10 flex items-center justify-center text-center p-3 shadow-lg">
-                <p className="font-semibold text-gray-100 text-sm sm:text-base">Categorizes replies — handles them or hands off</p>
+              <div
+                id="node-reply"
+                className="absolute top-[10%] right-[5%] sm:right-[10%] w-48 sm:w-60 h-28 sm:h-32 bg-gray-800 rounded-2xl border border-white/10 flex items-center justify-center text-center p-3 shadow-lg"
+              >
+                <p className="font-semibold text-gray-100 text-sm sm:text-base">
+                  Categorizes replies — handles them or hands off
+                </p>
               </div>
 
-              <div id="node-sync" className="absolute top-[45%] right-[3%] sm:right-[6%] w-52 sm:w-64 h-32 sm:h-40 bg-gray-800 rounded-2xl border border-white/10 flex flex-col items-center justify-center text-center p-4 shadow-lg">
+              <div
+                id="node-sync"
+                className="absolute top-[45%] right-[3%] sm:right-[6%] w-52 sm:w-64 h-32 sm:h-40 bg-gray-800 rounded-2xl border border-white/10 flex flex-col items-center justify-center text-center p-4 shadow-lg"
+              >
                 <p className="font-semibold text-gray-100 mb-3 text-sm sm:text-base">Syncs into your workflow</p>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 opacity-90 text-xs sm:text-sm">
                   <span className="text-gray-300">Zapier</span>
@@ -186,11 +234,17 @@ export default function MeetRex() {
                 </div>
               </div>
 
-              <div id="node-notion" className="absolute bottom-[5%] right-[15%] sm:right-[20%] w-20 sm:w-24 h-20 sm:h-24 bg-gray-800 rounded-2xl border border-white/10 flex items-center justify-center p-2 shadow-lg">
+              <div
+                id="node-notion"
+                className="absolute bottom-[5%] right-[15%] sm:right-[20%] w-20 sm:w-24 h-20 sm:h-24 bg-gray-800 rounded-2xl border border-white/10 flex items-center justify-center p-2 shadow-lg"
+              >
                 <span className="text-xs sm:text-sm font-semibold text-white">Notion</span>
               </div>
 
-              <div id="node-linkink" className="absolute bottom-[0%] left-1/2 -translate-x-1/2 w-40 sm:w-48 h-16 sm:h-20 flex items-center justify-center">
+              <div
+                id="node-linkink"
+                className="absolute bottom-[0%] left-1/2 -translate-x-1/2 w-40 sm:w-48 h-16 sm:h-20 flex items-center justify-center"
+              >
                 <span className="text-xs sm:text-sm text-gray-300">HirePilot / REX</span>
               </div>
             </div>
@@ -202,19 +256,19 @@ export default function MeetRex() {
               {
                 icon: 'fa-search',
                 title: 'Source & Score',
-                desc: 'REX scans your campaigns, recommends the best candidates, and enriches them using Apollo and LinkedIn.'
+                desc: 'REX scans your campaigns, recommends the best candidates, and enriches them using Apollo and LinkedIn.',
               },
               {
                 icon: 'fa-envelope',
                 title: 'Automate Outreach',
-                desc: 'One-click message generation, follow-ups, and personalized outreach at scale.'
+                desc: 'One-click message generation, follow-ups, and personalized outreach at scale.',
               },
               {
                 icon: 'fa-calendar',
                 title: 'Book Interviews on Autopilot',
-                desc: 'Syncs with your calendar. Candidates get scheduled, Slack keeps you updated.'
-              }
-            ].map(c => (
+                desc: 'Syncs with your calendar. Candidates get scheduled, Slack keeps you updated.',
+              },
+            ].map((c) => (
               <div key={c.title} className="text-center hover-lift">
                 <div className="w-20 h-20 gradient-bg rounded-full flex items-center justify-center mx-auto mb-6">
                   <i className={`fa-solid ${c.icon} text-white text-2xl`} />
@@ -236,13 +290,13 @@ export default function MeetRex() {
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
-              ['fa-magnifying-glass','Candidate Discovery','AI-powered sourcing across multiple platforms'],
-              ['fa-robot','AI Messaging','Personalized outreach at scale'],
-              ['fa-slack','Slack & Calendar Integration','Seamless workflow integration'],
-              ['fa-plug','Zapier & Make Triggers','Connect with 1000+ apps'],
-              ['fa-phone','Phone & Email Lookup','Complete contact enrichment'],
-              ['fa-gears','Custom Workflows','Tailored automation rules']
-            ].map(([icon,title,desc])=> (
+              ['fa-magnifying-glass', 'Candidate Discovery', 'AI-powered sourcing across multiple platforms'],
+              ['fa-robot', 'AI Messaging', 'Personalized outreach at scale'],
+              ['fa-slack', 'Slack & Calendar Integration', 'Seamless workflow integration'],
+              ['fa-plug', 'Zapier & Make Triggers', 'Connect with 1000+ apps'],
+              ['fa-phone', 'Phone & Email Lookup', 'Complete contact enrichment'],
+              ['fa-gears', 'Custom Workflows', 'Tailored automation rules'],
+            ].map(([icon, title, desc]) => (
               <div key={title} className="bg-gray-800 p-8 rounded-xl border border-gray-700 hover-lift">
                 <div className="w-12 h-12 rounded-lg flex items-center justify-center mb-4 overflow-hidden">
                   <i className={`${icon === 'fa-slack' ? 'fa-brands' : 'fa-solid'} ${icon} text-white text-3xl`} />
@@ -263,10 +317,10 @@ export default function MeetRex() {
           </div>
           <div className="grid lg:grid-cols-3 gap-8">
             {[
-              {icon:'fa-building',title:'Agency Recruiters',desc:'Scale outreach without extra headcount'},
-              {icon:'fa-users',title:'In-House Teams',desc:'Sync with ATS, Slack, and calendar'},
-              {icon:'fa-user',title:'Solopreneurs',desc:'Full automation, no extra tools needed'}
-            ].map(c=>(
+              { icon: 'fa-building', title: 'Agency Recruiters', desc: 'Scale outreach without extra headcount' },
+              { icon: 'fa-users', title: 'In-House Teams', desc: 'Sync with ATS, Slack, and calendar' },
+              { icon: 'fa-user', title: 'Solopreneurs', desc: 'Full automation, no extra tools needed' },
+            ].map((c) => (
               <div key={c.title} className="text-center">
                 <div className="bg-white/10 backdrop-blur-sm p-8 rounded-xl mb-6 border border-white/10">
                   <i className={`fa-solid ${c.icon} text-4xl text-purple-400 mb-4`} />
@@ -288,10 +342,10 @@ export default function MeetRex() {
           </div>
           <div className="grid md:grid-cols-3 gap-8">
             {[
-              ['12x','Faster lead-to-interview pipeline'],
-              ['80%','Reduction in manual outreach'],
-              ['10+','Hours saved per week, per recruiter']
-            ].map(([stat,text])=> (
+              ['12x', 'Faster lead-to-interview pipeline'],
+              ['80%', 'Reduction in manual outreach'],
+              ['10+', 'Hours saved per week, per recruiter'],
+            ].map(([stat, text]) => (
               <div key={stat} className="text-center">
                 <div className="text-6xl font-bold gradient-text mb-4">{stat}</div>
                 <p className="text-xl text-slate-300">{text}</p>
@@ -302,4 +356,60 @@ export default function MeetRex() {
       </section>
 
       {/* Chat Preview */}
-      <section id="chat-preview" className="py-20 bg-gray-900 fade-in"></section>
+      <section id="chat-preview" className="py-20 bg-gray-900 fade-in">
+        <div className="max-w-4xl mx-auto px-6 text-center">
+          <h2 className="text-4xl font-bold text-white mb-8">Try Chatting with REX on Slack</h2>
+          <div className="bg-gray-800 rounded-2xl p-8 border border-gray-700 max-w-2xl mx-auto">
+            <div className="mb-6 flex justify-center">
+              <img src="/REX-slack.gif" alt="REX Slack Preview" className="rounded-xl max-w-full" />
+            </div>
+            <a href="/login" className="gradient-bg text-white px-8 py-4 rounded-lg font-semibold">
+              Ask REX a Question
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing CTA */}
+      <section id="pricing-cta" className="py-20 bg-gray-900 fade-in">
+        <div className="max-w-4xl mx-auto px-6 text-center">
+          <div className="bg-gradient-to-r from-purple-900/40 to-blue-900/40 rounded-2xl p-12 border border-purple-500/30">
+            <h2 className="text-4xl font-bold text-white mb-6">Ready to Meet REX?</h2>
+            <p className="text-xl text-gray-300 mb-8">REX is included in all plans. Start your 7-day free trial today.</p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+              <a
+                href="/pricing"
+                className="bg-white text-blue-700 border-2 border-blue-600 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-blue-50"
+              >
+                Start for Free →
+              </a>
+              <a
+                href="/pricing"
+                className="border-2 border-purple-400 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-purple-900/30"
+              >
+                View Pricing
+              </a>
+            </div>
+            <p className="text-sm text-gray-400">Start for free. Credits used for enrichment</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Trust Section */}
+      <section id="trust" className="py-16 bg-gray-900 fade-in">
+        <div className="max-w-6xl mx-auto px-6 text-center">
+          <p className="text-gray-300 mb-8">Sync your HirePilot recruiting flows with tools you already have</p>
+          <div className="flex justify-center items-center space-x-12 opacity-80">
+            <img src="/apollo-logo-v2.png" alt="Apollo" className="h-8 brightness-0 invert" />
+            <i className="fa-brands fa-linkedin text-4xl text-white" />
+            <i className="fa-brands fa-slack text-4xl text-white" />
+            <img src="/zapier-icon.png" alt="Zapier" className="h-8 brightness-0 invert" />
+            <img src="/make-logo-v1.png" alt="Make" className="h-8 w-auto brightness-0 invert" />
+          </div>
+        </div>
+      </section>
+
+      <PublicFooter />
+    </div>
+  );
+}
