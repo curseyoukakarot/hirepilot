@@ -106,7 +106,7 @@ export default function MeetRex() {
               Meet REX – Your AI <span className="gradient-text">Recruiting Co-Pilot</span>
             </h1>
             <p className="text-base sm:text-lg lg:text-xl text-slate-300 mb-6 sm:mb-8 leading-relaxed">
-              Source leads. Enrich data. Send outreach. Book interviews.<br/>All inside one smart assistant—powered by your workflow.
+              Source leads. Enrich data. Send outreach. Book interviews.<br />All inside one smart assistant—powered by your workflow.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <a href="/pricing" className="gradient-bg px-6 py-3 sm:px-8 sm:py-4 rounded-lg font-semibold text-base sm:text-lg hover:shadow-2xl transition-shadow">Try REX Free</a>
@@ -195,6 +195,35 @@ export default function MeetRex() {
               </div>
             </div>
           </div>
+
+          {/* Cards under diagram */}
+          <div className="grid lg:grid-cols-3 gap-8">
+            {[
+              {
+                icon: 'fa-search',
+                title: 'Source & Score',
+                desc: 'REX scans your campaigns, recommends the best candidates, and enriches them using Apollo and LinkedIn.'
+              },
+              {
+                icon: 'fa-envelope',
+                title: 'Automate Outreach',
+                desc: 'One-click message generation, follow-ups, and personalized outreach at scale.'
+              },
+              {
+                icon: 'fa-calendar',
+                title: 'Book Interviews on Autopilot',
+                desc: 'Syncs with your calendar. Candidates get scheduled, Slack keeps you updated.'
+              }
+            ].map(c => (
+              <div key={c.title} className="text-center hover-lift">
+                <div className="w-20 h-20 gradient-bg rounded-full flex items-center justify-center mx-auto mb-6">
+                  <i className={`fa-solid ${c.icon} text-white text-2xl`} />
+                </div>
+                <h3 className="text-2xl font-bold text-white mb-4">{c.title}</h3>
+                <p className="text-gray-300 leading-relaxed">{c.desc}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -273,23 +302,4 @@ export default function MeetRex() {
       </section>
 
       {/* Chat Preview */}
-      <section id="chat-preview" className="py-20 bg-gray-900 fade-in">
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          <h2 className="text-4xl font-bold text-white mb-8">Try Chatting with REX on Slack</h2>
-          <div className="bg-gray-800 rounded-2xl p-8 border border-gray-700 max-w-2xl mx-auto">
-            <div className="mb-6 flex justify-center">
-              <img src="/REX-slack.gif" alt="REX Slack Preview" className="rounded-xl max-w-full" />
-            </div>
-            <a href="/login" className="gradient-bg text-white px-8 py-4 rounded-lg font-semibold">Ask REX a Question</a>
-          </div>
-        </div>
-      </section>
-
-      {/* Pricing CTA */}
-      <section id="pricing-cta" className="py-20 bg-gray-900 fade-in">
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          <div className="bg-gradient-to-r from-purple-900/40 to-blue-900/40 rounded-2xl p-12 border border-purple-500/30">
-            <h2 className="text-4xl font-bold text-white mb-6">Ready to Meet REX?</h2>
-            <p className="text-xl text-gray-300 mb-8">REX is included in all plans. Start your 7-day free trial today.</p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
-              <a href="/pricing" className="bg-white text-blue-700 border
+      <section id="chat-preview" className="py-20 bg-gray-900 fade-in"></section>
