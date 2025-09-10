@@ -115,6 +115,8 @@ const LeadProfileDrawer = lazy(() => import("./screens/LeadProfileDrawer"));
 const CandidateList = lazy(() => import("./screens/CandidateList"));
 const JobRequisitions = lazy(() => import("./screens/JobRequisitions"));
 const JobPipeline = lazy(() => import("./screens/JobPipeline"));
+const JobRequisitionPage = lazy(() => import("../../packages/web/src/pages/job/[id].tsx"));
+const PipelinePage = lazy(() => import("../../packages/web/src/pages/job/[id]/pipeline.tsx"));
 const Campaigns = lazy(() => import("./screens/Campaigns"));
 const Analytics = lazy(() => import("./screens/Analytics"));
 const BillingScreen = lazy(() => import("./screens/BillingScreen"));
@@ -447,6 +449,8 @@ function InnerApp() {
               <Route path="/templates" element={<TemplateManager userId="mock-user-id" />} />
               <Route path="/candidates" element={<CandidateList />} />
               <Route path="/jobs" element={<JobRequisitions />} />
+              <Route path="/job/:id" element={<JobRequisitionPage />} />
+              <Route path="/job/:id/pipeline" element={<PipelinePage />} />
               <Route path="/jobs/pipeline" element={<JobPipeline />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/phantom-monitor" element={<PhantomMonitor />} />
