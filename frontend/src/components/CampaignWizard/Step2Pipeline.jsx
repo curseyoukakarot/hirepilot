@@ -29,13 +29,13 @@ export default function Step2Pipeline({ onBack, onNext }) {
   useEffect(() => {
     const fetchPipelines = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('User not authenticated');
-
-        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/pipelines?user_id=${user.id}`, {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error('User not authenticated');
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/pipelines?user_id=${session.user.id}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
           },
           credentials: 'include',
         });
@@ -91,8 +91,8 @@ export default function Step2Pipeline({ onBack, onNext }) {
     setError(null);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error('User not authenticated');
 
       if (tab === 'existing') {
         const selected = existingPipelines.find(p => p.id === selectedPipeline);
@@ -106,10 +106,11 @@ export default function Step2Pipeline({ onBack, onNext }) {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
             },
             credentials: 'include',
             body: JSON.stringify({
-              user_id: user.id,
+              user_id: session.user.id,
               name: pipelineName,
               department,
               stages
