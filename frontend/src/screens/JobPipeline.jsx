@@ -129,7 +129,6 @@ export default function JobPipeline() {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache',
         },
       });
       if (pipelineRes.status === 304) {
@@ -139,7 +138,6 @@ export default function JobPipeline() {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
-            'Cache-Control': 'no-cache',
           },
         });
       }
@@ -166,7 +164,6 @@ export default function JobPipeline() {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache',
         },
       });
       if (stagesRes.status === 304) {
@@ -176,7 +173,6 @@ export default function JobPipeline() {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
-            'Cache-Control': 'no-cache',
           },
         });
       }
