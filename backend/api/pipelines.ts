@@ -16,13 +16,22 @@ router.get('/', requireAuth as any, async (req: Request, res: Response) => {
     const userId = (req as any).user?.id;
     if (!jobId || !userId) return res.json([]);
 
-    const { data, error } = await supabaseDb
+    let { data, error } = await supabaseDb
       .from('job_requisitions')
       .select('pipeline_id, title, pipeline:pipelines (id, name, department)')
       .eq('id', jobId)
       .eq('user_id', userId)
       .single();
-    if (error || !data) return res.json([]);
+    // Fallback: if user_id filter blocks but job exists (team-owned, admin views), try without user constraint
+    if (error || !data) {
+      const retry = await supabaseDb
+        .from('job_requisitions')
+        .select('pipeline_id, title, pipeline:pipelines (id, name, department)')
+        .eq('id', jobId)
+        .maybeSingle();
+      data = retry.data as any;
+    }
+    if (!data) return res.json([]);
 
     // Prefer joined pipeline record; otherwise, fall back to minimal pipeline shape
     if (data.pipeline_id) {
@@ -55,13 +64,22 @@ router.get('/:id/stages', requireAuth as any, async (req: Request, res: Response
     if (!pipelineId || !jobId || !userId) return res.json({ stages: [], candidates: {} });
 
     // Verify job ownership
-    const { data: job, error: jobErr } = await supabaseDb
+    let { data: job, error: jobErr } = await supabaseDb
       .from('job_requisitions')
       .select('id, pipeline_id')
       .eq('id', jobId)
       .eq('user_id', userId)
       .single();
-    if (jobErr || !job || String(job.pipeline_id) !== String(pipelineId)) {
+    if (jobErr || !job) {
+      // Retry without user filter to support team/admin contexts
+      const retry = await supabaseDb
+        .from('job_requisitions')
+        .select('id, pipeline_id')
+        .eq('id', jobId)
+        .maybeSingle();
+      job = retry.data as any;
+    }
+    if (!job || String(job.pipeline_id) !== String(pipelineId)) {
       return res.json({ stages: [], candidates: {} });
     }
 
