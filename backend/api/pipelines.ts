@@ -29,6 +29,13 @@ router.get('/', requireAuth as any, async (req: Request, res: Response) => {
       if (data.pipeline) {
         return res.json([data.pipeline]);
       }
+      // Relationship not configured; fetch pipeline directly
+      const { data: pipelineRow } = await supabaseDb
+        .from('pipelines')
+        .select('id, name, department')
+        .eq('id', data.pipeline_id)
+        .maybeSingle();
+      if (pipelineRow) return res.json([pipelineRow]);
       return res.json([{ id: data.pipeline_id, name: data.title || 'Pipeline', department: '' }]);
     }
 
