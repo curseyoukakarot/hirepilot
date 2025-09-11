@@ -360,16 +360,22 @@ router.patch('/:id/stages/reorder', requireAuth as any, async (req: Request, res
     if (error) {
       console.warn('[reorder] RPC failed, falling back to per-row updates', error);
 
-      // Fallback mirrors candidate move: only update rows that exist for this pipeline
-      const { data: existing, error: fetchErr } = await supabaseDb
+      // Fallback mirrors candidate move. First, resolve actual pipeline_id from provided stage ids
+      const providedIds = (Array.isArray(stages) ? stages : []).map((s: any) => s.id);
+      const { data: foundRows, error: foundErr } = await supabaseDb
         .from('pipeline_stages')
-        .select('id')
-        .eq('pipeline_id', id);
-      if (fetchErr) throw fetchErr;
+        .select('id,pipeline_id')
+        .in('id', providedIds);
+      if (foundErr) throw foundErr;
+      const actualPipelineId = foundRows && foundRows.length > 0 ? String(foundRows[0].pipeline_id) : id;
+      if (actualPipelineId !== id) {
+        console.warn('[reorder] pipelineId mismatch; using resolved pipeline_id from stages', { requested: id, resolved: actualPipelineId });
+      }
 
-      const valid = new Set((existing || []).map((r: any) => String(r.id)));
+      // Limit updates to ids we actually found
+      const valid = new Set((foundRows || []).map((r: any) => String(r.id)));
       const toUpdate = (Array.isArray(stages) ? stages : []).filter((s: any) => valid.has(String(s.id)));
-      console.info('[reorder] existing ids', { existingCount: (existing || []).length });
+      console.info('[reorder] foundRows', { foundCount: (foundRows || []).length });
       console.info('[reorder] toUpdate ids', { ids: toUpdate.map((s: any) => s.id) });
 
       if (!toUpdate.length) {
@@ -395,7 +401,7 @@ router.patch('/:id/stages/reorder', requireAuth as any, async (req: Request, res
           .from('pipeline_stages')
           .update({ position: s.position })
           .eq('id', s.id)
-          .eq('pipeline_id', id)
+          .eq('pipeline_id', actualPipelineId)
           .select('id')
       );
       const results = await Promise.all(updates);
