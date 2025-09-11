@@ -853,55 +853,51 @@ export default function JobPipeline() {
               </div>
             </div>
           )}
-          {/* Overwrite Pipeline Confirmation Modal */}
-          {showOverwritePipelineConfirm && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-white rounded-lg w-full max-w-md mx-4">
-                <div className="p-4 border-b flex justify-between items-center">
-                  <h2 className="text-lg font-semibold text-red-600">
-                    Overwrite Existing Pipeline?
-                  </h2>
-                </div>
-                <div className="p-4">
-                  <p className="mb-4 text-gray-700">
-                    This job is already linked to a pipeline. Creating a new
-                    pipeline will unlink the current one and link the new
-                    pipeline. Candidates will not be deleted, but you may need
-                    to reassign them to stages in the new pipeline.
-                  </p>
-                  <div className="flex justify-end gap-2">
-                    <button
-                      onClick={handleOverwritePipelineCancel}
-                      className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleOverwritePipelineConfirm}
-                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
-                    >
-                      <FaCheck /> Overwrite Pipeline
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Inline Toast */}
-          {toastBanner.show && (
-            <InlineToast
-              message={toastBanner.message}
-              type={toastBanner.type}
-              onClose={hideInlineToast}
-            />
-          )}
+     {/* Overwrite Pipeline Confirmation Modal */}
+{showOverwritePipelineConfirm && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white rounded-lg w-full max-w-md mx-4">
+      <div className="p-4 border-b flex justify-between items-center">
+        <h2 className="text-lg font-semibold text-red-600">
+          Overwrite Existing Pipeline?
+        </h2>
+      </div>
+      <div className="p-4">
+        <p className="mb-4 text-gray-700">
+          This job is already linked to a pipeline. Creating a new pipeline will
+          unlink the current one and link the new pipeline. Candidates will not
+          be deleted, but you may need to reassign them to stages in the new
+          pipeline.
+        </p>
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={handleOverwritePipelineCancel}
+            className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleOverwritePipelineConfirm}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
+          >
+            <FaCheck /> Overwrite Pipeline
+          </button>
         </div>
       </div>
     </div>
-  );  // ✅ closes return properly
-}      // ✅ closes the component function
+  </div>
+)}
 
-
-
-
+{/* Inline Toast */}
+{toastBanner.show && (
+  <InlineToast
+    message={toastBanner.message}
+    type={toastBanner.type}
+    onClose={hideInlineToast}
+  />
+)}
+</div>
+</div>
+</div>
+);
+}
