@@ -115,7 +115,7 @@ const LeadProfileDrawer = lazy(() => import("./screens/LeadProfileDrawer"));
 const CandidateList = lazy(() => import("./screens/CandidateList"));
 const JobRequisitions = lazy(() => import("./screens/JobRequisitions"));
 const JobPipeline = lazy(() => import("./screens/JobPipeline"));
-const JobRequisitionPage = lazy(() => import("./pages/job/[id].tsx"));
+const JobRequisitionPage = lazy(() => import("./screens/JobRequisitionPage"));
 const Campaigns = lazy(() => import("./screens/Campaigns"));
 const Analytics = lazy(() => import("./screens/Analytics"));
 const BillingScreen = lazy(() => import("./screens/BillingScreen"));
