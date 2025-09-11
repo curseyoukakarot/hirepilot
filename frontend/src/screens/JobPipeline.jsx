@@ -853,7 +853,7 @@ export default function JobPipeline() {
               </div>
             </div>
           )}
- {/* Overwrite Pipeline Confirmation Modal */}
+{/* Overwrite Pipeline Confirmation Modal */}
 {showOverwritePipelineConfirm && (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
     <div className="bg-white rounded-lg w-full max-w-md mx-4">
@@ -888,7 +888,6 @@ export default function JobPipeline() {
   </div>
 )}
 
-{/* Inline Toast */}
 {toastBanner.show && (
   <InlineToast
     message={toastBanner.message}
@@ -897,10 +896,10 @@ export default function JobPipeline() {
   />
 )}
 
-</div>   {/* closes main content wrapper */}
-</div>   {/* closes flex-1 container */}
-</div>   {/* closes outermost min-h-screen */}
+      </div>
+    </div>
+  </div>
 );
 }
 
-export default JobPipeline;
+
