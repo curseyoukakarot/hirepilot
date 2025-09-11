@@ -3,7 +3,7 @@ import { FaPlus, FaEllipsisV, FaUserPlus, FaSearch, FaTimes, FaTrash, FaEdit, Fa
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { getPipelineStages, createPipelineStage, updatePipelineStage, deletePipelineStage, reorderPipelineStages, fetchCandidatesForJob } from '../services/pipelineStagesService';
 import toast from 'react-hot-toast';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
 // Default stages if none exist
@@ -28,8 +28,9 @@ const departments = ['Engineering', 'Sales', 'Product', 'Marketing', 'HR', 'Fina
 const getAvatarUrl = (name) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
 
 export default function JobPipeline() {
+  const { id: jobId } = useParams();
   const [selectedPipeline, setSelectedPipeline] = useState('all');
-  const [selectedJob, setSelectedJob] = useState('all');
+  const [selectedJob, setSelectedJob] = useState(jobId || 'all');
   const [showModal, setShowModal] = useState(false);
   const [showNewPipelineModal, setShowNewPipelineModal] = useState(false);
   const [showEditStageModal, setShowEditStageModal] = useState(false);
@@ -50,8 +51,6 @@ export default function JobPipeline() {
   const [newStageTitle, setNewStageTitle] = useState('');
   const [newStageColor, setNewStageColor] = useState('bg-blue-100 text-blue-800');
   const [toast, setToast] = useState({ show: false, message: '', type: '' });
-  const [searchParams] = useSearchParams();
-  const jobId = searchParams.get('jobId');
   const [stages, setStages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -62,6 +61,7 @@ export default function JobPipeline() {
   const [selectedCandidates, setSelectedCandidates] = useState(new Set());
   const [showOverwritePipelineConfirm, setShowOverwritePipelineConfirm] = useState(false);
   const [pendingPipelineData, setPendingPipelineData] = useState(null);
+  const [pipelineExists, setPipelineExists] = useState(true);
 
   // Initialize candidates state with default stages
   const [candidates, setCandidates] = useState(
@@ -77,15 +77,19 @@ export default function JobPipeline() {
 
   // Add derived pipeline name using useMemo
   const pipelineName = useMemo(() => {
-    const job = jobs?.find(j => j.id === jobId);
-    if (!jobId || !pipelines?.length) return 'All Pipelines';
+    const job = jobs?.find(j => j.id === selectedJob);
+    if (!selectedJob || !pipelines?.length) return 'All Pipelines';
     if (!job) return 'All Pipelines';
     if (!job.pipeline_id) return job.title || 'All Pipelines';
     const pipeline = pipelines.find(p => String(p.id) === String(job.pipeline_id));
     if (pipeline?.name) return pipeline.name;
     if (job.title) return job.title;
     return 'All Pipelines';
-  }, [jobId, jobs, pipelines]);
+  }, [selectedJob, jobs, pipelines]);
+
+  useEffect(() => {
+    if (jobId) setSelectedJob(jobId);
+  }, [jobId]);
 
   // Toast notification component
   const Toast = ({ message, type, onClose }) => {
@@ -183,160 +187,110 @@ export default function JobPipeline() {
   const fetchStagesAndCandidates = async () => {
     try {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        navigate('/login');
-        return;
-      }
-
-      if (!jobId) {
+      if (!selectedJob || selectedJob === 'all') {
+        setPipelineExists(false);
         setStages([]);
         setCandidates({});
-        setError(null);
         return;
       }
-
-      // Fetch pipeline_id for the job
-      const { data: jobData, error: jobError } = await supabase
-        .from('job_requisitions')
-        .select('pipeline_id')
-        .eq('id', jobId)
-        .single();
-      if (jobError) throw jobError;
-      const pipelineId = jobData?.pipeline_id;
-      if (!pipelineId) {
-        setStages([]);
-        setCandidates({});
-        setError('No pipeline associated with this job');
-        return;
-      }
-
-      // Fetch stages for the pipeline
-      const { data: stagesData, error: stagesError } = await supabase
-        .from('pipeline_stages')
-        .select('*')
-        .eq('pipeline_id', pipelineId)
-        .order('position', { ascending: true });
-      if (stagesError) throw stagesError;
-      console.log('Fetched stagesData:', stagesData);
-      setStages(stagesData);
-
-      // Fetch candidates for the job, including their stage_id/status and candidate info
-      const { data: candidatesData, error: candidatesError } = await supabase
-        .from('candidate_jobs')
+      const { data, error } = await supabase
+        .from('pipelines')
         .select(`
           id,
-          candidate_id,
-          stage_id,
-          status,
-          candidates (
+          name,
+          stages:pipeline_stages(
             id,
-            first_name,
-            last_name,
-            email,
-            avatar_url
+            title,
+            position,
+            candidates:candidate_jobs(
+              id,
+              candidate_id,
+              candidates(
+                first_name,
+                last_name,
+                email,
+                avatar_url
+              )
+            )
           )
         `)
-        .eq('job_id', jobId);
-      if (candidatesError) throw candidatesError;
-      console.log('Fetched candidatesData:', candidatesData);
-
-      // Group candidates by stage (support legacy rows that only have status)
-      const groupedCandidates = {};
-      const defaultStageId = (stagesData || [])[0]?.id;
-      (candidatesData || []).forEach(row => {
-        let stageId = row.stage_id;
-        if (!stageId) {
-          // Map legacy status text to a stage id by title or by fuzzy synonyms
-          const statusLc = String(row.status || '').toLowerCase();
-          let match = (stagesData || []).find(s => (s.title || '').toLowerCase() === statusLc);
-          if (!match && statusLc) {
-            const includes = (needle) => (s) => (s.title || '').toLowerCase().includes(needle);
-            if (statusLc === 'interviewed') match = (stagesData || []).find(includes('interview'));
-            else if (statusLc === 'offered') match = (stagesData || []).find(includes('offer'));
-            else if (statusLc === 'hired') match = (stagesData || []).find(includes('hire'));
-            else if (statusLc === 'contacted') match = (stagesData || []).find(s => {
-              const t = (s.title || '').toLowerCase();
-              return t.includes('contact') || t.includes('phone') || t.includes('screen');
-            });
-            else if (statusLc === 'sourced') match = (stagesData || []).find(includes('source')) || (stagesData || [])[0];
-          }
-          stageId = match?.id || defaultStageId || row.stage_id || 'unassigned';
-        }
-        if (!groupedCandidates[stageId]) groupedCandidates[stageId] = [];
-        groupedCandidates[stageId].push({
-          id: row.id,
-          candidate_id: row.candidate_id,
-          name: `${row.candidates?.first_name || ''} ${row.candidates?.last_name || ''}`.trim(),
-          email: row.candidates?.email || '',
-          avatar_url: row.candidates?.avatar_url || '',
-        });
+        .eq('job_id', selectedJob);
+      if (error) throw error;
+      setPipelines(data || []);
+      if (!data || data.length === 0) {
+        setPipelineExists(false);
+        setStages([]);
+        setCandidates({});
+        return;
+      }
+      const active = selectedPipeline === 'all' ? data[0] : data.find(p => String(p.id) === String(selectedPipeline)) || data[0];
+      setSelectedPipeline(active.id);
+      const stagesData = active.stages || [];
+      setStages(stagesData);
+      const grouped = {};
+      stagesData.forEach(stage => {
+        grouped[stage.id] = (stage.candidates || []).map(cj => ({
+          id: cj.id,
+          candidate_id: cj.candidate_id,
+          name: `${cj.candidates?.first_name || ''} ${cj.candidates?.last_name || ''}`.trim(),
+          email: cj.candidates?.email || '',
+          avatar_url: cj.candidates?.avatar_url || ''
+        }));
       });
-      setCandidates(groupedCandidates);
+      setCandidates(grouped);
+      setPipelineExists(true);
       setError(null);
     } catch (err) {
       console.error('Error loading pipeline stages or candidates:', err);
-      if (err.message === 'Not authenticated') {
-        navigate('/login');
-      } else {
-        setError('Failed to load pipeline stages or candidates');
-      }
+      setError('Failed to load pipeline stages or candidates');
     } finally {
       setLoading(false);
     }
   };
 
-  // useEffect to load stages and candidates when jobId changes
+  // load stages and candidates when job or pipeline selection changes
   useEffect(() => {
     fetchStagesAndCandidates();
-  }, [jobId, navigate]);
+  }, [selectedJob, selectedPipeline]);
 
   // Realtime sync: reflect external moves (REX/Zapier/other clients)
   useEffect(() => {
-    if (!jobId) return;
+    if (!selectedJob || selectedJob === 'all') return;
     const channel = supabase
-      .channel(`pipeline-realtime-${jobId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'candidate_jobs', filter: `job_id=eq.${jobId}` }, () => {
+      .channel(`pipeline-realtime-${selectedJob}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'candidate_jobs', filter: `job_id=eq.${selectedJob}` }, () => {
         fetchStagesAndCandidates();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pipeline_stages' }, () => {
         fetchStagesAndCandidates();
       })
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          // Initial subscription established
-        }
-      });
+      .subscribe();
 
     return () => {
       try { supabase.removeChannel(channel); } catch {}
     };
-  }, [jobId]);
+  }, [selectedJob]);
 
   useEffect(() => {
     const fetchPipelines = async () => {
+      if (!selectedJob || selectedJob === 'all') {
+        setPipelines([]);
+        return;
+      }
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/getCampaigns?user_id=${user.id}`, {
-          method: 'GET',
-          credentials: 'include'
-        });
-        const result = await response.json();
-        if (response.ok && result.campaigns) {
-          console.log('Successfully fetched pipelines:', result.campaigns);
-          setPipelines(result.campaigns);
-        } else {
-          console.log('No campaigns found in response:', result);
-          setPipelines([]);
-        }
+        const { data, error } = await supabase
+          .from('pipelines')
+          .select('id, name')
+          .eq('job_id', selectedJob);
+        if (error) throw error;
+        setPipelines(data || []);
       } catch (err) {
         console.error('Error fetching pipelines:', err);
         setPipelines([]);
       }
     };
     fetchPipelines();
-  }, []);
+  }, [selectedJob]);
 
   useEffect(() => {
     const fetchJobs = async () => {
@@ -400,64 +354,26 @@ export default function JobPipeline() {
         [sourceStage]: newCandidates
       });
     } else {
-      // Move to different stage (update DB)
+      // Move to different stage and persist change
       const sourceCandidates = Array.from(candidates[sourceStage] || []);
       const destCandidates = Array.from(candidates[destStage] || []);
       const [removed] = sourceCandidates.splice(source.index, 1);
       if (removed) {
-        // Update in DB (support both stage_id and status backends)
-        const toCanonicalStatus = (title) => {
-          const t = String(title || '').toLowerCase();
-          if (['sourced','contacted','interviewed','offered','hired','rejected'].includes(t)) return t;
-          if (t.includes('offer')) return 'offered';
-          if (t.includes('hire')) return 'hired';
-          if (t.includes('reject')) return 'rejected';
-          if (t.includes('contact')) return 'contacted';
-          if (t.includes('interview')) return 'interviewed';
-          return 'interviewed';
-        };
-        // Prefer using backend endpoint to handle schema differences and ownership
-        const { data: { session } } = await supabase.auth.getSession();
-        const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/pipelines/move-candidate`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token}`
-          },
-          body: JSON.stringify({ candidate_job_id: removed.id, job_id: jobId, dest_stage_id: destStage, stage_title: (stages||[]).find(s=>String(s.id)===String(destStage))?.title })
-        });
-        if (!resp.ok) {
-          const txt = await resp.text();
-          console.error('Pipeline move API error', txt);
-          toast.error('Failed to update candidate stage');
-          return;
-        }
-        // Local fallback (legacy direct update) if API is unreachable
-        /* let { error } = await supabase
+        const { error } = await supabase
           .from('candidate_jobs')
           .update({ stage_id: destStage })
           .eq('id', removed.id);
-        if (error && error.code === '42703') {
-          const title = (stages || []).find(s=>String(s.id)===String(destStage))?.title || 'Interviewed';
-          const canonical = toCanonicalStatus(title);
-          ({ error } = await supabase
-            .from('candidate_jobs')
-            .update({ status: canonical })
-            .eq('id', removed.id));
-        }
         if (error) {
           console.error('Pipeline update error', error);
           toast.error('Failed to update candidate stage');
           return;
-        } */
+        }
         destCandidates.splice(destination.index, 0, removed);
         setCandidates({
           ...candidates,
           [sourceStage]: sourceCandidates,
           [destStage]: destCandidates
         });
-        // Re-sync from DB to guarantee persistence on refresh
-        try { await fetchStagesAndCandidates(); } catch {}
       }
     }
   };
@@ -468,13 +384,13 @@ export default function JobPipeline() {
   };
 
   const handleSelectCandidate = async (candidate) => {
-    if (selectedStage && jobId) {
+    if (selectedStage && selectedJob) {
       // Insert into candidate_jobs
       const { data, error } = await supabase
         .from('candidate_jobs')
         .insert({
           candidate_id: candidate.id,
-          job_id: jobId,
+          job_id: selectedJob,
           stage_id: selectedStage
         });
       if (!error) {
@@ -539,7 +455,7 @@ export default function JobPipeline() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
-      if (!jobId || jobId === 'all') {
+      if (!selectedJob || selectedJob === 'all') {
         showToast('Please select a job before creating a pipeline.', 'error');
         return;
       }
@@ -547,7 +463,7 @@ export default function JobPipeline() {
       const { data: jobData } = await supabase
         .from('job_requisitions')
         .select('pipeline_id')
-        .eq('id', jobId)
+        .eq('id', selectedJob)
         .single();
       if (jobData?.pipeline_id) {
         // Show confirmation modal
@@ -591,13 +507,13 @@ export default function JobPipeline() {
       .insert(defaultStageRows);
     if (stagesError) throw stagesError;
     setPipelines(prev => [...prev, pipeline]);
-    // Debug log for jobId and pipeline.id
-    console.log('Linking job', jobId, 'to new pipeline', pipeline.id);
+    // Debug log for job and pipeline id
+    console.log('Linking job', selectedJob, 'to new pipeline', pipeline.id);
     // Link the new pipeline to the current job
     await supabase
       .from('job_requisitions')
       .update({ pipeline_id: pipeline.id })
-      .eq('id', jobId);
+      .eq('id', selectedJob);
     // Refresh stages and candidates after linking
     await fetchStagesAndCandidates();
     setShowNewPipelineModal(false);
@@ -684,7 +600,7 @@ export default function JobPipeline() {
   // Fetch real candidates when Add Candidate modal is opened
   useEffect(() => {
     const fetchAvailableCandidates = async () => {
-      if (!showModal) return;
+      if (!showModal || !selectedJob || selectedJob === 'all') return;
       setCandidatesLoading(true);
       try {
         // Fetch all candidates
@@ -696,7 +612,7 @@ export default function JobPipeline() {
         const { data: jobCandidates, error: jobCandidatesError } = await supabase
           .from('candidate_jobs')
           .select('candidate_id')
-          .eq('job_id', jobId);
+          .eq('job_id', selectedJob);
         if (jobCandidatesError) throw jobCandidatesError;
         const usedIds = new Set((jobCandidates || []).map(cj => cj.candidate_id));
         // Only show candidates not already in the pipeline
@@ -708,7 +624,7 @@ export default function JobPipeline() {
       }
     };
     fetchAvailableCandidates();
-  }, [showModal, jobId]);
+  }, [showModal, selectedJob]);
 
   // Filter/search candidates
   const filteredCandidates = availableCandidates.filter(candidate =>
@@ -811,7 +727,11 @@ export default function JobPipeline() {
                 <select
                   className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   value={selectedJob}
-                  onChange={(e) => setSelectedJob(e.target.value)}
+                  onChange={(e) => {
+                    const newJob = e.target.value;
+                    setSelectedJob(newJob);
+                    if (newJob !== 'all') navigate(`/job/${newJob}/pipeline`);
+                  }}
                 >
                   <option value="all">All Jobs</option>
                   {jobs.map(job => (
@@ -867,20 +787,19 @@ export default function JobPipeline() {
 
           {/* Main Content */}
           <main className="max-w-7xl mx-auto px-6 py-8">
-            {stages.length === 0 ? (
+            {!pipelineExists ? (
               <div className="min-h-[300px] flex flex-col items-center justify-center">
                 <div className="text-red-600 text-lg font-semibold mb-4">
                   This job has no pipeline! To add stages, click <b>New Pipeline</b> and create a pipeline directly from this page.
                 </div>
-                <button 
+                <button
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700"
                   onClick={() => setShowNewPipelineModal(true)}
                 >
                   <FaPlus /> New Pipeline
                 </button>
               </div>
-            ) : null}
-            {stages.length > 0 && (
+            ) : (
               <DragDropContext onDragEnd={handleDragEnd}>
                 <Droppable droppableId="stages" direction="horizontal" type="stage">
                   {(provided) => (
@@ -1378,4 +1297,4 @@ export default function JobPipeline() {
       </div>
     </div>
   );
-} 
+}
