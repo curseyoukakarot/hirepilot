@@ -13,11 +13,13 @@ CREATE OR REPLACE FUNCTION public.reorder_pipeline_stages(
   p_pipeline_id uuid,
   p_stages      jsonb
 )
-RETURNS jsonb
+RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  updated_rows integer := 0;
 BEGIN
   -- Serialize concurrent reorders on the same pipeline
   PERFORM 1 FROM public.pipelines WHERE id = p_pipeline_id FOR UPDATE;
@@ -35,7 +37,10 @@ BEGIN
   WHERE ps.id = d.id
     AND ps.pipeline_id = p_pipeline_id;
 
-  RETURN jsonb_build_object('success', true);
+  GET DIAGNOSTICS updated_rows = ROW_COUNT;
+  IF updated_rows = 0 THEN
+    RAISE EXCEPTION 'No stages updated for pipeline % (possible permission issue)', p_pipeline_id;
+  END IF;
 END;
 $$;
 

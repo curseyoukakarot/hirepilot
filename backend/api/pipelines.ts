@@ -348,7 +348,7 @@ router.patch('/:id/stages/reorder', requireAuth as any, async (req: Request, res
     });
 
     const { error } = await supabaseDb.rpc('reorder_pipeline_stages', {
-      p_pipeline: id,
+      p_pipeline_id: id,
       p_stages: stages,
     });
     if (error) throw error;
@@ -359,7 +359,7 @@ router.patch('/:id/stages/reorder', requireAuth as any, async (req: Request, res
       eventData: { pipeline_id: id, action: 'reordered' },
     });
 
-    res.status(200).json({ ok: true });
+    res.status(200).json({ success: true });
   } catch (err: any) {
     console.error('[PATCH /api/pipelines/:id/stages/reorder] error', err);
     res.status(500).json({ error: err.message });
