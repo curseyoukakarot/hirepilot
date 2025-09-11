@@ -763,29 +763,44 @@ export default function JobPipeline() {
             </div>
           )}
 
-          {/* Confirm Remove Candidate */}
+                   {/* Confirm Remove Candidate */}
           {showConfirmDialog && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white rounded-lg w-full max-w-md mx-4">
-                <div className="p-4 border-b"><h2 className="text-lg font-semibold">Remove Candidate</h2></div>
+                <div className="p-4 border-b">
+                  <h2 className="text-lg font-semibold">Remove Candidate</h2>
+                </div>
                 <div className="p-4">
-                  <p className="text-gray-600 mb-4">Are you sure you want to remove this candidate?</p>
+                  <p className="text-gray-600 mb-4">
+                    Are you sure you want to remove this candidate?
+                  </p>
                   <div className="flex justify-end gap-2">
-                    <button onClick={() => { setShowConfirmDialog(false); setCandidateToRemove(null); }} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">Cancel</button>
-                    <button onClick={confirmRemoveCandidate} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"><FaTrash /> Remove</button>
+                    <button
+                      onClick={() => { setShowConfirmDialog(false); setCandidateToRemove(null); }}
+                      className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={confirmRemoveCandidate}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
+                    >
+                      <FaTrash /> Remove
+                    </button>
                   </div>
-                         {/* New Stage Modal */}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* New Stage Modal */}
           {showNewStageModal && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white rounded-lg w-full max-w-md mx-4">
                 <div className="p-4 border-b flex justify-between items-center">
                   <h2 className="text-lg font-semibold">Create New Stage</h2>
                   <button
-                    onClick={() => {
-                      setShowNewStageModal(false);
-                      setNewStageTitle('');
-                      setNewStageColor('bg-blue-100 text-blue-800');
-                    }}
+                    onClick={() => { setShowNewStageModal(false); setNewStageTitle(''); setNewStageColor('bg-blue-100 text-blue-800'); }}
                     className="text-gray-400 hover:text-gray-600"
                   >
                     <FaTimes />
@@ -793,9 +808,7 @@ export default function JobPipeline() {
                 </div>
                 <div className="p-4 space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Stage Name
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Stage Name</label>
                     <input
                       type="text"
                       placeholder="e.g., Phone Screen"
@@ -805,26 +818,18 @@ export default function JobPipeline() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Stage Color
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Stage Color</label>
                     <div className="grid grid-cols-4 gap-2">
                       {[
-                        'bg-blue-100 text-blue-800',
-                        'bg-yellow-100 text-yellow-800',
-                        'bg-purple-100 text-purple-800',
-                        'bg-green-100 text-green-800',
-                        'bg-indigo-100 text-indigo-800',
-                        'bg-red-100 text-red-800',
-                        'bg-pink-100 text-pink-800',
-                        'bg-gray-100 text-gray-800'
+                        'bg-blue-100 text-blue-800','bg-yellow-100 text-yellow-800',
+                        'bg-purple-100 text-purple-800','bg-green-100 text-green-800',
+                        'bg-indigo-100 text-indigo-800','bg-red-100 text-red-800',
+                        'bg-pink-100 text-pink-800','bg-gray-100 text-gray-800'
                       ].map((color) => (
                         <button
                           key={color}
                           onClick={() => setNewStageColor(color)}
-                          className={`p-2 rounded-lg border ${
-                            newStageColor === color ? 'ring-2 ring-blue-500' : ''
-                          }`}
+                          className={`p-2 rounded-lg border ${newStageColor === color ? 'ring-2 ring-blue-500' : ''}`}
                         >
                           <div className={`w-full h-8 rounded ${color}`} />
                         </button>
@@ -833,11 +838,7 @@ export default function JobPipeline() {
                   </div>
                   <div className="flex justify-end gap-2">
                     <button
-                      onClick={() => {
-                        setShowNewStageModal(false);
-                        setNewStageTitle('');
-                        setNewStageColor('bg-blue-100 text-blue-800');
-                      }}
+                      onClick={() => { setShowNewStageModal(false); setNewStageTitle(''); setNewStageColor('bg-blue-100 text-blue-800'); }}
                       className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
                     >
                       Cancel
@@ -853,53 +854,40 @@ export default function JobPipeline() {
               </div>
             </div>
           )}
-{/* Overwrite Pipeline Confirmation Modal */}
-{showOverwritePipelineConfirm && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div className="bg-white rounded-lg w-full max-w-md mx-4">
-      <div className="p-4 border-b flex justify-between items-center">
-        <h2 className="text-lg font-semibold text-red-600">
-          Overwrite Existing Pipeline?
-        </h2>
-      </div>
-      <div className="p-4">
-        <p className="mb-4 text-gray-700">
-          This job is already linked to a pipeline. Creating a new pipeline will
-          unlink the current one and link the new pipeline. Candidates will not
-          be deleted, but you may need to reassign them to stages in the new
-          pipeline.
-        </p>
-        <div className="flex justify-end gap-2">
-          <button
-            onClick={handleOverwritePipelineCancel}
-            className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleOverwritePipelineConfirm}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
-          >
-            <FaCheck /> Overwrite Pipeline
-          </button>
+
+          {/* Overwrite Pipeline Confirmation Modal */}
+          {showOverwritePipelineConfirm && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg w-full max-w-md mx-4">
+                <div className="p-4 border-b flex justify-between items-center">
+                  <h2 className="text-lg font-semibold text-red-600">
+                    Overwrite Existing Pipeline?
+                  </h2>
+                </div>
+                <div className="p-4">
+                  <p className="mb-4 text-gray-700">
+                    This job is already linked to a pipeline. Creating a new pipeline will unlink the current one and link the new pipeline. Candidates will not be deleted, but you may need to reassign them to stages in the new pipeline.
+                  </p>
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={handleOverwritePipelineCancel}
+                      className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleOverwritePipelineConfirm}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
+                    >
+                      <FaCheck /> Overwrite Pipeline
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
-  </div>
-)}
-
-{toastBanner.show && (
-  <InlineToast
-    message={toastBanner.message}
-    type={toastBanner.type}
-    onClose={hideInlineToast}
-  />
-)}
-
-      </div>
-    </div>
-  </div>
-);
+  );
 }
-
-
