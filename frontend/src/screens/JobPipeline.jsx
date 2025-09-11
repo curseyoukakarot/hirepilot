@@ -853,7 +853,7 @@ export default function JobPipeline() {
               </div>
             </div>
           )}
-     {/* Overwrite Pipeline Confirmation Modal */}
+ {/* Overwrite Pipeline Confirmation Modal */}
 {showOverwritePipelineConfirm && (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
     <div className="bg-white rounded-lg w-full max-w-md mx-4">
@@ -896,8 +896,11 @@ export default function JobPipeline() {
     onClose={hideInlineToast}
   />
 )}
-</div>
-</div>
-</div>
+
+</div>   {/* closes main content wrapper */}
+</div>   {/* closes flex-1 container */}
+</div>   {/* closes outermost min-h-screen */}
 );
 }
+
+export default JobPipeline;
