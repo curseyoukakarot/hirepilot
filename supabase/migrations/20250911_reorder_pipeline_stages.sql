@@ -6,18 +6,21 @@
 --   ON public.pipeline_stages (pipeline_id, position);
 -- ALTER INDEX uq_pipeline_stage_position DEFERRABLE INITIALLY DEFERRED;
 
+-- Drop existing function with old signature to allow return type change
+DROP FUNCTION IF EXISTS public.reorder_pipeline_stages(uuid, jsonb);
+
 CREATE OR REPLACE FUNCTION public.reorder_pipeline_stages(
-  p_pipeline uuid,
-  p_stages   jsonb
+  p_pipeline_id uuid,
+  p_stages      jsonb
 )
-RETURNS void
+RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
   -- Serialize concurrent reorders on the same pipeline
-  PERFORM 1 FROM public.pipelines WHERE id = p_pipeline FOR UPDATE;
+  PERFORM 1 FROM public.pipelines WHERE id = p_pipeline_id FOR UPDATE;
 
   WITH data AS (
     SELECT
@@ -30,7 +33,9 @@ BEGIN
       updated_at = now()
   FROM data d
   WHERE ps.id = d.id
-    AND ps.pipeline_id = p_pipeline;
+    AND ps.pipeline_id = p_pipeline_id;
+
+  RETURN jsonb_build_object('success', true);
 END;
 $$;
 
