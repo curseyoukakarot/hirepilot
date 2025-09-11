@@ -130,10 +130,13 @@ export default function JobPipeline() {
         },
       });
       if (!pipelineRes.ok) throw new Error('Failed to fetch pipelines');
-      const pipelineData = await pipelineRes.json();
+      const pipelineJson = await pipelineRes.json();
+      const pipelineData = Array.isArray(pipelineJson)
+        ? pipelineJson
+        : (pipelineJson && pipelineJson.pipeline ? [pipelineJson.pipeline] : []);
       setPipelines(pipelineData);
 
-      if (!pipelineData.length) {
+      if (!pipelineData || pipelineData.length === 0) {
         setPipelineExists(false);
         setStages([]); setCandidates({});
         return;
@@ -152,8 +155,10 @@ export default function JobPipeline() {
       });
       if (!stagesRes.ok) throw new Error('Failed to fetch stages');
       const stageJson = await stagesRes.json();
-      setStages(stageJson.stages || []);
-      setCandidates(stageJson.candidates || {});
+      const nextStages = Array.isArray(stageJson?.stages) ? stageJson.stages : (stageJson?.pipeline?.stages || []);
+      const nextCandidates = stageJson?.candidates || {};
+      setStages(nextStages);
+      setCandidates(nextCandidates);
       setPipelineExists(true);
       setError(null);
     } catch (err) {
@@ -460,6 +465,16 @@ export default function JobPipeline() {
       body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error('Failed to create pipeline');
+    const created = await res.json();
+    // Optimistically update UI if backend returned the pipeline with stages
+    if (created?.pipeline) {
+      const p = created.pipeline;
+      setPipelines([ { id: p.id, name: p.name, department: p.department } ]);
+      setSelectedPipeline(p.id);
+      setStages(p.stages || []);
+      setCandidates({});
+      setPipelineExists(true);
+    }
 
     await fetchStagesAndCandidates();
     setShowNewPipelineModal(false);
