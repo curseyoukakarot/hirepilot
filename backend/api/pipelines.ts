@@ -24,8 +24,15 @@ router.get('/', requireAuth as any, async (req: Request, res: Response) => {
       .single();
     if (error || !data) return res.json([]);
 
-    const pipeline = data.pipeline_id && data.pipeline ? [data.pipeline] : [];
-    res.json(pipeline);
+    // Prefer joined pipeline record; otherwise, fall back to minimal pipeline shape
+    if (data.pipeline_id) {
+      if (data.pipeline) {
+        return res.json([data.pipeline]);
+      }
+      return res.json([{ id: data.pipeline_id, name: data.title || 'Pipeline', department: '' }]);
+    }
+
+    res.json([]);
   } catch (err: any) {
     console.error('[GET /api/pipelines] error', err);
     res.status(500).json({ error: err.message });
