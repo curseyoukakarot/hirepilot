@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   FaPlus, FaEllipsisV, FaUserPlus, FaSearch, FaTimes,
   FaTrash, FaEdit, FaCheck, FaGripVertical, FaKeyboard
@@ -8,65 +8,72 @@ import toast from 'react-hot-toast';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
-// Default stages if none exist
 const defaultStages = [
-  { id: 'sourced', title: 'Sourced', color: 'bg-blue-100 text-blue-800', position: 0 },
-  { id: 'contacted', title: 'Contacted', color: 'bg-yellow-100 text-yellow-800', position: 1 },
-  { id: 'interviewed', title: 'Interviewed', color: 'bg-purple-100 text-purple-800', position: 2 },
-  { id: 'offered', title: 'Offered', color: 'bg-green-100 text-green-800', position: 3 },
-  { id: 'hired', title: 'Hired', color: 'bg-indigo-100 text-indigo-800', position: 4 }
+  { title: 'Sourced',   color: 'bg-blue-100 text-blue-800' },
+  { title: 'Contacted', color: 'bg-yellow-100 text-yellow-800' },
+  { title: 'Interviewed', color: 'bg-purple-100 text-purple-800' },
+  { title: 'Offered',   color: 'bg-green-100 text-green-800' },
+  { title: 'Hired',     color: 'bg-indigo-100 text-indigo-800' },
 ];
 
 const departments = ['Engineering', 'Sales', 'Product', 'Marketing', 'HR', 'Finance'];
-const getAvatarUrl = (name) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'User')}&background=random`;
+const getAvatarUrl = (name) =>
+  `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'User')}&background=random`;
+
+async function getSessionToken() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    toast.error('Not authenticated');
+    throw new Error('Not authenticated');
+  }
+  return session.access_token;
+}
 
 export default function JobPipeline() {
   const { id: jobId } = useParams();
   const navigate = useNavigate();
 
-  // UI state
-  const [showModal, setShowModal] = useState(false);
-  const [showNewPipelineModal, setShowNewPipelineModal] = useState(false);
-  const [showEditStageModal, setShowEditStageModal] = useState(false);
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [showNewStageModal, setShowNewStageModal] = useState(false);
-  const [showDeleteStageConfirm, setShowDeleteStageConfirm] = useState(false);
-  const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
-  const [showOverwritePipelineConfirm, setShowOverwritePipelineConfirm] = useState(false);
-
-  // Selection state
-  const [selectedPipeline, setSelectedPipeline] = useState('all');
+  // Selection / UI
   const [selectedJob, setSelectedJob] = useState(jobId || 'all');
+  const [selectedPipeline, setSelectedPipeline] = useState('all');
   const [selectedStage, setSelectedStage] = useState(null);
   const [showStageMenu, setShowStageMenu] = useState(null);
   const [candidateToRemove, setCandidateToRemove] = useState(null);
   const [stageToDelete, setStageToDelete] = useState(null);
   const [selectedCandidates, setSelectedCandidates] = useState(new Set());
 
-  // Search / input state
+  // Modals
+  const [showModal, setShowModal] = useState(false);
+  const [showNewPipelineModal, setShowNewPipelineModal] = useState(false);
+  const [showEditStageModal, setShowEditStageModal] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showNewStageModal, setShowNewStageModal] = useState(false);
+  const [showDeleteStageConfirm, setShowDeleteStageConfirm] = useState(false);
+  const [showOverwritePipelineConfirm, setShowOverwritePipelineConfirm] = useState(false);
+  const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
+
+  // Inputs
   const [searchQuery, setSearchQuery] = useState('');
   const [pipelineSearch, setPipelineSearch] = useState('');
   const [newPipelineName, setNewPipelineName] = useState('');
   const [newPipelineDepartment, setNewPipelineDepartment] = useState('');
   const [editingStage, setEditingStage] = useState(null);
-  const [stageColor, setStageColor] = useState('');
+  const [stageColor, setStageColor] = useState('bg-blue-100 text-blue-800');
   const [stageTitle, setStageTitle] = useState('');
   const [newStageTitle, setNewStageTitle] = useState('');
   const [newStageColor, setNewStageColor] = useState('bg-blue-100 text-blue-800');
   const [pendingPipelineData, setPendingPipelineData] = useState(null);
 
-  // Data state
+  // Data
   const [stages, setStages] = useState([]);
   const [pipelines, setPipelines] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [pipelineExists, setPipelineExists] = useState(true);
-  const [candidates, setCandidates] = useState(
-    defaultStages.reduce((acc, s) => { acc[s.id] = []; return acc; }, {})
-  );
+  const [candidates, setCandidates] = useState({});
   const [availableCandidates, setAvailableCandidates] = useState([]);
   const [candidatesLoading, setCandidatesLoading] = useState(false);
 
-  // Loading/error
+  // Loaders
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -84,7 +91,25 @@ export default function JobPipeline() {
 
   useEffect(() => { if (jobId) setSelectedJob(jobId); }, [jobId]);
 
-  // === Fetch stages & candidates (backend) ===
+  // Jobs list (owned by current user)
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data, error } = await supabase
+          .from('job_requisitions')
+          .select('*')
+          .eq('user_id', user.id);
+        if (error) setJobs([]);
+        else setJobs(data || []);
+      } catch {
+        setJobs([]);
+      }
+    })();
+  }, []);
+
+  // Load pipeline + stages + candidates for selected job
   const fetchStagesAndCandidates = async () => {
     try {
       setLoading(true);
@@ -93,11 +118,17 @@ export default function JobPipeline() {
         setStages([]); setCandidates({});
         return;
       }
+      const token = await getSessionToken();
+      const base = import.meta.env.VITE_BACKEND_URL;
 
-      const pipelineRes = await fetch(
-        `${import.meta.env.VITE_BACKEND_URL}/api/pipelines?jobId=${selectedJob}`,
-        { credentials: 'include' }
-      );
+      // Which pipeline is linked to this job?
+      const pipelineRes = await fetch(`${base}/api/pipelines?jobId=${selectedJob}`, {
+        credentials: 'include',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
       if (!pipelineRes.ok) throw new Error('Failed to fetch pipelines');
       const pipelineData = await pipelineRes.json();
       setPipelines(pipelineData);
@@ -111,13 +142,16 @@ export default function JobPipeline() {
       const active = pipelineData[0];
       setSelectedPipeline(active.id);
 
-      const stagesRes = await fetch(
-        `${import.meta.env.VITE_BACKEND_URL}/api/pipelines/${active.id}/stages?jobId=${selectedJob}`,
-        { credentials: 'include' }
-      );
+      // Load stages + candidates grouped by stage
+      const stagesRes = await fetch(`${base}/api/pipelines/${active.id}/stages?jobId=${selectedJob}`, {
+        credentials: 'include',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
       if (!stagesRes.ok) throw new Error('Failed to fetch stages');
       const stageJson = await stagesRes.json();
-
       setStages(stageJson.stages || []);
       setCandidates(stageJson.candidates || {});
       setPipelineExists(true);
@@ -130,12 +164,12 @@ export default function JobPipeline() {
     }
   };
 
-  useEffect(() => { fetchStagesAndCandidates(); }, [selectedJob, selectedPipeline]);
+  useEffect(() => { fetchStagesAndCandidates(); }, [selectedJob]);
 
-  // Realtime sync
+  // Realtime refresh on relevant tables
   useEffect(() => {
     if (!selectedJob || selectedJob === 'all') return;
-    const channel = supabase
+    const ch = supabase
       .channel(`pipeline-realtime-${selectedJob}`)
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'candidate_jobs', filter: `job_id=eq.${selectedJob}` },
@@ -146,47 +180,36 @@ export default function JobPipeline() {
         fetchStagesAndCandidates
       )
       .subscribe();
-
-    return () => { try { supabase.removeChannel(channel); } catch {} };
+    return () => { try { supabase.removeChannel(ch); } catch {} };
   }, [selectedJob]);
 
-  // Jobs list
-  useEffect(() => {
-    const fetchJobs = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-        const { data, error } = await supabase
-          .from('job_requisitions')
-          .select('*')
-          .eq('user_id', user.id);
-        if (error) setJobs([]);
-        else setJobs(data || []);
-      } catch {
-        setJobs([]);
-      }
-    };
-    fetchJobs();
-  }, []);
-
-  // === DnD handlers ===
+  // DnD handler (stage reorder + candidate move)
   const handleDragEnd = async (result) => {
     if (!result.destination) return;
     const { source, destination, type } = result;
 
-    // Stage reorder (supabase direct)
+    // Stage reorder
     if (type === 'stage') {
       const newStages = Array.from(stages);
       const [removed] = newStages.splice(source.index, 1);
       newStages.splice(destination.index, 0, removed);
-
       const updatedStages = newStages.map((s, i) => ({ ...s, position: i }));
+      setStages(updatedStages);
+
       try {
-        const { error } = await supabase
-          .from('pipeline_stages')
-          .upsert(updatedStages, { onConflict: 'id' });
-        if (error) throw error;
-        setStages(updatedStages);
+        const token = await getSessionToken();
+        const base = import.meta.env.VITE_BACKEND_URL;
+        await fetch(`${base}/api/pipelines/${selectedPipeline}/stages/reorder`, {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            stages: updatedStages.map(s => ({ id: s.id, position: s.position })),
+          }),
+        });
         toast.success('Pipeline stages reordered');
       } catch (err) {
         console.error('Stage reorder error:', err);
@@ -195,43 +218,90 @@ export default function JobPipeline() {
       return;
     }
 
-    // Candidate move (backend)
+    // Candidate move
     const sourceStage = source.droppableId;
     const destStage = destination.droppableId;
     const sourceCandidates = Array.from(candidates[sourceStage] || []);
     const destCandidates = Array.from(candidates[destStage] || []);
-    const [removed] = sourceCandidates.splice(source.index, 1);
+    const [moved] = sourceCandidates.splice(source.index, 1);
+    if (!moved) return;
 
-    if (removed) {
-      try {
-        const res = await fetch(
-          `${import.meta.env.VITE_BACKEND_URL}/api/pipelines/${selectedPipeline}/candidates/${removed.candidate_id}/move`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ jobId: selectedJob, stageId: destStage })
-          }
-        );
-        if (!res.ok) throw new Error('Move failed');
+    try {
+      const token = await getSessionToken();
+      const base = import.meta.env.VITE_BACKEND_URL;
+      const stageTitle = stages.find(s => String(s.id) === String(destStage))?.title || '';
+      const res = await fetch(`${base}/api/pipelines/${selectedPipeline}/candidates/${moved.candidate_id}/move`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ jobId: selectedJob, stageId: destStage, stageTitle }),
+      });
+      if (!res.ok) throw new Error('Move failed');
 
-        destCandidates.splice(destination.index, 0, removed);
-        setCandidates({
-          ...candidates,
-          [sourceStage]: sourceCandidates,
-          [destStage]: destCandidates
-        });
-      } catch (err) {
-        console.error('Candidate move error:', err);
-        toast.error('Failed to update candidate stage');
-      }
+      destCandidates.splice(destination.index, 0, moved);
+      setCandidates({
+        ...candidates,
+        [sourceStage]: sourceCandidates,
+        [destStage]: destCandidates,
+      });
+    } catch (err) {
+      console.error('Candidate move error:', err);
+      toast.error('Failed to update candidate stage');
     }
   };
-  // === Candidate add/remove ===
+
+  // Candidate add/remove (UX only remove from view)
   const handleAddCandidate = (stageId) => {
     setSelectedStage(stageId);
     setShowModal(true);
   };
+  const handleRemoveCandidate = (stageId, candidateId) => {
+    setCandidateToRemove({ stageId, candidateId });
+    setShowConfirmDialog(true);
+  };
+  const confirmRemoveCandidate = () => {
+    if (candidateToRemove) {
+      setCandidates((prev) => ({
+        ...prev,
+        [candidateToRemove.stageId]: (prev[candidateToRemove.stageId] || []).filter(
+          (c) => c.id !== candidateToRemove.candidateId
+        )
+      }));
+      toast.success('Candidate removed from view');
+    }
+    setShowConfirmDialog(false);
+    setCandidateToRemove(null);
+  };
+
+  // Available candidates in modal (exclude already in job)
+  useEffect(() => {
+    (async () => {
+      if (!showModal || !selectedJob || selectedJob === 'all') return;
+      setCandidatesLoading(true);
+      try {
+        const { data: allCandidates, error } = await supabase
+          .from('candidates')
+          .select('id, first_name, last_name, email, avatar_url');
+        if (error) throw error;
+
+        const { data: jobCandidates, error: jcError } = await supabase
+          .from('candidate_jobs')
+          .select('candidate_id')
+          .eq('job_id', selectedJob);
+        if (jcError) throw jcError;
+
+        const usedIds = new Set((jobCandidates || []).map((c) => c.candidate_id));
+        setAvailableCandidates((allCandidates || []).filter((c) => !usedIds.has(c.id)));
+      } catch {
+        setAvailableCandidates([]);
+      } finally {
+        setCandidatesLoading(false);
+      }
+    })();
+  }, [showModal, selectedJob]);
 
   const handleSelectCandidate = async (candidate) => {
     if (selectedStage && selectedJob) {
@@ -264,30 +334,11 @@ export default function JobPipeline() {
     setSearchQuery('');
   };
 
-  const handleRemoveCandidate = (stageId, candidateId) => {
-    setCandidateToRemove({ stageId, candidateId });
-    setShowConfirmDialog(true);
-  };
-
-  const confirmRemoveCandidate = () => {
-    if (candidateToRemove) {
-      setCandidates((prev) => ({
-        ...prev,
-        [candidateToRemove.stageId]: (prev[candidateToRemove.stageId] || []).filter(
-          (c) => c.id !== candidateToRemove.candidateId
-        )
-      }));
-      toast.success('Candidate removed from view');
-    }
-    setShowConfirmDialog(false);
-    setCandidateToRemove(null);
-  };
-
-  // === Stage edit/create/delete (supabase) ===
+  // Stage CRUD
   const handleEditStage = (stage) => {
     setEditingStage(stage);
-    setStageColor(stage.color);
-    setStageTitle(stage.title);
+    setStageColor(stage.color || 'bg-blue-100 text-blue-800');
+    setStageTitle(stage.title || '');
     setShowEditStageModal(true);
     setShowStageMenu(null);
   };
@@ -295,15 +346,20 @@ export default function JobPipeline() {
   const handleSaveStageEdit = async () => {
     if (!editingStage) return;
     try {
-      const { data, error } = await supabase
-        .from('pipeline_stages')
-        .update({ title: stageTitle, color: stageColor })
-        .eq('id', editingStage.id)
-        .select()
-        .single();
-      if (error) throw error;
-
-      setStages((prev) => prev.map((s) => (s.id === editingStage.id ? data : s)));
+      const token = await getSessionToken();
+      const base = import.meta.env.VITE_BACKEND_URL;
+      const res = await fetch(`${base}/api/pipelines/${selectedPipeline}/stages/${editingStage.id}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ title: stageTitle, color: stageColor })
+      });
+      if (!res.ok) throw new Error('Failed to update stage');
+      const updated = await res.json();
+      setStages((prev) => prev.map((s) => (s.id === editingStage.id ? updated : s)));
       setShowEditStageModal(false);
       setEditingStage(null);
       toast.success('Stage updated');
@@ -314,26 +370,27 @@ export default function JobPipeline() {
   };
 
   const handleCreateStage = async () => {
-    if (selectedJob === 'all') {
+    if (selectedJob === 'all' || !selectedPipeline) {
       toast.error('Select a job first');
       return;
     }
     try {
+      const token = await getSessionToken();
+      const base = import.meta.env.VITE_BACKEND_URL;
       const position = stages.length;
-      const { data, error } = await supabase
-        .from('pipeline_stages')
-        .insert({
-          pipeline_id: selectedPipeline,
-          title: newStageTitle,
-          color: newStageColor,
-          position
-        })
-        .select()
-        .single();
-      if (error) throw error;
-
-      setStages((prev) => [...prev, data]);
-      setCandidates((prev) => ({ ...prev, [data.id]: [] }));
+      const res = await fetch(`${base}/api/pipelines/${selectedPipeline}/stages`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ title: newStageTitle, color: newStageColor, position })
+      });
+      if (!res.ok) throw new Error('Failed to create stage');
+      const newStage = await res.json();
+      setStages((prev) => [...prev, newStage]);
+      setCandidates((prev) => ({ ...prev, [newStage.id]: [] }));
       setShowNewStageModal(false);
       setNewStageTitle('');
       setNewStageColor('bg-blue-100 text-blue-800');
@@ -353,8 +410,14 @@ export default function JobPipeline() {
   const confirmDeleteStage = async () => {
     if (!stageToDelete) return;
     try {
-      const { error } = await supabase.from('pipeline_stages').delete().eq('id', stageToDelete);
-      if (error) throw error;
+      const token = await getSessionToken();
+      const base = import.meta.env.VITE_BACKEND_URL;
+      const res = await fetch(`${base}/api/pipelines/${selectedPipeline}/stages/${stageToDelete}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Failed to delete stage');
 
       setStages((prev) => prev.filter((s) => s.id !== stageToDelete));
       setCandidates((prev) => {
@@ -372,68 +435,65 @@ export default function JobPipeline() {
     }
   };
 
-  // === Pipeline create (backend) ===
+  // Pipeline create (with overwrite guard)
+  const actuallyCreatePipeline = async (name, department, existingToken) => {
+    const token = existingToken || await getSessionToken();
+    const base = import.meta.env.VITE_BACKEND_URL;
+    const payload = {
+      name,
+      department,
+      job_id: selectedJob,
+      stages: defaultStages.map((s, i) => ({
+        name: s.title,
+        color: s.color,
+        position: i,
+        icon: '',
+      })),
+    };
+    const res = await fetch(`${base}/api/pipelines`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error('Failed to create pipeline');
+
+    await fetchStagesAndCandidates();
+    setShowNewPipelineModal(false);
+    setNewPipelineName('');
+    setNewPipelineDepartment('');
+    toast.success('Pipeline created');
+  };
+
   const handleCreatePipeline = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
       if (!selectedJob || selectedJob === 'all') {
         toast.error('Please select a job first');
         return;
       }
+      const token = await getSessionToken();
+      const base = import.meta.env.VITE_BACKEND_URL;
 
-      // If a pipeline already exists for this job, ask before overwriting
-      const existingRes = await fetch(
-        `${import.meta.env.VITE_BACKEND_URL}/api/pipelines?jobId=${selectedJob}`,
-        { credentials: 'include' }
-      );
+      // If a pipeline exists, confirm overwrite
+      const existingRes = await fetch(`${base}/api/pipelines?jobId=${selectedJob}`, {
+        credentials: 'include',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
       const existing = existingRes.ok ? await existingRes.json() : [];
       if (existing.length) {
         setPendingPipelineData({ name: newPipelineName, department: newPipelineDepartment });
         setShowOverwritePipelineConfirm(true);
         return;
       }
-
-      await actuallyCreatePipeline(newPipelineName, newPipelineDepartment);
+      await actuallyCreatePipeline(newPipelineName, newPipelineDepartment, token);
     } catch (err) {
       console.error('Pipeline create error:', err);
-      toast.error('Failed to create pipeline');
-    }
-  };
-
-  const actuallyCreatePipeline = async (name, department) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const payload = {
-        user_id: user.id,
-        name,
-        department,
-        job_id: selectedJob,
-        stages: defaultStages.map((s, i) => ({
-          name: s.title,
-          color: s.color,
-          position: i
-        }))
-      };
-
-      const res = await fetch(
-        `${import.meta.env.VITE_BACKEND_URL}/api/pipelines`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify(payload)
-        }
-      );
-      if (!res.ok) throw new Error('Failed');
-
-      await fetchStagesAndCandidates();
-      setShowNewPipelineModal(false);
-      setNewPipelineName('');
-      setNewPipelineDepartment('');
-      toast.success('Pipeline created');
-    } catch (err) {
-      console.error('Pipeline creation error:', err);
       toast.error('Failed to create pipeline');
     }
   };
@@ -445,52 +505,12 @@ export default function JobPipeline() {
       setPendingPipelineData(null);
     }
   };
-
   const handleOverwritePipelineCancel = () => {
     setShowOverwritePipelineConfirm(false);
     setPendingPipelineData(null);
   };
 
-  // === Candidate search modal ===
-  useEffect(() => {
-    const fetchAvailableCandidates = async () => {
-      if (!showModal || !selectedJob || selectedJob === 'all') return;
-      setCandidatesLoading(true);
-      try {
-        const { data: allCandidates, error } = await supabase
-          .from('candidates')
-          .select('id, first_name, last_name, email, avatar_url');
-        if (error) throw error;
-
-        const { data: jobCandidates, error: jcError } = await supabase
-          .from('candidate_jobs')
-          .select('candidate_id')
-          .eq('job_id', selectedJob);
-        if (jcError) throw jcError;
-
-        const usedIds = new Set((jobCandidates || []).map((c) => c.candidate_id));
-        setAvailableCandidates((allCandidates || []).filter((c) => !usedIds.has(c.id)));
-      } catch {
-        setAvailableCandidates([]);
-      } finally {
-        setCandidatesLoading(false);
-      }
-    };
-    fetchAvailableCandidates();
-  }, [showModal, selectedJob]);
-
-  // Filters
-  const filteredCandidates = availableCandidates.filter((c) =>
-    (`${c.first_name} ${c.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (c.email || '').toLowerCase().includes(searchQuery.toLowerCase()))
-  );
-
-  const filteredPipelines = pipelines.filter((p) =>
-    (p.name || '').toLowerCase().includes(pipelineSearch.toLowerCase()) ||
-    (p.department || '').toLowerCase().includes(pipelineSearch.toLowerCase())
-  );
-
-  // Bulk select / delete helpers (checkbox lives on candidate card)
+  // Bulk select/remove helpers
   const handleBulkSelect = (id) => {
     setSelectedCandidates((prev) => {
       const next = new Set(prev);
@@ -499,29 +519,16 @@ export default function JobPipeline() {
     });
   };
 
-  const handleBulkDelete = async () => {
-    if (selectedCandidates.size === 0) return;
-    try {
-      const { error } = await supabase
-        .from('candidate_jobs')
-        .delete()
-        .in('id', Array.from(selectedCandidates));
-      if (error) throw error;
+  // Filters
+  const filteredPipelines = pipelines.filter((p) =>
+    (p.name || '').toLowerCase().includes(pipelineSearch.toLowerCase()) ||
+    (p.department || '').toLowerCase().includes(pipelineSearch.toLowerCase())
+  );
+  const filteredCandidates = availableCandidates.filter((c) =>
+    (`${c.first_name} ${c.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (c.email || '').toLowerCase().includes(searchQuery.toLowerCase()))
+  );
 
-      setCandidates((prev) => {
-        const copy = { ...prev };
-        Object.keys(copy).forEach((stageId) => {
-          copy[stageId] = (copy[stageId] || []).filter((c) => !selectedCandidates.has(c.id));
-        });
-        return copy;
-      });
-      setSelectedCandidates(new Set());
-      toast.success('Candidates removed');
-    } catch (err) {
-      console.error('Bulk delete error:', err);
-      toast.error('Failed to delete candidates');
-    }
-  };
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -529,7 +536,6 @@ export default function JobPipeline() {
       </div>
     );
   }
-
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -548,7 +554,7 @@ export default function JobPipeline() {
               <div className="flex items-center gap-4">
                 <h1 className="text-2xl font-semibold text-gray-900">Job Pipeline</h1>
 
-                {/* Pipeline Selector */}
+                {/* Pipeline Selector (read-only label for now; filter still supported) */}
                 <select
                   className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   value={selectedPipeline}
@@ -580,7 +586,6 @@ export default function JobPipeline() {
                   ))}
                 </select>
 
-                {/* Pipeline Name (derived) */}
                 <span className="text-sm text-gray-500 ml-2 truncate max-w-xs">
                   {pipelineName}
                 </span>
@@ -601,7 +606,7 @@ export default function JobPipeline() {
                 </button>
                 <button
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700"
-                  onClick={() => handleAddCandidate('sourced')}
+                  onClick={() => handleAddCandidate(stages[0]?.id || 'sourced')}
                 >
                   <FaUserPlus /> Add Candidate
                 </button>
@@ -618,7 +623,18 @@ export default function JobPipeline() {
                 <div className="flex items-center gap-4">
                   <span className="text-sm text-gray-600">{selectedCandidates.size} selected</span>
                   <button
-                    onClick={handleBulkDelete}
+                    onClick={() => {
+                      // UI-only bulk remove from view (does not delete DB)
+                      setCandidates((prev) => {
+                        const copy = { ...prev };
+                        Object.keys(copy).forEach((stageId) => {
+                          copy[stageId] = (copy[stageId] || []).filter((c) => !selectedCandidates.has(c.id));
+                        });
+                        return copy;
+                      });
+                      setSelectedCandidates(new Set());
+                      toast.success('Candidates removed from view');
+                    }}
                     className="bg-red-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-red-700"
                   >
                     <FaTrash /> Delete Selected
@@ -628,7 +644,7 @@ export default function JobPipeline() {
             </div>
           </header>
 
-          {/* Main Content */}
+          {/* Main */}
           <main className="max-w-7xl mx-auto px-6 py-8">
             {!pipelineExists ? (
               <div className="min-h-[300px] flex flex-col items-center justify-center">
@@ -666,9 +682,7 @@ export default function JobPipeline() {
                                     <div {...providedDraggable.dragHandleProps} className="cursor-grab">
                                       <FaGripVertical className="text-gray-400" />
                                     </div>
-                                    <span
-                                      className={`px-2 py-1 rounded-full text-xs font-semibold ${stage.color}`}
-                                    >
+                                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${stage.color}`}>
                                       {stage.title}
                                     </span>
                                     <span className="text-sm text-gray-500">
@@ -712,11 +726,7 @@ export default function JobPipeline() {
                                       className="h-full overflow-y-auto px-2 min-h-[200px]"
                                     >
                                       {(candidates[stage.id] || []).map((candidate, idx) => (
-                                        <Draggable
-                                          key={String(candidate.id)}
-                                          draggableId={String(candidate.id)}
-                                          index={idx}
-                                        >
+                                        <Draggable key={String(candidate.id)} draggableId={String(candidate.id)} index={idx}>
                                           {(providedCandidate) => (
                                             <div
                                               ref={providedCandidate.innerRef}
@@ -896,9 +906,7 @@ export default function JobPipeline() {
                       >
                         <option value="">Select Department</option>
                         {departments.map((dept) => (
-                          <option key={dept} value={dept}>
-                            {dept}
-                          </option>
+                          <option key={dept} value={dept}>{dept}</option>
                         ))}
                       </select>
                     </div>
@@ -1085,7 +1093,7 @@ export default function JobPipeline() {
             </div>
           )}
 
-          {/* Overwrite Pipeline Confirmation Modal */}
+          {/* Overwrite Pipeline Confirmation */}
           {showOverwritePipelineConfirm && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white rounded-lg w-full max-w-md mx-4">
