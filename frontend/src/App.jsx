@@ -116,6 +116,8 @@ const CandidateList = lazy(() => import("./screens/CandidateList"));
 const JobRequisitions = lazy(() => import("./screens/JobRequisitions"));
 const JobRequisitionPage = lazy(() => import("./pages/job/[id].tsx"));
 const JobPipeline = lazy(() => import("./screens/JobPipeline"));
+const JobRequisitionPage = lazy(() => import("./pages/job/[id].tsx"));
+const PipelinePage = lazy(() => import("./pages/job/[id]/pipeline.tsx"));
 const Campaigns = lazy(() => import("./screens/Campaigns"));
 const Analytics = lazy(() => import("./screens/Analytics"));
 const BillingScreen = lazy(() => import("./screens/BillingScreen"));
