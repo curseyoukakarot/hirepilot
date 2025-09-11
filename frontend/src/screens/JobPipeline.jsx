@@ -29,12 +29,13 @@ async function getSessionToken() {
   return session.access_token;
 }
 
-export default function JobPipeline() {
-  const { id: jobId } = useParams();
+export default function JobPipeline({ embedded = false, jobId: jobIdProp = null }) {
+  const { id: jobIdParam } = useParams();
   const navigate = useNavigate();
 
   // Selection / UI
-  const [selectedJob, setSelectedJob] = useState(jobId || 'all');
+  const initialJobId = jobIdProp || jobIdParam || 'all';
+  const [selectedJob, setSelectedJob] = useState(initialJobId);
   const [selectedPipeline, setSelectedPipeline] = useState('all');
   const [selectedStage, setSelectedStage] = useState(null);
   const [showStageMenu, setShowStageMenu] = useState(null);
@@ -89,7 +90,13 @@ export default function JobPipeline() {
     return 'All Pipelines';
   }, [selectedJob, jobs, pipelines]);
 
-  useEffect(() => { if (jobId) setSelectedJob(jobId); }, [jobId]);
+  useEffect(() => {
+    if (embedded) {
+      if (jobIdProp) setSelectedJob(jobIdProp);
+    } else if (jobIdParam) {
+      setSelectedJob(jobIdParam);
+    }
+  }, [embedded, jobIdProp, jobIdParam]);
 
   // Jobs list (owned by current user)
   useEffect(() => {

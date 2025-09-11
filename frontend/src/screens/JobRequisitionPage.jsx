@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import AppNavbar from '../components/AppNavbar';
 import { supabase } from '../lib/supabase';
 import JobDetailsCard from '../components/job/JobDetailsCard';
+import JobPipeline from './JobPipeline';
 
 export default function JobRequisitionPage() {
   const { id } = useParams();
@@ -295,105 +296,9 @@ export default function JobRequisitionPage() {
             </div>
           </div>
 
-          {/* Candidates Tab */}
+          {/* Candidates Tab => Pipeline Board */}
           <div id="candidates-tab" className={activeTab === 'candidates' ? 'tab-content' : 'tab-content hidden'}>
-            <div className="grid grid-cols-4 gap-6">
-              {/* Applied Column */}
-              <div id="applied-column" className="bg-white rounded-lg border border-gray-200">
-                <div className="p-4 border-b border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-gray-900">Applied</h3>
-                    <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-xs">{candidates.applied.length}</span>
-                  </div>
-                </div>
-                <div className="p-4 space-y-3">
-                  {candidates.applied.map((c, idx) => (
-                    <div key={idx} className="p-3 border border-gray-200 rounded-lg hover:shadow-md transition-shadow cursor-pointer">
-                      <div className="flex items-center space-x-3">
-                        <img src={c.candidates?.avatar_url || ''} className="w-8 h-8 rounded-full" />
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900 text-sm">{c.candidates?.full_name || 'Unknown'}</p>
-                          <p className="text-xs text-gray-500">Applied</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {candidates.applied.length === 0 && <p className="text-sm text-gray-500">No candidates</p>}
-                </div>
-              </div>
-
-              {/* Screened Column */}
-              <div id="screened-column" className="bg-white rounded-lg border border-gray-200">
-                <div className="p-4 border-b border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-gray-900">Screened</h3>
-                    <span className="bg-blue-100 text-blue-600 px-2 py-1 rounded-full text-xs">{candidates.screened.length}</span>
-                  </div>
-                </div>
-                <div className="p-4 space-y-3">
-                  {candidates.screened.map((c, idx) => (
-                    <div key={idx} className="p-3 border border-gray-200 rounded-lg hover:shadow-md transition-shadow cursor-pointer">
-                      <div className="flex items-center space-x-3">
-                        <img src={c.candidates?.avatar_url || ''} className="w-8 h-8 rounded-full" />
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900 text-sm">{c.candidates?.full_name || 'Unknown'}</p>
-                          <p className="text-xs text-gray-500">Screened</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {candidates.screened.length === 0 && <p className="text-sm text-gray-500">No candidates</p>}
-                </div>
-              </div>
-
-              {/* Interview Column */}
-              <div id="interview-column" className="bg-white rounded-lg border border-gray-200">
-                <div className="p-4 border-b border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-gray-900">Interview</h3>
-                    <span className="bg-yellow-100 text-yellow-600 px-2 py-1 rounded-full text-xs">{candidates.interview.length}</span>
-                  </div>
-                </div>
-                <div className="p-4 space-y-3">
-                  {candidates.interview.map((c, idx) => (
-                    <div key={idx} className="p-3 border border-gray-200 rounded-lg hover:shadow-md transition-shadow cursor-pointer">
-                      <div className="flex items-center space-x-3">
-                        <img src={c.candidates?.avatar_url || ''} className="w-8 h-8 rounded-full" />
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900 text-sm">{c.candidates?.full_name || 'Unknown'}</p>
-                          <p className="text-xs text-gray-500">Interview</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {candidates.interview.length === 0 && <p className="text-sm text-gray-500">No candidates</p>}
-                </div>
-              </div>
-
-              {/* Offer Column */}
-              <div id="offer-column" className="bg-white rounded-lg border border-gray-200">
-                <div className="p-4 border-b border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-gray-900">Offer</h3>
-                    <span className="bg-green-100 text-green-600 px-2 py-1 rounded-full text-xs">{candidates.offer.length}</span>
-                  </div>
-                </div>
-                <div className="p-4 space-y-3">
-                  {candidates.offer.map((c, idx) => (
-                    <div key={idx} className="p-3 border border-gray-200 rounded-lg hover:shadow-md transition-shadow cursor-pointer">
-                      <div className="flex items-center space-x-3">
-                        <img src={c.candidates?.avatar_url || ''} className="w-8 h-8 rounded-full" />
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900 text-sm">{c.candidates?.full_name || 'Unknown'}</p>
-                          <p className="text-xs text-gray-500">Offer</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {candidates.offer.length === 0 && <p className="text-sm text-gray-500">No candidates</p>}
-                </div>
-              </div>
-            </div>
+            <JobPipeline embedded={true} jobId={id} />
           </div>
 
           {/* Activity Tab */}
