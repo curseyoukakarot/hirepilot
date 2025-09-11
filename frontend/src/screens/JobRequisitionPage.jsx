@@ -30,7 +30,7 @@ export default function JobRequisitionPage() {
         if (user?.id) {
           const { data: p } = await supabase
             .from('users')
-            .select('id, email, full_name, role, organization_id, avatar_url')
+            .select('id, email, first_name, last_name, role, organization_id, avatar_url')
             .eq('id', user.id)
             .single();
           profile = p || null;
@@ -52,14 +52,14 @@ export default function JobRequisitionPage() {
       }
 
       const { data: traitData } = await supabase
-        .from('success_traits')
+        .from('job_traits')
         .select('*')
         .eq('job_id', id);
       setTraits(traitData || []);
 
       const { data: notesData } = await supabase
-        .from('job_notes')
-        .select('id, content, created_at, author:users(full_name, avatar_url)')
+        .from('job_activity_log')
+        .select('id, content, created_at, actor_id')
         .eq('job_id', id)
         .order('created_at', { ascending: true });
       setNotes(notesData || []);
@@ -67,16 +67,23 @@ export default function JobRequisitionPage() {
       // Collaborators with embedded users
       const { data: teamData } = await supabase
         .from('job_collaborators')
-        .select('user_id, role, users(id, full_name, email, avatar_url, organization_id)')
+        .select('user_id, role')
         .eq('job_id', id);
-      const filteredTeam = (teamData || []).filter(r => !profile?.organization_id || r.users?.organization_id === profile.organization_id);
+      let mergedTeam = teamData || [];
+      if (mergedTeam.length > 0) {
+        const ids = [...new Set(mergedTeam.map(r => r.user_id))];
+        const { data: userRows } = await supabase.from('users').select('id, email, first_name, last_name, avatar_url, organization_id').in('id', ids);
+        const byId = new Map((userRows || []).map(u => [u.id, u]));
+        mergedTeam = mergedTeam.map(r => ({ ...r, users: byId.get(r.user_id) }));
+      }
+      const filteredTeam = (mergedTeam || []).filter(r => !profile?.organization_id || r.users?.organization_id === profile.organization_id);
       setTeam(filteredTeam);
 
       // Load org users for Add Teammate
       if (profile?.organization_id) {
         const { data: orgRows } = await supabase
           .from('users')
-          .select('id, full_name, email, avatar_url, organization_id, role')
+          .select('id, email, first_name, last_name, avatar_url, organization_id, role')
           .eq('organization_id', profile.organization_id);
         setOrgUsers(orgRows || []);
       } else {
@@ -84,9 +91,9 @@ export default function JobRequisitionPage() {
       }
 
       const { data: candidatesData } = await supabase
-        .from('candidate_jobs')
-        .select('status, candidates(full_name, avatar_url, created_at)')
-        .eq('job_id', id);
+         .from('candidate_jobs')
+         .select('status')
+         .eq('job_id', id);
       const grouped = { applied: [], screened: [], interview: [], offer: [] };
       (candidatesData || []).forEach(row => {
         const status = row.status || 'applied';
@@ -314,7 +321,7 @@ export default function JobRequisitionPage() {
                             <p className="text-sm text-gray-700">{n.content}</p>
                           </div>
                           <div className="flex items-center mt-2 text-xs text-gray-500">
-                            <span>{n.author?.full_name || 'Unknown'}</span>
+                            <span>{n.actor_id || 'Unknown'}</span>
                             <span className="mx-1">•</span>
                             <span>{new Date(n.created_at).toLocaleString()}</span>
                           </div>
@@ -344,7 +351,7 @@ export default function JobRequisitionPage() {
                       <div key={idx} className="flex items-center space-x-3">
                         <img src={t.users?.avatar_url || ''} className="w-8 h-8 rounded-full" />
                         <div>
-                          <p className="text-sm font-medium text-gray-900">{t.users?.full_name || 'Unknown'}</p>
+                          <p className="text-sm font-medium text-gray-900">{[t.users?.first_name, t.users?.last_name].filter(Boolean).join(' ') || t.users?.email || 'Unknown'}</p>
                           <p className="text-xs text-gray-500">{t.role}</p>
                         </div>
                       </div>
@@ -378,7 +385,7 @@ export default function JobRequisitionPage() {
                       <div className="flex items-center space-x-3">
                         <img src={t.users?.avatar_url || ''} className="w-10 h-10 rounded-full" />
                         <div>
-                          <p className="font-medium text-gray-900">{t.users?.full_name || 'Unknown'}</p>
+                          <p className="font-medium text-gray-900">{[t.users?.first_name, t.users?.last_name].filter(Boolean).join(' ') || t.users?.email || 'Unknown'}</p>
                           <p className="text-sm text-gray-500">{t.users?.email || ''}</p>
                         </div>
                       </div>
