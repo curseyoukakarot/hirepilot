@@ -35,7 +35,8 @@ export default function JobRequisitionPage() {
             .single();
           profile = p || null;
           setCurrentUser(profile);
-          const manageable = ['account_owner','team_admin'].includes((profile?.role || '').toLowerCase());
+          const roleKey = (profile?.role || '').toLowerCase().replace(/[-\s]/g, '_');
+          const manageable = ['account_owner','team_admin','super_admin','admin','owner','org_admin'].includes(roleKey);
           setCanManage(manageable);
         }
       } catch {}
@@ -46,6 +47,9 @@ export default function JobRequisitionPage() {
         .eq('id', id)
         .single();
       setJob(jobData);
+      if (profile && jobData && (jobData.user_id === profile.id || jobData.created_by === profile.id)) {
+        setCanManage(true);
+      }
 
       const { data: traitData } = await supabase
         .from('success_traits')
