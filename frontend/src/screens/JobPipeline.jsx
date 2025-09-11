@@ -853,7 +853,6 @@ export default function JobPipeline() {
               </div>
             </div>
           )}
-
           {/* Overwrite Pipeline Confirmation Modal */}
           {showOverwritePipelineConfirm && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -900,7 +899,9 @@ export default function JobPipeline() {
         </div>
       </div>
     </div>
-     );
-}
+  );  // ✅ closes return properly
+}      // ✅ closes the component function
+
+
 
 
