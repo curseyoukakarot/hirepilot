@@ -348,7 +348,7 @@ export default function JobRequisitionPage() {
 
               {/* Interview Column */}
               <div id="interview-column" className="bg-white rounded-lg border border-gray-200">
-                <div className="p-4 border-b border-gray-200">
+                <div className="p-4 border border-gray-200">
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold text-gray-900">Interview</h3>
                     <span className="bg-yellow-100 text-yellow-600 px-2 py-1 rounded-full text-xs">{candidates.interview.length}</span>
@@ -372,7 +372,7 @@ export default function JobRequisitionPage() {
 
               {/* Offer Column */}
               <div id="offer-column" className="bg-white rounded-lg border border-gray-200">
-                <div className="p-4 border-b border-gray-200">
+                <div className="p-4 border border-gray-200">
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold text-gray-900">Offer</h3>
                     <span className="bg-green-100 text-green-600 px-2 py-1 rounded-full text-xs">{candidates.offer.length}</span>
@@ -411,4 +411,3 @@ export default function JobRequisitionPage() {
     </div>
   );
 }
-
