@@ -347,11 +347,37 @@ router.patch('/:id/stages/reorder', requireAuth as any, async (req: Request, res
       prefer: req.headers['prefer'],
     });
 
+    // Attempt RPC first (transactional, VOID return)
     const { error } = await supabaseDb.rpc('reorder_pipeline_stages', {
       p_pipeline_id: id,
       p_stages: stages,
     });
-    if (error) throw error;
+    if (error) {
+      console.warn('[reorder] RPC failed, falling back to per-row updates', error);
+
+      // Fallback mirrors candidate move: only update rows that exist for this pipeline
+      const { data: existing, error: fetchErr } = await supabaseDb
+        .from('pipeline_stages')
+        .select('id')
+        .eq('pipeline_id', id);
+      if (fetchErr) throw fetchErr;
+
+      const valid = new Set((existing || []).map((r: any) => String(r.id)));
+      const toUpdate = (Array.isArray(stages) ? stages : []).filter((s: any) => valid.has(String(s.id)));
+
+      if (!toUpdate.length) throw new Error('No matching stages to reorder');
+
+      const updates = toUpdate.map((s: any) =>
+        supabaseDb
+          .from('pipeline_stages')
+          .update({ position: s.position })
+          .eq('id', s.id)
+          .eq('pipeline_id', id)
+      );
+      const results = await Promise.all(updates);
+      const firstErr = results.find(r => r.error)?.error as any;
+      if (firstErr) throw firstErr;
+    }
 
     await emitZapEvent({
       userId,
