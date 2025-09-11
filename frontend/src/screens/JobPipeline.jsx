@@ -120,15 +120,29 @@ export default function JobPipeline() {
       }
       const token = await getSessionToken();
       const base = import.meta.env.VITE_BACKEND_URL;
+      const cacheBust = Date.now();
 
       // Which pipeline is linked to this job?
-      const pipelineRes = await fetch(`${base}/api/pipelines?jobId=${selectedJob}`, {
+      let pipelineRes = await fetch(`${base}/api/pipelines?jobId=${selectedJob}&_=${cacheBust}`, {
         credentials: 'include',
+        cache: 'no-store',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
         },
       });
+      if (pipelineRes.status === 304) {
+        pipelineRes = await fetch(`${base}/api/pipelines?jobId=${selectedJob}&_=${Date.now()}`, {
+          credentials: 'include',
+          cache: 'reload',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache',
+          },
+        });
+      }
       if (!pipelineRes.ok) throw new Error('Failed to fetch pipelines');
       const pipelineJson = await pipelineRes.json();
       const pipelineData = Array.isArray(pipelineJson)
@@ -146,13 +160,26 @@ export default function JobPipeline() {
       setSelectedPipeline(active.id);
 
       // Load stages + candidates grouped by stage
-      const stagesRes = await fetch(`${base}/api/pipelines/${active.id}/stages?jobId=${selectedJob}`, {
+      let stagesRes = await fetch(`${base}/api/pipelines/${active.id}/stages?jobId=${selectedJob}&_=${Date.now()}`, {
         credentials: 'include',
+        cache: 'no-store',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
         },
       });
+      if (stagesRes.status === 304) {
+        stagesRes = await fetch(`${base}/api/pipelines/${active.id}/stages?jobId=${selectedJob}&_=${Date.now()}`, {
+          credentials: 'include',
+          cache: 'reload',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache',
+          },
+        });
+      }
       if (!stagesRes.ok) throw new Error('Failed to fetch stages');
       const stageJson = await stagesRes.json();
       const nextStages = Array.isArray(stageJson?.stages) ? stageJson.stages : (stageJson?.pipeline?.stages || []);
