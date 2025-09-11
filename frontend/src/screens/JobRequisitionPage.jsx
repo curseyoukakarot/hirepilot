@@ -20,17 +20,27 @@ export default function JobRequisitionPage() {
   const [selectedUserId, setSelectedUserId] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
+  const displayName = (u) => {
+    if (!u) return 'Unknown';
+    if (u.full_name) return u.full_name;
+    const snake = [u.first_name, u.last_name].filter(Boolean).join(' ');
+    if (snake) return snake;
+    const camel = [u.firstName, u.lastName].filter(Boolean).join(' ');
+    if (camel) return camel;
+    return u.email || 'Unknown';
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      // Current user profile → org + permissions
+      // Load current user profile to determine org and permissions
       let profile = null;
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user?.id) {
           const { data: p } = await supabase
             .from('users')
-            .select('id, email, first_name, last_name, role, organization_id, avatar_url')
+            .select('id, email, role, organization_id, avatar_url, full_name, first_name, last_name, "firstName", "lastName"')
             .eq('id', user.id)
             .single();
           profile = p || null;
@@ -51,20 +61,39 @@ export default function JobRequisitionPage() {
         setCanManage(true);
       }
 
-      const { data: traitData } = await supabase
-        .from('job_traits')
-        .select('*')
-        .eq('job_id', id);
-      setTraits(traitData || []);
+      // Traits: try job_traits then success_traits; ignore if table missing
+      try {
+        let traitData = null;
+        let resp = await supabase.from('job_traits').select('*').eq('job_id', id);
+        if (resp.error && resp.error.code === '42P01') {
+          resp = await supabase.from('success_traits').select('*').eq('job_id', id);
+        }
+        traitData = resp.data || [];
+        setTraits(traitData);
+      } catch {
+        setTraits([]);
+      }
 
-      const { data: notesData } = await supabase
-        .from('job_activity_log')
-        .select('id, content, created_at, actor_id')
-        .eq('job_id', id)
-        .order('created_at', { ascending: true });
-      setNotes(notesData || []);
+      // Notes/Activity: try job_activity_log; fallback to job_notes simple columns
+      try {
+        let notesResp = await supabase
+          .from('job_activity_log')
+          .select('id, content, created_at, actor_id')
+          .eq('job_id', id)
+          .order('created_at', { ascending: true });
+        if (notesResp.error && notesResp.error.code === '42P01') {
+          notesResp = await supabase
+            .from('job_notes')
+            .select('id, content, created_at, user_id')
+            .eq('job_id', id)
+            .order('created_at', { ascending: true });
+        }
+        setNotes(notesResp.data || []);
+      } catch {
+        setNotes([]);
+      }
 
-      // Collaborators with embedded users
+      // Collaborators (no nested joins) → then fetch users by ids
       const { data: teamData } = await supabase
         .from('job_collaborators')
         .select('user_id, role')
@@ -72,7 +101,10 @@ export default function JobRequisitionPage() {
       let mergedTeam = teamData || [];
       if (mergedTeam.length > 0) {
         const ids = [...new Set(mergedTeam.map(r => r.user_id))];
-        const { data: userRows } = await supabase.from('users').select('id, email, first_name, last_name, avatar_url, organization_id').in('id', ids);
+        const { data: userRows } = await supabase
+          .from('users')
+          .select('id, email, role, organization_id, avatar_url, full_name, first_name, last_name, "firstName", "lastName"')
+          .in('id', ids);
         const byId = new Map((userRows || []).map(u => [u.id, u]));
         mergedTeam = mergedTeam.map(r => ({ ...r, users: byId.get(r.user_id) }));
       }
@@ -83,7 +115,7 @@ export default function JobRequisitionPage() {
       if (profile?.organization_id) {
         const { data: orgRows } = await supabase
           .from('users')
-          .select('id, email, first_name, last_name, avatar_url, organization_id, role')
+          .select('id, email, role, organization_id, avatar_url, full_name, first_name, last_name, "firstName", "lastName"')
           .eq('organization_id', profile.organization_id);
         setOrgUsers(orgRows || []);
       } else {
@@ -91,9 +123,9 @@ export default function JobRequisitionPage() {
       }
 
       const { data: candidatesData } = await supabase
-         .from('candidate_jobs')
-         .select('status')
-         .eq('job_id', id);
+        .from('candidate_jobs')
+        .select('status')
+        .eq('job_id', id);
       const grouped = { applied: [], screened: [], interview: [], offer: [] };
       (candidatesData || []).forEach(row => {
         const status = row.status || 'applied';
@@ -161,7 +193,7 @@ export default function JobRequisitionPage() {
           target_user_id: selectedUserId,
           role: 'Editor',
           created_at: new Date().toISOString()
-        });
+        }).catch(()=>{});
       }
       setShowAddTeammateModal(false);
       setSelectedUserId('');
@@ -278,7 +310,7 @@ export default function JobRequisitionPage() {
                 <div id="role-description" className="bg-white rounded-lg border border-gray-200 p-6">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">Role Description</h3>
-                    <button className="text-sm text-blue-600 hover:text-blue-700" onClick={() => handleEdit('description')}>
+                    <button className="text-sm text-blue-600 hover:text-blue-700" onClick={() => console.log('description')}>
                       <i className="fas fa-edit mr-1"></i>
                       Edit
                     </button>
@@ -292,7 +324,7 @@ export default function JobRequisitionPage() {
                 <div id="success-profile" className="bg-white rounded-lg border border-gray-200 p-6">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">Success Profile</h3>
-                    <button className="text-sm text-blue-600 hover:text-blue-700" onClick={handleAddTrait}>
+                    <button className="text-sm text-blue-600 hover:text-blue-700" onClick={() => console.log('Add Trait')}>
                       <i className="fas fa-plus mr-1"></i>
                       Add Trait
                     </button>
@@ -315,7 +347,7 @@ export default function JobRequisitionPage() {
                     {notes.length === 0 && <p className="text-sm text-gray-500">No notes yet</p>}
                     {notes.map((n) => (
                       <div key={n.id} className="flex space-x-3">
-                        <img src={n.author?.avatar_url || ''} className="w-8 h-8 rounded-full" />
+                        <img src={''} className="w-8 h-8 rounded-full" />
                         <div className="flex-1">
                           <div className="bg-gray-50 rounded-lg p-3">
                             <p className="text-sm text-gray-700">{n.content}</p>
@@ -351,7 +383,7 @@ export default function JobRequisitionPage() {
                       <div key={idx} className="flex items-center space-x-3">
                         <img src={t.users?.avatar_url || ''} className="w-8 h-8 rounded-full" />
                         <div>
-                          <p className="text-sm font-medium text-gray-900">{[t.users?.first_name, t.users?.last_name].filter(Boolean).join(' ') || t.users?.email || 'Unknown'}</p>
+                          <p className="text-sm font-medium text-gray-900">{displayName(t.users)}</p>
                           <p className="text-xs text-gray-500">{t.role}</p>
                         </div>
                       </div>
@@ -385,7 +417,7 @@ export default function JobRequisitionPage() {
                       <div className="flex items-center space-x-3">
                         <img src={t.users?.avatar_url || ''} className="w-10 h-10 rounded-full" />
                         <div>
-                          <p className="font-medium text-gray-900">{[t.users?.first_name, t.users?.last_name].filter(Boolean).join(' ') || t.users?.email || 'Unknown'}</p>
+                          <p className="font-medium text-gray-900">{displayName(t.users)}</p>
                           <p className="text-sm text-gray-500">{t.users?.email || ''}</p>
                         </div>
                       </div>
@@ -423,7 +455,7 @@ export default function JobRequisitionPage() {
                     <select className="w-full border rounded-lg px-3 py-2" value={selectedUserId} onChange={(e)=>setSelectedUserId(e.target.value)}>
                       <option value="">Choose a user</option>
                       {availableOrgUsers.map(u => (
-                        <option key={u.id} value={u.id}>{u.full_name || u.email} — {u.email}</option>
+                        <option key={u.id} value={u.id}>{displayName(u)} — {u.email}</option>
                       ))}
                     </select>
                   </div>
