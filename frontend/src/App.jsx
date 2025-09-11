@@ -115,6 +115,7 @@ const LeadManagement = lazy(() => import("./screens/LeadManagement"));
 const LeadProfileDrawer = lazy(() => import("./screens/LeadProfileDrawer"));
 const CandidateList = lazy(() => import("./screens/CandidateList"));
 const JobRequisitions = lazy(() => import("./screens/JobRequisitions"));
+const JobPipeline = lazy(() => import("./screens/JobPipeline"));
 const JobRequisitionPage = lazy(() => import("./pages/job/[id].tsx"));
 const Campaigns = lazy(() => import("./screens/Campaigns"));
 const Analytics = lazy(() => import("./screens/Analytics"));
@@ -454,6 +455,7 @@ function InnerApp() {
               <Route path="/phantom-monitor" element={<PhantomMonitor />} />
               <Route path="/phantom/cookie-refresh" element={<CookieRefresh />} />
               <Route path="/phantom/bulk-refresh" element={<BulkCookieRefresh />} />
+
               <Route path="/phantom/analytics" element={<PhantomAnalytics />} />
               <Route path="/phantom/lead-sync-failures" element={<LeadSyncFailures />} />
               <Route path="/phantom/config" element={<PhantomConfig />} />
