@@ -347,7 +347,6 @@ router.patch('/:id/stages/reorder', requireAuth as any, async (req: Request, res
         .update({ position: s.position })
         .eq('id', s.id)
         .eq('pipeline_id', id)
-        .select()
     );
     const results = await Promise.all(updates);
     const firstErr = results.find(r => r.error)?.error as any;
