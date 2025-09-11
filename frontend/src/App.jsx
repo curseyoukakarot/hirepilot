@@ -114,6 +114,7 @@ const LeadManagement = lazy(() => import("./screens/LeadManagement"));
 const LeadProfileDrawer = lazy(() => import("./screens/LeadProfileDrawer"));
 const CandidateList = lazy(() => import("./screens/CandidateList"));
 const JobRequisitions = lazy(() => import("./screens/JobRequisitions"));
+const JobRequisitionPage = lazy(() => import("./pages/job/[id].tsx"));
 const JobPipeline = lazy(() => import("./screens/JobPipeline"));
 const JobRequisitionPage = lazy(() => import("./pages/job/[id].tsx"));
 const PipelinePage = lazy(() => import("./pages/job/[id]/pipeline.tsx"));
@@ -450,8 +451,7 @@ function InnerApp() {
               <Route path="/candidates" element={<CandidateList />} />
               <Route path="/jobs" element={<JobRequisitions />} />
               <Route path="/job/:id" element={<JobRequisitionPage />} />
-              <Route path="/job/:id/pipeline" element={<PipelinePage />} />
-              <Route path="/jobs/pipeline" element={<JobPipeline />} />
+              <Route path="/job/:id/pipeline" element={<JobPipeline />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/phantom-monitor" element={<PhantomMonitor />} />
               <Route path="/phantom/cookie-refresh" element={<CookieRefresh />} />
