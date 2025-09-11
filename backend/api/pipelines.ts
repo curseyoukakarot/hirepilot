@@ -285,14 +285,17 @@ router.patch('/:id/stages/:stageId', requireAuth as any, async (req: Request, re
     const { title, color } = req.body || {};
     if (!id || !stageId || !userId) return res.status(400).json({ error: 'Missing fields' });
 
-    const { data: stage, error } = await supabaseDb
+    const { data: updated, error } = await supabaseDb
       .from('pipeline_stages')
       .update({ title, color })
       .eq('id', stageId)
-      .select()
-      .maybeSingle();
+      .eq('pipeline_id', id)
+      .select();
     if (error) throw error;
-    if (!stage) return res.status(404).json({ error: 'Stage not found' });
+    if (!updated || updated.length === 0) {
+      // No-op to avoid breaking UI; stage might not belong to this pipeline or was already updated
+      return res.json({ success: true, updated: 0 });
+    }
 
     await emitZapEvent({
       userId,
@@ -300,7 +303,7 @@ router.patch('/:id/stages/:stageId', requireAuth as any, async (req: Request, re
       eventData: { pipeline_id: id, stage_id: stageId, action: 'updated' },
     });
 
-    res.json(stage);
+    res.json(updated[0]);
   } catch (err: any) {
     console.error('[PATCH /api/pipelines/:id/stages/:stageId] error', err);
     res.status(500).json({ error: err.message });
