@@ -340,17 +340,18 @@ router.patch('/:id/stages/reorder', requireAuth as any, async (req: Request, res
     const { stages } = req.body || {};
     if (!id || !Array.isArray(stages) || !userId) return res.status(400).json({ error: 'Missing fields' });
 
-    // Reorder positions per-row to avoid any PostgREST single-row parsing edge cases
-    const updates = stages.map((s: any) =>
-      supabaseDb
-        .from('pipeline_stages')
-        .update({ position: s.position })
-        .eq('id', s.id)
-        .eq('pipeline_id', id)
-    );
-    const results = await Promise.all(updates);
-    const firstErr = results.find(r => r.error)?.error as any;
-    if (firstErr) throw firstErr;
+    console.info('[reorder] start', {
+      pipelineId: id,
+      count: stages?.length,
+      accept: req.headers['accept'],
+      prefer: req.headers['prefer'],
+    });
+
+    const { error } = await supabaseDb.rpc('reorder_pipeline_stages', {
+      p_pipeline: id,
+      p_stages: stages,
+    });
+    if (error) throw error;
 
     await emitZapEvent({
       userId,
@@ -358,7 +359,7 @@ router.patch('/:id/stages/reorder', requireAuth as any, async (req: Request, res
       eventData: { pipeline_id: id, action: 'reordered' },
     });
 
-    res.json({ success: true });
+    res.status(200).json({ ok: true });
   } catch (err: any) {
     console.error('[PATCH /api/pipelines/:id/stages/reorder] error', err);
     res.status(500).json({ error: err.message });
