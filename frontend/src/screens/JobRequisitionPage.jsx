@@ -19,6 +19,9 @@ export default function JobRequisitionPage() {
   const [showAddTeammateModal, setShowAddTeammateModal] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [showAddGuestModal, setShowAddGuestModal] = useState(false);
+  const [guestEmail, setGuestEmail] = useState('');
+  const [guestRole, setGuestRole] = useState('View Only');
 
   const displayName = (u) => {
     if (!u) return 'Unknown';
@@ -380,6 +383,10 @@ export default function JobRequisitionPage() {
                         <i className="fas fa-plus mr-2"></i>
                         Add Teammate
                       </button>
+                      <button className="inline-flex items-center px-4 py-2 text-purple-700 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-md text-sm" onClick={() => setShowAddGuestModal(true)}>
+                        <i className="fas fa-user-plus mr-2"></i>
+                        + Add Guest
+                      </button>
                     </div>
                   )}
                 </div>
@@ -392,16 +399,20 @@ export default function JobRequisitionPage() {
                         <img src={t.users?.avatar_url || ''} className="w-10 h-10 rounded-full" />
                         <div>
                           <p className="font-medium text-gray-900">{displayName(t.users)}</p>
-                          <p className="text-sm text-gray-500">{t.users?.email || ''}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm text-gray-500">{t.users?.email || t.email || ''}</p>
+                            {t.is_guest && <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600 border">Guest</span>}
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center space-x-3">
-                        <select className="border border-gray-200 rounded-md px-3 py-1 text-sm" value={t.role} onChange={(e) => handleUpdateCollaboratorRole(t.user_id || t.users?.id, e.target.value)} disabled={!canManage}>
+                        <select className="border border-gray-200 rounded-md px-3 py-1 text-sm" value={t.role} onChange={(e) => handleUpdateCollaboratorRole(t.user_id || t.users?.id, e.target.value)} disabled={!canManage || t.is_guest}
+                        >
                           <option>Admin</option>
                           <option>Editor</option>
                           <option>View Only</option>
                         </select>
-                        {canManage && (
+                        {canManage && !t.is_guest && (
                           <button className="text-gray-400 hover:text-red-600" onClick={() => handleRemoveCollaborator(t.user_id || t.users?.id)}>
                             <i className="fas fa-trash"></i>
                           </button>
@@ -436,6 +447,47 @@ export default function JobRequisitionPage() {
                   <div className="flex justify-end gap-2">
                     <button className="px-4 py-2 border rounded-lg" onClick={() => { setShowAddTeammateModal(false); setSelectedUserId(''); }}>Cancel</button>
                     <button className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50" disabled={!selectedUserId || isSaving} onClick={saveNewTeammate}>{isSaving ? 'Adding...' : 'Add'}</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Add Guest Modal */}
+          {showAddGuestModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg p-6 max-w-md w-full">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold">Invite Guest</h3>
+                  <button className="text-gray-400 hover:text-gray-600" onClick={() => { setShowAddGuestModal(false); setGuestEmail(''); setGuestRole('View Only'); }}><i className="fas fa-times"></i></button>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email address</label>
+                    <input type="email" className="w-full border rounded-lg px-3 py-2" value={guestEmail} onChange={(e)=>setGuestEmail(e.target.value)} placeholder="name@example.com" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                    <select className="w-full border rounded-lg px-3 py-2" value={guestRole} onChange={(e)=>setGuestRole(e.target.value)}>
+                      <option>View Only</option>
+                      <option>View + Comment</option>
+                    </select>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <button className="px-4 py-2 border rounded-lg" onClick={() => { setShowAddGuestModal(false); setGuestEmail(''); setGuestRole('View Only'); }}>Cancel</button>
+                    <button className="px-4 py-2 bg-purple-600 text-white rounded-lg disabled:opacity-50" disabled={!guestEmail} onClick={async ()=>{
+                      try {
+                        // insert guest
+                        await supabase.from('job_guest_collaborators').insert({ job_id: id, email: guestEmail, role: guestRole, invited_by: currentUser?.id || null });
+                        // try invite function (ignore if missing)
+                        await supabase.rpc('send_guest_invite', { p_email: guestEmail, p_job_id: id, p_role: guestRole }).catch(()=>{});
+                        // log activity (ignore if table missing)
+                        await supabase.from('job_activity_log').insert({ type: 'guest_invited', job_id: id, actor_id: currentUser?.id || null, metadata: { email: guestEmail, role: guestRole, invited_by: currentUser?.id || null }, created_at: new Date().toISOString() }).catch(()=>{});
+                        // update local state
+                        setTeam(prev => [...prev, { is_guest: true, role: guestRole, email: guestEmail, users: null }]);
+                        setShowAddGuestModal(false); setGuestEmail(''); setGuestRole('View Only');
+                      } catch (e) { alert('Failed to invite guest: ' + (e.message || e)); }
+                    }}>Send Invite</button>
                   </div>
                 </div>
               </div>
