@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import AppNavbar from '../components/AppNavbar';
 import { supabase } from '../lib/supabase';
+import JobDetailsCard from '../components/job/JobDetailsCard';
 
 export default function JobRequisitionPage() {
   const { id } = useParams();
@@ -94,7 +95,7 @@ export default function JobRequisitionPage() {
                       {job.status}
                     </span>
                     <span className="text-sm text-gray-500">
-                      {[job.department, job.location, job.level].filter(Boolean).join(' • ')}
+                      {[job.department, job.location, job.experience_level].filter(Boolean).join(' • ')}
                     </span>
                   </div>
                 </div>
@@ -175,12 +176,8 @@ export default function JobRequisitionPage() {
                       Edit
                     </button>
                   </div>
-                  <div className="prose max-w-none text-gray-600">
-                    {job.description ? (
-                      <div dangerouslySetInnerHTML={{ __html: job.description }} />
-                    ) : (
-                      <p>No description provided.</p>
-                    )}
+                  <div className="prose max-w-none text-gray-600 whitespace-pre-line">
+                    {job.description || "No description provided."}
                   </div>
                 </div>
 
@@ -236,28 +233,7 @@ export default function JobRequisitionPage() {
 
               {/* Sidebar */}
               <div className="space-y-6">
-                {/* Job Details */}
-                <div id="job-details" className="bg-white rounded-lg border border-gray-200 p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Job Details</h3>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Department</label>
-                      <p className="text-sm text-gray-900">{job.department || '—'}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Location</label>
-                      <p className="text-sm text-gray-900">{job.location || '—'}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Experience Level</label>
-                      <p className="text-sm text-gray-900">{job.level || '—'}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Salary Range</label>
-                      <p className="text-sm text-gray-900">{job.salary || '—'}</p>
-                    </div>
-                  </div>
-                </div>
+                <JobDetailsCard job={job} />
 
                 {/* Assigned Team */}
                 <div id="assigned-team" className="bg-white rounded-lg border border-gray-200 p-6">
@@ -372,7 +348,7 @@ export default function JobRequisitionPage() {
 
               {/* Interview Column */}
               <div id="interview-column" className="bg-white rounded-lg border border-gray-200">
-                <div className="p-4 border-b border-gray-200">
+                <div className="p-4 border border-gray-200">
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold text-gray-900">Interview</h3>
                     <span className="bg-yellow-100 text-yellow-600 px-2 py-1 rounded-full text-xs">{candidates.interview.length}</span>
@@ -396,7 +372,7 @@ export default function JobRequisitionPage() {
 
               {/* Offer Column */}
               <div id="offer-column" className="bg-white rounded-lg border border-gray-200">
-                <div className="p-4 border-b border-gray-200">
+                <div className="p-4 border border-gray-200">
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold text-gray-900">Offer</h3>
                     <span className="bg-green-100 text-green-600 px-2 py-1 rounded-full text-xs">{candidates.offer.length}</span>
@@ -435,4 +411,3 @@ export default function JobRequisitionPage() {
     </div>
   );
 }
-
