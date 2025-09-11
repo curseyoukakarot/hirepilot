@@ -9,22 +9,32 @@ import {
 
 const router = express.Router();
 
-// GET /api/pipelines?jobId=...
+/**
+ * GET /api/pipelines?jobId=...
+ */
 router.get('/', requireAuth as any, async (req: Request, res: Response) => {
   try {
     const jobId = String(req.query.jobId || '');
     const userId = (req as any).user?.id;
-    if (!jobId || !userId) return res.status(400).json({ error: 'Missing jobId' });
+    if (!jobId || !userId) {
+      return res.status(400).json({ error: 'Missing jobId' });
+    }
 
     const { data, error } = await supabaseDb
       .from('job_requisitions')
-      .select('pipeline_id, title, pipeline:pipelines (id, name, department)')
+      .select(
+        'pipeline_id, title, pipeline:pipelines (id, name, department)'
+      )
       .eq('id', jobId)
       .eq('user_id', userId)
       .single();
-    if (error || !data) return res.status(404).json({ error: 'Job not found' });
 
-    const pipeline = data.pipeline_id && data.pipeline ? [data.pipeline] : [];
+    if (error || !data) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    const pipeline =
+      data.pipeline_id && data.pipeline ? [data.pipeline] : [];
     res.json(pipeline);
   } catch (err: any) {
     console.error('[GET /api/pipelines] error', err);
@@ -32,13 +42,17 @@ router.get('/', requireAuth as any, async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/pipelines/:id/stages?jobId=...
+/**
+ * GET /api/pipelines/:id/stages?jobId=...
+ */
 router.get('/:id/stages', requireAuth as any, async (req: Request, res: Response) => {
   try {
     const pipelineId = req.params.id;
     const jobId = String(req.query.jobId || '');
     const userId = (req as any).user?.id;
-    if (!pipelineId || !jobId || !userId) return res.status(400).json({ error: 'Missing ids' });
+    if (!pipelineId || !jobId || !userId) {
+      return res.status(400).json({ error: 'Missing ids' });
+    }
 
     // Verify job ownership
     const { data: job, error: jobErr } = await supabaseDb
@@ -47,10 +61,12 @@ router.get('/:id/stages', requireAuth as any, async (req: Request, res: Response
       .eq('id', jobId)
       .eq('user_id', userId)
       .single();
+
     if (jobErr || !job || String(job.pipeline_id) !== String(pipelineId)) {
       return res.status(404).json({ error: 'Job not found' });
     }
 
+    // Fetch stages
     const { data: stages, error: stageErr } = await supabaseDb
       .from('pipeline_stages')
       .select('*')
@@ -58,35 +74,31 @@ router.get('/:id/stages', requireAuth as any, async (req: Request, res: Response
       .order('position', { ascending: true });
     if (stageErr) throw stageErr;
 
+    // Fetch candidates linked to this job
     const { data: candData, error: candErr } = await supabaseDb
       .from('candidate_jobs')
-      .select('id, candidate_id, stage_id, candidates (id, first_name, last_name, email, avatar_url)')
+      .select(
+        'id, candidate_id, stage_id, candidates (id, first_name, last_name, email, avatar_url)'
+      )
       .eq('job_id', jobId);
     if (candErr) throw candErr;
 
+    // Group candidates by stage
     const grouped: Record<string, any[]> = {};
-    (candData || []).forEach(row => {
+    (candData || []).forEach((row) => {
       const stage = row.stage_id || 'unassigned';
       if (!grouped[stage]) grouped[stage] = [];
-const grouped: Record<string, any[]> = {};
-(candData || []).forEach(row => {
-  const stage = row.stage_id || 'unassigned';
-  if (!grouped[stage]) grouped[stage] = [];
 
-  // Normalize candidate object
-  const candidate = Array.isArray(row.candidates) ? row.candidates[0] : row.candidates;
+      const candidate = Array.isArray(row.candidates)
+        ? row.candidates[0]
+        : row.candidates;
 
-  grouped[stage].push({
-    id: row.id,
-    candidate_id: row.candidate_id,
-    name: `${candidate?.first_name || ''} ${candidate?.last_name || ''}`.trim(),
-    email: candidate?.email || '',
-    avatar_url: candidate?.avatar_url || '',
-  });
-});
-
-res.json({ stages: stages || [], candidates: grouped });
-
+      grouped[stage].push({
+        id: row.id,
+        candidate_id: row.candidate_id,
+        name: `${candidate?.first_name || ''} ${candidate?.last_name || ''}`.trim(),
+        email: candidate?.email || '',
+        avatar_url: candidate?.avatar_url || '',
       });
     });
 
@@ -97,16 +109,16 @@ res.json({ stages: stages || [], candidates: grouped });
   }
 });
 
-// POST /api/pipelines
+/**
+ * POST /api/pipelines
+ */
 router.post('/', async (req: Request, res: Response) => {
   try {
-    console.log('[POST /api/pipelines] Body:', req.body);
     const { user_id, name, department, stages, job_id } = req.body;
     if (!user_id || !name || !department || !Array.isArray(stages) || stages.length === 0) {
-      console.error('[POST /api/pipelines] Missing required fields:', req.body);
-      res.status(400).json({ error: 'Missing required fields or stages' });
-      return;
+      return res.status(400).json({ error: 'Missing required fields or stages' });
     }
+
     // Insert pipeline
     const { data: pipeline, error: pipelineError } = await supabaseDb
       .from('pipelines')
@@ -114,12 +126,9 @@ router.post('/', async (req: Request, res: Response) => {
       .select()
       .single();
     if (pipelineError || !pipeline) {
-      console.error('[POST /api/pipelines] Pipeline insert error:', pipelineError);
-      res.status(500).json({ error: pipelineError?.message || 'Failed to create pipeline' });
-      return;
+      return res.status(500).json({ error: pipelineError?.message || 'Failed to create pipeline' });
     }
-    // Log the pipeline id before inserting stages
-    console.log('[POST /api/pipelines] Using pipeline id for stages:', pipeline.id);
+
     // Insert stages
     const stageRows = stages.map((stage, idx) => ({
       pipeline_id: pipeline.id,
@@ -127,18 +136,16 @@ router.post('/', async (req: Request, res: Response) => {
       title: stage.name,
       icon: stage.icon,
       color: stage.color || 'blue',
-      position: idx
+      position: idx,
     }));
     const { data: insertedStages, error: stagesError } = await supabaseDb
       .from('pipeline_stages')
       .insert(stageRows)
       .select();
-    console.log('[POST /api/pipelines] Inserted stages:', insertedStages, 'Error:', stagesError);
     if (stagesError) {
-      console.error('[POST /api/pipelines] Stages insert error:', stagesError);
-      res.status(500).json({ error: stagesError.message });
-      return;
+      return res.status(500).json({ error: stagesError.message });
     }
+
     // Link pipeline to job if provided
     if (job_id) {
       await supabaseDb
@@ -146,17 +153,17 @@ router.post('/', async (req: Request, res: Response) => {
         .update({ pipeline_id: pipeline.id })
         .eq('id', job_id);
     }
-    // Return pipeline with stages
+
     res.status(200).json({ pipeline: { ...pipeline, stages: insertedStages } });
-    return;
   } catch (error: any) {
-    console.error('[POST /api/pipelines] Create pipeline error:', error);
+    console.error('[POST /api/pipelines] error', error);
     res.status(500).json({ error: error.message || 'Failed to create pipeline' });
-    return;
   }
 });
 
-// Move candidate between stages
+/**
+ * POST /api/pipelines/:id/candidates/:candidateId/move
+ */
 router.post('/:id/candidates/:candidateId/move', requireAuth as any, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id;
@@ -165,7 +172,9 @@ router.post('/:id/candidates/:candidateId/move', requireAuth as any, async (req:
     const { jobId, stageId, stageTitle } = req.body || {};
 
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-    if (!pipelineId || !candidateId || !jobId || !stageId) return res.status(400).json({ error: 'Missing fields' });
+    if (!pipelineId || !candidateId || !jobId || !stageId) {
+      return res.status(400).json({ error: 'Missing fields' });
+    }
 
     // Resolve candidate_jobs row
     const { data: cjRow, error: cjErr } = await supabaseDb
@@ -174,9 +183,11 @@ router.post('/:id/candidates/:candidateId/move', requireAuth as any, async (req:
       .eq('candidate_id', candidateId)
       .eq('job_id', jobId)
       .maybeSingle();
-    if (cjErr || !cjRow) return res.status(404).json({ error: 'Candidate job not found' });
+    if (cjErr || !cjRow) {
+      return res.status(404).json({ error: 'Candidate job not found' });
+    }
 
-    // Validate ownership via candidates.user_id
+    // Validate ownership
     const { data: cand, error: candErr } = await supabaseDb
       .from('candidates')
       .select('user_id, first_name, last_name, email')
@@ -186,15 +197,15 @@ router.post('/:id/candidates/:candidateId/move', requireAuth as any, async (req:
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    // Attempt update via stage_id; fallback to status (enum) mapping
-    let updErr = null;
+    // Update stage_id
     const now = new Date().toISOString();
-    const { error: updError } = await supabaseDb
+    let { error: updError } = await supabaseDb
       .from('candidate_jobs')
       .update({ stage_id: stageId, updated_at: now })
       .eq('id', cjRow.id);
-    updErr = updError;
-    if (updErr && (updErr as any).code === '42703') {
+
+    // Fallback to status enum if needed
+    if (updError && (updError as any).code === '42703') {
       const canonicalFrom = (title: string) => {
         const t = String(title || '').toLowerCase();
         if (['sourced','contacted','interviewed','offered','hired','rejected'].includes(t)) return t;
@@ -210,12 +221,13 @@ router.post('/:id/candidates/:candidateId/move', requireAuth as any, async (req:
         .from('candidate_jobs')
         .update({ status: canonical, updated_at: now })
         .eq('id', cjRow.id);
-      updErr = error;
+      updError = error;
     }
-    if (updErr) {
-      console.error('[move-candidate] update error', updErr);
+
+    if (updError) {
       return res.status(500).json({ error: 'Failed to move candidate' });
     }
+
     // Emit events
     await emitZapEvent({
       userId,
@@ -239,13 +251,17 @@ router.post('/:id/candidates/:candidateId/move', requireAuth as any, async (req:
   }
 });
 
-// POST /api/pipelines/:id/stages
+/**
+ * POST /api/pipelines/:id/stages
+ */
 router.post('/:id/stages', requireAuth as any, async (req: Request, res: Response) => {
   try {
     const pipelineId = req.params.id;
     const { title, color, position } = req.body || {};
     const userId = (req as any).user?.id;
-    if (!pipelineId || !title || userId == null) return res.status(400).json({ error: 'Missing fields' });
+    if (!pipelineId || !title || !userId) {
+      return res.status(400).json({ error: 'Missing fields' });
+    }
 
     const { data: stage, error } = await supabaseDb
       .from('pipeline_stages')
@@ -267,13 +283,17 @@ router.post('/:id/stages', requireAuth as any, async (req: Request, res: Respons
   }
 });
 
-// PATCH /api/pipelines/:id/stages/:stageId
+/**
+ * PATCH /api/pipelines/:id/stages/:stageId
+ */
 router.patch('/:id/stages/:stageId', requireAuth as any, async (req: Request, res: Response) => {
   try {
     const { id, stageId } = req.params as any;
     const userId = (req as any).user?.id;
     const { title, color } = req.body || {};
-    if (!id || !stageId || !userId) return res.status(400).json({ error: 'Missing fields' });
+    if (!id || !stageId || !userId) {
+      return res.status(400).json({ error: 'Missing fields' });
+    }
 
     const { data: stage, error } = await supabaseDb
       .from('pipeline_stages')
@@ -296,12 +316,16 @@ router.patch('/:id/stages/:stageId', requireAuth as any, async (req: Request, re
   }
 });
 
-// DELETE /api/pipelines/:id/stages/:stageId
+/**
+ * DELETE /api/pipelines/:id/stages/:stageId
+ */
 router.delete('/:id/stages/:stageId', requireAuth as any, async (req: Request, res: Response) => {
   try {
     const { id, stageId } = req.params as any;
     const userId = (req as any).user?.id;
-    if (!id || !stageId || !userId) return res.status(400).json({ error: 'Missing fields' });
+    if (!id || !stageId || !userId) {
+      return res.status(400).json({ error: 'Missing fields' });
+    }
 
     const { error } = await supabaseDb
       .from('pipeline_stages')
@@ -322,13 +346,17 @@ router.delete('/:id/stages/:stageId', requireAuth as any, async (req: Request, r
   }
 });
 
-// PATCH /api/pipelines/:id/stages/reorder
+/**
+ * PATCH /api/pipelines/:id/stages/reorder
+ */
 router.patch('/:id/stages/reorder', requireAuth as any, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const userId = (req as any).user?.id;
     const { stages } = req.body || {};
-    if (!id || !Array.isArray(stages) || !userId) return res.status(400).json({ error: 'Missing fields' });
+    if (!id || !Array.isArray(stages) || !userId) {
+      return res.status(400).json({ error: 'Missing fields' });
+    }
 
     const { error } = await supabaseDb
       .from('pipeline_stages')
