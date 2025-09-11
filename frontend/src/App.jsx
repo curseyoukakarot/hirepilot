@@ -52,6 +52,7 @@ import ProductHunt from './screens/ProductHunt';
 import FreeForever from './screens/FreeForever';
 import DfyDashboard from './screens/DfyDashboard';
 import SniperTargets from './screens/SniperTargets';
+import JobPipeline from './screens/JobPipeline';
 import PartnersDashboard from './pages/partners/AffiliateDashboard';
 import AffiliatePayouts from './pages/partners/AffiliatePayouts';
 import AffiliateSettings from './pages/partners/AffiliateSettings';
@@ -116,7 +117,6 @@ const CandidateList = lazy(() => import("./screens/CandidateList"));
 const JobRequisitions = lazy(() => import("./screens/JobRequisitions"));
 const JobPipeline = lazy(() => import("./screens/JobPipeline"));
 const JobRequisitionPage = lazy(() => import("./pages/job/[id].tsx"));
-const PipelinePage = lazy(() => import("./pages/job/[id]/pipeline.tsx"));
 const Campaigns = lazy(() => import("./screens/Campaigns"));
 const Analytics = lazy(() => import("./screens/Analytics"));
 const BillingScreen = lazy(() => import("./screens/BillingScreen"));
@@ -450,12 +450,12 @@ function InnerApp() {
               <Route path="/candidates" element={<CandidateList />} />
               <Route path="/jobs" element={<JobRequisitions />} />
               <Route path="/job/:id" element={<JobRequisitionPage />} />
-              <Route path="/job/:id/pipeline" element={<PipelinePage />} />
-              <Route path="/jobs/pipeline" element={<JobPipeline />} />
+              <Route path="/job/:id/pipeline" element={<JobPipeline />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/phantom-monitor" element={<PhantomMonitor />} />
               <Route path="/phantom/cookie-refresh" element={<CookieRefresh />} />
               <Route path="/phantom/bulk-refresh" element={<BulkCookieRefresh />} />
+
               <Route path="/phantom/analytics" element={<PhantomAnalytics />} />
               <Route path="/phantom/lead-sync-failures" element={<LeadSyncFailures />} />
               <Route path="/phantom/config" element={<PhantomConfig />} />
