@@ -369,6 +369,8 @@ router.patch('/:id/stages/reorder', requireAuth as any, async (req: Request, res
 
       const valid = new Set((existing || []).map((r: any) => String(r.id)));
       const toUpdate = (Array.isArray(stages) ? stages : []).filter((s: any) => valid.has(String(s.id)));
+      console.info('[reorder] existing ids', { existingCount: (existing || []).length });
+      console.info('[reorder] toUpdate ids', { ids: toUpdate.map((s: any) => s.id) });
 
       if (!toUpdate.length) {
         console.warn('[reorder] no stages matched pipeline filter; attempting id-only updates');
@@ -377,11 +379,12 @@ router.patch('/:id/stages/reorder', requireAuth as any, async (req: Request, res
             .from('pipeline_stages')
             .update({ position: s.position })
             .eq('id', s.id)
+            .select('id')
         );
         const looseResults = await Promise.all(looseUpdates);
         const looseErr = looseResults.find(r => r.error)?.error as any;
         if (looseErr) throw looseErr;
-        const updatedCount = looseResults.filter(r => !r.error).length;
+        const updatedCount = looseResults.reduce((acc, r) => acc + (((r.data as any[]) || []).length), 0);
         console.info('[reorder] id-only updates applied', { updatedCount });
         await emitZapEvent({ userId, eventType: ZAP_EVENT_TYPES.PIPELINE_STAGE_UPDATED, eventData: { pipeline_id: id, action: 'reordered' } });
         return res.status(200).json({ success: true, updated: updatedCount });
@@ -393,11 +396,12 @@ router.patch('/:id/stages/reorder', requireAuth as any, async (req: Request, res
           .update({ position: s.position })
           .eq('id', s.id)
           .eq('pipeline_id', id)
+          .select('id')
       );
       const results = await Promise.all(updates);
       const firstErr = results.find(r => r.error)?.error as any;
       if (firstErr) throw firstErr;
-      const updatedCount = results.filter(r => !r.error).length;
+      const updatedCount = results.reduce((acc, r) => acc + (((r.data as any[]) || []).length), 0);
       console.info('[reorder] pipeline-scoped updates applied', { updatedCount });
       await emitZapEvent({ userId, eventType: ZAP_EVENT_TYPES.PIPELINE_STAGE_UPDATED, eventData: { pipeline_id: id, action: 'reordered' } });
       return res.status(200).json({ success: true, updated: updatedCount });
