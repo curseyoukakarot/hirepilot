@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import JobDetailsCard from '../components/job/JobDetailsCard';
@@ -10,13 +10,36 @@ export default function JobRequisitionPage() {
   const [traits, setTraits] = useState([]);
   const [notes, setNotes] = useState([]);
   const [team, setTeam] = useState([]);
+  const [orgUsers, setOrgUsers] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [canManage, setCanManage] = useState(false);
   const [candidates, setCandidates] = useState({ applied: [], screened: [], interview: [], offer: [] });
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
+  const [showAddTeammateModal, setShowAddTeammateModal] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
+      // Current user profile → org + permissions
+      let profile = null;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id) {
+          const { data: p } = await supabase
+            .from('users')
+            .select('id, email, full_name, role, organization_id, avatar_url')
+            .eq('id', user.id)
+            .single();
+          profile = p || null;
+          setCurrentUser(profile);
+          const manageable = ['account_owner','team_admin'].includes((profile?.role || '').toLowerCase());
+          setCanManage(manageable);
+        }
+      } catch {}
+
       const { data: jobData } = await supabase
         .from('job_requisitions')
         .select('*')
@@ -37,11 +60,24 @@ export default function JobRequisitionPage() {
         .order('created_at', { ascending: true });
       setNotes(notesData || []);
 
+      // Collaborators with embedded users
       const { data: teamData } = await supabase
         .from('job_collaborators')
-        .select('role, users(full_name, avatar_url)')
+        .select('user_id, role, users(id, full_name, email, avatar_url, organization_id)')
         .eq('job_id', id);
-      setTeam(teamData || []);
+      const filteredTeam = (teamData || []).filter(r => !profile?.organization_id || r.users?.organization_id === profile.organization_id);
+      setTeam(filteredTeam);
+
+      // Load org users for Add Teammate
+      if (profile?.organization_id) {
+        const { data: orgRows } = await supabase
+          .from('users')
+          .select('id, full_name, email, avatar_url, organization_id, role')
+          .eq('organization_id', profile.organization_id);
+        setOrgUsers(orgRows || []);
+      } else {
+        setOrgUsers([]);
+      }
 
       const { data: candidatesData } = await supabase
         .from('candidate_jobs')
@@ -59,10 +95,71 @@ export default function JobRequisitionPage() {
     fetchData();
   }, [id]);
 
+  const collaboratorUserIds = useMemo(() => new Set((team || []).map(t => t.user_id || t.users?.id)), [team]);
+  const availableOrgUsers = useMemo(() => (orgUsers || []).filter(u => !collaboratorUserIds.has(u.id)), [orgUsers, collaboratorUserIds]);
+
   const handleEdit = (label) => console.log(`Edit ${label}`);
   const handleAddTrait = () => console.log('Add Trait');
   const handlePostNote = () => console.log('Post note');
-  const handleAddTeammate = () => console.log('Add Teammate');
+  const handleAddTeammate = () => setShowAddTeammateModal(true);
+
+  const handleUpdateCollaboratorRole = async (userId, newRole) => {
+    try {
+      const { error } = await supabase
+        .from('job_collaborators')
+        .update({ role: newRole })
+        .eq('job_id', id)
+        .eq('user_id', userId);
+      if (error) throw error;
+      setTeam(prev => prev.map(t => (t.user_id === userId || t.users?.id === userId) ? { ...t, role: newRole } : t));
+    } catch (e) {
+      alert('Failed to change role: ' + (e.message || e));
+    }
+  };
+
+  const handleRemoveCollaborator = async (userId) => {
+    if (!confirm('Remove this collaborator?')) return;
+    try {
+      const { error } = await supabase
+        .from('job_collaborators')
+        .delete()
+        .eq('job_id', id)
+        .eq('user_id', userId);
+      if (error) throw error;
+      setTeam(prev => prev.filter(t => (t.user_id || t.users?.id) !== userId));
+    } catch (e) {
+      alert('Failed to remove collaborator: ' + (e.message || e));
+    }
+  };
+
+  const saveNewTeammate = async () => {
+    if (!selectedUserId) return;
+    try {
+      setIsSaving(true);
+      const { error: insErr } = await supabase
+        .from('job_collaborators')
+        .insert({ job_id: id, user_id: selectedUserId, role: 'Editor' });
+      if (insErr) throw insErr;
+      const addedUser = (orgUsers || []).find(u => u.id === selectedUserId);
+      setTeam(prev => [...prev, { user_id: selectedUserId, role: 'Editor', users: addedUser }]);
+      if (currentUser?.id) {
+        await supabase.from('job_activity_log').insert({
+          type: 'collaborator_added',
+          actor_id: currentUser.id,
+          job_id: id,
+          target_user_id: selectedUserId,
+          role: 'Editor',
+          created_at: new Date().toISOString()
+        });
+      }
+      setShowAddTeammateModal(false);
+      setSelectedUserId('');
+    } catch (e) {
+      alert('Failed to add teammate: ' + (e.message || e));
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -260,10 +357,14 @@ export default function JobRequisitionPage() {
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-gray-900">Team Collaborators</h3>
-                  <button className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700" onClick={handleAddTeammate}>
-                    <i className="fas fa-plus mr-2"></i>
-                    Add Teammate
-                  </button>
+                  {canManage && (
+                    <div className="flex gap-2">
+                      <button className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700" onClick={() => setShowAddTeammateModal(true)}>
+                        <i className="fas fa-plus mr-2"></i>
+                        Add Teammate
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="p-6">
@@ -278,21 +379,51 @@ export default function JobRequisitionPage() {
                         </div>
                       </div>
                       <div className="flex items-center space-x-3">
-                        <select className="border border-gray-200 rounded-md px-3 py-1 text-sm" value={t.role} onChange={(e) => console.log('Change role', t, e.target.value)}>
+                        <select className="border border-gray-200 rounded-md px-3 py-1 text-sm" value={t.role} onChange={(e) => handleUpdateCollaboratorRole(t.user_id || t.users?.id, e.target.value)} disabled={!canManage}>
                           <option>Admin</option>
                           <option>Editor</option>
                           <option>View Only</option>
                         </select>
-                        <button className="text-gray-400 hover:text-red-600" onClick={() => console.log('Remove collaborator', t)}>
-                          <i className="fas fa-trash"></i>
-                        </button>
+                        {canManage && (
+                          <button className="text-gray-400 hover:text-red-600" onClick={() => handleRemoveCollaborator(t.user_id || t.users?.id)}>
+                            <i className="fas fa-trash"></i>
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
+                  {team.length === 0 && <p className="text-sm text-gray-500">No collaborators</p>}
                 </div>
               </div>
             </div>
           </div>
+
+          {/* Add Teammate Modal */}
+          {showAddTeammateModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg p-6 max-w-md w-full">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold">Add Teammate</h3>
+                  <button className="text-gray-400 hover:text-gray-600" onClick={() => { setShowAddTeammateModal(false); setSelectedUserId(''); }}><i className="fas fa-times"></i></button>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Select teammate</label>
+                    <select className="w-full border rounded-lg px-3 py-2" value={selectedUserId} onChange={(e)=>setSelectedUserId(e.target.value)}>
+                      <option value="">Choose a user</option>
+                      {availableOrgUsers.map(u => (
+                        <option key={u.id} value={u.id}>{u.full_name || u.email} — {u.email}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <button className="px-4 py-2 border rounded-lg" onClick={() => { setShowAddTeammateModal(false); setSelectedUserId(''); }}>Cancel</button>
+                    <button className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50" disabled={!selectedUserId || isSaving} onClick={saveNewTeammate}>{isSaving ? 'Adding...' : 'Add'}</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Candidates Tab => Pipeline Board */}
           <div id="candidates-tab" className={activeTab === 'candidates' ? 'tab-content' : 'tab-content hidden'}>
