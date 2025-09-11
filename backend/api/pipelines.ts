@@ -68,16 +68,25 @@ router.get('/:id/stages', requireAuth as any, async (req: Request, res: Response
     (candData || []).forEach(row => {
       const stage = row.stage_id || 'unassigned';
       if (!grouped[stage]) grouped[stage] = [];
+const grouped: Record<string, any[]> = {};
+(candData || []).forEach(row => {
+  const stage = row.stage_id || 'unassigned';
+  if (!grouped[stage]) grouped[stage] = [];
 
-      // Normalize candidate object
-      const candidate = Array.isArray(row.candidates) ? row.candidates[0] : row.candidates;
+  // Normalize candidate object
+  const candidate = Array.isArray(row.candidates) ? row.candidates[0] : row.candidates;
 
-      grouped[stage].push({
-        id: row.id,
-        candidate_id: row.candidate_id,
-        name: `${candidate?.first_name || ''} ${candidate?.last_name || ''}`.trim(),
-        email: candidate?.email || '',
-        avatar_url: candidate?.avatar_url || '',
+  grouped[stage].push({
+    id: row.id,
+    candidate_id: row.candidate_id,
+    name: `${candidate?.first_name || ''} ${candidate?.last_name || ''}`.trim(),
+    email: candidate?.email || '',
+    avatar_url: candidate?.avatar_url || '',
+  });
+});
+
+res.json({ stages: stages || [], candidates: grouped });
+
       });
     });
 
