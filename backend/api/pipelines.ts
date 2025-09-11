@@ -18,37 +18,37 @@ router.get('/', requireAuth as any, async (req: Request, res: Response) => {
 
     let { data, error } = await supabaseDb
       .from('job_requisitions')
-      .select('pipeline_id, title, pipeline:pipelines (id, name, department)')
+      .select('pipeline_id, title')
       .eq('id', jobId)
       .eq('user_id', userId)
       .single();
-    // Fallback: if user_id filter blocks but job exists (team-owned, admin views), try without user constraint
     if (error || !data) {
       const retry = await supabaseDb
         .from('job_requisitions')
-        .select('pipeline_id, title, pipeline:pipelines (id, name, department)')
+        .select('pipeline_id, title')
         .eq('id', jobId)
         .maybeSingle();
       data = retry.data as any;
     }
-    if (!data) return res.json([]);
-
-    // Prefer joined pipeline record; otherwise, fall back to minimal pipeline shape
-    if (data.pipeline_id) {
-      if (data.pipeline) {
-        return res.json([data.pipeline]);
-      }
-      // Relationship not configured; fetch pipeline directly
-      const { data: pipelineRow } = await supabaseDb
-        .from('pipelines')
-        .select('id, name, department')
-        .eq('id', data.pipeline_id)
-        .maybeSingle();
-      if (pipelineRow) return res.json([pipelineRow]);
-      return res.json([{ id: data.pipeline_id, name: data.title || 'Pipeline', department: '' }]);
+    if (!data) {
+      console.warn('[pipelines] job not found for', jobId, 'user', userId);
+      return res.json([]);
     }
 
-    res.json([]);
+    const pipelineId = data.pipeline_id;
+    if (!pipelineId) {
+      console.warn('[pipelines] no pipeline_id on job', jobId);
+      return res.json([]);
+    }
+
+    const { data: pipelineRow, error: pErr } = await supabaseDb
+      .from('pipelines')
+      .select('id, name, department')
+      .eq('id', pipelineId)
+      .maybeSingle();
+    if (pErr) console.error('[pipelines] pipeline fetch error', pErr.message);
+    if (pipelineRow) return res.json([pipelineRow]);
+    return res.json([{ id: pipelineId, name: data.title || 'Pipeline', department: '' }]);
   } catch (err: any) {
     console.error('[GET /api/pipelines] error', err);
     res.status(500).json({ error: err.message });
@@ -71,7 +71,6 @@ router.get('/:id/stages', requireAuth as any, async (req: Request, res: Response
       .eq('user_id', userId)
       .single();
     if (jobErr || !job) {
-      // Retry without user filter to support team/admin contexts
       const retry = await supabaseDb
         .from('job_requisitions')
         .select('id, pipeline_id')
@@ -80,6 +79,7 @@ router.get('/:id/stages', requireAuth as any, async (req: Request, res: Response
       job = retry.data as any;
     }
     if (!job || String(job.pipeline_id) !== String(pipelineId)) {
+      console.warn('[pipelines:stages] job-pipeline mismatch', { jobId, pipelineId, job });
       return res.json({ stages: [], candidates: {} });
     }
 
