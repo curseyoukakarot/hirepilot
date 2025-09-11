@@ -14,7 +14,7 @@ router.get('/', requireAuth as any, async (req: Request, res: Response) => {
   try {
     const jobId = String(req.query.jobId || '');
     const userId = (req as any).user?.id;
-    if (!jobId || !userId) return res.status(400).json({ error: 'Missing jobId' });
+    if (!jobId || !userId) return res.json([]);
 
     const { data, error } = await supabaseDb
       .from('job_requisitions')
@@ -22,7 +22,7 @@ router.get('/', requireAuth as any, async (req: Request, res: Response) => {
       .eq('id', jobId)
       .eq('user_id', userId)
       .single();
-    if (error || !data) return res.status(404).json({ error: 'Job not found' });
+    if (error || !data) return res.json([]);
 
     const pipeline = data.pipeline_id && data.pipeline ? [data.pipeline] : [];
     res.json(pipeline);
@@ -38,7 +38,7 @@ router.get('/:id/stages', requireAuth as any, async (req: Request, res: Response
     const pipelineId = req.params.id;
     const jobId = String(req.query.jobId || '');
     const userId = (req as any).user?.id;
-    if (!pipelineId || !jobId || !userId) return res.status(400).json({ error: 'Missing ids' });
+    if (!pipelineId || !jobId || !userId) return res.json({ stages: [], candidates: {} });
 
     // Verify job ownership
     const { data: job, error: jobErr } = await supabaseDb
@@ -48,7 +48,7 @@ router.get('/:id/stages', requireAuth as any, async (req: Request, res: Response
       .eq('user_id', userId)
       .single();
     if (jobErr || !job || String(job.pipeline_id) !== String(pipelineId)) {
-      return res.status(404).json({ error: 'Job not found' });
+      return res.json({ stages: [], candidates: {} });
     }
 
     const { data: stages, error: stageErr } = await supabaseDb
