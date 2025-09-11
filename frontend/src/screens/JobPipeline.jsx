@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { FaPlus, FaEllipsisV, FaUserPlus, FaSearch, FaTimes, FaTrash, FaEdit, FaCheck, FaGripVertical, FaKeyboard } from 'react-icons/fa';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import { getPipelineStages, createPipelineStage, updatePipelineStage, deletePipelineStage, reorderPipelineStages, fetchCandidatesForJob } from '../services/pipelineStagesService';
+import { createPipelineStage, updatePipelineStage, deletePipelineStage, reorderPipelineStages } from '../services/pipelineStagesService';
 import toast from 'react-hot-toast';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
@@ -17,20 +17,18 @@ const defaultStages = [
 
 const departments = ['Engineering', 'Sales', 'Product', 'Marketing', 'HR', 'Finance'];
 
-// Mock available candidates for search - will be replaced with API call
-// const availableCandidates = [
-//   { id: 5, name: 'Alex Brown', avatar: 'https://ui-avatars.com/api/?name=Alex+Brown&background=random', email: 'alex@example.com' },
-//   { id: 6, name: 'Emma Davis', avatar: 'https://ui-avatars.com/api/?name=Emma+Davis&background=random', email: 'emma@example.com' },
-//   { id: 7, name: 'Chris Wilson', avatar: 'https://ui-avatars.com/api/?name=Chris+Wilson&background=random', email: 'chris@example.com' }
-// ];
-
 // Helper function to generate avatar URL
 const getAvatarUrl = (name) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
 
 export default function JobPipeline() {
   const { id: jobId } = useParams();
+  const navigate = useNavigate();
+
+  // Filters / selection
   const [selectedPipeline, setSelectedPipeline] = useState('all');
   const [selectedJob, setSelectedJob] = useState(jobId || 'all');
+
+  // UI state
   const [showModal, setShowModal] = useState(false);
   const [showNewPipelineModal, setShowNewPipelineModal] = useState(false);
   const [showEditStageModal, setShowEditStageModal] = useState(false);
@@ -38,11 +36,19 @@ export default function JobPipeline() {
   const [showNewStageModal, setShowNewStageModal] = useState(false);
   const [showDeleteStageConfirm, setShowDeleteStageConfirm] = useState(false);
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
+
+  // Actions state
   const [candidateToRemove, setCandidateToRemove] = useState(null);
   const [stageToDelete, setStageToDelete] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
   const [selectedStage, setSelectedStage] = useState(null);
   const [showStageMenu, setShowStageMenu] = useState(null);
+  const [selectedCandidates, setSelectedCandidates] = useState(new Set());
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [pipelineSearch, setPipelineSearch] = useState('');
+
+  // New pipeline / stage inputs
   const [newPipelineName, setNewPipelineName] = useState('');
   const [newPipelineDepartment, setNewPipelineDepartment] = useState('');
   const [editingStage, setEditingStage] = useState(null);
@@ -50,20 +56,17 @@ export default function JobPipeline() {
   const [stageTitle, setStageTitle] = useState('');
   const [newStageTitle, setNewStageTitle] = useState('');
   const [newStageColor, setNewStageColor] = useState('bg-blue-100 text-blue-800');
-  const [toast, setToast] = useState({ show: false, message: '', type: '' });
+
+  // Inline toast banner (avoid name clash with react-hot-toast `toast`)
+  const [toastBanner, setToastBanner] = useState({ show: false, message: '', type: '' });
+
+  // Data state
   const [stages, setStages] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const navigate = useNavigate();
   const [pipelines, setPipelines] = useState([]);
-  const [pipelineSearch, setPipelineSearch] = useState('');
   const [jobs, setJobs] = useState([]);
-  const [selectedCandidates, setSelectedCandidates] = useState(new Set());
-  const [showOverwritePipelineConfirm, setShowOverwritePipelineConfirm] = useState(false);
-  const [pendingPipelineData, setPendingPipelineData] = useState(null);
   const [pipelineExists, setPipelineExists] = useState(true);
 
-  // Initialize candidates state with default stages
+  // Candidates grouped by stageId
   const [candidates, setCandidates] = useState(
     defaultStages.reduce((acc, stage) => {
       acc[stage.id] = [];
@@ -71,11 +74,15 @@ export default function JobPipeline() {
     }, {})
   );
 
-  // State for real candidates
+  // Candidate search modal data
   const [availableCandidates, setAvailableCandidates] = useState([]);
   const [candidatesLoading, setCandidatesLoading] = useState(false);
 
-  // Add derived pipeline name using useMemo
+  // Loading & error
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Derived pipeline name
   const pipelineName = useMemo(() => {
     const job = jobs?.find(j => j.id === selectedJob);
     if (!selectedJob || !pipelines?.length) return 'All Pipelines';
@@ -87,17 +94,15 @@ export default function JobPipeline() {
     return 'All Pipelines';
   }, [selectedJob, jobs, pipelines]);
 
+  // Keep selectedJob in sync with route param
   useEffect(() => {
     if (jobId) setSelectedJob(jobId);
   }, [jobId]);
 
-  // Toast notification component
-  const Toast = ({ message, type, onClose }) => {
+  // Inline toast component
+  const InlineToast = ({ message, type, onClose }) => {
     useEffect(() => {
-      const timer = setTimeout(() => {
-        onClose();
-      }, 2000);
-
+      const timer = setTimeout(() => onClose(), 2000);
       return () => clearTimeout(timer);
     }, [onClose]);
 
@@ -115,56 +120,36 @@ export default function JobPipeline() {
     );
   };
 
-  // Show toast notification
-  const showToast = (message, type = 'success') => {
-    setToast({ show: true, message, type });
-  };
-
-  // Hide toast notification
-  const hideToast = () => {
-    setToast({ show: false, message: '', type: '' });
-  };
+  // Show/hide inline toast
+  const showInlineToast = (message, type = 'success') => setToastBanner({ show: true, message, type });
+  const hideInlineToast = () => setToastBanner({ show: false, message: '', type: '' });
 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyPress = (e) => {
-      // Only trigger if not typing in an input
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-
-      // Alt + N: New Pipeline
       if (e.altKey && e.key.toLowerCase() === 'n') {
         e.preventDefault();
         setShowNewPipelineModal(true);
-        showToast('Opening New Pipeline modal', 'success');
+        showInlineToast('Opening New Pipeline modal', 'success');
       }
-
-      // Alt + A: Add Candidate
       if (e.altKey && e.key.toLowerCase() === 'a') {
         e.preventDefault();
         handleAddCandidate('sourced');
-        showToast('Opening Add Candidate modal', 'success');
+        showInlineToast('Opening Add Candidate modal', 'success');
       }
-
-      // Alt + S: New Stage
       if (e.altKey && e.key.toLowerCase() === 's') {
         e.preventDefault();
         setShowNewStageModal(true);
-        showToast('Opening New Stage modal', 'success');
+        showInlineToast('Opening New Stage modal', 'success');
       }
-
-      // Alt + K: Show Keyboard Shortcuts
       if (e.altKey && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setShowKeyboardShortcuts(true);
-        showToast('Opening Keyboard Shortcuts', 'success');
+        showInlineToast('Opening Keyboard Shortcuts', 'success');
       }
-
-      // Escape: Close all modals
       if (e.key === 'Escape') {
-        const wasModalOpen = showModal || showNewPipelineModal || showEditStageModal || 
-                           showConfirmDialog || showNewStageModal || showDeleteStageConfirm || 
-                           showKeyboardShortcuts;
-        
+        const wasModalOpen = showModal || showNewPipelineModal || showEditStageModal || showConfirmDialog || showNewStageModal || showDeleteStageConfirm || showKeyboardShortcuts;
         setShowModal(false);
         setShowNewPipelineModal(false);
         setShowEditStageModal(false);
@@ -172,18 +157,14 @@ export default function JobPipeline() {
         setShowNewStageModal(false);
         setShowDeleteStageConfirm(false);
         setShowKeyboardShortcuts(false);
-
-        if (wasModalOpen) {
-          showToast('Closing modal', 'success');
-        }
+        if (wasModalOpen) showInlineToast('Closing modal', 'success');
       }
     };
-
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, []);
+  }, [showModal, showNewPipelineModal, showEditStageModal, showConfirmDialog, showNewStageModal, showDeleteStageConfirm, showKeyboardShortcuts]);
 
-  // Refactor fetchStagesAndCandidates to be callable
+  // Fetch stages and candidates for the selected job
   const fetchStagesAndCandidates = async () => {
     try {
       setLoading(true);
@@ -193,52 +174,93 @@ export default function JobPipeline() {
         setCandidates({});
         return;
       }
-      const { data, error } = await supabase
-        .from('pipelines')
+
+      // Ensure authenticated
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        navigate('/login');
+        return;
+      }
+
+      // Get pipeline id for job
+      const { data: jobData, error: jobError } = await supabase
+        .from('job_requisitions')
+        .select('pipeline_id, title')
+        .eq('id', selectedJob)
+        .single();
+      if (jobError) throw jobError;
+
+      const pipelineId = jobData?.pipeline_id;
+      setPipelineExists(!!pipelineId);
+      if (!pipelineId) {
+        setStages([]);
+        setCandidates({});
+        setError(null);
+        return;
+      }
+
+      // Fetch stages
+      const { data: stagesData, error: stagesError } = await supabase
+        .from('pipeline_stages')
+        .select('*')
+        .eq('pipeline_id', pipelineId)
+        .order('position', { ascending: true });
+      if (stagesError) throw stagesError;
+      setStages(stagesData || []);
+
+      // Fetch candidates for this job and map to stages
+      const { data: candidatesData, error: candidatesError } = await supabase
+        .from('candidate_jobs')
         .select(`
           id,
-          name,
-          stages:pipeline_stages(
+          candidate_id,
+          stage_id,
+          status,
+          candidates (
             id,
-            title,
-            position,
-            candidates:candidate_jobs(
-              id,
-              candidate_id,
-              candidates(
-                first_name,
-                last_name,
-                email,
-                avatar_url
-              )
-            )
+            first_name,
+            last_name,
+            email,
+            avatar_url
           )
         `)
         .eq('job_id', selectedJob);
-      if (error) throw error;
-      setPipelines(data || []);
-      if (!data || data.length === 0) {
-        setPipelineExists(false);
-        setStages([]);
-        setCandidates({});
-        return;
-      }
-      const active = selectedPipeline === 'all' ? data[0] : data.find(p => String(p.id) === String(selectedPipeline)) || data[0];
-      setSelectedPipeline(active.id);
-      const stagesData = active.stages || [];
-      setStages(stagesData);
+      if (candidatesError) throw candidatesError;
+
       const grouped = {};
-      stagesData.forEach(stage => {
-        grouped[stage.id] = (stage.candidates || []).map(cj => ({
-          id: cj.id,
-          candidate_id: cj.candidate_id,
-          name: `${cj.candidates?.first_name || ''} ${cj.candidates?.last_name || ''}`.trim(),
-          email: cj.candidates?.email || '',
-          avatar_url: cj.candidates?.avatar_url || ''
-        }));
+      (stagesData || []).forEach(s => (grouped[s.id] = []));
+
+      const defaultStageId = (stagesData || [])[0]?.id;
+      (candidatesData || []).forEach(row => {
+        let stageId = row.stage_id;
+        if (!stageId) {
+          // legacy mapping from status → stage title
+          const statusLc = String(row.status || '').toLowerCase();
+          let match = (stagesData || []).find(s => (s.title || '').toLowerCase() === statusLc);
+          const includes = (needle) => (s) => (s.title || '').toLowerCase().includes(needle);
+          if (!match && statusLc) {
+            if (statusLc === 'interviewed') match = (stagesData || []).find(includes('interview'));
+            else if (statusLc === 'offered') match = (stagesData || []).find(includes('offer'));
+            else if (statusLc === 'hired') match = (stagesData || []).find(includes('hire'));
+            else if (statusLc === 'contacted') match = (stagesData || []).find(s => {
+              const t = (s.title || '').toLowerCase();
+              return t.includes('contact') || t.includes('phone') || t.includes('screen');
+            });
+            else if (statusLc === 'sourced') match = (stagesData || []).find(includes('source')) || (stagesData || [])[0];
+          }
+          stageId = match?.id || defaultStageId || 'unassigned';
+        }
+        if (!grouped[stageId]) grouped[stageId] = [];
+        grouped[stageId].push({
+          id: row.id,
+          candidate_id: row.candidate_id,
+          name: `${row.candidates?.first_name || ''} ${row.candidates?.last_name || ''}`.trim(),
+          email: row.candidates?.email || '',
+          avatar_url: row.candidates?.avatar_url || ''
+        });
       });
+
       setCandidates(grouped);
-      setPipelineExists(true);
       setError(null);
     } catch (err) {
       console.error('Error loading pipeline stages or candidates:', err);
@@ -248,12 +270,13 @@ export default function JobPipeline() {
     }
   };
 
-  // load stages and candidates when job or pipeline selection changes
+  // Load stages and candidates when job or pipeline selection changes
   useEffect(() => {
     fetchStagesAndCandidates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedJob, selectedPipeline]);
 
-  // Realtime sync: reflect external moves (REX/Zapier/other clients)
+  // Realtime sync: reflect external moves
   useEffect(() => {
     if (!selectedJob || selectedJob === 'all') return;
     const channel = supabase
@@ -271,6 +294,7 @@ export default function JobPipeline() {
     };
   }, [selectedJob]);
 
+  // Pipelines list for the job (for header dropdown)
   useEffect(() => {
     const fetchPipelines = async () => {
       if (!selectedJob || selectedJob === 'all') {
@@ -280,7 +304,7 @@ export default function JobPipeline() {
       try {
         const { data, error } = await supabase
           .from('pipelines')
-          .select('id, name')
+          .select('id, name, department')
           .eq('job_id', selectedJob);
         if (error) throw error;
         setPipelines(data || []);
@@ -292,6 +316,7 @@ export default function JobPipeline() {
     fetchPipelines();
   }, [selectedJob]);
 
+  // Jobs for current user
   useEffect(() => {
     const fetchJobs = async () => {
       try {
@@ -301,11 +326,8 @@ export default function JobPipeline() {
           .from('job_requisitions')
           .select('*')
           .eq('user_id', user.id);
-        if (error) {
-          setJobs([]);
-        } else {
-          setJobs(data);
-        }
+        if (error) setJobs([]);
+        else setJobs(data || []);
       } catch (err) {
         setJobs([]);
       }
@@ -313,26 +335,21 @@ export default function JobPipeline() {
     fetchJobs();
   }, []);
 
+  // DnD handlers
   const handleDragEnd = async (result) => {
     if (!result.destination) return;
     const { source, destination, type } = result;
-    // Handle stage reordering
+
+    // Reorder stages
     if (type === 'stage') {
       const newStages = Array.from(stages);
       const [removed] = newStages.splice(source.index, 1);
       newStages.splice(destination.index, 0, removed);
 
-      // Update positions
-      const updatedStages = newStages.map((stage, index) => ({
-        ...stage,
-        position: index
-      }));
+      const updatedStages = newStages.map((stage, index) => ({ ...stage, position: index }));
 
       try {
-        await reorderPipelineStages(updatedStages.map(stage => ({
-          id: stage.id,
-          position: stage.position
-        })));
+        await reorderPipelineStages(updatedStages.map(s => ({ id: s.id, position: s.position })));
         setStages(updatedStages);
         toast.success('Pipeline stages reordered');
       } catch (error) {
@@ -341,20 +358,17 @@ export default function JobPipeline() {
       }
       return;
     }
-    // Handle candidate reordering/moving
+
+    // Move candidate
     const sourceStage = source.droppableId;
     const destStage = destination.droppableId;
+
     if (sourceStage === destStage) {
-      // Reorder within the same stage (UI only)
       const newCandidates = Array.from(candidates[sourceStage] || []);
       const [removed] = newCandidates.splice(source.index, 1);
       newCandidates.splice(destination.index, 0, removed);
-      setCandidates({
-        ...candidates,
-        [sourceStage]: newCandidates
-      });
+      setCandidates({ ...candidates, [sourceStage]: newCandidates });
     } else {
-      // Move to different stage and persist change
       const sourceCandidates = Array.from(candidates[sourceStage] || []);
       const destCandidates = Array.from(candidates[destStage] || []);
       const [removed] = sourceCandidates.splice(source.index, 1);
@@ -369,35 +383,27 @@ export default function JobPipeline() {
           return;
         }
         destCandidates.splice(destination.index, 0, removed);
-        setCandidates({
-          ...candidates,
-          [sourceStage]: sourceCandidates,
-          [destStage]: destCandidates
-        });
+        setCandidates({ ...candidates, [sourceStage]: sourceCandidates, [destStage]: destCandidates });
       }
     }
   };
 
-  const handleAddCandidate = (stageId) => {
-    setSelectedStage(stageId);
-    setShowModal(true);
-  };
+  // Candidate add/remove
+  const handleAddCandidate = (stageId) => { setSelectedStage(stageId); setShowModal(true); };
 
   const handleSelectCandidate = async (candidate) => {
     if (selectedStage && selectedJob) {
-      // Insert into candidate_jobs
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('candidate_jobs')
-        .insert({
-          candidate_id: candidate.id,
-          job_id: selectedJob,
-          stage_id: selectedStage
-        });
+        .insert({ candidate_id: candidate.id, job_id: selectedJob, stage_id: selectedStage });
       if (!error) {
-        setCandidates({
-          ...candidates,
-          [selectedStage]: [...(candidates[selectedStage] || []), candidate]
-        });
+        setCandidates({ ...candidates, [selectedStage]: [...(candidates[selectedStage] || []), {
+          id: candidate.id, // UI key; DB row id comes on refresh
+          candidate_id: candidate.id,
+          name: `${candidate.first_name} ${candidate.last_name}`,
+          email: candidate.email,
+          avatar_url: candidate.avatar_url
+        }]});
       } else {
         toast.error('Failed to add candidate to stage');
       }
@@ -407,122 +413,84 @@ export default function JobPipeline() {
     setSearchQuery('');
   };
 
-  const handleRemoveStage = (stageId) => {
-    setStageToDelete(stageId);
-    setShowDeleteStageConfirm(true);
-    setShowStageMenu(null);
-  };
+  const handleRemoveStage = (stageId) => { setStageToDelete(stageId); setShowDeleteStageConfirm(true); setShowStageMenu(null); };
 
   const confirmDeleteStage = async () => {
     if (stageToDelete) {
       try {
         await deletePipelineStage(stageToDelete);
-        setStages(stages.filter(stage => stage.id !== stageToDelete));
-        
-        const newCandidates = { ...candidates };
-        delete newCandidates[stageToDelete];
-        setCandidates(newCandidates);
-        
+        setStages(stages.filter(s => s.id !== stageToDelete));
+        const newCandidates = { ...candidates }; delete newCandidates[stageToDelete]; setCandidates(newCandidates);
         toast.success('Stage deleted');
       } catch (error) {
         console.error('Error deleting stage:', error);
         toast.error('Failed to delete stage');
       }
     }
-    setShowDeleteStageConfirm(false);
-    setStageToDelete(null);
+    setShowDeleteStageConfirm(false); setStageToDelete(null);
   };
 
-  const handleRemoveCandidate = (stageId, candidateId) => {
-    setCandidateToRemove({ stageId, candidateId });
-    setShowConfirmDialog(true);
-  };
+  const handleRemoveCandidate = (stageId, candidateId) => { setCandidateToRemove({ stageId, candidateId }); setShowConfirmDialog(true); };
 
   const confirmRemoveCandidate = () => {
     if (candidateToRemove) {
-      setCandidates({
-        ...candidates,
-        [candidateToRemove.stageId]: candidates[candidateToRemove.stageId].filter(
-          c => c.id !== candidateToRemove.candidateId
-        )
-      });
+      setCandidates({ ...candidates, [candidateToRemove.stageId]: (candidates[candidateToRemove.stageId] || []).filter(c => c.id !== candidateToRemove.candidateId) });
     }
-    setShowConfirmDialog(false);
-    setCandidateToRemove(null);
+    setShowConfirmDialog(false); setCandidateToRemove(null);
   };
+
+  // Pipeline create / link
+  const [showOverwritePipelineConfirm, setShowOverwritePipelineConfirm] = useState(false);
+  const [pendingPipelineData, setPendingPipelineData] = useState(null);
 
   const handleCreatePipeline = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
       if (!selectedJob || selectedJob === 'all') {
-        showToast('Please select a job before creating a pipeline.', 'error');
+        showInlineToast('Please select a job before creating a pipeline.', 'error');
         return;
       }
-      // Check if job already has a pipeline
       const { data: jobData } = await supabase
         .from('job_requisitions')
         .select('pipeline_id')
         .eq('id', selectedJob)
         .single();
       if (jobData?.pipeline_id) {
-        // Show confirmation modal
-        setPendingPipelineData({
-          name: newPipelineName,
-          department: newPipelineDepartment
-        });
+        setPendingPipelineData({ name: newPipelineName, department: newPipelineDepartment });
         setShowOverwritePipelineConfirm(true);
         return;
       }
       await actuallyCreatePipeline(newPipelineName, newPipelineDepartment);
     } catch (err) {
       console.error('Error creating pipeline:', err);
-      showToast('Failed to create pipeline', 'error');
+      showInlineToast('Failed to create pipeline', 'error');
     }
   };
 
-  // Helper to actually create and link pipeline
   const actuallyCreatePipeline = async (pipelineName, pipelineDepartment) => {
     const { data: { user } } = await supabase.auth.getUser();
-    // 1. Create the pipeline
     const { data: pipeline, error: pipelineError } = await supabase
       .from('pipelines')
-      .insert({
-        user_id: user.id,
-        name: pipelineName,
-        department: pipelineDepartment
-      })
+      .insert({ user_id: user.id, name: pipelineName, department: pipelineDepartment, job_id: selectedJob })
       .select()
       .single();
     if (pipelineError) throw pipelineError;
-    // 2. Create default stages for the new pipeline
-    const defaultStageRows = defaultStages.map((stage, idx) => ({
-      pipeline_id: pipeline.id,
-      title: stage.title,
-      color: stage.color,
-      position: idx
-    }));
-    const { error: stagesError } = await supabase
-      .from('pipeline_stages')
-      .insert(defaultStageRows);
+
+    const defaultStageRows = defaultStages.map((stage, idx) => ({ pipeline_id: pipeline.id, title: stage.title, color: stage.color, position: idx }));
+    const { error: stagesError } = await supabase.from('pipeline_stages').insert(defaultStageRows);
     if (stagesError) throw stagesError;
+
     setPipelines(prev => [...prev, pipeline]);
-    // Debug log for job and pipeline id
-    console.log('Linking job', selectedJob, 'to new pipeline', pipeline.id);
-    // Link the new pipeline to the current job
-    await supabase
-      .from('job_requisitions')
-      .update({ pipeline_id: pipeline.id })
-      .eq('id', selectedJob);
-    // Refresh stages and candidates after linking
+
+    await supabase.from('job_requisitions').update({ pipeline_id: pipeline.id }).eq('id', selectedJob);
+
     await fetchStagesAndCandidates();
     setShowNewPipelineModal(false);
-    setNewPipelineName('');
-    setNewPipelineDepartment('');
-    showToast('Pipeline created with default stages!', 'success');
+    setNewPipelineName(''); setNewPipelineDepartment('');
+    showInlineToast('Pipeline created with default stages!', 'success');
   };
 
-  // Handler for confirming overwrite
   const handleOverwritePipelineConfirm = async () => {
     setShowOverwritePipelineConfirm(false);
     if (pendingPipelineData) {
@@ -530,33 +498,16 @@ export default function JobPipeline() {
       setPendingPipelineData(null);
     }
   };
+  const handleOverwritePipelineCancel = () => { setShowOverwritePipelineConfirm(false); setPendingPipelineData(null); };
 
-  // Handler for canceling overwrite
-  const handleOverwritePipelineCancel = () => {
-    setShowOverwritePipelineConfirm(false);
-    setPendingPipelineData(null);
-  };
-
-  const handleEditStage = (stage) => {
-    setEditingStage(stage);
-    setStageColor(stage.color);
-    setStageTitle(stage.title);
-    setShowEditStageModal(true);
-    setShowStageMenu(null);
-  };
+  // Stage edit/create
+  const handleEditStage = (stage) => { setEditingStage(stage); setStageColor(stage.color); setStageTitle(stage.title); setShowEditStageModal(true); setShowStageMenu(null); };
 
   const handleSaveStageEdit = async () => {
     try {
-      const updatedStage = await updatePipelineStage(editingStage.id, {
-        title: stageTitle,
-        color: stageColor
-      });
-
-      setStages(stages.map(stage => 
-        stage.id === editingStage.id ? updatedStage : stage
-      ));
-      setShowEditStageModal(false);
-      setEditingStage(null);
+      const updatedStage = await updatePipelineStage(editingStage.id, { title: stageTitle, color: stageColor });
+      setStages(stages.map(s => (s.id === editingStage.id ? updatedStage : s)));
+      setShowEditStageModal(false); setEditingStage(null);
       toast.success('Stage updated');
     } catch (error) {
       console.error('Error updating stage:', error);
@@ -565,31 +516,13 @@ export default function JobPipeline() {
   };
 
   const handleCreateStage = async () => {
-    if (selectedJob === 'all') {
-      toast.error('Please select a job first');
-      return;
-    }
-
-    const newStageId = newStageTitle.toLowerCase().replace(/\s+/g, '_');
-    const position = stages.length;
-
+    if (selectedJob === 'all') { toast.error('Please select a job first'); return; }
     try {
-      const newStage = await createPipelineStage(
-        selectedJob,
-        newStageTitle,
-        newStageColor,
-        position
-      );
-      
+      const position = stages.length;
+      const newStage = await createPipelineStage(selectedJob, newStageTitle, newStageColor, position);
       setStages([...stages, newStage]);
-      setCandidates({
-        ...candidates,
-        [newStage.id]: []
-      });
-      
-      setShowNewStageModal(false);
-      setNewStageTitle('');
-      setNewStageColor('bg-blue-100 text-blue-800');
+      setCandidates({ ...candidates, [newStage.id]: [] });
+      setShowNewStageModal(false); setNewStageTitle(''); setNewStageColor('bg-blue-100 text-blue-800');
       toast.success('New stage created');
     } catch (error) {
       console.error('Error creating stage:', error);
@@ -597,25 +530,22 @@ export default function JobPipeline() {
     }
   };
 
-  // Fetch real candidates when Add Candidate modal is opened
+  // Fetch real candidates when Add Candidate modal opens
   useEffect(() => {
     const fetchAvailableCandidates = async () => {
       if (!showModal || !selectedJob || selectedJob === 'all') return;
       setCandidatesLoading(true);
       try {
-        // Fetch all candidates
         const { data: allCandidates, error } = await supabase
           .from('candidates')
           .select('id, first_name, last_name, email, avatar_url');
         if (error) throw error;
-        // Get candidate_ids already in this job's pipeline
         const { data: jobCandidates, error: jobCandidatesError } = await supabase
           .from('candidate_jobs')
           .select('candidate_id')
           .eq('job_id', selectedJob);
         if (jobCandidatesError) throw jobCandidatesError;
         const usedIds = new Set((jobCandidates || []).map(cj => cj.candidate_id));
-        // Only show candidates not already in the pipeline
         setAvailableCandidates((allCandidates || []).filter(c => !usedIds.has(c.id)));
       } catch (err) {
         setAvailableCandidates([]);
@@ -626,54 +556,26 @@ export default function JobPipeline() {
     fetchAvailableCandidates();
   }, [showModal, selectedJob]);
 
-  // Filter/search candidates
-  const filteredCandidates = availableCandidates.filter(candidate =>
-    (`${candidate.first_name} ${candidate.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (candidate.email || '').toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  // Filters
+  const filteredCandidates = availableCandidates.filter(candidate => (`${candidate.first_name} ${candidate.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) || (candidate.email || '').toLowerCase().includes(searchQuery.toLowerCase())));
+  const filteredPipelines = pipelines.filter(p => (p.name || '').toLowerCase().includes(pipelineSearch.toLowerCase()) || (p.department || '').toLowerCase().includes(pipelineSearch.toLowerCase()));
 
-  // Add image error handler
-  const handleImageError = (e) => {
-    e.target.onerror = null; // Prevent infinite loop
-    const name = e.target.alt || 'User';
-    e.target.src = getAvatarUrl(name);
-  };
-
-  // Filter/search pipelines
-  const filteredPipelines = pipelines.filter(p =>
-    (p.name || '').toLowerCase().includes(pipelineSearch.toLowerCase()) ||
-    (p.department || '').toLowerCase().includes(pipelineSearch.toLowerCase())
-  );
-
+  // Bulk actions
   const handleBulkSelect = (candidateId) => {
-    setSelectedCandidates(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(candidateId)) {
-        newSet.delete(candidateId);
-      } else {
-        newSet.add(candidateId);
-      }
-      return newSet;
-    });
+    setSelectedCandidates(prev => { const s = new Set(prev); s.has(candidateId) ? s.delete(candidateId) : s.add(candidateId); return s; });
   };
 
   const handleBulkDelete = async () => {
     if (selectedCandidates.size === 0) return;
-
     try {
       const { error } = await supabase
         .from('candidate_jobs')
         .delete()
         .in('id', Array.from(selectedCandidates));
-
       if (error) throw error;
-
-      // Update local state
       const newCandidates = { ...candidates };
       Object.keys(newCandidates).forEach(stageId => {
-        newCandidates[stageId] = newCandidates[stageId].filter(
-          candidate => !selectedCandidates.has(candidate.id)
-        );
+        newCandidates[stageId] = (newCandidates[stageId] || []).filter(c => !selectedCandidates.has(c.id));
       });
       setCandidates(newCandidates);
       setSelectedCandidates(new Set());
@@ -705,10 +607,9 @@ export default function JobPipeline() {
       <div className="flex-1 overflow-hidden">
         <div className="h-full flex flex-col">
           <div className="flex-none">
-            <h1 className="text-3xl font-bold text-gray-900 mb-6 px-6 pt-8">
-              {pipelineName}
-            </h1>
+            <h1 className="text-3xl font-bold text-gray-900 mb-6 px-6 pt-8">{pipelineName}</h1>
           </div>
+
           {/* Header */}
           <header className="bg-white border-b border-gray-200 px-6 py-4">
             <div className="flex justify-between items-center">
@@ -740,44 +641,23 @@ export default function JobPipeline() {
                 </select>
               </div>
               <div className="flex gap-2">
-                <button 
-                  className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-200"
-                  onClick={() => setShowNewPipelineModal(true)}
-                  title="Alt + N"
-                >
+                <button className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-200" onClick={() => setShowNewPipelineModal(true)} title="Alt + N">
                   <FaPlus /> New Pipeline
                 </button>
-                <button 
-                  className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-200"
-                  onClick={() => setShowNewStageModal(true)}
-                  title="Alt + S"
-                >
+                <button className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-200" onClick={() => setShowNewStageModal(true)} title="Alt + S">
                   <FaPlus /> New Stage
                 </button>
-                <button 
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700"
-                  onClick={() => handleAddCandidate('sourced')}
-                  title="Alt + A"
-                >
+                <button className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700" onClick={() => handleAddCandidate('sourced')} title="Alt + A">
                   <FaUserPlus /> Add Candidate
                 </button>
-                <button
-                  className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-200"
-                  onClick={() => setShowKeyboardShortcuts(true)}
-                  title="Alt + K"
-                >
+                <button className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-200" onClick={() => setShowKeyboardShortcuts(true)} title="Alt + K">
                   <FaKeyboard />
                 </button>
               </div>
               {selectedCandidates.size > 0 && (
                 <div className="flex items-center gap-4">
-                  <span className="text-sm text-gray-600">
-                    {selectedCandidates.size} selected
-                  </span>
-                  <button
-                    onClick={handleBulkDelete}
-                    className="bg-red-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-red-700"
-                  >
+                  <span className="text-sm text-gray-600">{selectedCandidates.size} selected</span>
+                  <button onClick={handleBulkDelete} className="bg-red-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-red-700">
                     <FaTrash /> Delete Selected
                   </button>
                 </div>
@@ -792,10 +672,7 @@ export default function JobPipeline() {
                 <div className="text-red-600 text-lg font-semibold mb-4">
                   This job has no pipeline! To add stages, click <b>New Pipeline</b> and create a pipeline directly from this page.
                 </div>
-                <button
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700"
-                  onClick={() => setShowNewPipelineModal(true)}
-                >
+                <button className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700" onClick={() => setShowNewPipelineModal(true)}>
                   <FaPlus /> New Pipeline
                 </button>
               </div>
@@ -803,23 +680,11 @@ export default function JobPipeline() {
               <DragDropContext onDragEnd={handleDragEnd}>
                 <Droppable droppableId="stages" direction="horizontal" type="stage">
                   {(provided) => (
-                    <div
-                      ref={provided.innerRef}
-                      {...provided.droppableProps}
-                      className="flex gap-4 overflow-x-auto pb-4"
-                    >
+                    <div ref={provided.innerRef} {...provided.droppableProps} className="flex gap-4 overflow-x-auto pb-4">
                       {stages.map((stage, index) => (
-                        <Draggable
-                          key={stage.id}
-                          draggableId={stage.id}
-                          index={index}
-                        >
+                        <Draggable key={String(stage.id)} draggableId={String(stage.id)} index={index}>
                           {(provided) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              className="w-80 flex-shrink-0"
-                            >
+                            <div ref={provided.innerRef} {...provided.draggableProps} className="w-80 flex-shrink-0">
                               <div className="bg-white rounded-lg shadow-sm border">
                                 {/* Stage Header */}
                                 <div className="p-4 border-b">
@@ -828,32 +693,19 @@ export default function JobPipeline() {
                                       <div {...provided.dragHandleProps} className="cursor-grab">
                                         <FaGripVertical className="text-gray-400" />
                                       </div>
-                                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${stage.color}`}>
-                                        {stage.title}
-                                      </span>
-                                      <span className="text-sm text-gray-500">
-                                        {(candidates[stage.id] || []).length}
-                                      </span>
+                                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${stage.color}`}>{stage.title}</span>
+                                      <span className="text-sm text-gray-500">{(candidates[stage.id] || []).length}</span>
                                     </div>
                                     <div className="relative">
-                                      <button 
-                                        className="text-gray-400 hover:text-gray-600"
-                                        onClick={() => setShowStageMenu(showStageMenu === stage.id ? null : stage.id)}
-                                      >
+                                      <button className="text-gray-400 hover:text-gray-600" onClick={() => setShowStageMenu(showStageMenu === stage.id ? null : stage.id)}>
                                         <FaEllipsisV />
                                       </button>
                                       {showStageMenu === stage.id && (
                                         <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border py-1 z-10">
-                                          <button
-                                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                                            onClick={() => handleRemoveStage(stage.id)}
-                                          >
+                                          <button className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2" onClick={() => handleRemoveStage(stage.id)}>
                                             <FaTrash className="text-red-500" /> Clear Stage
                                           </button>
-                                          <button
-                                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                                            onClick={() => handleEditStage(stage)}
-                                          >
+                                          <button className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2" onClick={() => handleEditStage(stage)}>
                                             <FaEdit /> Edit Stage
                                           </button>
                                         </div>
@@ -863,42 +715,21 @@ export default function JobPipeline() {
                                 </div>
 
                                 {/* Stage Content */}
-                                <Droppable droppableId={stage.id}>
+                                <Droppable droppableId={String(stage.id)}>
                                   {(provided) => (
-                                    <div
-                                      ref={provided.innerRef}
-                                      {...provided.droppableProps}
-                                      className="h-full overflow-y-auto px-2 min-h-[200px]"
-                                    >
+                                    <div ref={provided.innerRef} {...provided.droppableProps} className="h-full overflow-y-auto px-2 min-h-[200px]">
                                       {(candidates[stage.id] || []).map((candidate, index) => (
-                                        <Draggable
-                                          key={String(candidate.id)}
-                                          draggableId={String(candidate.id)}
-                                          index={index}
-                                        >
+                                        <Draggable key={String(candidate.id)} draggableId={String(candidate.id)} index={index}>
                                           {(provided) => (
-                                            <div
-                                              ref={provided.innerRef}
-                                              {...provided.draggableProps}
-                                              className={`p-3 mb-2 bg-white border rounded-lg shadow-sm hover:shadow-md transition-shadow`}
-                                            >
+                                            <div ref={provided.innerRef} {...provided.draggableProps} className="p-3 mb-2 bg-white border rounded-lg shadow-sm hover:shadow-md transition-shadow">
                                               <div className="flex items-center gap-3">
                                                 <span {...provided.dragHandleProps} className="cursor-grab text-gray-400 flex items-center pr-1">
                                                   <FaGripVertical />
                                                 </span>
-                                                <img
-                                                  src={candidate.avatar_url || getAvatarUrl(candidate.name)}
-                                                  alt={candidate.name}
-                                                  className="w-10 h-10 rounded-full"
-                                                  onError={handleImageError}
-                                                />
+                                                <img src={candidate.avatar_url || getAvatarUrl(candidate.name)} alt={candidate.name} className="w-10 h-10 rounded-full" onError={(e) => { e.target.onerror = null; e.target.src = getAvatarUrl(candidate.name || 'User'); }} />
                                                 <div className="flex-1 min-w-0">
-                                                  <p className="text-sm font-medium text-gray-900 truncate">
-                                                    {candidate.name}
-                                                  </p>
-                                                  <p className="text-sm text-gray-500 truncate">
-                                                    {candidate.email}
-                                                  </p>
+                                                  <p className="text-sm font-medium text-gray-900 truncate">{candidate.name}</p>
+                                                  <p className="text-sm text-gray-500 truncate">{candidate.email}</p>
                                                 </div>
                                               </div>
                                             </div>
@@ -906,10 +737,7 @@ export default function JobPipeline() {
                                         </Draggable>
                                       ))}
                                       {provided.placeholder}
-                                      <button
-                                        onClick={() => handleAddCandidate(stage.id)}
-                                        className="w-full p-2 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg flex items-center justify-center gap-2"
-                                      >
+                                      <button onClick={() => handleAddCandidate(stage.id)} className="w-full p-2 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg flex items-center justify-center gap-2">
                                         <FaPlus className="text-xs" /> Add Candidate
                                       </button>
                                     </div>
@@ -934,44 +762,22 @@ export default function JobPipeline() {
               <div className="bg-white rounded-lg w-full max-w-md mx-4">
                 <div className="p-4 border-b flex justify-between items-center">
                   <h2 className="text-lg font-semibold">Add Candidate</h2>
-                  <button
-                    onClick={() => {
-                      setShowModal(false);
-                      setSelectedStage(null);
-                      setSearchQuery('');
-                    }}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
+                  <button onClick={() => { setShowModal(false); setSelectedStage(null); setSearchQuery(''); }} className="text-gray-400 hover:text-gray-600">
                     <FaTimes />
                   </button>
                 </div>
                 <div className="p-4">
                   <div className="relative mb-4">
                     <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Search candidates..."
-                      className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
+                    <input type="text" placeholder="Search candidates..." className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                   </div>
                   <div className="max-h-96 overflow-y-auto">
                     {candidatesLoading ? (
                       <div className="text-center text-gray-500 py-4">Loading candidates...</div>
                     ) : filteredCandidates.length > 0 ? (
                       filteredCandidates.map(candidate => (
-                        <button
-                          key={candidate.id}
-                          onClick={() => handleSelectCandidate(candidate)}
-                          className="w-full p-3 flex items-center gap-3 hover:bg-gray-50 rounded-lg mb-2"
-                        >
-                          <img
-                            src={candidate.avatar_url || getAvatarUrl(`${candidate.first_name} ${candidate.last_name}`)}
-                            alt={`${candidate.first_name} ${candidate.last_name}`}
-                            className="w-10 h-10 rounded-full"
-                            onError={handleImageError}
-                          />
+                        <button key={candidate.id} onClick={() => handleSelectCandidate(candidate)} className="w-full p-3 flex items-center gap-3 hover:bg-gray-50 rounded-lg mb-2">
+                          <img src={candidate.avatar_url || getAvatarUrl(`${candidate.first_name} ${candidate.last_name}`)} alt={`${candidate.first_name} ${candidate.last_name}`} className="w-10 h-10 rounded-full" onError={(e) => { e.target.onerror = null; e.target.src = getAvatarUrl(`${candidate.first_name} ${candidate.last_name}`); }} />
                           <div className="text-left">
                             <div className="font-medium text-gray-900">{candidate.first_name} {candidate.last_name}</div>
                             <div className="text-sm text-gray-500">{candidate.email}</div>
@@ -979,9 +785,7 @@ export default function JobPipeline() {
                         </button>
                       ))
                     ) : (
-                      <div className="text-center text-gray-500 py-4">
-                        No candidates found
-                      </div>
+                      <div className="text-center text-gray-500 py-4">No candidates found</div>
                     )}
                   </div>
                 </div>
@@ -995,73 +799,31 @@ export default function JobPipeline() {
               <div className="bg-white rounded-lg w-full max-w-md mx-4">
                 <div className="p-4 border-b flex justify-between items-center">
                   <h2 className="text-lg font-semibold">Create New Pipeline</h2>
-                  <button
-                    onClick={() => {
-                      setShowNewPipelineModal(false);
-                      setNewPipelineName('');
-                      setNewPipelineDepartment('');
-                    }}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
+                  <button onClick={() => { setShowNewPipelineModal(false); setNewPipelineName(''); setNewPipelineDepartment(''); }} className="text-gray-400 hover:text-gray-600">
                     <FaTimes />
                   </button>
                 </div>
                 <div className="p-4">
-                  {/* Show selected job info */}
                   {selectedJob !== 'all' ? (
-                    <div className="mb-4 text-sm text-gray-700">
-                      <b>Selected Job:</b> {jobs.find(j => j.id === selectedJob)?.title || selectedJob}
-                    </div>
+                    <div className="mb-4 text-sm text-gray-700"><b>Selected Job:</b> {jobs.find(j => j.id === selectedJob)?.title || selectedJob}</div>
                   ) : (
-                    <div className="mb-4 text-sm text-red-600">
-                      <b>No job selected!</b> Please select a job before creating a pipeline.
-                    </div>
+                    <div className="mb-4 text-sm text-red-600"><b>No job selected!</b> Please select a job before creating a pipeline.</div>
                   )}
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Pipeline Name
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g., Engineering Pipeline"
-                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        value={newPipelineName}
-                        onChange={(e) => setNewPipelineName(e.target.value)}
-                      />
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Pipeline Name</label>
+                      <input type="text" placeholder="e.g., Engineering Pipeline" className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value={newPipelineName} onChange={(e) => setNewPipelineName(e.target.value)} />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Department
-                      </label>
-                      <select
-                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        value={newPipelineDepartment}
-                        onChange={(e) => setNewPipelineDepartment(e.target.value)}
-                      >
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                      <select className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value={newPipelineDepartment} onChange={(e) => setNewPipelineDepartment(e.target.value)}>
                         <option value="">Select Department</option>
-                        {departments.map(dept => (
-                          <option key={dept} value={dept}>{dept}</option>
-                        ))}
+                        {departments.map(dept => (<option key={dept} value={dept}>{dept}</option>))}
                       </select>
                     </div>
                     <div className="flex justify-end gap-2">
-                      <button
-                        onClick={() => {
-                          setShowNewPipelineModal(false);
-                          setNewPipelineName('');
-                          setNewPipelineDepartment('');
-                        }}
-                        className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleCreatePipeline}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
-                      >
-                        <FaCheck /> Create Pipeline
-                      </button>
+                      <button onClick={() => { setShowNewPipelineModal(false); setNewPipelineName(''); setNewPipelineDepartment(''); }} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">Cancel</button>
+                      <button onClick={handleCreatePipeline} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"><FaCheck /> Create Pipeline</button>
                     </div>
                   </div>
                 </div>
@@ -1075,72 +837,29 @@ export default function JobPipeline() {
               <div className="bg-white rounded-lg w-full max-w-md mx-4">
                 <div className="p-4 border-b flex justify-between items-center">
                   <h2 className="text-lg font-semibold">Edit Stage</h2>
-                  <button
-                    onClick={() => {
-                      setShowEditStageModal(false);
-                      setEditingStage(null);
-                    }}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
+                  <button onClick={() => { setShowEditStageModal(false); setEditingStage(null); }} className="text-gray-400 hover:text-gray-600">
                     <FaTimes />
                   </button>
                 </div>
                 <div className="p-4">
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Stage Name
-                      </label>
-                      <input
-                        type="text"
-                        value={stageTitle}
-                        onChange={(e) => setStageTitle(e.target.value)}
-                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      />
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Stage Name</label>
+                      <input type="text" value={stageTitle} onChange={(e) => setStageTitle(e.target.value)} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Stage Color
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Stage Color</label>
                       <div className="grid grid-cols-4 gap-2">
-                        {[
-                          'bg-blue-100 text-blue-800',
-                          'bg-yellow-100 text-yellow-800',
-                          'bg-purple-100 text-purple-800',
-                          'bg-green-100 text-green-800',
-                          'bg-indigo-100 text-indigo-800',
-                          'bg-red-100 text-red-800',
-                          'bg-pink-100 text-pink-800',
-                          'bg-gray-100 text-gray-800'
-                        ].map((color) => (
-                          <button
-                            key={color}
-                            onClick={() => setStageColor(color)}
-                            className={`p-2 rounded-lg border ${
-                              stageColor === color ? 'ring-2 ring-blue-500' : ''
-                            }`}
-                          >
+                        {['bg-blue-100 text-blue-800','bg-yellow-100 text-yellow-800','bg-purple-100 text-purple-800','bg-green-100 text-green-800','bg-indigo-100 text-indigo-800','bg-red-100 text-red-800','bg-pink-100 text-pink-800','bg-gray-100 text-gray-800'].map((color) => (
+                          <button key={color} onClick={() => setStageColor(color)} className={`p-2 rounded-lg border ${stageColor === color ? 'ring-2 ring-blue-500' : ''}`}>
                             <div className={`w-full h-8 rounded ${color}`} />
                           </button>
                         ))}
                       </div>
                     </div>
                     <div className="flex justify-end gap-2">
-                      <button
-                        onClick={() => {
-                          setShowEditStageModal(false);
-                          setEditingStage(null);
-                        }}
-                        className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleSaveStageEdit}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
-                      >
-                        <FaCheck /> Save Changes
-                      </button>
+                      <button onClick={() => { setShowEditStageModal(false); setEditingStage(null); }} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">Cancel</button>
+                      <button onClick={handleSaveStageEdit} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"><FaCheck /> Save Changes</button>
                     </div>
                   </div>
                 </div>
@@ -1152,29 +871,12 @@ export default function JobPipeline() {
           {showConfirmDialog && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white rounded-lg w-full max-w-md mx-4">
-                <div className="p-4 border-b">
-                  <h2 className="text-lg font-semibold">Remove Candidate</h2>
-                </div>
+                <div className="p-4 border-b"><h2 className="text-lg font-semibold">Remove Candidate</h2></div>
                 <div className="p-4">
-                  <p className="text-gray-600 mb-4">
-                    Are you sure you want to remove this candidate from the pipeline? This action cannot be undone.
-                  </p>
+                  <p className="text-gray-600 mb-4">Are you sure you want to remove this candidate from the pipeline? This action cannot be undone.</p>
                   <div className="flex justify-end gap-2">
-                    <button
-                      onClick={() => {
-                        setShowConfirmDialog(false);
-                        setCandidateToRemove(null);
-                      }}
-                      className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={confirmRemoveCandidate}
-                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
-                    >
-                      <FaTrash /> Remove
-                    </button>
+                    <button onClick={() => { setShowConfirmDialog(false); setCandidateToRemove(null); }} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">Cancel</button>
+                    <button onClick={confirmRemoveCandidate} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"><FaTrash /> Remove</button>
                   </div>
                 </div>
               </div>
@@ -1187,68 +889,28 @@ export default function JobPipeline() {
               <div className="bg-white rounded-lg w-full max-w-md mx-4">
                 <div className="p-4 border-b flex justify-between items-center">
                   <h2 className="text-lg font-semibold">Create New Stage</h2>
-                  <button
-                    onClick={() => {
-                      setShowNewStageModal(false);
-                      setNewStageTitle('');
-                      setNewStageColor('bg-blue-100 text-blue-800');
-                    }}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
+                  <button onClick={() => { setShowNewStageModal(false); setNewStageTitle(''); setNewStageColor('bg-blue-100 text-blue-800'); }} className="text-gray-400 hover:text-gray-600">
                     <FaTimes />
                   </button>
                 </div>
                 <div className="p-4 space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Stage Name</label>
-                    <input
-                      type="text"
-                      placeholder="e.g., Phone Screen"
-                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      value={newStageTitle}
-                      onChange={(e) => setNewStageTitle(e.target.value)}
-                    />
+                    <input type="text" placeholder="e.g., Phone Screen" className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value={newStageTitle} onChange={(e) => setNewStageTitle(e.target.value)} />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Stage Color</label>
                     <div className="grid grid-cols-4 gap-2">
-                      {[
-                        'bg-blue-100 text-blue-800',
-                        'bg-yellow-100 text-yellow-800',
-                        'bg-purple-100 text-purple-800',
-                        'bg-green-100 text-green-800',
-                        'bg-indigo-100 text-indigo-800',
-                        'bg-red-100 text-red-800',
-                        'bg-pink-100 text-pink-800',
-                        'bg-gray-100 text-gray-800'
-                      ].map((color) => (
-                        <button
-                          key={color}
-                          onClick={() => setNewStageColor(color)}
-                          className={`p-2 rounded-lg border ${newStageColor === color ? 'ring-2 ring-blue-500' : ''}`}
-                        >
+                      {['bg-blue-100 text-blue-800','bg-yellow-100 text-yellow-800','bg-purple-100 text-purple-800','bg-green-100 text-green-800','bg-indigo-100 text-indigo-800','bg-red-100 text-red-800','bg-pink-100 text-pink-800','bg-gray-100 text-gray-800'].map((color) => (
+                        <button key={color} onClick={() => setNewStageColor(color)} className={`p-2 rounded-lg border ${newStageColor === color ? 'ring-2 ring-blue-500' : ''}`}>
                           <div className={`w-full h-8 rounded ${color}`} />
                         </button>
                       ))}
                     </div>
                   </div>
                   <div className="flex justify-end gap-2">
-                    <button
-                      onClick={() => {
-                        setShowNewStageModal(false);
-                        setNewStageTitle('');
-                        setNewStageColor('bg-blue-100 text-blue-800');
-                      }}
-                      className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleCreateStage}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
-                    >
-                      <FaCheck /> Create Stage
-                    </button>
+                    <button onClick={() => { setShowNewStageModal(false); setNewStageTitle(''); setNewStageColor('bg-blue-100 text-blue-800'); }} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">Cancel</button>
+                    <button onClick={handleCreateStage} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"><FaCheck /> Create Stage</button>
                   </div>
                 </div>
               </div>
@@ -1263,38 +925,23 @@ export default function JobPipeline() {
                   <h2 className="text-lg font-semibold text-red-600">Overwrite Existing Pipeline?</h2>
                 </div>
                 <div className="p-4">
-                  <p className="mb-4 text-gray-700">
-                    This job is already linked to a pipeline. Creating a new pipeline will unlink the current one and link the new pipeline. Candidates will not be deleted, but you may need to reassign them to stages in the new pipeline.
-                  </p>
+                  <p className="mb-4 text-gray-700">This job is already linked to a pipeline. Creating a new pipeline will unlink the current one and link the new pipeline. Candidates will not be deleted, but you may need to reassign them to stages in the new pipeline.</p>
                   <div className="flex justify-end gap-2">
-                    <button
-                      onClick={handleOverwritePipelineCancel}
-                      className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleOverwritePipelineConfirm}
-                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
-                    >
-                      <FaCheck /> Overwrite Pipeline
-                    </button>
+                    <button onClick={handleOverwritePipelineCancel} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">Cancel</button>
+                    <button onClick={handleOverwritePipelineConfirm} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"><FaCheck /> Overwrite Pipeline</button>
                   </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Toast Notification */}
-          {toast.show && (
-            <Toast
-              message={toast.message}
-              type={toast.type}
-              onClose={hideToast}
-            />
+          {/* Inline Toast */}
+          {toastBanner.show && (
+            <InlineToast message={toastBanner.message} type={toastBanner.type} onClose={hideInlineToast} />
           )}
         </div>
       </div>
     </div>
   );
 }
+         
