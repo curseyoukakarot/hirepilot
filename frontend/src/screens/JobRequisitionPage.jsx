@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import AppNavbar from '../components/AppNavbar';
 import { supabase } from '../lib/supabase';
 import JobDetailsCard from '../components/job/JobDetailsCard';
 import JobPipeline from './JobPipeline';
@@ -79,7 +78,6 @@ export default function JobRequisitionPage() {
 
   return (
     <div className="bg-gray-50 font-sans min-h-screen">
-      <AppNavbar />
       <div id="job-requisition-page" className="min-h-screen">
         {/* Header */}
         <header id="header" className="bg-white border-b border-gray-200 px-6 py-4">
