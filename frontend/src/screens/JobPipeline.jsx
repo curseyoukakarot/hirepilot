@@ -3,7 +3,7 @@ import { FaPlus, FaEllipsisV, FaUserPlus, FaSearch, FaTimes, FaTrash, FaEdit, Fa
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { getPipelineStages, createPipelineStage, updatePipelineStage, deletePipelineStage, reorderPipelineStages, fetchCandidatesForJob } from '../services/pipelineStagesService';
 import toast from 'react-hot-toast';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
 // Default stages if none exist
@@ -29,7 +29,7 @@ const getAvatarUrl = (name) => `https://ui-avatars.com/api/?name=${encodeURIComp
 
 export default function JobPipeline() {
   const [selectedPipeline, setSelectedPipeline] = useState('all');
-  const [selectedJob, setSelectedJob] = useState('all');
+  const [selectedJob, setSelectedJob] = useState(jobId || 'all');
   const [showModal, setShowModal] = useState(false);
   const [showNewPipelineModal, setShowNewPipelineModal] = useState(false);
   const [showEditStageModal, setShowEditStageModal] = useState(false);
@@ -50,8 +50,7 @@ export default function JobPipeline() {
   const [newStageTitle, setNewStageTitle] = useState('');
   const [newStageColor, setNewStageColor] = useState('bg-blue-100 text-blue-800');
   const [toast, setToast] = useState({ show: false, message: '', type: '' });
-  const [searchParams] = useSearchParams();
-  const jobId = searchParams.get('jobId');
+  const { id: jobId } = useParams();
   const [stages, setStages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -62,6 +61,7 @@ export default function JobPipeline() {
   const [selectedCandidates, setSelectedCandidates] = useState(new Set());
   const [showOverwritePipelineConfirm, setShowOverwritePipelineConfirm] = useState(false);
   const [pendingPipelineData, setPendingPipelineData] = useState(null);
+  const [pipelineExists, setPipelineExists] = useState(true);
 
   // Initialize candidates state with default stages
   const [candidates, setCandidates] = useState(
@@ -86,6 +86,10 @@ export default function JobPipeline() {
     if (job.title) return job.title;
     return 'All Pipelines';
   }, [jobId, jobs, pipelines]);
+
+  useEffect(() => {
+    if (jobId) setSelectedJob(jobId);
+  }, [jobId]);
 
   // Toast notification component
   const Toast = ({ message, type, onClose }) => {
@@ -204,6 +208,7 @@ export default function JobPipeline() {
         .single();
       if (jobError) throw jobError;
       const pipelineId = jobData?.pipeline_id;
+      setPipelineExists(!!pipelineId);
       if (!pipelineId) {
         setStages([]);
         setCandidates({});
@@ -811,7 +816,11 @@ export default function JobPipeline() {
                 <select
                   className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   value={selectedJob}
-                  onChange={(e) => setSelectedJob(e.target.value)}
+                  onChange={(e) => {
+                    const newJob = e.target.value;
+                    setSelectedJob(newJob);
+                    if (newJob !== 'all') navigate(`/job/${newJob}/pipeline`);
+                  }}
                 >
                   <option value="all">All Jobs</option>
                   {jobs.map(job => (
@@ -867,20 +876,19 @@ export default function JobPipeline() {
 
           {/* Main Content */}
           <main className="max-w-7xl mx-auto px-6 py-8">
-            {stages.length === 0 ? (
+            {!pipelineExists ? (
               <div className="min-h-[300px] flex flex-col items-center justify-center">
                 <div className="text-red-600 text-lg font-semibold mb-4">
                   This job has no pipeline! To add stages, click <b>New Pipeline</b> and create a pipeline directly from this page.
                 </div>
-                <button 
+                <button
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700"
                   onClick={() => setShowNewPipelineModal(true)}
                 >
                   <FaPlus /> New Pipeline
                 </button>
               </div>
-            ) : null}
-            {stages.length > 0 && (
+            ) : (
               <DragDropContext onDragEnd={handleDragEnd}>
                 <Droppable droppableId="stages" direction="horizontal" type="stage">
                   {(provided) => (
