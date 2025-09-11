@@ -40,7 +40,7 @@ export default function JobRequisitionPage() {
         if (user?.id) {
           const { data: p } = await supabase
             .from('users')
-            .select('id, email, role, organization_id, avatar_url, full_name, first_name, last_name, "firstName", "lastName"')
+            .select('*')
             .eq('id', user.id)
             .single();
           profile = p || null;
@@ -61,37 +61,11 @@ export default function JobRequisitionPage() {
         setCanManage(true);
       }
 
-      // Traits: try job_traits then success_traits; ignore if table missing
-      try {
-        let traitData = null;
-        let resp = await supabase.from('job_traits').select('*').eq('job_id', id);
-        if (resp.error && resp.error.code === '42P01') {
-          resp = await supabase.from('success_traits').select('*').eq('job_id', id);
-        }
-        traitData = resp.data || [];
-        setTraits(traitData);
-      } catch {
-        setTraits([]);
-      }
+      // Traits disabled if table not present in this project
+      setTraits([]);
 
-      // Notes/Activity: try job_activity_log; fallback to job_notes simple columns
-      try {
-        let notesResp = await supabase
-          .from('job_activity_log')
-          .select('id, content, created_at, actor_id')
-          .eq('job_id', id)
-          .order('created_at', { ascending: true });
-        if (notesResp.error && notesResp.error.code === '42P01') {
-          notesResp = await supabase
-            .from('job_notes')
-            .select('id, content, created_at, user_id')
-            .eq('job_id', id)
-            .order('created_at', { ascending: true });
-        }
-        setNotes(notesResp.data || []);
-      } catch {
-        setNotes([]);
-      }
+      // Notes disabled if tables are not present; keep section empty
+      setNotes([]);
 
       // Collaborators (no nested joins) → then fetch users by ids
       const { data: teamData } = await supabase
@@ -103,7 +77,7 @@ export default function JobRequisitionPage() {
         const ids = [...new Set(mergedTeam.map(r => r.user_id))];
         const { data: userRows } = await supabase
           .from('users')
-          .select('id, email, role, organization_id, avatar_url, full_name, first_name, last_name, "firstName", "lastName"')
+          .select('*')
           .in('id', ids);
         const byId = new Map((userRows || []).map(u => [u.id, u]));
         mergedTeam = mergedTeam.map(r => ({ ...r, users: byId.get(r.user_id) }));
@@ -115,7 +89,7 @@ export default function JobRequisitionPage() {
       if (profile?.organization_id) {
         const { data: orgRows } = await supabase
           .from('users')
-          .select('id, email, role, organization_id, avatar_url, full_name, first_name, last_name, "firstName", "lastName"')
+          .select('*')
           .eq('organization_id', profile.organization_id);
         setOrgUsers(orgRows || []);
       } else {
