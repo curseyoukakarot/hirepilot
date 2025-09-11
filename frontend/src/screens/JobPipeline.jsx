@@ -900,6 +900,7 @@ export default function JobPipeline() {
         </div>
       </div>
     </div>
-  );
+     );
 }
+
 
