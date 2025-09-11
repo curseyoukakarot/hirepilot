@@ -409,12 +409,23 @@ router.patch('/:id/stages/reorder', requireAuth as any, async (req: Request, res
       if (firstErr) throw firstErr;
       const updatedCount = results.reduce((acc, r) => acc + (((r.data as any[]) || []).length), 0);
       console.info('[reorder] pipeline-scoped updates applied', { updatedCount });
-      await emitZapEvent({ userId, eventType: ZAP_EVENT_TYPES.PIPELINE_STAGE_UPDATED, eventData: { pipeline_id: id, action: 'reordered' } });
-      return res.status(200).json({ success: true, updated: updatedCount });
+      await emitZapEvent({ userId, eventType: ZAP_EVENT_TYPES.PIPELINE_STAGE_UPDATED, eventData: { pipeline_id: actualPipelineId, action: 'reordered' } });
+      // Return fresh stages so frontend can reflect ordering immediately
+      const { data: freshStages } = await supabaseDb
+        .from('pipeline_stages')
+        .select('*')
+        .eq('pipeline_id', actualPipelineId)
+        .order('position', { ascending: true });
+      return res.status(200).json({ success: true, updated: updatedCount, stages: freshStages || [] });
     }
 
     await emitZapEvent({ userId, eventType: ZAP_EVENT_TYPES.PIPELINE_STAGE_UPDATED, eventData: { pipeline_id: id, action: 'reordered' } });
-    res.status(200).json({ success: true, updated: (Array.isArray(stages) ? stages.length : 0) });
+    const { data: freshStages } = await supabaseDb
+      .from('pipeline_stages')
+      .select('*')
+      .eq('pipeline_id', id)
+      .order('position', { ascending: true });
+    res.status(200).json({ success: true, updated: (Array.isArray(stages) ? stages.length : 0), stages: freshStages || [] });
   } catch (err: any) {
     console.error('[PATCH /api/pipelines/:id/stages/reorder] error', err);
     res.status(500).json({ error: err.message });
