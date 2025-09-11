@@ -340,15 +340,18 @@ router.patch('/:id/stages/reorder', requireAuth as any, async (req: Request, res
     const { stages } = req.body || {};
     if (!id || !Array.isArray(stages) || !userId) return res.status(400).json({ error: 'Missing fields' });
 
-    // Reorder positions in bulk. Do not call .single() on multi-row results.
-    const rows = stages.map((s: any) => ({ id: s.id, position: s.position }));
-    const { error } = await supabaseDb.from('pipeline_stages').upsert(rows).select();
-    if (error && (error as any).message?.includes('multiple (or no) rows')) {
-      // Ignore Supabase row parsing complaint; reorder still applied.
-      console.warn('[pipelines:reorder] upsert returned non-single response; continuing');
-    } else if (error) {
-      throw error;
-    }
+    // Reorder positions per-row to avoid any PostgREST single-row parsing edge cases
+    const updates = stages.map((s: any) =>
+      supabaseDb
+        .from('pipeline_stages')
+        .update({ position: s.position })
+        .eq('id', s.id)
+        .eq('pipeline_id', id)
+        .select()
+    );
+    const results = await Promise.all(updates);
+    const firstErr = results.find(r => r.error)?.error as any;
+    if (firstErr) throw firstErr;
 
     await emitZapEvent({
       userId,
