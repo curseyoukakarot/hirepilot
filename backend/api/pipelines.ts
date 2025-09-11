@@ -290,8 +290,9 @@ router.patch('/:id/stages/:stageId', requireAuth as any, async (req: Request, re
       .update({ title, color })
       .eq('id', stageId)
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw error;
+    if (!stage) return res.status(404).json({ error: 'Stage not found' });
 
     await emitZapEvent({
       userId,
