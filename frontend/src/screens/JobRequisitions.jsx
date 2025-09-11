@@ -100,7 +100,7 @@ export default function JobRequisitions() {
   }, []);
 
   const handleViewPipeline = (jobId) => {
-    navigate(`/jobs/pipeline?jobId=${jobId}`);
+    navigate(`/job/${jobId}/pipeline`);
   };
 
   // Filter jobs by search, status, department
@@ -372,7 +372,12 @@ export default function JobRequisitions() {
                       />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{job.title}</div>
+                      <button
+                        className="text-sm font-medium text-gray-900 hover:underline"
+                        onClick={() => navigate(`/job/${job.id}`)}
+                      >
+                        {job.title}
+                      </button>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-500">{job.department || '-'}</div>
