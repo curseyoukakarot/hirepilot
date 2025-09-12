@@ -4,6 +4,7 @@ import InviteTeamMemberModal from '../components/InviteTeamMemberModal';
 import { supabase } from '../lib/supabase';
 import { format } from 'date-fns';
 import { toast } from 'react-hot-toast';
+import GuestCollaboratorModal from '../components/GuestCollaboratorModal';
 
 export default function SettingsTeamMembers() {
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
@@ -22,7 +23,7 @@ export default function SettingsTeamMembers() {
   const [collaborators, setCollaborators] = useState([]);
   const [collabLoading, setCollabLoading] = useState(false);
   const [collabModalOpen, setCollabModalOpen] = useState(false);
-  const [newCollab, setNewCollab] = useState({ email: '', role: 'View Only', jobs: [] });
+  const [collabEdit, setCollabEdit] = useState(null);
   const [jobOptions, setJobOptions] = useState([]);
 
   const handleOpenInviteModal = () => setIsInviteModalOpen(true);
@@ -262,20 +263,8 @@ export default function SettingsTeamMembers() {
     if (!newCollab.email) return;
     try {
       setCollabLoading(true);
-      // create one row per selected job
-      const jobs = newCollab.jobs.length ? newCollab.jobs : [null];
-      for (const jid of jobs) {
-        await supabase.from('job_guest_collaborators').insert({ email: newCollab.email, role: newCollab.role, job_id: jid || null, invited_by: currentUser?.id || null });
-        await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/send-guest-invite`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: newCollab.email, job_id: jid, role: newCollab.role })
-        });
-      }
-      setCollabModalOpen(false);
-      setNewCollab({ email: '', role: 'View Only', jobs: [] });
-      await loadCollaborators();
-      toast.success('Collaborator invited');
-    } catch (e) { toast.error(e.message || 'Failed to add'); } finally { setCollabLoading(false); }
+      // open modal submit handled below
+    } finally {}
   };
 
   const updateCollabRole = async (row, role) => {
@@ -472,7 +461,7 @@ export default function SettingsTeamMembers() {
                   <h3 className="text-lg font-semibold text-gray-900">Guest Collaborators</h3>
                   <p className="text-sm text-gray-500">Manage external collaborators across your job requisitions.</p>
                 </div>
-                <button className="px-3 py-2 bg-purple-600 text-white rounded-md text-sm" onClick={()=>setCollabModalOpen(true)}>+ Add Collaborator</button>
+                <button className="px-3 py-2 bg-purple-600 text-white rounded-md text-sm" onClick={()=>{ setCollabEdit(null); setCollabModalOpen(true); }}>+ Add Collaborator</button>
               </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full table-auto text-sm">
@@ -513,7 +502,7 @@ export default function SettingsTeamMembers() {
                         <td className="px-3 py-2"><span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-800">{row.user_id ? 'Accepted' : 'Invited'}</span></td>
                         <td className="px-3 py-2">
                           <div className="flex items-center gap-2">
-                            <button className="text-gray-600" onClick={()=>updateCollabRole(row, row.role)}>✏️</button>
+                            <button className="text-gray-600" onClick={()=>{ setCollabEdit({ email: row.email, role: row.role, jobs: row.job_id ? [row.job_id] : [] }); setCollabModalOpen(true); }}>✏️</button>
                             <button className="text-red-600" onClick={()=>deleteCollab(row)}>🗑️</button>
                             {!row.user_id && <button className="text-blue-600" onClick={()=>fetch(`${import.meta.env.VITE_BACKEND_URL}/api/send-guest-invite`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email: row.email, job_id: row.job_id, role: row.role }) })}>✉️</button>}
                           </div>
@@ -683,6 +672,34 @@ export default function SettingsTeamMembers() {
             </div>
           </div>
         )}
+
+        {/* Add/Edit Collaborator Modal */}
+        <GuestCollaboratorModal
+          open={collabModalOpen}
+          onClose={()=>{ setCollabModalOpen(false); setCollabEdit(null); }}
+          mode={collabEdit ? 'edit' : 'add'}
+          defaultValues={collabEdit || {}}
+          jobOptions={jobOptions}
+          loading={collabLoading}
+          onSubmit={async ({ email, role, jobs }) => {
+            try {
+              setCollabLoading(true);
+              if (collabEdit) {
+                // update: set role for all rows with this email (simplified)
+                await supabase.from('job_guest_collaborators').update({ role }).eq('email', email);
+              } else {
+                const list = (jobs && jobs.length ? jobs : [null]);
+                for (const jid of list) {
+                  await supabase.from('job_guest_collaborators').insert({ email, role, job_id: jid || null, invited_by: currentUser?.id || null });
+                  await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/send-guest-invite`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, job_id: jid, role }) });
+                }
+              }
+              setCollabModalOpen(false); setCollabEdit(null);
+              await loadCollaborators();
+              toast.success(collabEdit ? 'Collaborator updated' : 'Collaborator invited');
+            } catch (e) { toast.error(e.message || 'Failed to save'); } finally { setCollabLoading(false); }
+          }}
+        />
       </div>
     </div>
   );
