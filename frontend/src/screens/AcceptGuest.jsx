@@ -30,6 +30,8 @@ export default function AcceptGuest() {
     try {
       const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) throw error;
+      // Immediately sign in without additional confirmation (if project allows)
+      try { await supabase.auth.signInWithPassword({ email, password }); } catch {}
       sessionStorage.setItem('guest_mode','1');
       navigate(`/job/${jobId}`);
     } catch (e) {
@@ -38,7 +40,7 @@ export default function AcceptGuest() {
         navigate(`/login?email=${encodeURIComponent(email)}&next=${encodeURIComponent('/job/'+jobId)}`);
         return;
       }
-      // Some projects block direct signUp due to DB triggers; fall back to magic link
+      // Fall back to magic link as a backup if password sign-up is blocked
       try {
         await supabase.auth.signInWithOtp({
           email,
