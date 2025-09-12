@@ -248,7 +248,11 @@ export default function SettingsTeamMembers() {
   const allowedRoles = ['admin','team_admin','super_admin'];
   const planKey = (planTier || '').toLowerCase();
   const canInvite = roleAllowsInvite && planKey !== 'starter';
-  const canSeeCollaborators = allowedPlans.includes(planKey) && allowedRoles.includes(userRole);
+  const canSeeCollaborators = (userRole === 'super_admin') || (allowedPlans.includes(planKey) && allowedRoles.includes(userRole));
+
+  useEffect(() => {
+    if (userRole === 'super_admin') setShowCollaborators(true);
+  }, [userRole]);
 
   const loadCollaborators = async () => {
     setCollabLoading(true);
