@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import JobDetailsCard from '../components/job/JobDetailsCard';
 import JobPipeline from './JobPipeline';
 import AddGuestModal from '../components/AddGuestModal';
+import UpgradeModal from '../components/UpgradeModal';
 
 export default function JobRequisitionPage() {
   const { id } = useParams();
@@ -217,6 +218,19 @@ export default function JobRequisitionPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">Job not found</div>
     );
+  }
+
+  // In-app access control (optional): allow if owner, collaborator, or guest
+  const hasCollabAccess = () => {
+    if (!currentUser || !job) return false;
+    if (job.user_id === currentUser.id || job.created_by === currentUser.id) return true;
+    const isTeamCollab = (team || []).some(t => (t.user_id || t.users?.id) === currentUser.id);
+    const isGuestCollab = (team || []).some(t => t.is_guest && t.email && (currentUser.email && t.email.toLowerCase() === currentUser.email.toLowerCase()));
+    return isTeamCollab || isGuestCollab;
+  };
+
+  if (!hasCollabAccess()) {
+    return <UpgradeModal feature="Job Collaboration" onClose={() => window.history.back()} />;
   }
 
   return (
