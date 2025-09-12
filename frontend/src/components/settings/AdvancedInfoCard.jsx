@@ -10,10 +10,12 @@ export default function AdvancedInfoCard() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         const userId = session?.user?.id;
-        const base = import.meta.env.VITE_BACKEND_URL || (import.meta.env.MODE === 'development' ? 'http://localhost:8080' : '');
-        const res = await fetch(`${base}/api/advanced-info`, {
-          headers: userId ? { 'x-user-id': userId } : {}
-        });
+        const token = session?.access_token;
+        const base = (import.meta.env.VITE_BACKEND_URL || (window.location.host.endsWith('thehirepilot.com') ? 'https://api.thehirepilot.com' : 'http://localhost:8080')).replace(/\/$/, '');
+        const headers = {};
+        if (userId) headers['x-user-id'] = userId;
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const res = await fetch(`${base}/api/advanced-info`, { headers });
         if (!res.ok) throw new Error('Failed to load');
         const json = await res.json();
         setInfo(json);
