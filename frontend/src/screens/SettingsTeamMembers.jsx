@@ -97,7 +97,7 @@ export default function SettingsTeamMembers() {
         .from('subscriptions')
         .select('plan_tier, seat_count, included_seats')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
       setPlanTier(subscription?.plan_tier || null);
       if (subscription) {
         setRequireCheckout((subscription.seat_count || 0) >= (subscription.included_seats || 1));
@@ -255,9 +255,17 @@ export default function SettingsTeamMembers() {
     try {
       const { data } = await supabase
         .from('job_guest_collaborators')
-        .select('id,email,role,created_at,user_id,job_id, job_requisitions(title)')
+        .select('id,email,role,created_at,job_id, job_requisitions(title)')
         .order('created_at', { ascending: false });
-      setCollaborators(data || []);
+      const rows = data || [];
+      // Derive acceptance by checking if a users row exists for the email
+      const emails = Array.from(new Set(rows.map(r => r.email).filter(Boolean)));
+      let acceptedEmails = new Set();
+      if (emails.length) {
+        const { data: userRows } = await supabase.from('users').select('email').in('email', emails);
+        acceptedEmails = new Set((userRows || []).map(u => (u.email || '').toLowerCase()));
+      }
+      setCollaborators(rows.map(r => ({ ...r, __accepted: acceptedEmails.has((r.email || '').toLowerCase()) })));
     } finally { setCollabLoading(false); }
   };
 
@@ -503,7 +511,7 @@ export default function SettingsTeamMembers() {
                           {row.job_requisitions?.title || '—'}
                         </td>
                         <td className="px-3 py-2">{row.created_at ? format(new Date(row.created_at),'MMM d, yyyy') : '—'}</td>
-                        <td className="px-3 py-2"><span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-800">{row.user_id ? 'Accepted' : 'Invited'}</span></td>
+                        <td className="px-3 py-2"><span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-800">{row.__accepted ? 'Accepted' : 'Invited'}</span></td>
                         <td className="px-3 py-2">
                           <div className="flex items-center gap-2">
                             <button className="text-gray-600" onClick={()=>{ setCollabEdit({ email: row.email, role: row.role, jobs: row.job_id ? [row.job_id] : [] }); setCollabModalOpen(true); }}>✏️</button>
