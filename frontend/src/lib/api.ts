@@ -11,8 +11,21 @@ declare global {
 
 import { supabase } from './supabase';
 
-// Ensure base URL has no trailing slash
-const API_BASE_URL = (import.meta.env.VITE_BACKEND_URL || '').replace(/\/$/, '');
+// Ensure base URL has no trailing slash and provide sane runtime fallbacks
+function resolveApiBase() {
+  let base = (import.meta.env.VITE_BACKEND_URL || '').trim();
+  if (!base) {
+    try {
+      const host = window.location.host;
+      if (host.endsWith('thehirepilot.com')) base = 'https://api.thehirepilot.com';
+      else base = 'http://localhost:8080';
+    } catch {
+      base = '';
+    }
+  }
+  return base.replace(/\/$/, '');
+}
+const API_BASE_URL = resolveApiBase();
 
 interface ApiOptions extends RequestInit {
   requireAuth?: boolean;

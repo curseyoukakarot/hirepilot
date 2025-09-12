@@ -64,7 +64,8 @@ export default function JobRequisitionPage() {
       let jobData = null;
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/jobs/${id}`, { headers: { 'Authorization': `Bearer ${session?.access_token || ''}` } });
+        const base = (import.meta.env.VITE_BACKEND_URL || (window.location.host.endsWith('thehirepilot.com') ? 'https://api.thehirepilot.com' : 'http://localhost:8080')).replace(/\/$/, '');
+        const resp = await fetch(`${base}/api/jobs/${id}`, { headers: { 'Authorization': `Bearer ${session?.access_token || ''}` } });
         if (resp.ok) {
           const js = await resp.json();
           jobData = js.job;
