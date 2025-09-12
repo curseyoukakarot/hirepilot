@@ -37,6 +37,7 @@ import debugMessageCenter from './api/debugMessageCenter';
 import testAnalytics from './api/testAnalytics';
 import testGmailConnection from './api/testGmailConnection';
 import testLeadStatusUpdate from './api/testLeadStatusUpdate';
+import enrichJobDetails from './api/enrichJobDetails';
 import testEnrichmentProviders from './api/testEnrichmentProviders';
 import debugCampaignMetrics from './api/debugCampaignMetrics';
 import backfillCampaignAttribution from './api/backfillCampaignAttribution';
@@ -256,6 +257,9 @@ router.get('/test/gmail-connection', testGmailConnection);
 
 // Test lead status update trigger
 router.get('/test/lead-status-update', testLeadStatusUpdate);
+
+// Job details enrichment
+router.post('/enrich-job-details', enrichJobDetails);
 
 // Test enrichment providers (Hunter.io, Skrapp.io)
 router.post('/test/enrichment-providers', requireAuth, testEnrichmentProviders);

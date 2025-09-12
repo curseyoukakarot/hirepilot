@@ -130,7 +130,7 @@ export default function JobRequisitionPage() {
       type: 'note_added',
       metadata: {},
       created_at: new Date().toISOString()
-    }).catch(()=>{});
+    });
     alert('Note logged');
   };
   const handleAddTeammate = () => setShowAddTeammateModal(true);
@@ -151,7 +151,7 @@ export default function JobRequisitionPage() {
         type: 'collaborator_role_changed',
         metadata: { target_user_id: userId, role: newRole },
         created_at: new Date().toISOString()
-      }).catch(()=>{});
+      });
     } catch (e) {
       alert('Failed to change role: ' + (e.message || e));
     }
@@ -173,7 +173,7 @@ export default function JobRequisitionPage() {
         type: 'collaborator_removed',
         metadata: { target_user_id: userId },
         created_at: new Date().toISOString()
-      }).catch(()=>{});
+      });
     } catch (e) {
       alert('Failed to remove collaborator: ' + (e.message || e));
     }
@@ -499,8 +499,8 @@ export default function JobRequisitionPage() {
             onSubmit={async ({ email, role }) => {
               try {
                 await supabase.from('job_guest_collaborators').insert({ job_id: id, email, role, invited_by: currentUser?.id || null });
-                await supabase.rpc('send_guest_invite', { p_email: email, p_job_id: id, p_role: role }).catch(()=>{});
-                await supabase.from('job_activity_log').insert({ type: 'guest_invited', job_id: id, actor_id: currentUser?.id || null, metadata: { email, role, invited_by: currentUser?.id || null }, created_at: new Date().toISOString() }).catch(()=>{});
+                try { await supabase.rpc('send_guest_invite', { p_email: email, p_job_id: id, p_role: role }); } catch {}
+                await supabase.from('job_activity_log').insert({ type: 'guest_invited', job_id: id, actor_id: currentUser?.id || null, metadata: { email, role, invited_by: currentUser?.id || null }, created_at: new Date().toISOString() });
                 setTeam(prev => [...prev, { is_guest: true, role, email, users: null }]);
                 setShowAddGuestModal(false); setGuestEmail(''); setGuestRole('View Only');
               } catch (e) { alert('Failed to invite guest: ' + (e.message || e)); }
