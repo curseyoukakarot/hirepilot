@@ -28,8 +28,9 @@ export default function AcceptGuest() {
     setLoading(true);
     setError('');
     try {
-      // Create confirmed user via backend to avoid email confirmation
-      await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/guest-signup`, {
+      const base = (import.meta.env.VITE_BACKEND_URL || (window.location.host.endsWith('thehirepilot.com') ? 'https://api.thehirepilot.com' : 'http://localhost:8080')).replace(/\/$/, '');
+      // Create or upsert confirmed user via backend to avoid email confirmation
+      await fetch(`${base}/api/guest-signup`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password })
       });
       // Sign in
