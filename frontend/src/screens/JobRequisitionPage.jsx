@@ -529,7 +529,18 @@ export default function JobRequisitionPage() {
             onSubmit={async ({ email, role }) => {
               try {
                 await supabase.from('job_guest_collaborators').insert({ job_id: id, email, role, invited_by: currentUser?.id || null });
-                try { await supabase.rpc('send_guest_invite', { p_email: email, p_job_id: id, p_role: role }); } catch {}
+                try {
+                  await supabase.rpc('send_guest_invite', { p_email: email, p_job_id: id, p_role: role });
+                } catch (e) {
+                  // Fallback to backend route if RPC not available
+                  try {
+                    await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/send-guest-invite`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ email, job_id: id, role })
+                    });
+                  } catch {}
+                }
                 await supabase.from('job_activity_log').insert({ type: 'guest_invited', job_id: id, actor_id: currentUser?.id || null, metadata: { email, role, invited_by: currentUser?.id || null }, created_at: new Date().toISOString() });
                 setTeam(prev => [...prev, { is_guest: true, role, email, users: null }]);
                 setShowAddGuestModal(false); setGuestEmail(''); setGuestRole('View Only');
