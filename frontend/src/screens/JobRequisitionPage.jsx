@@ -9,7 +9,7 @@ import UpgradeModal from '../components/UpgradeModal';
 export default function JobRequisitionPage() {
   const { id } = useParams();
   const [job, setJob] = useState(null);
-  const [traits, setTraits] = useState([]);
+  const [keywords, setKeywords] = useState([]);
   const [notes, setNotes] = useState([]);
   const [team, setTeam] = useState([]);
   const [orgUsers, setOrgUsers] = useState([]);
@@ -62,15 +62,23 @@ export default function JobRequisitionPage() {
         .eq('id', id)
         .single();
       setJob(jobData);
+      setKeywords(Array.isArray(jobData?.keywords) ? jobData.keywords : (typeof jobData?.keywords === 'string' ? (jobData.keywords || '').split(',').map(s=>s.trim()).filter(Boolean) : []));
       if (profile && jobData && (jobData.user_id === profile.id || jobData.created_by === profile.id)) {
         setCanManage(true);
       }
 
-      // Traits disabled if table not present in this project
-      setTraits([]);
+      // Traits replaced by Keywords from Campaign setup / job record
 
-      // Notes disabled if tables are not present; keep section empty
-      setNotes([]);
+      // Load notes from activity log (note_added)
+      try {
+        const { data: notesResp } = await supabase
+          .from('job_activity_log')
+          .select('id, actor_id, created_at, metadata')
+          .eq('job_id', id)
+          .eq('type', 'note_added')
+          .order('created_at', { ascending: true });
+        setNotes((notesResp || []).map(r => ({ id: r.id, content: r.metadata?.text || '', actor_id: r.actor_id, created_at: r.created_at })));
+      } catch { setNotes([]); }
 
       // Collaborators (no nested joins) → then fetch users by ids
       const { data: teamData } = await supabase
@@ -121,17 +129,32 @@ export default function JobRequisitionPage() {
   const availableOrgUsers = useMemo(() => (orgUsers || []).filter(u => !collaboratorUserIds.has(u.id)), [orgUsers, collaboratorUserIds]);
 
   const handleEdit = (label) => console.log(`Edit ${label}`);
-  const handleAddTrait = () => console.log('Add Trait');
+  const [noteText, setNoteText] = useState('');
+  const handleAddKeyword = async (kw) => {
+    const value = (kw || '').trim();
+    if (!value) return;
+    const next = Array.from(new Set([...(keywords || []), value]));
+    setKeywords(next);
+    await supabase.from('job_requisitions').update({ keywords: next }).eq('id', id);
+  };
+  const handleRemoveKeyword = async (kw) => {
+    const next = (keywords || []).filter(k => k !== kw);
+    setKeywords(next);
+    await supabase.from('job_requisitions').update({ keywords: next }).eq('id', id);
+  };
   const handlePostNote = async () => {
-    // If a dedicated notes table is not present, just log as activity
-    await supabase.from('job_activity_log').insert({
+    const text = (noteText || '').trim();
+    if (!text) return;
+    const row = {
       job_id: id,
       actor_id: currentUser?.id || null,
       type: 'note_added',
-      metadata: {},
+      metadata: { text },
       created_at: new Date().toISOString()
-    });
-    alert('Note logged');
+    };
+    await supabase.from('job_activity_log').insert(row);
+    setNotes(prev => [...prev, { id: crypto.randomUUID?.() || String(Date.now()), content: text, actor_id: currentUser?.id || null, created_at: new Date().toISOString() }]);
+    setNoteText('');
   };
   const handleAddTeammate = () => setShowAddTeammateModal(true);
 
@@ -337,22 +360,29 @@ export default function JobRequisitionPage() {
                   </div>
                 </div>
 
-                {/* Success Profile */}
-                <div id="success-profile" className="bg-white rounded-lg border border-gray-200 p-6">
+                {/* Keywords (replaces Success Profile) */}
+                <div id="keywords" className="bg-white rounded-lg border border-gray-200 p-6">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">Success Profile</h3>
-                    <button className="text-sm text-blue-600 hover:text-blue-700" onClick={() => console.log('Add Trait')}>
-                      <i className="fas fa-plus mr-1"></i>
-                      Add Trait
-                    </button>
+                    <h3 className="text-lg font-semibold text-gray-900">Keywords</h3>
+                    {canManage && (
+                      <button className="text-sm text-blue-600 hover:text-blue-700" onClick={() => {
+                        const v = prompt('Add keyword');
+                        if (v) handleAddKeyword(v);
+                      }}>
+                        <i className="fas fa-plus mr-1"></i>
+                        Add Keyword
+                      </button>
+                    )}
                   </div>
-                  <div className="space-y-3">
-                    {traits.length === 0 && <p className="text-sm text-gray-500">No traits yet</p>}
-                    {traits.map((t) => (
-                      <div key={t.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <span className="text-sm font-medium text-gray-700">{t.name}</span>
-                        <span className="text-xs text-gray-500">{t.importance || ''}</span>
-                      </div>
+                  <div className="flex flex-wrap gap-2">
+                    {(keywords || []).length === 0 && <p className="text-sm text-gray-500">No keywords yet</p>}
+                    {(keywords || []).map((k) => (
+                      <span key={k} className="inline-flex items-center gap-2 px-2 py-1 bg-blue-50 text-blue-700 rounded border border-blue-200 text-xs">
+                        {k}
+                        {canManage && (
+                          <button className="text-blue-400 hover:text-blue-700" onClick={()=>handleRemoveKeyword(k)} title="Remove">×</button>
+                        )}
+                      </span>
                     ))}
                   </div>
                 </div>
@@ -379,7 +409,7 @@ export default function JobRequisitionPage() {
                     ))}
                   </div>
                   <div className="mt-4">
-                    <textarea placeholder="Add a note..." className="w-full p-3 border border-gray-200 rounded-lg text-sm resize-none" rows="3"></textarea>
+                    <textarea placeholder="Add a note..." value={noteText} onChange={(e)=>setNoteText(e.target.value)} className="w-full p-3 border border-gray-200 rounded-lg text-sm resize-none" rows="3"></textarea>
                     <div className="flex justify-end mt-2">
                       <button className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700" onClick={handlePostNote}>Post</button>
                     </div>
