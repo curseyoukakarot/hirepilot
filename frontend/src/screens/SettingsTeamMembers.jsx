@@ -24,6 +24,8 @@ export default function SettingsTeamMembers() {
   const [collabLoading, setCollabLoading] = useState(false);
   const [collabModalOpen, setCollabModalOpen] = useState(false);
   const [collabEdit, setCollabEdit] = useState(null);
+  const [collabDeleteOpen, setCollabDeleteOpen] = useState(false);
+  const [collabDeleteRow, setCollabDeleteRow] = useState(null);
   const [jobOptions, setJobOptions] = useState([]);
 
   const handleOpenInviteModal = () => setIsInviteModalOpen(true);
@@ -240,11 +242,13 @@ export default function SettingsTeamMembers() {
   };
 
   // derive UI gating by role (Starter=member; Pro=admin; Team=team_admin; super_admin)
-  const userRole = currentUser?.user_metadata?.role || currentUser?.user_metadata?.account_type;
+  const userRole = (currentUser?.user_metadata?.role || currentUser?.user_metadata?.account_type || '').toLowerCase();
   const roleAllowsInvite = ['admin', 'team_admin', 'super_admin'].includes(userRole);
-  const isStarter = (planTier === 'starter');
-  const canInvite = roleAllowsInvite && !isStarter;
-  const canSeeCollaborators = canInvite; // per prompt gating
+  const allowedPlans = ['pro','team','recruitpro'];
+  const allowedRoles = ['admin','team_admin','super_admin'];
+  const planKey = (planTier || '').toLowerCase();
+  const canInvite = roleAllowsInvite && planKey !== 'starter';
+  const canSeeCollaborators = allowedPlans.includes(planKey) && allowedRoles.includes(userRole);
 
   const loadCollaborators = async () => {
     setCollabLoading(true);
@@ -503,8 +507,8 @@ export default function SettingsTeamMembers() {
                         <td className="px-3 py-2">
                           <div className="flex items-center gap-2">
                             <button className="text-gray-600" onClick={()=>{ setCollabEdit({ email: row.email, role: row.role, jobs: row.job_id ? [row.job_id] : [] }); setCollabModalOpen(true); }}>✏️</button>
-                            <button className="text-red-600" onClick={()=>deleteCollab(row)}>🗑️</button>
-                            {!row.user_id && <button className="text-blue-600" onClick={()=>fetch(`${import.meta.env.VITE_BACKEND_URL}/api/send-guest-invite`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email: row.email, job_id: row.job_id, role: row.role }) })}>✉️</button>}
+                            <button className="text-red-600" onClick={()=>{ setCollabDeleteRow(row); setCollabDeleteOpen(true); }}>🗑️</button>
+                            {!row.user_id && <button className="text-blue-600" onClick={async()=>{ await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/send-guest-invite`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email: row.email, job_id: row.job_id, role: row.role }) }); toast.success(`Invite resent to ${row.email}`); }}>✉️</button>}
                           </div>
                         </td>
                       </tr>
@@ -700,6 +704,23 @@ export default function SettingsTeamMembers() {
             } catch (e) { toast.error(e.message || 'Failed to save'); } finally { setCollabLoading(false); }
           }}
         />
+
+        {/* Delete Collaborator Modal */}
+        {collabDeleteOpen && collabDeleteRow && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+            <div className="bg-white rounded-lg w-full max-w-md p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Delete Collaborator</h3>
+                <button className="text-gray-400 hover:text-gray-600" onClick={()=>{ setCollabDeleteOpen(false); setCollabDeleteRow(null); }}>✕</button>
+              </div>
+              <p className="text-sm text-gray-600 mb-6">Are you sure you want to remove {collabDeleteRow.email}? They will lose access to linked job requisitions.</p>
+              <div className="flex justify-end gap-2">
+                <button className="px-4 py-2 border rounded" onClick={()=>{ setCollabDeleteOpen(false); setCollabDeleteRow(null); }}>Cancel</button>
+                <button className="px-4 py-2 bg-red-600 text-white rounded" onClick={async()=>{ await supabase.from('job_guest_collaborators').delete().eq('id', collabDeleteRow.id); setCollabDeleteOpen(false); setCollabDeleteRow(null); await loadCollaborators(); toast.success('Collaborator deleted'); }}>Delete</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
