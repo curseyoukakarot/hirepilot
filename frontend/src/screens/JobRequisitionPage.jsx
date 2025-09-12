@@ -27,6 +27,7 @@ export default function JobRequisitionPage() {
   const [editDescOpen, setEditDescOpen] = useState(false);
   const [descDraft, setDescDraft] = useState('');
   const [savingDesc, setSavingDesc] = useState(false);
+  const [noteText, setNoteText] = useState('');
 
   const displayName = (u) => {
     if (!u) return 'Unknown';
@@ -68,12 +69,12 @@ export default function JobRequisitionPage() {
       setKeywords(Array.isArray(jobData?.keywords) ? jobData.keywords : (typeof jobData?.keywords === 'string' ? (jobData.keywords || '').split(',').map(s=>s.trim()).filter(Boolean) : []));
       setDescDraft(jobData?.description || '');
       // Guest access check
-      if (profile?.id && jobData?.id) {
+      if (profile?.email && jobData?.id) {
         const { data: guestAccess } = await supabase
           .from('job_guest_collaborators')
           .select('role')
           .eq('job_id', jobData.id)
-          .eq('user_id', profile.id)
+          .eq('email', profile.email)
           .maybeSingle();
         if (guestAccess) {
           const role = String(guestAccess.role || '').toLowerCase().replace(/\s|\+/g,'_');
