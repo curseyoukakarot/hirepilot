@@ -9,7 +9,7 @@ export default async function sendGuestInvite(req: Request, res: Response) {
     const apiKey = process.env.SENDGRID_API_KEY || '';
     const appUrl = process.env.APP_URL || 'https://thehirepilot.com';
 
-    const inviteUrl = `${appUrl}/invite?job=${encodeURIComponent(job_id)}&email=${encodeURIComponent(email)}&role=${encodeURIComponent(role || 'View Only')}`;
+    const inviteUrl = `${appUrl}/accept-guest?job_id=${encodeURIComponent(job_id)}&email=${encodeURIComponent(email)}&role=${encodeURIComponent(role || 'View Only')}`;
 
     if (apiKey) {
       sgMail.setApiKey(apiKey);

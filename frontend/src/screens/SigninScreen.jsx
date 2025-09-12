@@ -1,5 +1,5 @@
 // SigninScreen.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FaGoogle, FaLinkedin, FaCircleCheck, FaCircleExclamation, FaMicrosoft } from 'react-icons/fa6';
 import { supabase } from '../lib/supabase'; // make sure this is imported at the top
 import { useNavigate } from 'react-router-dom';
@@ -13,6 +13,15 @@ export default function SigninScreen() {
   const [resetError, setResetError] = useState('');
   const [resetSent, setResetSent] = useState(false);
   const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const e = params.get('email');
+    if (e) setEmail(e);
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const email = e.target.email.value;
@@ -30,7 +39,9 @@ export default function SigninScreen() {
       setError(false);
       setSuccess(true);
       // Optional: redirect to dashboard
-      navigate("/dashboard");
+      const params = new URLSearchParams(window.location.search);
+      const next = params.get('next');
+      if (next) navigate(next); else navigate('/dashboard');
     }
   };
 

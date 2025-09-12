@@ -17,6 +17,7 @@ export default function AcceptGuest() {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        sessionStorage.setItem('guest_mode','1');
         navigate(`/job/${jobId}`);
       }
     })();
@@ -29,9 +30,13 @@ export default function AcceptGuest() {
     try {
       const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) throw error;
-      // Email-based linking is sufficient; no user_id column in current schema
+      sessionStorage.setItem('guest_mode','1');
       navigate(`/job/${jobId}`);
     } catch (e) {
+      if (String(e?.message || '').toLowerCase().includes('already registered')) {
+        navigate(`/login?email=${encodeURIComponent(email)}&next=${encodeURIComponent('/job/'+jobId)}`);
+        return;
+      }
       setError(e.message || 'Failed to create guest account');
     } finally {
       setLoading(false);
