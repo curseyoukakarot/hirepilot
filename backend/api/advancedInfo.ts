@@ -11,6 +11,7 @@ export default async function advancedInfo(req: Request, res: Response) {
     const admin = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
 
     let userId = String(req.headers['x-user-id'] || '').trim();
+    let userEmail = String((req.query.email as any) || req.headers['x-user-email'] || '').trim().toLowerCase();
     if (!userId) {
       const bearer = String(req.headers.authorization || '').split(' ')[1] || '';
       if (bearer) {
@@ -19,6 +20,18 @@ export default async function advancedInfo(req: Request, res: Response) {
           userId = data.user?.id || '';
         } catch {}
       }
+    }
+    if (!userId && userEmail) {
+      try {
+        const adminBase = `${url}/auth/v1`;
+        const headers = { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` } as any;
+        const findResp = await fetch(`${adminBase}/admin/users?email=${encodeURIComponent(userEmail)}`, { headers });
+        if (findResp.ok) {
+          const found = await findResp.json();
+          const u = Array.isArray(found?.users) ? found.users[0] : (found?.id ? found : null);
+          if (u?.id) userId = u.id;
+        }
+      } catch {}
     }
     if (!userId) return res.status(400).json({ error: 'Missing user_id' });
 
