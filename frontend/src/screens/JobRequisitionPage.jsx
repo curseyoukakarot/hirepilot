@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import JobDetailsCard from '../components/job/JobDetailsCard';
 import JobPipeline from './JobPipeline';
+import AddGuestModal from '../components/AddGuestModal';
 
 export default function JobRequisitionPage() {
   const { id } = useParams();
@@ -453,46 +454,19 @@ export default function JobRequisitionPage() {
             </div>
           )}
 
-          {/* Add Guest Modal */}
-          {showAddGuestModal && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-white rounded-lg p-6 max-w-md w-full">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold">Invite Guest</h3>
-                  <button className="text-gray-400 hover:text-gray-600" onClick={() => { setShowAddGuestModal(false); setGuestEmail(''); setGuestRole('View Only'); }}><i className="fas fa-times"></i></button>
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email address</label>
-                    <input type="email" className="w-full border rounded-lg px-3 py-2" value={guestEmail} onChange={(e)=>setGuestEmail(e.target.value)} placeholder="name@example.com" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-                    <select className="w-full border rounded-lg px-3 py-2" value={guestRole} onChange={(e)=>setGuestRole(e.target.value)}>
-                      <option>View Only</option>
-                      <option>View + Comment</option>
-                    </select>
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <button className="px-4 py-2 border rounded-lg" onClick={() => { setShowAddGuestModal(false); setGuestEmail(''); setGuestRole('View Only'); }}>Cancel</button>
-                    <button className="px-4 py-2 bg-purple-600 text-white rounded-lg disabled:opacity-50" disabled={!guestEmail} onClick={async ()=>{
-                      try {
-                        // insert guest
-                        await supabase.from('job_guest_collaborators').insert({ job_id: id, email: guestEmail, role: guestRole, invited_by: currentUser?.id || null });
-                        // try invite function (ignore if missing)
-                        await supabase.rpc('send_guest_invite', { p_email: guestEmail, p_job_id: id, p_role: guestRole }).catch(()=>{});
-                        // log activity (ignore if table missing)
-                        await supabase.from('job_activity_log').insert({ type: 'guest_invited', job_id: id, actor_id: currentUser?.id || null, metadata: { email: guestEmail, role: guestRole, invited_by: currentUser?.id || null }, created_at: new Date().toISOString() }).catch(()=>{});
-                        // update local state
-                        setTeam(prev => [...prev, { is_guest: true, role: guestRole, email: guestEmail, users: null }]);
-                        setShowAddGuestModal(false); setGuestEmail(''); setGuestRole('View Only');
-                      } catch (e) { alert('Failed to invite guest: ' + (e.message || e)); }
-                    }}>Send Invite</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          <AddGuestModal
+            open={showAddGuestModal}
+            onClose={() => { setShowAddGuestModal(false); setGuestEmail(''); setGuestRole('View Only'); }}
+            onSubmit={async ({ email, role }) => {
+              try {
+                await supabase.from('job_guest_collaborators').insert({ job_id: id, email, role, invited_by: currentUser?.id || null });
+                await supabase.rpc('send_guest_invite', { p_email: email, p_job_id: id, p_role: role }).catch(()=>{});
+                await supabase.from('job_activity_log').insert({ type: 'guest_invited', job_id: id, actor_id: currentUser?.id || null, metadata: { email, role, invited_by: currentUser?.id || null }, created_at: new Date().toISOString() }).catch(()=>{});
+                setTeam(prev => [...prev, { is_guest: true, role, email, users: null }]);
+                setShowAddGuestModal(false); setGuestEmail(''); setGuestRole('View Only');
+              } catch (e) { alert('Failed to invite guest: ' + (e.message || e)); }
+            }}
+          />
 
           {/* Candidates Tab => Pipeline Board */}
           <div id="candidates-tab" className={activeTab === 'candidates' ? 'tab-content' : 'tab-content hidden'}>
