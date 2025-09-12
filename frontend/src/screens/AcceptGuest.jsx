@@ -1,0 +1,69 @@
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
+
+export default function AcceptGuest() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const jobId = params.get('job_id') || '';
+  const email = params.get('email') || '';
+
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        navigate(`/job/${jobId}`);
+      }
+    })();
+  }, [jobId, navigate]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      if (error) throw error;
+      const userId = data.user?.id || null;
+      if (userId) {
+        await supabase
+          .from('job_guest_collaborators')
+          .update({ user_id: userId })
+          .eq('job_id', jobId)
+          .eq('email', email);
+      }
+      navigate(`/job/${jobId}`);
+    } catch (e) {
+      setError(e.message || 'Failed to create guest account');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="bg-white border rounded-lg p-6 w-full max-w-md">
+        <h1 className="text-xl font-semibold mb-4">Accept Invite</h1>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">Email</label>
+            <input value={email} readOnly className="w-full border rounded px-3 py-2 bg-gray-50" />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">Password</label>
+            <input type="password" value={password} onChange={(e)=>setPassword(e.target.value)} className="w-full border rounded px-3 py-2" required />
+          </div>
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          <button disabled={loading} className="w-full bg-purple-600 text-white rounded px-4 py-2 disabled:opacity-50">
+            {loading ? 'Creating…' : 'Create Guest Account'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}

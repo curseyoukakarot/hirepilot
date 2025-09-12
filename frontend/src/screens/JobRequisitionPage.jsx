@@ -15,6 +15,7 @@ export default function JobRequisitionPage() {
   const [orgUsers, setOrgUsers] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [canManage, setCanManage] = useState(false);
+  const [guestRole, setGuestRole] = useState(''); // '' | 'view_only' | 'commenter'
   const [candidates, setCandidates] = useState({ applied: [], screened: [], interview: [], offer: [] });
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
@@ -23,7 +24,6 @@ export default function JobRequisitionPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [showAddGuestModal, setShowAddGuestModal] = useState(false);
   const [guestEmail, setGuestEmail] = useState('');
-  const [guestRole, setGuestRole] = useState('View Only');
 
   const displayName = (u) => {
     if (!u) return 'Unknown';
@@ -63,6 +63,20 @@ export default function JobRequisitionPage() {
         .single();
       setJob(jobData);
       setKeywords(Array.isArray(jobData?.keywords) ? jobData.keywords : (typeof jobData?.keywords === 'string' ? (jobData.keywords || '').split(',').map(s=>s.trim()).filter(Boolean) : []));
+      // Guest access check
+      if (profile?.id && jobData?.id) {
+        const { data: guestAccess } = await supabase
+          .from('job_guest_collaborators')
+          .select('role')
+          .eq('job_id', jobData.id)
+          .eq('user_id', profile.id)
+          .maybeSingle();
+        if (guestAccess) {
+          const role = String(guestAccess.role || '').toLowerCase().replace(/\s|\+/g,'_');
+          setGuestRole(role);
+          sessionStorage.setItem('guest_mode', '1');
+        }
+      }
       if (profile && jobData && (jobData.user_id === profile.id || jobData.created_by === profile.id)) {
         setCanManage(true);
       }
@@ -131,6 +145,7 @@ export default function JobRequisitionPage() {
   const handleEdit = (label) => console.log(`Edit ${label}`);
   const [noteText, setNoteText] = useState('');
   const handleAddKeyword = async (kw) => {
+    if (guestRole === 'view_only') return;
     const value = (kw || '').trim();
     if (!value) return;
     const next = Array.from(new Set([...(keywords || []), value]));
@@ -138,11 +153,13 @@ export default function JobRequisitionPage() {
     await supabase.from('job_requisitions').update({ keywords: next }).eq('id', id);
   };
   const handleRemoveKeyword = async (kw) => {
+    if (guestRole === 'view_only') return;
     const next = (keywords || []).filter(k => k !== kw);
     setKeywords(next);
     await supabase.from('job_requisitions').update({ keywords: next }).eq('id', id);
   };
   const handlePostNote = async () => {
+    if (guestRole === 'view_only') return;
     const text = (noteText || '').trim();
     if (!text) return;
     const row = {
@@ -364,7 +381,7 @@ export default function JobRequisitionPage() {
                 <div id="keywords" className="bg-white rounded-lg border border-gray-200 p-6">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">Keywords</h3>
-                    {canManage && (
+                    {canManage && guestRole !== 'view_only' && (
                       <button className="text-sm text-blue-600 hover:text-blue-700" onClick={() => {
                         const v = prompt('Add keyword');
                         if (v) handleAddKeyword(v);
@@ -379,7 +396,7 @@ export default function JobRequisitionPage() {
                     {(keywords || []).map((k) => (
                       <span key={k} className="inline-flex items-center gap-2 px-2 py-1 bg-blue-50 text-blue-700 rounded border border-blue-200 text-xs">
                         {k}
-                        {canManage && (
+                        {canManage && guestRole !== 'view_only' && (
                           <button className="text-blue-400 hover:text-blue-700" onClick={()=>handleRemoveKeyword(k)} title="Remove">×</button>
                         )}
                       </span>
@@ -409,9 +426,9 @@ export default function JobRequisitionPage() {
                     ))}
                   </div>
                   <div className="mt-4">
-                    <textarea placeholder="Add a note..." value={noteText} onChange={(e)=>setNoteText(e.target.value)} className="w-full p-3 border border-gray-200 rounded-lg text-sm resize-none" rows="3"></textarea>
+                    <textarea placeholder="Add a note..." value={noteText} onChange={(e)=>setNoteText(e.target.value)} className="w-full p-3 border border-gray-200 rounded-lg text-sm resize-none disabled:bg-gray-50" rows="3" disabled={guestRole==='view_only'}></textarea>
                     <div className="flex justify-end mt-2">
-                      <button className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700" onClick={handlePostNote}>Post</button>
+                      <button className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 disabled:opacity-50" onClick={handlePostNote} disabled={guestRole==='view_only'}>Post</button>
                     </div>
                   </div>
                 </div>
@@ -525,7 +542,7 @@ export default function JobRequisitionPage() {
 
           <AddGuestModal
             open={showAddGuestModal}
-            onClose={() => { setShowAddGuestModal(false); setGuestEmail(''); setGuestRole('View Only'); }}
+            onClose={() => { setShowAddGuestModal(false); setGuestEmail(''); }}
             onSubmit={async ({ email, role }) => {
               try {
                 await supabase.from('job_guest_collaborators').insert({ job_id: id, email, role, invited_by: currentUser?.id || null });
@@ -537,7 +554,7 @@ export default function JobRequisitionPage() {
                 });
                 await supabase.from('job_activity_log').insert({ type: 'guest_invited', job_id: id, actor_id: currentUser?.id || null, metadata: { email, role, invited_by: currentUser?.id || null }, created_at: new Date().toISOString() });
                 setTeam(prev => [...prev, { is_guest: true, role, email, users: null }]);
-                setShowAddGuestModal(false); setGuestEmail(''); setGuestRole('View Only');
+                setShowAddGuestModal(false); setGuestEmail('');
               } catch (e) { alert('Failed to invite guest: ' + (e.message || e)); }
             }}
           />

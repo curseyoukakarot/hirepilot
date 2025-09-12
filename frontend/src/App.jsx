@@ -2,6 +2,7 @@ import React, { Suspense, lazy, useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Navbar from "./components/Navbar";
+import GuestLayout from './components/GuestLayout';
 import Sidebar from "./components/Sidebar";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { Toaster } from 'react-hot-toast';
@@ -116,6 +117,8 @@ const CandidateList = lazy(() => import("./screens/CandidateList"));
 const JobRequisitions = lazy(() => import("./screens/JobRequisitions"));
 const JobPipeline = lazy(() => import("./screens/JobPipeline"));
 const JobRequisitionPage = lazy(() => import("./screens/JobRequisitionPage"));
+const AcceptGuest = lazy(() => import('./screens/AcceptGuest'));
+const SettingsGuest = lazy(() => import('./screens/SettingsGuest'));
 const Campaigns = lazy(() => import("./screens/Campaigns"));
 const Analytics = lazy(() => import("./screens/Analytics"));
 const BillingScreen = lazy(() => import("./screens/BillingScreen"));
@@ -429,6 +432,9 @@ function InnerApp() {
               <Route path="/messages" element={<MessagingCenter />} />
               <Route path="/sequences/:id" element={<SequenceDetail />} />
               <Route path="/settings/*" element={<Settings />} />
+              <Route path="/accept-guest" element={<GuestLayout><AcceptGuest /></GuestLayout>} />
+              <Route path="/settings" element={<GuestLayout><SettingsGuest /></GuestLayout>} />
+              <Route path="/signout" element={<SignOutRedirect />} />
               <Route path="/billing" element={<BillingScreen />} />
               <Route path="/rex-chat" element={<RexChatPage />} />
               <Route path="/sniper" element={<SniperTargets />} />
@@ -448,7 +454,7 @@ function InnerApp() {
               <Route path="/templates" element={<TemplateManager userId="mock-user-id" />} />
               <Route path="/candidates" element={<CandidateList />} />
               <Route path="/jobs" element={<JobRequisitions />} />
-              <Route path="/job/:id" element={<JobRequisitionPage />} />
+              <Route path="/job/:id" element={isGuestRoute ? <GuestLayout><JobRequisitionPage /></GuestLayout> : <JobRequisitionPage />} />
               <Route path="/job/:id/pipeline" element={<JobPipeline />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/phantom-monitor" element={<PhantomMonitor />} />
@@ -532,6 +538,14 @@ function InnerApp() {
       )}
     </div>
   );
+}
+
+function SignOutRedirect() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    (async () => { await supabase.auth.signOut(); sessionStorage.removeItem('guest_mode'); navigate('/accept-guest'); })();
+  }, [navigate]);
+  return null;
 }
 
 // Create a query client for React Query
