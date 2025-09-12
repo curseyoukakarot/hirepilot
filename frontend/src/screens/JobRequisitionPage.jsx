@@ -277,6 +277,7 @@ export default function JobRequisitionPage() {
   }
 
   if (!job) {
+    // If the user is a guest for this job, render minimal shell instead of blocking
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">Job not found</div>
     );
@@ -287,8 +288,9 @@ export default function JobRequisitionPage() {
     if (!currentUser || !job) return false;
     if (job.user_id === currentUser.id || job.created_by === currentUser.id) return true;
     const isTeamCollab = (team || []).some(t => (t.user_id || t.users?.id) === currentUser.id);
-    const isGuestCollab = (team || []).some(t => t.is_guest && t.email && (currentUser.email && t.email.toLowerCase() === currentUser.email.toLowerCase()));
-    return isTeamCollab || isGuestCollab;
+    // Guest collaborator based on job_guest_collaborators entry matched by email
+    const isGuestByInvite = Boolean(guestRole);
+    return isTeamCollab || isGuestByInvite;
   };
 
   if (!hasCollabAccess()) {

@@ -34,13 +34,43 @@ export default function JobRequisitions() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error('Not authenticated');
-        // Fetch jobs by user_id
-        let { data: jobsData, error: jobsError } = await supabase
-          .from('job_requisitions')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
-        if (jobsError) throw jobsError;
+        // Determine if guest collaborator
+        let isGuest = false;
+        try {
+          const { data: guestAny } = await supabase
+            .from('job_guest_collaborators')
+            .select('job_id')
+            .eq('email', user.email);
+          isGuest = (guestAny || []).length > 0;
+        } catch {}
+
+        let jobsData = [];
+        if (isGuest) {
+          // Fetch only jobs the guest has access to
+          const { data: guestRows } = await supabase
+            .from('job_guest_collaborators')
+            .select('job_id')
+            .eq('email', user.email);
+          const ids = [...new Set((guestRows || []).map(r => r.job_id).filter(Boolean))];
+          if (ids.length) {
+            const { data, error } = await supabase
+              .from('job_requisitions')
+              .select('*')
+              .in('id', ids)
+              .order('created_at', { ascending: false });
+            if (error) throw error;
+            jobsData = data || [];
+          }
+        } else {
+          // Owner/team view: jobs by user_id
+          const { data, error } = await supabase
+            .from('job_requisitions')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+          if (error) throw error;
+          jobsData = data || [];
+        }
         // Fetch jobs referenced by campaigns for this user
         const { data: campaignJobs, error: campaignJobsError } = await supabase
           .from('campaigns')

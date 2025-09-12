@@ -15,12 +15,15 @@ export default function Sidebar() {
   const [isPremium, setIsPremium] = useState(false);
   const [isFree, setIsFree] = useState(false);
   const [rexEnabled, setRexEnabled] = useState(false);
+  const [isGuest, setIsGuest] = useState(false);
 
   useEffect(() => {
     const fetchRole = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       let role = null;
       let rexEnabled = false;
+      // Default guest flag from session
+      let guestFlag = (typeof window !== 'undefined' && sessionStorage.getItem('guest_mode') === '1');
       if (user) {
         // Try to fetch from users table
         const { data } = await supabase
@@ -37,7 +40,16 @@ export default function Sidebar() {
         const rexRow = (integ || []).find(r => r.provider === 'rex');
         rexEnabled = ['enabled','connected','on','true'].includes(String(rexRow?.status || '').toLowerCase());
         if (!role && user.user_metadata?.role) role = user.user_metadata.role;
-
+        // Determine guest membership
+        try {
+          const { data: guestRow } = await supabase
+            .from('job_guest_collaborators')
+            .select('id')
+            .eq('email', user.email)
+            .limit(1)
+            .maybeSingle();
+          if (guestRow) guestFlag = true;
+        } catch {}
       }
       const roleLc = (role || '').toLowerCase();
       const premiumRoles = ['recruitpro','teamadmin','team_admin','superadmin','super_admin','admin','member'];
@@ -45,6 +57,7 @@ export default function Sidebar() {
       setIsFree(roleLc === 'free');
       setIsSuperAdmin(role === 'super_admin');
       setRexEnabled(rexEnabled);
+      setIsGuest(guestFlag);
     };
     fetchRole();
   }, []);
@@ -68,7 +81,10 @@ export default function Sidebar() {
       <nav className="flex-1 overflow-y-auto">
         <div className="p-4">
           <ul className="space-y-1">
-            {[...baseLinks, ...(isFree ? [] : [{ to: '/analytics', label: 'Analytics', icon: <FaChartBar /> }])].map(link => (
+            {[
+              ...((isGuest ? baseLinks.filter(l => !['/messages','/billing'].includes(l.to)) : baseLinks)),
+              ...((isFree || isGuest) ? [] : [{ to: '/analytics', label: 'Analytics', icon: <FaChartBar /> }])
+            ].map(link => (
               <li key={link.to}>
                 <NavLink
                   to={link.to}
