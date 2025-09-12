@@ -33,11 +33,21 @@ export default function AcceptGuest() {
       sessionStorage.setItem('guest_mode','1');
       navigate(`/job/${jobId}`);
     } catch (e) {
-      if (String(e?.message || '').toLowerCase().includes('already registered')) {
+      const msg = String(e?.message || '').toLowerCase();
+      if (msg.includes('already registered')) {
         navigate(`/login?email=${encodeURIComponent(email)}&next=${encodeURIComponent('/job/'+jobId)}`);
         return;
       }
-      setError(e.message || 'Failed to create guest account');
+      // Some projects block direct signUp due to DB triggers; fall back to magic link
+      try {
+        await supabase.auth.signInWithOtp({
+          email,
+          options: { emailRedirectTo: `${window.location.origin}/login?email=${encodeURIComponent(email)}&next=${encodeURIComponent('/job/'+jobId)}` }
+        });
+        setError('Check your email to confirm your guest account.');
+      } catch (otpErr) {
+        setError(e.message || 'Failed to create guest account');
+      }
     } finally {
       setLoading(false);
     }
