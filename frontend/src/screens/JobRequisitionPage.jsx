@@ -24,6 +24,9 @@ export default function JobRequisitionPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [showAddGuestModal, setShowAddGuestModal] = useState(false);
   const [guestEmail, setGuestEmail] = useState('');
+  const [editDescOpen, setEditDescOpen] = useState(false);
+  const [descDraft, setDescDraft] = useState('');
+  const [savingDesc, setSavingDesc] = useState(false);
 
   const displayName = (u) => {
     if (!u) return 'Unknown';
@@ -63,6 +66,7 @@ export default function JobRequisitionPage() {
         .single();
       setJob(jobData);
       setKeywords(Array.isArray(jobData?.keywords) ? jobData.keywords : (typeof jobData?.keywords === 'string' ? (jobData.keywords || '').split(',').map(s=>s.trim()).filter(Boolean) : []));
+      setDescDraft(jobData?.description || '');
       // Guest access check
       if (profile?.id && jobData?.id) {
         const { data: guestAccess } = await supabase
@@ -142,8 +146,25 @@ export default function JobRequisitionPage() {
   const collaboratorUserIds = useMemo(() => new Set((team || []).map(t => t.user_id || t.users?.id)), [team]);
   const availableOrgUsers = useMemo(() => (orgUsers || []).filter(u => !collaboratorUserIds.has(u.id)), [orgUsers, collaboratorUserIds]);
 
-  const handleEdit = (label) => console.log(`Edit ${label}`);
-  const [noteText, setNoteText] = useState('');
+  const handleEdit = (label) => {
+    if (label === 'description') {
+      if (guestRole === 'view_only') return;
+      setDescDraft(job?.description || '');
+      setEditDescOpen(true);
+    }
+  };
+
+  const saveDescription = async () => {
+    if (guestRole === 'view_only') return;
+    try {
+      setSavingDesc(true);
+      await supabase.from('job_requisitions').update({ description: descDraft }).eq('id', id);
+      setJob(prev => ({ ...(prev || {}), description: descDraft }));
+      // activity log
+      await supabase.from('job_activity_log').insert({ job_id: id, actor_id: currentUser?.id || null, type: 'description_updated', metadata: {}, created_at: new Date().toISOString() }).catch(()=>{});
+      setEditDescOpen(false);
+    } catch (e) { alert(e.message || 'Failed to save'); } finally { setSavingDesc(false); }
+  };
   const handleAddKeyword = async (kw) => {
     if (guestRole === 'view_only') return;
     const value = (kw || '').trim();
@@ -367,7 +388,7 @@ export default function JobRequisitionPage() {
                 <div id="role-description" className="bg-white rounded-lg border border-gray-200 p-6">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">Role Description</h3>
-                    <button className="text-sm text-blue-600 hover:text-blue-700" onClick={() => console.log('description')}>
+                    <button className="text-sm text-blue-600 hover:text-blue-700 disabled:opacity-50" onClick={() => handleEdit('description')} disabled={guestRole==='view_only'}>
                       <i className="fas fa-edit mr-1"></i>
                       Edit
                     </button>
@@ -535,6 +556,23 @@ export default function JobRequisitionPage() {
                     <button className="px-4 py-2 border rounded-lg" onClick={() => { setShowAddTeammateModal(false); setSelectedUserId(''); }}>Cancel</button>
                     <button className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50" disabled={!selectedUserId || isSaving} onClick={saveNewTeammate}>{isSaving ? 'Adding...' : 'Add'}</button>
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Edit Description Modal */}
+          {editDescOpen && (
+            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+              <div className="bg-white rounded-lg w-full max-w-2xl p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Edit Job Description</h3>
+                  <button className="text-gray-400 hover:text-gray-600" onClick={()=>setEditDescOpen(false)}>✕</button>
+                </div>
+                <textarea className="w-full border rounded p-3 min-h-[240px]" value={descDraft} onChange={(e)=>setDescDraft(e.target.value)} placeholder="Paste or write the job description..." />
+                <div className="flex justify-end gap-2 mt-4">
+                  <button className="px-4 py-2 border rounded" onClick={()=>setEditDescOpen(false)}>Cancel</button>
+                  <button className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50" disabled={savingDesc} onClick={saveDescription}>{savingDesc ? 'Saving…' : 'Save'}</button>
                 </div>
               </div>
             </div>
