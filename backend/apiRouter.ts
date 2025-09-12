@@ -42,6 +42,7 @@ import sendGuestInvite from './api/sendGuestInvite';
 import guestSignup from './api/guestSignup';
 import guestUpsert from './api/guestUpsert';
 import guestStatus from './api/guestStatus';
+import getJob from './api/getJob';
 import testEnrichmentProviders from './api/testEnrichmentProviders';
 import debugCampaignMetrics from './api/debugCampaignMetrics';
 import backfillCampaignAttribution from './api/backfillCampaignAttribution';
@@ -272,6 +273,9 @@ router.post('/send-guest-invite', sendGuestInvite);
 router.post('/guest-signup', guestSignup);
 router.post('/guest-upsert', guestUpsert);
 router.post('/guest-status', guestStatus);
+
+// Safe job fetch for guests avoiding PostgREST single-object errors
+router.get('/jobs/:id', getJob);
 
 // Test enrichment providers (Hunter.io, Skrapp.io)
 router.post('/test/enrichment-providers', requireAuth, testEnrichmentProviders);

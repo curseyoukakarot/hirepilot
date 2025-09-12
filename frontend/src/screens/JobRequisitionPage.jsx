@@ -60,11 +60,20 @@ export default function JobRequisitionPage() {
         }
       } catch {}
 
-      const { data: jobData } = await supabase
-        .from('job_requisitions')
-        .select('*')
-        .eq('id', id)
-        .single();
+      // Use backend endpoint to avoid PGRST116 and include guest authorization
+      let jobData = null;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/jobs/${id}`, { headers: { 'Authorization': `Bearer ${session?.access_token || ''}` } });
+        if (resp.ok) {
+          const js = await resp.json();
+          jobData = js.job;
+        }
+      } catch {}
+      if (!jobData) {
+        const { data: j } = await supabase.from('job_requisitions').select('*').eq('id', id).maybeSingle();
+        jobData = j || null;
+      }
       setJob(jobData);
       setKeywords(Array.isArray(jobData?.keywords) ? jobData.keywords : (typeof jobData?.keywords === 'string' ? (jobData.keywords || '').split(',').map(s=>s.trim()).filter(Boolean) : []));
       setDescDraft(jobData?.description || '');
