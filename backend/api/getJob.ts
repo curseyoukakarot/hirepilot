@@ -51,7 +51,11 @@ export default async function getJob(req: Request, res: Response) {
       if (guest) allowed = true;
     }
 
-    if (!allowed) return res.status(403).json({ error: 'Forbidden', details: { callerId, callerEmail } });
+    if (!allowed) {
+      const normalizedEmail = (callerEmail || '').trim().toLowerCase();
+      // Provide clearer diagnostics for guest authorization mismatch
+      return res.status(403).json({ error: 'Forbidden', details: { callerId, callerEmail: normalizedEmail, reason: 'Not owner/collaborator/guest for this job' } });
+    }
 
     return res.json({ job });
   } catch (e: any) {

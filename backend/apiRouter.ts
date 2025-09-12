@@ -1,4 +1,4 @@
-import { Router, Response } from "express";
+import { Router } from "express";
 import { requireAuth } from './middleware/authMiddleware';
 import { ApiRequest } from './types/api';
 
@@ -45,6 +45,9 @@ import guestStatus from './api/guestStatus';
 import getJob from './api/getJob';
 import advancedInfo from './api/advancedInfo';
 import authDebug from './api/authDebug';
+// Temporary: admin tools for support
+import type { Request, Response } from 'express';
+import { createClient } from '@supabase/supabase-js';
 import testEnrichmentProviders from './api/testEnrichmentProviders';
 import debugCampaignMetrics from './api/debugCampaignMetrics';
 import backfillCampaignAttribution from './api/backfillCampaignAttribution';
@@ -280,6 +283,30 @@ router.post('/guest-status', guestStatus);
 router.get('/jobs/:id', getJob);
 router.get('/advanced-info', advancedInfo);
 router.get('/auth-debug', authDebug);
+
+// Admin-only helper: reset guest password (support-only; add real admin auth in production)
+router.post('/admin/reset-guest-password', async (req: Request, res: Response) => {
+  try {
+    const { email, newPassword } = req.body || {};
+    if (!email || !newPassword) return res.status(400).json({ error: 'Missing email or newPassword' });
+    const url = process.env.SUPABASE_URL as string;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY as string;
+    const admin = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
+    // Lookup user by email via Admin REST (for parity with other codepaths)
+    const adminBase = `${url}/auth/v1`;
+    const headers: any = { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
+    const resp = await fetch(`${adminBase}/admin/users?email=${encodeURIComponent(String(email).trim().toLowerCase())}`, { headers });
+    if (!resp.ok) return res.status(resp.status).json({ error: await resp.text() });
+    const body = await resp.json();
+    const user = Array.isArray(body?.users) ? body.users[0] : (body?.id ? body : null);
+    if (!user?.id) return res.status(404).json({ error: 'User not found' });
+    const upd = await fetch(`${adminBase}/admin/users/${user.id}`, { method: 'PUT', headers, body: JSON.stringify({ password: String(newPassword) }) });
+    if (!upd.ok) return res.status(upd.status).json({ error: await upd.text() });
+    return res.json({ success: true, userId: user.id });
+  } catch (e: any) {
+    return res.status(500).json({ error: e.message || 'reset-guest-password failed' });
+  }
+});
 
 // Test enrichment providers (Hunter.io, Skrapp.io)
 router.post('/test/enrichment-providers', requireAuth, testEnrichmentProviders);
