@@ -28,10 +28,12 @@ export default function AcceptGuest() {
     setLoading(true);
     setError('');
     try {
-      const { data, error } = await supabase.auth.signUp({ email, password });
-      if (error) throw error;
-      // Immediately sign in without additional confirmation (if project allows)
-      try { await supabase.auth.signInWithPassword({ email, password }); } catch {}
+      // Create confirmed user via backend to avoid email confirmation
+      await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/guest-signup`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password })
+      });
+      // Sign in
+      await supabase.auth.signInWithPassword({ email, password });
       sessionStorage.setItem('guest_mode','1');
       navigate(`/job/${jobId}`);
     } catch (e) {
@@ -40,16 +42,7 @@ export default function AcceptGuest() {
         navigate(`/login?email=${encodeURIComponent(email)}&next=${encodeURIComponent('/job/'+jobId)}`);
         return;
       }
-      // Fall back to magic link as a backup if password sign-up is blocked
-      try {
-        await supabase.auth.signInWithOtp({
-          email,
-          options: { emailRedirectTo: `${window.location.origin}/login?email=${encodeURIComponent(email)}&next=${encodeURIComponent('/job/'+jobId)}` }
-        });
-        setError('Check your email to confirm your guest account.');
-      } catch (otpErr) {
-        setError(e.message || 'Failed to create guest account');
-      }
+      setError(e.message || 'Failed to create guest account');
     } finally {
       setLoading(false);
     }
