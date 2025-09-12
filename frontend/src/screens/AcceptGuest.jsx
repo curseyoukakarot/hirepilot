@@ -29,14 +29,7 @@ export default function AcceptGuest() {
     try {
       const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) throw error;
-      const userId = data.user?.id || null;
-      if (userId) {
-        await supabase
-          .from('job_guest_collaborators')
-          .update({ user_id: userId })
-          .eq('job_id', jobId)
-          .eq('email', email);
-      }
+      // Email-based linking is sufficient; no user_id column in current schema
       navigate(`/job/${jobId}`);
     } catch (e) {
       setError(e.message || 'Failed to create guest account');

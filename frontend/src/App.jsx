@@ -328,7 +328,7 @@ function InnerApp() {
           const { data: guestRow } = await supabase
             .from('job_guest_collaborators')
             .select('id')
-            .eq('user_id', user.id)
+            .eq('email', user.email)
             .limit(1)
             .maybeSingle();
           setIsGuestUser(!!guestRow);
