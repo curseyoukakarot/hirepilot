@@ -44,6 +44,7 @@ import guestUpsert from './api/guestUpsert';
 import guestStatus from './api/guestStatus';
 import getJob from './api/getJob';
 import advancedInfo from './api/advancedInfo';
+import authDebug from './api/authDebug';
 import testEnrichmentProviders from './api/testEnrichmentProviders';
 import debugCampaignMetrics from './api/debugCampaignMetrics';
 import backfillCampaignAttribution from './api/backfillCampaignAttribution';
@@ -278,6 +279,7 @@ router.post('/guest-status', guestStatus);
 // Safe job fetch for guests avoiding PostgREST single-object errors
 router.get('/jobs/:id', getJob);
 router.get('/advanced-info', advancedInfo);
+router.get('/auth-debug', authDebug);
 
 // Test enrichment providers (Hunter.io, Skrapp.io)
 router.post('/test/enrichment-providers', requireAuth, testEnrichmentProviders);

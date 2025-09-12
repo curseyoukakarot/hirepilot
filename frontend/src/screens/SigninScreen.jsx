@@ -27,26 +27,22 @@ export default function SigninScreen() {
     const email = e.target.email.value;
     const password = e.target.password.value;
 
-    // If this email is a guest collaborator, ensure the user exists/confirmed via backend upsert
-    try {
-      await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/guest-upsert`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password })
-      });
-    } catch {}
-
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-
-    if (error) {
-      setError(true);
-      setSuccess(false);
-    } else {
-      setError(false);
-      setSuccess(true);
-      // Optional: redirect to dashboard or provided next
-      const params = new URLSearchParams(window.location.search);
-      const next = params.get('next');
-      if (next) navigate(next); else navigate('/dashboard');
+    const base = (import.meta.env.VITE_BACKEND_URL || (window.location.host.endsWith('thehirepilot.com') ? 'https://api.thehirepilot.com' : 'http://localhost:8080')).replace(/\/$/, '');
+    let { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error && String(error.message || '').toLowerCase().includes('invalid')) {
+      try {
+        await fetch(`${base}/api/guest-upsert`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+        const retry = await supabase.auth.signInWithPassword({ email, password });
+        error = retry.error;
+      } catch {}
     }
+
+    if (error) { setError(true); setSuccess(false); return; }
+    setError(false);
+    setSuccess(true);
+    const paramsNext = new URLSearchParams(window.location.search);
+    const next = paramsNext.get('next');
+    if (next) navigate(next); else navigate('/dashboard');
   };
 
 // OAuth sign-in handlers
