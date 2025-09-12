@@ -115,7 +115,17 @@ export default function JobRequisitionPage() {
         mergedTeam = mergedTeam.map(r => ({ ...r, users: byId.get(r.user_id) }));
       }
       const filteredTeam = (mergedTeam || []).filter(r => !profile?.organization_id || r.users?.organization_id === profile.organization_id);
-      setTeam(filteredTeam);
+      // Append guest collaborators (email only) to show in Team list
+      try {
+        const { data: guestRows } = await supabase
+          .from('job_guest_collaborators')
+          .select('email, role')
+          .eq('job_id', id);
+        const guestAsTeam = (guestRows || []).map(g => ({ is_guest: true, role: g.role, email: g.email, users: null }));
+        setTeam([...(filteredTeam || []), ...guestAsTeam]);
+      } catch {
+        setTeam(filteredTeam);
+      }
 
       // Load org users for Add Teammate
       if (profile?.organization_id) {

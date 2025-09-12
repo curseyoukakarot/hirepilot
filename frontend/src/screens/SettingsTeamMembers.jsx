@@ -262,14 +262,19 @@ export default function SettingsTeamMembers() {
         .select('id,email,role,created_at,job_id, job_requisitions(title)')
         .order('created_at', { ascending: false });
       const rows = data || [];
-      // Derive acceptance by checking if a users row exists for the email
+      // Derive acceptance by calling backend guest-status (Auth Admin lookup)
       const emails = Array.from(new Set(rows.map(r => r.email).filter(Boolean)));
-      let acceptedEmails = new Set();
+      let acceptedMap = {};
       if (emails.length) {
-        const { data: userRows } = await supabase.from('users').select('email').in('email', emails);
-        acceptedEmails = new Set((userRows || []).map(u => (u.email || '').toLowerCase()));
+        try {
+          const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/guest-status`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ emails }) });
+          if (resp.ok) {
+            const js = await resp.json();
+            acceptedMap = js.accepted || {};
+          }
+        } catch {}
       }
-      setCollaborators(rows.map(r => ({ ...r, __accepted: acceptedEmails.has((r.email || '').toLowerCase()) })));
+      setCollaborators(rows.map(r => ({ ...r, __accepted: !!acceptedMap[String(r.email || '').toLowerCase()] })));
     } finally { setCollabLoading(false); }
   };
 
