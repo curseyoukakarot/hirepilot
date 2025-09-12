@@ -28,12 +28,27 @@ export default function Settings() {
   ];
 
   const [tabs, setTabs] = useState(baseTabs);
+  const [isGuest, setIsGuest] = useState(false);
 
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       const role = user?.user_metadata?.role || user?.user_metadata?.account_type;
       let filtered = [...baseTabs];
+      // Determine if this user is a guest collaborator on any job
+      let guestFlag = (typeof window !== 'undefined' && sessionStorage.getItem('guest_mode') === '1');
+      try {
+        if (user?.email) {
+          const { data: guestRow } = await supabase
+            .from('job_guest_collaborators')
+            .select('id')
+            .eq('email', user.email)
+            .limit(1)
+            .maybeSingle();
+          if (guestRow) guestFlag = true;
+        }
+      } catch {}
+      setIsGuest(guestFlag);
       // Hide Team Settings for free users
       if (String(role || '').toLowerCase() === 'free') {
         filtered = filtered.filter(t => t.id !== 'team');
@@ -45,6 +60,11 @@ export default function Settings() {
       if (role !== 'super_admin') {
         filtered = filtered.filter(t => t.id !== 'api');
         if (activeTab === 'api') setActiveTab('profile');
+      }
+      // Guest collaborators cannot access Integrations, Team, or Credits
+      if (guestFlag) {
+        filtered = filtered.filter(t => !['integrations','team','credits'].includes(t.id));
+        if (['integrations','team','credits'].includes(activeTab)) setActiveTab('profile');
       }
       setTabs(filtered);
     })();

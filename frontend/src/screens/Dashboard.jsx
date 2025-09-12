@@ -28,6 +28,20 @@ export default function Dashboard() {
       setLoading(true);
       const { data } = await supabase.auth.getUser();
       if (data?.user) {
+        // If this is a guest collaborator, redirect to their most recent invited job
+        try {
+          const { data: guestJobs } = await supabase
+            .from('job_guest_collaborators')
+            .select('job_id, created_at')
+            .eq('email', data.user.email)
+            .order('created_at', { ascending: false })
+            .limit(1);
+          const target = (guestJobs || [])[0]?.job_id;
+          if (target) {
+            navigate(`/job/${target}`, { replace: true });
+            return; // Skip rest of dashboard load
+          }
+        } catch {}
         setUser(data.user);
         try {
           // Fetch overall metrics for all messages to leads
