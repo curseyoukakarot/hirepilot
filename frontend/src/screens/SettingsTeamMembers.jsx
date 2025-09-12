@@ -18,6 +18,12 @@ export default function SettingsTeamMembers() {
   const [currentUser, setCurrentUser] = useState(null);
   const [planTier, setPlanTier] = useState(null);
   const [requireCheckout, setRequireCheckout] = useState(false);
+  const [showCollaborators, setShowCollaborators] = useState(false);
+  const [collaborators, setCollaborators] = useState([]);
+  const [collabLoading, setCollabLoading] = useState(false);
+  const [collabModalOpen, setCollabModalOpen] = useState(false);
+  const [newCollab, setNewCollab] = useState({ email: '', role: 'View Only', jobs: [] });
+  const [jobOptions, setJobOptions] = useState([]);
 
   const handleOpenInviteModal = () => setIsInviteModalOpen(true);
   const handleCloseInviteModal = () => setIsInviteModalOpen(false);
@@ -114,6 +120,10 @@ export default function SettingsTeamMembers() {
 
       setTeamMembers(users);
       setPendingInvites(invites);
+
+      // Jobs for collaborator assignment
+      const { data: jobs } = await supabase.from('job_requisitions').select('id,title').eq('user_id', user.id);
+      setJobOptions(jobs || []);
     } catch (error) {
       console.error('Error fetching team data:', error);
       toast.error('Failed to load team members');
@@ -233,6 +243,51 @@ export default function SettingsTeamMembers() {
   const roleAllowsInvite = ['admin', 'team_admin', 'super_admin'].includes(userRole);
   const isStarter = (planTier === 'starter');
   const canInvite = roleAllowsInvite && !isStarter;
+  const canSeeCollaborators = canInvite; // per prompt gating
+
+  const loadCollaborators = async () => {
+    setCollabLoading(true);
+    try {
+      const { data } = await supabase
+        .from('job_guest_collaborators')
+        .select('id,email,role,created_at,user_id,job_id, job_requisitions(title)')
+        .order('created_at', { ascending: false });
+      setCollaborators(data || []);
+    } finally { setCollabLoading(false); }
+  };
+
+  useEffect(() => { if (showCollaborators) loadCollaborators(); }, [showCollaborators]);
+
+  const addCollaborator = async () => {
+    if (!newCollab.email) return;
+    try {
+      setCollabLoading(true);
+      // create one row per selected job
+      const jobs = newCollab.jobs.length ? newCollab.jobs : [null];
+      for (const jid of jobs) {
+        await supabase.from('job_guest_collaborators').insert({ email: newCollab.email, role: newCollab.role, job_id: jid || null, invited_by: currentUser?.id || null });
+        await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/send-guest-invite`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: newCollab.email, job_id: jid, role: newCollab.role })
+        });
+      }
+      setCollabModalOpen(false);
+      setNewCollab({ email: '', role: 'View Only', jobs: [] });
+      await loadCollaborators();
+      toast.success('Collaborator invited');
+    } catch (e) { toast.error(e.message || 'Failed to add'); } finally { setCollabLoading(false); }
+  };
+
+  const updateCollabRole = async (row, role) => {
+    await supabase.from('job_guest_collaborators').update({ role }).eq('id', row.id);
+    await loadCollaborators();
+  };
+
+  const deleteCollab = async (row) => {
+    if (!confirm('Delete collaborator?')) return;
+    await supabase.from('job_guest_collaborators').delete().eq('id', row.id);
+    await loadCollaborators();
+  };
 
   return (
     <div className="p-6">
@@ -248,6 +303,14 @@ export default function SettingsTeamMembers() {
               className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-5 py-2 text-sm font-medium flex items-center"
             >
               <FaPlus className="mr-2" /> Invite Member
+            </button>
+          )}
+          {canSeeCollaborators && (
+            <button
+              onClick={() => setShowCollaborators(s => !s)}
+              className={`ml-2 border rounded-xl px-4 py-2 text-sm ${showCollaborators ? 'bg-gray-100' : ''}`}
+            >
+              👤 Collaborators
             </button>
           )}
         </div>
@@ -398,6 +461,72 @@ export default function SettingsTeamMembers() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {canSeeCollaborators && showCollaborators && (
+          <div className="mt-8">
+            <div className="bg-white rounded-lg border p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Guest Collaborators</h3>
+                  <p className="text-sm text-gray-500">Manage external collaborators across your job requisitions.</p>
+                </div>
+                <button className="px-3 py-2 bg-purple-600 text-white rounded-md text-sm" onClick={()=>setCollabModalOpen(true)}>+ Add Collaborator</button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full table-auto text-sm">
+                  <thead className="text-gray-500">
+                    <tr>
+                      <th className="px-3 py-2 text-left">Name/Email</th>
+                      <th className="px-3 py-2 text-left">Role</th>
+                      <th className="px-3 py-2 text-left">Job Requisitions</th>
+                      <th className="px-3 py-2 text-left">Date Invited</th>
+                      <th className="px-3 py-2 text-left">Status</th>
+                      <th className="px-3 py-2 text-left">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {collabLoading ? (
+                      <tr><td colSpan={6} className="px-3 py-6 text-center text-gray-500">Loading...</td></tr>
+                    ) : (collaborators || []).map(row => (
+                      <tr key={row.id}>
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 bg-gray-100 rounded-full" />
+                            <div>
+                              <div className="text-gray-900">{row.email}</div>
+                              {row.user_id && <div className="text-xs text-gray-500">linked</div>}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2">
+                          <select value={row.role} onChange={(e)=>updateCollabRole(row, e.target.value)} className="border rounded px-2 py-1 text-sm">
+                            <option>View Only</option>
+                            <option>Commenter</option>
+                          </select>
+                        </td>
+                        <td className="px-3 py-2 text-gray-700">
+                          {row.job_requisitions?.title || '—'}
+                        </td>
+                        <td className="px-3 py-2">{row.created_at ? format(new Date(row.created_at),'MMM d, yyyy') : '—'}</td>
+                        <td className="px-3 py-2"><span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-800">{row.user_id ? 'Accepted' : 'Invited'}</span></td>
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <button className="text-gray-600" onClick={()=>updateCollabRole(row, row.role)}>✏️</button>
+                            <button className="text-red-600" onClick={()=>deleteCollab(row)}>🗑️</button>
+                            {!row.user_id && <button className="text-blue-600" onClick={()=>fetch(`${import.meta.env.VITE_BACKEND_URL}/api/send-guest-invite`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email: row.email, job_id: row.job_id, role: row.role }) })}>✉️</button>}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {(!collabLoading && (collaborators || []).length === 0) && (
+                      <tr><td colSpan={6} className="px-3 py-6 text-center text-gray-500">No collaborators yet</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
 
