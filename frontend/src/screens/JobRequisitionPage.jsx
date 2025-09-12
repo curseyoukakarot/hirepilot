@@ -161,8 +161,8 @@ export default function JobRequisitionPage() {
       setSavingDesc(true);
       await supabase.from('job_requisitions').update({ description: descDraft }).eq('id', id);
       setJob(prev => ({ ...(prev || {}), description: descDraft }));
-      // activity log
-      await supabase.from('job_activity_log').insert({ job_id: id, actor_id: currentUser?.id || null, type: 'description_updated', metadata: {}, created_at: new Date().toISOString() }).catch(()=>{});
+      // activity log (best-effort)
+      try { await supabase.from('job_activity_log').insert({ job_id: id, actor_id: currentUser?.id || null, type: 'description_updated', metadata: {}, created_at: new Date().toISOString() }); } catch {}
       setEditDescOpen(false);
     } catch (e) { alert(e.message || 'Failed to save'); } finally { setSavingDesc(false); }
   };
