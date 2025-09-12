@@ -242,6 +242,17 @@ router.post('/:id/candidates/:candidateId/move', requireAuth as any, async (req:
       }
     }
 
+    // Log to job_activity_log
+    try {
+      await supabaseDb.from('job_activity_log').insert({
+        job_id: jobId,
+        actor_id: userId,
+        type: 'candidate_moved',
+        metadata: { candidate_id: candidateId, stage_id: stageId, stage_title: stageTitle || null },
+        created_at: new Date().toISOString(),
+      });
+    } catch {}
+
     return res.json({ success: true, candidate_job_id: cjRow.id, dest_stage_id: stageId, stage_title: stageTitle || null });
   } catch (e: any) {
     console.error('[move-candidate] unexpected', e);

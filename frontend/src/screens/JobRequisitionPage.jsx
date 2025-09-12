@@ -121,7 +121,17 @@ export default function JobRequisitionPage() {
 
   const handleEdit = (label) => console.log(`Edit ${label}`);
   const handleAddTrait = () => console.log('Add Trait');
-  const handlePostNote = () => console.log('Post note');
+  const handlePostNote = async () => {
+    // If a dedicated notes table is not present, just log as activity
+    await supabase.from('job_activity_log').insert({
+      job_id: id,
+      actor_id: currentUser?.id || null,
+      type: 'note_added',
+      metadata: {},
+      created_at: new Date().toISOString()
+    }).catch(()=>{});
+    alert('Note logged');
+  };
   const handleAddTeammate = () => setShowAddTeammateModal(true);
 
   const handleUpdateCollaboratorRole = async (userId, newRole) => {
@@ -133,6 +143,14 @@ export default function JobRequisitionPage() {
         .eq('user_id', userId);
       if (error) throw error;
       setTeam(prev => prev.map(t => (t.user_id === userId || t.users?.id === userId) ? { ...t, role: newRole } : t));
+      // log
+      await supabase.from('job_activity_log').insert({
+        job_id: id,
+        actor_id: currentUser?.id || null,
+        type: 'collaborator_role_changed',
+        metadata: { target_user_id: userId, role: newRole },
+        created_at: new Date().toISOString()
+      }).catch(()=>{});
     } catch (e) {
       alert('Failed to change role: ' + (e.message || e));
     }
@@ -148,6 +166,13 @@ export default function JobRequisitionPage() {
         .eq('user_id', userId);
       if (error) throw error;
       setTeam(prev => prev.filter(t => (t.user_id || t.users?.id) !== userId));
+      await supabase.from('job_activity_log').insert({
+        job_id: id,
+        actor_id: currentUser?.id || null,
+        type: 'collaborator_removed',
+        metadata: { target_user_id: userId },
+        created_at: new Date().toISOString()
+      }).catch(()=>{});
     } catch (e) {
       alert('Failed to remove collaborator: ' + (e.message || e));
     }
@@ -171,7 +196,7 @@ export default function JobRequisitionPage() {
           target_user_id: selectedUserId,
           role: 'Editor',
           created_at: new Date().toISOString()
-        }).catch(()=>{});
+        });
       }
       setShowAddTeammateModal(false);
       setSelectedUserId('');
@@ -481,11 +506,86 @@ export default function JobRequisitionPage() {
                   <h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3>
                 </div>
               </div>
+              <div className="p-6">
+                <ActivityFeed jobId={id} />
+              </div>
             </div>
           </div>
         </main>
       </div>
     </div>
+  );
+}
+
+function ActivityFeed({ jobId }) {
+  const [items, setItems] = React.useState([]);
+  const [actors, setActors] = React.useState({});
+
+  React.useEffect(() => {
+    const load = async () => {
+      let { data } = await supabase
+        .from('job_activity_log')
+        .select('id, job_id, actor_id, type, metadata, created_at')
+        .eq('job_id', jobId)
+        .order('created_at', { ascending: false });
+      data = data || [];
+      setItems(data);
+      const actorIds = [...new Set(data.map(d => d.actor_id).filter(Boolean))];
+      if (actorIds.length) {
+        const { data: users } = await supabase
+          .from('users')
+          .select('*')
+          .in('id', actorIds);
+        const map = {};
+        (users || []).forEach(u => { map[u.id] = u; });
+        setActors(map);
+      }
+    };
+    load();
+  }, [jobId]);
+
+  const renderText = (it) => {
+    const actor = actors[it.actor_id];
+    const who = actor ? (actor.full_name || [actor.first_name, actor.last_name].filter(Boolean).join(' ') || actor.email) : 'Someone';
+    const m = it.metadata || {};
+    switch ((it.type || '').toLowerCase()) {
+      case 'collaborator_added':
+        return `${who} added ${m.target_user_id || 'a teammate'} as ${m.role || 'Editor'}`;
+      case 'collaborator_removed':
+        return `${who} removed ${m.target_user_id || 'a teammate'}`;
+      case 'collaborator_role_changed':
+        return `${who} changed a teammate to ${m.role || 'Editor'}`;
+      case 'guest_invited':
+        return `${who} invited ${m.email} as ${m.role || 'View Only'}`;
+      case 'comment_posted':
+        return `${who} commented`;
+      case 'note_added':
+        return `${who} added a note`;
+      case 'candidate_moved':
+        return `${who} moved a candidate to ${m.stage_title || m.stage_id}`;
+      case 'rex_triggered':
+        return `${who} triggered REX`;
+      default:
+        return `${who} did ${it.type}`;
+    }
+  };
+
+  if (!items.length) {
+    return <p className="text-sm text-gray-500">No activity yet</p>;
+  }
+
+  return (
+    <ul className="divide-y divide-gray-100">
+      {items.map(it => (
+        <li key={it.id} className="py-4 flex items-start gap-3">
+          <img src={(actors[it.actor_id]?.avatar_url) || ''} className="w-8 h-8 rounded-full bg-gray-100" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-gray-700">{renderText(it)}</p>
+            <p className="text-xs text-gray-400 mt-1">{new Date(it.created_at).toLocaleString()}</p>
+          </div>
+        </li>
+      ))}
+    </ul>
   );
 }
 
