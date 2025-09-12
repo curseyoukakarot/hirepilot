@@ -27,10 +27,14 @@ export default function SigninScreen() {
     const email = e.target.email.value;
     const password = e.target.password.value;
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    // If this email is a guest collaborator, ensure the user exists/confirmed via backend upsert
+    try {
+      await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/guest-upsert`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password })
+      });
+    } catch {}
+
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
       setError(true);
@@ -38,7 +42,7 @@ export default function SigninScreen() {
     } else {
       setError(false);
       setSuccess(true);
-      // Optional: redirect to dashboard
+      // Optional: redirect to dashboard or provided next
       const params = new URLSearchParams(window.location.search);
       const next = params.get('next');
       if (next) navigate(next); else navigate('/dashboard');

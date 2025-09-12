@@ -40,6 +40,7 @@ import testLeadStatusUpdate from './api/testLeadStatusUpdate';
 import enrichJobDetails from './api/enrichJobDetails';
 import sendGuestInvite from './api/sendGuestInvite';
 import guestSignup from './api/guestSignup';
+import guestUpsert from './api/guestUpsert';
 import testEnrichmentProviders from './api/testEnrichmentProviders';
 import debugCampaignMetrics from './api/debugCampaignMetrics';
 import backfillCampaignAttribution from './api/backfillCampaignAttribution';
@@ -268,6 +269,7 @@ router.post('/send-guest-invite', sendGuestInvite);
 
 // Guest signup (admin create confirmed user)
 router.post('/guest-signup', guestSignup);
+router.post('/guest-upsert', guestUpsert);
 
 // Test enrichment providers (Hunter.io, Skrapp.io)
 router.post('/test/enrichment-providers', requireAuth, testEnrichmentProviders);
