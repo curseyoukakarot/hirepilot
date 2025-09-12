@@ -8,7 +8,7 @@ import useAppHealth from '../hooks/useAppHealth';
 export default function SuperAdminDashboard() {
   const navigate = useNavigate();
   const [latestUser, setLatestUser] = useState(null);
-  const [activeUsers, setActiveUsers] = useState(0);
+  const [totalCollaborators, setTotalCollaborators] = useState(0);
   const [totalUsers, setTotalUsers] = useState(0);
   const [totalCreditsUsed, setTotalCreditsUsed] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -25,7 +25,11 @@ export default function SuperAdminDashboard() {
         if (!res.ok) throw new Error('Failed to fetch users');
         const users = await res.json();
         setLatestUser(users.slice(0,5));
-        setActiveUsers(users.length);
+        // Also fetch total collaborators sitewide
+        const { count } = await supabase
+          .from('job_guest_collaborators')
+          .select('id', { count: 'exact', head: true });
+        setTotalCollaborators(Number(count || 0));
       } catch (err) {
         console.error('Failed to fetch latest users:', err);
       } finally {
@@ -68,14 +72,14 @@ export default function SuperAdminDashboard() {
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-gray-700 p-3 rounded-md">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-200">Active Users</span>
+                  <span className="text-sm text-gray-200">Total Collaborators</span>
                   <span className="text-blue-600">
-                    <i className="fa-solid fa-user"></i>
+                    <i className="fa-solid fa-user-plus"></i>
                   </span>
                 </div>
                 <div className="mt-2">
-                  <span className="text-2xl font-bold text-gray-100">{activeUsers}</span>
-                  <span className="text-green-600 text-xs ml-2">+5%</span>
+                  <span className="text-2xl font-bold text-gray-100">{totalCollaborators}</span>
+                  <span className="text-gray-400 text-xs ml-2">All time</span>
                 </div>
               </div>
               {/* Total Users mini card */}
