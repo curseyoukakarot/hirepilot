@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FaEdit, FaRobot } from "react-icons/fa";
 import { supabase } from "../../lib/supabase";
 
@@ -11,6 +11,15 @@ export default function JobDetailsCard({ job }) {
     salary_range: job.salary_range || ""
   });
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setFormData({
+      department: job.department || "",
+      location: job.location || "",
+      experience_level: job.experience_level || "",
+      salary_range: job.salary_range || ""
+    });
+  }, [job?.id, job?.department, job?.location, job?.experience_level, job?.salary_range]);
 
   const handleSave = async (field) => {
     await supabase
@@ -32,7 +41,18 @@ export default function JobDetailsCard({ job }) {
         }
       );
       const data = await resp.json();
-      setFormData((prev) => ({ ...prev, ...data }));
+      const next = {
+        department: data.department || "",
+        location: data.location || "",
+        experience_level: data.experience_level || "",
+        salary_range: data.salary_range || ""
+      };
+      setFormData((prev) => ({ ...prev, ...next }));
+      // Persist to Supabase so it survives refresh
+      await supabase
+        .from("job_requisitions")
+        .update(next)
+        .eq("id", job.id);
     } catch (err) {
       console.error("AI enrichment failed", err);
     } finally {
