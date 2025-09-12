@@ -4,8 +4,10 @@ import { createClient } from '@supabase/supabase-js';
 export default async function guestSignup(req: Request, res: Response) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   try {
-    const { email, password } = req.body || {};
+    let { email, password } = req.body || {};
     if (!email || !password) return res.status(400).json({ error: 'Missing email or password' });
+    email = String(email).trim().toLowerCase();
+    password = String(password);
 
     const url = process.env.SUPABASE_URL as string;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY as string;

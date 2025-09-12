@@ -29,12 +29,13 @@ export default function AcceptGuest() {
     setError('');
     try {
       const base = (import.meta.env.VITE_BACKEND_URL || (window.location.host.endsWith('thehirepilot.com') ? 'https://api.thehirepilot.com' : 'http://localhost:8080')).replace(/\/$/, '');
+      const cleanEmail = String(email).trim().toLowerCase();
       // Create or upsert confirmed user via backend to avoid email confirmation
       await fetch(`${base}/api/guest-signup`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password })
       });
       // Sign in
-      await supabase.auth.signInWithPassword({ email, password });
+      await supabase.auth.signInWithPassword({ email: cleanEmail, password: String(password) });
       sessionStorage.setItem('guest_mode','1');
       navigate(`/job/${jobId}`);
     } catch (e) {

@@ -51,7 +51,7 @@ export default async function getJob(req: Request, res: Response) {
       if (guest) allowed = true;
     }
 
-    if (!allowed) return res.status(403).json({ error: 'Forbidden' });
+    if (!allowed) return res.status(403).json({ error: 'Forbidden', details: { callerId, callerEmail } });
 
     return res.json({ job });
   } catch (e: any) {

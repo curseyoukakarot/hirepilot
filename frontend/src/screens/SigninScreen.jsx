@@ -24,8 +24,8 @@ export default function SigninScreen() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const email = e.target.email.value;
-    const password = e.target.password.value;
+    const email = String(e.target.email.value || '').trim().toLowerCase();
+    const password = String(e.target.password.value || '');
 
     const base = (import.meta.env.VITE_BACKEND_URL || (window.location.host.endsWith('thehirepilot.com') ? 'https://api.thehirepilot.com' : 'http://localhost:8080')).replace(/\/$/, '');
     let { error } = await supabase.auth.signInWithPassword({ email, password });
