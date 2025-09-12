@@ -279,6 +279,11 @@ function InnerApp() {
   // Only the marketing page "/rex" should be treated as public; do NOT blanket-match all "/rex*" paths
   const isAuthPage = landingPages.includes(location.pathname) || location.pathname.startsWith('/blog') || isPartnerArea;
   const isBlog = location.pathname.startsWith('/blog');
+  // Guest routes detection
+  const isGuestRoute = location.pathname.startsWith('/accept-guest')
+    || location.pathname === '/settings'
+    || location.pathname === '/signout'
+    || (location.pathname.startsWith('/job/') && (typeof window !== 'undefined' && sessionStorage.getItem('guest_mode') === '1'));
 
   // If partners routes are hit on the main domain, redirect to affiliates subdomain
   useEffect(() => {
@@ -394,7 +399,7 @@ function InnerApp() {
           }}>Update payment</button>
         </div>
       )}
-      {!isAuthPage && !isPartnerArea && <div className="fixed top-0 left-0 right-0 z-50"><Navbar /></div>}
+      {!isAuthPage && !isPartnerArea && !isGuestRoute && <div className="fixed top-0 left-0 right-0 z-50"><Navbar /></div>}
       <Toaster
         position="top-right"
         toastOptions={{
@@ -405,9 +410,9 @@ function InnerApp() {
           },
         }}
       />
-      <div className={`flex flex-1 ${!isAuthPage ? 'pt-[72px]' : ''}`}>
-        {!isAuthPage && !isPartnerArea && <div className="fixed left-0 top-[72px] bottom-0 w-64"><Sidebar /></div>}
-        <main className={`flex-1 ${!isAuthPage && !isPartnerArea ? 'ml-64 p-6 min-h-0 overflow-y-auto' : ''}`}>
+      <div className={`flex flex-1 ${!isAuthPage && !isGuestRoute ? 'pt-[72px]' : ''}`}>
+        {!isAuthPage && !isPartnerArea && !isGuestRoute && <div className="fixed left-0 top-[72px] bottom-0 w-64"><Sidebar /></div>}
+        <main className={`flex-1 ${!isAuthPage && !isPartnerArea && !isGuestRoute ? 'ml-64 p-6 min-h-0 overflow-y-auto' : ''}`}>
           {!isAuthPage && <OnboardingModals />}
           <Suspense fallback={
             <div className="flex items-center justify-center w-full h-[50vh]">
