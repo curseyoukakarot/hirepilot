@@ -279,8 +279,11 @@ function InnerApp() {
   const landingPages = ["/", "/signup", "/login", "/reset-password", "/copilot", "/enterprise", "/pricing", "/rex", "/rexsupport", "/chromeextension", "/chromeextension/privacy", "/terms", "/apidoc", "/test-gmail", "/affiliates", "/blog/zapierguide", "/producthunt", "/dfydashboard", "/freeforever"];
   // Treat blog landing and article pages as public landing pages (no dashboard UI)
   const isPartnerArea = location.pathname.startsWith('/partners');
+  // Public dynamic pages (e.g., share/apply) should not be gated by auth
+  const isPublicShare = location.pathname.startsWith('/jobs/share/');
+  const isPublicApply = location.pathname.startsWith('/apply/');
   // Only the marketing page "/rex" should be treated as public; do NOT blanket-match all "/rex*" paths
-  const isAuthPage = landingPages.includes(location.pathname) || location.pathname.startsWith('/blog') || isPartnerArea;
+  const isAuthPage = landingPages.includes(location.pathname) || location.pathname.startsWith('/blog') || isPartnerArea || isPublicShare || isPublicApply;
   const isBlog = location.pathname.startsWith('/blog');
   // Whether the current authenticated user is a guest collaborator (computed below)
   const [isGuestUser, setIsGuestUser] = useState(false);
