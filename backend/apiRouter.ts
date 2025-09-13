@@ -285,7 +285,31 @@ router.get('/advanced-info', advancedInfo);
 router.get('/auth-debug', authDebug);
 
 // Admin-only helper: reset guest password (support-only; add real admin auth in production)
+// Simple admin gate: require bearer and user role from Supabase to be an admin-like role
+async function requireAdmin(req: Request, res: Response): Promise<{ ok: boolean, admin: any | null }> {
+  try {
+    const url = process.env.SUPABASE_URL as string;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY as string;
+    if (!url || !serviceKey) return { ok: false, admin: null };
+    const admin = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
+    const auth = String(req.headers.authorization || '');
+    if (!auth.startsWith('Bearer ')) { res.status(401).json({ error: 'Missing or invalid bearer token' }); return { ok: false, admin: null }; }
+    const token = auth.split(' ')[1];
+    const { data, error } = await admin.auth.getUser(token);
+    if (error || !data?.user) { res.status(401).json({ error: 'Invalid or expired token' }); return { ok: false, admin: null }; }
+    const role = String((data.user.user_metadata as any)?.role || '').toLowerCase().replace(/\s|-/g, '_');
+    const isAdmin = ['admin','super_admin','owner','account_owner','team_admin','org_admin'].includes(role);
+    if (!isAdmin) { res.status(403).json({ error: 'Admin only' }); return { ok: false, admin: null }; }
+    return { ok: true, admin };
+  } catch {
+    res.status(500).json({ error: 'Admin check failed' });
+    return { ok: false, admin: null };
+  }
+}
+
 router.post('/admin/reset-guest-password', async (req: Request, res: Response) => {
+  const gate = await requireAdmin(req, res);
+  if (!gate.ok) return;
   try {
     const { email, newPassword } = req.body || {};
     if (!email || !newPassword) return res.status(400).json({ error: 'Missing email or newPassword' });
@@ -305,6 +329,44 @@ router.post('/admin/reset-guest-password', async (req: Request, res: Response) =
     return res.json({ success: true, userId: user.id });
   } catch (e: any) {
     return res.status(500).json({ error: e.message || 'reset-guest-password failed' });
+  }
+});
+
+// Admin-only: backfill missing auth users for collaborators by email
+router.post('/admin/backfill-guests', async (req: Request, res: Response) => {
+  const gate = await requireAdmin(req, res);
+  if (!gate.ok) return;
+  try {
+    const { emails } = req.body || {};
+    if (!Array.isArray(emails) || emails.length === 0) return res.status(400).json({ error: 'Provide emails[]' });
+    const normalized = emails.map((e: string) => String(e || '').trim().toLowerCase()).filter(Boolean);
+    const admin = gate.admin;
+    const results: any[] = [];
+    for (const email of normalized) {
+      // Check if exists
+      let existing: any | null = null;
+      for (let page = 1; page <= 20 && !existing; page++) {
+        const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+        if (error) break;
+        existing = (data?.users || []).find((u: any) => String(u.email || '').toLowerCase() === email) || null;
+        if ((data?.users || []).length < 1000) break;
+      }
+      if (existing?.id) {
+        results.push({ email, status: 'exists', id: existing.id });
+        continue;
+      }
+      // Create minimal guest with random password
+      const randomPw = Math.random().toString(36).slice(2) + Math.random().toString(36).toUpperCase().slice(2);
+      const { data: created, error: createError } = await admin.auth.admin.createUser({ email, password: randomPw, email_confirm: true, user_metadata: { role: 'guest' } });
+      if (createError) {
+        results.push({ email, status: 'error', error: createError.message });
+      } else {
+        results.push({ email, status: 'created', id: created?.user?.id });
+      }
+    }
+    return res.json({ results });
+  } catch (e: any) {
+    return res.status(500).json({ error: e.message || 'backfill-guests failed' });
   }
 });
 

@@ -14,15 +14,22 @@ export default async function getJob(req: Request, res: Response) {
     const admin = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
 
     // Extract bearer token to identify the caller
-    const auth = (req.headers.authorization || '').split(' ')[1] || '';
+    const authHeader = String(req.headers.authorization || '');
+    if (!authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Missing or invalid bearer token' });
+    }
+    const auth = authHeader.split(' ')[1] || '';
     let callerId: string | null = null;
     let callerEmail: string | null = null;
-    if (auth) {
-      try {
-        const { data: userRes } = await admin.auth.getUser(auth);
-        callerId = userRes.user?.id || null;
-        callerEmail = (userRes.user as any)?.email || userRes.user?.user_metadata?.email || null;
-      } catch {}
+    try {
+      const { data: userRes, error: userErr } = await admin.auth.getUser(auth);
+      if (userErr || !userRes?.user) {
+        return res.status(401).json({ error: 'Invalid or expired token' });
+      }
+      callerId = userRes.user?.id || null;
+      callerEmail = (userRes.user as any)?.email || userRes.user?.user_metadata?.email || null;
+    } catch {
+      return res.status(401).json({ error: 'Invalid token' });
     }
 
     // Load job
