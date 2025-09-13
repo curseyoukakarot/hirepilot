@@ -43,8 +43,17 @@ export default function AcceptGuest() {
         try { const j = await upsert.json(); msg = j.error || msg; } catch {}
         throw new Error(msg);
       }
-      // Now sign in
-      const { error: signErr } = await supabase.auth.signInWithPassword({ email: cleanEmail, password: cleanPassword });
+      // Now sign in; if invalid, force-reset password via admin endpoint then retry
+      let { error: signErr } = await supabase.auth.signInWithPassword({ email: cleanEmail, password: cleanPassword });
+      if (signErr && String(signErr.message || '').toLowerCase().includes('invalid')) {
+        await fetch(`${base}/api/admin/reset-guest-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: cleanEmail, newPassword: cleanPassword })
+        });
+        const retry = await supabase.auth.signInWithPassword({ email: cleanEmail, password: cleanPassword });
+        signErr = retry.error;
+      }
       if (signErr) throw signErr;
       sessionStorage.setItem('guest_mode', '1');
       navigate(jobId ? `/job/${jobId}` : '/jobs');
