@@ -53,16 +53,9 @@ export default function ShareJobModal({ job, open, onClose }) {
 
   if (!open) return null;
 
-  const openShareWindow = (url) => window.open(url, '_blank', 'noopener');
-  const shareLinkedIn = () => {
-    if (!shareUrl) return; openShareWindow(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`);
-  };
-  const shareX = () => {
-    const text = copy || shareUrl; openShareWindow(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`);
-  };
-  const shareFacebook = () => {
-    if (!shareUrl) return; openShareWindow(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(copy)}`);
-  };
+  const linkedInHref = shareUrl ? `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}` : '#';
+  const xHref = shareUrl ? `https://twitter.com/intent/tweet?text=${encodeURIComponent(copy || shareUrl)}` : '#';
+  const facebookHref = shareUrl ? `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(copy || '')}` : '#';
 
   return (
     <div className="fixed inset-0 bg-gray-900 bg-opacity-60 flex items-center justify-center p-4 z-50">
@@ -102,15 +95,15 @@ export default function ShareJobModal({ job, open, onClose }) {
             </div>
             <textarea className="w-full min-h-[120px] bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition" value={copy} onChange={(e)=>setCopy(e.target.value)} />
             <div className="mt-3 flex items-center gap-3 text-sm">
-              <button type="button" onClick={shareLinkedIn} className="w-12 h-12 flex items-center justify-center border rounded-lg hover:bg-slate-50" title="Share on LinkedIn">
+              <a href={linkedInHref} target="_blank" rel="noopener noreferrer" className="w-12 h-12 flex items-center justify-center border rounded-lg hover:bg-slate-50" title="Share on LinkedIn">
                 <i className="fa-brands fa-linkedin"></i>
-              </button>
-              <button type="button" onClick={shareX} className="w-12 h-12 flex items-center justify-center border rounded-lg hover:bg-slate-50" title="Share on X">
+              </a>
+              <a href={xHref} target="_blank" rel="noopener noreferrer" className="w-12 h-12 flex items-center justify-center border rounded-lg hover:bg-slate-50" title="Share on X">
                 <i className="fa-brands fa-x-twitter"></i>
-              </button>
-              <button type="button" onClick={shareFacebook} className="w-12 h-12 flex items-center justify-center border rounded-lg hover:bg-slate-50" title="Share on Facebook">
+              </a>
+              <a href={facebookHref} target="_blank" rel="noopener noreferrer" className="w-12 h-12 flex items-center justify-center border rounded-lg hover:bg-slate-50" title="Share on Facebook">
                 <i className="fa-brands fa-facebook"></i>
-              </button>
+              </a>
             </div>
           </div>
 
