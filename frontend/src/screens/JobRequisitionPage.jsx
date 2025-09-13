@@ -6,6 +6,7 @@ import JobPipeline from './JobPipeline';
 import DfyDashboard from './DfyDashboard';
 import AddGuestModal from '../components/AddGuestModal';
 import UpgradeModal from '../components/UpgradeModal';
+import ShareJobModal from '../components/ShareJobModal';
 
 export default function JobRequisitionPage() {
   const { id } = useParams();
@@ -30,6 +31,7 @@ export default function JobRequisitionPage() {
   const [savingDesc, setSavingDesc] = useState(false);
   const [noteText, setNoteText] = useState('');
   const [showActionsMenu, setShowActionsMenu] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const displayName = (u) => {
     if (!u) return 'Unknown';
@@ -365,6 +367,7 @@ export default function JobRequisitionPage() {
   }
 
   return (
+    <>
     <div className="bg-gray-50 font-sans min-h-screen">
       <div id="job-requisition-page" className="min-h-screen">
         {/* Header */}
@@ -397,7 +400,7 @@ export default function JobRequisitionPage() {
                   ))}
                 </div>
 
-                <button className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50" onClick={() => console.log('Share')}>
+                <button className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50" onClick={() => setShareOpen(true)}>
                   <i className="fas fa-share-alt mr-2"></i>
                   Share
                 </button>
@@ -720,6 +723,8 @@ export default function JobRequisitionPage() {
         </main>
       </div>
     </div>
+    {shareOpen && <ShareJobModal job={job} open={shareOpen} onClose={()=>setShareOpen(false)} />}
+    </>
   );
 }
 
