@@ -26,10 +26,19 @@ export default async function guestSignup(req: Request, res: Response) {
       return res.status(201).json({ id: created.user.id, created: true });
     }
 
-    // If create failed (likely already exists), list and filter by email (no typed email filter available)
-    const { data: users, error: listError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-    if (listError) return res.status(500).json({ error: `List failed: ${listError.message}` });
-    const existing = (users?.users || []).find(u => String(u.email || '').toLowerCase() === email);
+    // If create failed for reasons other than "already exists", surface the error
+    if (createError && !/exist|already|registered/i.test(createError.message || '')) {
+      return res.status(400).json({ error: `Create failed: ${createError.message}` });
+    }
+
+    // If user likely exists, list and filter by email (iterate pages defensively)
+    let existing: any | null = null;
+    for (let page = 1; page <= 10 && !existing; page++) {
+      const { data: users, error: listError } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+      if (listError) return res.status(500).json({ error: `List failed: ${listError.message}` });
+      existing = (users?.users || []).find(u => String(u.email || '').toLowerCase() === email) || null;
+      if ((users?.users || []).length < 1000) break; // no more pages
+    }
     if (!existing?.id) return res.status(400).json({ error: 'User not found and create failed' });
     const { error: updateError } = await admin.auth.admin.updateUserById(existing.id, {
       password,
