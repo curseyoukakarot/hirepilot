@@ -39,18 +39,22 @@ router.post('/:id/share', async (req: Request, res: Response) => {
     const applyUrl = typeof body.apply_url === 'string' ? body.apply_url : undefined;
 
     let shareRow: any = existing.data || null;
+    const wantsRegenerate = Boolean(body.regenerate);
     if (shareRow) {
       const update: any = {};
       if (applyMode) update.apply_mode = applyMode;
       if (applyUrl !== undefined) update.apply_url = applyUrl || null;
-      const { data: upd, error } = await supabaseDb
-        .from('job_shares')
-        .update({ ...update })
-        .eq('id', shareRow.id)
-        .select('*')
-        .maybeSingle();
-      if (error) return res.status(500).json({ error: error.message });
-      shareRow = upd;
+      if (wantsRegenerate) update.uuid_link = uuidv4();
+      if (Object.keys(update).length > 0) {
+        const { data: upd, error } = await supabaseDb
+          .from('job_shares')
+          .update(update)
+          .eq('id', shareRow.id)
+          .select('*')
+          .maybeSingle();
+        if (error) return res.status(500).json({ error: error.message });
+        shareRow = upd || shareRow;
+      }
     } else {
       const uuid = uuidv4();
       const { data: created, error } = await supabaseDb
@@ -63,9 +67,25 @@ router.post('/:id/share', async (req: Request, res: Response) => {
           apply_url: applyUrl || null
         })
         .select('*')
-        .single();
+        .maybeSingle();
       if (error) return res.status(500).json({ error: error.message });
-      shareRow = created;
+      shareRow = created || null;
+    }
+
+    // Defensive: if still null, fetch latest for this job/user
+    if (!shareRow) {
+      const { data: fetched } = await supabaseDb
+        .from('job_shares')
+        .select('*')
+        .eq('job_id', jobId)
+        .eq('recruiter_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      shareRow = fetched || null;
+    }
+    if (!shareRow || !shareRow.uuid_link) {
+      return res.status(500).json({ error: 'Failed to create job share link' });
     }
 
     const publicUrl = `/jobs/share/${shareRow.uuid_link}`;
