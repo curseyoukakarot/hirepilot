@@ -26,10 +26,7 @@ export default async function guestSignup(req: Request, res: Response) {
       return res.status(201).json({ id: created.user.id, created: true });
     }
 
-    // If create failed for reasons other than "already exists", surface the error
-    if (createError && !/exist|already|registered/i.test(createError.message || '')) {
-      return res.status(400).json({ error: `Create failed: ${createError.message}` });
-    }
+    // If create failed, continue by attempting to find existing user by email
 
     // If user likely exists, list and filter by email (iterate pages defensively)
     let existing: any | null = null;
