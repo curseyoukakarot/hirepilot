@@ -39,6 +39,37 @@ export default function JobRequisitionPage() {
     return u.email || 'Unknown';
   };
 
+  const nameFromEmail = (email) => {
+    const local = String(email || '').split('@')[0];
+    if (!local) return 'Guest';
+    const words = local.replace(/[_\.-]+/g, ' ').trim().split(/\s+/);
+    return words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || 'Guest';
+  };
+
+  const initialsFrom = (nameOrEmail) => {
+    const base = String(nameOrEmail || '').trim();
+    const source = base.includes('@') ? base.split('@')[0] : base;
+    const parts = source.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    if (parts.length === 1) return (parts[0][0] || 'U').toUpperCase();
+    return 'U';
+  };
+
+  const collaboratorDisplayName = (t) => {
+    if (t?.users) return displayName(t.users);
+    if (t?.email) return nameFromEmail(t.email);
+    return 'Unknown';
+  };
+
+  const Avatar = ({ user, email, size = 8 }) => {
+    const px = typeof size === 'number' ? size : 8;
+    const classBase = `w-${px} h-${px} rounded-full flex items-center justify-center text-white text-xs font-semibold`;
+    const url = user?.avatar_url;
+    const label = user ? displayName(user) : nameFromEmail(email);
+    if (url) return <img src={url} className={`w-${px} h-${px} rounded-full object-cover`} />;
+    return <div className={`${classBase} bg-gray-400`}>{initialsFrom(label || email)}</div>;
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -131,7 +162,17 @@ export default function JobRequisitionPage() {
           .from('job_guest_collaborators')
           .select('email, role')
           .eq('job_id', id);
-        const guestAsTeam = (guestRows || []).map(g => ({ is_guest: true, role: g.role, email: g.email, users: null }));
+        const guestList = guestRows || [];
+        const emails = [...new Set(guestList.map(g => String(g.email || '').toLowerCase()).filter(Boolean))];
+        let usersByEmail = new Map();
+        if (emails.length) {
+          const { data: userByEmailRows } = await supabase
+            .from('users')
+            .select('*')
+            .in('email', emails);
+          (userByEmailRows || []).forEach(u => usersByEmail.set(String(u.email || '').toLowerCase(), u));
+        }
+        const guestAsTeam = guestList.map(g => ({ is_guest: true, role: g.role, email: g.email, users: usersByEmail.get(String(g.email || '').toLowerCase()) || null }));
         setTeam([...(filteredTeam || []), ...guestAsTeam]);
       } catch {
         setTeam(filteredTeam);
@@ -348,7 +389,9 @@ export default function JobRequisitionPage() {
               <div className="flex items-center space-x-3">
                 <div className="flex -space-x-2">
                   {team.slice(0,3).map((t,i) => (
-                    <img key={i} src={t.users?.avatar_url || ''} className="w-8 h-8 rounded-full border-2 border-white" />
+                    <div key={i} className="border-2 border-white rounded-full">
+                      <Avatar user={t.users} email={t.email} size={8} />
+                    </div>
                   ))}
                 </div>
 
@@ -493,9 +536,9 @@ export default function JobRequisitionPage() {
                     {team.length === 0 && <p className="text-sm text-gray-500">No collaborators</p>}
                     {team.map((t, idx) => (
                       <div key={idx} className="flex items-center space-x-3">
-                        <img src={t.users?.avatar_url || ''} className="w-8 h-8 rounded-full" />
+                        <Avatar user={t.users} email={t.email} size={8} />
                         <div>
-                          <p className="text-sm font-medium text-gray-900">{displayName(t.users)}</p>
+                          <p className="text-sm font-medium text-gray-900">{collaboratorDisplayName(t)}</p>
                           <p className="text-xs text-gray-500">{t.role}</p>
                         </div>
                       </div>
@@ -531,9 +574,9 @@ export default function JobRequisitionPage() {
                   {team.map((t, idx) => (
                     <div key={idx} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
                       <div className="flex items-center space-x-3">
-                        <img src={t.users?.avatar_url || ''} className="w-10 h-10 rounded-full" />
+                        <Avatar user={t.users} email={t.email} size={10} />
                         <div>
-                          <p className="font-medium text-gray-900">{displayName(t.users)}</p>
+                          <p className="font-medium text-gray-900">{collaboratorDisplayName(t)}</p>
                           <div className="flex items-center gap-2">
                             <p className="text-sm text-gray-500">{t.users?.email || t.email || ''}</p>
                             {t.is_guest && <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600 border">Guest</span>}
