@@ -111,10 +111,20 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
           const { data: camp } = await supabase.from('campaigns').select('id').eq('job_id', jobId).maybeSingle();
           matchingCampaignId = camp?.id || null;
         } catch {}
-
-        if (matchingCampaignId && user?.id) {
+        // Fallback: use most recent campaign for this user if none linked to job
+        if (!matchingCampaignId && user?.id) {
           try {
-            const perfResp = await fetch(`${base}/api/campaigns/${matchingCampaignId}/performance?user_id=${user.id}`);
+            const resp = await fetch(`${base}/api/getCampaigns?user_id=${user.id}`);
+            const body = await resp.json();
+            const list = Array.isArray(body?.campaigns) ? body.campaigns : [];
+            if (list.length > 0) matchingCampaignId = list[0].id;
+          } catch {}
+        }
+
+        if ((matchingCampaignId || 'all') && user?.id) {
+          try {
+            const perfId = matchingCampaignId || 'all';
+            const perfResp = await fetch(`${base}/api/campaigns/${perfId}/performance?user_id=${user.id}`);
             if (perfResp.ok) {
               const perf = await perfResp.json();
               outreachSent = Number(perf.sent || 0);
