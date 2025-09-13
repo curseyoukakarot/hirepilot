@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import toast from 'react-hot-toast';
 
 export default function ShareJobModal({ job, open, onClose }) {
   const [loading, setLoading] = useState(false);
@@ -28,8 +29,16 @@ export default function ShareJobModal({ job, open, onClose }) {
         if (js.apply_url) setApplyUrl(js.apply_url);
         setAttach(Boolean(js.apply_mode === 'hirepilot' || js.apply_url));
         if (!copy) setCopy(buildDefaultCopy(job, `${window.location.origin}/jobs/share/${js.uuid_link}`));
+        if (opts && opts._action === 'publish') {
+          toast.success('Link published');
+        } else if (opts && opts._action === 'regenerate') {
+          toast.success('Link regenerated');
+        }
+        return js;
       } else {
         console.error('share error', js);
+        toast.error(js?.error || 'Failed to save share settings');
+        return null;
       }
     } finally {
       setLoading(false);
@@ -38,8 +47,40 @@ export default function ShareJobModal({ job, open, onClose }) {
 
   useEffect(() => { if (open && job?.id) fetchOrCreateShare(); }, [open, job?.id]);
 
-  const regenerateLink = async () => { await fetchOrCreateShare({ apply_mode: applyMode, apply_url: applyMode === 'external' ? applyUrl : null, regenerate: true }); };
-  const publishAndShare = async () => { await fetchOrCreateShare({ apply_mode: applyMode, apply_url: applyMode === 'external' ? applyUrl : null }); onClose?.(); };
+  const regenerateLink = async () => {
+    const ok = await fetchOrCreateShare({ apply_mode: applyMode, apply_url: applyMode === 'external' ? applyUrl : null, regenerate: true, _action: 'regenerate' });
+    if (!ok) return;
+  };
+  const publishAndShare = async () => {
+    const res = await fetchOrCreateShare({ apply_mode: applyMode, apply_url: applyMode === 'external' ? applyUrl : null, _action: 'publish' });
+    if (res) {
+      onClose?.();
+    }
+  };
+
+  const regenerateAICopy = async () => {
+    try {
+      if (!job?.id) return;
+      const link = shareUrl || `${window.location.origin}/job/${job.id}`;
+      setLoading(true);
+      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/jobs/${job.id}/generate-social-copy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ link })
+      });
+      const js = await resp.json();
+      if (resp.ok && js?.text) {
+        setCopy(js.text);
+        toast.success('Draft regenerated');
+      } else {
+        toast.error(js?.error || 'Failed to regenerate draft');
+      }
+    } catch (e) {
+      toast.error('Failed to regenerate draft');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const buildDefaultCopy = (job, link) => {
     const parts = [
@@ -76,7 +117,7 @@ export default function ShareJobModal({ job, open, onClose }) {
             <label className="block text-sm font-medium text-slate-800 mb-2">Shareable Link</label>
             <div className="flex items-center space-x-2">
               <input type="text" readOnly value={shareUrl} className="flex-grow bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition" />
-              <button className="bg-indigo-600 text-white font-semibold px-5 py-2.5 rounded-lg hover:bg-indigo-700 transition-all duration-200 flex items-center space-x-2" onClick={() => { navigator.clipboard.writeText(shareUrl); }}>
+              <button className="bg-indigo-600 text-white font-semibold px-5 py-2.5 rounded-lg hover:bg-indigo-700 transition-all duration-200 flex items-center space-x-2" onClick={() => { if (shareUrl) { navigator.clipboard.writeText(shareUrl); toast.success('Link copied'); } else { toast.error('No link yet'); } }}>
                 <i className="fa-regular fa-copy"></i><span>Copy</span>
               </button>
               <button className="px-3 py-2 rounded-lg border text-sm" onClick={regenerateLink} disabled={loading}>Regenerate</button>
@@ -89,8 +130,8 @@ export default function ShareJobModal({ job, open, onClose }) {
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-base font-semibold text-slate-800">AI Drafted Post</h3>
               <div className="space-x-2">
-                <button className="px-3 py-1.5 text-sm border rounded-lg" onClick={() => setCopy(buildDefaultCopy(job, shareUrl))}>Regenerate</button>
-                <button className="px-3 py-1.5 text-sm border rounded-lg" onClick={() => navigator.clipboard.writeText(copy)}>Copy</button>
+                <button className="px-3 py-1.5 text-sm border rounded-lg" onClick={regenerateAICopy} disabled={loading}>Regenerate</button>
+                <button className="px-3 py-1.5 text-sm border rounded-lg" onClick={() => { if (copy) { navigator.clipboard.writeText(copy); toast.success('Text copied'); } else { toast.error('Nothing to copy'); } }}>Copy</button>
               </div>
             </div>
             <textarea className="w-full min-h-[120px] bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition" value={copy} onChange={(e)=>setCopy(e.target.value)} />
