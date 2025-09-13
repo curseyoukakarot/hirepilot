@@ -53,7 +53,7 @@ function IFrameEmbed({ html }) {
   );
 }
 
-export default function DfyDashboard() {
+export default function DfyDashboard({ embedded = false }) {
   const html = `<!DOCTYPE html>
 <html><head>
     <meta charset="UTF-8">
@@ -101,8 +101,12 @@ export default function DfyDashboard() {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+  /* Embedded mode removes this page's chrome so the host app can provide it */
+  .embedded #sidebar { display: none !important; }
+  .embedded #header { display: none !important; }
+  .embedded #main-content { margin-left: 0 !important; }
   </style></head>
-<body class="bg-gray-50">
+<body class="bg-gray-50${embedded ? ' embedded' : ''}">
 
 <div class="flex">
     <aside id="sidebar" class="w-64 bg-white shadow-lg h-screen fixed left-0 top-0 z-10">
