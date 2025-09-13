@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { supabase } from '../lib/supabase';
+import { sendSignupWelcomeEmail } from '../../services/sendUserHtmlEmail';
 
 const router = Router();
 
@@ -46,6 +47,16 @@ router.post('/signup', async (req, res) => {
         await supabase
           .from('user_credits')
           .upsert({ user_id: userId, total_credits: 50, used_credits: 0, remaining_credits: 50, last_updated: new Date().toISOString() }, { onConflict: 'user_id' });
+      } catch {}
+
+      // Fire welcome email (best-effort) and seed trial_emails row to track drip
+      try {
+        await sendSignupWelcomeEmail(userId);
+      } catch {}
+      try {
+        await supabase
+          .from('trial_emails')
+          .upsert({ user_id: userId }, { onConflict: 'user_id' });
       } catch {}
     }
 

@@ -1,11 +1,7 @@
 import { supabaseDb } from '../lib/supabase';
-import { sendTemplateEmail } from '../lib/emailDrip';
+import { sendUpgradeNudgeEmail, sendActivationPushEmail } from '../services/sendUserHtmlEmail';
 
-const TEMPLATES = {
-  welcome: process.env.SENDGRID_TEMPLATE_WELCOME!,
-  power: process.env.SENDGRID_TEMPLATE_POWERUP!,
-  expiry: process.env.SENDGRID_TEMPLATE_EXPIRY!
-};
+// Use raw HTML templates instead of SendGrid dynamic templates
 
 export async function processTrialEmails() {
   try {
@@ -30,17 +26,20 @@ export async function processTrialEmails() {
       const days = Math.floor((today.getTime() - new Date(row.created_at).getTime()) / 86400000);
       
       try {
-        if (!row.welcome_sent) {
-          console.log(`📧 Sending welcome email to user ${row.user_id} (day 0)`);
-          await sendTemplateEmail(row.user_id, TEMPLATES.welcome);
-          await supabaseDb.from('trial_emails').update({ welcome_sent: true }).eq('user_id', row.user_id);
-        } else if (days >= 1 && !row.powerup_sent) {
-          console.log(`📧 Sending powerup email to user ${row.user_id} (day ${days})`);
-          await sendTemplateEmail(row.user_id, TEMPLATES.power);
+        // Skip drips if user is upgraded/paid
+        if (row.plan && row.plan !== 'free') continue;
+
+        // Day 3: upgrade nudge
+        if (days >= 3 && !row.powerup_sent) {
+          console.log(`📧 Sending upgrade nudge to user ${row.user_id} (day ${days})`);
+          await sendUpgradeNudgeEmail(row.user_id);
           await supabaseDb.from('trial_emails').update({ powerup_sent: true }).eq('user_id', row.user_id);
-        } else if (days >= 6 && !row.expiry_sent) {
-          console.log(`📧 Sending expiry email to user ${row.user_id} (day ${days})`);
-          await sendTemplateEmail(row.user_id, TEMPLATES.expiry);
+        }
+
+        // Day 6: activation push
+        if (days >= 6 && !row.expiry_sent) {
+          console.log(`📧 Sending activation push to user ${row.user_id} (day ${days})`);
+          await sendActivationPushEmail(row.user_id);
           await supabaseDb.from('trial_emails').update({ expiry_sent: true }).eq('user_id', row.user_id);
         }
       } catch (emailError) {
