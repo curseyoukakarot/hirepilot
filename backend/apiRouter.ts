@@ -45,6 +45,7 @@ import guestStatus from './api/guestStatus';
 import getJob from './api/getJob';
 import advancedInfo from './api/advancedInfo';
 import authDebug from './api/authDebug';
+import jobsShareRouter from './api/jobsShare';
 // Temporary: admin tools for support
 import type { Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
@@ -100,6 +101,8 @@ router.use("/pipeline-stages", requireAuth, pipelineStages);
 
 // Add this line where other routers are registered
 router.use('/message', messageRouter);
+// Job share + apply
+router.use('/jobs', jobsShareRouter);
 
 // Team management routes
 router.use('/team', requireAuth, teamRouter);
