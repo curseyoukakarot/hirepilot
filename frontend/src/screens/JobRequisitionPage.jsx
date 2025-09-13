@@ -314,6 +314,10 @@ export default function JobRequisitionPage() {
   };
 
   if (!hasCollabAccess()) {
+    // Guests should not see premium gating modal
+    if (guestRole) {
+      return <div className="min-h-screen bg-gray-50 flex items-center justify-center">No access</div>;
+    }
     return <UpgradeModal feature="Job Collaboration" onClose={() => window.history.back()} />;
   }
 

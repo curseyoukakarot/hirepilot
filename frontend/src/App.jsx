@@ -310,12 +310,12 @@ function InnerApp() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         // Try to fetch role from users table
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('users')
           .select('role')
           .eq('id', user.id)
-          .single();
-        if (data && data.role) {
+          .maybeSingle();
+        if (data?.role) {
           setDbRole(data.role);
         } else {
           setDbRole(null);
