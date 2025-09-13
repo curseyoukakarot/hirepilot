@@ -65,6 +65,8 @@ const RequirePartnersAuth = ({ children }) => <PartnersRouteGuard>{children}</Pa
 import RexWidget from './widgets/rex/RexWidget';
 import PromoBanner from './components/PromoBanner';
 import { PlanProvider } from './context/PlanContext';
+import PublicJobPage from './screens/PublicJobPage';
+import ApplyForm from './screens/ApplyForm';
 import OnboardingModals from './components/OnboardingModals';
 // Blog article pages
 const FlowOfHirePilot = lazy(() => import("./pages/blog/FlowOfHirePilot"));
@@ -457,6 +459,8 @@ function InnerApp() {
               <Route path="/signout" element={<SignOutRedirect />} />
               <Route path="/billing" element={<BillingScreen />} />
               <Route path="/rex-chat" element={<RexChatPage />} />
+              <Route path="/jobs/share/:shareId" element={<PublicJobPage />} />
+              <Route path="/apply/:jobId" element={<ApplyForm />} />
               <Route path="/sniper" element={<SniperTargets />} />
               {/* Agent Mode Center and drawers */}
               <Route path="/agent" element={<AgentModeCenter />}>
