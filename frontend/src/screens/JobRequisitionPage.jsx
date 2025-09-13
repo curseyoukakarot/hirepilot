@@ -29,6 +29,7 @@ export default function JobRequisitionPage() {
   const [descDraft, setDescDraft] = useState('');
   const [savingDesc, setSavingDesc] = useState(false);
   const [noteText, setNoteText] = useState('');
+  const [showActionsMenu, setShowActionsMenu] = useState(false);
 
   const displayName = (u) => {
     if (!u) return 'Unknown';
