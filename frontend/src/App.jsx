@@ -384,7 +384,7 @@ function InnerApp() {
   useEffect(() => {
     if (!userLoaded) return;
     // If user is authenticated and on a public landing page, send them to dashboard
-    if (dbRole && landingPages.includes(location.pathname) && !['/login','/signup','/reset-password'].includes(location.pathname)) {
+    if (dbRole && landingPages.includes(location.pathname) && !['/login','/signup','/reset-password'].includes(location.pathname) && !isPublicShare && !isPublicApply) {
       navigate('/dashboard', { replace: true });
       return;
     }
