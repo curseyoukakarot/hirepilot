@@ -45,7 +45,7 @@ router.post('/:id/share', async (req: Request, res: Response) => {
       if (applyUrl !== undefined) update.apply_url = applyUrl || null;
       const { data: upd, error } = await supabaseDb
         .from('job_shares')
-        .update({ ...update, updated_at: new Date().toISOString() })
+        .update({ ...update })
         .eq('id', shareRow.id)
         .select('*')
         .maybeSingle();
