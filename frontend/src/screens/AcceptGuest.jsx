@@ -32,16 +32,7 @@ export default function AcceptGuest() {
       const base = (import.meta.env.VITE_BACKEND_URL || (window.location.host.endsWith('thehirepilot.com') ? 'https://api.thehirepilot.com' : 'http://localhost:8080')).replace(/\/$/, '');
       const cleanEmail = String(email || inviteEmail).trim().toLowerCase();
       const cleanPassword = String(password);
-      const resp = await fetch(`${base}/api/guest-signup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail, password: cleanPassword })
-      });
-      if (!resp.ok) {
-        let msg = 'Signup failed';
-        try { const j = await resp.json(); msg = j.error || msg; } catch {}
-        throw new Error(msg);
-      }
+      // Since user is provisioned at invite-time, just sign in (and set password via login if needed)
       const { error: signErr } = await supabase.auth.signInWithPassword({ email: cleanEmail, password: cleanPassword });
       if (signErr) throw signErr;
       sessionStorage.setItem('guest_mode', '1');
