@@ -16,34 +16,28 @@ export default async function guestSignup(req: Request, res: Response) {
     const admin = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
 
     // Try create
-    const created = await admin.auth.admin.createUser({
+    const { data: created, error: createError } = await admin.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
       user_metadata: { role: 'guest' },
     });
-    if (!created.error && created.data?.user?.id) {
-      return res.status(201).json({ id: created.data.user.id, created: true });
+    if (!createError && created?.user?.id) {
+      return res.status(201).json({ id: created.user.id, created: true });
     }
 
-    // If already exists, find by email and update password/confirm via Admin REST
-    const adminBase = `${url}/auth/v1`;
-    const headers: any = { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
-    // lookup
-    const findResp = await fetch(`${adminBase}/admin/users?email=${encodeURIComponent(email)}`, { headers });
-    if (!findResp.ok) {
-      const t = await findResp.text();
-      return res.status(400).json({ error: `Lookup failed: ${t}` });
-    }
-    const body = await findResp.json();
-    const user = Array.isArray(body?.users) ? body.users[0] : (body?.id ? body : null);
-    if (!user?.id) return res.status(400).json({ error: 'User not found and create failed' });
-    const upd = await fetch(`${adminBase}/admin/users/${user.id}`, { method: 'PUT', headers, body: JSON.stringify({ password, email_confirm: true, user_metadata: { role: 'guest' } }) });
-    if (!upd.ok) {
-      const t = await upd.text();
-      return res.status(upd.status).json({ error: `Update failed: ${t}` });
-    }
-    return res.json({ id: user.id, updated: true });
+    // If create failed (likely already exists), list and filter by email (no typed email filter available)
+    const { data: users, error: listError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    if (listError) return res.status(500).json({ error: `List failed: ${listError.message}` });
+    const existing = (users?.users || []).find(u => String(u.email || '').toLowerCase() === email);
+    if (!existing?.id) return res.status(400).json({ error: 'User not found and create failed' });
+    const { error: updateError } = await admin.auth.admin.updateUserById(existing.id, {
+      password,
+      email_confirm: true,
+      user_metadata: { role: 'guest' },
+    });
+    if (updateError) return res.status(500).json({ error: `Update failed: ${updateError.message}` });
+    return res.json({ id: existing.id, updated: true });
   } catch (e: any) {
     return res.status(500).json({ error: e.message || 'Failed to create guest user' });
   }

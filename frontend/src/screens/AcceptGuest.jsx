@@ -7,8 +7,9 @@ export default function AcceptGuest() {
   const location = useLocation();
   const params = new URLSearchParams(location.search);
   const jobId = params.get('job_id') || '';
-  const email = params.get('email') || '';
+  const inviteEmail = params.get('email') || '';
 
+  const [email, setEmail] = useState(inviteEmail);
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -16,8 +17,8 @@ export default function AcceptGuest() {
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        sessionStorage.setItem('guest_mode','1');
+      if (user && jobId) {
+        sessionStorage.setItem('guest_mode', '1');
         navigate(`/job/${jobId}`);
       }
     })();
@@ -29,22 +30,24 @@ export default function AcceptGuest() {
     setError('');
     try {
       const base = (import.meta.env.VITE_BACKEND_URL || (window.location.host.endsWith('thehirepilot.com') ? 'https://api.thehirepilot.com' : 'http://localhost:8080')).replace(/\/$/, '');
-      const cleanEmail = String(email).trim().toLowerCase();
-      // Create or upsert confirmed user via backend to avoid email confirmation
-      await fetch(`${base}/api/guest-signup`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password })
+      const cleanEmail = String(email || inviteEmail).trim().toLowerCase();
+      const cleanPassword = String(password);
+      const resp = await fetch(`${base}/api/guest-signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail, password: cleanPassword })
       });
-      // Sign in
-      await supabase.auth.signInWithPassword({ email: cleanEmail, password: String(password) });
-      sessionStorage.setItem('guest_mode','1');
-      navigate(`/job/${jobId}`);
-    } catch (e) {
-      const msg = String(e?.message || '').toLowerCase();
-      if (msg.includes('already registered')) {
-        navigate(`/login?email=${encodeURIComponent(email)}&next=${encodeURIComponent('/job/'+jobId)}`);
-        return;
+      if (!resp.ok) {
+        let msg = 'Signup failed';
+        try { const j = await resp.json(); msg = j.error || msg; } catch {}
+        throw new Error(msg);
       }
-      setError(e.message || 'Failed to create guest account');
+      const { error: signErr } = await supabase.auth.signInWithPassword({ email: cleanEmail, password: cleanPassword });
+      if (signErr) throw signErr;
+      sessionStorage.setItem('guest_mode', '1');
+      navigate(jobId ? `/job/${jobId}` : '/jobs');
+    } catch (e) {
+      setError(e?.message || 'Failed to complete invite');
     } finally {
       setLoading(false);
     }
@@ -57,7 +60,7 @@ export default function AcceptGuest() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm text-gray-600 mb-1">Email</label>
-            <input value={email} readOnly className="w-full border rounded px-3 py-2 bg-gray-50" />
+            <input value={email} onChange={(e)=>setEmail(e.target.value)} className="w-full border rounded px-3 py-2" required />
           </div>
           <div>
             <label className="block text-sm text-gray-600 mb-1">Password</label>
@@ -65,7 +68,7 @@ export default function AcceptGuest() {
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button disabled={loading} className="w-full bg-purple-600 text-white rounded px-4 py-2 disabled:opacity-50">
-            {loading ? 'Creating…' : 'Create Guest Account'}
+            {loading ? 'Working…' : 'Create Account & Continue'}
           </button>
         </form>
       </div>

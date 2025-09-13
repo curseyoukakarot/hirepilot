@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { createClient } from '@supabase/supabase-js';
 
 export default async function guestUpsert(req: Request, res: Response) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -12,48 +13,32 @@ export default async function guestUpsert(req: Request, res: Response) {
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY as string;
     if (!url || !serviceKey) return res.status(500).json({ error: 'Server auth is not configured' });
 
-    const adminBase = `${url}/auth/v1`;
-    const headers = {
-      'apikey': serviceKey,
-      'Authorization': `Bearer ${serviceKey}`,
-      'Content-Type': 'application/json',
-    } as any;
+    const admin = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
 
-    // 1) Try to find existing user by email
-    const findResp = await fetch(`${adminBase}/admin/users?email=${encodeURIComponent(email)}`, { headers });
-    if (!findResp.ok) {
-      const t = await findResp.text();
-      return res.status(findResp.status).json({ error: `Lookup failed: ${t}` });
-    }
-    const found = await findResp.json();
-    const user = Array.isArray(found?.users) ? found.users[0] : (found?.id ? found : null);
+    // Try find existing user by email (no typed email filter; list and filter client-side)
+    const { data: users, error: listError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    if (listError) return res.status(500).json({ error: `List failed: ${listError.message}` });
+    const existing = (users?.users || []).find(u => String(u.email || '').toLowerCase() === email);
 
-    if (user?.id) {
-      // 2) Update password and confirm
-      const upd = await fetch(`${adminBase}/admin/users/${user.id}`, {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify({ password, email_confirm: true, user_metadata: { role: 'guest' } }),
+    if (existing?.id) {
+      const { error: updateError } = await admin.auth.admin.updateUserById(existing.id, {
+        password,
+        email_confirm: true,
+        user_metadata: { role: 'guest' },
       });
-      if (!upd.ok) {
-        const t = await upd.text();
-        return res.status(upd.status).json({ error: `Update failed: ${t}` });
-      }
-      return res.json({ id: user.id, updated: true });
+      if (updateError) return res.status(500).json({ error: `Update failed: ${updateError.message}` });
+      return res.json({ id: existing.id, updated: true });
     }
 
-    // 3) Create if not exists
-    const crt = await fetch(`${adminBase}/admin/users`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ email, password, email_confirm: true, user_metadata: { role: 'guest' } }),
+    // Create if not exists
+    const { data: created, error: createError } = await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { role: 'guest' },
     });
-    if (!crt.ok) {
-      const t = await crt.text();
-      return res.status(crt.status).json({ error: `Create failed: ${t}` });
-    }
-    const created = await crt.json();
-    return res.status(201).json({ id: created?.id || created?.user?.id, created: true });
+    if (createError) return res.status(500).json({ error: `Create failed: ${createError.message}` });
+    return res.status(201).json({ id: created?.user?.id, created: true });
   } catch (e: any) {
     return res.status(500).json({ error: e.message || 'Failed to upsert guest user' });
   }
