@@ -17,12 +17,11 @@ export default async function authDebug(req: Request, res: Response) {
     let authUser: any = null;
     if (email && admin) {
       try {
-        const adminBase = `${url}/auth/v1`;
-        const headers = { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` } as any;
-        const resp = await fetch(`${adminBase}/admin/users?email=${encodeURIComponent(email)}`, { headers });
-        if (resp.ok) {
-          const body = await resp.json();
-          authUser = Array.isArray(body?.users) ? body.users[0] : (body?.id ? body : null);
+        for (let page = 1; page <= 10 && !authUser; page++) {
+          const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+          if (error) break;
+          authUser = (data?.users || []).find(u => String(u.email || '').toLowerCase() === email) || null;
+          if ((data?.users || []).length < 1000) break;
         }
       } catch {}
     }
