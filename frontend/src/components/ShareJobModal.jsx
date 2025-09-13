@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import toast from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 
 export default function ShareJobModal({ job, open, onClose }) {
   const [loading, setLoading] = useState(false);
@@ -40,6 +40,10 @@ export default function ShareJobModal({ job, open, onClose }) {
         toast.error(js?.error || 'Failed to save share settings');
         return null;
       }
+    } catch (e) {
+      console.error('share request failed', e);
+      toast.error('Network error while saving. Please try again.');
+      return null;
     } finally {
       setLoading(false);
     }

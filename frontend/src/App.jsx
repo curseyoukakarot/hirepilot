@@ -280,8 +280,8 @@ function InnerApp() {
   // Treat blog landing and article pages as public landing pages (no dashboard UI)
   const isPartnerArea = location.pathname.startsWith('/partners');
   // Public dynamic pages (e.g., share/apply) should not be gated by auth
-  const isPublicShare = location.pathname.startsWith('/jobs/share');
-  const isPublicApply = location.pathname.startsWith('/apply');
+  const isPublicShare = location.pathname.includes('/jobs/share');
+  const isPublicApply = location.pathname.includes('/apply');
   // Only the marketing page "/rex" should be treated as public; do NOT blanket-match all "/rex*" paths
   const isAuthPage = landingPages.includes(location.pathname) || location.pathname.startsWith('/blog') || isPartnerArea || isPublicShare || isPublicApply;
   const isBlog = location.pathname.startsWith('/blog');
