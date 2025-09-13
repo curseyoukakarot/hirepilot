@@ -401,15 +401,25 @@ export default function JobRequisitionPage() {
                   Share
                 </button>
 
-                <button className="inline-flex items-center px-3 py-2 bg-purple-600 text-white rounded-md text-sm font-medium hover:bg-purple-700" onClick={() => console.log('REX')}>
+                <button className="inline-flex items-center px-3 py-2 bg-purple-600 text-white rounded-md text-sm font-medium hover:bg-purple-700" onClick={() => window.location.assign('/rex-chat')}>
                   <i className="fas fa-robot mr-2"></i>
                   REX
                 </button>
 
                 <div className="relative">
-                  <button className="p-2 text-gray-400 hover:text-gray-600" onClick={() => console.log('More actions')}>
+                  <button className="p-2 text-gray-400 hover:text-gray-600" onClick={() => setShowActionsMenu(v => !v)}>
                     <i className="fas fa-ellipsis-h"></i>
                   </button>
+                  {showActionsMenu && (
+                    <div className="absolute right-0 mt-2 w-44 bg-white rounded-lg shadow-lg border z-10">
+                      <button className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50" onClick={() => { setShowActionsMenu(false); const next = prompt('Edit job name', job.title || ''); if (next != null && next.trim() && next !== job.title) { (async()=>{ try { await supabase.from('job_requisitions').update({ title: next.trim() }).eq('id', id); setJob(prev => ({ ...(prev||{}), title: next.trim() })); await supabase.from('job_activity_log').insert({ job_id: id, actor_id: currentUser?.id || null, type: 'job_title_updated', metadata: { title: next.trim() }, created_at: new Date().toISOString() }); } catch(e) { alert('Failed to update title'); } })(); } }}>
+                        Edit Name (Job Req)
+                      </button>
+                      <button className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50" onClick={() => { setShowActionsMenu(false); if (!confirm('Delete this job requisition? This cannot be undone.')) return; (async()=>{ try { await supabase.from('job_requisitions').delete().eq('id', id); window.location.assign('/jobs'); } catch(e) { alert('Failed to delete'); } })(); }}>
+                        Delete
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
