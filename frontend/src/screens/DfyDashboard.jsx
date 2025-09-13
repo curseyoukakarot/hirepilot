@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { supabase } from '../lib/supabase';
 
 function IFrameEmbed({ html }) {
   const iframeRef = useRef(null);
@@ -53,7 +54,132 @@ function IFrameEmbed({ html }) {
   );
 }
 
-export default function DfyDashboard({ embedded = false }) {
+export default function DfyDashboard({ embedded = false, jobId = null }) {
+  const [metrics, setMetrics] = useState({
+    totalCandidates: 0,
+    hiresCount: 0,
+    interviewsCount: 0,
+    outreachSent: 0,
+    repliesCount: 0,
+    replyRate: 0,
+    weeks: [],
+    outreachByWeek: [],
+    repliesByWeek: [],
+    interviewsByWeek: [0,0,0,0],
+    hiresByWeek: [0,0,0,0],
+    loading: true,
+  });
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const base = (import.meta.env.VITE_BACKEND_URL || (window.location.host.endsWith('thehirepilot.com') ? 'https://api.thehirepilot.com' : 'http://localhost:8080')).replace(/\/$/, '');
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token || '';
+
+        let totalCandidates = 0, hiresCount = 0, interviewsCount = 0;
+        let outreachSent = 0, repliesCount = 0, replyRate = 0;
+        let weeks = [], outreachByWeek = [], repliesByWeek = [];
+        let interviewsByWeek = [0,0,0,0], hiresByWeek = [0,0,0,0];
+
+        if (jobId) {
+          try {
+            const pipResp = await fetch(`${base}/api/pipelines?jobId=${jobId}`, { credentials: 'include', headers: { Authorization: `Bearer ${token}` } });
+            if (pipResp.ok) {
+              const pipelines = await pipResp.json();
+              const active = Array.isArray(pipelines) && pipelines.length ? pipelines[0] : null;
+              if (active?.id) {
+                const stResp = await fetch(`${base}/api/pipelines/${active.id}/stages?jobId=${jobId}`, { credentials: 'include', headers: { Authorization: `Bearer ${token}` } });
+                if (stResp.ok) {
+                  const js = await stResp.json();
+                  const stages = js?.stages || [];
+                  const grouped = js?.candidates || {};
+                  totalCandidates = Object.values(grouped).reduce((a, arr) => a + (Array.isArray(arr) ? arr.length : 0), 0);
+                  const hiredIds = stages.filter(s => /hire/i.test(String(s.title || ''))).map(s => String(s.id));
+                  hiresCount = hiredIds.reduce((a,id) => a + ((grouped[id] || []).length), 0);
+                  const interviewIds = stages.filter(s => /interview/i.test(String(s.title || ''))).map(s => String(s.id));
+                  interviewsCount = interviewIds.reduce((a,id)=> a + ((grouped[id] || []).length), 0);
+                }
+              }
+            }
+          } catch {}
+        }
+
+        let matchingCampaignId = null;
+        try {
+          const { data: camp } = await supabase.from('campaigns').select('id').eq('job_id', jobId).maybeSingle();
+          matchingCampaignId = camp?.id || null;
+        } catch {}
+
+        if (matchingCampaignId && user?.id) {
+          try {
+            const perfResp = await fetch(`${base}/api/campaigns/${matchingCampaignId}/performance?user_id=${user.id}`);
+            if (perfResp.ok) {
+              const perf = await perfResp.json();
+              outreachSent = Number(perf.sent || 0);
+              repliesCount = Number(perf.replies || 0);
+              replyRate = Number(perf.reply_rate || 0);
+            }
+          } catch {}
+        }
+
+        if (user?.id) {
+          try {
+            const cid = matchingCampaignId || 'all';
+            const tsResp = await fetch(`${base}/api/analytics/time-series?user_id=${user.id}&campaign_id=${cid}&time_range=90d`);
+            const ts = tsResp.ok ? await tsResp.json() : { data: [] };
+            const weekly = (ts.data || []).slice(-4);
+            weeks = weekly.map(w => w.period);
+            outreachByWeek = weekly.map(w => Number(w.sent || 0));
+            repliesByWeek = weekly.map(w => Number(w.replies || 0));
+          } catch {}
+        }
+
+        try {
+          if (jobId) {
+            const since = new Date(); since.setDate(since.getDate() - 90);
+            const { data: acts } = await supabase
+              .from('job_activity_log')
+              .select('created_at, metadata')
+              .eq('job_id', jobId)
+              .gte('created_at', since.toISOString());
+            const toBucket = (dstr) => {
+              const d = new Date(dstr); const now = new Date();
+              const weeksDiff = Math.floor((now.getTime() - d.getTime()) / (7*24*60*60*1000));
+              const idx = 3 - weeksDiff; return (idx>=0 && idx<4) ? idx : null;
+            };
+            (acts || []).forEach(a => {
+              const title = String(a?.metadata?.stage_title || '').toLowerCase();
+              const b = toBucket(a.created_at);
+              if (b == null) return;
+              if (/hire/.test(title)) hiresByWeek[b] += 1;
+              if (/interview/.test(title)) interviewsByWeek[b] += 1;
+            });
+          }
+        } catch {}
+
+        setMetrics({ totalCandidates, hiresCount, interviewsCount, outreachSent, repliesCount, replyRate, weeks, outreachByWeek, repliesByWeek, interviewsByWeek, hiresByWeek, loading: false });
+      } catch {
+        setMetrics(m => ({ ...m, loading: false }));
+      }
+    })();
+  }, [jobId]);
+
+  const successRate = metrics.totalCandidates > 0 ? Math.round((metrics.hiresCount / metrics.totalCandidates) * 100) : 0;
+  const fmt = (n) => (n || 0).toLocaleString();
+  const pct = (n) => `${(Number(n) || 0).toFixed(1)}%`;
+  const repliesPctOfOutreach = metrics.outreachSent > 0 ? Math.max(3, Math.round((metrics.repliesCount / metrics.outreachSent) * 100)) : 0;
+  const interviewsPctOfOutreach = metrics.outreachSent > 0 ? Math.max(3, Math.round((metrics.interviewsCount / metrics.outreachSent) * 100)) : 0;
+  const hiresPctOfOutreach = metrics.outreachSent > 0 ? Math.max(3, Math.round((metrics.hiresCount / metrics.outreachSent) * 100)) : 0;
+  const maxAct = Math.max(1, ...metrics.outreachByWeek, ...metrics.repliesByWeek, ...metrics.interviewsByWeek, ...metrics.hiresByWeek);
+  const px = (v) => Math.round((v / maxAct) * 160);
+  const oH = [0,1,2,3].map(i => px(metrics.outreachByWeek[i] || 0));
+  const rH = [0,1,2,3].map(i => px(metrics.repliesByWeek[i] || 0));
+  const iH = [0,1,2,3].map(i => px(metrics.interviewsByWeek[i] || 0));
+  const hH = [0,1,2,3].map(i => px(metrics.hiresByWeek[i] || 0));
+  const weekLabels = [0,1,2,3].map(i => metrics.weeks[i] || `Week ${i+1}`);
+
   const html = `<!DOCTYPE html>
 <html><head>
     <meta charset="UTF-8">
@@ -163,7 +289,7 @@ export default function DfyDashboard({ embedded = false }) {
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-sm font-medium text-gray-600">Success Rate</p>
-                            <p class="text-3xl font-bold text-green-600 mt-2">87%</p>
+                            <p class="text-3xl font-bold text-green-600 mt-2">${successRate}%</p>
                             <div class="flex items-center mt-2">
                                 <i class="fa-solid fa-arrow-up text-green-500 text-xs mr-1"></i>
                                 <span class="text-xs text-green-600">+12% vs last month</span>
@@ -179,7 +305,7 @@ export default function DfyDashboard({ embedded = false }) {
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-sm font-medium text-gray-600">Total Hires Made</p>
-                            <p class="text-3xl font-bold text-blue-600 mt-2">24</p>
+                            <p class="text-3xl font-bold text-blue-600 mt-2">${fmt(metrics.hiresCount)}</p>
                             <div class="flex items-center mt-2">
                                 <i class="fa-solid fa-star text-yellow-500 text-xs mr-1"></i>
                                 <span class="text-xs text-gray-600">Great progress!</span>
@@ -194,8 +320,8 @@ export default function DfyDashboard({ embedded = false }) {
                 <div class="bg-white rounded-xl shadow-sm p-6 border">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-sm font-medium text-gray-600">Interviews Booked</p>
-                            <p class="text-3xl font-bold text-purple-600 mt-2">142</p>
+                            <p class="text-sm font-medium text-gray-600">Reply Rate</p>
+                            <p class="text-3xl font-bold text-purple-600 mt-2">${pct(metrics.replyRate)}</p>
                             <div class="flex items-center mt-2">
                                 <i class="fa-solid fa-calendar text-purple-500 text-xs mr-1"></i>
                                 <span class="text-xs text-gray-600">This quarter</span>
@@ -211,7 +337,7 @@ export default function DfyDashboard({ embedded = false }) {
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-sm font-medium text-gray-600">Outreach Sent</p>
-                            <p class="text-3xl font-bold text-orange-600 mt-2">1,847</p>
+                            <p class="text-3xl font-bold text-orange-600 mt-2">${fmt(metrics.outreachSent)}</p>
                             <div class="flex items-center mt-2">
                                 <i class="fa-solid fa-paper-plane text-orange-500 text-xs mr-1"></i>
                                 <span class="text-xs text-gray-600">Last 30 days</span>
@@ -233,7 +359,7 @@ export default function DfyDashboard({ embedded = false }) {
                         <div>
                             <div class="flex items-center justify-between mb-2">
                                 <span class="text-sm text-gray-600">Outreach Sent</span>
-                                <span class="text-sm font-semibold text-orange-600">1,847</span>
+                                <span class="text-sm font-semibold text-orange-600">${fmt(metrics.outreachSent)}</span>
                             </div>
                             <div class="h-4 rounded-full bg-orange-100">
                                 <div class="h-4 rounded-full bg-gradient-to-r from-orange-400 to-orange-600" style="width:100%"></div>
@@ -242,28 +368,28 @@ export default function DfyDashboard({ embedded = false }) {
                         <div>
                             <div class="flex items-center justify-between mb-2">
                                 <span class="text-sm text-gray-600">Replies Received</span>
-                                <span class="text-sm font-semibold text-purple-600">234</span>
+                                <span class="text-sm font-semibold text-purple-600">${fmt(metrics.repliesCount)}</span>
                             </div>
                             <div class="h-4 rounded-full bg-purple-100">
-                                <div class="h-4 rounded-full bg-gradient-to-r from-purple-400 to-purple-600" style="width:13%"></div>
+                                <div class="h-4 rounded-full bg-gradient-to-r from-purple-400 to-purple-600" style="width:${repliesPctOfOutreach}%"></div>
                             </div>
                         </div>
                         <div>
                             <div class="flex items-center justify-between mb-2">
                                 <span class="text-sm text-gray-600">Interviews</span>
-                                <span class="text-sm font-semibold text-blue-600">142</span>
+                                <span class="text-sm font-semibold text-blue-600">${fmt(metrics.interviewsCount)}</span>
                             </div>
                             <div class="h-4 rounded-full bg-blue-100">
-                                <div class="h-4 rounded-full bg-gradient-to-r from-blue-400 to-blue-600" style="width:8%"></div>
+                                <div class="h-4 rounded-full bg-gradient-to-r from-blue-400 to-blue-600" style="width:${interviewsPctOfOutreach}%"></div>
                             </div>
                         </div>
                         <div>
                             <div class="flex items-center justify-between mb-2">
                                 <span class="text-sm text-gray-600">Hires</span>
-                                <span class="text-sm font-semibold text-emerald-600">24</span>
+                                <span class="text-sm font-semibold text-emerald-600">${fmt(metrics.hiresCount)}</span>
                             </div>
                             <div class="h-4 rounded-full bg-emerald-100">
-                                <div class="h-4 rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600" style="width:4%"></div>
+                                <div class="h-4 rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600" style="width:${hiresPctOfOutreach}%"></div>
                             </div>
                         </div>
                     </div>
@@ -279,40 +405,16 @@ export default function DfyDashboard({ embedded = false }) {
                         <span class="inline-flex items-center gap-2"><span class="w-3 h-3 rounded-sm bg-emerald-500"></span>Hires</span>
                     </div>
                     <div class="h-64 flex items-end gap-8">
-                        <!-- Week 1 -->
-                        <div class="flex items-end gap-2">
-                            <div class="w-4 bg-orange-500 rounded-t" style="height:138px" title="Outreach 450"></div>
-                            <div class="w-4 bg-purple-500 rounded-t" style="height:20px" title="Replies 65"></div>
-                            <div class="w-4 bg-blue-500 rounded-t" style="height:13px" title="Interviews 42"></div>
-                            <div class="w-4 bg-emerald-500 rounded-t" style="height:5px" title="Hires 8"></div>
-                        </div>
-                        <!-- Week 2 -->
-                        <div class="flex items-end gap-2">
-                            <div class="w-4 bg-orange-500 rounded-t" style="height:160px" title="Outreach 520"></div>
-                            <div class="w-4 bg-purple-500 rounded-t" style="height:22px" title="Replies 72"></div>
-                            <div class="w-4 bg-blue-500 rounded-t" style="height:12px" title="Interviews 38"></div>
-                            <div class="w-4 bg-emerald-500 rounded-t" style="height:4px" title="Hires 7"></div>
-                        </div>
-                        <!-- Week 3 -->
-                        <div class="flex items-end gap-2">
-                            <div class="w-4 bg-orange-500 rounded-t" style="height:148px" title="Outreach 480"></div>
-                            <div class="w-4 bg-purple-500 rounded-t" style="height:18px" title="Replies 58"></div>
-                            <div class="w-4 bg-blue-500 rounded-t" style="height:11px" title="Interviews 35"></div>
-                            <div class="w-4 bg-emerald-500 rounded-t" style="height:4px" title="Hires 6"></div>
-                        </div>
-                        <!-- Week 4 -->
-                        <div class="flex items-end gap-2">
-                            <div class="w-4 bg-orange-500 rounded-t" style="height:122px" title="Outreach 397"></div>
-                            <div class="w-4 bg-purple-500 rounded-t" style="height:14px" title="Replies 39"></div>
-                            <div class="w-4 bg-blue-500 rounded-t" style="height:9px" title="Interviews 27"></div>
-                            <div class="w-4 bg-emerald-500 rounded-t" style="height:3px" title="Hires 3"></div>
-                        </div>
+                        ${[0,1,2,3].map(i => `
+                        <div class=\"flex items-end gap-2\" title=\"${weekLabels[i]}\"> 
+                          <div class=\"w-4 bg-orange-500 rounded-t\" style=\"height:${oH[i]}px\" title=\"Outreach ${fmt(metrics.outreachByWeek[i]||0)}\"></div>
+                          <div class=\"w-4 bg-purple-500 rounded-t\" style=\"height:${rH[i]}px\" title=\"Replies ${fmt(metrics.repliesByWeek[i]||0)}\"></div>
+                          <div class=\"w-4 bg-blue-500 rounded-t\" style=\"height:${iH[i]}px\" title=\"Interviews ${fmt(metrics.interviewsByWeek[i]||0)}\"></div>
+                          <div class=\"w-4 bg-emerald-500 rounded-t\" style=\"height:${hH[i]}px\" title=\"Hires ${fmt(metrics.hiresByWeek[i]||0)}\"></div>
+                        </div>`).join('')}
                     </div>
                     <div class="mt-3 grid grid-cols-4 text-center text-xs text-gray-500">
-                        <div>Week 1</div>
-                        <div>Week 2</div>
-                        <div>Week 3</div>
-                        <div>Week 4</div>
+                        ${weekLabels.map(l => `<div>${l}</div>`).join('')}
                     </div>
                 </div>
             </div>
@@ -415,40 +517,15 @@ Highcharts.chart('funnel-chart', {
     series: [{
         name: 'Pipeline',
         data: [
-            { name: 'Outreach Sent', y: 1847, color: '#f97316' },
-            { name: 'Replies Received', y: 234, color: '#8b5cf6' },
-            { name: 'Interviews', y: 142, color: '#3b82f6' },
-            { name: 'Hires', y: 24, color: '#10b981' }
+            { name: 'Outreach Sent', y: ${metrics.outreachSent}, color: '#f97316' },
+            { name: 'Replies Received', y: ${metrics.repliesCount}, color: '#8b5cf6' },
+            { name: 'Interviews', y: ${metrics.interviewsCount}, color: '#3b82f6' },
+            { name: 'Hires', y: ${metrics.hiresCount}, color: '#10b981' }
         ]
     }]
 });
 
-Highcharts.chart('activity-chart', {
-    chart: { type: 'column' },
-    credits: { enabled: false },
-    title: { text: '' },
-    xAxis: {
-        categories: ['Week 1', 'Week 2', 'Week 3', 'Week 4']
-    },
-    yAxis: { title: { text: 'Count' } },
-    series: [{
-        name: 'Outreach',
-        data: [450, 520, 480, 397],
-        color: '#f97316'
-    }, {
-        name: 'Replies',
-        data: [65, 72, 58, 39],
-        color: '#8b5cf6'
-    }, {
-        name: 'Interviews',
-        data: [42, 38, 35, 27],
-        color: '#3b82f6'
-    }, {
-        name: 'Hires',
-        data: [8, 7, 6, 3],
-        color: '#10b981'
-    }]
-});
+// Optional: activity-chart was replaced by simple bars above. Keep Highcharts disabled or wire similarly if desired.
 </script>
 
 

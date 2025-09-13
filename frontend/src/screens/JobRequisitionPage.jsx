@@ -702,7 +702,7 @@ export default function JobRequisitionPage() {
                 </div>
               </div>
               <div className="p-0">
-                <DfyDashboard embedded={true} />
+                <DfyDashboard embedded={true} jobId={id} />
               </div>
             </div>
           </div>
