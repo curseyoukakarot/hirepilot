@@ -71,7 +71,7 @@ export default function AcceptGuest() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm text-gray-600 mb-1">Email</label>
-            <input value={email} onChange={(e)=>setEmail(e.target.value)} className="w-full border rounded px-3 py-2" autoComplete="email" required />
+            <input value={email} onChange={(e)=>setEmail(e.target.value)} className="w-full border rounded px-3 py-2" autoComplete="email" required readOnly={!!inviteEmail} />
           </div>
           <div>
             <label className="block text-sm text-gray-600 mb-1">Password</label>
