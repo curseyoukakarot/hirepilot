@@ -273,7 +273,7 @@ export default function App() {
 
 function InnerApp() {
   const location = useLocation();
-  const landingPages = ["/", "/signup", "/login", "/reset-password", "/copilot", "/handsfree", "/pricing", "/rex", "/rexsupport", "/chromeextension", "/chromeextension/privacy", "/terms", "/apidoc", "/test-gmail", "/affiliates", "/blog/zapierguide", "/producthunt", "/dfydashboard", "/freeforever"];
+  const landingPages = ["/", "/signup", "/login", "/reset-password", "/copilot", "/enterprise", "/pricing", "/rex", "/rexsupport", "/chromeextension", "/chromeextension/privacy", "/terms", "/apidoc", "/test-gmail", "/affiliates", "/blog/zapierguide", "/producthunt", "/dfydashboard", "/freeforever"];
   // Treat blog landing and article pages as public landing pages (no dashboard UI)
   const isPartnerArea = location.pathname.startsWith('/partners');
   // Only the marketing page "/rex" should be treated as public; do NOT blanket-match all "/rex*" paths
@@ -470,7 +470,7 @@ function InnerApp() {
               <Route path="/freeforever" element={<FreeForever />} />
               <Route path="/rex" element={<MeetRex />} />
               <Route path="/copilot" element={<Copilot />} />
-              <Route path="/handsfree" element={<Handsfree />} />
+              <Route path="/enterprise" element={<Handsfree />} />
               <Route path="/templates" element={<TemplateManager userId="mock-user-id" />} />
               <Route path="/candidates" element={<CandidateList />} />
               <Route path="/jobs" element={<JobRequisitions />} />

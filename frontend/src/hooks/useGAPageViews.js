@@ -50,7 +50,7 @@ export default function useGAPageViews() {
     "/pricing": "Pricing Plans | HirePilot",
     "/rex": "Meet REX | HirePilot",
     "/copilot": "Copilot | HirePilot",
-    "/handsfree": "Handsfree Sourcing | HirePilot",
+    "/enterprise": "Enterprise | HirePilot",
     "/templates": "Templates | HirePilot",
     "/candidates": "Candidates | HirePilot",
     "/jobs/pipeline": "Job Pipeline | HirePilot",

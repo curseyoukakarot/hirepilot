@@ -290,7 +290,7 @@ export default function ProductHunt() {
               <li>Perfect for funded startups, founders, and execs</li>
               <li>Let us source, message, and book your interviews</li>
             </ul>
-            <a href="/handsfree" class="btn hover:bg-white/10 mt-auto">Contact Us</a>
+            <a href="/enterprise" class="btn hover:bg-white/10 mt-auto">Contact Us</a>
           </div>
         </div>
       </div>
