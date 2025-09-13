@@ -15,10 +15,14 @@ export default async function guestUpsert(req: Request, res: Response) {
 
     const admin = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
 
-    // Try find existing user by email (no typed email filter; list and filter client-side)
-    const { data: users, error: listError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-    if (listError) return res.status(500).json({ error: `List failed: ${listError.message}` });
-    const existing = (users?.users || []).find(u => String(u.email || '').toLowerCase() === email);
+    // Try find existing user by email (paginate defensively)
+    let existing: any | null = null;
+    for (let page = 1; page <= 20 && !existing; page++) {
+      const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+      if (error) return res.status(500).json({ error: `List failed: ${error.message}` });
+      existing = (data?.users || []).find(u => String(u.email || '').toLowerCase() === email) || null;
+      if ((data?.users || []).length < 1000) break;
+    }
 
     if (existing?.id) {
       const { error: updateError } = await admin.auth.admin.updateUserById(existing.id, {
@@ -37,7 +41,7 @@ export default async function guestUpsert(req: Request, res: Response) {
       email_confirm: true,
       user_metadata: { role: 'guest' },
     });
-    if (createError) return res.status(500).json({ error: `Create failed: ${createError.message}` });
+    if (createError) return res.status(400).json({ error: `Create failed: ${createError.message}` });
     return res.status(201).json({ id: created?.user?.id, created: true });
   } catch (e: any) {
     return res.status(500).json({ error: e.message || 'Failed to upsert guest user' });
