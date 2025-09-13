@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { toast } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 
 export default function ShareJobModal({ job, open, onClose }) {
   const [loading, setLoading] = useState(false);
