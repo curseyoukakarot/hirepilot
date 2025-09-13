@@ -464,7 +464,9 @@ function InnerApp() {
               <Route path="/billing" element={<BillingScreen />} />
               <Route path="/rex-chat" element={<RexChatPage />} />
               <Route path="/jobs/share/:shareId" element={<PublicJobPage />} />
+              <Route path="/jobs/share/:shareId/*" element={<PublicJobPage />} />
               <Route path="/apply/:jobId" element={<ApplyForm />} />
+              <Route path="/apply/:jobId/*" element={<ApplyForm />} />
               <Route path="/apply/:jobId/success" element={<ApplySuccess />} />
               <Route path="/sniper" element={<SniperTargets />} />
               {/* Agent Mode Center and drawers */}
