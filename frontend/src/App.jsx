@@ -276,7 +276,7 @@ export default function App() {
 
 function InnerApp() {
   const location = useLocation();
-  const landingPages = ["/", "/signup", "/login", "/reset-password", "/copilot", "/enterprise", "/pricing", "/rex", "/rexsupport", "/chromeextension", "/chromeextension/privacy", "/terms", "/apidoc", "/test-gmail", "/affiliates", "/blog/zapierguide", "/producthunt", "/dfydashboard", "/freeforever"];
+  const landingPages = ["/", "/signup", "/login", "/reset-password", "/copilot", "/enterprise", "/pricing", "/rex", "/rexsupport", "/chromeextension", "/chromeextension/privacy", "/terms", "/apidoc", "/test-gmail", "/affiliates", "/blog/zapierguide", "/producthunt", "/dfydashboard", "/freeforever", "/jobs/share", "/apply"];
   // Treat blog landing and article pages as public landing pages (no dashboard UI)
   const isPartnerArea = location.pathname.startsWith('/partners');
   // Public dynamic pages (e.g., share/apply) should not be gated by auth
