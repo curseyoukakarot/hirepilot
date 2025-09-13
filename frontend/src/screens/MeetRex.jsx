@@ -113,7 +113,7 @@ export default function MeetRex() {
         <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
           <div>
             <h1 className="text-3xl sm:text-4xl lg:text-6xl font-bold mb-4 sm:mb-6 leading-tight">
-              Meet REX – Your AI <span className="gradient-text">Recruiting Co-Pilot</span>
+              Meet REX – Your AI <span className="gradient-text">Recruiting Agent</span>
             </h1>
             <p className="text-base sm:text-lg lg:text-xl text-slate-300 mb-6 sm:mb-8 leading-relaxed">
               Source leads. Enrich data. Send outreach. Book interviews.<br />All inside one smart assistant—powered by your workflow.
