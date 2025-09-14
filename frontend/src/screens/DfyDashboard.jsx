@@ -102,6 +102,28 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
                   hiresCount = hiredIds.reduce((a,id) => a + ((grouped[id] || []).length), 0);
                   const interviewIds = stages.filter(s => /interview/i.test(String(s.title || ''))).map(s => String(s.id));
                   interviewsCount = interviewIds.reduce((a,id)=> a + ((grouped[id] || []).length), 0);
+
+                  // Build recent candidates from pipeline grouped data
+                  try {
+                    const stageIdToTitle = Object.fromEntries((stages || []).map(s => [String(s.id), s.title || '']));
+                    const flat = [];
+                    Object.entries(grouped || {}).forEach(([sid, arr]) => {
+                      (Array.isArray(arr) ? arr : []).forEach((c) => flat.push({ ...c, _stage: stageIdToTitle[String(sid)] || (c && c.status) || '' }));
+                    });
+                    const rec = flat
+                      .sort((a,b) => new Date(b?.created_at || b?.updated_at || 0).getTime() - new Date(a?.created_at || a?.updated_at || 0).getTime())
+                      .slice(0,3)
+                      .map(c => ({
+                        id: c.id,
+                        first_name: c.first_name || c.name?.split(' ')?.[0] || '',
+                        last_name: c.last_name || (c.name ? c.name.split(' ').slice(1).join(' ') : ''),
+                        title: c.title || c.current_title || '',
+                        avatar_url: c.avatar_url || '',
+                        status: c._stage || c.status || 'sourced',
+                        created_at: c.created_at || c.updated_at || null,
+                      }));
+                    if (rec.length) setRecentCandidates(rec);
+                  } catch {}
                 }
               }
             }
@@ -173,7 +195,7 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
 
         // Recent candidates (last 3 for this job)
         try {
-          if (user?.id && jobId) {
+          if (user?.id && jobId && recentCandidates.length === 0) {
             const { data: rec } = await supabase
               .from('candidates')
               .select('id, first_name, last_name, title, avatar_url, status, created_at')
@@ -533,31 +555,21 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
 </div>
 
 <script>
-Highcharts.chart('funnel-chart', {
-    chart: { type: 'pie' },
-    credits: { enabled: false },
-    title: { text: '' },
-    plotOptions: {
-        pie: {
-            innerSize: '60%',
-            dataLabels: {
-                enabled: true,
-                format: '{point.name}: {point.percentage:.1f}%'
-            }
-        }
-    },
-    series: [{
-        name: 'Pipeline',
-        data: [
-            { name: 'Outreach Sent', y: ${metrics.outreachSent}, color: '#f97316' },
-            { name: 'Replies Received', y: ${metrics.repliesCount}, color: '#8b5cf6' },
-            { name: 'Interviews', y: ${metrics.interviewsCount}, color: '#3b82f6' },
-            { name: 'Hires', y: ${metrics.hiresCount}, color: '#10b981' }
-        ]
-    }]
-});
-
-// Optional: activity-chart was replaced by simple bars above. Keep Highcharts disabled or wire similarly if desired.
+// Guard: Highcharts may not be available in sandboxed iframes
+try {
+  if (window.Highcharts && document.getElementById('funnel-chart')) {
+    window.Highcharts.chart('funnel-chart', {
+      chart: { type: 'pie' }, credits: { enabled: false }, title: { text: '' },
+      plotOptions: { pie: { innerSize: '60%', dataLabels: { enabled: true, format: '{point.name}: {point.percentage:.1f}%'} } },
+      series: [{ name: 'Pipeline', data: [
+        { name: 'Outreach Sent', y: ${metrics.outreachSent}, color: '#f97316' },
+        { name: 'Replies Received', y: ${metrics.repliesCount}, color: '#8b5cf6' },
+        { name: 'Interviews', y: ${metrics.interviewsCount}, color: '#3b82f6' },
+        { name: 'Hires', y: ${metrics.hiresCount}, color: '#10b981' }
+      ] }]
+    });
+  }
+} catch {}
 </script>
 
 
