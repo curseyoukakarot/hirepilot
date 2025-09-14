@@ -585,14 +585,14 @@ export default function CandidateList() {
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="relative">
                           <button
-                            onClick={() => setShowActionsMenu(showActionsMenu === candidate.id ? null : candidate.id)}
+                            onClick={() => { setShowDrawer(false); setShowActionsMenu(showActionsMenu === candidate.id ? null : candidate.id); }}
                             className="text-gray-400 hover:text-gray-500"
                           >
                             <FaEllipsisV />
                           </button>
                           
                           {showActionsMenu === candidate.id && (
-                            <div className="absolute right-0 mt-2 min-w-[200px] rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
+                            <div className="absolute right-0 mt-2 min-w-[220px] rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-[1000]">
                               <div className="py-1 space-y-0.5" role="menu">
                                 <button
                                   onClick={() => handleMessageCandidate(candidate)}
@@ -602,7 +602,7 @@ export default function CandidateList() {
                                   Message
                                 </button>
                                 <button
-                                  onClick={() => handleEditCandidate(candidate)}
+                                  onClick={() => { setShowActionsMenu(null); handleEditCandidate(candidate); }}
                                   className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                                   role="menuitem"
                                 >
@@ -699,7 +699,7 @@ export default function CandidateList() {
                                   <span className="whitespace-nowrap">Upload Resume</span>
                                 </label>
                                 <button
-                                  onClick={() => handleAddToPipelineClick(candidate)}
+                                  onClick={() => { setShowActionsMenu(null); handleAddToPipelineClick(candidate); }}
                                   className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                                   role="menuitem"
                                 >
