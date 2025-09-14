@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import JobDetailsCard from '../components/job/JobDetailsCard';
 import JobPipeline from './JobPipeline';
+import PipelineBoard from '../components/pipeline/PipelineBoard';
 import DfyDashboard from './DfyDashboard';
 import AddGuestModal from '../components/AddGuestModal';
 import UpgradeModal from '../components/UpgradeModal';
@@ -694,8 +695,8 @@ export default function JobRequisitionPage() {
 
           {/* Candidates Tab => Pipeline Board (full-width) */}
           <div id="candidates-tab" className={activeTab === 'candidates' ? 'tab-content' : 'tab-content hidden'}>
-            <div className="px-6 py-6">
-              <JobPipeline embedded={true} jobId={id} />
+            <div className="px-0 py-0">
+              <PipelineBoard jobId={id} />
             </div>
           </div>
 
