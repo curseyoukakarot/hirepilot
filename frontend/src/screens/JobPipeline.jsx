@@ -595,13 +595,13 @@ export default function JobPipeline({ embedded = false, jobId: jobIdProp = null 
         <div className="h-full flex flex-col">
           {/* Header */}
           <header className="bg-white border-b border-gray-200 px-6 py-4">
-            <div className="flex justify-between items-center">
+            <div className="max-w-7xl mx-auto flex justify-between items-center">
               <div className="flex items-center gap-4">
                 <h1 className="text-2xl font-semibold text-gray-900">Job Pipeline</h1>
 
                 {/* Pipeline Selector (read-only label for now; filter still supported) */}
                 <select
-                  className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[220px]"
                   value={selectedPipeline}
                   onChange={(e) => setSelectedPipeline(e.target.value)}
                 >
@@ -615,7 +615,7 @@ export default function JobPipeline({ embedded = false, jobId: jobIdProp = null 
 
                 {/* Job Selector */}
                 <select
-                  className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[260px]"
                   value={selectedJob}
                   onChange={(e) => {
                     const newJob = e.target.value;
@@ -631,7 +631,7 @@ export default function JobPipeline({ embedded = false, jobId: jobIdProp = null 
                   ))}
                 </select>
 
-                <span className="text-sm text-gray-500 ml-2 truncate max-w-xs">
+                <span className="text-sm text-gray-500 ml-2 truncate max-w-md">
                   {pipelineName}
                 </span>
               </div>
