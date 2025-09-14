@@ -51,6 +51,7 @@ export default function CandidateList() {
   const [addingToPipeline, setAddingToPipeline] = useState(false);
   const [showMetadata, setShowMetadata] = useState(false);
   const [metadataContext, setMetadataContext] = useState(null);
+  const [uploadingResumeForId, setUploadingResumeForId] = useState(null);
   // Add Candidate modal state
   const [showAddCandidateModal, setShowAddCandidateModal] = useState(false);
   const [newCandidate, setNewCandidate] = useState({ first_name: '', last_name: '', email: '', phone: '', title: '', linkedin_url: '', status: 'sourced' });
