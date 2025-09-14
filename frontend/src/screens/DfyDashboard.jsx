@@ -195,7 +195,19 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
 
         // Recent candidates (last 3 for this job)
         try {
-          if (user?.id && jobId && recentCandidates.length === 0) {
+          if (jobId && recentCandidates.length === 0) {
+            // Guest-friendly endpoint
+            try {
+              const gf = await fetch(`${base}/api/pipelines/job/${jobId}/recent`, { credentials: 'include' });
+              if (gf.ok) {
+                const body = await gf.json();
+                if (Array.isArray(body?.candidates) && body.candidates.length) {
+                  setRecentCandidates(body.candidates);
+                }
+              }
+            } catch {}
+
+            if (recentCandidates.length === 0 && user?.id) {
             const { data: rec } = await supabase
               .from('candidates')
               .select('id, first_name, last_name, title, avatar_url, status, created_at')

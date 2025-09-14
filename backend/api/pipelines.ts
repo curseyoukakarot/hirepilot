@@ -120,6 +120,38 @@ router.get('/:id/stages', requireAuth as any, async (req: Request, res: Response
   }
 });
 
+// GET /api/pipelines/job/:jobId/recent - last 3 candidates for a job (guest-friendly)
+router.get('/job/:jobId/recent', requireAuth as any, async (req: Request, res: Response) => {
+  try {
+    const jobId = req.params.jobId;
+    if (!jobId) return res.json({ candidates: [] });
+
+    const { data, error } = await supabaseDb
+      .from('candidate_jobs')
+      .select('created_at, updated_at, status, candidates ( first_name, last_name, email, avatar_url, title ), pipeline_stages ( title )')
+      .eq('job_id', jobId)
+      .order('updated_at', { ascending: false })
+      .limit(3);
+    if (error) throw error;
+
+    const mapped = (data || []).map((row: any) => ({
+      name: `${row?.candidates?.first_name || ''} ${row?.candidates?.last_name || ''}`.trim(),
+      first_name: row?.candidates?.first_name || '',
+      last_name: row?.candidates?.last_name || '',
+      title: row?.candidates?.title || '',
+      email: row?.candidates?.email || '',
+      avatar_url: row?.candidates?.avatar_url || '',
+      status: row?.pipeline_stages?.title || row?.status || 'sourced',
+      created_at: row?.created_at || row?.updated_at || null,
+    }));
+
+    res.json({ candidates: mapped });
+  } catch (err: any) {
+    console.error('[GET /api/pipelines/job/:jobId/recent] error', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/pipelines
 router.post('/', requireAuth as any, async (req: Request, res: Response) => {
   try {
