@@ -593,17 +593,17 @@ export default function CandidateList() {
                           
                           {showActionsMenu === candidate.id && (
                             <div className="absolute right-0 mt-2 min-w-[220px] rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-[1000]">
-                              <div className="py-1 space-y-0.5" role="menu">
+                              <div className="py-1 space-y-0" role="menu">
                                 <button
                                   onClick={() => handleMessageCandidate(candidate)}
-                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 whitespace-nowrap"
                                   role="menuitem"
                                 >
                                   Message
                                 </button>
                                 <button
                                   onClick={() => { setShowActionsMenu(null); handleEditCandidate(candidate); }}
-                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 whitespace-nowrap"
                                   role="menuitem"
                                 >
                                   Edit
@@ -635,7 +635,7 @@ export default function CandidateList() {
                                     }
                                     setShowActionsMenu(null);
                                   }}
-                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 whitespace-nowrap"
                                   role="menuitem"
                                 >
                                   Change Status
@@ -665,12 +665,12 @@ export default function CandidateList() {
                                     }
                                     setShowActionsMenu(null);
                                   }}
-                                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                                  className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 whitespace-nowrap"
                                   role="menuitem"
                                 >
                                   Delete
                                 </button>
-                                <label className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer flex items-center" role="menuitem">
+                                <label className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer flex items-center whitespace-nowrap" role="menuitem">
                                   <input type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={async (e) => {
                                     const file = e.target.files?.[0];
                                     if (!file) return;
@@ -700,7 +700,7 @@ export default function CandidateList() {
                                 </label>
                                 <button
                                   onClick={() => { setShowActionsMenu(null); handleAddToPipelineClick(candidate); }}
-                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 whitespace-nowrap"
                                   role="menuitem"
                                 >
                                   Add to Pipeline
@@ -711,7 +711,7 @@ export default function CandidateList() {
                                     setShowMetadata(true);
                                     setShowActionsMenu(null);
                                   }}
-                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 whitespace-nowrap"
                                   role="menuitem"
                                 >
                                   Metadata
