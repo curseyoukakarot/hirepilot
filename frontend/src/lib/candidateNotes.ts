@@ -14,20 +14,28 @@ export interface CandidateNote {
 export async function addCandidateNote(candidateId: string, noteText: string): Promise<CandidateNote[]> {
   const { data: userData } = await supabase.auth.getUser();
   const user = userData?.user;
-  const { data, error } = await supabase
-    .from('candidate_notes')
-    .insert([
-      {
-        candidate_id: candidateId,
-        note_text: noteText,
-        author_id: user?.id || null,
-        author_name: (user as any)?.user_metadata?.full_name || (user as any)?.user_metadata?.name || null,
-        author_avatar_url: (user as any)?.user_metadata?.avatar_url || null,
-      },
-    ])
-    .select('*');
-  if (error) throw error;
-  return (data || []) as CandidateNote[];
+  try {
+    const { data, error } = await supabase
+      .from('candidate_notes')
+      .insert([
+        {
+          candidate_id: candidateId,
+          note_text: noteText,
+          author_id: user?.id || null,
+          author_name: (user as any)?.user_metadata?.full_name || (user as any)?.user_metadata?.name || null,
+          author_avatar_url: (user as any)?.user_metadata?.avatar_url || null,
+        },
+      ])
+      .select('*');
+    if (error) throw error;
+    return (data || []) as CandidateNote[];
+  } catch (e: any) {
+    // If RLS blocks, provide clearer message
+    if (e?.code === '42501') {
+      throw new Error('You do not have permission to add notes for this candidate. Ensure you are a collaborator or guest on this job.');
+    }
+    throw e;
+  }
 }
 
 export async function getCandidateNotes(candidateId: string): Promise<CandidateNote[]> {
