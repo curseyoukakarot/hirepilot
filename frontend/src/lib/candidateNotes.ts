@@ -24,7 +24,13 @@ export async function addCandidateNote(candidateId: string, noteText: string): P
       authorAvatar = (profile?.avatar_url) || null;
     }
   } catch {}
-  if (!authorName) authorName = (user as any)?.user_metadata?.full_name || (user as any)?.user_metadata?.name || user?.email || 'Unknown';
+  if (!authorName) {
+    // Try user metadata first, then email, then fallback to 'Unknown'
+    authorName = (user as any)?.user_metadata?.full_name || 
+                 (user as any)?.user_metadata?.name || 
+                 user?.email || 
+                 'Unknown';
+  }
   if (!authorAvatar) authorAvatar = (user as any)?.user_metadata?.avatar_url || null;
   try {
     const { data, error } = await supabase

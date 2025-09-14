@@ -83,7 +83,8 @@ export default function NotesDrawer({ open, onClose, candidateId, candidateName,
         ) : (
           <div id="notes-thread" className="space-y-6">
             {notes.map((note) => {
-              const displayName = note.author_name || note.author_id || 'Unknown';
+              // Prioritize author_name, then try to get email from user metadata, fallback to 'Unknown'
+              const displayName = note.author_name || 'Unknown';
               const hasAvatar = Boolean(note.author_avatar_url);
               const initials = (displayName || '').split(/\s+/).filter(Boolean).slice(0,2).map(s=>s[0]?.toUpperCase()).join('') || 'U';
               return (
