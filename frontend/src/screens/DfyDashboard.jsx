@@ -73,7 +73,7 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
   const [jobCampaigns, setJobCampaigns] = useState([]);
 
   useEffect(() => {
-    (async () => {
+    const loadMetrics = async () => {
       try {
         const base = (import.meta.env.VITE_BACKEND_URL || (window.location.host.endsWith('thehirepilot.com') ? 'https://api.thehirepilot.com' : 'http://localhost:8080')).replace(/\/$/, '');
         const { data: { user } } = await supabase.auth.getUser();
@@ -283,7 +283,20 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
       } catch {
         setMetrics(m => ({ ...m, loading: false }));
       }
-    })();
+    };
+
+    loadMetrics();
+
+    // Realtime updates: refresh when candidates link/move stages for this job
+    if (!jobId) return;
+    const ch = supabase
+      .channel(`dashboard-realtime-${jobId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'candidate_jobs', filter: `job_id=eq.${jobId}` }, () => {
+        loadMetrics();
+      })
+      .subscribe();
+
+    return () => { try { supabase.removeChannel(ch); } catch {} };
   }, [jobId]);
 
   const successRate = metrics.totalCandidates > 0 ? Math.round((metrics.hiresCount / metrics.totalCandidates) * 100) : 0;
