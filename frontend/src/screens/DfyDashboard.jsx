@@ -203,7 +203,31 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
               .eq('job_id', jobId)
               .order('created_at', { ascending: false })
               .limit(3);
-            setRecentCandidates(rec || []);
+            if (rec && rec.length) {
+              setRecentCandidates(rec);
+            } else {
+              // Fallback 2: derive from candidate_jobs join (source of truth for pipeline)
+              try {
+                const { data: cjs } = await supabase
+                  .from('candidate_jobs')
+                  .select('created_at, stage_id, status, candidates ( first_name, last_name, avatar_url, title ), pipeline_stages ( title )')
+                  .eq('job_id', jobId)
+                  .order('created_at', { ascending: false })
+                  .limit(3);
+                const derived = (cjs || []).map(row => ({
+                  id: null,
+                  first_name: row?.candidates?.first_name || '',
+                  last_name: row?.candidates?.last_name || '',
+                  title: row?.candidates?.title || '',
+                  avatar_url: row?.candidates?.avatar_url || '',
+                  status: (row?.pipeline_stages?.title) || row?.status || 'sourced',
+                  created_at: row?.created_at || null,
+                }));
+                setRecentCandidates(derived || []);
+              } catch {
+                setRecentCandidates([]);
+              }
+            }
           } else {
             setRecentCandidates([]);
           }
