@@ -254,7 +254,13 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
               if (pub.ok) {
                 const body = await pub.json();
                 const list = Array.isArray(body?.campaigns) ? body.campaigns : [];
-                summaries = list.slice(0, 3);
+                summaries = list.slice(0, 3).map((c) => ({
+                  id: c.id,
+                  name: c.name || c.title || 'Campaign',
+                  sent: Number(c.sent || c.outreach || 0),
+                  replies: Number(c.replies || 0),
+                  hires: Number(hH.reduce((a,b)=>a+b,0)) > 0 ? metrics.hiresByWeek.reduce((a,b)=>a+b,0) : hiresCount
+                }));
               }
             } catch {}
           }
@@ -270,7 +276,7 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
                 try {
                   const pr = await fetch(`${base}/api/campaigns/${c.id}/performance?user_id=${user.id}`);
                   const pj = pr.ok ? await pr.json() : {};
-                  det.push({ id: c.id, name: c.name || c.title || 'Campaign', sent: Number(pj.sent || 0), replies: Number(pj.replies || 0), hires: 0 });
+                  det.push({ id: c.id, name: c.name || c.title || 'Campaign', sent: Number(pj.sent || 0), replies: Number(pj.replies || 0), hires: hiresCount });
                 } catch { det.push({ id: c.id, name: c.name || c.title || 'Campaign', sent: 0, replies: 0, hires: 0 }); }
               }
               summaries = det;
