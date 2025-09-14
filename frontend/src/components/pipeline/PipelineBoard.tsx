@@ -13,9 +13,12 @@ interface Stage {
 
 interface PipelineBoardProps {
   jobId: string;
+  pipelineIdOverride?: string | null;
+  refreshKey?: number;
+  showHeader?: boolean;
 }
 
-export default function PipelineBoard({ jobId }: PipelineBoardProps) {
+export default function PipelineBoard({ jobId, pipelineIdOverride = null, refreshKey = 0, showHeader = true }: PipelineBoardProps) {
   const [stages, setStages] = useState<Stage[]>([]);
   const [candidatesByStage, setCandidatesByStage] = useState<Record<string, CandidateItem[]>>({});
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateItem | null>(null);
@@ -42,7 +45,10 @@ export default function PipelineBoard({ jobId }: PipelineBoardProps) {
           credentials: 'include'
         });
         const p = await pRes.json();
-        const active = Array.isArray(p) ? p[0] : p?.pipeline || p?.[0];
+        const list = Array.isArray(p) ? p : (p?.pipeline ? [p.pipeline] : (Array.isArray(p?.pipelines) ? p.pipelines : []));
+        const active = pipelineIdOverride
+          ? (list.find((it: any) => String(it.id) === String(pipelineIdOverride)) || list[0])
+          : list[0];
         if (!active) { setStages([]); setCandidatesByStage({}); return; }
         setPipelineId(String(active.id));
         // Stages + candidates
@@ -59,7 +65,7 @@ export default function PipelineBoard({ jobId }: PipelineBoardProps) {
       }
     };
     if (jobId) fetchAll();
-  }, [jobId, baseUrl]);
+  }, [jobId, baseUrl, pipelineIdOverride, refreshKey]);
 
   useEffect(() => {
     if (!jobId) return;
@@ -150,39 +156,41 @@ export default function PipelineBoard({ jobId }: PipelineBoardProps) {
 
   return (
     <div className="w-full">
-      <div className="px-6 pt-4 pb-0 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Job Pipeline</h1>
-        <div className="flex items-center gap-2">
-          <label className="mr-2 flex items-center gap-2 text-sm text-gray-600">
-            <span>Zapier</span>
-            <input type="checkbox" checked={zapierEnabled} onChange={(e)=>{ setZapierEnabled(e.target.checked); try { localStorage.setItem('zapier_notify_enabled', e.target.checked ? '1' : '0'); } catch {} }} />
-          </label>
-          <button
-            className="bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200"
-            onClick={async () => {
-              const title = prompt('New stage name');
-              if (!title || !pipelineId) return;
-              try {
-                const { data: { session } } = await supabase.auth.getSession();
-                const token = session?.access_token;
-                const position = stages.length;
-                const res = await fetch(`${baseUrl}/api/pipelines/${pipelineId}/stages`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                  credentials: 'include',
-                  body: JSON.stringify({ title, color: 'bg-blue-100 text-blue-800', position })
-                });
-                if (!res.ok) throw new Error('Failed');
-                const created = await res.json();
-                setStages(prev => [...prev, created]);
-                setCandidatesByStage(prev => ({ ...prev, [created.id]: [] }));
-              } catch {}
-            }}
-          >
-            <i className="fa-solid fa-plus mr-2" /> New Stage
-          </button>
+      {showHeader && (
+        <div className="px-6 pt-4 pb-0 flex items-center justify-between">
+          <h1 className="text-xl font-semibold text-gray-900">Job Pipeline</h1>
+          <div className="flex items-center gap-2">
+            <label className="mr-2 flex items-center gap-2 text-sm text-gray-600">
+              <span>Zapier</span>
+              <input type="checkbox" checked={zapierEnabled} onChange={(e)=>{ setZapierEnabled(e.target.checked); try { localStorage.setItem('zapier_notify_enabled', e.target.checked ? '1' : '0'); } catch {} }} />
+            </label>
+            <button
+              className="bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200"
+              onClick={async () => {
+                const title = prompt('New stage name');
+                if (!title || !pipelineId) return;
+                try {
+                  const { data: { session } } = await supabase.auth.getSession();
+                  const token = session?.access_token;
+                  const position = stages.length;
+                  const res = await fetch(`${baseUrl}/api/pipelines/${pipelineId}/stages`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    credentials: 'include',
+                    body: JSON.stringify({ title, color: 'bg-blue-100 text-blue-800', position })
+                  });
+                  if (!res.ok) throw new Error('Failed');
+                  const created = await res.json();
+                  setStages(prev => [...prev, created]);
+                  setCandidatesByStage(prev => ({ ...prev, [created.id]: [] }));
+                } catch {}
+              }}
+            >
+              <i className="fa-solid fa-plus mr-2" /> New Stage
+            </button>
+          </div>
         </div>
-      </div>
+      )}
       <div className="flex gap-6 overflow-x-auto p-6">
       <DragDropContext onDragEnd={onDragEnd}>
         <Droppable droppableId="stages" direction="horizontal" type="stage">
