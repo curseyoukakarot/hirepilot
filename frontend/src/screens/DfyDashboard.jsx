@@ -243,7 +243,9 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
           } else {
             setRecentCandidates([]);
           }
-        } catch { setRecentCandidates([]); }
+        } catch (e) {
+          setRecentCandidates([]);
+        }
 
         // Campaigns attached to the job (with outreach/replies)
         try {
