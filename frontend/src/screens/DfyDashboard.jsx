@@ -193,58 +193,55 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
           }
         } catch {}
 
-        // Recent candidates (last 3 for this job)
+        // Recent candidates (last 3 for this job) — linear flow without nested try/catch
         if (jobId && recentCandidates.length === 0) {
+          let rc = [];
+          // 1) Guest-friendly endpoint first
           try {
-            // Guest-friendly endpoint
-            try {
-              const gf = await fetch(`${base}/api/pipelines/job/${jobId}/recent`, { credentials: 'include' });
-              if (gf.ok) {
-                const body = await gf.json();
-                if (Array.isArray(body?.candidates) && body.candidates.length) {
-                  setRecentCandidates(body.candidates);
-                }
-              }
-            } catch (err) {}
-
-            if (recentCandidates.length === 0 && user?.id) {
-              const { data: rec } = await supabase
-              .from('candidates')
-              .select('id, first_name, last_name, title, avatar_url, status, created_at')
-              .eq('user_id', user.id)
-              .eq('job_id', jobId)
-              .order('created_at', { ascending: false })
-              .limit(3);
-              if (rec && rec.length) {
-                setRecentCandidates(rec);
-              } else {
-              // Fallback 2: derive from candidate_jobs join (source of truth for pipeline)
-              try {
-                const { data: cjs } = await supabase
-                  .from('candidate_jobs')
-                  .select('created_at, stage_id, status, candidates ( first_name, last_name, avatar_url, title ), pipeline_stages ( title )')
-                  .eq('job_id', jobId)
-                  .order('created_at', { ascending: false })
-                  .limit(3);
-                const derived = (cjs || []).map(row => ({
-                  id: null,
-                  first_name: row?.candidates?.first_name || '',
-                  last_name: row?.candidates?.last_name || '',
-                  title: row?.candidates?.title || '',
-                  avatar_url: row?.candidates?.avatar_url || '',
-                  status: (row?.pipeline_stages?.title) || row?.status || 'sourced',
-                  created_at: row?.created_at || null,
-                }));
-                setRecentCandidates(derived || []);
-              } catch (err) {
-                setRecentCandidates([]);
-              }
+            const gf = await fetch(`${base}/api/pipelines/job/${jobId}/recent`, { credentials: 'include' });
+            if (gf.ok) {
+              const body = await gf.json();
+              if (Array.isArray(body?.candidates)) rc = body.candidates;
             }
-            // end if (recentCandidates.length === 0 && user?.id)
-          } catch (e) {
-            setRecentCandidates([]);
+          } catch (e) {}
+
+          // 2) Owner candidates table
+          if (rc.length === 0 && user?.id) {
+            try {
+              const { data: rec } = await supabase
+                .from('candidates')
+                .select('id, first_name, last_name, title, avatar_url, status, created_at')
+                .eq('user_id', user.id)
+                .eq('job_id', jobId)
+                .order('created_at', { ascending: false })
+                .limit(3);
+              if (Array.isArray(rec) && rec.length) rc = rec;
+            } catch (e) {}
           }
-        } else {
+
+          // 3) Fallback: derive from candidate_jobs join
+          if (rc.length === 0) {
+            try {
+              const { data: cjs } = await supabase
+                .from('candidate_jobs')
+                .select('created_at, stage_id, status, candidates ( first_name, last_name, avatar_url, title ), pipeline_stages ( title )')
+                .eq('job_id', jobId)
+                .order('created_at', { ascending: false })
+                .limit(3);
+              rc = (cjs || []).map(row => ({
+                id: null,
+                first_name: row?.candidates?.first_name || '',
+                last_name: row?.candidates?.last_name || '',
+                title: row?.candidates?.title || '',
+                avatar_url: row?.candidates?.avatar_url || '',
+                status: (row?.pipeline_stages?.title) || row?.status || 'sourced',
+                created_at: row?.created_at || null,
+              }));
+            } catch (e) { rc = []; }
+          }
+
+          setRecentCandidates(rc);
+        } else if (!jobId) {
           setRecentCandidates([]);
         }
 
