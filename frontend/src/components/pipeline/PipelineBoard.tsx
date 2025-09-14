@@ -328,17 +328,20 @@ export default function PipelineBoard({ jobId, pipelineIdOverride = null, refres
         onClose={() => { setPickerOpen(false); setPickerStageId(null); }}
         onSelect={async (cand: PickerCandidate) => {
           try {
-            if (!pipelineId || !pickerStageId) return;
-            const { data: { session } } = await supabase.auth.getSession();
-            const token = session?.access_token;
-            const base = (import.meta as any).env.VITE_BACKEND_URL;
-            await fetch(`${base}/api/pipelines/${pipelineId}/candidates/${cand.id}/move`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-              credentials: 'include',
-              body: JSON.stringify({ jobId, stageId: pickerStageId, stageTitle: stages.find(s => String(s.id) === String(pickerStageId))?.title || '', zapier: !!zapierEnabled })
-            });
-            // Optimistic append
+            if (!pickerStageId) return;
+            // Ensure candidate is linked to the job at this stage
+            const { error: insertErr } = await supabase
+              .from('candidate_jobs')
+              .insert({ candidate_id: cand.id, job_id: jobId, stage_id: pickerStageId });
+            if (insertErr) {
+              // If already exists, try updating stage directly
+              await supabase
+                .from('candidate_jobs')
+                .update({ stage_id: pickerStageId })
+                .eq('job_id', jobId)
+                .eq('candidate_id', cand.id);
+            }
+            // Optimistic UI append/update
             const name = `${cand.first_name || ''} ${cand.last_name || ''}`.trim() || cand.email || 'Candidate';
             setCandidatesByStage(prev => ({
               ...prev,
