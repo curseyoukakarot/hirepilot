@@ -54,7 +54,7 @@ export default function PublicJobPage() {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
               <div className="flex-shrink-0 flex items-center space-x-2">
-                <i className="fa-solid fa-rocket text-purple-700 text-2xl"></i>
+                <img src="/logo.png" alt="HirePilot" className="h-8 w-8" />
                 <span className="font-bold text-xl text-gray-800">HirePilot</span>
               </div>
               <div className="hidden md:flex items-center space-x-3 border-l border-gray-200 pl-4">
@@ -166,12 +166,12 @@ export default function PublicJobPage() {
       {/* Footer */}
       <footer className="bg-white border-t border-gray-200 mt-16">
         <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0">
-          <div className="flex items-center space-x-2 text-gray-500">
+          <div className="flex items-center space-x-3 text-gray-500">
             <span>Powered by</span>
-            <span className="flex items-center font-bold text-gray-700 hover:text-purple-700 transition cursor-pointer">
-              <i className="fa-solid fa-rocket mr-2"></i>
+            <a href="/" className="flex items-center gap-2 font-bold text-gray-700 hover:text-purple-700 transition">
+              <img src="/logo.png" alt="HirePilot" className="h-6 w-6" />
               <span>HirePilot</span>
-            </span>
+            </a>
           </div>
           <div className="flex items-center space-x-4">
             <span className="text-gray-600 font-medium">Share this job:</span>

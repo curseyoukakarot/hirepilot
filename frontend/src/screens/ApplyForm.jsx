@@ -95,7 +95,7 @@ export default function ApplyForm() {
           <div className="bg-white p-8 sm:p-12 rounded-2xl shadow-lg border border-brand-gray-200">
             <div className="text-center mb-10">
               <div className="flex justify-center items-center gap-3 mb-4">
-                <div className="bg-brand-primary text-white w-10 h-10 flex items-center justify-center rounded-lg"><i className="fa-solid fa-bolt"></i></div>
+                <img src="/logo.png" alt="HirePilot" className="h-10 w-10" />
                 <h1 className="text-2xl font-bold text-brand-gray-900">HirePilot</h1>
               </div>
               <h2 className="text-3xl font-bold text-brand-gray-800">Apply for {job?.title || 'this role'}</h2>
