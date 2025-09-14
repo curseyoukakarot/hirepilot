@@ -65,9 +65,9 @@ const RequirePartnersAuth = ({ children }) => <PartnersRouteGuard>{children}</Pa
 import RexWidget from './widgets/rex/RexWidget';
 import PromoBanner from './components/PromoBanner';
 import { PlanProvider } from './context/PlanContext';
-import PublicJobPage from './screens/PublicJobPage';
-import ApplyForm from './screens/ApplyForm';
-import ApplySuccess from './screens/ApplySuccess';
+import PublicJobPage from './screens/PublicJobPage.jsx';
+import ApplyForm from './screens/ApplyForm.jsx';
+import ApplySuccess from './screens/ApplySuccess.jsx';
 import OnboardingModals from './components/OnboardingModals';
 // Blog article pages
 const FlowOfHirePilot = lazy(() => import("./pages/blog/FlowOfHirePilot"));
