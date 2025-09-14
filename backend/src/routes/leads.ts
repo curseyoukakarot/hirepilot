@@ -1,5 +1,6 @@
 console.log('### LOADED', __filename);
 import express, { Request, Response } from 'express';
+import { createClient as createSupabaseAdmin } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { enrichWithApollo } from '../services/apollo/enrichLead';
 import { analyzeProfile } from '../services/gpt/analyzeProfile';
@@ -663,6 +664,62 @@ router.post('/candidates', requireAuth, async (req: ApiRequest, res: Response) =
     res.status(201).json(data);
   } catch (e) {
     console.error('Create candidate (leads router) error:', e);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/leads/candidates/:id/resume - upload resume file and set resume_url
+router.post('/candidates/:id/resume', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user?.id as string | undefined;
+    const candidateId = req.params.id;
+    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    if (!candidateId) { res.status(400).json({ error: 'Missing candidate id' }); return; }
+
+    // Verify ownership
+    const { data: existing, error: ownErr } = await supabase
+      .from('candidates')
+      .select('id, user_id')
+      .eq('id', candidateId)
+      .maybeSingle();
+    if (ownErr || !existing || existing.user_id !== userId) { res.status(404).json({ error: 'Candidate not found' }); return; }
+
+    const file = (req.body as any)?.file || {};
+    const fileData: string = typeof file.data === 'string' ? file.data : '';
+    const fileName: string = typeof file.name === 'string' ? file.name : 'resume.pdf';
+    if (!fileData) { res.status(400).json({ error: 'Missing file data' }); return; }
+
+    // Upload to storage using service role
+    const url = process.env.SUPABASE_URL as string;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY as string;
+    if (!url || !serviceKey) { res.status(500).json({ error: 'Storage not configured' }); return; }
+    const admin = createSupabaseAdmin(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
+
+    try {
+      const base64 = String(fileData).split(',').pop() || '';
+      const bytes = Buffer.from(base64, 'base64');
+      const safeName = fileName.replace(/[^a-zA-Z0-9_.-]/g, '_');
+      const path = `resumes/${userId}/${Date.now()}_${safeName}`;
+      const { error: upErr } = await admin.storage.from('uploads').upload(path, bytes, { upsert: false, contentType: 'application/octet-stream' });
+      if (upErr) { res.status(500).json({ error: upErr.message || 'Upload failed' }); return; }
+      const { data: pub } = admin.storage.from('uploads').getPublicUrl(path);
+      const publicUrl = pub?.publicUrl || null;
+      if (!publicUrl) { res.status(500).json({ error: 'Failed to get public URL' }); return; }
+
+      const { data: updated, error: updErr } = await supabase
+        .from('candidates')
+        .update({ resume_url: publicUrl, updated_at: new Date().toISOString() })
+        .eq('id', candidateId)
+        .eq('user_id', userId)
+        .select('*')
+        .maybeSingle();
+      if (updErr || !updated) { res.status(500).json({ error: 'Failed to save resume URL' }); return; }
+
+      res.json({ success: true, candidate: updated });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message || 'Upload failed' });
+    }
+  } catch (e) {
     res.status(500).json({ error: 'Internal server error' });
   }
 });

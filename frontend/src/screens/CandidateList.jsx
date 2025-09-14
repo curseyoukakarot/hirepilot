@@ -670,6 +670,34 @@ export default function CandidateList() {
                                 >
                                   Delete
                                 </button>
+                                <label className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer flex items-center" role="menuitem">
+                                  <input type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    setShowActionsMenu(null);
+                                    try {
+                                      setUploadingResumeForId(candidate.id);
+                                      const toBase64 = (f) => new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = reject; r.readAsDataURL(f); });
+                                      const dataUrl = await toBase64(file);
+                                      const headers = await getAuthHeader();
+                                      const resp = await fetch(`${BACKEND_URL}/api/leads/candidates/${candidate.id}/resume`, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json', ...headers },
+                                        body: JSON.stringify({ file: { name: file.name, data: String(dataUrl) } })
+                                      });
+                                      const js = await resp.json();
+                                      if (!resp.ok) throw new Error(js?.error || 'Upload failed');
+                                      setCandidates(prev => prev.map(c => c.id === candidate.id ? { ...c, resume_url: js?.candidate?.resume_url } : c));
+                                      alert('Resume uploaded');
+                                    } catch (err) {
+                                      alert(err.message || 'Upload failed');
+                                    } finally {
+                                      setUploadingResumeForId(null);
+                                      e.target.value = '';
+                                    }
+                                  }} />
+                                  Upload Resume
+                                </label>
                                 <button
                                   onClick={() => handleAddToPipelineClick(candidate)}
                                   className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
