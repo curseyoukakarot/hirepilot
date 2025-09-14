@@ -14,14 +14,14 @@ export interface CandidateNote {
 export async function addCandidateNote(candidateId: string, noteText: string): Promise<CandidateNote[]> {
   const { data: userData } = await supabase.auth.getUser();
   const user = userData?.user;
-  // Resolve best-effort author display and avatar from profiles/users table
+  // Resolve best-effort author display and avatar from profiles table
   let authorName: string | null = null;
   let authorAvatar: string | null = null;
   try {
     if (user?.id) {
-      const { data: profile } = await supabase.from('users').select('*').eq('id', user.id).maybeSingle();
-      authorName = (profile?.full_name) || ([profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || null);
-      authorAvatar = (profile?.avatar_url) || null;
+      const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
+      authorName = profile?.full_name || null;
+      authorAvatar = profile?.avatar_url || null;
     }
   } catch {}
   if (!authorName) {
