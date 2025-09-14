@@ -696,11 +696,22 @@ router.post('/candidates/:id/resume', requireAuth, async (req: ApiRequest, res: 
     const admin = createSupabaseAdmin(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
 
     try {
+      // Ensure storage bucket exists (idempotent)
+      try {
+        const { data: bucket, error: bucketErr } = await admin.storage.getBucket('uploads');
+        if (bucketErr || !bucket) {
+          await admin.storage.createBucket('uploads', { public: true, fileSizeLimit: '20MB' }).catch(() => {});
+        }
+      } catch {}
+
       const base64 = String(fileData).split(',').pop() || '';
       const bytes = Buffer.from(base64, 'base64');
       const safeName = fileName.replace(/[^a-zA-Z0-9_.-]/g, '_');
       const path = `resumes/${userId}/${Date.now()}_${safeName}`;
-      const { error: upErr } = await admin.storage.from('uploads').upload(path, bytes, { upsert: false, contentType: 'application/octet-stream' });
+      // Detect content type from extension
+      const ext = (safeName.split('.').pop() || '').toLowerCase();
+      const type = ext === 'pdf' ? 'application/pdf' : (ext === 'doc' ? 'application/msword' : (ext === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/octet-stream'));
+      const { error: upErr } = await admin.storage.from('uploads').upload(path, bytes, { upsert: false, contentType: type });
       if (upErr) { res.status(500).json({ error: upErr.message || 'Upload failed' }); return; }
       const { data: pub } = admin.storage.from('uploads').getPublicUrl(path);
       const publicUrl = pub?.publicUrl || null;
