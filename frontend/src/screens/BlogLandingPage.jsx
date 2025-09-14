@@ -10,6 +10,16 @@ export default function BlogLandingPage() {
 
   const articles = [
     {
+      id: 25,
+      href: '/blog/hirepilot-full-ats',
+      title: 'HirePilot Just Became a Full ATS — And It’s Free',
+      summary: 'One AI-powered system for sourcing, outreach, pipelines, job apps, and hiring.',
+      tag: 'Product Update',
+      gradient: 'from-violet-600 to-fuchsia-600',
+      icon: 'fa-bolt',
+      date: 'Sep 14, 2025',
+    },
+    {
       id: 24,
       href: '/blog/free-plan-playbook',
       title: 'How to Win Clients and Close Hires Using the Free Plan',
