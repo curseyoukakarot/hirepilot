@@ -595,7 +595,7 @@ export default function JobPipeline({ embedded = false, jobId: jobIdProp = null 
         <div className="h-full flex flex-col">
           {/* Header */}
           <header className="bg-white border-b border-gray-200 px-6 py-4">
-            <div className="max-w-7xl mx-auto flex justify-between items-center">
+            <div className="w-full flex justify-between items-center">
               <div className="flex items-center gap-4">
                 <h1 className="text-2xl font-semibold text-gray-900">Job Pipeline</h1>
 
@@ -690,7 +690,7 @@ export default function JobPipeline({ embedded = false, jobId: jobIdProp = null 
           </header>
 
           {/* Main */}
-          <main className="max-w-7xl mx-auto px-6 py-8">
+          <main className="w-full px-6 py-8">
             {!pipelineExists ? (
               <div className="min-h-[300px] flex flex-col items-center justify-center">
                 <div className="text-red-600 text-lg font-semibold mb-4">
