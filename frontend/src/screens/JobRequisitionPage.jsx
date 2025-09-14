@@ -469,9 +469,10 @@ export default function JobRequisitionPage() {
         </nav>
 
         {/* Tab Content */}
-        <main id="main-content" className="max-w-7xl mx-auto px-6 py-6">
+        <main id="main-content" className="w-full">
           {/* Overview Tab */}
           <div id="overview-tab" className={activeTab === 'overview' ? 'tab-content' : 'tab-content hidden'}>
+            <div className="max-w-7xl mx-auto px-6 py-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Main Content */}
               <div className="lg:col-span-2 space-y-6">
@@ -568,10 +569,12 @@ export default function JobRequisitionPage() {
                 </div>
               </div>
             </div>
+            </div>
           </div>
 
           {/* Team Tab */}
           <div id="team-tab" className={activeTab === 'team' ? 'tab-content' : 'tab-content hidden'}>
+            <div className="max-w-7xl mx-auto px-6 py-6">
             <div className="bg-white rounded-lg border border-gray-200">
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between">
@@ -622,6 +625,7 @@ export default function JobRequisitionPage() {
                   {team.length === 0 && <p className="text-sm text-gray-500">No collaborators</p>}
                 </div>
               </div>
+            </div>
             </div>
           </div>
 
@@ -688,13 +692,16 @@ export default function JobRequisitionPage() {
             }}
           />
 
-          {/* Candidates Tab => Pipeline Board */}
+          {/* Candidates Tab => Pipeline Board (full-width) */}
           <div id="candidates-tab" className={activeTab === 'candidates' ? 'tab-content' : 'tab-content hidden'}>
-            <JobPipeline embedded={true} jobId={id} />
+            <div className="px-6 py-6">
+              <JobPipeline embedded={true} jobId={id} />
+            </div>
           </div>
 
           {/* Activity Tab */}
           <div id="activity-tab" className={activeTab === 'activity' ? 'tab-content' : 'tab-content hidden'}>
+            <div className="max-w-7xl mx-auto px-6 py-6">
             <div className="bg-white rounded-lg border border-gray-200">
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between">
@@ -705,10 +712,12 @@ export default function JobRequisitionPage() {
                 <ActivityFeed jobId={id} />
               </div>
             </div>
+            </div>
           </div>
 
           {/* Dashboard Tab */}
           <div id="dfy-tab" className={activeTab === 'dfy' ? 'tab-content' : 'tab-content hidden'}>
+            <div className="max-w-7xl mx-auto px-6 py-6">
             <div className="bg-white rounded-lg border border-gray-200">
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between">
@@ -718,6 +727,7 @@ export default function JobRequisitionPage() {
               <div className="p-0">
                 <DfyDashboard embedded={true} jobId={id} />
               </div>
+            </div>
             </div>
           </div>
         </main>
