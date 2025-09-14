@@ -14,18 +14,33 @@ export interface CandidateNote {
 export async function addCandidateNote(candidateId: string, noteText: string): Promise<CandidateNote[]> {
   const { data: userData } = await supabase.auth.getUser();
   const user = userData?.user;
-  // Get author info directly from auth user - most reliable source
-  console.log('User data for notes:', { 
-    email: user?.email, 
-    user_metadata: (user as any)?.user_metadata,
-    raw_user: user 
-  });
   
-  const authorName = (user as any)?.user_metadata?.full_name || 
-                     (user as any)?.user_metadata?.name || 
-                     user?.email || 
-                     'Unknown';
-  const authorAvatar = (user as any)?.user_metadata?.avatar_url || null;
+  // Get author info from users table - same approach as ActivityFeed
+  let authorName = 'Unknown';
+  let authorAvatar = null;
+  
+  if (user?.id) {
+    try {
+      const { data: userRecord } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
+      
+      if (userRecord) {
+        // Use exact same logic as ActivityFeed
+        authorName = userRecord.full_name || 
+                    [userRecord.first_name, userRecord.last_name].filter(Boolean).join(' ') || 
+                    userRecord.email || 
+                    'Unknown';
+        authorAvatar = userRecord.avatar_url || null;
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      // Fallback to auth user email
+      authorName = user?.email || 'Unknown';
+    }
+  }
   try {
     const { data, error } = await supabase
       .from('candidate_notes')
