@@ -120,8 +120,8 @@ router.get('/:id/stages', requireAuth as any, async (req: Request, res: Response
   }
 });
 
-// GET /api/pipelines/job/:jobId/recent - last 3 candidates for a job (guest-friendly)
-router.get('/job/:jobId/recent', requireAuth as any, async (req: Request, res: Response) => {
+// GET /api/pipelines/job/:jobId/recent - last 3 candidates for a job (public: guest-friendly)
+router.get('/job/:jobId/recent', async (req: Request, res: Response) => {
   try {
     const jobId = req.params.jobId;
     if (!jobId) return res.json({ candidates: [] });
