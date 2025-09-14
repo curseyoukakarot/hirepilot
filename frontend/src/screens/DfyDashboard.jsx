@@ -69,6 +69,8 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
     hiresByWeek: [0,0,0,0],
     loading: true,
   });
+  const [recentCandidates, setRecentCandidates] = useState([]);
+  const [jobCampaigns, setJobCampaigns] = useState([]);
 
   useEffect(() => {
     (async () => {
@@ -169,6 +171,49 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
           }
         } catch {}
 
+        // Recent candidates (last 3 for this job)
+        try {
+          if (user?.id && jobId) {
+            const { data: rec } = await supabase
+              .from('candidates')
+              .select('id, first_name, last_name, title, avatar_url, status, created_at')
+              .eq('user_id', user.id)
+              .eq('job_id', jobId)
+              .order('created_at', { ascending: false })
+              .limit(3);
+            setRecentCandidates(rec || []);
+          } else {
+            setRecentCandidates([]);
+          }
+        } catch { setRecentCandidates([]); }
+
+        // Campaigns attached to the job (with outreach/replies)
+        try {
+          if (user?.id) {
+            const resp = await fetch(`${base}/api/getCampaigns?user_id=${user.id}`);
+            const body = await resp.json();
+            const list = Array.isArray(body?.campaigns) ? body.campaigns : [];
+            const forJob = (list || []).filter(c => String(c.job_id || '') === String(jobId)).slice(0, 3);
+            const summaries = [];
+            for (const c of forJob) {
+              try {
+                const pr = await fetch(`${base}/api/campaigns/${c.id}/performance?user_id=${user.id}`);
+                const pj = pr.ok ? await pr.json() : {};
+                summaries.push({
+                  id: c.id,
+                  name: c.name || c.title || 'Campaign',
+                  sent: Number(pj.sent || 0),
+                  replies: Number(pj.replies || 0),
+                  hires: 0,
+                });
+              } catch { summaries.push({ id: c.id, name: c.name || c.title || 'Campaign', sent: 0, replies: 0, hires: 0 }); }
+            }
+            setJobCampaigns(summaries);
+          } else {
+            setJobCampaigns([]);
+          }
+        } catch { setJobCampaigns([]); }
+
         setMetrics({ totalCandidates, hiresCount, interviewsCount, outreachSent, repliesCount, replyRate, weeks, outreachByWeek, repliesByWeek, interviewsByWeek, hiresByWeek, loading: false });
       } catch {
         setMetrics(m => ({ ...m, loading: false }));
@@ -189,6 +234,39 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
   const iH = [0,1,2,3].map(i => px(metrics.interviewsByWeek[i] || 0));
   const hH = [0,1,2,3].map(i => px(metrics.hiresByWeek[i] || 0));
   const weekLabels = [0,1,2,3].map(i => metrics.weeks[i] || `Week ${i+1}`);
+
+  const recentRows = (recentCandidates || []).map(c => {
+    const name = `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Candidate';
+    const title = c.title || '';
+    const status = (c.status || '').toString();
+    const badgeColor = /hire/i.test(status) ? 'emerald' : (/interview/i.test(status) ? 'blue' : 'gray');
+    const avatar = c.avatar_url || 'https://ui-avatars.com/api/?background=random&name=' + encodeURIComponent(name || 'C');
+    return `
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <img src="${avatar}" alt="Candidate" class="w-10 h-10 rounded-full">
+          <div>
+            <p class="font-medium text-gray-900">${name}</p>
+            <p class="text-sm text-gray-600">${title}</p>
+          </div>
+        </div>
+        <span class="bg-${badgeColor}-100 text-${badgeColor}-800 text-xs px-2 py-1 rounded-full">${status || 'sourced'}</span>
+      </div>`;
+  }).join('') || `<div class="text-sm text-gray-500">No candidates yet.</div>`;
+
+  const campaignsRows = (jobCampaigns || []).map((c, idx) => {
+    const colors = ['blue','green','purple','orange'];
+    const color = colors[idx % colors.length];
+    return `
+      <div class="border-l-4 border-${color}-500 pl-4">
+        <h4 class="font-medium text-gray-900">${c.name}</h4>
+        <div class="flex justify-between text-sm text-gray-600 mt-1">
+          <span>Outreach: ${fmt(c.sent)}</span>
+          <span>Replies: ${fmt(c.replies)}</span>
+          <span>Hires: ${fmt(c.hires)}</span>
+        </div>
+      </div>`;
+  }).join('') || `<div class="text-sm text-gray-500">No campaigns linked to this job.</div>`;
 
   const html = `<!DOCTYPE html>
 <html><head>
@@ -434,41 +512,10 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div id="recent-successes" class="bg-white rounded-xl shadow-sm border">
                     <div class="p-6 border-b">
-                        <h3 class="text-lg font-semibold text-gray-900">Recent Successes</h3>
+                        <h3 class="text-lg font-semibold text-gray-900">Recent Candidates</h3>
                     </div>
                     <div class="p-6">
-                        <div class="space-y-4">
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center space-x-3">
-                                    <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" alt="Candidate" class="w-10 h-10 rounded-full">
-                                    <div>
-                                        <p class="font-medium text-gray-900">Alex Johnson</p>
-                                        <p class="text-sm text-gray-600">Senior Engineer</p>
-                                    </div>
-                                </div>
-                                <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">Hired</span>
-                            </div>
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center space-x-3">
-                                    <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-5.jpg" alt="Candidate" class="w-10 h-10 rounded-full">
-                                    <div>
-                                        <p class="font-medium text-gray-900">Sarah Chen</p>
-                                        <p class="text-sm text-gray-600">Product Manager</p>
-                                    </div>
-                                </div>
-                                <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">Interview</span>
-                            </div>
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center space-x-3">
-                                    <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-8.jpg" alt="Candidate" class="w-10 h-10 rounded-full">
-                                    <div>
-                                        <p class="font-medium text-gray-900">Mike Rodriguez</p>
-                                        <p class="text-sm text-gray-600">DevOps Engineer</p>
-                                    </div>
-                                </div>
-                                <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">Hired</span>
-                            </div>
-                        </div>
+                        <div class="space-y-4">${recentRows}</div>
                     </div>
                 </div>
 
@@ -477,32 +524,7 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
                         <h3 class="text-lg font-semibold text-gray-900">Active Campaigns</h3>
                     </div>
                     <div class="p-6">
-                        <div class="space-y-4">
-                            <div class="border-l-4 border-blue-500 pl-4">
-                                <h4 class="font-medium text-gray-900">Full-Stack Engineers</h4>
-                                <div class="flex justify-between text-sm text-gray-600 mt-1">
-                                    <span>Outreach: 324</span>
-                                    <span>Replies: 47</span>
-                                    <span>Hires: 8</span>
-                                </div>
-                            </div>
-                            <div class="border-l-4 border-green-500 pl-4">
-                                <h4 class="font-medium text-gray-900">Product Managers</h4>
-                                <div class="flex justify-between text-sm text-gray-600 mt-1">
-                                    <span>Outreach: 156</span>
-                                    <span>Replies: 23</span>
-                                    <span>Hires: 4</span>
-                                </div>
-                            </div>
-                            <div class="border-l-4 border-purple-500 pl-4">
-                                <h4 class="font-medium text-gray-900">Sales Representatives</h4>
-                                <div class="flex justify-between text-sm text-gray-600 mt-1">
-                                    <span>Outreach: 289</span>
-                                    <span>Replies: 38</span>
-                                    <span>Hires: 6</span>
-                                </div>
-                            </div>
-                        </div>
+                        <div class="space-y-4">${campaignsRows}</div>
                     </div>
                 </div>
             </div>
