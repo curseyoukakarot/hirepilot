@@ -82,21 +82,29 @@ export default function NotesDrawer({ open, onClose, candidateId, candidateName,
           <div className="text-sm text-gray-500">Loading notes...</div>
         ) : (
           <div id="notes-thread" className="space-y-6">
-            {notes.map((note) => (
+            {notes.map((note) => {
+              const displayName = note.author_name || note.author_id || 'Unknown';
+              const hasAvatar = Boolean(note.author_avatar_url);
+              const initials = (displayName || '').split(/\s+/).filter(Boolean).slice(0,2).map(s=>s[0]?.toUpperCase()).join('') || 'U';
+              return (
               <div key={note.id} className="flex gap-3 group">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={note.author_avatar_url || ''} className="w-8 h-8 rounded-full mt-1 flex-shrink-0 bg-gray-100" alt={note.author_name || 'User'} />
+                {hasAvatar ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={note.author_avatar_url || ''} className="w-8 h-8 rounded-full mt-1 flex-shrink-0 bg-gray-100 object-cover" alt={displayName} />
+                ) : (
+                  <div className="w-8 h-8 rounded-full mt-1 flex-shrink-0 bg-gray-400 text-white text-xs font-semibold flex items-center justify-center">{initials}</div>
+                )}
                 <div className="flex-grow">
                   <div className="bg-gray-50 rounded-lg p-3">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-semibold text-sm">{note.author_name || 'Unknown'}</span>
+                      <span className="font-semibold text-sm">{displayName}</span>
                       <span className="text-xs text-gray-400">{new Date(note.created_at).toLocaleTimeString()}</span>
                     </div>
                     <p className="text-sm text-gray-800 whitespace-pre-wrap">{note.note_text}</p>
                   </div>
                 </div>
               </div>
-            ))}
+            );})}
             {notes.length === 0 && <div className="text-sm text-gray-400">No notes yet</div>}
           </div>
         )}

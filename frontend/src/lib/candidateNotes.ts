@@ -14,6 +14,18 @@ export interface CandidateNote {
 export async function addCandidateNote(candidateId: string, noteText: string): Promise<CandidateNote[]> {
   const { data: userData } = await supabase.auth.getUser();
   const user = userData?.user;
+  // Resolve best-effort author display and avatar from profiles/users table
+  let authorName: string | null = null;
+  let authorAvatar: string | null = null;
+  try {
+    if (user?.id) {
+      const { data: profile } = await supabase.from('users').select('*').eq('id', user.id).maybeSingle();
+      authorName = (profile?.full_name) || ([profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || null);
+      authorAvatar = (profile?.avatar_url) || null;
+    }
+  } catch {}
+  if (!authorName) authorName = (user as any)?.user_metadata?.full_name || (user as any)?.user_metadata?.name || user?.email || 'Unknown';
+  if (!authorAvatar) authorAvatar = (user as any)?.user_metadata?.avatar_url || null;
   try {
     const { data, error } = await supabase
       .from('candidate_notes')
@@ -22,8 +34,8 @@ export async function addCandidateNote(candidateId: string, noteText: string): P
           candidate_id: candidateId,
           note_text: noteText,
           author_id: user?.id || null,
-          author_name: (user as any)?.user_metadata?.full_name || (user as any)?.user_metadata?.name || null,
-          author_avatar_url: (user as any)?.user_metadata?.avatar_url || null,
+          author_name: authorName,
+          author_avatar_url: authorAvatar,
         },
       ])
       .select('*');

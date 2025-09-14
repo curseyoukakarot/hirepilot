@@ -48,7 +48,7 @@ export default function JobPipeline({ embedded = false, jobId: jobIdProp = null 
       const list = Array.isArray(js) ? js : (js?.pipeline ? [js.pipeline] : (Array.isArray(js?.pipelines) ? js.pipelines : []));
       setPipelines(list);
       setSelectedPipeline(list[0]?.id ? String(list[0].id) : '');
-    } catch {
+      } catch {
       setPipelines([]); setSelectedPipeline('');
     }
   };
@@ -61,18 +61,18 @@ export default function JobPipeline({ embedded = false, jobId: jobIdProp = null 
       setCreating(true);
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
-      const base = import.meta.env.VITE_BACKEND_URL;
-      const payload = {
+    const base = import.meta.env.VITE_BACKEND_URL;
+    const payload = {
         name: newPipelineName,
         department: newPipelineDepartment,
-        job_id: selectedJob,
+      job_id: selectedJob,
         stages: defaultStages.map((s, i) => ({ name: s.name, color: s.color, position: i, icon: '' }))
-      };
-      const res = await fetch(`${base}/api/pipelines`, {
+    };
+    const res = await fetch(`${base}/api/pipelines`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, credentials: 'include', body: JSON.stringify(payload)
       });
       if (res.ok) {
-        const created = await res.json();
+    const created = await res.json();
         await loadPipelines(selectedJob);
         const pid = created?.pipeline?.id || created?.id;
         if (pid) setSelectedPipeline(String(pid));
@@ -84,43 +84,43 @@ export default function JobPipeline({ embedded = false, jobId: jobIdProp = null 
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="w-full flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-semibold text-gray-900">Job Pipeline</h1>
-            <select
-              className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[220px]"
+          <header className="bg-white border-b border-gray-200 px-6 py-4">
+            <div className="w-full flex justify-between items-center">
+              <div className="flex items-center gap-4">
+                <h1 className="text-2xl font-semibold text-gray-900">Job Pipeline</h1>
+                <select
+                  className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[220px]"
               value={selectedJob}
               onChange={(e) => { const next = e.target.value; setSelectedJob(next); if (next && next !== 'all') navigate(`/job/${next}/pipeline`); }}
             >
               <option value="">Select Job</option>
               {jobs.map(j => (<option key={j.id} value={j.id}>{j.title}</option>))}
-            </select>
-            <select
-              className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[260px]"
+                </select>
+                <select
+                  className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[260px]"
               value={selectedPipeline}
               onChange={(e) => { setSelectedPipeline(e.target.value); setRefreshKey(k => k + 1); }}
             >
               <option value="">Select Pipeline</option>
               {pipelines.map(p => (<option key={p.id} value={p.id}>{p.name}</option>))}
-            </select>
-            <span className="text-sm text-gray-500 ml-2 truncate max-w-md">
+                </select>
+                <span className="text-sm text-gray-500 ml-2 truncate max-w-md">
               {pipelines.find(p => String(p.id) === String(selectedPipeline))?.name || ''}
-            </span>
-          </div>
+                </span>
+              </div>
 
-          <div className="flex gap-2 flex-nowrap">
-            <button
-              className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-200 whitespace-nowrap min-w-[130px]"
+              <div className="flex gap-2 flex-nowrap">
+                <button
+                  className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-200 whitespace-nowrap min-w-[130px]"
               onClick={() => {
                 const name = prompt('Pipeline name');
                 if (!name) return; setNewPipelineName(name); createPipeline();
               }}
-            >
+                >
               <span className="font-medium">+ New Pipeline</span>
-            </button>
-            <button
-              className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-200 whitespace-nowrap min-w-[120px]"
+                </button>
+                <button
+                  className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-200 whitespace-nowrap min-w-[120px]"
               onClick={async () => {
                 if (!selectedJob) { alert('Select a job first'); return; }
                 if (!selectedPipeline) { alert('Select or create a pipeline first'); return; }
@@ -141,10 +141,10 @@ export default function JobPipeline({ embedded = false, jobId: jobIdProp = null 
               }}
             >
               <span className="font-medium">+ New Stage</span>
-            </button>
-          </div>
-        </div>
-      </header>
+                  </button>
+                </div>
+            </div>
+          </header>
 
       <div className="flex-1 overflow-hidden">
         <PipelineBoard jobId={selectedJob} pipelineIdOverride={selectedPipeline || null} refreshKey={refreshKey} showHeader={false} />
