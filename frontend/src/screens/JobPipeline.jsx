@@ -636,27 +636,27 @@ export default function JobPipeline({ embedded = false, jobId: jobIdProp = null 
                 </span>
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-nowrap">
                 <button
-                  className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-200"
+                  className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-200 whitespace-nowrap min-w-[130px]"
                   onClick={() => setShowNewPipelineModal(true)}
                 >
                   <FaPlus /> New Pipeline
                 </button>
                 <button
-                  className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-200"
+                  className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-200 whitespace-nowrap min-w-[120px]"
                   onClick={() => setShowNewStageModal(true)}
                 >
                   <FaPlus /> New Stage
                 </button>
                 <button
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700"
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 whitespace-nowrap min-w-[140px]"
                   onClick={() => handleAddCandidate(stages[0]?.id || 'sourced')}
                 >
                   <FaUserPlus /> Add Candidate
                 </button>
                 <button
-                  className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-200"
+                  className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-200 whitespace-nowrap"
                   onClick={() => setShowKeyboardShortcuts(true)}
                   title="Keyboard Shortcuts"
                 >
