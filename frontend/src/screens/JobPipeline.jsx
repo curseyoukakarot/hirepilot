@@ -16,6 +16,12 @@ export default function JobPipeline({ embedded = false, jobId: jobIdProp = null 
   const [creating, setCreating] = useState(false);
   const [newPipelineName, setNewPipelineName] = useState('');
   const [newPipelineDepartment, setNewPipelineDepartment] = useState('');
+  const defaultStages = [
+    { name: 'Sourced', color: 'bg-blue-100 text-blue-800' },
+    { name: 'Contacted', color: 'bg-yellow-100 text-yellow-800' },
+    { name: 'Interview', color: 'bg-purple-100 text-purple-800' },
+    { name: 'Offer', color: 'bg-green-100 text-green-800' }
+  ];
 
   useEffect(() => { if (jobId) setSelectedJob(jobId); }, [jobId]);
 
@@ -56,12 +62,20 @@ export default function JobPipeline({ embedded = false, jobId: jobIdProp = null 
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
       const base = import.meta.env.VITE_BACKEND_URL;
-      const payload = { name: newPipelineName, department: newPipelineDepartment, job_id: selectedJob };
+      const payload = {
+        name: newPipelineName,
+        department: newPipelineDepartment,
+        job_id: selectedJob,
+        stages: defaultStages.map((s, i) => ({ name: s.name, color: s.color, position: i, icon: '' }))
+      };
       const res = await fetch(`${base}/api/pipelines`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, credentials: 'include', body: JSON.stringify(payload)
       });
       if (res.ok) {
+        const created = await res.json();
         await loadPipelines(selectedJob);
+        const pid = created?.pipeline?.id || created?.id;
+        if (pid) setSelectedPipeline(String(pid));
         setRefreshKey(k => k + 1);
         setNewPipelineName(''); setNewPipelineDepartment('');
       }
@@ -107,7 +121,24 @@ export default function JobPipeline({ embedded = false, jobId: jobIdProp = null 
             </button>
             <button
               className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-200 whitespace-nowrap min-w-[120px]"
-              onClick={() => { setRefreshKey(k => k + 1); const evt = new CustomEvent('pipeline:newStage'); window.dispatchEvent(evt); }}
+              onClick={async () => {
+                if (!selectedJob) { alert('Select a job first'); return; }
+                if (!selectedPipeline) { alert('Select or create a pipeline first'); return; }
+                const title = prompt('Stage name');
+                if (!title) return;
+                try {
+                  const { data: { session } } = await supabase.auth.getSession();
+                  const token = session?.access_token;
+                  const base = import.meta.env.VITE_BACKEND_URL;
+                  await fetch(`${base}/api/pipelines/${selectedPipeline}/stages`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    credentials: 'include',
+                    body: JSON.stringify({ title, color: 'bg-blue-100 text-blue-800', position: 0 })
+                  });
+                  setRefreshKey(k => k + 1);
+                } catch (e) { console.error(e); }
+              }}
             >
               <span className="font-medium">+ New Stage</span>
             </button>
