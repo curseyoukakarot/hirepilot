@@ -245,32 +245,39 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
           setRecentCandidates([]);
         }
 
-        // Campaigns attached to the job (with outreach/replies)
+        // Campaigns attached to the job (public first, then owner fallback)
         try {
-          if (user?.id) {
-            const resp = await fetch(`${base}/api/getCampaigns?user_id=${user.id}`);
-            const body = await resp.json();
-            const list = Array.isArray(body?.campaigns) ? body.campaigns : [];
-            const forJob = (list || []).filter(c => String(c.job_id || '') === String(jobId)).slice(0, 3);
-            const summaries = [];
-            for (const c of forJob) {
-              try {
-                const pr = await fetch(`${base}/api/campaigns/${c.id}/performance?user_id=${user.id}`);
-                const pj = pr.ok ? await pr.json() : {};
-                summaries.push({
-                  id: c.id,
-                  name: c.name || c.title || 'Campaign',
-                  sent: Number(pj.sent || 0),
-                  replies: Number(pj.replies || 0),
-                  hires: 0,
-                });
-              } catch (err) { summaries.push({ id: c.id, name: c.name || c.title || 'Campaign', sent: 0, replies: 0, hires: 0 }); }
-            }
-            setJobCampaigns(summaries);
-          } else {
-            setJobCampaigns([]);
+          let summaries = [];
+          if (jobId) {
+            try {
+              const pub = await fetch(`${base}/api/jobs/${jobId}/campaigns`);
+              if (pub.ok) {
+                const body = await pub.json();
+                const list = Array.isArray(body?.campaigns) ? body.campaigns : [];
+                summaries = list.slice(0, 3);
+              }
+            } catch {}
           }
-        } catch (err) { setJobCampaigns([]); }
+          // Owner fallback with richer performance
+          if (summaries.length === 0 && user?.id) {
+            try {
+              const resp = await fetch(`${base}/api/getCampaigns?user_id=${user.id}`);
+              const body = await resp.json();
+              const list = Array.isArray(body?.campaigns) ? body.campaigns : [];
+              const forJob = (list || []).filter(c => String(c.job_id || '') === String(jobId)).slice(0, 3);
+              const det = [];
+              for (const c of forJob) {
+                try {
+                  const pr = await fetch(`${base}/api/campaigns/${c.id}/performance?user_id=${user.id}`);
+                  const pj = pr.ok ? await pr.json() : {};
+                  det.push({ id: c.id, name: c.name || c.title || 'Campaign', sent: Number(pj.sent || 0), replies: Number(pj.replies || 0), hires: 0 });
+                } catch { det.push({ id: c.id, name: c.name || c.title || 'Campaign', sent: 0, replies: 0, hires: 0 }); }
+              }
+              summaries = det;
+            } catch {}
+          }
+          setJobCampaigns(summaries);
+        } catch { setJobCampaigns([]); }
 
         setMetrics({ totalCandidates, hiresCount, interviewsCount, outreachSent, repliesCount, replyRate, weeks, outreachByWeek, repliesByWeek, interviewsByWeek, hiresByWeek, loading: false });
       } catch {

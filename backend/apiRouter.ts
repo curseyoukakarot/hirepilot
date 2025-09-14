@@ -14,6 +14,7 @@ import messageRouter from './routers/messageRouter';
 import { launchCampaign } from './api/campaigns/launch';
 import { pollPhantomBusterResults, debugPhantomBusterWebhook, debugSearchLeads, testDirectPhantomBuster, fetchExistingPhantomResults } from './api/campaign';
 import campaignPerformance from './api/campaignPerformance';
+import jobCampaigns from './api/jobCampaigns';
 import userPerformance from './api/userPerformance';
 import analyticsTimeSeries from './api/analyticsTimeSeries';
 import scheduleMassMessage from './api/scheduleMassMessage';
@@ -121,6 +122,8 @@ router.get('/campaigns/debug/search-leads', requireAuth, debugSearchLeads);
 
 // Add campaign performance endpoint
 router.get('/campaigns/:id/performance', campaignPerformance);
+// Public: campaigns attached to a job
+router.get('/jobs/:id/campaigns', jobCampaigns);
 
 // Add user performance endpoint
 router.get('/users/:id/performance', userPerformance);
