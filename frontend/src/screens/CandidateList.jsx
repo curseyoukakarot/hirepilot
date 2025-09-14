@@ -592,8 +592,8 @@ export default function CandidateList() {
                           </button>
                           
                           {showActionsMenu === candidate.id && (
-                            <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
-                              <div className="py-1" role="menu">
+                            <div className="absolute right-0 mt-2 min-w-[200px] rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
+                              <div className="py-1 space-y-0.5" role="menu">
                                 <button
                                   onClick={() => handleMessageCandidate(candidate)}
                                   className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -696,7 +696,7 @@ export default function CandidateList() {
                                       e.target.value = '';
                                     }
                                   }} />
-                                  Upload Resume
+                                  <span className="whitespace-nowrap">Upload Resume</span>
                                 </label>
                                 <button
                                   onClick={() => handleAddToPipelineClick(candidate)}
