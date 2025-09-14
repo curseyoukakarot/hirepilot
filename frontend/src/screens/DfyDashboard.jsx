@@ -134,7 +134,7 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
         try {
           const { data: camp } = await supabase.from('campaigns').select('id').eq('job_id', jobId).maybeSingle();
           matchingCampaignId = camp?.id || null;
-        } catch {}
+        } catch (err) {}
         // Fallback: use most recent campaign for this user if none linked to job
         if (!matchingCampaignId && user?.id) {
           try {
@@ -194,8 +194,8 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
         } catch {}
 
         // Recent candidates (last 3 for this job)
-        try {
-          if (jobId && recentCandidates.length === 0) {
+        if (jobId && recentCandidates.length === 0) {
+          try {
             // Guest-friendly endpoint
             try {
               const gf = await fetch(`${base}/api/pipelines/job/${jobId}/recent`, { credentials: 'include' });
@@ -205,19 +205,19 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
                   setRecentCandidates(body.candidates);
                 }
               }
-            } catch {}
+            } catch (err) {}
 
             if (recentCandidates.length === 0 && user?.id) {
-            const { data: rec } = await supabase
+              const { data: rec } = await supabase
               .from('candidates')
               .select('id, first_name, last_name, title, avatar_url, status, created_at')
               .eq('user_id', user.id)
               .eq('job_id', jobId)
               .order('created_at', { ascending: false })
               .limit(3);
-            if (rec && rec.length) {
-              setRecentCandidates(rec);
-            } else {
+              if (rec && rec.length) {
+                setRecentCandidates(rec);
+              } else {
               // Fallback 2: derive from candidate_jobs join (source of truth for pipeline)
               try {
                 const { data: cjs } = await supabase
@@ -236,14 +236,15 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
                   created_at: row?.created_at || null,
                 }));
                 setRecentCandidates(derived || []);
-              } catch {
+              } catch (err) {
                 setRecentCandidates([]);
               }
             }
-          } else {
+            // end if (recentCandidates.length === 0 && user?.id)
+          } catch (e) {
             setRecentCandidates([]);
           }
-        } catch (e) {
+        } else {
           setRecentCandidates([]);
         }
 
@@ -266,13 +267,13 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
                   replies: Number(pj.replies || 0),
                   hires: 0,
                 });
-              } catch { summaries.push({ id: c.id, name: c.name || c.title || 'Campaign', sent: 0, replies: 0, hires: 0 }); }
+              } catch (err) { summaries.push({ id: c.id, name: c.name || c.title || 'Campaign', sent: 0, replies: 0, hires: 0 }); }
             }
             setJobCampaigns(summaries);
           } else {
             setJobCampaigns([]);
           }
-        } catch { setJobCampaigns([]); }
+        } catch (err) { setJobCampaigns([]); }
 
         setMetrics({ totalCandidates, hiresCount, interviewsCount, outreachSent, repliesCount, replyRate, weeks, outreachByWeek, repliesByWeek, interviewsByWeek, hiresByWeek, loading: false });
       } catch {
