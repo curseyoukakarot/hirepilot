@@ -31,14 +31,19 @@ export async function addCandidateNote(candidateId: string, noteText: string): P
 }
 
 export async function getCandidateNotes(candidateId: string): Promise<CandidateNote[]> {
-  const { data, error } = await supabase
-    .from('candidate_notes')
-    .select('*')
-    .eq('candidate_id', candidateId)
-    .order('created_at', { ascending: true });
-
-  if (error) throw error;
-  return (data || []) as CandidateNote[];
+  try {
+    const { data, error } = await supabase
+      .from('candidate_notes')
+      .select('*')
+      .eq('candidate_id', candidateId)
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return (data || []) as CandidateNote[];
+  } catch (e: any) {
+    // Table may not exist yet; return empty to avoid breaking UI
+    if (e?.message?.includes('relation') || e?.code === '42P01') return [];
+    throw e;
+  }
 }
 
 
