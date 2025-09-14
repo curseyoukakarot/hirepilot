@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import CandidateCard, { CandidateItem } from './CandidateCard';
+import CandidatePickerModal, { PickerCandidate } from './CandidatePickerModal';
 import NotesDrawer from './NotesDrawer';
 import { supabase } from '../../lib/supabase';
 
@@ -29,6 +30,8 @@ export default function PipelineBoard({ jobId, pipelineIdOverride = null, refres
   const [zapierEnabled, setZapierEnabled] = useState<boolean>(() => {
     try { return localStorage.getItem('zapier_notify_enabled') !== '0'; } catch { return true; }
   });
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerStageId, setPickerStageId] = useState<string | null>(null);
 
   const baseUrl = useMemo(() => (import.meta as any).env.VITE_BACKEND_URL, []);
 
@@ -280,43 +283,7 @@ export default function PipelineBoard({ jobId, pipelineIdOverride = null, refres
                             {/* Add Candidate inline button */}
                             <button
                               className="w-full p-2 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg flex items-center justify-center gap-2"
-                              onClick={async () => {
-                                try {
-                                  const { data: { session } } = await supabase.auth.getSession();
-                                  const token = session?.access_token;
-                                  const base = (import.meta as any).env.VITE_BACKEND_URL;
-                                  const fullName = prompt('Enter candidate name (First Last)');
-                                  if (!fullName) return;
-                                  const email = prompt('Enter candidate email (optional)') || '';
-                                  // Create candidate if needed and link to job
-                                  const nameParts = fullName.split(' ');
-                                  const first = nameParts.shift() || fullName;
-                                  const last = nameParts.join(' ');
-                                  let candidateId: string | null = null;
-                                  // Try insert minimal candidate
-                                  const { data: cData, error: cErr } = await supabase
-                                    .from('candidates')
-                                    .insert({ first_name: first, last_name: last, email })
-                                    .select('id')
-                                    .single();
-                                  if (!cErr && cData?.id) candidateId = cData.id;
-                                  if (!candidateId) return;
-                                  // Link to job in this stage via backend or direct table
-                                  await fetch(`${base}/api/pipelines/${pipelineId}/candidates/${candidateId}/move`, {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                                    credentials: 'include',
-                                    body: JSON.stringify({ jobId, stageId: String(stage.id), stageTitle: stage.title, zapier: !!zapierEnabled })
-                                  });
-                                  setCandidatesByStage(prev => ({
-                                    ...prev,
-                                    [stage.id]: [
-                                      ...(prev[stage.id] || []),
-                                      { id: candidateId!, candidate_id: candidateId!, name: fullName, email, avatar_url: '' }
-                                    ]
-                                  }));
-                                } catch {}
-                              }}
+                              onClick={() => { setPickerStageId(String(stage.id)); setPickerOpen(true); }}
                             >
                               <i className="fa-solid fa-user-plus text-xs" /> Add Candidate
                             </button>
@@ -353,6 +320,32 @@ export default function PipelineBoard({ jobId, pipelineIdOverride = null, refres
         candidateId={selectedCandidate?.candidate_id || null}
         candidateName={selectedCandidate?.name}
         stageTitle={selectedStageTitle}
+      />
+
+      <CandidatePickerModal
+        open={pickerOpen}
+        jobId={jobId}
+        onClose={() => { setPickerOpen(false); setPickerStageId(null); }}
+        onSelect={async (cand: PickerCandidate) => {
+          try {
+            if (!pipelineId || !pickerStageId) return;
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            const base = (import.meta as any).env.VITE_BACKEND_URL;
+            await fetch(`${base}/api/pipelines/${pipelineId}/candidates/${cand.id}/move`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              credentials: 'include',
+              body: JSON.stringify({ jobId, stageId: pickerStageId, stageTitle: stages.find(s => String(s.id) === String(pickerStageId))?.title || '', zapier: !!zapierEnabled })
+            });
+            // Optimistic append
+            const name = `${cand.first_name || ''} ${cand.last_name || ''}`.trim() || cand.email || 'Candidate';
+            setCandidatesByStage(prev => ({
+              ...prev,
+              [pickerStageId]: [ ...(prev[pickerStageId!] || []), { id: cand.id, candidate_id: cand.id, name, email: cand.email || '', avatar_url: cand.avatar_url || '' } ]
+            }));
+          } catch {}
+        }}
       />
     </div>
     </div>
