@@ -18,6 +18,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   const [isEnriching, setIsEnriching] = useState(false);
   const [enrichStatus, setEnrichStatus] = useState({ apollo: null, gpt: null });
   const [localLead, setLocalLead] = useState(lead);
+  const [localCandidate, setLocalCandidate] = useState(lead);
   const lastAppliedRef = useRef(null);
   
   // Force remount on entity change to clear stale closures
@@ -31,7 +32,10 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     // Prevent reverting to stale if a more recent local change was applied
     const incomingStamp = lead?.updated_at ?? "";
     const lastApplied = lastAppliedRef.current ?? "";
-    if (incomingStamp >= lastApplied) setLocalLead(lead);
+    if (incomingStamp >= lastApplied) {
+      setLocalLead(lead);
+      setLocalCandidate(lead);
+    }
   }, [lead?.id, lead?.updated_at, entityType]);
   
   // LinkedIn request modal state
@@ -172,6 +176,11 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   // Toast helper (replace with your own toast if needed)
   const showToast = (msg, type = 'success') => {
     window.alert(msg); // Replace with your toast system
+  };
+
+  // Helper function to get the current local state based on entity type
+  const getCurrentLocal = () => {
+    return entityType === 'candidate' ? localCandidate : localLead;
   };
 
   // Helper to validate LinkedIn profile URLs and build extension trigger URL
@@ -395,13 +404,17 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
       
+      // Use appropriate local state based on entity type
+      const currentLocal = entityType === 'candidate' ? localCandidate : localLead;
+      const setCurrentLocal = entityType === 'candidate' ? setLocalCandidate : setLocalLead;
+      
       // Optimistic update
-      const updatedLocal = { ...localLead, [field]: value };
-      setLocalLead(updatedLocal);
+      const updatedLocal = { ...currentLocal, [field]: value };
+      setCurrentLocal(updatedLocal);
       onLeadUpdated?.(updatedLocal);
 
       // Use different API endpoints based on entity type
-      const idToUse = entityType === "candidate" ? localLead.id : localLead.id;
+      const idToUse = currentLocal.id;
       const endpoint = entityType === "candidate"
         ? `${API_BASE_URL}/candidates/${idToUse}`
         : `${API_BASE_URL}/leads/${idToUse}`;
@@ -414,14 +427,14 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
         },
         body: JSON.stringify({ 
           [field]: value, 
-          ...(localLead.lead_id ? { lead_id: localLead.lead_id } : {}) 
+          ...(currentLocal.lead_id ? { lead_id: currentLocal.lead_id } : {}) 
         }),
         credentials: "include",
       });
 
       if (!response.ok) {
         // Rollback on failure
-        setLocalLead(localLead);
+        setCurrentLocal(currentLocal);
         const errorText = await response.text();
         throw new Error(`Failed to update ${entityType}: ${errorText}`);
       }
@@ -433,7 +446,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       lastAppliedRef.current = appliedStamp;
 
       // DO NOT immediately refetch; let the single source of truth be parsed
-      setLocalLead(parsed);
+      setCurrentLocal(parsed);
       onLeadUpdated?.(parsed);
       showToast(`${field.charAt(0).toUpperCase() + field.slice(1)} updated successfully`);
     } catch (error) {
@@ -1829,12 +1842,12 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                       ) : (
                         <div className="flex items-center space-x-2 flex-1">
                           {(() => {
-                            const emailInfo = getEmailWithSource(localLead);
-                            const errorContext = getEnrichmentErrorContext(localLead);
+                            const emailInfo = getEmailWithSource(getCurrentLocal());
+                            const errorContext = getEnrichmentErrorContext(getCurrentLocal());
                             
                             // Also check for Apollo additional emails
                             const apolloEmails = [];
-                            const enrichmentData = localLead.enrichment_data || {};
+                            const enrichmentData = getCurrentLocal().enrichment_data || {};
                             if (enrichmentData.apollo?.personal_emails && Array.isArray(enrichmentData.apollo.personal_emails)) {
                               enrichmentData.apollo.personal_emails.forEach(email => {
                                 if (email && email !== emailInfo?.email) {
@@ -1928,12 +1941,12 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                       ) : (
                         <div className="flex items-center space-x-2 flex-1">
                           {(() => {
-                            const phoneInfo = getPhoneWithSource(localLead);
-                            const errorContext = getEnrichmentErrorContext(localLead);
+                            const phoneInfo = getPhoneWithSource(getCurrentLocal());
+                            const errorContext = getEnrichmentErrorContext(getCurrentLocal());
                             
                             // Apollo doesn't seem to provide additional phone numbers in this data structure
                             const apolloPhones = [];
-                            const enrichmentData = localLead.enrichment_data || {};
+                            const enrichmentData = getCurrentLocal().enrichment_data || {};
                             // Note: Apollo data structure doesn't include separate mobile/work phones
                             // Only the main phone number is provided in the primary phone field
                             
@@ -2034,7 +2047,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
 
                 {/* Activity Log Section */}
                 <ActivityLogSection 
-                  lead={localLead} 
+                  lead={getCurrentLocal()} 
                   entityType={entityType}
                   onActivityAdded={(activity) => {
                     // Optionally refresh lead data or update UI
