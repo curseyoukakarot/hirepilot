@@ -176,11 +176,12 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
 
   // Temporary bypass handler: prefer Chrome extension over Playwright
   const handleLinkedInRequestClick = () => {
-    if (!localLead?.linkedin_url) {
+    const linkedinUrl = getLinkedInUrl(localLead);
+    if (!linkedinUrl) {
       showToast('No LinkedIn URL found for this lead', 'error');
       return;
     }
-    if (!isValidLinkedInProfileUrl(localLead.linkedin_url)) {
+    if (!isValidLinkedInProfileUrl(linkedinUrl)) {
       showToast('Invalid LinkedIn URL.', 'error');
       return;
     }
@@ -196,7 +197,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       return;
     }
 
-    const connectUrl = buildExtensionConnectUrl(localLead.linkedin_url);
+    const connectUrl = buildExtensionConnectUrl(linkedinUrl);
     if (!connectUrl) {
       showToast('Invalid LinkedIn URL.', 'error');
       return;
@@ -855,8 +856,9 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     // You might want to add a 'source' field to leads table to track this
     // For now, infer from available data
     if (lead.lead_source) return lead.lead_source;
-    if (lead.linkedin_url && lead.linkedin_url.includes('sales-nav')) return 'Sales Navigator';
-    if (localLead.enrichment_data?.apollo) return 'Apollo';
+    const linkedinUrl = getLinkedInUrl(lead);
+    if (linkedinUrl && linkedinUrl.includes('sales-nav')) return 'Sales Navigator';
+    if (lead.enrichment_data?.apollo) return 'Apollo';
     return 'Unknown';
   };
 
@@ -1159,7 +1161,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
         Company: getEnrichedCompany(localLead) || localLead.company || '',
         Job: getEnrichedTitle(localLead) || localLead.title || '',
         Email: localLead.email || '',
-        LinkedIn: localLead.linkedin_url || ''
+        LinkedIn: getLinkedInUrl(localLead) || ''
       },
       first_name: getDisplayName(localLead)?.split(' ')[0] || '',
       last_name: (getDisplayName(localLead)?.split(' ').slice(1).join(' ')) || '',
@@ -1198,7 +1200,8 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
 
     // Otherwise, open LinkedIn with extension param and pass message/template metadata
     try {
-      const u = new URL(localLead.linkedin_url);
+      const linkedinUrl = getLinkedInUrl(localLead);
+      const u = new URL(linkedinUrl);
       u.searchParams.set('hirepilot_connect', '1');
       if (selectedLiTemplateId) {
         u.searchParams.set('hp_tpl', selectedLiTemplateId);
@@ -1391,15 +1394,15 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                   </button>
                   <button
                     className={`px-4 py-2 rounded-lg flex items-center whitespace-nowrap shrink-0 ${
-                      (!localLead?.linkedin_url || dailyLinkedInCount >= 20) 
+                      (!getLinkedInUrl(localLead) || dailyLinkedInCount >= 20) 
                         ? 'bg-gray-400 cursor-not-allowed' 
                         : 'bg-linkedin hover:bg-blue-700'
                     } text-white`}
                     onClick={handleLinkedInRequestClick}
-                    disabled={!localLead?.linkedin_url || dailyLinkedInCount >= 20}
-                    style={{backgroundColor: (!localLead?.linkedin_url || dailyLinkedInCount >= 20) ? undefined : '#0077B5'}}
+                    disabled={!getLinkedInUrl(localLead) || dailyLinkedInCount >= 20}
+                    style={{backgroundColor: (!getLinkedInUrl(localLead) || dailyLinkedInCount >= 20) ? undefined : '#0077B5'}}
                     title={
-                      !localLead?.linkedin_url ? 'No LinkedIn URL available' : 
+                      !getLinkedInUrl(localLead) ? 'No LinkedIn URL available' : 
                       dailyLinkedInCount >= 20 ? 'Daily LinkedIn request limit reached (20/20)' :
                       shouldShowComingSoon() ? 'LinkedIn requests coming soon for your role!' :
                       `Send LinkedIn connection request (${dailyLinkedInCount}/20 used today)`

@@ -420,6 +420,12 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
       updateData.phone = phoneNumber;
     }
     
+    // Update LinkedIn URL if Apollo found one and it's different from the current one
+    // This ensures the main linkedin_url field is updated with the enriched LinkedIn URL
+    if (person.linkedin_url && person.linkedin_url !== record.linkedin_url) {
+      updateData.linkedin_url = person.linkedin_url;
+    }
+    
     // Always update enrichment data but preserve original lead identity and any previous Hunter/Skrapp data
     const apolloEnrichmentData = {
       person_id: person.id,
@@ -429,6 +435,7 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
       department: person.department,
       subdepartments: person.subdepartments,
       skills: person.skills,
+      linkedin_url: person.linkedin_url, // Store the enriched LinkedIn URL
       // Store Apollo's suggestions without overwriting original data
       apollo_suggested_name: `${person.first_name} ${person.last_name}`,
       apollo_suggested_title: person.title,
