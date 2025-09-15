@@ -198,12 +198,12 @@ const HomePage = () => {
             <h2 className="text-4xl font-bold mb-8">Built for teams that want more hires in less time</h2>
             <div className="grid md:grid-cols-3 gap-8 mb-16 max-w-3xl mx-auto">
               <div className="text-center">
-                <div className="text-3xl font-bold text-blue-500 mb-2">5,200+</div>
-                <div className="text-gray-300">Candidates Sourced</div>
+                <div className="text-3xl font-bold text-blue-500 mb-2">12x</div>
+                <div className="text-gray-300">Faster lead-to-interview pipeline</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-purple-500 mb-2">300+</div>
-                <div className="text-gray-300">Interviews Booked</div>
+                <div className="text-3xl font-bold text-purple-500 mb-2">80%</div>
+                <div className="text-gray-300">Reduction in manual outreach</div>
               </div>
               <div className="text-center">
                 <div className="text-3xl font-bold text-cyan-500 mb-2">1,000s</div>
