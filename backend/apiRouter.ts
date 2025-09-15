@@ -398,4 +398,8 @@ router.use('/admin', requireAuth, linkedinSessionAdmin);
 import leadActivitiesRouter from './api/leadActivities';
 router.use('/lead-activities', requireAuth, leadActivitiesRouter);
 
+// Unified Activities endpoint
+import activitiesRouter from './api/activities';
+router.use('/activities', requireAuth, activitiesRouter);
+
 export default router;

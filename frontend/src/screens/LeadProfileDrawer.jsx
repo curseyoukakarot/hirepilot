@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { FiX } from "react-icons/fi";
 import { FaCog } from 'react-icons/fa';
@@ -18,6 +18,21 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   const [isEnriching, setIsEnriching] = useState(false);
   const [enrichStatus, setEnrichStatus] = useState({ apollo: null, gpt: null });
   const [localLead, setLocalLead] = useState(lead);
+  const lastAppliedRef = useRef(null);
+  
+  // Force remount on entity change to clear stale closures
+  const instanceKey = useMemo(
+    () => `${entityType}-${lead?.id ?? "nil"}-${lead?.updated_at ?? ""}`,
+    [entityType, lead?.id, lead?.updated_at]
+  );
+
+  // Reconcile prop → local state when identity or server-updated timestamp changes
+  useEffect(() => {
+    // Prevent reverting to stale if a more recent local change was applied
+    const incomingStamp = lead?.updated_at ?? "";
+    const lastApplied = lastAppliedRef.current ?? "";
+    if (incomingStamp >= lastApplied) setLocalLead(lead);
+  }, [lead?.id, lead?.updated_at, entityType]);
   
   // LinkedIn request modal state
   const [showLinkedInModal, setShowLinkedInModal] = useState(false);
@@ -380,31 +395,46 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
       
+      // Optimistic update
+      const updatedLocal = { ...localLead, [field]: value };
+      setLocalLead(updatedLocal);
+      onLeadUpdated?.(updatedLocal);
+
       // Use different API endpoints based on entity type
-      const apiEndpoint = entityType === 'candidate' 
-        ? `${API_BASE_URL}/candidates/${localLead.id}`
-        : `${API_BASE_URL}/leads/${localLead.id}`;
-      
-      const httpMethod = entityType === 'candidate' ? 'PUT' : 'PATCH';
-      
-      const response = await fetch(apiEndpoint, {
-        method: httpMethod,
+      const idToUse = entityType === "candidate" ? localLead.id : localLead.id;
+      const endpoint = entityType === "candidate"
+        ? `${API_BASE_URL}/candidates/${idToUse}`
+        : `${API_BASE_URL}/leads/${idToUse}`;
+
+      const response = await fetch(endpoint, {
+        method: entityType === "candidate" ? "PUT" : "PATCH",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ [field]: value }),
+        body: JSON.stringify({ 
+          [field]: value, 
+          ...(localLead.lead_id ? { lead_id: localLead.lead_id } : {}) 
+        }),
+        credentials: "include",
       });
 
       if (!response.ok) {
+        // Rollback on failure
+        setLocalLead(localLead);
         const errorText = await response.text();
         throw new Error(`Failed to update ${entityType}: ${errorText}`);
       }
       
-      const updatedLead = await response.json();
-      const updatedLocalLead = { ...localLead, [field]: value };
-      setLocalLead(updatedLocalLead);
-      onLeadUpdated?.(updatedLocalLead);
+      const parsed = await response.json();
+
+      // Mark the timestamp we just applied (prevents stale overwrite later)
+      const appliedStamp = parsed?.updated_at ?? new Date().toISOString();
+      lastAppliedRef.current = appliedStamp;
+
+      // DO NOT immediately refetch; let the single source of truth be parsed
+      setLocalLead(parsed);
+      onLeadUpdated?.(parsed);
       showToast(`${field.charAt(0).toUpperCase() + field.slice(1)} updated successfully`);
     } catch (error) {
       showToast(`Failed to update ${field}: ${error.message}`, 'error');
@@ -1303,7 +1333,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       />
       <div className="absolute inset-0 overflow-hidden">
         <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">
-          <div className={`pointer-events-auto w-[768px] h-full transition-transform duration-300 transform bg-white shadow-xl flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+          <div key={instanceKey} className={`pointer-events-auto w-[768px] h-full transition-transform duration-300 transform bg-white shadow-xl flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
             {/* Loading Overlay for Enrichment */}
             {isEnriching && (
               <div className="absolute inset-0 bg-white bg-opacity-80 z-50 flex flex-col items-center justify-center">
@@ -2005,6 +2035,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                 {/* Activity Log Section */}
                 <ActivityLogSection 
                   lead={localLead} 
+                  entityType={entityType}
                   onActivityAdded={(activity) => {
                     // Optionally refresh lead data or update UI
                     // Activity added successfully

@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 
 const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
 
-export default function ActivityLogSection({ lead, onActivityAdded }) {
+export default function ActivityLogSection({ lead, onActivityAdded, entityType = 'lead' }) {
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -24,11 +24,16 @@ export default function ActivityLogSection({ lead, onActivityAdded }) {
 
   // Fetch activities for the lead - memoized to prevent unnecessary API calls
   const fetchActivities = useCallback(async () => {
-    // For candidates, only use lead_id if it exists, otherwise skip activities
-    const resolvedLeadId = lead?.lead_id;
-    if (!resolvedLeadId) {
-      // If no lead_id, this might be a candidate without a linked lead
-      // In this case, we can't fetch activities from the lead-activities API
+    // Use unified activities endpoint
+    const leadId = lead?.lead_id;
+    const candidateId = lead?.id; // when entityType === 'candidate'
+
+    let url = null;
+    if (leadId) {
+      url = `${API_BASE_URL}/activities?entity_type=lead&entity_id=${encodeURIComponent(leadId)}`;
+    } else if (entityType === "candidate" && candidateId) {
+      url = `${API_BASE_URL}/activities?entity_type=candidate&entity_id=${encodeURIComponent(candidateId)}`;
+    } else {
       setActivities([]);
       setLoading(false);
       setError('');
@@ -40,7 +45,7 @@ export default function ActivityLogSection({ lead, onActivityAdded }) {
       setError('');
       
       const headers = await getAuthHeaders();
-      const response = await fetch(`${API_BASE_URL}/lead-activities?lead_id=${resolvedLeadId}`, {
+      const response = await fetch(url, {
         headers,
         credentials: 'include',
       });
@@ -68,7 +73,7 @@ export default function ActivityLogSection({ lead, onActivityAdded }) {
     } finally {
       setLoading(false);
     }
-  }, [lead?.id, getAuthHeaders]);
+  }, [lead?.lead_id, lead?.id, entityType, getAuthHeaders]);
 
   // Fetch activities when lead changes
   useEffect(() => {
