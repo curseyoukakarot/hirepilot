@@ -28,9 +28,9 @@ export default function FreeForever() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             {/* Header */}
             <div id="section-header" className="text-center mb-16">
-              <h1 className="text-5xl md:text-6xl font-bold text-white mb-6">Hire Smarter — for Free. Forever.</h1>
+              <h1 className="text-5xl md:text-6xl font-bold text-white mb-6">A Complete ATS, CRM, and Sourcing System — Free Forever</h1>
               <p className="text-xl text-gray-300 max-w-3xl mx-auto leading-relaxed">
-                Our AI Agent, REX, finds the leads, writes the messages, and helps you reach out — all without paying a dime.<br />
+                Your complete hiring workflow — sourcing, outreach, and candidate tracking — powered by AI and free forever.<br />
                 <span className="font-semibold text-gray-200">No credit card required. No fluff. Just real recruiting power.</span>
               </p>
             </div>
