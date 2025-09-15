@@ -250,5 +250,20 @@
       "REX, move candidate to Technical Interview stage.",
       "REX, advance this candidate to Final Interview."
     ]
+  },
+  {
+    "name": "updateCandidateNotes",
+    "description": "Add a note or comment for a candidate to enable collaboration and history tracking.",
+    "parameters": {
+      "candidateId": "string",
+      "note": "string",
+      "author": "string"
+    },
+    "examples": [
+      "REX, add a note for Alice Johnson: 'Follow up after next interview.'",
+      "REX, comment on Bob Smith: 'Needs stronger SaaS background.'",
+      "REX, add note to cand123: 'Confirmed availability for Tuesday.'",
+      "REX, record observation for this candidate: 'Great technical skills, needs soft skills training.'"
+    ]
   }
 ] 

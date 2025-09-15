@@ -3,6 +3,7 @@
 ## Tool Descriptions
 - **`viewPipeline`**: Allows REX to access pipeline data for a given Job REQ, including candidates in each stage, their status, and timestamps. It supports filtering by stage, staleness (time in stage), or candidate name.
 - **`moveCandidateStage`**: Allows REX to update the pipeline stage of a candidate with role-based access control and confirmation flow.
+- **`updateCandidateNotes`**: Allows REX to add notes/comments to candidates for collaboration and history tracking.
 
 ## MCP Routing Logic
 
@@ -11,6 +12,7 @@
  * Routing logic:
  * - viewPipeline → use when asking about candidate lists, stages, summaries.
  * - moveCandidateStage → use when asked to "move", "advance", or "update" candidate stages.
+ * - updateCandidateNotes → use when asked to "add note", "comment", or "update notes" for candidates.
  */
 
 // For viewing pipeline data
@@ -39,6 +41,20 @@ if (
   message.includes("update") && message.includes("candidate") && message.includes("stage")
 ) {
   return "Use moveCandidateStage to update the pipeline stage of the given candidate.";
+}
+
+// For adding notes to candidates
+if (
+  message.includes("add note") ||
+  message.includes("update note") ||
+  message.includes("comment on candidate") ||
+  message.includes("add comment") ||
+  message.includes("note for") ||
+  message.includes("comment for") ||
+  message.includes("add observation") ||
+  message.includes("record") && message.includes("candidate")
+) {
+  return "Use updateCandidateNotes to add a note for the candidate.";
 }
 ```
 

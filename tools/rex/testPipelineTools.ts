@@ -5,6 +5,7 @@
 
 import ViewPipeline from "./viewPipeline.js";
 import MoveCandidateStage from "./moveCandidateStage.js";
+import UpdateCandidateNotes from "./updateCandidateNotes.js";
 
 async function runTests() {
   console.log("🧪 Starting REX Pipeline Tools Test Suite");
@@ -88,6 +89,30 @@ async function runTests() {
     });
     console.log("Result:", JSON.stringify(viewEmptyRes, null, 2));
 
+    console.log("\n=== Test 11: UpdateCandidateNotes (Add note) ===");
+    const noteRes = await UpdateCandidateNotes.run({
+      candidateId: "960b6019-84bb-403d-b54a-69ae8dd568ff", // Use existing candidate
+      note: "Confirmed availability for Tuesday interview. Very responsive and professional.",
+      author: "REX Assistant",
+    });
+    console.log("Result:", JSON.stringify(noteRes, null, 2));
+
+    console.log("\n=== Test 12: UpdateCandidateNotes (Add another note) ===");
+    const noteRes2 = await UpdateCandidateNotes.run({
+      candidateId: "960b6019-84bb-403d-b54a-69ae8dd568ff",
+      note: "Technical skills look strong based on portfolio review.",
+      author: "Team Admin",
+    });
+    console.log("Result:", JSON.stringify(noteRes2, null, 2));
+
+    console.log("\n=== Test 13: UpdateCandidateNotes (Invalid candidate) ===");
+    const noteInvalidRes = await UpdateCandidateNotes.run({
+      candidateId: "invalid-candidate-id",
+      note: "This should fail",
+      author: "Test User",
+    });
+    console.log("Result:", JSON.stringify(noteInvalidRes, null, 2));
+
   } catch (error) {
     console.error("❌ Test execution failed:", error);
     return;
@@ -98,7 +123,8 @@ async function runTests() {
   console.log("📊 Test Summary:");
   console.log("  - ViewPipeline: 6 tests");
   console.log("  - MoveCandidateStage: 4 tests");
-  console.log("  - Total: 10 tests");
+  console.log("  - UpdateCandidateNotes: 3 tests");
+  console.log("  - Total: 13 tests");
 }
 
 // Run the test suite

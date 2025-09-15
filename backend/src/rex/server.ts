@@ -18,6 +18,7 @@ const {
   viewPipeline,
   moveCandidate,
   moveCandidateToStageId,
+  updateCandidateNotes,
   triggerZapier,
   triggerMakeWorkflow,
   fetchCredits: fetchCreditsTool,
@@ -911,6 +912,17 @@ server.registerCapabilities({
       },
       handler: async ({ userId, candidate, stage, jobId }) => {
         return await moveCandidateToStageId({ userId, candidate, stage, jobId });
+      }
+    },
+    update_candidate_notes: {
+      parameters: { 
+        userId:{type:'string'}, 
+        candidateId:{type:'string'}, 
+        note:{type:'string'}, 
+        author:{type:'string'} 
+      },
+      handler: async ({ userId, candidateId, note, author }) => {
+        return await updateCandidateNotes({ candidateId, note, author });
       }
     },
     trigger_zapier: {

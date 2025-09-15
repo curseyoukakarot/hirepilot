@@ -2708,4 +2708,68 @@ export async function moveCandidateStage({
     console.error('[moveCandidateStage] Unexpected error:', error);
     return { error: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}` };
   }
+}
+
+/**
+ * UpdateCandidateNotes - Add a note for a candidate
+ * Each note is stored as a separate row for better collaboration and history tracking
+ */
+export async function updateCandidateNotes({
+  candidateId,
+  note,
+  author
+}: {
+  candidateId: string;
+  note: string;
+  author: string;
+}) {
+  try {
+    // First, verify the candidate exists
+    const { data: candidate, error: candidateError } = await supabaseDb
+      .from("candidates")
+      .select("id, first_name, last_name")
+      .eq("id", candidateId)
+      .single();
+
+    if (candidateError || !candidate) {
+      console.error('[updateCandidateNotes] Candidate not found:', candidateError);
+      return { error: `Candidate not found: ${candidateError?.message || 'Not found'}` };
+    }
+
+    // Insert the note
+    const { data, error } = await supabaseDb
+      .from("candidate_notes")
+      .insert([{ 
+        candidate_id: candidateId, 
+        author_id: null, // REX doesn't have a user ID, so we'll use author_name
+        author_name: author, 
+        note_text: note,
+        created_at: new Date().toISOString()
+      }])
+      .select("id, candidate_id, author_id, author_name, note_text, created_at")
+      .single();
+
+    if (error) {
+      console.error('[updateCandidateNotes] Supabase error:', error);
+      return { error: `Error adding note: ${error.message}` };
+    }
+
+    const candidateName = `${candidate.first_name || ''} ${candidate.last_name || ''}`.trim();
+
+    return {
+      message: `📝 Note added for candidate ${candidateName}`,
+      note: {
+        id: data.id,
+        candidateId: data.candidate_id,
+        candidateName,
+        author: data.author_name,
+        note: data.note_text,
+        createdAt: data.created_at,
+        createdDisplay: new Date(data.created_at).toLocaleDateString(),
+      },
+    };
+  } catch (error) {
+    console.error('[updateCandidateNotes] Unexpected error:', error);
+    return { error: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}` };
+  }
 } 
