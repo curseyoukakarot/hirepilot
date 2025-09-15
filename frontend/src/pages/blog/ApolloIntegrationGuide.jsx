@@ -98,7 +98,7 @@ export default function ApolloIntegrationGuide() {
           <div id="shared">
             <h2>🧩 Step 3: Using Your Own vs. HirePilot's Apollo Key</h2>
             <p>Depending on your account type, you may have access to a shared Apollo account managed by HirePilot.</p>
-            <h3>🔐 If You're a RecruitPro or Admin:</h3>
+            <h3>🔐 Any user type can either use Hirepilot's Apollo Key or their own!</h3>
             <ul>
               <li>You can use the built-in HirePilot Apollo key</li>
               <li>This gives you limited free lead pulls as part of your plan</li>
