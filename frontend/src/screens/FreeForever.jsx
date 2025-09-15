@@ -217,7 +217,7 @@ export default function FreeForever() {
                   href="/signup?plan=free"
                   className="bg-white text-blue-700 border-2 border-blue-600 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-blue-50"
                 >
-                  Start for Free →
+                  Use Free Forever →
                 </a>
                 <a
                   href="/pricing"
