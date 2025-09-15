@@ -2683,4 +2683,6 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   );
 }
 
-
+// Temporary alias to fix "CandidateProfileDrawer is not defined" error
+// This allows any phantom references to resolve to the correct component
+export { LeadProfileDrawer as CandidateProfileDrawer };

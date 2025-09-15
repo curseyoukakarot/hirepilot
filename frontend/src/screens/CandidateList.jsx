@@ -730,17 +730,58 @@ export default function CandidateList() {
         </div>
       </div>
 
-      {/* Drawer using CandidateProfileDrawer */}
+      {/* Drawer using LeadProfileDrawer */}
       {showDrawer && selectedCandidate && (
-        <CandidateProfileDrawer
+        <LeadProfileDrawer
           isOpen={showDrawer}
           onClose={() => setShowDrawer(false)}
-          candidate={selectedCandidate}
-          onCandidateUpdated={(updated) => {
-            setCandidates(prev =>
-              prev.map(c => c.id === updated.id ? { ...c, ...updated } : c)
-            );
+          entityType="candidate"
+          lead={{
+            id: selectedCandidate.id, // Use candidate ID for candidate entity type
+            lead_id: selectedCandidate.lead_id, // Include lead_id for API calls
+            first_name: selectedCandidate.first_name,
+            last_name: selectedCandidate.last_name,
+            name: `${selectedCandidate.first_name || ''} ${selectedCandidate.last_name || ''}`.trim(),
+            email: selectedCandidate.email,
+            phone: selectedCandidate.phone,
+            enrichment_data: selectedCandidate.enrichment_data,
+            title: selectedCandidate.title,
+            company: selectedCandidate.company,
+            linkedin_url: selectedCandidate.linkedin_url,
+            notes: selectedCandidate.cover_note || selectedCandidate.notes || '',
           }}
+          onLeadUpdated={(updatedCandidate) => {
+            // Update the selectedCandidate state with the new data
+            setSelectedCandidate(prev => ({
+              ...prev,
+              ...updatedCandidate,
+              // Map the updated fields back to candidate structure
+              first_name: updatedCandidate.first_name,
+              last_name: updatedCandidate.last_name,
+              email: updatedCandidate.email,
+              phone: updatedCandidate.phone,
+              notes: updatedCandidate.notes,
+            }));
+            
+            // Also update the candidates list to reflect the changes
+            setCandidates(prev => prev.map(candidate => 
+              candidate.id === selectedCandidate.id 
+                ? { ...candidate, ...updatedCandidate }
+                : candidate
+            ));
+          }}
+          extraHeaderActions={selectedCandidate.resume_url ? (
+            <a
+              href={selectedCandidate.resume_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center px-3 py-1.5 rounded-md text-sm bg-blue-600 text-white hover:bg-blue-700"
+              title="View resume"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <FaFileAlt className="mr-2" /> Resume
+            </a>
+          ) : null}
         />
       )}
 
