@@ -23,6 +23,7 @@ export default function JobCollaboration() {
         .prose th { background: #1f2937; color: #f9fafb; font-weight: 600; }
         .prose td { color: #d1d5db; }
         .toc-active { color: #3b82f6; }
+        .force-white, .force-white * { color: #ffffff !important; }
         .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin: 2rem 0; }
         .feature-card { background: #1f2937; padding: 1.5rem; border-radius: 0.5rem; border: 1px solid #374151; }
         .step-number { background: #3b82f6; color: white; width: 2rem; height: 2rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 1rem; }
@@ -85,26 +86,26 @@ export default function JobCollaboration() {
 
           <div id="key-benefits">
             <h2>📌 Key Benefits</h2>
-            <div className="feature-grid">
+            <div className="feature-grid force-white">
               <div className="feature-card">
-                <h3 className="text-lg font-semibold mb-2 text-white">✅ Unlimited Guest Collaborators</h3>
-                <p className="text-sm text-white font-medium">Invite as many people as you need to collaborate on each job.</p>
+                <h3 className="text-lg font-semibold mb-2">✅ Unlimited Guest Collaborators</h3>
+                <p className="text-sm">Invite as many people as you need to collaborate on each job.</p>
               </div>
               <div className="feature-card">
-                <h3 className="text-lg font-semibold mb-2 text-white">✅ Real-Time Candidate Notes & Feedback</h3>
-                <p className="text-sm text-white font-medium">Leave comments and feedback directly on candidates in real-time.</p>
+                <h3 className="text-lg font-semibold mb-2">✅ Real-Time Candidate Notes & Feedback</h3>
+                <p className="text-sm">Leave comments and feedback directly on candidates in real-time.</p>
               </div>
               <div className="feature-card">
-                <h3 className="text-lg font-semibold mb-2 text-white">✅ No Extra Logins or Complex Permissions</h3>
-                <p className="text-sm text-white font-medium">Simple invitation process with no complex account setup required.</p>
+                <h3 className="text-lg font-semibold mb-2">✅ No Extra Logins or Complex Permissions</h3>
+                <p className="text-sm">Simple invitation process with no complex account setup required.</p>
               </div>
               <div className="feature-card">
-                <h3 className="text-lg font-semibold mb-2 text-white">✅ Async-Friendly for Distributed Teams</h3>
-                <p className="text-sm text-white font-medium">Perfect for teams working across different time zones.</p>
+                <h3 className="text-lg font-semibold mb-2">✅ Async-Friendly for Distributed Teams</h3>
+                <p className="text-sm">Perfect for teams working across different time zones.</p>
               </div>
               <div className="feature-card">
-                <h3 className="text-lg font-semibold mb-2 text-white">✅ Perfect for Agencies, Hiring Managers, and Founders</h3>
-                <p className="text-sm text-white font-medium">Designed for all types of hiring scenarios and team structures.</p>
+                <h3 className="text-lg font-semibold mb-2">✅ Perfect for Agencies, Hiring Managers, and Founders</h3>
+                <p className="text-sm">Designed for all types of hiring scenarios and team structures.</p>
               </div>
             </div>
           </div>
@@ -148,9 +149,9 @@ export default function JobCollaboration() {
             <table>
               <thead>
                 <tr>
-                  <th>Feature</th>
-                  <th>Guest Collaborators</th>
-                  <th>Team Members</th>
+                  <th className="force-white">Feature</th>
+                  <th className="force-white">Guest Collaborators</th>
+                  <th className="force-white">Team Members</th>
                 </tr>
               </thead>
               <tbody>
@@ -245,7 +246,7 @@ export default function JobCollaboration() {
           </div>
 
           {/* Inline CTA 2 */}
-          <div id="inline-cta-2" className="bg-gray-800 border border-gray-700 rounded-lg p-6 my-8 text-center">
+          <div id="inline-cta-2" className="bg-gray-800 border border-gray-700 rounded-lg p-6 my-8 text-center force-white">
             <h3 className="text-xl font-semibold mb-2">Need Help Getting Started?</h3>
             <p className="mb-4">Chat with REX, our AI assistant, inside the HirePilot app for personalized guidance on collaboration features.</p>
             <button className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors">Chat with REX</button>
