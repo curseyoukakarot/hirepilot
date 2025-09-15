@@ -940,13 +940,19 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     };
   };
 
-  // Add a function to fetch the latest lead data
+  // Add a function to fetch the latest lead/candidate data
   const fetchLatestLead = async (id) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
       const accessToken = session.access_token;
-      const response = await fetch(`${API_BASE_URL}/leads/${id}`, {
+      
+      // Use different API endpoints based on entity type
+      const apiEndpoint = entityType === 'candidate' 
+        ? `${API_BASE_URL}/candidates/${id}`
+        : `${API_BASE_URL}/leads/${id}`;
+      
+      const response = await fetch(apiEndpoint, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -1394,14 +1400,16 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                     <i className="fa-regular fa-paper-plane mr-2"></i>
                     Message
                   </button>
-                  <button
-                    className="px-4 py-2 bg-white border border-gray-300 rounded-lg flex items-center whitespace-nowrap shrink-0"
-                    onClick={handleConvertToCandidate}
-                    disabled={isConverting}
-                  >
-                    <i className="fa-solid fa-user-plus mr-2"></i>
-                    {isConverting ? 'Converting...' : 'Convert to Candidate'}
-                  </button>
+                  {entityType !== 'candidate' && (
+                    <button
+                      className="px-4 py-2 bg-white border border-gray-300 rounded-lg flex items-center whitespace-nowrap shrink-0"
+                      onClick={handleConvertToCandidate}
+                      disabled={isConverting}
+                    >
+                      <i className="fa-solid fa-user-plus mr-2"></i>
+                      {isConverting ? 'Converting...' : 'Convert to Candidate'}
+                    </button>
+                  )}
                   <button
                     className={`px-4 py-2 rounded-lg flex items-center whitespace-nowrap shrink-0 ${
                       (!getLinkedInUrl(localLead) || dailyLinkedInCount >= 20) 
@@ -1421,7 +1429,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                     <i className="fa-brands fa-linkedin mr-2"></i>
                     LinkedIn Request {dailyLinkedInCount >= 20 && '(Limit Reached)'}
                   </button>
-                  {(() => {
+                  {entityType !== 'candidate' && (() => {
                     const emailInfo = getEmailWithSource(localLead);
                     const phantomStatus = getPhantomBusterStatus(localLead);
                     const errorContext = getEnrichmentErrorContext(localLead);

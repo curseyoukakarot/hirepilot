@@ -737,7 +737,7 @@ export default function CandidateList() {
           onClose={() => setShowDrawer(false)}
           entityType="candidate"
           lead={{
-            id: selectedCandidate.lead_id || selectedCandidate.id,
+            id: selectedCandidate.id, // Use candidate ID for candidate entity type
             first_name: selectedCandidate.first_name,
             last_name: selectedCandidate.last_name,
             name: `${selectedCandidate.first_name || ''} ${selectedCandidate.last_name || ''}`.trim(),
