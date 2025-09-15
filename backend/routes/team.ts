@@ -199,7 +199,7 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
     const inviteToken = uuidv4();
 
     // Generate the invite link with token
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.FRONTEND_URL || '';
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.FRONTEND_URL || 'https://app.thehirepilot.com';
     const inviteLink = `${appUrl}/join?token=${inviteToken}`;
 
     console.log('Checking if user exists in auth system:', email);
@@ -455,7 +455,8 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
     }
 
     // Generate invite URL
-    const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL}/join?token=${invite.id}`;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.FRONTEND_URL || 'https://app.thehirepilot.com';
+    const inviteLink = `${appUrl}/join?token=${invite.id}`;
     console.log('Generated invite link:', inviteLink);
 
     // Create a temporary password for new users

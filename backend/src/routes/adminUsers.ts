@@ -184,7 +184,7 @@ router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: 
     const { data: inviter, error: inviterError } = await supabase.from('users').select('*').eq('id', inviterId).single();
     const inviterInfo = inviter || { firstName: 'Super', lastName: 'Admin', email: 'admin@hirepilot.com' };
     // Generate invite link (use user id as token)
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.FRONTEND_URL || 'https://hirepilot.com';
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.FRONTEND_URL || 'https://app.thehirepilot.com';
     const inviteLink = `${appUrl}/join?token=${userId}`;
     try {
       await sendTeamInviteEmail({
