@@ -454,6 +454,44 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     }
   };
 
+  // Re-enrich candidate handler
+  const reEnrichCandidate = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+      
+      const currentLocal = getCurrentLocal();
+      if (!currentLocal?.id) throw new Error('No candidate ID available');
+
+      showToast('Re-enriching candidate data...', 'info');
+      
+      const response = await fetch(`${API_BASE_URL}/candidates/${currentLocal.id}/enrich`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to re-enrich: ${errorText}`);
+      }
+      
+      const enriched = await response.json();
+      
+      // Update candidate with enriched email
+      const updated = { ...currentLocal, email: enriched.email };
+      setLocalCandidate(updated);
+      onLeadUpdated?.(updated);
+      
+      showToast('Candidate re-enriched successfully!', 'success');
+    } catch (error) {
+      console.error('Re-enrich failed:', error);
+      showToast(`Re-enrich failed: ${error.message}`, 'error');
+    }
+  };
+
   const cancelEditing = (field) => {
     if (field === 'email') {
       setEditingEmail(false);
@@ -836,7 +874,17 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   const getEmailWithSource = (lead) => {
     const enrichmentData = lead.enrichment_data || {};
     
-    // Check if email came from Decodo (NEW - highest priority)
+    // PRIORITY 1: Direct email field (user-updated email takes precedence)
+    if (lead.email) {
+      return {
+        email: lead.email,
+        source: 'User',
+        tooltip: `Email updated by user`,
+        enrichedAt: null
+      };
+    }
+    
+    // PRIORITY 2: Check if email came from Decodo
     if (enrichmentData.decodo?.email) {
       return {
         email: enrichmentData.decodo.email,
@@ -846,7 +894,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       };
     }
 
-    // Check if email came from Hunter.io
+    // PRIORITY 3: Check if email came from Hunter.io
     if (enrichmentData.hunter?.email) {
       return {
         email: enrichmentData.hunter.email,
@@ -856,7 +904,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       };
     }
 
-    // Check if email came from Skrapp.io
+    // PRIORITY 4: Check if email came from Skrapp.io
     if (enrichmentData.skrapp?.email) {
       return {
         email: enrichmentData.skrapp.email,
@@ -866,23 +914,13 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       };
     }
 
-    // Check if email came from Apollo
+    // PRIORITY 5: Check if email came from Apollo
     if (enrichmentData.apollo?.email && !enrichmentData.apollo.email.includes('email_not_unlocked')) {
       return {
         email: enrichmentData.apollo.email,
         source: 'Apollo',
         tooltip: `Email found via Apollo enrichment`,
         enrichedAt: enrichmentData.apollo.enriched_at
-      };
-    }
-
-    // Fallback to lead's direct email field
-    if (lead.email) {
-      return {
-        email: lead.email,
-        source: 'Direct',
-        tooltip: `Email added directly`,
-        enrichedAt: null
       };
     }
 
@@ -1905,6 +1943,15 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                           >
                             <i className="fa-solid fa-pencil"></i>
                           </button>
+                          {entityType === 'candidate' && (
+                            <button
+                              onClick={reEnrichCandidate}
+                              className="px-2 py-1 text-gray-500 hover:text-purple-600 text-sm"
+                              title="Re-enrich candidate data"
+                            >
+                              <i className="fa-solid fa-wand-magic-sparkles"></i>
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
