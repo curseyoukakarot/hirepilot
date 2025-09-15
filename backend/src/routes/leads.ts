@@ -1721,6 +1721,36 @@ export const updateLead = async (req: ApiRequest, res: Response) => {
       return;
     }
 
+    // Sync changes to the corresponding candidate record if it exists
+    try {
+      const { data: candidate } = await supabase
+        .from('candidates')
+        .select('id')
+        .eq('lead_id', id)
+        .eq('user_id', req.user.id)
+        .maybeSingle();
+
+      if (candidate) {
+        const candidateUpdate: any = {};
+        if (req.body.first_name !== undefined) candidateUpdate.first_name = req.body.first_name;
+        if (req.body.last_name !== undefined) candidateUpdate.last_name = req.body.last_name;
+        if (req.body.email !== undefined) candidateUpdate.email = req.body.email;
+        if (req.body.phone !== undefined) candidateUpdate.phone = req.body.phone;
+        
+        // Only update candidate if there are fields to sync
+        if (Object.keys(candidateUpdate).length > 0) {
+          await supabase
+            .from('candidates')
+            .update(candidateUpdate)
+            .eq('id', candidate.id)
+            .eq('user_id', req.user.id);
+        }
+      }
+    } catch (candidateSyncError) {
+      console.warn('Failed to sync lead update to candidate:', candidateSyncError);
+      // Don't fail the lead update if candidate sync fails
+    }
+
     // Emit Zapier events
     try {
       await import('../../lib/zapEventEmitter').then(async ({ emitZapEvent, ZAP_EVENT_TYPES, createLeadEventData }) => {

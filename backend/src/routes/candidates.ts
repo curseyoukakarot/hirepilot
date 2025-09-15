@@ -55,6 +55,29 @@ router.put('/:id', requireAuth, async (req: ApiRequest, res: Response) => {
 
     if (error) return res.status(500).json({ error: 'Failed to update candidate' });
 
+    // Sync changes to the corresponding lead record if it exists
+    if (data.lead_id) {
+      const leadUpdate: any = {};
+      if (first_name !== undefined) leadUpdate.first_name = first_name;
+      if (last_name !== undefined) leadUpdate.last_name = last_name;
+      if (email !== undefined) leadUpdate.email = email;
+      if (phone !== undefined) leadUpdate.phone = phone;
+      
+      // Only update lead if there are fields to sync
+      if (Object.keys(leadUpdate).length > 0) {
+        try {
+          await supabase
+            .from('leads')
+            .update(leadUpdate)
+            .eq('id', data.lead_id)
+            .eq('user_id', userId);
+        } catch (leadSyncError) {
+          console.warn('Failed to sync candidate update to lead:', leadSyncError);
+          // Don't fail the candidate update if lead sync fails
+        }
+      }
+    }
+
     try {
       const { emitZapEvent, ZAP_EVENT_TYPES } = await import('../../lib/zapEventEmitter');
       await emitZapEvent({ userId, eventType: ZAP_EVENT_TYPES.CANDIDATE_UPDATED, eventData: data, sourceTable: 'candidates', sourceId: data.id });
