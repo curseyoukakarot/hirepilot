@@ -210,7 +210,7 @@ export default function JobCollaboration() {
           <div id="inline-cta-1" className="bg-blue-600 rounded-lg p-6 my-8 text-center">
             <h3 className="text-xl font-semibold mb-2">Ready to Collaborate on Your Next Hire?</h3>
             <p className="mb-4">Start inviting collaborators to your Job REQs and experience seamless team hiring.</p>
-            <button className="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors">Try Job REQ Collaboration</button>
+            <a href="/pricing" className="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors inline-block">Try Job REQ Collaboration</a>
           </div>
 
           <div id="rex-integration">
@@ -249,7 +249,7 @@ export default function JobCollaboration() {
           <div id="inline-cta-2" className="bg-gray-800 border border-gray-700 rounded-lg p-6 my-8 text-center force-white">
             <h3 className="text-xl font-semibold mb-2">Need Help Getting Started?</h3>
             <p className="mb-4">Chat with REX, our AI assistant, inside the HirePilot app for personalized guidance on collaboration features.</p>
-            <button className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors">Chat with REX</button>
+            <a href="/freeforever" className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors inline-block">Chat with REX</a>
           </div>
 
           <div id="summary">
