@@ -24,8 +24,16 @@ export default function ActivityLogSection({ lead, onActivityAdded }) {
 
   // Fetch activities for the lead - memoized to prevent unnecessary API calls
   const fetchActivities = useCallback(async () => {
-    const resolvedLeadId = lead?.lead_id || lead?.id;
-    if (!resolvedLeadId) return;
+    // For candidates, only use lead_id if it exists, otherwise skip activities
+    const resolvedLeadId = lead?.lead_id;
+    if (!resolvedLeadId) {
+      // If no lead_id, this might be a candidate without a linked lead
+      // In this case, we can't fetch activities from the lead-activities API
+      setActivities([]);
+      setLoading(false);
+      setError('');
+      return;
+    }
     
     try {
       setLoading(true);
