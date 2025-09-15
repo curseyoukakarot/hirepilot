@@ -92,6 +92,10 @@ router.post('/onboarding-complete', requireAuth, async (req: ApiRequest, res: Re
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
+    
+    // Get user email to check for pending team invites
+    const userEmail = req.user?.email;
+    
     // Try update; if no row exists, upsert minimal row
     let { data, error } = await supabase
       .from('users')
@@ -101,10 +105,9 @@ router.post('/onboarding-complete', requireAuth, async (req: ApiRequest, res: Re
       .maybeSingle();
 
     if (!data) {
-      const email = (req as any).user?.email || null;
       await supabase
         .from('users')
-        .upsert({ id: userId, email, onboarding_complete: true } as any, { onConflict: 'id' });
+        .upsert({ id: userId, email: userEmail, onboarding_complete: true } as any, { onConflict: 'id' });
       const reread = await supabase
         .from('users')
         .select('id, onboarding_complete')
@@ -118,6 +121,26 @@ router.post('/onboarding-complete', requireAuth, async (req: ApiRequest, res: Re
       res.status(500).json({ error: error.message });
       return;
     }
+
+    // Update any pending team invites for this user to 'accepted' status
+    if (userEmail) {
+      try {
+        await supabase
+          .from('team_invites')
+          .update({ 
+            status: 'accepted',
+            updated_at: new Date().toISOString()
+          })
+          .eq('email', userEmail)
+          .eq('status', 'pending');
+        
+        console.log(`[ONBOARDING] Updated team invite status to 'accepted' for user: ${userEmail}`);
+      } catch (inviteError) {
+        console.warn('[ONBOARDING] Failed to update team invite status:', inviteError);
+        // Don't fail the onboarding completion if invite update fails
+      }
+    }
+
     res.json({ success: true, data });
   } catch (e) {
     res.status(500).json({ error: 'Failed to set onboarding complete' });

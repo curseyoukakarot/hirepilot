@@ -115,7 +115,7 @@ export default function SettingsTeamMembers() {
       const { data: invites, error: invitesError } = await supabase
         .from('team_invites')
         .select('*')
-        .eq('status', 'pending')
+        .in('status', ['pending', 'accepted'])
         .or(`invited_by.eq.${user.id},email.eq.${user.email}`)
         .order('created_at', { ascending: false });
 
@@ -410,10 +410,10 @@ export default function SettingsTeamMembers() {
               </div>
             )}
 
-            {/* Pending Invites */}
+            {/* Team Invites */}
             {pendingInvites.length > 0 && (
               <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Pending Invites</h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Team Invites</h3>
                 <div className="bg-white rounded-lg border divide-y">
                   {pendingInvites.map((invite) => (
                     <div key={invite.id} className="p-4 flex items-center justify-between">
@@ -427,8 +427,12 @@ export default function SettingsTeamMembers() {
                             <span className={`px-2 py-0.5 text-xs rounded-full ${getRoleBadgeColor(invite.role)}`}>
                               {invite.role}
                             </span>
-                            <span className="px-2 py-0.5 text-xs rounded-full bg-yellow-100 text-yellow-800">
-                              Pending
+                            <span className={`px-2 py-0.5 text-xs rounded-full ${
+                              invite.status === 'accepted' 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {invite.status === 'accepted' ? 'Active' : 'Pending'}
                             </span>
                             {/* Integration icons (visual only) */}
                             <span className="inline-flex items-center gap-1 ml-2 text-gray-500">
