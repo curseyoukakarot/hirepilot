@@ -738,6 +738,7 @@ export default function CandidateList() {
           entityType="candidate"
           lead={{
             id: selectedCandidate.id, // Use candidate ID for candidate entity type
+            lead_id: selectedCandidate.lead_id, // Include lead_id for API calls
             first_name: selectedCandidate.first_name,
             last_name: selectedCandidate.last_name,
             name: `${selectedCandidate.first_name || ''} ${selectedCandidate.last_name || ''}`.trim(),
@@ -748,6 +749,26 @@ export default function CandidateList() {
             company: selectedCandidate.company,
             linkedin_url: selectedCandidate.linkedin_url,
             notes: selectedCandidate.cover_note || selectedCandidate.notes || '',
+          }}
+          onLeadUpdated={(updatedCandidate) => {
+            // Update the selectedCandidate state with the new data
+            setSelectedCandidate(prev => ({
+              ...prev,
+              ...updatedCandidate,
+              // Map the updated fields back to candidate structure
+              first_name: updatedCandidate.first_name,
+              last_name: updatedCandidate.last_name,
+              email: updatedCandidate.email,
+              phone: updatedCandidate.phone,
+              notes: updatedCandidate.notes,
+            }));
+            
+            // Also update the candidates list to reflect the changes
+            setCandidates(prev => prev.map(candidate => 
+              candidate.id === selectedCandidate.id 
+                ? { ...candidate, ...updatedCandidate }
+                : candidate
+            ));
           }}
           extraHeaderActions={selectedCandidate.resume_url ? (
             <a

@@ -210,7 +210,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     showToast("Your LinkedIn connection request is being handled by the Chrome Extension. Ensure it's installed.", 'info');
   };
 
-  const fetchSequenceEnrollment = async (leadId) => {
+  const fetchSequenceEnrollment = async (id) => {
     try {
       // Abort any in-flight request to prevent race/flicker
       if (enrollmentAbortRef.current) {
@@ -221,6 +221,17 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       setLoadingEnrollment(true);
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
+      
+      // For candidates, we need to use the lead_id for sequence enrollment API
+      const leadId = entityType === 'candidate' ? localLead.lead_id : id;
+      
+      // Skip sequence enrollment for candidates without lead_id
+      if (entityType === 'candidate' && !leadId) {
+        setEnrollment(null);
+        setEnrollmentRuns([]);
+        return;
+      }
+      
       const res = await fetch(`${API_BASE_URL}/sequence-enrollments/by-lead/${leadId}`, {
         headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         credentials: 'include',
@@ -413,7 +424,11 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
       const accessToken = session.access_token;
-      const response = await fetch(`${API_BASE_URL}/leads/${localLead.id}/convert`, {
+      
+      // For candidates, use lead_id for the convert API call
+      const leadId = entityType === 'candidate' ? localLead.lead_id : localLead.id;
+      
+      const response = await fetch(`${API_BASE_URL}/leads/${leadId}/convert`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1013,7 +1028,11 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
       const accessToken = session.access_token;
-      const response = await fetch(`${API_BASE_URL}/leads/${localLead.id}/enrich`, {
+      
+      // For candidates, use lead_id for the enrich API call
+      const leadId = entityType === 'candidate' ? localLead.lead_id : localLead.id;
+      
+      const response = await fetch(`${API_BASE_URL}/leads/${leadId}/enrich`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2056,7 +2075,9 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                               try {
                                 const { data: { session } } = await supabase.auth.getSession();
                                 const token = session?.access_token;
-                                const resp = await fetch(`${API_BASE_URL}/leads/${localLead.id}/unlock-enhanced`, {
+                                // For candidates, use lead_id for the unlock-enhanced API call
+                                const leadId = entityType === 'candidate' ? localLead.lead_id : localLead.id;
+                                const resp = await fetch(`${API_BASE_URL}/leads/${leadId}/unlock-enhanced`, {
                                   method: 'POST',
                                   headers: {
                                     'Content-Type': 'application/json',
