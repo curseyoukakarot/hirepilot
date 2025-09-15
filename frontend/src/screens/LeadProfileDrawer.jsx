@@ -114,7 +114,10 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
 
     // When drawer opens or lead changes, pull freshest data (throttled)
     if (isOpen && (lead?.lead_id || lead?.id)) {
-      const lid = lead.lead_id || lead.id;
+      // For candidates, use the candidate ID for fetchLatestLead
+      // For leads, use the lead ID
+      const entityId = entityType === 'candidate' ? lead.id : (lead.lead_id || lead.id);
+      const leadId = lead.lead_id || lead.id;
 
       // Only run these once per open
       if (opening) {
@@ -128,25 +131,28 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
 
       // Throttle latest lead fetch to avoid loops from parent prop churn
       const shouldFetchLead = !lastLeadFetchRef.current
-        || lastLeadFetchRef.current.leadId !== lid
+        || lastLeadFetchRef.current.leadId !== entityId
         || now - lastLeadFetchRef.current.at > 10000; // 10s throttle
 
       if (shouldFetchLead) {
-        lastLeadFetchRef.current = { leadId: lid, at: now };
-        fetchLatestLead(lid);
+        lastLeadFetchRef.current = { leadId: entityId, at: now };
+        // Only fetch if the drawer is opening, not on every prop change
+        if (opening) {
+          fetchLatestLead(entityId);
+        }
       }
 
-      // Throttle enrollment fetch similarly
+      // Throttle enrollment fetch similarly - use leadId for sequence enrollment
       const shouldFetchEnrollment = !enrollmentLastFetchRef.current
-        || enrollmentLastFetchRef.current.leadId !== lid
+        || enrollmentLastFetchRef.current.leadId !== leadId
         || now - enrollmentLastFetchRef.current.at > 10000; // 10s throttle
 
       if (shouldFetchEnrollment) {
-        enrollmentLastFetchRef.current = { leadId: lid, at: now };
-        fetchSequenceEnrollment(lid);
+        enrollmentLastFetchRef.current = { leadId: leadId, at: now };
+        fetchSequenceEnrollment(leadId);
       }
     }
-  }, [isOpen, lead?.id, lead?.lead_id]);
+  }, [isOpen, lead?.id, lead?.lead_id, entityType]);
 
   // Toast helper (replace with your own toast if needed)
   const showToast = (msg, type = 'success') => {
@@ -396,8 +402,9 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       }
       
       const updatedLead = await response.json();
-      setLocalLead({ ...localLead, [field]: value });
-      onLeadUpdated?.({ ...localLead, [field]: value });
+      const updatedLocalLead = { ...localLead, [field]: value };
+      setLocalLead(updatedLocalLead);
+      onLeadUpdated?.(updatedLocalLead);
       showToast(`${field.charAt(0).toUpperCase() + field.slice(1)} updated successfully`);
     } catch (error) {
       showToast(`Failed to update ${field}: ${error.message}`, 'error');
@@ -1098,8 +1105,8 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       
       setLocalLead(parsed);
       onLeadUpdated?.(parsed);
-      // Fetch the latest lead from backend to ensure UI is up to date
-      fetchLatestLead(localLead.id);
+      // Note: Don't fetch latest lead here as it might overwrite with stale data
+      // The localLead state is already updated with the correct data
       
       // Check if any data was actually found
       const hasNewEmail = parsed.email && parsed.email !== localLead.email;
