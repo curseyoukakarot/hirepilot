@@ -218,7 +218,6 @@ export default function RexAgentMode() {
             <h3>How it pairs with the other agents</h3>
             <ul>
               <li><strong>Sourcing Agent</strong> fills the top of the funnel from Apollo with sequenced outreach.</li>
-              <li><strong>Sniper Agent</strong> adds daily micro-lists from live social intent (commenters/likers/keywords).</li>
               <li><strong>Sales Agent</strong> turns replies into calls and signups — hands-off or with your approval.</li>
             </ul>
             <p><em>Think: volume + intent → conversion.</em></p>
@@ -323,12 +322,6 @@ export default function RexAgentMode() {
               <li>use my “Demo CTA” template on RevOps Week 34 tomorrow 10am</li>
               <li>resend the follow-up to the “PMs Q2” campaign — fire and forget</li>
               <li>track replies and draft responses for me</li>
-            </ul>
-            <h3>Sniper Agent</h3>
-            <ul>
-              <li>watch this post for 7 days and capture up to 15/day (paste a LinkedIn URL)</li>
-              <li>track posts that mention “ATS migration”, 10/day, and start a short opener</li>
-              <li>push sniper captures into a Sniper – ATS W34 campaign and send</li>
             </ul>
           </div>
 
