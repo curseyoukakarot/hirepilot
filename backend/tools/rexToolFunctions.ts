@@ -2633,11 +2633,7 @@ export async function moveCandidateStage({
   confirm?: boolean;
 }) {
   try {
-    // Guardrails: Role restriction
-    if (!["team_admin", "pro", "recruitpro"].includes(requestedByRole)) {
-      return { error: "You do not have permission to move candidates between stages." };
-    }
-
+    // Allow all users to move candidates - no role restrictions
     // Guardrails: Require confirmation
     if (!confirm) {
       return {

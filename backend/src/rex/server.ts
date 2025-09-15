@@ -15,6 +15,7 @@ const {
   enrichLeadProfile,
   sendMessage,
   getPipelineStats,
+  viewPipeline,
   moveCandidate,
   moveCandidateToStageId,
   triggerZapier,
@@ -880,14 +881,24 @@ server.registerCapabilities({
     get_pipeline_stats: {
       parameters: { userId:{type:'string'}, campaignId:{type:'string'}, stage:{type:'string'} },
       handler: async ({ userId, campaignId, stage }) => {
-        await assertPremium(userId);
         return await getPipelineStats({ campaignId, stage });
+      }
+    },
+    view_pipeline: {
+      parameters: { 
+        userId:{type:'string'}, 
+        jobId:{type:'string'}, 
+        stage:{type:'string', optional:true}, 
+        staleDays:{type:'number', optional:true}, 
+        candidateName:{type:'string', optional:true} 
+      },
+      handler: async ({ userId, jobId, stage, staleDays, candidateName }) => {
+        return await viewPipeline({ jobId, stage, staleDays, candidateName });
       }
     },
     move_candidate: {
       parameters: { userId:{type:'string'}, candidateId:{type:'string'}, newStage:{type:'string'} },
       handler: async ({ userId, candidateId, newStage }) => {
-        await assertPremium(userId);
         return await moveCandidate({ candidateId, newStage });
       }
     },
@@ -899,7 +910,6 @@ server.registerCapabilities({
         jobId:{type:'string', optional:true} 
       },
       handler: async ({ userId, candidate, stage, jobId }) => {
-        await assertPremium(userId);
         return await moveCandidateToStageId({ userId, candidate, stage, jobId });
       }
     },

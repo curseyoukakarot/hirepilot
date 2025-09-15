@@ -74,12 +74,8 @@ export default async function rexChat(req: Request, res: Response) {
 
     const rexEnabled = ['enabled', 'connected', 'on', 'true'].includes(String(integ?.status || '').toLowerCase());
     console.log('rexChat role check', { userType, rexEnabled });
-    const roleLc = (userType || '').toLowerCase();
-    const allowedRoles = ['recruitpro','recruiter','user','teamadmin','team_admin','superadmin','super_admin','admin','member'];
-    const allowed = rexEnabled || !userType || allowedRoles.includes(roleLc);
-    if (!allowed) {
-      return res.status(403).json({ error: 'REX access forbidden for this user' });
-    }
+    // Allow all users to access REX - no restrictions
+    const allowed = true;
 
     // Hard short-circuit: Sniper LinkedIn post collection (avoid model decision-making)
     try {
@@ -159,6 +155,7 @@ export default async function rexChat(req: Request, res: Response) {
       // Lead → Candidate conversion
       { type:'function',function:{name:'convert_lead_to_candidate',parameters:{ type:'object', properties:{ userId:{type:'string'}, leadId:{type:'string'}}, required:['userId','leadId']}}},
       // New pipeline tools
+      { type:'function',function:{name:'view_pipeline',parameters:{ type:'object', properties:{ userId:{type:'string'}, jobId:{type:'string'}, stage:{type:'string'}, staleDays:{type:'number'}, candidateName:{type:'string'} }, required:['userId','jobId']}}},
       { type:'function',function:{name:'move_candidate',parameters:{ type:'object', properties:{ userId:{type:'string'}, candidateId:{type:'string'}, newStage:{type:'string'} }, required:['userId','candidateId','newStage']}}},
       { type:'function',function:{name:'move_candidate_to_stage',parameters:{ type:'object', properties:{ userId:{type:'string'}, candidate:{type:'string'}, stage:{type:'string'}, jobId:{type:'string'} }, required:['userId','candidate','stage']}}},
       // Sniper tools
