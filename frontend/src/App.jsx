@@ -90,6 +90,7 @@ const AtsIntegrations = lazy(() => import("./pages/blog/AtsIntegrations"));
 const RexAgentMode = lazy(() => import("./pages/blog/RexAgentMode"));
 const FreePlanPlaybook = lazy(() => import("./pages/blog/FreePlanPlaybook"));
 const HirePilotFullATS = lazy(() => import("./pages/blog/HirePilotFullATS"));
+const JobCollaboration = lazy(() => import("./pages/blog/JobCollaboration"));
 // AutomateRecruiting Series
 const AutomateRecruiting1 = lazy(() => import("./pages/blog/AutomateRecruiting1"));
 const AutomateRecruiting2 = lazy(() => import("./pages/blog/AutomateRecruiting2"));
@@ -538,6 +539,7 @@ function InnerApp() {
               <Route path="/blog/agentmode" element={<RexAgentMode />} />
               <Route path="/blog/free-plan-playbook" element={<FreePlanPlaybook />} />
               <Route path="/blog/hirepilot-full-ats" element={<HirePilotFullATS />} />
+              <Route path="/blog/jobcollaboration" element={<JobCollaboration />} />
               {/* Email Deliverability Series */}
               <Route path="/blog/email-deliverability-1" element={<EmailDeliverability1 />} />
               <Route path="/blog/email-deliverability-2" element={<EmailDeliverability2 />} />

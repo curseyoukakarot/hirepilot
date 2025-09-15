@@ -10,9 +10,19 @@ export default function BlogLandingPage() {
 
   const articles = [
     {
+      id: 26,
+      href: '/blog/jobcollaboration',
+      title: '👥 Job REQ Collaboration - Work Together, Hire Faster',
+      summary: 'Hiring is a team sport — and now, HirePilot makes it seamless. Bring hiring managers, clients, teammates, or guests into the recruiting process without friction.',
+      tag: 'Collaboration',
+      gradient: 'from-blue-600 to-indigo-600',
+      icon: 'fa-users',
+      date: 'Sep 14, 2025',
+    },
+    {
       id: 25,
       href: '/blog/hirepilot-full-ats',
-      title: 'HirePilot Just Became a Full ATS — And It’s Free',
+      title: 'HirePilot Just Became a Full ATS - And It\'s Free',
       summary: 'One AI-powered system for sourcing, outreach, pipelines, job apps, and hiring.',
       tag: 'Product Update',
       gradient: 'from-violet-600 to-fuchsia-600',
