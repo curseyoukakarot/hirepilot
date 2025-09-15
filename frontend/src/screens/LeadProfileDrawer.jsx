@@ -12,7 +12,7 @@ const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
 
 // You may want to use react-icons for FontAwesome icons, or keep <i> tags if you have FontAwesome loaded globally
 
-export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated, extraHeaderActions }) {
+export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated, extraHeaderActions, entityType = 'lead' }) {
   const navigate = useNavigate();
   const [isConverting, setIsConverting] = useState(false);
   const [isEnriching, setIsEnriching] = useState(false);
@@ -363,8 +363,15 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
       
-      const response = await fetch(`${API_BASE_URL}/leads/${localLead.id}`, {
-        method: 'PATCH',
+      // Use different API endpoints based on entity type
+      const apiEndpoint = entityType === 'candidate' 
+        ? `${API_BASE_URL}/candidates/${localLead.id}`
+        : `${API_BASE_URL}/leads/${localLead.id}`;
+      
+      const httpMethod = entityType === 'candidate' ? 'PUT' : 'PATCH';
+      
+      const response = await fetch(apiEndpoint, {
+        method: httpMethod,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
@@ -372,7 +379,10 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
         body: JSON.stringify({ [field]: value }),
       });
 
-      if (!response.ok) throw new Error('Failed to update lead');
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to update ${entityType}: ${errorText}`);
+      }
       
       const updatedLead = await response.json();
       setLocalLead({ ...localLead, [field]: value });

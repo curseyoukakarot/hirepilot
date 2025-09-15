@@ -735,6 +735,7 @@ export default function CandidateList() {
         <LeadProfileDrawer
           isOpen={showDrawer}
           onClose={() => setShowDrawer(false)}
+          entityType="candidate"
           lead={{
             id: selectedCandidate.lead_id || selectedCandidate.id,
             first_name: selectedCandidate.first_name,
