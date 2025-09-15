@@ -58,7 +58,7 @@ export default function OnboardingModals() {
     {
       title: 'Meet REX',
       body: 'Your AI recruiting assistant for sourcing and messaging.',
-      cta: { label: 'Open REX', href: '/rex' }
+      cta: { label: 'Open REX', href: '/rex-chat' }
     },
     {
       title: 'Install Chrome Extension',
@@ -88,7 +88,7 @@ export default function OnboardingModals() {
             ))}
           </div>
           <div className="flex gap-3">
-            <a href={hrefAbs(curr.cta.href)} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">{curr.cta.label}</a>
+            <a href={hrefAbs(curr.cta.href)} target="_blank" rel="noopener noreferrer" className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">{curr.cta.label}</a>
             {step < cards.length - 1 ? (
               <button className="px-3 py-2 text-gray-700" onClick={() => setStep(step + 1)}>Next</button>
             ) : (
