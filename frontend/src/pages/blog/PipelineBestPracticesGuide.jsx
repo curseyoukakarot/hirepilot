@@ -52,86 +52,107 @@ export default function PipelineBestPracticesGuide() {
 
         {/* Article */}
         <article id="article-body" className="flex-1 max-w-3xl prose prose-lg">
-          {/* Open */}
+          {/* Table of Contents */}
+          <div id="toc">
+            <h2>📋 Table of Contents</h2>
+            <ul>
+              <li>📊 Step 1: Open the Pipeline View</li>
+              <li>🔄 Step 2: Move Candidates Through Stages</li>
+              <li>🧩 Step 3: Customize Your Pipeline (Now Inline!)</li>
+              <li>🧠 Step 4: Convert Qualified Leads to Candidates</li>
+              <li>👥 Collaborate With Your Team</li>
+              <li>🤖 Ask REX to Help</li>
+            </ul>
+          </div>
+
+          {/* Step 1 */}
           <div id="open">
-            <h2>📊 Step 1: Open the Pipeline</h2>
+            <h2>📊 Step 1: Open the Pipeline View</h2>
             <p>From the dashboard:</p>
             <ul>
-              <li>Click into any active <strong>Campaign</strong></li>
-              <li>Navigate to the <strong>Pipeline</strong> tab</li>
+              <li>Click into any active Job REQ or Campaign</li>
+              <li>Select the "Candidates" tab</li>
+              <li>You'll land on a drag-and-drop board view organized by hiring stages (e.g. Sourced, Screened, Interview, Offer, Hired)</li>
             </ul>
-            <p>You'll see a drag-and-drop board view with columns like:</p>
-            <ul>
-              <li>Sourced</li>
-              <li>Phone Screen</li>
-              <li>Interview</li>
-              <li>Offer</li>
-              <li>Hired / Rejected</li>
-            </ul>
-            <p>These stages can be customized to match your process.</p>
+            <p>This pipeline gives you real-time visibility into where every candidate stands — all in one place.</p>
           </div>
 
-          {/* Move */}
+          {/* Step 2 */}
           <div id="move">
             <h2>🔄 Step 2: Move Candidates Through Stages</h2>
-            <p>Each time a candidate progresses (or stalls), update their stage by dragging their card to the appropriate column.</p>
+            <p>Progressing a candidate is as easy as dragging their card to the next stage. The board is fully interactive.</p>
             <p>You can also:</p>
             <ul>
-              <li>Add notes (e.g., "Interviewed by Sam – strong communicator")</li>
-              <li>Attach internal comments or feedback</li>
-              <li>Set follow-up reminders</li>
+              <li>Add internal notes (e.g., "Great communicator – strong on async tools")</li>
+              <li>Tag team members or collaborators</li>
+              <li>View full candidate history and activity</li>
+              <li>Set follow-up reminders (if enabled)</li>
             </ul>
-            <blockquote>✅ Keeping stages updated ensures accurate metrics and avoids drop-offs.</blockquote>
+            <blockquote>✅ Keeping your pipeline updated ensures clarity for your team and faster hires for your clients or stakeholders.</blockquote>
           </div>
 
-          {/* Customize */}
+          {/* Step 3 */}
           <div id="customize">
-            <h2>🧩 Step 3: Customize Your Pipeline Stages</h2>
-            <p>Every hiring process is different. HirePilot lets you edit the default stage names and order.</p>
-            <p><strong>To update:</strong></p>
-            <ol>
-              <li>Go to <strong>Settings → Pipeline Templates</strong></li>
-              <li>Add, rename, or delete stages</li>
-              <li>Apply custom templates to specific campaigns or jobs</li>
-            </ol>
-            <p>Example templates:</p>
+            <h2>🧩 Step 3: Customize Your Pipeline (Inline Editing)</h2>
+            <p>Every job is different — and now, you can edit your pipeline stages directly on the page.</p>
+            <p>To customize:</p>
             <ul>
-              <li>"Full-Cycle Recruiter Process"</li>
-              <li>"Executive Search"</li>
-              <li>"Tech Hiring Funnel"</li>
+              <li>Click the edit icon next to any stage title</li>
+              <li>Add, rename, delete, or reorder stages on the fly</li>
+              <li>Changes are auto-saved per job and visible to all collaborators</li>
             </ul>
+            <p>Some example pipelines:</p>
+            <ul>
+              <li>Startup GTM Hiring Funnel</li>
+              <li>Executive Search Process</li>
+              <li>Tech Recruiting Flow (ICs & Leads)</li>
+            </ul>
+            <p>No need to go into Settings — the board is the control center now.</p>
           </div>
 
-          {/* Convert */}
+          {/* Step 4 */}
           <div id="convert">
-            <h2>🧠 Step 4: Convert Qualified Leads to Candidates</h2>
-            <p>Still working from the Leads tab? You can promote a lead to the pipeline anytime by clicking <strong>"Convert to Candidate."</strong></p>
-            <p>This ensures only the most qualified people make it into your hiring funnel.</p>
+            <h2>🧠 Step 4: Convert Leads Into Candidates</h2>
+            <p>Still sourcing from the Leads tab? You can promote qualified prospects to the pipeline anytime:</p>
+            <ul>
+              <li>Click "Convert to Candidate" on the lead card</li>
+              <li>Assign them to the right job and initial pipeline stage</li>
+            </ul>
+            <p>This keeps your pipeline clean — only serious candidates move forward.</p>
           </div>
 
           {/* Collaboration */}
           <div id="collab">
-            <h2>👥 Collaborate With Your Team</h2>
-            <p>Team members can:</p>
+            <h2>👥 Collaborate With Your Team (or Guests)</h2>
+            <p>HirePilot is built for collaboration.</p>
+            <p>Inside the pipeline:</p>
             <ul>
-              <li>Add internal notes</li>
-              <li>Rate candidates</li>
-              <li>Assign themselves as "owners" of a stage</li>
-              <li>See full history of every touchpoint</li>
+              <li>Team members and guest collaborators can leave internal notes</li>
+              <li>You can assign candidates to owners or interviewers</li>
+              <li>Everyone sees real-time updates and shared activity</li>
+              <li>Ideal for async workflows and distributed teams</li>
             </ul>
-            <p>Perfect for distributed or async recruiting teams.</p>
+            <p>💬 Candidate-specific discussions can happen directly on the card view — no switching tabs.</p>
           </div>
 
           {/* REX */}
           <div id="rex">
-            <h2>🤖 Ask REX</h2>
+            <h2>🤖 Let REX Handle the Heavy Lifting</h2>
+            <p>You can ask REX (your AI assistant) to:</p>
             <ul>
-              <li>"REX, show me all candidates in the Phone Screen stage."</li>
-              <li>"REX, summarize interview notes for John Doe."</li>
-              <li>"REX, move Jane Smith to Final Interview."</li>
-              <li>"REX, who hasn't moved stages in 7 days?"</li>
+              <li>"Show all candidates in the Phone Screen stage"</li>
+              <li>"Move Jane Smith to Final Interview"</li>
+              <li>"Summarize notes for John Doe"</li>
+              <li>"Who's been stuck in the same stage for 7+ days?"</li>
             </ul>
-            <p>The Pipeline gives you structure, clarity, and insight — so nothing falls through the cracks, and every great candidate gets the attention they deserve.</p>
+            <p>REX keeps your pipeline in motion — even when you're not.</p>
+          </div>
+
+          {/* Why It Matters */}
+          <div id="why-matters">
+            <h2>🧭 Why It Matters</h2>
+            <p>A well-managed pipeline = fewer drop-offs, faster decisions, and better hires.</p>
+            <p>With real-time collaboration, inline editing, and REX handling tasks, you stay in flow — and in control.</p>
           </div>
         </article>
       </div>
