@@ -158,27 +158,9 @@ export default function RexAgentMode() {
             </figure>
           </div>
 
-          <div id="sniper">
-            <h2>REX Agent 2: The Sniper Agent (REX – Sniper)</h2>
-            <p>This is your surgical intent hunter. REX Sniper captures hyper-relevant leads based on real activity across LinkedIn.</p>
-            <h3>What it can track</h3>
-            <ul>
-              <li>Engagers on your posts (likes/comments)</li>
-              <li>Competitor posts and active participants</li>
-              <li>Keywords/hashtags for fresh intent data</li>
-            </ul>
-            <h3>Then it</h3>
-            <ul>
-              <li>Collects name + LinkedIn URL (safely + rate-limited)</li>
-              <li>Enriches via Apollo</li>
-              <li>Tags into a micro-campaign (e.g., "Sniper – RevOps W34")</li>
-              <li>Crafts a short, specific opener based on the topic</li>
-            </ul>
-            <p>Perfect for daily drips: watches 3–4 topics, grabs 10–15 high-intent leads/day, and creates warm conversations with minimal noise.</p>
-          </div>
 
           <div id="sales">
-            <h2>REX Agent 3: Sales Agent (NEW)</h2>
+            <h2>REX Agent 2: Sales Agent</h2>
             <p>The newest member of Agent Mode turns every reply into momentum. Sales Agent reads inbound messages, classifies intent, and either proposes polished drafts for your approval or replies automatically with your demo, pricing, and calendar — then tracks the thread through to the meeting and beyond.</p>
 
             <h3>What Sales Agent does</h3>
