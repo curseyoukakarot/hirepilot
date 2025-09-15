@@ -214,5 +214,41 @@
       "REX, schedule LinkedIn connection requests for tomorrow at 10 AM.",
       "Send LinkedIn request to this lead with message: 'Hi #firstName#, I'd love to connect...'"
     ]
+  },
+  {
+    "name": "viewPipeline",
+    "description": "Get a structured list of candidates in each pipeline stage for a specific job with filtering options.",
+    "parameters": {
+      "jobId": "string",
+      "stage": "string (optional)",
+      "staleDays": "number (optional)",
+      "candidateName": "string (optional)"
+    },
+    "examples": [
+      "REX, show me all candidates in the Interview stage for the Revenue Ops role.",
+      "REX, who's been in Phone Screen for more than 7 days?",
+      "REX, list all candidates in the Offer stage.",
+      "REX, summarize candidate notes for the Sales Executive job.",
+      "REX, show me candidates named John in the pipeline.",
+      "REX, who's stuck in the Application stage for over 10 days?"
+    ]
+  },
+  {
+    "name": "moveCandidateStage",
+    "description": "Move a candidate to a different pipeline stage with role-based access control and confirmation flow.",
+    "parameters": {
+      "candidateId": "string",
+      "newStage": "string",
+      "requestedByRole": "string",
+      "confirm": "boolean (optional)"
+    },
+    "examples": [
+      "REX, move John Smith to the Interview stage.",
+      "REX, advance candidate 45f8-92ab into Offer.",
+      "REX, update this candidate's stage to Rejected.",
+      "REX, confirm moving Jane Doe to Phone Screen.",
+      "REX, move candidate to Technical Interview stage.",
+      "REX, advance this candidate to Final Interview."
+    ]
   }
 ] 

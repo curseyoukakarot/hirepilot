@@ -2525,4 +2525,190 @@ function generateEventSummary(eventType: string, eventData: any): string {
     default:
       return `${eventType} event occurred`;
   }
+}
+
+/**
+ * ViewPipeline - Get a structured list of candidates in each pipeline stage for a specific job
+ * Supports filtering by stage, staleness (time in stage), or candidate name
+ */
+export async function viewPipeline({
+  jobId,
+  stage,
+  staleDays,
+  candidateName
+}: {
+  jobId: string;
+  stage?: string;
+  staleDays?: number;
+  candidateName?: string;
+}) {
+  try {
+    // Base query to get candidates with their job associations and stage info
+    let query = supabaseDb
+      .from("candidate_jobs")
+      .select(`
+        id,
+        stage,
+        created_at,
+        updated_at,
+        candidates (
+          id,
+          first_name,
+          last_name,
+          email,
+          notes,
+          created_at,
+          updated_at
+        )
+      `)
+      .eq("job_id", jobId);
+
+    // Stage filter
+    if (stage) {
+      query = query.eq("stage", stage);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('[viewPipeline] Supabase error:', error);
+      return { error: `Error fetching pipeline data: ${error.message}` };
+    }
+
+    let filteredData = data || [];
+
+    // Candidate name search (case-insensitive)
+    if (candidateName) {
+      filteredData = filteredData.filter((row: any) => {
+        const fullName = `${row.candidates?.first_name || ''} ${row.candidates?.last_name || ''}`.trim();
+        return fullName.toLowerCase().includes(candidateName.toLowerCase());
+      });
+    }
+
+    // Staleness filter (time in stage exceeds staleDays)
+    if (staleDays) {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - staleDays);
+      filteredData = filteredData.filter(
+        (row: any) => new Date(row.updated_at) < cutoff
+      );
+    }
+
+    if (filteredData.length === 0) {
+      return { message: "No matching candidates found in the pipeline." };
+    }
+
+    // Return JSON for downstream use
+    return {
+      candidates: filteredData.map((row: any) => ({
+        id: row.candidates?.id,
+        name: `${row.candidates?.first_name || ''} ${row.candidates?.last_name || ''}`.trim(),
+        email: row.candidates?.email || '',
+        stage: row.stage,
+        notes: row.candidates?.notes || null,
+        createdAt: row.candidates?.created_at,
+        updatedAt: row.updated_at,
+        lastUpdatedDisplay: new Date(row.updated_at).toLocaleDateString(),
+      })),
+    };
+  } catch (error) {
+    console.error('[viewPipeline] Unexpected error:', error);
+    return { error: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}` };
+  }
+}
+
+/**
+ * MoveCandidateStage - Move a candidate to a different pipeline stage
+ * Includes guardrails for role-based access and optional confirmation prompts
+ */
+export async function moveCandidateStage({
+  candidateId,
+  newStage,
+  requestedByRole,
+  confirm = false
+}: {
+  candidateId: string;
+  newStage: string;
+  requestedByRole: "team_admin" | "pro" | "recruitpro" | "guest" | "member";
+  confirm?: boolean;
+}) {
+  try {
+    // Guardrails: Role restriction
+    if (!["team_admin", "pro", "recruitpro"].includes(requestedByRole)) {
+      return { error: "You do not have permission to move candidates between stages." };
+    }
+
+    // Guardrails: Require confirmation
+    if (!confirm) {
+      return {
+        message: `⚠️ Confirm required: Do you want to move candidate ${candidateId} to stage "${newStage}"?`,
+        requiresConfirmation: true,
+      };
+    }
+
+    // First, get the candidate's current job association to update the correct record
+    const { data: candidateJob, error: jobError } = await supabaseDb
+      .from("candidate_jobs")
+      .select(`
+        id,
+        job_id,
+        stage,
+        candidates (
+          id,
+          first_name,
+          last_name,
+          email
+        )
+      `)
+      .eq("candidate_id", candidateId)
+      .single();
+
+    if (jobError || !candidateJob) {
+      console.error('[moveCandidateStage] Candidate job lookup failed:', jobError);
+      return { error: `Candidate not found or not associated with a job: ${jobError?.message || 'Not found'}` };
+    }
+
+    // Execute update on candidate_jobs table (this is where the stage is stored)
+    const { data, error } = await supabaseDb
+      .from("candidate_jobs")
+      .update({ 
+        stage: newStage, 
+        updated_at: new Date().toISOString() 
+      })
+      .eq("id", candidateJob.id)
+      .select(`
+        id,
+        stage,
+        updated_at,
+        candidates (
+          id,
+          first_name,
+          last_name,
+          email
+        )
+      `)
+      .single();
+
+    if (error) {
+      console.error('[moveCandidateStage] Update error:', error);
+      return { error: `Error moving candidate: ${error.message}` };
+    }
+
+    const candidate = data.candidates as any;
+    const candidateName = `${candidate?.first_name || ''} ${candidate?.last_name || ''}`.trim();
+
+    return {
+      message: `✅ Candidate ${candidateName} successfully moved to stage "${data.stage}".`,
+      candidate: {
+        id: candidate?.id,
+        name: candidateName,
+        email: candidate?.email,
+        stage: data.stage,
+        updatedAt: data.updated_at
+      },
+    };
+  } catch (error) {
+    console.error('[moveCandidateStage] Unexpected error:', error);
+    return { error: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}` };
+  }
 } 
