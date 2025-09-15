@@ -155,7 +155,7 @@ export default function FreeForever() {
                           <tr>
                             <td className="py-3 text-gray-300 flex items-center"><i className="fas fa-coins text-yellow-400 mr-2" />Monthly Credits</td>
                             <td className="text-center py-3 font-semibold text-white">50</td>
-                            <td className="text-center py-3 font-semibold text-white">500+</td>
+                            <td className="text-center py-3 font-semibold text-white">1000</td>
                           </tr>
                           <tr>
                             <td className="py-3 text-gray-300 flex items-center"><i className="fas fa-envelope text-blue-400 mr-2" />Enrichment</td>
