@@ -24,6 +24,7 @@ export default function JobCollaboration() {
         .prose td { color: #d1d5db; }
         .toc-active { color: #3b82f6; }
         .force-white, .force-white * { color: #ffffff !important; }
+        #related-articles h2, #related-articles h3 { color: #ffffff !important; }
         .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin: 2rem 0; }
         .feature-card { background: #1f2937; padding: 1.5rem; border-radius: 0.5rem; border: 1px solid #374151; }
         .step-number { background: #3b82f6; color: white; width: 2rem; height: 2rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 1rem; }
@@ -273,7 +274,7 @@ export default function JobCollaboration() {
         <div className="max-w-6xl mx-auto px-6">
           <h2 className="text-3xl font-bold text-center mb-12">Keep Reading</h2>
           <div className="grid md:grid-cols-3 gap-8">
-            <article className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300">
+            <a href="/blog/PipelineBestPractices" className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block">
               <img
                 className="w-full h-48 object-cover"
                 src="https://storage.googleapis.com/uxpilot-auth.appspot.com/a38d6691dc-92163dbe18bd3d5afa0e.png"
@@ -291,9 +292,9 @@ export default function JobCollaboration() {
                   <span>5 min read</span>
                 </div>
               </div>
-            </article>
+            </a>
 
-            <article className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300">
+            <a href="/blog/meet-rex" className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block">
               <img
                 className="w-full h-48 object-cover"
                 src="https://storage.googleapis.com/uxpilot-auth.appspot.com/ae9ba539d4-75ea5d607595907901a7.png"
@@ -311,9 +312,9 @@ export default function JobCollaboration() {
                   <span>7 min read</span>
                 </div>
               </div>
-            </article>
+            </a>
 
-            <article className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300">
+            <a href="/blog/hirepilot-full-ats" className="bg-gray-900 rounded-lg overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block">
               <img
                 className="w-full h-48 object-cover"
                 src="https://storage.googleapis.com/uxpilot-auth.appspot.com/75caae2492-c87687c0aa429fc7491c.png"
@@ -331,7 +332,7 @@ export default function JobCollaboration() {
                   <span>6 min read</span>
                 </div>
               </div>
-            </article>
+            </a>
           </div>
         </div>
       </div>
