@@ -1061,6 +1061,7 @@ export async function moveCandidate({
   if (!ALLOWED_STATUS.includes(lc)) {
     // If we cannot map to enum, try the job pipeline stage flow (requires userId)
     if (userId) {
+      console.log(`[moveCandidate] Delegating to moveCandidateToStageId for custom stage: ${newStage}`);
       return await moveCandidateToStageId({ userId, candidate: resolvedId, stage: newStage });
     }
     throw new Error(`Stage '${newStage}' is not a valid status. Try using move_candidate_to_stage to move by pipeline stage title.`);

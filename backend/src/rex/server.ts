@@ -899,7 +899,7 @@ server.registerCapabilities({
     move_candidate: {
       parameters: { userId:{type:'string'}, candidateId:{type:'string'}, newStage:{type:'string'} },
       handler: async ({ userId, candidateId, newStage }) => {
-        return await moveCandidate({ candidateId, newStage });
+        return await moveCandidate({ userId, candidateId, newStage });
       }
     },
     move_candidate_to_stage: {
