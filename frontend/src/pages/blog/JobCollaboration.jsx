@@ -88,23 +88,23 @@ export default function JobCollaboration() {
             <div className="feature-grid">
               <div className="feature-card">
                 <h3 className="text-lg font-semibold mb-2 text-white">✅ Unlimited Guest Collaborators</h3>
-                <p className="text-sm text-gray-300">Invite as many people as you need to collaborate on each job.</p>
+                <p className="text-sm text-white font-medium">Invite as many people as you need to collaborate on each job.</p>
               </div>
               <div className="feature-card">
                 <h3 className="text-lg font-semibold mb-2 text-white">✅ Real-Time Candidate Notes & Feedback</h3>
-                <p className="text-sm text-gray-300">Leave comments and feedback directly on candidates in real-time.</p>
+                <p className="text-sm text-white font-medium">Leave comments and feedback directly on candidates in real-time.</p>
               </div>
               <div className="feature-card">
                 <h3 className="text-lg font-semibold mb-2 text-white">✅ No Extra Logins or Complex Permissions</h3>
-                <p className="text-sm text-gray-300">Simple invitation process with no complex account setup required.</p>
+                <p className="text-sm text-white font-medium">Simple invitation process with no complex account setup required.</p>
               </div>
               <div className="feature-card">
                 <h3 className="text-lg font-semibold mb-2 text-white">✅ Async-Friendly for Distributed Teams</h3>
-                <p className="text-sm text-gray-300">Perfect for teams working across different time zones.</p>
+                <p className="text-sm text-white font-medium">Perfect for teams working across different time zones.</p>
               </div>
               <div className="feature-card">
                 <h3 className="text-lg font-semibold mb-2 text-white">✅ Perfect for Agencies, Hiring Managers, and Founders</h3>
-                <p className="text-sm text-gray-300">Designed for all types of hiring scenarios and team structures.</p>
+                <p className="text-sm text-white font-medium">Designed for all types of hiring scenarios and team structures.</p>
               </div>
             </div>
           </div>
