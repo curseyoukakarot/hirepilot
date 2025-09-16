@@ -15,6 +15,8 @@ import {
   executeBulkAction,
   executeEmergencyAction
 } from '../api/admin/puppetControls';
+import viewUser from '../api/superadmin/viewUser';
+import impersonateUser from '../api/superadmin/impersonateUser';
 
 const router = Router();
 
@@ -54,5 +56,9 @@ router.get('/puppet/proxies', getProxyStatus);
 
 // Admin Activity Log
 router.get('/puppet/admin-log', getAdminLog);
+
+// Super Admin User Management
+router.get('/viewUser', viewUser);
+router.post('/impersonateUser', impersonateUser);
 
 export default router; 

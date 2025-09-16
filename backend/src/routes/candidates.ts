@@ -167,5 +167,97 @@ router.post('/bulk-delete', requireAuth, async (req: ApiRequest, res: Response) 
   }
 });
 
+// POST /api/candidates/:id/enrich - re-enrich candidate data
+router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const { id } = req.params;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    if (!id) return res.status(400).json({ error: 'Missing candidate id' });
+
+    const own = await ensureCandidateOwnership(id, userId);
+    if (!own.ok) return res.status(404).json({ error: own.error });
+
+    // Get candidate data for enrichment
+    const { data: candidate, error: candidateError } = await supabase
+      .from('candidates')
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', userId)
+      .single();
+
+    if (candidateError || !candidate) {
+      return res.status(404).json({ error: 'Candidate not found' });
+    }
+
+    // For now, we'll simulate enrichment by using existing enrichment data
+    // In a real implementation, you would call your enrichment services here
+    const enrichmentData = candidate.enrichment_data || {};
+    
+    // Try to get email from various enrichment sources
+    let enrichedEmail = null;
+    let enrichmentSource = null;
+    
+    if (enrichmentData.apollo?.email && !enrichmentData.apollo.email.includes('email_not_unlocked')) {
+      enrichedEmail = enrichmentData.apollo.email;
+      enrichmentSource = 'Apollo';
+    } else if (enrichmentData.hunter?.email) {
+      enrichedEmail = enrichmentData.hunter.email;
+      enrichmentSource = 'Hunter.io';
+    } else if (enrichmentData.skrapp?.email) {
+      enrichedEmail = enrichmentData.skrapp.email;
+      enrichmentSource = 'Skrapp.io';
+    } else if (enrichmentData.decodo?.email) {
+      enrichedEmail = enrichmentData.decodo.email;
+      enrichmentSource = 'Decodo';
+    }
+
+    if (!enrichedEmail) {
+      return res.status(404).json({ error: 'No enrichment data available' });
+    }
+
+    // Update candidates table with enriched email
+    const { data, error } = await supabase
+      .from('candidates')
+      .update({ 
+        email: enrichedEmail,
+        enrichment_source: enrichmentSource,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .eq('user_id', userId)
+      .select('*')
+      .single();
+
+    if (error) throw error;
+
+    // Also sync to the corresponding lead record if it exists
+    if (data.lead_id) {
+      try {
+        await supabase
+          .from('leads')
+          .update({ 
+            email: enrichedEmail,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', data.lead_id)
+          .eq('user_id', userId);
+      } catch (leadSyncError) {
+        console.warn('Failed to sync enriched email to lead:', leadSyncError);
+        // Don't fail the candidate update if lead sync fails
+      }
+    }
+
+    return res.json({ 
+      email: data.email, 
+      enrichment_source: enrichmentSource,
+      updated_at: data.updated_at
+    });
+  } catch (e: any) {
+    console.error('Re-enrich candidate error:', e);
+    return res.status(500).json({ error: e.message ?? 'Server error' });
+  }
+});
+
 export default router;
 

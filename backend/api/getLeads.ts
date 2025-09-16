@@ -15,11 +15,36 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
     console.log('🔍 [Backend] getLeads called with campaignId:', campaignId);
     console.log('🔍 [Backend] Query params:', req.query);
 
-    // Build query with optional campaign filter
+    // Get user's team_id and role for team sharing
+    const { data: userData, error: userError } = await supabaseDb
+      .from('users')
+      .select('team_id, role')
+      .eq('id', req.user.id)
+      .single();
+
+    if (userError) {
+      console.error('Error fetching user team:', userError);
+      res.status(500).json({ error: 'Failed to fetch user data' });
+      return;
+    }
+
+    // Build query based on user role
     let query = supabaseDb
       .from('leads')
-      .select('*')
-      .eq('user_id', req.user.id);
+      .select('*');
+
+    const isAdmin = ['admin', 'team_admin', 'super_admin'].includes(userData.role);
+    
+    if (isAdmin && userData.team_id) {
+      // Admins see all leads in their team (shared or not)
+      query = query.or(`user_id.eq.${req.user.id},and(team_id.eq.${userData.team_id})`);
+    } else if (userData.team_id) {
+      // Members see their own leads + shared leads from team
+      query = query.or(`user_id.eq.${req.user.id},and(team_id.eq.${userData.team_id},shared.eq.true)`);
+    } else {
+      // No team - only see own leads
+      query = query.eq('user_id', req.user.id);
+    }
     
     // Add campaign filter if provided
     if (campaignId && campaignId !== 'all') {

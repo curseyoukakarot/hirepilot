@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { FaUserPlus, FaEdit, FaTrash, FaCoins, FaKey, FaCog } from 'react-icons/fa';
+import { FaUserPlus, FaEdit, FaTrash, FaCoins, FaKey, FaCog, FaEye, FaUserSecret } from 'react-icons/fa';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
+import UserDetailDrawer from '../components/UserDetailDrawer';
+import ImpersonationBanner from '../components/ImpersonationBanner';
 
 export default function AdminUserManagement() {
   const [users, setUsers] = useState([]);
@@ -23,6 +25,8 @@ export default function AdminUserManagement() {
   const [featureUser, setFeatureUser] = useState(null);
   const [features, setFeatures] = useState({ rex_enabled: false, zapier_enabled: false });
   const [featuresLoading, setFeaturesLoading] = useState(false);
+  const [viewUserId, setViewUserId] = useState(null);
+  const [impersonating, setImpersonating] = useState(false);
   const navigate = useNavigate();
 
   /* ----------------------------------------------
@@ -193,6 +197,44 @@ export default function AdminUserManagement() {
     setBackfillLoading(false);
   };
 
+  // Impersonate user
+  const handleImpersonate = async (userId, userEmail) => {
+    if (!confirm(`Are you sure you want to impersonate ${userEmail}?`)) {
+      return;
+    }
+
+    try {
+      setImpersonating(true);
+      
+      // Store current session before impersonating
+      const currentSession = await supabase.auth.getSession();
+      if (currentSession.data.session) {
+        localStorage.setItem('superAdminSession', JSON.stringify(currentSession.data));
+      }
+
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const res = await fetch(`${BACKEND_URL}/api/admin/impersonateUser`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ userId }),
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to impersonate user');
+      }
+
+      const { action_link } = await res.json();
+      
+      // Redirect to the impersonation link
+      window.location.href = action_link;
+    } catch (error) {
+      console.error('Error impersonating user:', error);
+      setError(error.message || 'Failed to impersonate user');
+      setImpersonating(false);
+    }
+  };
+
   // Access control: Only super admins
   useEffect(() => {
     const checkRole = async () => {
@@ -211,6 +253,7 @@ export default function AdminUserManagement() {
 
   return (
     <div className="max-w-6xl mx-auto py-10 px-4">
+      <ImpersonationBanner />
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-2xl font-bold">User Management</h1>
         <div className="flex gap-2">
@@ -258,6 +301,21 @@ export default function AdminUserManagement() {
                 </td>
                 <td className="px-4 py-2 text-gray-800">{user.balance ?? 0}</td>
                 <td className="px-4 py-2 flex gap-2">
+                  <button 
+                    className="p-2 bg-green-100 hover:bg-green-200 rounded" 
+                    onClick={() => setViewUserId(user.id)}
+                    title="View User Details"
+                  >
+                    <FaEye />
+                  </button>
+                  <button 
+                    className="p-2 bg-indigo-100 hover:bg-indigo-200 rounded" 
+                    onClick={() => handleImpersonate(user.id, user.email)}
+                    disabled={impersonating}
+                    title="Impersonate User"
+                  >
+                    <FaUserSecret />
+                  </button>
                   <button className="p-2 bg-yellow-100 hover:bg-yellow-200 rounded" onClick={() => { setEditUser(user); setEditForm({ firstName: user.firstName, lastName: user.lastName, role: user.role }); }}><FaEdit /></button>
                   <button className="p-2 bg-blue-100 hover:bg-blue-200 rounded" onClick={() => { setCreditUser(user); setCreditAmount(1000); }}><FaCoins /></button>
                   <button className="p-2 bg-purple-100 hover:bg-purple-200 rounded" onClick={() => { setPasswordUser(user); setNewPassword(''); }}><FaKey /></button>
@@ -402,6 +460,9 @@ export default function AdminUserManagement() {
           </div>
         </div>
       )}
+
+      {/* User Detail Drawer */}
+      <UserDetailDrawer userId={viewUserId} onClose={() => setViewUserId(null)} />
     </div>
   );
 } 

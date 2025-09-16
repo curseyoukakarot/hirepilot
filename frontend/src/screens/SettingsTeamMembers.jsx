@@ -27,6 +27,10 @@ export default function SettingsTeamMembers() {
   const [collabDeleteOpen, setCollabDeleteOpen] = useState(false);
   const [collabDeleteRow, setCollabDeleteRow] = useState(null);
   const [jobOptions, setJobOptions] = useState([]);
+  const [teamSettings, setTeamSettings] = useState({
+    shareLeads: false,
+    shareCandidates: false
+  });
 
   const handleOpenInviteModal = () => setIsInviteModalOpen(true);
   const handleCloseInviteModal = () => setIsInviteModalOpen(false);
@@ -137,6 +141,7 @@ export default function SettingsTeamMembers() {
 
   useEffect(() => {
     fetchTeamData();
+    fetchTeamSettings();
   }, []);
 
   const handleEmailAction = async (action) => {
@@ -299,6 +304,104 @@ export default function SettingsTeamMembers() {
     await loadCollaborators();
   };
 
+  // Team sharing settings functions
+  const fetchTeamSettings = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get user's team_id
+      const { data: userData } = await supabase
+        .from('users')
+        .select('team_id')
+        .eq('id', user.id)
+        .single();
+
+      if (!userData?.team_id) return;
+
+      // Get team settings
+      const { data: settings } = await supabase
+        .from('team_settings')
+        .select('share_leads, share_candidates')
+        .eq('team_id', userData.team_id)
+        .single();
+
+      if (settings) {
+        setTeamSettings({
+          shareLeads: settings.share_leads || false,
+          shareCandidates: settings.share_candidates || false
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching team settings:', error);
+    }
+  };
+
+  const updateTeamSetting = async (setting, value) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get user's team_id
+      const { data: userData } = await supabase
+        .from('users')
+        .select('team_id')
+        .eq('id', user.id)
+        .single();
+
+      if (!userData?.team_id) {
+        toast.error('You are not part of a team');
+        return;
+      }
+
+      // Update team settings
+      const updateData = {
+        team_id: userData.team_id,
+        [setting === 'shareLeads' ? 'share_leads' : 'share_candidates']: value
+      };
+
+      const { error } = await supabase
+        .from('team_settings')
+        .upsert(updateData, { onConflict: 'team_id' });
+
+      if (error) throw error;
+
+      // Update local state
+      setTeamSettings(prev => ({
+        ...prev,
+        [setting]: value
+      }));
+
+      // Update all existing leads/candidates to match the new setting
+      await updateAllRecordsSharing(setting, value);
+
+      toast.success(`${setting === 'shareLeads' ? 'Leads' : 'Candidates'} sharing ${value ? 'enabled' : 'disabled'}`);
+    } catch (error) {
+      console.error('Error updating team setting:', error);
+      toast.error('Failed to update team setting');
+    }
+  };
+
+  const updateAllRecordsSharing = async (setting, value) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const table = setting === 'shareLeads' ? 'leads' : 'candidates';
+      const column = 'shared';
+
+      // Update all user's records
+      const { error } = await supabase
+        .from(table)
+        .update({ [column]: value })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error updating records sharing:', error);
+    }
+  };
+
   return (
     <div className="p-6">
       <div className="max-w-3xl mx-auto">
@@ -349,6 +452,46 @@ export default function SettingsTeamMembers() {
                 <span className="font-medium">Team Admin</span>
               </div>
               <p className="text-gray-500">Manage team seats & billing</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Team Sharing Settings */}
+        <div className="mb-8 p-4 bg-white rounded-lg border">
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Team Sharing</h3>
+          <p className="text-sm text-gray-500 mb-4">Control shared visibility for leads and candidates across your team.</p>
+          
+          <div className="space-y-4">
+            <div className="flex items-center justify-between py-2">
+              <div>
+                <span className="font-medium text-gray-900">Share Leads with Team</span>
+                <p className="text-sm text-gray-500">Make your leads visible to all team members</p>
+              </div>
+              <label className="inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={teamSettings.shareLeads}
+                  onChange={() => updateTeamSetting('shareLeads', !teamSettings.shareLeads)}
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer dark:bg-gray-700 peer-checked:bg-indigo-600"></div>
+              </label>
+            </div>
+            
+            <div className="flex items-center justify-between py-2">
+              <div>
+                <span className="font-medium text-gray-900">Share Candidates with Team</span>
+                <p className="text-sm text-gray-500">Make your candidates visible to all team members</p>
+              </div>
+              <label className="inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={teamSettings.shareCandidates}
+                  onChange={() => updateTeamSetting('shareCandidates', !teamSettings.shareCandidates)}
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer dark:bg-gray-700 peer-checked:bg-indigo-600"></div>
+              </label>
             </div>
           </div>
         </div>

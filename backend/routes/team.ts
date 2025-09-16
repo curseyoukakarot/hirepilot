@@ -742,4 +742,14 @@ router.put('/member/:id/role', async (req: Request, res: Response) => {
   }
 });
 
+// Import the new team API handlers
+import getTeamSettings from '../api/team/getSettings';
+import updateTeamSettings from '../api/team/updateSettings';
+import updateTeamRole from '../api/team/updateRole';
+
+// Add the new team API routes
+router.get('/getSettings', getTeamSettings);
+router.post('/updateSettings', updateTeamSettings);
+router.post('/updateRole', updateTeamRole);
+
 export default router; 

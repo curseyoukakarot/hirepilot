@@ -572,11 +572,38 @@ router.get('/candidates', requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
-    const { data: candidates, error } = await supabase
+    // Get user's team_id and role for team sharing
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('team_id, role')
+      .eq('id', userId)
+      .single();
+
+    if (userError) {
+      console.error('Error fetching user team:', userError);
+      res.status(500).json({ error: 'Failed to fetch user data' });
+      return;
+    }
+
+    // Build query based on user role
+    let query = supabase
       .from('candidates')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+      .select('*');
+
+    const isAdmin = ['admin', 'team_admin', 'super_admin'].includes(userData.role);
+    
+    if (isAdmin && userData.team_id) {
+      // Admins see all candidates in their team (shared or not)
+      query = query.or(`user_id.eq.${userId},and(team_id.eq.${userData.team_id})`);
+    } else if (userData.team_id) {
+      // Members see their own candidates + shared candidates from team
+      query = query.or(`user_id.eq.${userId},and(team_id.eq.${userData.team_id},shared.eq.true)`);
+    } else {
+      // No team - only see own candidates
+      query = query.eq('user_id', userId);
+    }
+
+    const { data: candidates, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
       res.status(500).json({ error: error.message });
@@ -820,11 +847,36 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     // Get campaign filter from query params
     const campaignId = req.query.campaignId as string;
 
-    // Build query with optional campaign filter
+    // Get user's team_id and role for team sharing
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('team_id, role')
+      .eq('id', userId)
+      .single();
+
+    if (userError) {
+      console.error('Error fetching user team:', userError);
+      res.status(500).json({ error: 'Failed to fetch user data' });
+      return;
+    }
+
+    // Build query based on user role
     let query = supabase
       .from('leads')
-      .select('*')
-      .eq('user_id', userId);
+      .select('*');
+
+    const isAdmin = ['admin', 'team_admin', 'super_admin'].includes(userData.role);
+    
+    if (isAdmin && userData.team_id) {
+      // Admins see all leads in their team (shared or not)
+      query = query.or(`user_id.eq.${userId},and(team_id.eq.${userData.team_id})`);
+    } else if (userData.team_id) {
+      // Members see their own leads + shared leads from team
+      query = query.or(`user_id.eq.${userId},and(team_id.eq.${userData.team_id},shared.eq.true)`);
+    } else {
+      // No team - only see own leads
+      query = query.eq('user_id', userId);
+    }
     
     // Add campaign filter if provided
     if (campaignId && campaignId !== 'all') {
