@@ -24,6 +24,10 @@ export default function JobRequisitions() {
   const [showEditStatusModal, setShowEditStatusModal] = useState(false);
   const [newStatus, setNewStatus] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const JOBS_PER_PAGE = 25;
 
   // Close actions menu when clicking outside
   useEffect(() => {
@@ -38,6 +42,11 @@ export default function JobRequisitions() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showActionsMenu]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedStatus, selectedDepartment]);
 
   useEffect(() => {
     const fetchJobsAndRelated = async () => {
@@ -179,6 +188,17 @@ export default function JobRequisitions() {
     return matchesSearch && matchesStatus && matchesDept;
   });
 
+  // Pagination logic
+  const startIndex = (currentPage - 1) * JOBS_PER_PAGE;
+  const endIndex = startIndex + JOBS_PER_PAGE;
+  const currentPageJobs = filteredJobs.slice(startIndex, endIndex);
+  const totalPages = Math.ceil(filteredJobs.length / JOBS_PER_PAGE);
+
+  // Check if all jobs on current page are selected
+  const currentPageJobIds = currentPageJobs.map(job => job.id);
+  const currentPageSelectedCount = selectedJobs.filter(id => currentPageJobIds.includes(id)).length;
+  const isCurrentPageFullySelected = currentPageJobs.length > 0 && currentPageSelectedCount === currentPageJobs.length;
+
   // Bulk selection logic
   const handleSelectJob = (jobId) => {
     setSelectedJobs((prev) =>
@@ -187,10 +207,14 @@ export default function JobRequisitions() {
   };
 
   const handleSelectAll = () => {
-    if (selectedJobs.length === filteredJobs.length) {
-      setSelectedJobs([]);
+    if (isCurrentPageFullySelected) {
+      // Deselect all jobs on current page
+      const currentPageJobIds = currentPageJobs.map(job => job.id);
+      setSelectedJobs(prev => prev.filter(id => !currentPageJobIds.includes(id)));
     } else {
-      setSelectedJobs(filteredJobs.map((job) => job.id));
+      // Select all jobs on current page (and keep any previously selected jobs from other pages)
+      const currentPageJobIds = currentPageJobs.map(job => job.id);
+      setSelectedJobs(prev => [...new Set([...prev, ...currentPageJobIds])]);
     }
   };
 
@@ -408,7 +432,7 @@ export default function JobRequisitions() {
                   <th className="px-4 py-3">
                     <input
                       type="checkbox"
-                      checked={selectedJobs.length === filteredJobs.length && filteredJobs.length > 0}
+                      checked={isCurrentPageFullySelected}
                       onChange={handleSelectAll}
                     />
                   </th>
@@ -422,7 +446,7 @@ export default function JobRequisitions() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredJobs.map((job) => (
+                {currentPageJobs.map((job) => (
                   <tr key={job.id} className={selectedJobs.includes(job.id) ? 'bg-blue-50' : ''}>
                     <td className="px-4 py-4">
                       <input
@@ -514,7 +538,7 @@ export default function JobRequisitions() {
                     </td>
                   </tr>
                 ))}
-                {filteredJobs.length === 0 && (
+                {currentPageJobs.length === 0 && (
                   <tr>
                     <td colSpan={8} className="text-center py-8 text-gray-400">No jobs found.</td>
                   </tr>
@@ -526,22 +550,32 @@ export default function JobRequisitions() {
         )}
 
         {/* Pagination */}
-        <div className="flex justify-between items-center mt-4">
-          <div className="text-sm text-gray-500">
-            Showing 1 to {filteredJobs.length} of {filteredJobs.length} results
+        {totalPages > 1 && (
+          <div className="flex justify-between items-center mt-4">
+            <div className="text-sm text-gray-500">
+              Showing {startIndex + 1} to {Math.min(endIndex, filteredJobs.length)} of {filteredJobs.length} results
+            </div>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-2 text-sm border rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              <span className="px-3 py-2 text-sm font-medium">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button 
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-2 text-sm border rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <button className="border px-4 py-2 rounded-lg hover:bg-gray-50">
-              Previous
-            </button>
-            <button className="border px-4 py-2 rounded-lg bg-blue-600 text-white">
-              1
-            </button>
-            <button className="border px-4 py-2 rounded-lg hover:bg-gray-50">
-              Next
-            </button>
-          </div>
-        </div>
+        )}
       </main>
 
       {/* Delete Confirmation Dialog */}

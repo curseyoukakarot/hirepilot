@@ -58,6 +58,41 @@ export default function CandidateList() {
   const [creatingCandidate, setCreatingCandidate] = useState(false);
   const navigate = useNavigate();
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const CANDIDATES_PER_PAGE = 25;
+
+  // Filter candidates
+  const filteredCandidates = candidates.filter(candidate => {
+    const searchLower = searchQuery.toLowerCase();
+    const fullName = `${candidate.first_name} ${candidate.last_name}`.toLowerCase();
+    const email = candidate.email?.toLowerCase() || '';
+    const matchesSearch = !searchQuery || 
+      fullName.includes(searchLower) || 
+      email.includes(searchLower);
+    
+    const matchesStatus = selectedStatus === 'all' || 
+      candidate.status === selectedStatus;
+    
+    return matchesSearch && matchesStatus;
+  });
+
+  // Pagination logic
+  const startIndex = (currentPage - 1) * CANDIDATES_PER_PAGE;
+  const endIndex = startIndex + CANDIDATES_PER_PAGE;
+  const currentPageCandidates = filteredCandidates.slice(startIndex, endIndex);
+  const totalPages = Math.ceil(filteredCandidates.length / CANDIDATES_PER_PAGE);
+
+  // Check if all candidates on current page are selected
+  const currentPageCandidateIds = currentPageCandidates.map(candidate => candidate.id);
+  const currentPageSelectedCount = Array.from(selectedIds).filter(id => currentPageCandidateIds.includes(id)).length;
+  const isCurrentPageFullySelected = currentPageCandidates.length > 0 && currentPageSelectedCount === currentPageCandidates.length;
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedStatus, selectedJob, selectedCampaign]);
+
   /** ------------------------------------------------------------------
    * Config
    * -----------------------------------------------------------------*/
@@ -89,8 +124,20 @@ export default function CandidateList() {
     });
   };
 
-  const selectAllOnPage = (ids) => {
-    setSelectedIds(new Set(ids));
+  const selectAllOnPage = () => {
+    if (isCurrentPageFullySelected) {
+      // Deselect all candidates on current page
+      const currentPageCandidateIds = currentPageCandidates.map(candidate => candidate.id);
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        currentPageCandidateIds.forEach(id => next.delete(id));
+        return next;
+      });
+    } else {
+      // Select all candidates on current page (and keep any previously selected candidates from other pages)
+      const currentPageCandidateIds = currentPageCandidates.map(candidate => candidate.id);
+      setSelectedIds(prev => new Set([...prev, ...currentPageCandidateIds]));
+    }
   };
 
   const bulkChangeStatus = async (status) => {
@@ -469,7 +516,11 @@ export default function CandidateList() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3">
-                  <input type="checkbox" onChange={(e) => selectAllOnPage(candidates.map(c => c.id))} />
+                  <input 
+                    type="checkbox" 
+                    checked={isCurrentPageFullySelected}
+                    onChange={selectAllOnPage} 
+                  />
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Name
@@ -492,21 +543,7 @@ export default function CandidateList() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {candidates
-                .filter(candidate => {
-                  const searchLower = searchQuery.toLowerCase();
-                  const fullName = `${candidate.first_name} ${candidate.last_name}`.toLowerCase();
-                  const email = candidate.email?.toLowerCase() || '';
-                  const matchesSearch = !searchQuery || 
-                    fullName.includes(searchLower) || 
-                    email.includes(searchLower);
-                  
-                  const matchesStatus = selectedStatus === 'all' || 
-                    candidate.status === selectedStatus;
-                  
-                  return matchesSearch && matchesStatus;
-                })
-                .map((candidate) => {
+              {currentPageCandidates.map((candidate) => {
                   // Parse enrichment_data if it's a string
                   let location = '';
                   try {
@@ -728,6 +765,34 @@ export default function CandidateList() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex justify-between items-center mt-4">
+            <div className="text-sm text-gray-500">
+              Showing {startIndex + 1} to {Math.min(endIndex, filteredCandidates.length)} of {filteredCandidates.length} results
+            </div>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-2 text-sm border rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              <span className="px-3 py-2 text-sm font-medium">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button 
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-2 text-sm border rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Drawer using LeadProfileDrawer */}
