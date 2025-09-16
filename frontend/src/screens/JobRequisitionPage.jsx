@@ -322,8 +322,7 @@ export default function JobRequisitionPage() {
           type: 'collaborator_added',
           actor_id: currentUser.id,
           job_id: id,
-          target_user_id: selectedUserId,
-          metadata: { role: 'Editor' },
+          metadata: { target_user_id: selectedUserId, role: 'Editor' },
           created_at: new Date().toISOString()
         });
       }
