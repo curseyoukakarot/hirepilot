@@ -16,57 +16,38 @@ export default async function createJob(req: Request, res: Response) {
       return res.status(400).json({ error: 'Missing required fields: userId and title' });
     }
 
-    // 1. Create Job Requisition
+    // Use RPC function to atomically create job with pipeline and default stages
+    const { data: jobId, error: rpcError } = await supabaseDb.rpc('create_job_with_pipeline', {
+      job_title: title,
+      job_user: userId,
+      job_department: department || null
+    });
+
+    if (rpcError) {
+      console.error('[createJob] RPC function failed:', rpcError);
+      return res.status(500).json({ error: rpcError.message });
+    }
+
+    // Fetch the created job details
     const { data: job, error: jobError } = await supabaseDb
       .from('job_requisitions')
-      .insert([{
-        user_id: userId,
-        title,
-        department: department || '',
-        status: status || 'open',
-        description: description || '',
-        location: location || '',
-        salary_range: salary_range || ''
-      }])
-      .select('id, title, department, status, created_at')
+      .select('id, title, department, status, pipeline_id, created_at')
+      .eq('id', jobId)
       .single();
 
     if (jobError) {
-      console.error('[createJob] Job creation error:', jobError);
-      return res.status(500).json({ error: jobError.message });
+      console.error('[createJob] Job fetch error:', jobError);
+      return res.status(500).json({ error: 'Job created but failed to fetch details' });
     }
 
-    // 2. Create Pipeline + Default Stages
-    try {
-      const pipeline = await createPipelineWithDefaultStages(job.id, job.title);
-      
-      // 3. Update job with pipeline_id
-      const { error: updateError } = await supabaseDb
-        .from('job_requisitions')
-        .update({ pipeline_id: pipeline.id })
-        .eq('id', job.id);
-
-      if (updateError) {
-        console.error('[createJob] Pipeline update error:', updateError);
-        // Don't fail the request, just log the error
-      }
-
-      console.log(`✅ Created job ${job.id} with pipeline ${pipeline.id}`);
-      
-      return res.status(201).json({ 
-        success: true, 
-        job: { ...job, pipeline_id: pipeline.id },
-        pipeline: pipeline
-      });
-    } catch (pipelineError) {
-      console.error('[createJob] Pipeline creation failed:', pipelineError);
-      // Return the job even if pipeline creation failed
-      return res.status(201).json({ 
-        success: true, 
-        job,
-        warning: 'Job created but pipeline creation failed. You can create a pipeline manually.'
-      });
-    }
+    console.log(`✅ Created job ${jobId} with pipeline ${job.pipeline_id} using RPC function`);
+    
+    return res.status(201).json({ 
+      success: true, 
+      jobId: jobId,
+      job: job,
+      message: 'Job created with pipeline and default stages'
+    });
   } catch (error: any) {
     console.error('[createJob] Unexpected error:', error);
     return res.status(500).json({ error: error.message || 'Internal server error' });
