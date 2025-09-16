@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { supabase } from "../lib/supabase";
+import toast from "react-hot-toast";
 
 interface NewJobModalProps {
   onClose: () => void;
@@ -39,11 +40,13 @@ export default function NewJobModal({ onClose, onJobCreated }: NewJobModalProps)
 
   const handleCreateJob = async () => {
     if (!title.trim()) {
-      alert('Job title is required');
+      toast.error('❌ Job title is required');
       return;
     }
 
     setIsCreating(true);
+    const loadingToast = toast.loading('🔄 Creating job and pipeline...');
+    
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
@@ -93,7 +96,14 @@ export default function NewJobModal({ onClose, onJobCreated }: NewJobModalProps)
       if (!pipelineResponse.ok) {
         const error = await pipelineResponse.json();
         console.warn('Pipeline creation failed:', error);
-        // Don't fail the job creation, just warn
+        toast.dismiss(loadingToast);
+        toast('⚠️ Job created but pipeline creation failed. You can create a pipeline manually.', {
+          icon: '⚠️',
+          duration: 5000,
+        });
+      } else {
+        toast.dismiss(loadingToast);
+        toast.success(`✅ Job "${title}" + Pipeline created successfully!`);
       }
 
       // Call the callback if provided
@@ -104,7 +114,8 @@ export default function NewJobModal({ onClose, onJobCreated }: NewJobModalProps)
       onClose();
     } catch (err: any) {
       console.error('Job creation error:', err);
-      alert('Failed to create job: ' + (err.message || err));
+      toast.dismiss(loadingToast);
+      toast.error(`❌ Error: ${err.message || 'Failed to create job'}`);
     } finally {
       setIsCreating(false);
     }
