@@ -287,6 +287,13 @@ app.use('/api/jobs', requireAuth as any, async (req, res, next) => {
     const handler = require('./api/jobs/[id]/pipeline').default;
     return handler(req, res);
   }
+  // Handle dynamic job share routes
+  if (req.path.match(/^\/[^\/]+\/share$/)) {
+    const jobId = req.path.split('/')[1];
+    req.params = { id: jobId };
+    const handler = require('./api/jobs/[id]/share').default;
+    return handler(req, res);
+  }
   next();
 });
   app.use('/api', apiRouter);
@@ -369,6 +376,10 @@ app.use('/api/payouts', requireAuth as any, payoutsRouter);
   void salesInboundWorker;
   void salesSendWorker;
   void salesSweepWorker;
+
+// Public API routes (no authentication required)
+app.use('/api/public/jobs', require('./api/public/jobs/[id]').default);
+app.use('/api/public/apply', require('./api/public/apply').default);
 
 // Auth routes
 app.use('/api/auth', authRouter);

@@ -1,12 +1,19 @@
 import React from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
+import toast from 'react-hot-toast';
 
 export default function PublicJobPage() {
   const { shareId } = useParams();
-  const navigate = useNavigate();
   const [loading, setLoading] = React.useState(true);
   const [job, setJob] = React.useState(null);
-  const [share, setShare] = React.useState(null);
+  const [applying, setApplying] = React.useState(false);
+  const [form, setForm] = React.useState({
+    name: '',
+    email: '',
+    linkedin: '',
+    resume_url: '',
+    cover_note: ''
+  });
 
   const backend = (import.meta.env.VITE_BACKEND_URL || '').replace(/\/$/, '');
   const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
@@ -14,21 +21,55 @@ export default function PublicJobPage() {
   React.useEffect(() => {
     (async () => {
       try {
-        const resp = await fetch(`${backend}/api/jobs/share/${shareId}`);
+        const resp = await fetch(`${backend}/api/public/jobs/${shareId}`);
         const js = await resp.json();
-        if (resp.ok) { setJob(js.job); setShare(js.share); }
-      } finally { setLoading(false); }
+        if (resp.ok) { 
+          setJob(js.job); 
+        } else {
+          console.error('Failed to fetch job:', js.error);
+        }
+      } catch (error) {
+        console.error('Error fetching job:', error);
+      } finally { 
+        setLoading(false); 
+      }
     })();
   }, [shareId]);
 
-  const handleApply = async () => {
-    if (!share || !job) return;
-    if (share.apply_mode === 'external' && share.apply_url) {
-      try { await fetch(`${backend}/api/jobs/share/${share.uuid_link}/apply-click`, { method: 'POST' }); } catch {}
-      window.location.assign(share.apply_url);
+  const handleApply = async (e) => {
+    e.preventDefault();
+    if (!job || applying) return;
+
+    if (!form.name || !form.email) {
+      toast.error('Please fill in your name and email');
       return;
     }
-    navigate(`/apply/${job.id}`);
+
+    setApplying(true);
+    try {
+      const resp = await fetch(`${backend}/api/public/apply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          share_id: shareId, 
+          ...form 
+        }),
+      });
+
+      const result = await resp.json();
+      
+      if (resp.ok) {
+        toast.success('✅ Application submitted successfully!');
+        setForm({ name: '', email: '', linkedin: '', resume_url: '', cover_note: '' });
+      } else {
+        toast.error(`❌ ${result.error || 'Failed to submit application'}`);
+      }
+    } catch (error) {
+      console.error('Application error:', error);
+      toast.error('❌ Failed to submit application. Please try again.');
+    } finally {
+      setApplying(false);
+    }
   };
 
   const openLinkedIn = () => {
@@ -42,7 +83,7 @@ export default function PublicJobPage() {
   };
 
   if (loading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading…</div>;
-  if (!job || !share) return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Link not found.</div>;
+  if (!job) return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Job not found.</div>;
 
   const statusPill = (job.status || '').toLowerCase() === 'open' ? 'Now Hiring' : (job.status || '');
 
@@ -65,9 +106,12 @@ export default function PublicJobPage() {
               </div>
             </div>
             <div className="hidden md:block">
-              <span onClick={handleApply} className="inline-flex items-center justify-center px-5 py-2 border border-transparent text-base font-medium rounded-md text-white bg-gradient-to-r from-purple-700 to-purple-500 hover:from-purple-600 hover:to-purple-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-400 transition-all duration-300 transform hover:scale-105 cursor-pointer">
+              <button 
+                onClick={() => document.getElementById('apply-form').scrollIntoView({ behavior: 'smooth' })}
+                className="inline-flex items-center justify-center px-5 py-2 border border-transparent text-base font-medium rounded-md text-white bg-gradient-to-r from-purple-700 to-purple-500 hover:from-purple-600 hover:to-purple-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-400 transition-all duration-300 transform hover:scale-105 cursor-pointer"
+              >
                 Apply Now
-              </span>
+              </button>
             </div>
           </div>
         </div>
@@ -124,6 +168,92 @@ export default function PublicJobPage() {
                 <div className="prose prose-lg max-w-none text-gray-600 whitespace-pre-line">{job.why_join}</div>
               </section>
             )}
+
+            {/* Application Form */}
+            <section id="apply-form" className="mt-12 pt-8 border-t border-gray-200">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Apply for this Position</h2>
+              <form onSubmit={handleApply} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="Enter your full name"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Email Address *</label>
+                    <input
+                      type="email"
+                      required
+                      value={form.email}
+                      onChange={(e) => setForm({ ...form, email: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="Enter your email address"
+                    />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">LinkedIn Profile</label>
+                    <input
+                      type="url"
+                      value={form.linkedin}
+                      onChange={(e) => setForm({ ...form, linkedin: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="https://linkedin.com/in/yourprofile"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Resume URL</label>
+                    <input
+                      type="url"
+                      value={form.resume_url}
+                      onChange={(e) => setForm({ ...form, resume_url: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="https://drive.google.com/your-resume.pdf"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Cover Note</label>
+                  <textarea
+                    value={form.cover_note}
+                    onChange={(e) => setForm({ ...form, cover_note: e.target.value })}
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="Tell us why you're interested in this position..."
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={applying}
+                  className="w-full md:w-auto inline-flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-gradient-to-r from-purple-700 to-purple-500 hover:from-purple-600 hover:to-purple-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-400 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                >
+                  {applying ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fa-solid fa-paper-plane mr-2"></i>
+                      Submit Application
+                    </>
+                  )}
+                </button>
+              </form>
+            </section>
           </div>
 
           {/* Right */}
@@ -132,10 +262,13 @@ export default function PublicJobPage() {
               <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm text-center">
                 <h3 className="text-xl font-bold text-gray-900">Ready to make an impact?</h3>
                 <p className="text-gray-600 mt-2 mb-6">Apply now to join our team and help shape the future.</p>
-                <span onClick={handleApply} className="w-full inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-gradient-to-r from-purple-700 to-purple-500 hover:from-purple-600 hover:to-purple-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-400 transition-all duration-300 transform hover:scale-105 shadow-lg cursor-pointer">
+                <button 
+                  onClick={() => document.getElementById('apply-form').scrollIntoView({ behavior: 'smooth' })}
+                  className="w-full inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-gradient-to-r from-purple-700 to-purple-500 hover:from-purple-600 hover:to-purple-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-400 transition-all duration-300 transform hover:scale-105 shadow-lg cursor-pointer"
+                >
                   <i className="fa-solid fa-paper-plane mr-2"></i>
                   Apply Now
-                </span>
+                </button>
               </div>
 
               {(job.recruiter_name || job.recruiter_email) && (
@@ -183,9 +316,12 @@ export default function PublicJobPage() {
 
       {/* Sticky Apply for mobile */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-30">
-        <span onClick={handleApply} className="w-full inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-gradient-to-r from-purple-700 to-purple-500 hover:from-purple-600 hover:to-purple-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-400 transition-all duration-300 transform hover:scale-105 shadow-lg cursor-pointer">
+        <button 
+          onClick={() => document.getElementById('apply-form').scrollIntoView({ behavior: 'smooth' })}
+          className="w-full inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-gradient-to-r from-purple-700 to-purple-500 hover:from-purple-600 hover:to-purple-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-400 transition-all duration-300 transform hover:scale-105 shadow-lg cursor-pointer"
+        >
           Apply Now
-        </span>
+        </button>
       </div>
     </div>
   );

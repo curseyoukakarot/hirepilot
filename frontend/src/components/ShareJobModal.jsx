@@ -10,7 +10,7 @@ export default function ShareJobModal({ job, open, onClose }) {
   const [applyMode, setApplyMode] = useState('hirepilot');
   const [applyUrl, setApplyUrl] = useState('');
 
-  const shareUrl = useMemo(() => share?.uuid_link ? `${window.location.origin}/jobs/share/${share.uuid_link}` : '' , [share]);
+  const shareUrl = useMemo(() => share?.share_id ? `${window.location.origin}/jobs/share/${share.share_id}` : '' , [share]);
 
   const fetchOrCreateShare = async (opts = {}) => {
     try {
@@ -25,19 +25,16 @@ export default function ShareJobModal({ job, open, onClose }) {
       const js = await resp.json();
       if (resp.ok) {
         setShare(js);
-        if (js.apply_mode) setApplyMode(js.apply_mode);
-        if (js.apply_url) setApplyUrl(js.apply_url);
-        setAttach(Boolean(js.apply_mode === 'hirepilot' || js.apply_url));
-        if (!copy) setCopy(buildDefaultCopy(job, `${window.location.origin}/jobs/share/${js.uuid_link}`));
+        if (!copy) setCopy(buildDefaultCopy(job, js.public_url || `${window.location.origin}/jobs/share/${js.share_id}`));
         if (opts && opts._action === 'publish') {
-          toast.success('Link published');
+          toast.success('Job published successfully!');
         } else if (opts && opts._action === 'regenerate') {
-          toast.success('Link regenerated');
+          toast.success('Share link regenerated');
         }
         return js;
       } else {
         console.error('share error', js);
-        toast.error(js?.error || 'Failed to save share settings');
+        toast.error(js?.error || 'Failed to publish job');
         return null;
       }
     } catch (e) {
