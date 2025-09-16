@@ -32,13 +32,20 @@ export async function notifySlack(message: string) {
   }
 }
 
-// Legacy SlackMessages enum for backward compatibility
-export enum SlackMessages {
-  CAMPAIGN_LAUNCHED = 'Campaign launched successfully',
-  CAMPAIGN_FAILED = 'Campaign failed to launch',
-  LEADS_ENRICHED = 'Leads enriched successfully',
-  ERROR_OCCURRED = 'An error occurred'
-}
+// Legacy SlackMessages object for backward compatibility
+export const SlackMessages = {
+  CAMPAIGN_LAUNCHED: 'Campaign launched successfully',
+  CAMPAIGN_FAILED: 'Campaign failed to launch',
+  LEADS_ENRICHED: 'Leads enriched successfully',
+  ERROR_OCCURRED: 'An error occurred',
+  
+  // Function-based messages for existing code
+  leadsEnriched: (campaignName: string, count: number) => 
+    `✅ *Leads Enriched*: ${count} leads enriched for campaign "${campaignName}"`,
+  
+  leadsScraped: (campaignName: string, count: number) => 
+    `🔍 *Leads Scraped*: ${count} leads scraped for campaign "${campaignName}"`
+};
 
 export async function sendSlackNotification(userId: string, message: string) {
   try {
