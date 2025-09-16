@@ -24,12 +24,23 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
       .single();
 
     if (currentUserError || !currentUser) {
+      console.log('Current user error:', currentUserError);
       res.status(404).json({ error: 'Current user not found' });
       return;
     }
 
+    console.log('Current user role:', currentUser.role);
+    console.log('User ID:', req.user.id);
+
     if (currentUser.role !== 'super_admin') {
-      res.status(403).json({ error: 'Insufficient permissions. Super admin access required.' });
+      res.status(403).json({ 
+        error: 'Insufficient permissions. Super admin access required.',
+        debug: {
+          actualRole: currentUser.role,
+          expectedRole: 'super_admin',
+          userId: req.user.id
+        }
+      });
       return;
     }
 
