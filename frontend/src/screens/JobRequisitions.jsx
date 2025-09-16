@@ -367,7 +367,7 @@ export default function JobRequisitions() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="w-full px-6 py-8">
         {/* Bulk Delete Button */}
         {selectedJobs.length > 0 && (
           <div className="mb-4 flex justify-end">
@@ -425,8 +425,7 @@ export default function JobRequisitions() {
           <div className="flex justify-center items-center py-12 text-red-500">{error}</div>
         ) : (
           <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
+            <table className="w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-3">
@@ -456,11 +455,10 @@ export default function JobRequisitions() {
                       />
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-2 max-w-xs">
+                      <div className="flex items-center gap-2">
                         <button
-                          className="text-sm font-medium text-gray-900 hover:underline truncate"
+                          className="text-sm font-medium text-gray-900 hover:underline"
                           onClick={() => navigate(`/job/${job.id}`)}
-                          title={job.title}
                         >
                           {job.title}
                         </button>
@@ -489,9 +487,7 @@ export default function JobRequisitions() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
-                      <div className="max-w-32 truncate" title={job.pipeline_id && pipelines[job.pipeline_id]?.name ? pipelines[job.pipeline_id].name : ''}>
-                        {job.pipeline_id && pipelines[job.pipeline_id]?.name ? pipelines[job.pipeline_id].name : <span className="text-gray-300">—</span>}
-                      </div>
+                      {job.pipeline_id && pipelines[job.pipeline_id]?.name ? pipelines[job.pipeline_id].name : <span className="text-gray-300">—</span>}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {candidateCounts[job.id] ?? 0}
@@ -544,8 +540,7 @@ export default function JobRequisitions() {
                   </tr>
                 )}
               </tbody>
-              </table>
-            </div>
+            </table>
           </div>
         )}
 
