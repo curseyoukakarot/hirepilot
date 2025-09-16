@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import toast from 'react-hot-toast';
 import JobDetailsCard from '../components/job/JobDetailsCard';
 import JobPipeline from './JobPipeline';
 import PipelineBoard from '../components/pipeline/PipelineBoard';
@@ -350,7 +351,7 @@ export default function JobRequisitionPage() {
       
       // Show success message with notification info
       const notificationInfo = result.notifications;
-      let successMessage = 'Teammate added successfully!';
+      let successMessage = '✅ Collaborator added — they will now see this job in their Jobs list.';
       if (notificationInfo.slack || notificationInfo.email) {
         const notifications = [];
         if (notificationInfo.slack) notifications.push('Slack');
@@ -358,12 +359,13 @@ export default function JobRequisitionPage() {
         successMessage += ` (${notifications.join(' & ')} notification sent)`;
       }
       
-      alert(successMessage);
+      toast.success(successMessage);
       
       setShowAddTeammateModal(false);
       setSelectedUserId('');
     } catch (e) {
-      alert('Failed to add teammate: ' + (e.message || e));
+      toast.error('❌ Failed to add collaborator. Please try again.');
+      console.error('Failed to add collaborator:', e);
     } finally {
       setIsSaving(false);
     }
