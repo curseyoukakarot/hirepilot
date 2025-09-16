@@ -7,10 +7,27 @@ export default async function handler(req: Request, res: Response) {
   }
 
   try {
-    const { share_id, name, email, linkedin, resume_url, cover_note } = req.body;
+    // Accept share_id from both body and query parameters
+    const share_id = req.body.share_id || req.query.share_id;
+    const { name, email, linkedin, resume_url, cover_note } = req.body;
+
+    console.log('[POST /api/public/apply] Request details:', {
+      body_share_id: req.body.share_id,
+      query_share_id: req.query.share_id,
+      resolved_share_id: share_id,
+      has_name: !!name,
+      has_email: !!email
+    });
 
     if (!share_id || !name || !email) {
-      return res.status(400).json({ error: 'Missing required fields: share_id, name, and email' });
+      return res.status(400).json({ 
+        error: 'Missing required fields: share_id, name, and email',
+        details: {
+          share_id: !share_id ? 'Missing' : 'Present',
+          name: !name ? 'Missing' : 'Present', 
+          email: !email ? 'Missing' : 'Present'
+        }
+      });
     }
 
     // Get job_id and pipeline_id from share_id

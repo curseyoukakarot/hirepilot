@@ -19,6 +19,12 @@ export default function PublicJobPage() {
   const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
 
   React.useEffect(() => {
+    // Only fetch job if we have a valid shareId
+    if (!shareId) {
+      setLoading(false);
+      return;
+    }
+
     (async () => {
       try {
         const resp = await fetch(`${backend}/api/public/jobs/${shareId}`);
@@ -39,6 +45,12 @@ export default function PublicJobPage() {
   const handleApply = async (e) => {
     e.preventDefault();
     if (!job || applying) return;
+
+    // Ensure we have a valid shareId before submitting
+    if (!shareId) {
+      toast.error('Invalid job link. Please refresh the page and try again.');
+      return;
+    }
 
     if (!form.name || !form.email) {
       toast.error('Please fill in your name and email');
@@ -83,6 +95,7 @@ export default function PublicJobPage() {
   };
 
   if (loading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading…</div>;
+  if (!shareId) return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Invalid job link.</div>;
   if (!job) return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Job not found.</div>;
 
   const statusPill = (job.status || '').toLowerCase() === 'open' ? 'Now Hiring' : (job.status || '');

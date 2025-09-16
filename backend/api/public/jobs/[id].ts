@@ -10,8 +10,10 @@ export default async function handler(req: Request, res: Response) {
     const { id } = req.params; // share_id
 
     if (!id || typeof id !== 'string') {
-      return res.status(400).json({ error: 'Missing share_id' });
+      return res.status(400).json({ error: 'Missing or invalid share_id' });
     }
+
+    console.log('[GET /api/public/jobs/[id]] Fetching job with share_id:', id);
 
     // Fetch job by share_id - this will work for anonymous users due to RLS
     const { data, error } = await supabaseDb
@@ -33,7 +35,10 @@ export default async function handler(req: Request, res: Response) {
 
     if (error || !data) {
       console.error('Public job fetch error:', error);
-      return res.status(404).json({ error: 'Job not found' });
+      return res.status(404).json({ 
+        error: 'Job not found',
+        details: error?.message || 'No job found with this share_id'
+      });
     }
 
     // Also fetch pipeline stages if pipeline exists
