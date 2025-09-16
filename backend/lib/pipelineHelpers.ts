@@ -1,12 +1,27 @@
 import { supabaseDb } from './supabase';
 
-export async function createPipelineWithDefaultStages(jobId: string, jobTitle: string) {
+export async function createPipelineWithDefaultStages(jobId: string, jobTitle: string, userId?: string) {
   try {
+    // Get user_id from job if not provided
+    if (!userId) {
+      const { data: job, error: jobError } = await supabaseDb
+        .from('job_requisitions')
+        .select('user_id')
+        .eq('id', jobId)
+        .single();
+      
+      if (jobError || !job) {
+        throw new Error(`Job not found: ${jobError?.message || 'Unknown error'}`);
+      }
+      userId = job.user_id;
+    }
+
     // 1. Create pipeline
     const { data: pipeline, error: pipeError } = await supabaseDb
       .from('pipelines')
       .insert([{ 
-        job_id: jobId, 
+        job_id: jobId,
+        user_id: userId,
         name: `${jobTitle} Pipeline`,
         department: ''
       }])

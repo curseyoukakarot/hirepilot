@@ -157,80 +157,101 @@ router.get('/job/:jobId/recent', async (req: Request, res: Response) => {
 router.post('/', requireAuth as any, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id;
-    const { name, department, stages, job_id } = req.body || {};
+    const { job_id, user_id, name, department, stages } = req.body || {};
     
     if (!userId || !name) {
       return res.status(400).json({ error: 'Missing required fields: userId and name' });
     }
 
-    // If job_id is provided, use the helper function to create pipeline with default stages
-    if (job_id) {
-      try {
-        // Get job title for pipeline naming
-        const { data: job, error: jobError } = await supabaseDb
-          .from('job_requisitions')
-          .select('title')
-          .eq('id', job_id)
-          .eq('user_id', userId)
-          .single();
+    // Use the provided job_id or fallback to user_id for legacy support
+    const targetJobId = job_id;
+    const targetUserId = user_id || userId;
 
-        if (jobError || !job) {
-          return res.status(404).json({ error: 'Job not found or access denied' });
-        }
-
-        // Create pipeline with default stages using helper
-        const pipeline = await createPipelineWithDefaultStages(job_id, job.title);
-        
-        // Update job with pipeline_id
-        const { error: updateError } = await supabaseDb
-          .from('job_requisitions')
-          .update({ pipeline_id: pipeline.id })
-          .eq('id', job_id);
-
-        if (updateError) {
-          console.error('[POST /api/pipelines] Job update error:', updateError);
-          // Don't fail the request, just log the error
-        }
-
-        return res.json({ 
-          pipeline: { ...pipeline, stages: [] }, // Helper function handles stages
-          message: 'Pipeline created with default stages'
-        });
-      } catch (pipelineError) {
-        console.error('[POST /api/pipelines] Pipeline creation failed:', pipelineError);
-        return res.status(500).json({ error: 'Pipeline creation failed: ' + pipelineError.message });
-      }
+    if (!targetJobId) {
+      return res.status(400).json({ error: 'Missing required field: job_id' });
     }
 
-    // Legacy behavior for creating pipelines without job_id
-    if (!department || !Array.isArray(stages) || stages.length === 0) {
-      return res.status(400).json({ error: 'Missing required fields: department and stages' });
+    // Verify job ownership
+    const { data: job, error: jobError } = await supabaseDb
+      .from('job_requisitions')
+      .select('title, user_id')
+      .eq('id', targetJobId)
+      .eq('user_id', targetUserId)
+      .single();
+
+    if (jobError || !job) {
+      return res.status(404).json({ error: 'Job not found or access denied' });
     }
 
+    // Start transaction (pseudo since Supabase JS has no native transaction)
     const { data: pipeline, error: pipelineError } = await supabaseDb
-      .from('pipelines')
-      .insert({ user_id: userId, name, department })
+      .from("pipelines")
+      .insert([
+        {
+          job_id: targetJobId,
+          user_id: targetUserId,
+          name,
+          department: department || null,
+        },
+      ])
       .select()
       .single();
-    if (pipelineError || !pipeline) {
-      return res.status(500).json({ error: pipelineError?.message || 'Failed to create pipeline' });
+
+    if (pipelineError) {
+      console.error("Pipeline insert failed:", pipelineError);
+      return res.status(500).json({ error: "Pipeline creation failed" });
     }
 
-    const stageRows = stages.map((stage: any, idx: number) => ({
-      pipeline_id: pipeline.id,
-      title: stage.name || stage.title,
-      color: stage.color || 'blue',
-      position: idx,
-    }));
-    const { data: insertedStages, error: stagesError } = await supabaseDb
-      .from('pipeline_stages')
-      .insert(stageRows)
+    // Define stages: use provided or default
+    const stageList =
+      stages && stages.length > 0
+        ? stages.map((s: any, idx: number) => ({
+            pipeline_id: pipeline.id,
+            title: s.title || s.name,
+            position: idx + 1,
+            color: s.color || '#3B82F6',
+            icon: s.icon || null,
+          }))
+        : [
+            { pipeline_id: pipeline.id, title: "Sourced", position: 1, color: '#3B82F6', icon: null },
+            { pipeline_id: pipeline.id, title: "Contacted", position: 2, color: '#10B981', icon: null },
+            { pipeline_id: pipeline.id, title: "Interviewed", position: 3, color: '#F59E0B', icon: null },
+            { pipeline_id: pipeline.id, title: "Offered", position: 4, color: '#8B5CF6', icon: null },
+            { pipeline_id: pipeline.id, title: "Hired", position: 5, color: '#059669', icon: null },
+          ];
+
+    const { data: insertedStages, error: stageError } = await supabaseDb
+      .from("pipeline_stages")
+      .insert(stageList)
       .select();
-    if (stagesError) {
-      return res.status(500).json({ error: stagesError.message });
+
+    if (stageError) {
+      console.error("Stage insert failed:", stageError);
+
+      // Rollback pipeline if stages fail
+      await supabaseDb.from("pipelines").delete().eq("id", pipeline.id);
+
+      return res.status(500).json({ error: "Failed to create pipeline stages" });
     }
 
-    return res.json({ pipeline: { ...pipeline, stages: insertedStages } });
+    // Update job with pipeline_id
+    const { error: updateError } = await supabaseDb
+      .from('job_requisitions')
+      .update({ pipeline_id: pipeline.id })
+      .eq('id', targetJobId);
+
+    if (updateError) {
+      console.error('[POST /api/pipelines] Job update error:', updateError);
+      // Don't fail the request, just log the error
+    }
+
+    console.log(`✅ Created pipeline ${pipeline.id} with ${insertedStages?.length || 0} stages for job ${targetJobId}`);
+
+    return res.status(200).json({ 
+      success: true, 
+      pipeline: { ...pipeline, stages: insertedStages || [] },
+      message: 'Pipeline created and stages set!'
+    });
   } catch (error: any) {
     console.error('[POST /api/pipelines] Create pipeline error', error);
     return res.status(500).json({ error: error.message });
