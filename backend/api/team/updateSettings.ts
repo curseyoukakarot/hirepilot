@@ -1,6 +1,6 @@
-import { ApiRequest, ApiHandler, ErrorResponse } from '../types/api';
+import { ApiRequest, ApiHandler, ErrorResponse } from '../../types/api';
 import { Response } from 'express';
-import { supabaseDb } from '../lib/supabase';
+import { supabaseDb } from '../../lib/supabase';
 
 const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
   try {
