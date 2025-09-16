@@ -594,10 +594,10 @@ router.get('/candidates', requireAuth, async (req: Request, res: Response) => {
     
     if (isAdmin && userData.team_id) {
       // Admins see all candidates in their team (shared or not)
-      query = query.or(`user_id.eq.${userId},and(team_id.eq.${userData.team_id})`);
+      query = query.or(`user_id.eq.${userId},user_id.in.(select id from users where team_id = '${userData.team_id}')`);
     } else if (userData.team_id) {
       // Members see their own candidates + shared candidates from team
-      query = query.or(`user_id.eq.${userId},and(team_id.eq.${userData.team_id},shared.eq.true)`);
+      query = query.or(`user_id.eq.${userId},and(user_id.in.(select id from users where team_id = '${userData.team_id}'),shared.eq.true)`);
     } else {
       // No team - only see own candidates
       query = query.eq('user_id', userId);

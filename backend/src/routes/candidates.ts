@@ -15,8 +15,61 @@ async function ensureCandidateOwnership(candidateId: string, userId: string) {
     .eq('id', candidateId)
     .single();
   if (error || !data) return { ok: false, error: 'Candidate not found' };
-  if (data.user_id !== userId) return { ok: false, error: 'Access denied' };
-  return { ok: true };
+  
+  // Check if user can access this candidate (own or team member)
+  const { data: userData, error: userError } = await supabase
+    .from('users')
+    .select('team_id, role')
+    .eq('id', userId)
+    .single();
+
+  if (userError) {
+    return { ok: false, error: 'Failed to fetch user data' };
+  }
+
+  const isAdmin = ['admin', 'team_admin', 'super_admin'].includes(userData.role);
+  
+  // User owns the candidate
+  if (data.user_id === userId) {
+    return { ok: true };
+  }
+  
+  // Admin can access all team candidates
+  if (isAdmin && userData.team_id) {
+    const { data: candidateUser } = await supabase
+      .from('users')
+      .select('team_id')
+      .eq('id', data.user_id)
+      .single();
+    
+    if (candidateUser?.team_id === userData.team_id) {
+      return { ok: true };
+    }
+  }
+  
+  // Team member can access shared candidates
+  if (userData.team_id) {
+    const { data: candidateUser } = await supabase
+      .from('users')
+      .select('team_id')
+      .eq('id', data.user_id)
+      .single();
+    
+    if (candidateUser?.team_id === userData.team_id) {
+      // Check if candidate is shared
+      const { data: candidate } = await supabase
+        .from('candidates')
+        .select('shared')
+        .eq('id', candidateId)
+        .single();
+      
+      if (candidate?.shared) {
+        return { ok: true };
+      }
+    }
+  }
+  
+  return { ok: false, error: 'Access denied' };
 }
 
 // PUT /api/candidates/:id - update candidate fields (limited)

@@ -149,7 +149,30 @@ router.get('/', requireAuth, async (req: ApiRequest, res: Response) => {
         return res.status(404).json({ success: false, message: 'Candidate not found' });
       }
 
-      if (candidate.user_id !== userId) {
+      // Check if user can access this candidate (own or team member)
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('team_id, role')
+        .eq('id', userId)
+        .single();
+
+      if (userError) {
+        return res.status(500).json({ success: false, message: 'Failed to fetch user data' });
+      }
+
+      const isAdmin = ['admin', 'team_admin', 'super_admin'].includes(userData.role);
+      const canAccess = candidate.user_id === userId || 
+        (userData.team_id && isAdmin) ||
+        (userData.team_id && candidate.user_id && 
+         await supabase
+           .from('users')
+           .select('team_id')
+           .eq('id', candidate.user_id)
+           .eq('team_id', userData.team_id)
+           .single()
+           .then(({ data }) => !!data));
+
+      if (!canAccess) {
         return res.status(403).json({ success: false, message: 'Access denied' });
       }
 
