@@ -61,25 +61,43 @@ export default function JobPipeline({ embedded = false, jobId: jobIdProp = null 
       setCreating(true);
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
-    const base = import.meta.env.VITE_BACKEND_URL;
-    const payload = {
+      const base = import.meta.env.VITE_BACKEND_URL;
+      
+      // Simplified payload - backend will handle default stages
+      const payload = {
         name: newPipelineName,
         department: newPipelineDepartment,
-      job_id: selectedJob,
-        stages: defaultStages.map((s, i) => ({ name: s.name, color: s.color, position: i, icon: '' }))
-    };
-    const res = await fetch(`${base}/api/pipelines`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, credentials: 'include', body: JSON.stringify(payload)
+        job_id: selectedJob
+      };
+      
+      const res = await fetch(`${base}/api/pipelines`, {
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, 
+        credentials: 'include', 
+        body: JSON.stringify(payload)
       });
+      
       if (res.ok) {
-    const created = await res.json();
+        const created = await res.json();
         await loadPipelines(selectedJob);
         const pid = created?.pipeline?.id || created?.id;
         if (pid) setSelectedPipeline(String(pid));
         setRefreshKey(k => k + 1);
-        setNewPipelineName(''); setNewPipelineDepartment('');
+        setNewPipelineName(''); 
+        setNewPipelineDepartment('');
+        
+        // Show success message
+        console.log('✅ Pipeline created with default stages:', created.message);
+      } else {
+        const error = await res.json();
+        alert('Failed to create pipeline: ' + (error.error || 'Unknown error'));
       }
-    } finally { setCreating(false); }
+    } catch (error) {
+      console.error('Pipeline creation error:', error);
+      alert('Failed to create pipeline: ' + error.message);
+    } finally { 
+      setCreating(false); 
+    }
   };
 
   return (

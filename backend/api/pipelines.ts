@@ -6,6 +6,7 @@ import {
   ZAP_EVENT_TYPES,
   generatePipelineStageEvent,
 } from '../lib/zapEventEmitter';
+import { createPipelineWithDefaultStages } from '../lib/pipelineHelpers';
 
 const router = express.Router();
 
@@ -157,8 +158,53 @@ router.post('/', requireAuth as any, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id;
     const { name, department, stages, job_id } = req.body || {};
-    if (!userId || !name || !department || !Array.isArray(stages) || stages.length === 0) {
-      return res.status(400).json({ error: 'Missing required fields or stages' });
+    
+    if (!userId || !name) {
+      return res.status(400).json({ error: 'Missing required fields: userId and name' });
+    }
+
+    // If job_id is provided, use the helper function to create pipeline with default stages
+    if (job_id) {
+      try {
+        // Get job title for pipeline naming
+        const { data: job, error: jobError } = await supabaseDb
+          .from('job_requisitions')
+          .select('title')
+          .eq('id', job_id)
+          .eq('user_id', userId)
+          .single();
+
+        if (jobError || !job) {
+          return res.status(404).json({ error: 'Job not found or access denied' });
+        }
+
+        // Create pipeline with default stages using helper
+        const pipeline = await createPipelineWithDefaultStages(job_id, job.title);
+        
+        // Update job with pipeline_id
+        const { error: updateError } = await supabaseDb
+          .from('job_requisitions')
+          .update({ pipeline_id: pipeline.id })
+          .eq('id', job_id);
+
+        if (updateError) {
+          console.error('[POST /api/pipelines] Job update error:', updateError);
+          // Don't fail the request, just log the error
+        }
+
+        return res.json({ 
+          pipeline: { ...pipeline, stages: [] }, // Helper function handles stages
+          message: 'Pipeline created with default stages'
+        });
+      } catch (pipelineError) {
+        console.error('[POST /api/pipelines] Pipeline creation failed:', pipelineError);
+        return res.status(500).json({ error: 'Pipeline creation failed: ' + pipelineError.message });
+      }
+    }
+
+    // Legacy behavior for creating pipelines without job_id
+    if (!department || !Array.isArray(stages) || stages.length === 0) {
+      return res.status(400).json({ error: 'Missing required fields: department and stages' });
     }
 
     const { data: pipeline, error: pipelineError } = await supabaseDb
@@ -182,13 +228,6 @@ router.post('/', requireAuth as any, async (req: Request, res: Response) => {
       .select();
     if (stagesError) {
       return res.status(500).json({ error: stagesError.message });
-    }
-
-    if (job_id) {
-      await supabaseDb
-        .from('job_requisitions')
-        .update({ pipeline_id: pipeline.id })
-        .eq('id', job_id);
     }
 
     return res.json({ pipeline: { ...pipeline, stages: insertedStages } });
