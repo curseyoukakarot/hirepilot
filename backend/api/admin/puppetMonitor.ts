@@ -40,12 +40,12 @@ async function verifySuperAdmin(req: Request, res: Response, next: any): Promise
 
     // Check if user has super_admin role
     const { data: user, error } = await supabase
-      .from('auth.users')
-      .select('raw_user_meta_data')
+      .from('users')
+      .select('role')
       .eq('id', userId)
       .single();
 
-    if (error || !user || user.raw_user_meta_data?.role !== 'super_admin') {
+    if (error || !user || user.role !== 'super_admin') {
       res.status(403).json({
         success: false,
         error: 'Super admin access required'
