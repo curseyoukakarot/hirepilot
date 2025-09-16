@@ -5,9 +5,10 @@ import toast from "react-hot-toast";
 interface NewJobModalProps {
   onClose: () => void;
   onJobCreated?: (job: any) => void;
+  onJobRollback?: (jobId: string) => void;
 }
 
-export default function NewJobModal({ onClose, onJobCreated }: NewJobModalProps) {
+export default function NewJobModal({ onClose, onJobCreated, onJobRollback }: NewJobModalProps) {
   const [title, setTitle] = useState("");
   const [department, setDepartment] = useState("");
   const [status, setStatus] = useState("open");
@@ -46,6 +47,25 @@ export default function NewJobModal({ onClose, onJobCreated }: NewJobModalProps)
 
     setIsCreating(true);
     const loadingToast = toast.loading('🔄 Creating job and pipeline...');
+    
+    // Create optimistic job object for immediate UI update
+    const optimisticJob = {
+      id: crypto.randomUUID(),
+      title: title.trim(),
+      department: department.trim(),
+      status: status,
+      description: description.trim(),
+      location: location.trim(),
+      salary_range: salaryRange.trim(),
+      created_at: new Date().toISOString(),
+      pipeline_id: null, // Will be updated when pipeline is created
+      is_optimistic: true // Flag to identify optimistic updates
+    };
+
+    // Add optimistic job to UI immediately
+    if (onJobCreated) {
+      onJobCreated(optimisticJob);
+    }
     
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -106,9 +126,20 @@ export default function NewJobModal({ onClose, onJobCreated }: NewJobModalProps)
         toast.success(`✅ Job "${title}" + Pipeline created successfully!`);
       }
 
-      // Call the callback if provided
+      // Replace optimistic job with real job data
       if (onJobCreated) {
-        onJobCreated(jobResult.job || { id: jobId, title, department, status });
+        const realJob = {
+          ...jobResult.job,
+          id: jobId,
+          title: title.trim(),
+          department: department.trim(),
+          status: status,
+          description: description.trim(),
+          location: location.trim(),
+          salary_range: salaryRange.trim(),
+          is_optimistic: false
+        };
+        onJobCreated(realJob);
       }
 
       onClose();
@@ -116,6 +147,11 @@ export default function NewJobModal({ onClose, onJobCreated }: NewJobModalProps)
       console.error('Job creation error:', err);
       toast.dismiss(loadingToast);
       toast.error(`❌ Error: ${err.message || 'Failed to create job'}`);
+      
+      // Rollback optimistic job if failure
+      if (onJobRollback) {
+        onJobRollback(optimisticJob.id);
+      }
     } finally {
       setIsCreating(false);
     }

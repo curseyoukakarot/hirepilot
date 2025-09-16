@@ -256,8 +256,27 @@ export default function JobRequisitions() {
   };
 
   const handleJobCreated = (newJob) => {
-    setJobs((prev) => [newJob, ...prev]);
-    handleCloseNewJobModal();
+    setJobs((prev) => {
+      // If this is replacing an optimistic job, find and replace it
+      if (newJob.is_optimistic === false) {
+        return prev.map(job => 
+          job.is_optimistic === true && job.title === newJob.title 
+            ? newJob 
+            : job
+        );
+      }
+      // Otherwise, add new job to the beginning
+      return [newJob, ...prev];
+    });
+    
+    // Only close modal if this is not an optimistic update
+    if (!newJob.is_optimistic) {
+      handleCloseNewJobModal();
+    }
+  };
+
+  const handleJobRollback = (jobId) => {
+    setJobs((prev) => prev.filter(job => job.id !== jobId));
   };
 
 
@@ -399,6 +418,11 @@ export default function JobRequisitions() {
                         >
                           {job.title}
                         </button>
+                        {job.is_optimistic && (
+                          <span className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-full animate-pulse">
+                            Creating...
+                          </span>
+                        )}
                         {job.is_shared && (
                           <span className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded-full">
                             Shared
@@ -520,6 +544,7 @@ export default function JobRequisitions() {
         <NewJobModal 
           onClose={handleCloseNewJobModal}
           onJobCreated={handleJobCreated}
+          onJobRollback={handleJobRollback}
         />
       )}
 
