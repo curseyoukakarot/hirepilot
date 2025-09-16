@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import PipelineBoard from '../components/pipeline/PipelineBoard';
+import CreatePipelineModal from '../components/CreatePipelineModal';
 import { supabase } from '../lib/supabase';
+import toast from 'react-hot-toast';
 
 export default function JobPipeline({ embedded = false, jobId: jobIdProp = null }) {
   const { id: jobIdParam } = useParams();
@@ -16,6 +18,8 @@ export default function JobPipeline({ embedded = false, jobId: jobIdProp = null 
   const [creating, setCreating] = useState(false);
   const [newPipelineName, setNewPipelineName] = useState('');
   const [newPipelineDepartment, setNewPipelineDepartment] = useState('');
+  const [showCreatePipelineModal, setShowCreatePipelineModal] = useState(false);
+  const [selectedJobTitle, setSelectedJobTitle] = useState('');
   const defaultStages = [
     { name: 'Sourced', color: 'bg-blue-100 text-blue-800' },
     { name: 'Contacted', color: 'bg-yellow-100 text-yellow-800' },
@@ -41,6 +45,18 @@ export default function JobPipeline({ embedded = false, jobId: jobIdProp = null 
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
       if (!token || !job) { setPipelines([]); setSelectedPipeline(''); return; }
+      
+      // Get job title for the modal
+      const { data: jobData } = await supabase
+        .from('job_requisitions')
+        .select('title')
+        .eq('id', job)
+        .single();
+      
+      if (jobData) {
+        setSelectedJobTitle(jobData.title || 'Job');
+      }
+      
       const base = import.meta.env.VITE_BACKEND_URL;
       const res = await fetch(`${base}/api/pipelines?jobId=${job}`, { headers: { Authorization: `Bearer ${token}` }, credentials: 'include' });
       if (!res.ok) { setPipelines([]); setSelectedPipeline(''); return; }
@@ -54,6 +70,53 @@ export default function JobPipeline({ embedded = false, jobId: jobIdProp = null 
   };
 
   useEffect(() => { if (selectedJob) loadPipelines(selectedJob); }, [selectedJob]);
+
+  const handleCreatePipeline = () => {
+    if (!selectedJob) {
+      toast.error('Please select a job first');
+      return;
+    }
+    setShowCreatePipelineModal(true);
+  };
+
+  const handlePipelineCreated = (pipelineId) => {
+    setSelectedPipeline(String(pipelineId));
+    loadPipelines(selectedJob);
+    setRefreshKey(k => k + 1);
+  };
+
+  const handleNewStageClick = async () => {
+    if (!selectedJob) {
+      toast.error('Please select a job first');
+      return;
+    }
+    if (!selectedPipeline) {
+      toast.error('Please create a pipeline before adding stages.');
+      setShowCreatePipelineModal(true);
+      return;
+    }
+    
+    // Normal new stage logic
+    const title = prompt('Stage name');
+    if (!title) return;
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const base = import.meta.env.VITE_BACKEND_URL;
+      await fetch(`${base}/api/pipelines/${selectedPipeline}/stages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        credentials: 'include',
+        body: JSON.stringify({ title, color: 'bg-blue-100 text-blue-800', position: 0 })
+      });
+      setRefreshKey(k => k + 1);
+      toast.success(`✅ Stage "${title}" created successfully!`);
+    } catch (e) { 
+      console.error(e);
+      toast.error('❌ Failed to create stage');
+    }
+  };
 
   const createPipeline = async () => {
     if (!selectedJob || !newPipelineName) return;
@@ -130,36 +193,16 @@ export default function JobPipeline({ embedded = false, jobId: jobIdProp = null 
               <div className="flex gap-2 flex-nowrap">
                 <button
                   className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-200 whitespace-nowrap min-w-[130px]"
-              onClick={() => {
-                const name = prompt('Pipeline name');
-                if (!name) return; setNewPipelineName(name); createPipeline();
-              }}
+                  onClick={handleCreatePipeline}
                 >
-              <span className="font-medium">+ New Pipeline</span>
+                  <span className="font-medium">+ New Pipeline</span>
                 </button>
                 <button
                   className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-200 whitespace-nowrap min-w-[120px]"
-              onClick={async () => {
-                if (!selectedJob) { alert('Select a job first'); return; }
-                if (!selectedPipeline) { alert('Select or create a pipeline first'); return; }
-                const title = prompt('Stage name');
-                if (!title) return;
-                try {
-                  const { data: { session } } = await supabase.auth.getSession();
-                  const token = session?.access_token;
-                  const base = import.meta.env.VITE_BACKEND_URL;
-                  await fetch(`${base}/api/pipelines/${selectedPipeline}/stages`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                    credentials: 'include',
-                    body: JSON.stringify({ title, color: 'bg-blue-100 text-blue-800', position: 0 })
-                  });
-                  setRefreshKey(k => k + 1);
-                } catch (e) { console.error(e); }
-              }}
-            >
-              <span className="font-medium">+ New Stage</span>
-                  </button>
+                  onClick={handleNewStageClick}
+                >
+                  <span className="font-medium">+ New Stage</span>
+                </button>
                 </div>
             </div>
           </header>
@@ -167,6 +210,16 @@ export default function JobPipeline({ embedded = false, jobId: jobIdProp = null 
       <div className="flex-1 overflow-hidden">
         <PipelineBoard jobId={selectedJob} pipelineIdOverride={selectedPipeline || null} refreshKey={refreshKey} showHeader={false} />
       </div>
+
+      {/* Create Pipeline Modal */}
+      {showCreatePipelineModal && (
+        <CreatePipelineModal
+          jobId={selectedJob}
+          jobTitle={selectedJobTitle}
+          onClose={() => setShowCreatePipelineModal(false)}
+          onPipelineCreated={handlePipelineCreated}
+        />
+      )}
     </div>
   );
 }

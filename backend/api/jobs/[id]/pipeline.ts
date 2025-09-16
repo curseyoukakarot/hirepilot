@@ -10,7 +10,7 @@ export default async function handler(req: Request, res: Response) {
   try {
     const userId = (req as any).user?.id;
     const { id: jobId } = req.params;
-    const { stages } = req.body;
+    const { stages, name } = req.body;
 
     if (!userId) {
       return res.status(401).json({ error: 'Not authenticated' });
@@ -61,12 +61,13 @@ export default async function handler(req: Request, res: Response) {
       }
     } else {
       // Create new pipeline
+      const pipelineName = name || `${job.title || "Job"} Pipeline`;
       const { data: pipeline, error: pipelineError } = await supabaseDb
         .from("pipelines")
         .insert([{
           job_id: jobId,
           user_id: job.user_id,
-          name: `${job.title || "Job"} Pipeline`,
+          name: pipelineName,
           department: job.department || null,
         }])
         .select()
