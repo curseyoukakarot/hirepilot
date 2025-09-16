@@ -4,7 +4,12 @@ import { supabaseDb } from '../../lib/supabase';
 
 const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
   try {
+    console.log('=== IMPERSONATE USER DEBUG ===');
+    console.log('Request user:', req.user);
+    console.log('Request body:', req.body);
+    
     if (!req.user?.id) {
+      console.log('No user ID in request');
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
@@ -12,10 +17,13 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
     const { userId } = req.body;
 
     if (!userId) {
+      console.log('No userId in request body');
       res.status(400).json({ error: 'Missing userId' });
       return;
     }
 
+    console.log('Looking up current user role for ID:', req.user.id);
+    
     // Check if current user is super_admin
     const { data: currentUser, error: currentUserError } = await supabaseDb
       .from('users')

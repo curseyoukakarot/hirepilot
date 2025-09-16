@@ -221,6 +221,7 @@ export default function AdminUserManagement() {
 
       if (!res.ok) {
         const error = await res.json();
+        console.error('Impersonation error response:', error);
         throw new Error(error.error || 'Failed to impersonate user');
       }
 
