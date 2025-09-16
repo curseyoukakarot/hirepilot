@@ -73,6 +73,7 @@ import cronProcessorRouter from './routes/cronProcessor';
 import cookieParser from 'cookie-parser';
 import listEndpoints from 'express-list-endpoints';
 import adminUsersRouter from './src/routes/adminUsers';
+import adminRouter from './routes/admin';
 import campaignPerformance from './api/campaignPerformance';
 import leadsApolloRouter from './api/leadsApollo';
 import rexChat from './src/api/rexChat';
@@ -297,6 +298,7 @@ app.use('/api/team', teamRouter);
   app.use('/api/candidates', candidatesRouter);
   app.use('/api/cron', cronProcessorRouter);
   app.use('/api/admin', adminUsersRouter);
+  app.use('/api/admin', adminRouter);
   // LinkedIn session routes (encrypted storage)
   registerLinkedInSessionRoutes(app);
   // Sniper routes
