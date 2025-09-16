@@ -311,10 +311,30 @@ export default function JobRequisitionPage() {
     if (!selectedUserId) return;
     try {
       setIsSaving(true);
-      const { error: insErr } = await supabase
-        .from('job_collaborators')
-        .insert({ job_id: id, user_id: selectedUserId, role: 'Editor' });
-      if (insErr) throw insErr;
+      
+      // Use the new collaborator API endpoint with notifications
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const base = (import.meta.env.VITE_BACKEND_URL || (window.location.host.endsWith('thehirepilot.com') ? 'https://api.thehirepilot.com' : 'http://localhost:8080')).replace(/\/$/, '');
+      
+      const response = await fetch(`${base}/api/collaborators/add`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          jobId: id,
+          userId: selectedUserId,
+          role: 'Editor'
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to add collaborator');
+      }
+
+      const result = await response.json();
       
       // Find the added user from orgUsers
       const addedUser = (orgUsers || []).find(u => u.id === selectedUserId);
@@ -328,16 +348,17 @@ export default function JobRequisitionPage() {
         }]);
       }
       
-      // Log the activity
-      if (currentUser?.id) {
-        await supabase.from('job_activity_log').insert({
-          type: 'collaborator_added',
-          actor_id: currentUser.id,
-          job_id: id,
-          metadata: { target_user_id: selectedUserId, role: 'Editor' },
-          created_at: new Date().toISOString()
-        });
+      // Show success message with notification info
+      const notificationInfo = result.notifications;
+      let successMessage = 'Teammate added successfully!';
+      if (notificationInfo.slack || notificationInfo.email) {
+        const notifications = [];
+        if (notificationInfo.slack) notifications.push('Slack');
+        if (notificationInfo.email) notifications.push('Email');
+        successMessage += ` (${notifications.join(' & ')} notification sent)`;
       }
+      
+      alert(successMessage);
       
       setShowAddTeammateModal(false);
       setSelectedUserId('');
