@@ -9,7 +9,16 @@ export default async function handler(req: Request, res: Response) {
   try {
     const { id } = req.params; // share_id
 
+    console.log('[GET /api/public/jobs/[id]] Request details:', {
+      params: req.params,
+      id: id,
+      idType: typeof id,
+      url: req.url,
+      originalUrl: req.originalUrl
+    });
+
     if (!id || typeof id !== 'string') {
+      console.error('[GET /api/public/jobs/[id]] Invalid share_id:', { id, type: typeof id });
       return res.status(400).json({ error: 'Missing or invalid share_id' });
     }
 

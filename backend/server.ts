@@ -378,7 +378,7 @@ app.use('/api/payouts', requireAuth as any, payoutsRouter);
   void salesSweepWorker;
 
 // Public API routes (no authentication required)
-app.use('/api/public/jobs', require('./api/public/jobs/[id]').default);
+app.get('/api/public/jobs/:id', require('./api/public/jobs/[id]').default);
 app.use('/api/public/apply', require('./api/public/apply').default);
 
 // Auth routes

@@ -19,23 +19,28 @@ export default function PublicJobPage() {
   const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
 
   React.useEffect(() => {
+    console.log('[PublicJobPage] useEffect triggered with shareId:', shareId);
+    
     // Only fetch job if we have a valid shareId
     if (!shareId) {
+      console.log('[PublicJobPage] No shareId, setting loading to false');
       setLoading(false);
       return;
     }
 
+    console.log('[PublicJobPage] Fetching job with shareId:', shareId);
     (async () => {
       try {
         const resp = await fetch(`${backend}/api/public/jobs/${shareId}`);
         const js = await resp.json();
         if (resp.ok) { 
+          console.log('[PublicJobPage] Job fetched successfully:', js.job);
           setJob(js.job); 
         } else {
-          console.error('Failed to fetch job:', js.error);
+          console.error('[PublicJobPage] Failed to fetch job:', js.error);
         }
       } catch (error) {
-        console.error('Error fetching job:', error);
+        console.error('[PublicJobPage] Error fetching job:', error);
       } finally { 
         setLoading(false); 
       }
