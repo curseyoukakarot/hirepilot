@@ -107,13 +107,26 @@ export default function SettingsTeamMembers() {
         setRequireCheckout((subscription.seat_count || 0) >= (subscription.included_seats || 1));
       }
 
-      // Fetch current user only (team owner until team concept implemented)
-      const { data: users, error: usersError } = await supabase
+      // Fetch current user profile to get team_id
+      const { data: currentUserProfile, error: profileError } = await supabase
         .from('users')
         .select('*')
-        .eq('id', user.id);
+        .eq('id', user.id)
+        .single();
 
-      if (usersError) throw usersError;
+      if (profileError) throw profileError;
+
+      // Fetch all team members if user has a team
+      let users = [currentUserProfile];
+      if (currentUserProfile?.team_id) {
+        const { data: teamUsers, error: usersError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('team_id', currentUserProfile.team_id);
+        
+        if (usersError) throw usersError;
+        users = teamUsers || [currentUserProfile];
+      }
 
       // Fetch invites created BY the current user or sent TO current user
       const { data: invites, error: invitesError } = await supabase

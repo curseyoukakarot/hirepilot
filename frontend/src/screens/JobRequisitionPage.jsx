@@ -160,7 +160,7 @@ export default function JobRequisitionPage() {
         const byId = new Map((userRows || []).map(u => [u.id, u]));
         mergedTeam = mergedTeam.map(r => ({ ...r, users: byId.get(r.user_id) }));
       }
-      const filteredTeam = (mergedTeam || []).filter(r => !profile?.organization_id || r.users?.organization_id === profile.organization_id);
+      const filteredTeam = (mergedTeam || []).filter(r => !profile?.team_id || r.users?.team_id === profile.team_id);
       // Append guest collaborators (email only) to show in Team list
       try {
         const { data: guestRows } = await supabase
@@ -183,13 +183,13 @@ export default function JobRequisitionPage() {
         setTeam(filteredTeam);
       }
 
-      // Load org users for Add Teammate
-      if (profile?.organization_id) {
-        const { data: orgRows } = await supabase
+      // Load team users for Add Teammate
+      if (profile?.team_id) {
+        const { data: teamRows } = await supabase
           .from('users')
           .select('*')
-          .eq('organization_id', profile.organization_id);
-        setOrgUsers(orgRows || []);
+          .eq('team_id', profile.team_id);
+        setOrgUsers(teamRows || []);
       } else {
         setOrgUsers([]);
       }
