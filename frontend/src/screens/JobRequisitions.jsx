@@ -25,6 +25,20 @@ export default function JobRequisitions() {
   const [newStatus, setNewStatus] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Close actions menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showActionsMenu && !event.target.closest('.actions-menu')) {
+        setShowActionsMenu(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showActionsMenu]);
+
   useEffect(() => {
     const fetchJobsAndRelated = async () => {
       setLoading(true);
@@ -387,7 +401,8 @@ export default function JobRequisitions() {
           <div className="flex justify-center items-center py-12 text-red-500">{error}</div>
         ) : (
           <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-3">
@@ -397,13 +412,13 @@ export default function JobRequisitions() {
                       onChange={handleSelectAll}
                     />
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Job Title</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pipeline</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Candidates</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-48">Job Title</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-32">Department</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-24">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-32">Pipeline</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-20">Candidates</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-24">Created</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-48">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -416,21 +431,22 @@ export default function JobRequisitions() {
                         onChange={() => handleSelectJob(job.id)}
                       />
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2 max-w-xs">
                         <button
-                          className="text-sm font-medium text-gray-900 hover:underline"
+                          className="text-sm font-medium text-gray-900 hover:underline truncate"
                           onClick={() => navigate(`/job/${job.id}`)}
+                          title={job.title}
                         >
                           {job.title}
                         </button>
                         {job.is_optimistic && (
-                          <span className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-full animate-pulse">
+                          <span className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-full animate-pulse flex-shrink-0">
                             Creating...
                           </span>
                         )}
                         {job.is_shared && (
-                          <span className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded-full">
+                          <span className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded-full flex-shrink-0">
                             Shared
                           </span>
                         )}
@@ -448,8 +464,10 @@ export default function JobRequisitions() {
                         {job.status ? job.status.charAt(0).toUpperCase() + job.status.slice(1) : '-'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {job.pipeline_id && pipelines[job.pipeline_id]?.name ? pipelines[job.pipeline_id].name : <span className="text-gray-300">—</span>}
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      <div className="max-w-32 truncate" title={job.pipeline_id && pipelines[job.pipeline_id]?.name ? pipelines[job.pipeline_id].name : ''}>
+                        {job.pipeline_id && pipelines[job.pipeline_id]?.name ? pipelines[job.pipeline_id].name : <span className="text-gray-300">—</span>}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {candidateCounts[job.id] ?? 0}
@@ -457,35 +475,41 @@ export default function JobRequisitions() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {job.created_at ? new Date(job.created_at).toLocaleDateString() : '-'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium relative">
-                      <button 
-                        className="text-blue-600 hover:text-blue-900 mr-4"
-                        onClick={() => handleViewPipeline(job.id)}
-                      >
-                        View Pipeline
-                      </button>
-                      <div className="inline-block relative">
-                        <button className="text-gray-400 hover:text-gray-600" onClick={() => setShowActionsMenu(showActionsMenu === job.id ? null : job.id)}>
-                          <FaEllipsisV />
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium relative min-w-48">
+                      <div className="flex items-center justify-end gap-2">
+                        <button 
+                          className="text-blue-600 hover:text-blue-900 text-xs"
+                          onClick={() => handleViewPipeline(job.id)}
+                        >
+                          Pipeline
                         </button>
-                        {showActionsMenu === job.id && (
-                          <div className="absolute right-0 mt-2 w-40 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
-                            <div className="py-1" role="menu" aria-orientation="vertical">
-                              <button
-                                className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-                                onClick={() => { setShowActionsMenu(null); handleDeleteJob(job); }}
-                              >
-                                <FaTrash className="mr-2" /> Delete
-                              </button>
-                              <button
-                                className="flex items-center w-full px-4 py-2 text-sm text-blue-600 hover:bg-gray-100"
-                                onClick={() => { setShowActionsMenu(null); handleOpenEditStatusModal(job); }}
-                              >
-                                <FaEdit className="mr-2" /> Change Status
-                              </button>
+                        <div className="inline-block relative actions-menu">
+                          <button 
+                            className="text-gray-400 hover:text-gray-600 p-1" 
+                            onClick={() => setShowActionsMenu(showActionsMenu === job.id ? null : job.id)}
+                            title="More actions"
+                          >
+                            <FaEllipsisV />
+                          </button>
+                          {showActionsMenu === job.id && (
+                            <div className="absolute right-0 mt-2 w-40 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
+                              <div className="py-1" role="menu" aria-orientation="vertical">
+                                <button
+                                  className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                                  onClick={() => { setShowActionsMenu(null); handleDeleteJob(job); }}
+                                >
+                                  <FaTrash className="mr-2" /> Delete
+                                </button>
+                                <button
+                                  className="flex items-center w-full px-4 py-2 text-sm text-blue-600 hover:bg-gray-100"
+                                  onClick={() => { setShowActionsMenu(null); handleOpenEditStatusModal(job); }}
+                                >
+                                  <FaEdit className="mr-2" /> Change Status
+                                </button>
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -496,7 +520,8 @@ export default function JobRequisitions() {
                   </tr>
                 )}
               </tbody>
-            </table>
+              </table>
+            </div>
           </div>
         )}
 
