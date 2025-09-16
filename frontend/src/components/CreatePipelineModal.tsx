@@ -82,7 +82,7 @@ export default function CreatePipelineModal({
       const result = await response.json();
       
       toast.dismiss(loadingToast);
-      toast.success(`✅ Pipeline "${name}" created with ${result.stages?.length || stages.filter(s => s.trim()).length} stages!`);
+      toast.success(`✅ Pipeline "${name}" created and stages set!`);
       
       onPipelineCreated(result.pipeline_id);
       onClose();

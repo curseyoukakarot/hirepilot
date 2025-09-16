@@ -47,37 +47,52 @@ export default async function handler(req: Request, res: Response) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // If job already has a pipeline, delete existing stages and recreate
-    if (job.pipeline_id) {
-      // Delete existing stages
+    // Try to create pipeline first
+    const pipelineName = name || `${job.title || "Job"} Pipeline`;
+    let { data: pipeline, error: pipelineError } = await supabaseDb
+      .from("pipelines")
+      .insert([{
+        job_id: jobId,
+        user_id: job.user_id,
+        name: pipelineName,
+        department: job.department || null,
+      }])
+      .select()
+      .single();
+
+    // If pipeline already exists (unique constraint violation), fetch it instead
+    if (pipelineError?.code === "23505") {
+      console.warn("Pipeline already exists, reusing existing one...");
+      const { data: existing, error: fetchError } = await supabaseDb
+        .from("pipelines")
+        .select("*")
+        .eq("job_id", jobId)
+        .single();
+
+      if (fetchError) {
+        console.error('Failed to fetch existing pipeline:', fetchError);
+        return res.status(500).json({ error: 'Failed to fetch existing pipeline' });
+      }
+      
+      pipeline = existing;
+      job.pipeline_id = pipeline.id;
+
+      // Delete old stages before inserting new ones
       const { error: deleteStagesError } = await supabaseDb
         .from("pipeline_stages")
         .delete()
-        .eq("pipeline_id", job.pipeline_id);
+        .eq("pipeline_id", pipeline.id);
 
       if (deleteStagesError) {
-        console.error('Failed to delete existing stages:', deleteStagesError);
-        return res.status(500).json({ error: 'Failed to update existing pipeline' });
+        console.error("Failed to delete old stages:", deleteStagesError);
+        return res.status(500).json({ error: 'Failed to delete old stages' });
       }
+
+      console.log('✅ Reusing existing pipeline:', pipeline.id);
+    } else if (pipelineError) {
+      console.error('Pipeline creation failed:', pipelineError);
+      return res.status(500).json({ error: 'Failed to create pipeline' });
     } else {
-      // Create new pipeline
-      const pipelineName = name || `${job.title || "Job"} Pipeline`;
-      const { data: pipeline, error: pipelineError } = await supabaseDb
-        .from("pipelines")
-        .insert([{
-          job_id: jobId,
-          user_id: job.user_id,
-          name: pipelineName,
-          department: job.department || null,
-        }])
-        .select()
-        .single();
-
-      if (pipelineError) {
-        console.error('Pipeline creation failed:', pipelineError);
-        return res.status(500).json({ error: 'Failed to create pipeline' });
-      }
-
       console.log('✅ Pipeline created successfully:', pipeline.id);
 
       // Update job with pipeline_id
