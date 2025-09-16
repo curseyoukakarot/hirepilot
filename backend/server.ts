@@ -279,6 +279,16 @@ app.use('/api/campaigns', leadSourceRouter);
 app.use('/api/campaigns', launchDataRouter);
 app.use('/api/pipelines', pipelinesRouter);
 app.use('/api/jobs/create', requireAuth as any, createJob);
+app.use('/api/jobs', requireAuth as any, async (req, res, next) => {
+  // Handle dynamic job pipeline routes
+  if (req.path.match(/^\/[^\/]+\/pipeline$/)) {
+    const jobId = req.path.split('/')[1];
+    req.params = { id: jobId };
+    const handler = require('./api/jobs/[id]/pipeline').default;
+    return handler(req, res);
+  }
+  next();
+});
   app.use('/api', apiRouter);
 app.use('/api/admin', linkedinSessionAdminRouter);
 app.get('/api/advanced-info', getAdvancedInfo);

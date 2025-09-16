@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { FaPlus, FaEllipsisV, FaTrash, FaTimes, FaEdit } from 'react-icons/fa';
 import { supabase } from '../lib/supabase';
 import { apiDelete } from '../lib/api';
+import NewJobModal from '../components/NewJobModal';
 
 export default function JobRequisitions() {
   const navigate = useNavigate();
@@ -19,13 +20,10 @@ export default function JobRequisitions() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showActionsMenu, setShowActionsMenu] = useState(null);
   const [showNewJobModal, setShowNewJobModal] = useState(false);
-  const [newJobTitle, setNewJobTitle] = useState('');
-  const [newJobDepartment, setNewJobDepartment] = useState('');
-  const [newJobStatus, setNewJobStatus] = useState('open');
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [jobToEdit, setJobToEdit] = useState(null);
   const [showEditStatusModal, setShowEditStatusModal] = useState(false);
   const [newStatus, setNewStatus] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const fetchJobsAndRelated = async () => {
@@ -255,61 +253,13 @@ export default function JobRequisitions() {
 
   const handleCloseNewJobModal = () => {
     setShowNewJobModal(false);
-    setNewJobTitle('');
-    setNewJobDepartment('');
-    setNewJobStatus('open');
   };
 
-  const handleCreateNewJob = async () => {
-    if (!newJobTitle.trim()) {
-      alert('Job title is required');
-      return;
-    }
-    setIsSubmitting(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-      
-      const token = (await supabase.auth.getSession()).data.session?.access_token;
-      const base = (import.meta.env.VITE_BACKEND_URL || (window.location.host.endsWith('thehirepilot.com') ? 'https://api.thehirepilot.com' : 'http://localhost:8080')).replace(/\/$/, '');
-      
-      const response = await fetch(`${base}/api/jobs/create`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          title: newJobTitle,
-          department: newJobDepartment,
-          status: newJobStatus,
-          description: '',
-          location: '',
-          salary_range: ''
-        })
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create job');
-      }
-
-      const result = await response.json();
-      setJobs((prev) => [result.job, ...prev]);
-      handleCloseNewJobModal();
-      
-      // Show success message
-      if (result.pipeline) {
-        console.log('✅ Job created with pipeline:', result.pipeline.id);
-      } else if (result.warning) {
-        console.warn('⚠️', result.warning);
-      }
-    } catch (err) {
-      alert('Failed to create job: ' + (err.message || err));
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleJobCreated = (newJob) => {
+    setJobs((prev) => [newJob, ...prev]);
+    handleCloseNewJobModal();
   };
+
 
   const handleOpenEditStatusModal = (job) => {
     setJobToEdit(job);
@@ -567,64 +517,10 @@ export default function JobRequisitions() {
 
       {/* New Job Modal */}
       {showNewJobModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Create New Job</h3>
-              <button className="text-gray-400 hover:text-gray-600" onClick={handleCloseNewJobModal}>
-                <FaTimes />
-              </button>
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Job Title</label>
-              <input
-                type="text"
-                value={newJobTitle}
-                onChange={(e) => setNewJobTitle(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Enter job title"
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-              <input
-                type="text"
-                value={newJobDepartment}
-                onChange={(e) => setNewJobDepartment(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Enter department"
-              />
-            </div>
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-              <select
-                value={newJobStatus}
-                onChange={(e) => setNewJobStatus(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="open">Open</option>
-                <option value="closed">Closed</option>
-                <option value="draft">Draft</option>
-              </select>
-            </div>
-            <div className="flex justify-end gap-3">
-              <button
-                className="px-4 py-2 border rounded-lg hover:bg-gray-50"
-                onClick={handleCloseNewJobModal}
-                disabled={isSubmitting}
-              >
-                Cancel
-              </button>
-              <button
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                onClick={handleCreateNewJob}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? 'Creating...' : 'Create Job'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <NewJobModal 
+          onClose={handleCloseNewJobModal}
+          onJobCreated={handleJobCreated}
+        />
       )}
 
       {/* Edit Status Modal */}
