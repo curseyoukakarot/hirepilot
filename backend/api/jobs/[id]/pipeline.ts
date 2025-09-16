@@ -78,6 +78,8 @@ export default async function handler(req: Request, res: Response) {
         return res.status(500).json({ error: 'Failed to create pipeline' });
       }
 
+      console.log('✅ Pipeline created successfully:', pipeline.id);
+
       // Update job with pipeline_id
       const { error: updateJobError } = await supabaseDb
         .from("job_requisitions")
@@ -92,15 +94,20 @@ export default async function handler(req: Request, res: Response) {
       job.pipeline_id = pipeline.id;
     }
 
-    // Insert stages
+    // Insert stages using the pipeline ID (either existing or newly created)
+    const pipelineId = job.pipeline_id;
+    console.log(`Creating stages for pipeline ID: ${pipelineId}`);
+    
     const stageRows = stages
       .filter((title: string) => title && title.trim())
       .map((title: string, i: number) => ({
-        pipeline_id: job.pipeline_id,
+        pipeline_id: pipelineId,
         title: title.trim(),
         position: i + 1,
         color: '#3B82F6', // Default blue color
       }));
+
+    console.log(`Inserting ${stageRows.length} stages:`, stageRows.map(s => s.title));
 
     const { data: insertedStages, error: stageError } = await supabaseDb
       .from("pipeline_stages")
@@ -112,7 +119,7 @@ export default async function handler(req: Request, res: Response) {
       return res.status(500).json({ error: 'Failed to create pipeline stages' });
     }
 
-    console.log(`✅ Created ${insertedStages.length} stages for pipeline ${job.pipeline_id}`);
+    console.log(`✅ Created ${insertedStages?.length || 0} stages for pipeline ${pipelineId}`);
 
     res.status(200).json({ 
       success: true,
