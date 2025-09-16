@@ -266,7 +266,8 @@ export default function SettingsTeamMembers() {
   const allowedRoles = ['admin','team_admin','super_admin'];
   const planKey = (planTier || '').toLowerCase();
   const canInvite = roleAllowsInvite && planKey !== 'starter';
-  const canSeeCollaborators = (userRole === 'super_admin') || (allowedPlans.includes(planKey) && allowedRoles.includes(userRole));
+  // Show collaborators for all team roles except free users
+  const canSeeCollaborators = (userRole === 'super_admin') || (planKey !== 'free' && ['admin', 'team_admin', 'member'].includes(userRole));
 
   useEffect(() => {
     if (userRole === 'super_admin') setShowCollaborators(true);

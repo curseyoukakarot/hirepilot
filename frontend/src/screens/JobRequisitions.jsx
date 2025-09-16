@@ -62,14 +62,31 @@ export default function JobRequisitions() {
             jobsData = data || [];
           }
         } else {
-          // Owner/team view: jobs by user_id
-          const { data, error } = await supabase
+          // Owner/team view: jobs by user_id AND jobs where user is a collaborator
+          const { data: ownedJobs, error: ownedError } = await supabase
             .from('job_requisitions')
             .select('*')
             .eq('user_id', user.id)
             .order('created_at', { ascending: false });
-          if (error) throw error;
-          jobsData = data || [];
+          if (ownedError) throw ownedError;
+          
+          // Fetch jobs where user is a collaborator
+          const { data: collaboratorJobs, error: collabError } = await supabase
+            .from('job_collaborators')
+            .select('job_id, job_requisitions(*)')
+            .eq('user_id', user.id);
+          if (collabError) throw collabError;
+          
+          const ownedJobsList = ownedJobs || [];
+          const collaboratorJobsList = (collaboratorJobs || []).map(c => c.job_requisitions).filter(Boolean);
+          
+          // Merge and deduplicate
+          const allJobsMap = new Map();
+          [...ownedJobsList, ...collaboratorJobsList].forEach(job => {
+            allJobsMap.set(job.id, { ...job, is_shared: job.user_id !== user.id });
+          });
+          
+          jobsData = Array.from(allJobsMap.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         }
         // Fetch jobs referenced by campaigns for this user
         const { data: campaignJobs, error: campaignJobsError } = await supabase
@@ -402,12 +419,19 @@ export default function JobRequisitions() {
                       />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <button
-                        className="text-sm font-medium text-gray-900 hover:underline"
-                        onClick={() => navigate(`/job/${job.id}`)}
-                      >
-                        {job.title}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          className="text-sm font-medium text-gray-900 hover:underline"
+                          onClick={() => navigate(`/job/${job.id}`)}
+                        >
+                          {job.title}
+                        </button>
+                        {job.is_shared && (
+                          <span className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded-full">
+                            Shared
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-500">{job.department || '-'}</div>

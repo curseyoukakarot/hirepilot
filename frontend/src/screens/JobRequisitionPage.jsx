@@ -315,8 +315,20 @@ export default function JobRequisitionPage() {
         .from('job_collaborators')
         .insert({ job_id: id, user_id: selectedUserId, role: 'Editor' });
       if (insErr) throw insErr;
+      
+      // Find the added user from orgUsers
       const addedUser = (orgUsers || []).find(u => u.id === selectedUserId);
-      setTeam(prev => [...prev, { user_id: selectedUserId, role: 'Editor', users: addedUser }]);
+      
+      // Add to team state with proper format
+      if (addedUser) {
+        setTeam(prev => [...prev, { 
+          user_id: selectedUserId, 
+          role: 'Editor', 
+          users: addedUser 
+        }]);
+      }
+      
+      // Log the activity
       if (currentUser?.id) {
         await supabase.from('job_activity_log').insert({
           type: 'collaborator_added',
@@ -326,6 +338,7 @@ export default function JobRequisitionPage() {
           created_at: new Date().toISOString()
         });
       }
+      
       setShowAddTeammateModal(false);
       setSelectedUserId('');
     } catch (e) {
