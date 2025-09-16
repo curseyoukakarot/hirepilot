@@ -269,18 +269,41 @@ export default function JobRequisitions() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
-      const { data, error } = await supabase
-        .from('job_requisitions')
-        .insert({
+      
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const base = (import.meta.env.VITE_BACKEND_URL || (window.location.host.endsWith('thehirepilot.com') ? 'https://api.thehirepilot.com' : 'http://localhost:8080')).replace(/\/$/, '');
+      
+      const response = await fetch(`${base}/api/jobs/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
           title: newJobTitle,
           department: newJobDepartment,
           status: newJobStatus,
-          user_id: user.id
+          description: '',
+          location: '',
+          salary_range: ''
         })
-        .select();
-      if (error) throw error;
-      setJobs((prev) => [data[0], ...prev]);
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create job');
+      }
+
+      const result = await response.json();
+      setJobs((prev) => [result.job, ...prev]);
       handleCloseNewJobModal();
+      
+      // Show success message
+      if (result.pipeline) {
+        console.log('✅ Job created with pipeline:', result.pipeline.id);
+      } else if (result.warning) {
+        console.warn('⚠️', result.warning);
+      }
     } catch (err) {
       alert('Failed to create job: ' + (err.message || err));
     } finally {
