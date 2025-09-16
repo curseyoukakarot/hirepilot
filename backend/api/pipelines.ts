@@ -247,9 +247,29 @@ router.post('/', requireAuth as any, async (req: Request, res: Response) => {
 
     console.log(`✅ Created pipeline ${pipeline.id} with ${insertedStages?.length || 0} stages for job ${targetJobId}`);
 
+    // Fetch the complete pipeline with stages for consistent response
+    const { data: fullPipeline, error: fetchError } = await supabaseDb
+      .from("pipelines")
+      .select(`
+        *,
+        pipeline_stages(*)
+      `)
+      .eq("id", pipeline.id)
+      .single();
+
+    if (fetchError) {
+      console.error('Failed to fetch complete pipeline:', fetchError);
+      // Fallback to basic response
+      return res.status(200).json({ 
+        success: true, 
+        pipeline: { ...pipeline, stages: insertedStages || [] },
+        message: 'Pipeline created and stages set!'
+      });
+    }
+
     return res.status(200).json({ 
       success: true, 
-      pipeline: { ...pipeline, stages: insertedStages || [] },
+      pipeline: fullPipeline,
       message: 'Pipeline created and stages set!'
     });
   } catch (error: any) {

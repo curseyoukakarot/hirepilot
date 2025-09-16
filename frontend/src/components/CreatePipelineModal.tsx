@@ -84,7 +84,13 @@ export default function CreatePipelineModal({
       toast.dismiss(loadingToast);
       toast.success(`✅ Pipeline "${name}" created and stages set!`);
       
-      onPipelineCreated(result.pipeline_id);
+      // Pass the complete pipeline object with stages to the parent
+      if (result.pipeline) {
+        onPipelineCreated(result.pipeline);
+      } else {
+        // Fallback for backward compatibility
+        onPipelineCreated(result.pipeline_id);
+      }
       onClose();
     } catch (err: any) {
       console.error('Pipeline creation error:', err);

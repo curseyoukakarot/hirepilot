@@ -79,10 +79,14 @@ export default function JobPipeline({ embedded = false, jobId: jobIdProp = null 
     setShowCreatePipelineModal(true);
   };
 
-  const handlePipelineCreated = (pipelineId) => {
-    setSelectedPipeline(String(pipelineId));
-    loadPipelines(selectedJob);
-    setRefreshKey(k => k + 1);
+  const handlePipelineCreated = (pipelineData) => {
+    // Handle both pipeline objects and pipeline IDs for backward compatibility
+    const pipelineId = typeof pipelineData === 'string' ? pipelineData : pipelineData?.id;
+    if (pipelineId) {
+      setSelectedPipeline(String(pipelineId));
+      loadPipelines(selectedJob);
+      setRefreshKey(k => k + 1);
+    }
   };
 
   const handleNewStageClick = async () => {

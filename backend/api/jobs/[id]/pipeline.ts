@@ -136,12 +136,32 @@ export default async function handler(req: Request, res: Response) {
 
     console.log(`✅ Created ${insertedStages?.length || 0} stages for pipeline ${pipelineId}`);
 
-    res.status(200).json({ 
-      success: true,
-      pipeline_id: job.pipeline_id,
-      stages: insertedStages,
-      message: `Pipeline created with ${insertedStages.length} stages`
-    });
+    // Fetch the complete pipeline with stages
+    const { data: fullPipeline, error: fetchError } = await supabaseDb
+      .from("pipelines")
+      .select(`
+        *,
+        pipeline_stages(*)
+      `)
+      .eq("id", job.pipeline_id)
+      .single();
+
+    if (fetchError) {
+      console.error('Failed to fetch complete pipeline:', fetchError);
+      // Still return success with basic data
+      res.status(200).json({ 
+        success: true,
+        pipeline_id: job.pipeline_id,
+        stages: insertedStages,
+        message: `Pipeline created with ${insertedStages?.length || 0} stages`
+      });
+    } else {
+      res.status(200).json({ 
+        success: true,
+        pipeline: fullPipeline,
+        message: `Pipeline created with ${insertedStages?.length || 0} stages`
+      });
+    }
 
   } catch (error: any) {
     console.error('[POST /api/jobs/[id]/pipeline] Error:', error);
