@@ -9,7 +9,7 @@ declare global {
   }
 }
 
-import { supabase } from './supabase';
+import { supabase } from './supabaseClient';
 
 // Ensure base URL has no trailing slash and provide sane runtime fallbacks
 function resolveApiBase() {
