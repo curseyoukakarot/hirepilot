@@ -30,9 +30,17 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
       return;
     }
 
-    // Update team settings
+    // Ensure team_settings row exists and populate team_admin_id if missing
+    const { data: existingSettings } = await supabaseDb
+      .from('team_settings')
+      .select('team_id, team_admin_id')
+      .eq('team_id', userData.team_id)
+      .maybeSingle();
+
+    // Build update payload
     const updateData: any = {
-      team_id: userData.team_id
+      team_id: userData.team_id,
+      updated_at: new Date().toISOString()
     };
 
     if (shareLeads !== undefined) {
@@ -40,6 +48,11 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
     }
     if (shareCandidates !== undefined) {
       updateData.share_candidates = shareCandidates;
+    }
+
+    // Set team_admin_id on first create or if column is empty
+    if (!existingSettings?.team_admin_id) {
+      updateData.team_admin_id = req.user.id;
     }
 
     const { error: updateError } = await supabaseDb
