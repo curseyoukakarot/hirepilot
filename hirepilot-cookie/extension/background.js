@@ -1,4 +1,32 @@
 const API_BASE = 'http://localhost:8080/api';
+// Resolve backend API base dynamically so the extension works in prod and local
+const DEFAULT_API_BASES = [
+  'https://api.thehirepilot.com/api',
+  'http://localhost:8080/api',
+  'http://127.0.0.1:8080/api'
+];
+
+async function getApiBase() {
+  try {
+    const { hp_api_base } = await chrome.storage.local.get('hp_api_base');
+    if (hp_api_base) return hp_api_base;
+  } catch {}
+
+  for (const base of DEFAULT_API_BASES) {
+    try {
+      const ctrl = new AbortController();
+      const timeoutId = setTimeout(() => ctrl.abort(), 2500);
+      const res = await fetch(`${base}/health`, { method: 'GET', signal: ctrl.signal });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        try { await chrome.storage.local.set({ hp_api_base: base }); } catch {}
+        return base;
+      }
+    } catch {}
+  }
+
+  return DEFAULT_API_BASES[0];
+}
 let lastLinkedInTabId = null;
 const portsByTab = new Map();
 
@@ -252,7 +280,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         const storage = await chrome.storage.local.get('hp_jwt');
         const jwt = storage.hp_jwt;
         if (!jwt) return sendResponse({ error: 'Not logged in' });
-        const res = await fetch(`${API_BASE}/credits/status`, {
+        const api = await getApiBase();
+        const res = await fetch(`${api}/credits/status`, {
           headers: { 'Authorization': `Bearer ${jwt}` }
         });
         const data = await res.json();
@@ -284,14 +313,15 @@ async function handleBulkAddLeads(leads) {
     throw new Error('No JWT found - please log in to the extension first');
   }
 
+  const api = await getApiBase();
   console.log('[HirePilot Background] JWT token:', jwt.substring(0, 20) + '...');
-  console.log('[HirePilot Background] API URL:', `${API_BASE}/leads/bulk-add`);
+  console.log('[HirePilot Background] API URL:', `${api}/leads/bulk-add`);
   console.log('[HirePilot Background] Request payload:', { leads: leads.slice(0, 2) }); // First 2 leads for debugging
 
   // First test: Try accessing a known working endpoint to test auth
   try {
     console.log('[HirePilot Background] Testing auth with import endpoint...');
-    const testResponse = await fetch(`${API_BASE}/leads/import`, {
+    const testResponse = await fetch(`${api}/leads/import`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -304,7 +334,7 @@ async function handleBulkAddLeads(leads) {
     console.error('[HirePilot Background] Test request failed:', testError);
   }
 
-  const response = await fetch(`${API_BASE}/leads/bulk-add`, {
+  const response = await fetch(`${api}/leads/bulk-add`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
