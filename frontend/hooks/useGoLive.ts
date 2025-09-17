@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../src/lib/supabase';
+import { supabase } from '../src/lib/supabaseClient';
 import { Campaign } from '../types/campaign';
 
 interface UseGoLiveOptions {
