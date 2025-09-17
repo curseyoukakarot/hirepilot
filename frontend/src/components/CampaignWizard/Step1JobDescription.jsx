@@ -278,7 +278,7 @@ export default function Step1JobDescription({ onNext, onBack }) {
       </div>
 
       {/* Navigation */}
-      <footer className="fixed bottom-0 left-0 right-0 bg-white border-t z-50">
+      <footer className="fixed bottom-0 left-0 right-0 bg-white border-t z-[60]">
         <div className="container mx-auto px-6 py-4">
           <div className="flex justify-between items-center">
             <button 

@@ -11,7 +11,8 @@ export default async function saveCampaign(req: Request, res: Response) {
 
   const { user_id, campaignName, jobReq, keywords, status } = req.body;
 
-  if (!user_id || !campaignName || !jobReq) {
+  // Allow skipping job description. Only require user_id and campaignName.
+  if (!user_id || !campaignName) {
     res.status(400).json({ error: 'Missing required fields' });
     return;
   }
@@ -44,24 +45,27 @@ export default async function saveCampaign(req: Request, res: Response) {
       }
     }
 
-    // Create the job requisition
-    const { data: jobData, error: jobError } = await supabaseDb
-      .from('job_requisitions')
-      .insert([
-        {
-          user_id,
-          title: campaignName,
-          description: jobReq,
-          status: status || 'draft'
-        }
-      ])
-      .select()
-      .single();
-
-    if (jobError) {
-      console.error('[saveCampaign] Job creation error:', jobError);
-      res.status(500).json({ error: jobError.message });
-      return;
+    // Optionally create the job requisition when a JD is provided
+    let jobData: any = null;
+    if (jobReq && String(jobReq).trim().length > 0) {
+      const jobIns = await supabaseDb
+        .from('job_requisitions')
+        .insert([
+          {
+            user_id,
+            title: campaignName,
+            description: jobReq,
+            status: status || 'draft'
+          }
+        ])
+        .select()
+        .single();
+      if (jobIns.error) {
+        console.error('[saveCampaign] Job creation error:', jobIns.error);
+        res.status(500).json({ error: jobIns.error.message });
+        return;
+      }
+      jobData = jobIns.data;
     }
 
     // Create the campaign
@@ -71,9 +75,9 @@ export default async function saveCampaign(req: Request, res: Response) {
         {
           user_id,
           title: campaignName,
-          description: jobReq,
+          description: jobReq || null,
           status: status || 'draft',
-          job_id: jobData.id,
+          job_id: jobData?.id || null,
           keywords: keywords || null
         }
       ])
@@ -93,7 +97,7 @@ export default async function saveCampaign(req: Request, res: Response) {
       emitZapEvent({
         userId: user_id,
         eventType: ZAP_EVENT_TYPES.CAMPAIGN_CREATED,
-        eventData: createCampaignEventData(campaignData, { job_id: jobData.id }),
+        eventData: createCampaignEventData(campaignData, { job_id: jobData?.id || null }),
         sourceTable: 'campaigns',
         sourceId: campaignData.id
       });
