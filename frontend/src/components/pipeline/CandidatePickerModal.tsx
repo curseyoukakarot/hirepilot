@@ -23,17 +23,39 @@ export default function CandidatePickerModal({ open, jobId, onClose, onSelect }:
   const [loading, setLoading] = useState(false);
   const [candidates, setCandidates] = useState<PickerCandidate[]>([]);
   const [query, setQuery] = useState('');
+  const BACKEND_URL = (import.meta as any).env?.VITE_BACKEND_URL as string | undefined;
 
   useEffect(() => {
     (async () => {
       if (!open) return;
       setLoading(true);
       try {
-        // Load all candidates and remove those already linked to this job
-        const { data: allCandidates } = await supabase
-          .from('candidates')
-          .select('id, first_name, last_name, email, avatar_url');
-        let list = allCandidates || [];
+        // Prefer backend route which enforces ownership/team visibility
+        let list: any[] = [];
+        try {
+          if (!BACKEND_URL) throw new Error('missing backend url');
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) throw new Error('no session');
+          const resp = await fetch(`${BACKEND_URL}/api/leads/candidates`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+          });
+          if (!resp.ok) throw new Error('backend fetch failed');
+          const arr = await resp.json();
+          list = Array.isArray(arr) ? arr : (arr?.candidates || []);
+        } catch {
+          // Fallback: load only my candidates directly
+          const { data: me } = await supabase.auth.getUser();
+          const myId = me?.user?.id || '';
+          const { data: mine } = await supabase
+            .from('candidates')
+            .select('id, first_name, last_name, email, avatar_url')
+            .eq('user_id', myId);
+          list = mine || [];
+        }
         if (jobId) {
           const { data: jobCandidates } = await supabase
             .from('candidate_jobs')
