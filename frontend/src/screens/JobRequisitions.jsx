@@ -83,37 +83,39 @@ export default function JobRequisitions() {
             jobsData = data || [];
           }
         } else {
-          // Use RLS policies to get all accessible jobs (owned, collaborated, team)
-          // This single query will return all jobs the user can see based on RLS
-          const { data: allJobs, error: jobsError } = await supabase
+          // Restrict to jobs you own or where you're an explicit collaborator
+          const { data: collabRows } = await supabase
+            .from('job_collaborators')
+            .select('job_id,user_id')
+            .eq('user_id', user.id);
+          const collabIds = [...new Set((collabRows || []).map(r => r.job_id).filter(Boolean))];
+
+          // Owner jobs
+          const { data: myJobs, error: myErr } = await supabase
             .from('job_requisitions')
-            .select(`
-              *,
-              job_collaborators!left(user_id, role)
-            `)
+            .select('*')
+            .eq('user_id', user.id)
             .order('created_at', { ascending: false });
-          
-          if (jobsError) throw jobsError;
-          
-          // Process jobs to add sharing indicators and deduplicate
-          const jobsMap = new Map();
-          (allJobs || []).forEach(job => {
-            // Check if this job is shared (user is a collaborator but not the owner)
-            const isShared = job.user_id !== user.id && 
-              job.job_collaborators?.some(collab => collab.user_id === user.id);
-            
-            // Only add if not already in map (deduplication)
-            if (!jobsMap.has(job.id)) {
-              jobsMap.set(job.id, {
-                ...job,
-                is_shared: isShared,
-                // Remove the job_collaborators relation from the final object
-                job_collaborators: undefined
-              });
-            }
+          if (myErr) throw myErr;
+
+          // Collaborator jobs
+          let sharedJobs = [];
+          if (collabIds.length > 0) {
+            const { data: shared, error: shErr } = await supabase
+              .from('job_requisitions')
+              .select('*')
+              .in('id', collabIds)
+              .order('created_at', { ascending: false });
+            if (shErr) throw shErr;
+            sharedJobs = (shared || []).map(j => ({ ...j, is_shared: j.user_id !== user.id }));
+          }
+
+          // Merge and dedupe
+          const map = new Map();
+          [...(myJobs || []), ...sharedJobs].forEach(j => {
+            if (!map.has(j.id)) map.set(j.id, j);
           });
-          
-          jobsData = Array.from(jobsMap.values());
+          jobsData = Array.from(map.values());
         }
         // Fetch jobs referenced by campaigns for this user
         const { data: campaignJobs, error: campaignJobsError } = await supabase

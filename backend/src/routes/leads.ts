@@ -593,11 +593,30 @@ router.get('/candidates', requireAuth, async (req: Request, res: Response) => {
     const isAdmin = ['admin', 'team_admin', 'super_admin'].includes(userData.role);
     
     if (isAdmin && userData.team_id) {
-      // Admins see all candidates in their team (shared or not)
-      query = query.or(`user_id.eq.${userId},user_id.in.(select id from users where team_id = '${userData.team_id}')`);
+      // Admins see their own candidates and all candidates in their team (shared or not)
+      const { data: teamUsers } = await supabase
+        .from('users')
+        .select('id')
+        .eq('team_id', userData.team_id);
+      const teamUserIds = (teamUsers || []).map((u: any) => u.id).filter(Boolean);
+      if (teamUserIds.length > 0) {
+        // Fetch by explicit IN list rather than raw SQL subselects
+        query = query.or(`user_id.eq.${userId},user_id.in.(${teamUserIds.join(',')})`);
+      } else {
+        query = query.eq('user_id', userId);
+      }
     } else if (userData.team_id) {
       // Members see their own candidates + shared candidates from team
-      query = query.or(`user_id.eq.${userId},and(user_id.in.(select id from users where team_id = '${userData.team_id}'),shared.eq.true)`);
+      const { data: teamUsers } = await supabase
+        .from('users')
+        .select('id')
+        .eq('team_id', userData.team_id);
+      const teamUserIds = (teamUsers || []).map((u: any) => u.id).filter(Boolean);
+      if (teamUserIds.length > 0) {
+        query = query.or(`user_id.eq.${userId},and(user_id.in.(${teamUserIds.join(',')}),shared.eq.true)`);
+      } else {
+        query = query.eq('user_id', userId);
+      }
     } else {
       // No team - only see own candidates
       query = query.eq('user_id', userId);
