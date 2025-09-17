@@ -301,12 +301,18 @@
             }
             // Offset REX popup vertically if a support/chat widget bubble exists
             try {
-              var possibleBubbles = document.querySelectorAll('.IntercomLauncher, .crisp-client, .tawk-custom-color, .hs-beacon');
+              var possibleBubbles = document.querySelectorAll(
+                '.IntercomLauncher, .intercom-launcher, .intercom-lightweight-app-launcher,' +
+                ' .crisp-client, .crisp-client .cc-bottom, .tawk-custom-color,' +
+                ' .hs-beacon, .zEWidget-launcher, .helpcrunch-launcher'
+              );
               if (possibleBubbles && possibleBubbles.length > 0) {
-                // Place our popup above third-party bubble by adding bottom margin
+                // Nudge our popup up and to the left so they never overlap
                 host.style.bottom = '96px';
+                host.style.right = '96px';
               } else {
                 host.style.bottom = '24px';
+                host.style.right = '24px';
               }
             } catch (_) {}
             if (typeof window.hideREXChatbot === 'function') window.hideREXChatbot();
