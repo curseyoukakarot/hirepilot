@@ -140,6 +140,14 @@ export default function CandidateList() {
     }
   };
 
+  // Select all candidates in the current filtered set (across all pages)
+  const selectAllFiltered = () => {
+    const allIds = filteredCandidates.map(c => c.id);
+    setSelectedIds(new Set(allIds));
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
   const bulkChangeStatus = async (status) => {
     try {
       const ids = Array.from(selectedIds);
@@ -170,6 +178,7 @@ export default function CandidateList() {
     try {
       const ids = Array.from(selectedIds);
       if (ids.length === 0) return;
+      if (!confirm(`Delete ${ids.length} selected candidate(s)? This will also remove them from any jobs.`)) return;
       const headers = await getAuthHeader();
       const url = `${BACKEND_URL}/api/leads/candidates/bulk-delete`;
       console.log('[BULK DELETE] →', url, { ids });
@@ -496,7 +505,19 @@ export default function CandidateList() {
       <div className="max-w-7xl mx-auto px-4">
         {selectedIds.size > 0 && (
           <div className="mb-3 bg-indigo-50 border border-indigo-200 rounded-lg p-3 flex items-center justify-between">
-            <div className="text-sm text-gray-700">{selectedIds.size} selected</div>
+            <div className="text-sm text-gray-700 flex items-center gap-3">
+              <span>{selectedIds.size} selected</span>
+              {selectedIds.size < filteredCandidates.length && (
+                <button
+                  type="button"
+                  className="text-indigo-600 hover:underline"
+                  onClick={selectAllFiltered}
+                >
+                  Select all {filteredCandidates.length}
+                </button>
+              )}
+              <button type="button" className="text-gray-500 hover:underline" onClick={clearSelection}>Clear</button>
+            </div>
             <div className="flex gap-2">
               <select className="px-3 py-2 border rounded-lg" onChange={(e) => { if (e.target.value) bulkChangeStatus(e.target.value); e.target.value=''; }}>
                 <option value="">Change Status…</option>
@@ -680,7 +701,7 @@ export default function CandidateList() {
                                 </button>
                                 <button
                                   onClick={async () => {
-                                    if (!confirm('Delete candidate?')) return;
+                                    if (!confirm('Delete this candidate? This will also detach them from any jobs.')) return;
                                     try {
                                       const headers = await getAuthHeader();
                                       const url = `${BACKEND_URL}/api/leads/candidates/${candidate.id}`;

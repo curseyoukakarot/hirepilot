@@ -546,10 +546,25 @@ router.post('/candidates/bulk-delete', requireAuth, async (req: ApiRequest, res:
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
     if (!Array.isArray(ids) || ids.length === 0) { res.status(400).json({ error: 'Missing ids' }); return; }
 
+    // Security: only operate on candidates owned by this user
+    const { data: owned } = await supabase
+      .from('candidates')
+      .select('id')
+      .in('id', ids)
+      .eq('user_id', userId);
+    const ownedIds = (owned || []).map((r: any) => r.id);
+    if (ownedIds.length === 0) { res.json({ success: true, deleted: 0 }); return; }
+
+    // Remove job links first to avoid FK violations
+    await supabase
+      .from('candidate_jobs')
+      .delete()
+      .in('candidate_id', ownedIds);
+
     const { error } = await supabase
       .from('candidates')
       .delete()
-      .in('id', ids)
+      .in('id', ownedIds)
       .eq('user_id', userId);
     if (error) { res.status(500).json({ error: 'Failed to delete candidates' }); return; }
     res.json({ success: true });
@@ -840,6 +855,12 @@ router.delete('/candidates/:id', requireAuth, async (req: ApiRequest, res: Respo
       .eq('id', id)
       .single();
     if (ownErr || !existing || existing.user_id !== userId) { res.status(404).json({ error: 'Candidate not found' }); return; }
+
+    // Remove job links first to avoid FK violations
+    await supabase
+      .from('candidate_jobs')
+      .delete()
+      .eq('candidate_id', id);
 
     const { error } = await supabase
       .from('candidates')
