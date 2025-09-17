@@ -1,6 +1,6 @@
 // src/screens/MessageGenerator.jsx
 import React, { useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 import { FaPaperPlane, FaSave } from 'react-icons/fa';
 
 export default function MessageGenerator() {

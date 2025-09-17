@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FaBriefcase, FaGoogle, FaLinkedin, FaCircleCheck, FaCircleExclamation, FaMicrosoft } from 'react-icons/fa6';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 import { apiPost } from '../lib/api';
 import { toast } from 'react-hot-toast';
 import { usePlan } from '../context/PlanContext';

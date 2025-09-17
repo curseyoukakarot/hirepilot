@@ -10,7 +10,7 @@ import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import CsvImportButton from '../components/leads/CsvImportButton';
 import AttachToCampaignModal from '../components/AttachToCampaignModal';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 import { downloadCSV } from '../utils/csvExport';
 import { FaInbox, FaPaperPlane, FaFile, FaStar, FaTrash as FaTrashAlt, FaPenToSquare, FaFileLines, FaFilter, FaSort, FaAddressBook, FaBold, FaItalic, FaUnderline, FaListUl, FaListOl, FaLink, FaPaperclip, FaPuzzlePiece, FaChevronDown, FaClock, FaRegStar, FaRegBell } from 'react-icons/fa6';
 import { replaceTokens } from '../utils/tokenReplace';

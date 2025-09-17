@@ -15,7 +15,7 @@ import {
 import WizardStepHeader from './WizardStepHeader';
 import { useWizard } from '../../context/WizardContext';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../lib/supabaseClient';
 import { apiPost } from '../../lib/api';
 import { Dialog, DialogHeader, DialogTitle, DialogContent, DialogFooter } from '../ui/dialog';
 

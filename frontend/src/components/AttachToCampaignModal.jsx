@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FaXmark } from 'react-icons/fa6';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 import { toast } from 'react-hot-toast';
 
 export default function AttachToCampaignModal({ isOpen, onClose, leadIds, onSuccess }) {

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { FiX } from "react-icons/fi";
 import { FaCog } from 'react-icons/fa';
 import { FaWandMagicSparkles } from 'react-icons/fa6';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 import { replaceTokens } from '../utils/tokenReplace';
 import ActivityLogSection from '../components/ActivityLogSection';
 import MetadataModal from '../components/MetadataModal';

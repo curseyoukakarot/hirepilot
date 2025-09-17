@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import SniperTargets from '../../screens/SniperTargets';
 import { usePlan } from '../../context/PlanContext';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../lib/supabaseClient';
 
 export default function SniperTargetsPanel(){
   const { role } = usePlan() as any;

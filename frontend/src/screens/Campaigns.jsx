@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaPlus, FaCheck, FaTrash, FaRocket, FaPause, FaGear } from 'react-icons/fa6';
 import { FaSearch, FaChartBar, FaUsers, FaRegFileAlt, FaTimes } from 'react-icons/fa';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 import { apiDelete, apiPost } from '../lib/api';
 import { toast } from '../components/ui/use-toast';
 

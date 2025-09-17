@@ -1,5 +1,5 @@
 import React from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 
 /**
  * Fetch user credit information from the backend

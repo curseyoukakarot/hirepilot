@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { FaUserPlus, FaEdit, FaTrash, FaCoins, FaKey, FaCog, FaEye, FaUserSecret } from 'react-icons/fa';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import UserDetailDrawer from '../components/UserDetailDrawer';
 import ImpersonationBanner from '../components/ImpersonationBanner';

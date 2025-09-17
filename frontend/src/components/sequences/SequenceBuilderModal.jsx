@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { FaPlus, FaTrash, FaArrowUp, FaArrowDown } from 'react-icons/fa';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../lib/supabaseClient';
 import { toast } from 'react-hot-toast';
 
 const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;

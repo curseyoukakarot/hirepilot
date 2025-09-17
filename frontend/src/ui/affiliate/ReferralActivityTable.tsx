@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../lib/supabaseClient';
 export function ReferralActivityTable() {
   const [rows,setRows]=useState<any[]>([]);
   useEffect(()=>{let mounted=true;let t:number|undefined;(async()=>{

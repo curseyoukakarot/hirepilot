@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { FaXmark } from 'react-icons/fa6';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 import { toast } from 'react-hot-toast';
 import { loadStripe } from '@stripe/stripe-js';
 

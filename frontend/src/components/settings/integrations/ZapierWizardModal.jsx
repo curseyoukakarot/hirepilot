@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supabase } from '../../../lib/supabase';
+import { supabase } from '../../../lib/supabaseClient';
 import { FaCheckCircle } from 'react-icons/fa';
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL;

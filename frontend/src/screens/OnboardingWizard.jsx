@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaCheckCircle, FaArrowRight, FaRocket } from 'react-icons/fa';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 import confetti from 'canvas-confetti';
 
 export default function OnboardingWizard() {

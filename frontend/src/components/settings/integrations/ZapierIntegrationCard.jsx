@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FaBolt, FaKey, FaCopy, FaCheckCircle } from 'react-icons/fa';
-import { supabase } from '../../../lib/supabase';
+import { supabase } from '../../../lib/supabaseClient';
 import ZapierWizardModal from './ZapierWizardModal.jsx';
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL;

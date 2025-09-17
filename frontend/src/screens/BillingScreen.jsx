@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { PRICING_CONFIG } from '../config/pricing';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 import { usePlan } from '../context/PlanContext';
 
 // Debug environment variables

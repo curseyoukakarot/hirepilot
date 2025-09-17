@@ -11,7 +11,7 @@
  */
 
 import React, { useEffect, useRef, useState } from "react";
-import { supabase } from "../lib/supabase";
+import { supabase } from "../lib/supabaseClient";
 import { createConversation, fetchMessages, listConversations, postMessage, RexConversation, RexMessage } from "../lib/rexApi";
 
 interface ChatMessage {

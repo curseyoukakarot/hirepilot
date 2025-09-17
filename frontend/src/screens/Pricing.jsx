@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { apiPost } from '../lib/api';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 import PublicNavbar from '../components/PublicNavbar';
 import PublicFooter from '../components/PublicFooter';
 

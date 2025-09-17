@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Clipboard, Upload, Wand2, X, FileText, GitBranch, MessageSquare, Users, Check, Lightbulb, ArrowLeft, ArrowRight, HelpCircle } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../lib/supabaseClient';
 import WizardStepHeader from './WizardStepHeader';
 import { useWizard } from '../../context/WizardContext';
 

@@ -7,7 +7,7 @@ import SettingsNotifications from './SettingsNotifications';
 import SettingsApiKeys from './SettingsApiKeys';
 import SettingsSalesAgent from './SettingsSalesAgent';
 import SettingsCredits from './SettingsCredits';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 
 export default function Settings() {
   const location = useLocation();

@@ -15,7 +15,7 @@ import {
   RotateCcw,
   FileText,
 } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../lib/supabaseClient';
 import { toast } from 'react-hot-toast';
 import WizardStepHeader from './WizardStepHeader';
 import { useWizard } from '../../context/WizardContext';

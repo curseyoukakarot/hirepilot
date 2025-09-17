@@ -1,7 +1,7 @@
 // components/Navbar.jsx
 import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 
 export default function Navbar() {
   const [isGuest, setIsGuest] = useState(false);

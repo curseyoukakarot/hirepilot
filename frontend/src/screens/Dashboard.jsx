@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Chart } from 'chart.js/auto';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import QuickActionsRexCard from '../components/QuickActionsRexCard';
 import { usePlan } from '../context/PlanContext';

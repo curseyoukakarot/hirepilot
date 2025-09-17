@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Users, Search, User, ArrowRight } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../lib/supabaseClient';
 
 const ReassignProxyModal = ({ proxy, onClose, onSuccess }) => {
   const [users, setUsers] = useState([]);

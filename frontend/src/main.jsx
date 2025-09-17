@@ -4,8 +4,8 @@ import App from './App'
 import './index.css'
 import './utils/fontAwesome'
 
-// 👇 Force supabase.ts to initialize
-import './lib/supabase'
+// 👇 Force supabaseClient.js to initialize
+import './lib/supabaseClient'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

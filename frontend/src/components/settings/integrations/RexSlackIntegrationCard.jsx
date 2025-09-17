@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { FaSlack, FaCheckCircle } from "react-icons/fa";
-import { supabase } from "../../../lib/supabase";
+import { supabase } from "../../../lib/supabaseClient";
 
 export default function RexSlackIntegrationCard({ user }) {
   // Toggle state – default enabled for demo

@@ -8,7 +8,7 @@ import {
   FileSpreadsheet,
   Check,
 } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../lib/supabaseClient';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { getUserCredits } from '../../services/creditService';
 

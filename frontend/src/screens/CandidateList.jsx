@@ -13,7 +13,7 @@ import {
 import LeadProfileDrawer from './LeadProfileDrawer';
 import MetadataModal from '../components/MetadataModal';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 import { downloadCSV } from '../utils/csvExport';
 
 // Helper function to safely parse enrichment title - fixes temporal dead zone issues

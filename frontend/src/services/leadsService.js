@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 
 // Centralised backend URL (already used elsewhere in the app)
 const API_BASE_URL = import.meta.env.VITE_BACKEND_URL;

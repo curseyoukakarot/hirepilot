@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FaCrown, FaUser, FaEye, FaPlus, FaTrash, FaEnvelope, FaUserPlus, FaClock, FaGear, FaXmark, FaKey, FaBolt, FaRobot } from 'react-icons/fa6';
 import InviteTeamMemberModal from '../components/InviteTeamMemberModal';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 import { format } from 'date-fns';
 import { toast } from 'react-hot-toast';
 import GuestCollaboratorModal from '../components/GuestCollaboratorModal';

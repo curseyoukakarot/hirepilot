@@ -5,7 +5,7 @@ import { TierProgressCard } from '../ui/affiliate/TierProgressCard';
 import { ReferralActivityTable } from '../ui/affiliate/ReferralActivityTable';
 import { PayoutsTable } from '../ui/affiliate/PayoutsTable';
 import { PromoteAssetsPanel } from '../ui/affiliate/PromoteAssetsPanel';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 
 export default function PartnersDashboard() {
   const [overview, setOverview] = useState<any>(null);

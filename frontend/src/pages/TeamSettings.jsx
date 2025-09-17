@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 import TeamMembersList from '../components/TeamMembersList';
 import TeamSharingSettings from '../components/TeamSharingSettings';
 

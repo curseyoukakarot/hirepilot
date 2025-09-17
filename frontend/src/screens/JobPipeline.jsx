@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import PipelineBoard from '../components/pipeline/PipelineBoard';
 import CreatePipelineModal from '../components/CreatePipelineModal';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 import toast from 'react-hot-toast';
 
 export default function JobPipeline({ embedded = false, jobId: jobIdProp = null }) {

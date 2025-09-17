@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { usePlan } from '../../context/PlanContext';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../lib/supabaseClient';
 
 const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
 

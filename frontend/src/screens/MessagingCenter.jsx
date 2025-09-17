@@ -6,7 +6,7 @@ import 'react-quill/dist/quill.snow.css';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 import { replaceTokens } from '../utils/tokenReplace';
 import SequencesTab from '../components/sequences/SequencesTab';
 import { usePlan } from '../context/PlanContext';

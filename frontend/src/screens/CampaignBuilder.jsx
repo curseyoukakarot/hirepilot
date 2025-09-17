@@ -5,7 +5,7 @@ import {
   FaCircleCheck,
   FaLinkedin
 } from 'react-icons/fa6';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 import { apiPost } from '../lib/api';
 
 function CampaignBuilder() {

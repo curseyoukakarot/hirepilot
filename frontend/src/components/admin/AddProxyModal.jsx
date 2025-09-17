@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { X, Plus, AlertCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../lib/supabaseClient';
 
 const AddProxyModal = ({ onClose, onSuccess }) => {
   const [formData, setFormData] = useState({

@@ -1,7 +1,7 @@
 // SettingsIntegrations.jsx
 import React, { useState, useEffect } from 'react';
 import { FaCircle, FaGoogle, FaMicrosoft, FaRocket, FaGhost, FaEnvelope, FaCalendarDays, FaGear, FaLinkedin, FaPlug, FaFloppyDisk, FaPowerOff, FaShieldHalved } from 'react-icons/fa6';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 import { toast } from 'react-hot-toast';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import ApolloApiKeyModal from '../components/ApolloApiKeyModal';

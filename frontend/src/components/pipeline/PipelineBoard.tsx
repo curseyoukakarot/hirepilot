@@ -3,7 +3,7 @@ import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import CandidateCard, { CandidateItem } from './CandidateCard';
 import CandidatePickerModal, { PickerCandidate } from './CandidatePickerModal';
 import NotesDrawer from './NotesDrawer';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../lib/supabaseClient';
 
 interface Stage {
   id: string;

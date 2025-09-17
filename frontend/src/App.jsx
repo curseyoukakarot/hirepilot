@@ -25,7 +25,7 @@ import ActionInboxDrawer from './pages/agent/ActionInboxDrawer';
 import CampaignsPage from './pages/SuperAdmin/sourcing/CampaignsPage';
 import CampaignDetailPage from './pages/SuperAdmin/sourcing/CampaignDetailPage';
 import RepliesPage from './pages/SuperAdmin/sourcing/RepliesPage';
-import { supabase } from "./lib/supabase";
+import { supabase } from "./lib/supabaseClient";
 import AdminUserManagement from './screens/AdminUserManagement';
 import AdminPuppetHealth from './screens/AdminPuppetHealth';
 import AdminProxyManagement from './screens/AdminProxyManagement';

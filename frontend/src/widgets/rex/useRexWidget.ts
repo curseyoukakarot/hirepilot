@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RexConfig, RexMessage, RexMode, RexLeadPayload, RexCta } from './types';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../lib/supabaseClient';
 
 const OPEN_KEY = 'rex:open';
 const ANON_KEY = 'rex:anonId';

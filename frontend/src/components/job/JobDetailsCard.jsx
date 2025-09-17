@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { FaEdit, FaRobot } from "react-icons/fa";
-import { supabase } from "../../lib/supabase";
+import { supabase } from "../../lib/supabaseClient";
 
 export default function JobDetailsCard({ job }) {
   const [editingField, setEditingField] = useState(null);

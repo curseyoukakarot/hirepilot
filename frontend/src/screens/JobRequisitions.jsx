@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaPlus, FaEllipsisV, FaTrash, FaTimes, FaEdit } from 'react-icons/fa';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 import { apiDelete } from '../lib/api';
 import NewJobModal from '../components/NewJobModal';
 

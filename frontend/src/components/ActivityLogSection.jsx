@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import LogActivityModal from './LogActivityModal';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 
 const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
 

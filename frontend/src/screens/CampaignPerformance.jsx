@@ -1,7 +1,7 @@
 // frontend/src/screens/CampaignPerformance.jsx
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabaseClient';
 import { FaChartBar } from 'react-icons/fa';
 
 export default function CampaignPerformance() {

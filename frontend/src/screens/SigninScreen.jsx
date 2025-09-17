@@ -1,7 +1,7 @@
 // SigninScreen.jsx
 import React, { useState, useEffect } from 'react';
 import { FaGoogle, FaLinkedin, FaCircleCheck, FaCircleExclamation, FaMicrosoft } from 'react-icons/fa6';
-import { supabase } from '../lib/supabase'; // make sure this is imported at the top
+import { supabase } from '../lib/supabaseClient'; // make sure this is imported at the top
 import { useNavigate } from 'react-router-dom';
 
 export default function SigninScreen() {

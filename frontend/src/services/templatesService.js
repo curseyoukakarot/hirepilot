@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 
 export const getTemplates = async (userId) => {
   const { data, error } = await supabase

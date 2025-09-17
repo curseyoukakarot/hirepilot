@@ -2,7 +2,7 @@ console.log("!!! THIS IS THE ACTIVE LEADS.JSX FILE !!!");
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import CsvImportButton from '../components/leads/CsvImportButton';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 import { Toaster, toast } from 'react-hot-toast';
 import { FaPlus, FaSearch, FaFilter, FaDownload } from 'react-icons/fa';
 import { downloadCSV } from '../utils/csvExport';
