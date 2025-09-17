@@ -19,7 +19,7 @@
     <div id="root"></div>
     </div>
     <!-- Live Chat Popup (replaces old FAQ popup) -->
-    <div id="rex-popup" class="fixed bottom-6 right-6 z-50" style="display: none;">
+    <div id="rex-popup" class="fixed bottom-6 right-6 z-[70]" style="display: none;">
       <!-- Sticky toggle pill to reopen popup -->
       <button id="rex-popup-toggle" class="px-4 py-2 rounded-full shadow-lg bg-white text-slate-800 border border-slate-200 hover:bg-slate-50 text-sm mb-3 hidden">
         💬 Chat with HirePilot
@@ -299,6 +299,16 @@
                 if (!anyOpen) popupToggle.classList.remove('hidden');
               }
             }
+            // Offset REX popup vertically if a support/chat widget bubble exists
+            try {
+              var possibleBubbles = document.querySelectorAll('.IntercomLauncher, .crisp-client, .tawk-custom-color, .hs-beacon');
+              if (possibleBubbles && possibleBubbles.length > 0) {
+                // Place our popup above third-party bubble by adding bottom margin
+                host.style.bottom = '96px';
+              } else {
+                host.style.bottom = '24px';
+              }
+            } catch (_) {}
             if (typeof window.hideREXChatbot === 'function') window.hideREXChatbot();
           } else {
             host.style.display = 'none';
