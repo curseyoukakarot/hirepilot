@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { FiX } from "react-icons/fi";
 import { FaCog } from 'react-icons/fa';
+import EditProfileModal from '../components/EditProfileModal';
 import { FaWandMagicSparkles } from 'react-icons/fa6';
 import { supabase } from '../lib/supabaseClient';
 import { replaceTokens } from '../utils/tokenReplace';
@@ -46,6 +47,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   const [dailyLinkedInCount, setDailyLinkedInCount] = useState(0);
   const [isLoadingLinkedInCount, setIsLoadingLinkedInCount] = useState(false);
   const [userCredits, setUserCredits] = useState(0);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showMetadata, setShowMetadata] = useState(false);
 
   // TODO: Re-enable Playwright once stable
@@ -1432,7 +1434,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                 <button className="text-gray-400 hover:text-gray-600" title="Developer metadata" onClick={() => setShowMetadata(true)}>
                   <FaCog />
                 </button>
-                <button className="text-gray-400 hover:text-gray-500">
+                <button className="text-gray-400 hover:text-gray-500" onClick={()=> setShowEditModal(true)} title="Edit profile">
                   <i className="fa-solid fa-pen-to-square text-lg"></i>
                 </button>
                 {/* Close Drawer Button */}
@@ -2480,6 +2482,23 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
           </div>
         </div>
       </div>
+
+      {showEditModal && (
+        <EditProfileModal
+          isOpen={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          entityType={entityType === 'candidate' ? 'candidate' : 'lead'}
+          entity={entityType === 'candidate' ? localCandidate : localLead}
+          onSaved={(updated)=>{
+            if (entityType === 'candidate') {
+              setLocalCandidate(prev => ({ ...prev, ...updated }));
+            } else {
+              setLocalLead(prev => ({ ...prev, ...updated }));
+            }
+            onLeadUpdated && onLeadUpdated(updated);
+          }}
+        />
+      )}
 
       {/* Credit Confirmation Modal */}
       {showCreditConfirm && (
