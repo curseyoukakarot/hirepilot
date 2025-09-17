@@ -377,8 +377,7 @@ export default function SettingsTeamMembers() {
         [setting]: value
       }));
 
-      // Update all existing leads/candidates to match the new setting
-      await updateAllRecordsSharing(setting, value);
+      // Backend already updates all existing records. No additional client-side update.
 
       toast.success(`${setting === 'shareLeads' ? 'Leads' : 'Candidates'} sharing ${value ? 'enabled' : 'disabled'}`);
     } catch (error) {
