@@ -310,9 +310,12 @@
                 // Nudge our popup up and to the left so they never overlap
                 host.style.bottom = '96px';
                 host.style.right = '96px';
+                // Also move the white pill toggle further left so it doesn't sit beneath the bubble
+                if (popupToggle) popupToggle.style.right = '120px';
               } else {
                 host.style.bottom = '24px';
                 host.style.right = '24px';
+                if (popupToggle) popupToggle.style.right = '0px';
               }
             } catch (_) {}
             if (typeof window.hideREXChatbot === 'function') window.hideREXChatbot();
@@ -353,6 +356,9 @@
       .fa, .fas, .far, .fal, .fab { font-family: "Font Awesome 6 Free", "Font Awesome 6 Brands" !important; }
       #rex-popup * { font-family: 'Inter', sans-serif; }
       #rex-popup ::-webkit-scrollbar { display: none; }
+      /* Ensure the white pill toggle sits to the left of any chat bubble at bottom-right */
+      #rex-popup-toggle { position: relative; right: 96px; }
+      @media (max-width: 768px) { #rex-popup-toggle { right: 64px; } }
     </style>
     <script type="module" src="/src/main.jsx"></script>
 
