@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 const logger = console;
 import { requireAuth } from '../../middleware/authMiddleware';
 import { ApiRequest } from '../../types/api';
+import { supabaseAdmin } from '../services/supabase';
 
 const router = express.Router();
 // GET /api/user/plan
@@ -343,3 +344,46 @@ router.post('/upgrade', requireAuth, async (req: ApiRequest, res: Response) => {
 });
 
 export default router; 
+
+// -----------------------------------------------------------------------------
+// Email change endpoint (canonical update at auth.users with cascades)
+// POST /api/user/change-email  { userId, newEmail }
+// Requires auth; only the same user or an admin may change.
+router.post('/change-email', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const requesterId = req.user?.id;
+    if (!requesterId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { userId, newEmail } = (req.body || {}) as { userId?: string; newEmail?: string };
+    if (!userId || !newEmail) return res.status(400).json({ error: 'userId and newEmail are required' });
+
+    // Optional: allow admins to change others' emails. For now, restrict to self.
+    if (userId !== requesterId) {
+      return res.status(403).json({ error: 'You can only change your own email' });
+    }
+
+    // 1) Validate newEmail does not already exist in auth.users
+    const { data: usersList, error: listErr } = await supabaseAdmin.auth.admin.listUsers();
+    if (listErr) return res.status(500).json({ error: listErr.message });
+    const existsInAuth = (usersList?.users || []).some(u => (u.email || '').toLowerCase() === String(newEmail).toLowerCase());
+    if (existsInAuth) return res.status(409).json({ error: 'Email already in use' });
+
+    // 2) Update at auth.users (canonical)
+    const { error: authErr } = await supabaseAdmin.auth.admin.updateUserById(userId, { email: newEmail });
+    if (authErr) return res.status(400).json({ error: authErr.message || 'Failed to update auth email' });
+
+    // 3) Cascade into app tables
+    const updates = [
+      supabaseAdmin.from('users').update({ email: newEmail }).eq('id', userId),
+      supabaseAdmin.from('profiles').update({ email: newEmail }).eq('user_id', userId),
+      supabaseAdmin.from('user_settings').update({ email: newEmail }).eq('user_id', userId)
+    ];
+    const results = await Promise.all(updates);
+    const appErr = results.find(r => (r as any)?.error)?.error;
+    if (appErr) return res.status(500).json({ error: appErr.message || 'Failed to cascade email' });
+
+    return res.json({ success: true });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'Internal server error' });
+  }
+});
