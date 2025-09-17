@@ -17,8 +17,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   }
 });
 
-// Expose globally in dev
-if (import.meta.env.DEV) {
-  window.supabase = supabase;
-  console.log('⚡ Supabase client attached to window.supabase (dev only)');
-}
+// Attach globally for debug
+(window as any).supabase = supabase;
+console.log("⚡ Supabase client attached to window.supabase");
