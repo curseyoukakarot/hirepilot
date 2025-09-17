@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "HirePilot LinkedIn Assistant",
   "short_name": "HirePilot Assistant",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "Seamlessly export LinkedIn Sales Navigator leads and authenticate with HirePilot for streamlined recruitment workflows.",
   "action": {
     "default_title": "HirePilot LinkedIn Assistant",
