@@ -30,13 +30,6 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
       return;
     }
 
-    // Ensure team_settings row exists and populate team_admin_id (PK in newer schema)
-    const { data: existingSettings } = await supabaseDb
-      .from('team_settings')
-      .select('team_id, team_admin_id')
-      .or(`team_id.eq.${userData.team_id},team_admin_id.eq.${req.user.id}`)
-      .maybeSingle();
-
     // Build update payload (write both keys for compatibility with mixed schema)
     const updateData: any = {
       team_id: userData.team_id,
@@ -51,10 +44,18 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
       updateData.share_candidates = shareCandidates;
     }
 
-    const { error: updateError } = await supabaseDb
+    // Try upsert using newer schema (PK team_admin_id). If the constraint/column
+    // doesn't exist, fall back to legacy schema (PK team_id).
+    let { error: updateError } = await supabaseDb
       .from('team_settings')
-      // In newer schema PK is team_admin_id; use it as conflict target to satisfy NOT NULL
       .upsert(updateData, { onConflict: 'team_admin_id' });
+    if (updateError && (updateError.code === '42P10' || updateError.code === '42703')) {
+      // 42P10: no matching unique/exclusion constraint; 42703: column does not exist
+      const retry = await supabaseDb
+        .from('team_settings')
+        .upsert(updateData, { onConflict: 'team_id' });
+      updateError = retry.error as any;
+    }
 
     if (updateError) {
       throw updateError;
