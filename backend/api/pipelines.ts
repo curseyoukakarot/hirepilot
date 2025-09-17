@@ -10,12 +10,23 @@ import { createPipelineWithDefaultStages } from '../lib/pipelineHelpers';
 
 const router = express.Router();
 
-// GET /api/pipelines?jobId=...
+// GET /api/pipelines?jobId=... (or all pipelines for current user if no jobId)
 router.get('/', requireAuth as any, async (req: Request, res: Response) => {
   try {
     const jobId = String(req.query.jobId || '');
     const userId = (req as any).user?.id;
-    if (!jobId || !userId) return res.json([]);
+    if (!userId) return res.json({ pipelines: [] });
+
+    // If no jobId provided, return all pipelines owned by this user
+    if (!jobId) {
+      const { data, error } = await supabaseDb
+        .from('pipelines')
+        .select('id, name, department')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return res.json({ pipelines: data || [] });
+    }
 
     let { data, error } = await supabaseDb
       .from('job_requisitions')
@@ -48,8 +59,8 @@ router.get('/', requireAuth as any, async (req: Request, res: Response) => {
       .eq('id', pipelineId)
       .maybeSingle();
     if (pErr) console.error('[pipelines] pipeline fetch error', pErr.message);
-    if (pipelineRow) return res.json([pipelineRow]);
-    return res.json([{ id: pipelineId, name: data.title || 'Pipeline', department: '' }]);
+    if (pipelineRow) return res.json({ pipelines: [pipelineRow] });
+    return res.json({ pipelines: [{ id: pipelineId, name: data.title || 'Pipeline', department: '' }] });
   } catch (err: any) {
     console.error('[GET /api/pipelines] error', err);
     res.status(500).json({ error: err.message });

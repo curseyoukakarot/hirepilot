@@ -31,7 +31,7 @@ export default function Step2Pipeline({ onBack, onNext }) {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) throw new Error('User not authenticated');
-        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/pipelines?user_id=${session.user.id}`, {
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/pipelines`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -98,6 +98,16 @@ export default function Step2Pipeline({ onBack, onNext }) {
         const selected = existingPipelines.find(p => p.id === selectedPipeline);
         if (!selected) throw new Error('Selected pipeline not found');
         setWizard(prev => ({ ...prev, pipeline: selected }));
+        // If campaign has a job_id, attach pipeline to job immediately
+        if (wizard?.campaign?.job_id) {
+          try {
+            await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/jobs/${wizard.campaign.job_id}/pipeline`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+              body: JSON.stringify({ pipeline_id: selected.id })
+            });
+          } catch {}
+        }
       } else {
         // Create new pipeline
         let data;
@@ -143,6 +153,15 @@ export default function Step2Pipeline({ onBack, onNext }) {
         }
         const { pipeline: newPipeline } = data;
         setWizard(prev => ({ ...prev, pipeline: newPipeline }));
+        if (wizard?.campaign?.job_id && newPipeline?.id) {
+          try {
+            await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/jobs/${wizard.campaign.job_id}/pipeline`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+              body: JSON.stringify({ pipeline_id: newPipeline.id })
+            });
+          } catch {}
+        }
       }
 
       onNext();

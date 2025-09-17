@@ -10,7 +10,7 @@ export default async function handler(req: Request, res: Response) {
   try {
     const userId = (req as any).user?.id;
     const { id: jobId } = req.params;
-    const { stages, name } = req.body;
+    const { stages, name, pipeline_id } = req.body as any;
 
     if (!userId) {
       return res.status(401).json({ error: 'Not authenticated' });
@@ -18,6 +18,16 @@ export default async function handler(req: Request, res: Response) {
 
     if (!jobId) {
       return res.status(400).json({ error: 'Job ID is required' });
+    }
+
+    // If an existing pipeline_id is provided, just attach it to the job and return
+    if (pipeline_id) {
+      const { error: updErr } = await supabaseDb
+        .from('job_requisitions')
+        .update({ pipeline_id })
+        .eq('id', jobId);
+      if (updErr) return res.status(500).json({ error: 'Failed to link pipeline' });
+      return res.json({ success: true, pipeline_id });
     }
 
     if (!stages || !Array.isArray(stages) || stages.length === 0) {
