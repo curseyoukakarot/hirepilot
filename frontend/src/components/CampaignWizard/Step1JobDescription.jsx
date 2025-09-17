@@ -27,6 +27,7 @@ export default function Step1JobDescription({ onNext, onBack }) {
   const [keywordInput, setKeywordInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [skipEnabled, setSkipEnabled] = useState(false);
 
   // Handlers
   const handlePaste = async () => {
@@ -136,9 +137,38 @@ export default function Step1JobDescription({ onNext, onBack }) {
     }
   };
 
-  const canProceed = campaignName.trim().length > 0 && 
-                    jobDescription.trim().length > 0 && 
-                    keywords.length > 0;
+  const hasName = campaignName.trim().length > 0;
+  const canProceed = hasName && jobDescription.trim().length > 0 && keywords.length > 0;
+
+  const handleSkip = async () => {
+    if (!hasName || isSaving) return;
+    setIsSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/saveCampaign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: user.id,
+          campaignName,
+          jobReq: '',
+          keywords: '',
+          status: 'draft'
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to save campaign');
+
+      setWizard(prev => ({ ...prev, campaign: data.campaign, campaignId: data.campaign?.id, job: '', keywords: '' }));
+      onNext();
+    } catch (e) {
+      alert(e.message || 'Failed to create campaign');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -258,7 +288,12 @@ export default function Step1JobDescription({ onNext, onBack }) {
               <ArrowLeft className="mr-2 w-5 h-5" />
               Back
             </button>
-            <button 
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 text-sm text-gray-600">
+                <input type="checkbox" checked={skipEnabled} onChange={(e)=> setSkipEnabled(e.target.checked)} />
+                Skip (tie to existing job later)
+              </label>
+              <button 
               className={`bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 ${
                 !canProceed || isSaving ? 'opacity-50 cursor-not-allowed' : ''
               }`}
@@ -267,7 +302,15 @@ export default function Step1JobDescription({ onNext, onBack }) {
             >
               {isSaving ? 'Saving...' : 'Next: Pipeline'}
               <ArrowRight className="ml-2 w-5 h-5" />
-            </button>
+              </button>
+              <button
+                className={`px-6 py-2 rounded-lg border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed ${!hasName || !skipEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                onClick={handleSkip}
+                disabled={!hasName || !skipEnabled || isSaving}
+              >
+                Skip
+              </button>
+            </div>
           </div>
         </div>
       </footer>
