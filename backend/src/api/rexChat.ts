@@ -74,7 +74,7 @@ export default async function rexChat(req: Request, res: Response) {
 
     const rexEnabled = ['enabled', 'connected', 'on', 'true'].includes(String(integ?.status || '').toLowerCase());
     console.log('rexChat role check', { userType, rexEnabled });
-    // Allow all users to access REX - no restrictions
+    // Allow all users to access REX - no restrictions (temporary override)
     const allowed = true;
 
     // Hard short-circuit: Sniper LinkedIn post collection (avoid model decision-making)
@@ -159,9 +159,9 @@ export default async function rexChat(req: Request, res: Response) {
       { type:'function',function:{name:'move_candidate_to_stage',parameters:{ type:'object', properties:{ userId:{type:'string'}, candidate:{type:'string'}, stage:{type:'string'}, jobId:{type:'string'} }, required:['userId','candidate','stage']}}},
       { type:'function',function:{name:'move_candidate',parameters:{ type:'object', properties:{ userId:{type:'string'}, candidateId:{type:'string'}, newStage:{type:'string'} }, required:['userId','candidateId','newStage']}}},
       { type:'function',function:{name:'update_candidate_notes',parameters:{ type:'object', properties:{ userId:{type:'string'}, candidateId:{type:'string'}, note:{type:'string'}, author:{type:'string'} }, required:['userId','candidateId','note','author']}}},
-      // Sniper tools
-      { type:'function', function:{ name:'sniper_collect_post', parameters:{ type:'object', properties:{ userId:{type:'string'}, post_url:{type:'string'}, limit:{type:'number'} }, required:['userId','post_url'] } } },
-      { type:'function', function:{ name:'sniper_poll_leads', parameters:{ type:'object', properties:{ userId:{type:'string'}, target_id:{type:'string'}, campaign_id:{type:'string'}, limit:{type:'number'}, cursor:{type:'string'} }, required:['userId'] } } }
+      // Sniper tools (temporarily disabled)
+      // { type:'function', function:{ name:'sniper_collect_post', parameters:{ type:'object', properties:{ userId:{type:'string'}, post_url:{type:'string'}, limit:{type:'number'} }, required:['userId','post_url'] } } },
+      // { type:'function', function:{ name:'sniper_poll_leads', parameters:{ type:'object', properties:{ userId:{type:'string'}, target_id:{type:'string'}, campaign_id:{type:'string'}, limit:{type:'number'}, cursor:{type:'string'} }, required:['userId'] } } }
     ];
 
     // Lightweight endpoint: weekly check-in hook (called by cron)

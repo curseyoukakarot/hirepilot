@@ -781,7 +781,7 @@ server.registerCapabilities({
     get_email_status: {
       parameters: { userId:{type:'string'}, emailId:{type:'string'} },
       handler: async ({ userId, emailId }) => {
-        await assertPremium(userId);
+        // Temporarily allow all plans
         return await getEmailStatus({ emailId });
       }
     },
@@ -794,7 +794,7 @@ server.registerCapabilities({
         filters:{ type:'object' }
       },
       handler: async ({ userId, campaignId, source, filters }) => {
-        await assertPremium(userId);
+        // Temporarily allow all plans
         const creditInfo = await fetchCreditsTool({ userId });
         if (creditInfo.creditsRemaining <= 0) throw new Error('Insufficient credits to source leads.');
         return await sourceLeads({ userId, campaignId, source, filters });
@@ -820,7 +820,7 @@ server.registerCapabilities({
         }
       },
       handler: async ({ userId, campaignId, filters }) => {
-        await assertPremium(userId);
+        // Temporarily allow all plans
         // If user intends to search their own enriched database, apply organization filters
         // Supported extra filters:
         //  - min_revenue: number/string (compared to organization.estimated_annual_revenue)
