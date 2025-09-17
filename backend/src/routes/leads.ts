@@ -546,28 +546,61 @@ router.post('/candidates/bulk-delete', requireAuth, async (req: ApiRequest, res:
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
     if (!Array.isArray(ids) || ids.length === 0) { res.status(400).json({ error: 'Missing ids' }); return; }
 
-    // Security: only operate on candidates owned by this user
-    const { data: owned } = await supabase
-      .from('candidates')
-      .select('id')
-      .in('id', ids)
-      .eq('user_id', userId);
-    const ownedIds = (owned || []).map((r: any) => r.id);
-    if (ownedIds.length === 0) { res.json({ success: true, deleted: 0 }); return; }
+    // Determine caller capabilities
+    const { data: me } = await supabase
+      .from('users')
+      .select('team_id, role')
+      .eq('id', userId)
+      .maybeSingle();
+    const myTeamId = (me as any)?.team_id || null;
+    const myRole = ((me as any)?.role || '').toLowerCase();
+    const isSuperAdmin = myRole === 'super_admin' || myRole === 'superadmin';
+    const isTeamAdmin = myRole === 'team_admin';
+
+    let allowedIds: string[] = [];
+    if (isSuperAdmin) {
+      // Super admins can delete any provided ids
+      allowedIds = ids as string[];
+    } else if (isTeamAdmin && myTeamId) {
+      // Team admins can delete their own + team-owned candidates
+      const { data: teamUsers } = await supabase
+        .from('users')
+        .select('id')
+        .eq('team_id', myTeamId);
+      const teamUserIds = (teamUsers || []).map((u: any) => u.id);
+      const { data: teamOwned } = await supabase
+        .from('candidates')
+        .select('id')
+        .in('id', ids)
+        .in('user_id', [...teamUserIds, userId]);
+      allowedIds = (teamOwned || []).map((r: any) => r.id);
+    } else {
+      // Regular members can delete only their own candidates
+      const { data: owned } = await supabase
+        .from('candidates')
+        .select('id')
+        .in('id', ids)
+        .eq('user_id', userId);
+      allowedIds = (owned || []).map((r: any) => r.id);
+    }
+
+    if (allowedIds.length === 0) { res.json({ success: true, deleted: 0, notDeleted: ids }); return; }
 
     // Remove job links first to avoid FK violations
     await supabase
       .from('candidate_jobs')
       .delete()
-      .in('candidate_id', ownedIds);
+      .in('candidate_id', allowedIds);
 
-    const { error } = await supabase
+    const { data: deletedRows, error } = await supabase
       .from('candidates')
       .delete()
-      .in('id', ownedIds)
-      .eq('user_id', userId);
+      .in('id', allowedIds)
+      .select('id');
     if (error) { res.status(500).json({ error: 'Failed to delete candidates' }); return; }
-    res.json({ success: true });
+    const deleted = (deletedRows || []).map((r: any) => r.id);
+    const notDeleted = (ids as string[]).filter((id) => !deleted.includes(id));
+    res.json({ success: true, deleted: deleted.length, notDeleted });
   } catch (e) {
     console.error('Bulk delete (leads router) error:', e);
     res.status(500).json({ error: 'Internal server error' });

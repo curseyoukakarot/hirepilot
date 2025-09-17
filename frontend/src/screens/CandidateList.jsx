@@ -192,10 +192,11 @@ export default function CandidateList() {
         const err = await resp.json().catch(()=>({ error: `HTTP ${resp.status}` }));
         throw new Error(err.error || 'Bulk delete failed');
       }
+      const js = await resp.json().catch(()=>({ success:true }));
       setCandidates(prev => prev.filter(c => !ids.includes(c.id)));
       setSelectedIds(new Set());
       refreshCandidates();
-      alert('Deleted');
+      alert(`Deleted ${js.deleted ?? ids.length} candidate(s)` + (js.notDeleted?.length ? `, skipped ${js.notDeleted.length}` : ''));
     } catch (e) {
       alert(e.message || 'Bulk delete failed');
     }
