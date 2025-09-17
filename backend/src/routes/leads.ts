@@ -586,20 +586,43 @@ router.post('/candidates/bulk-delete', requireAuth, async (req: ApiRequest, res:
 
     if (allowedIds.length === 0) { res.json({ success: true, deleted: 0, notDeleted: ids }); return; }
 
-    // Remove job links first to avoid FK violations
-    await supabase
-      .from('candidate_jobs')
-      .delete()
-      .in('candidate_id', allowedIds);
+    // Chunk deletions to avoid PostgREST URL length limits
+    const chunkSize = 100;
+    let deleted: string[] = [];
+    const idSet = new Set<string>(allowedIds);
 
-    const { data: deletedRows, error } = await supabase
-      .from('candidates')
-      .delete()
-      .in('id', allowedIds)
-      .select('id');
-    if (error) { res.status(500).json({ error: 'Failed to delete candidates' }); return; }
-    const deleted = (deletedRows || []).map((r: any) => r.id);
-    const notDeleted = (ids as string[]).filter((id) => !deleted.includes(id));
+    // 1) Delete candidate_jobs in chunks
+    for (let i = 0; i < allowedIds.length; i += chunkSize) {
+      const chunk = allowedIds.slice(i, i + chunkSize);
+      const { error: cjErr } = await supabase
+        .from('candidate_jobs')
+        .delete()
+        .in('candidate_id', chunk);
+      if (cjErr) {
+        console.error('[bulk-delete] candidate_jobs delete error for chunk', cjErr);
+        // continue; safe to attempt candidate delete anyway
+      }
+    }
+
+    // 2) Delete candidates in chunks, collect deleted ids
+    for (let i = 0; i < allowedIds.length; i += chunkSize) {
+      const chunk = allowedIds.slice(i, i + chunkSize);
+      const { data: delRows, error: delErr } = await supabase
+        .from('candidates')
+        .delete()
+        .in('id', chunk)
+        .select('id');
+      if (delErr) {
+        console.error('[bulk-delete] candidates delete error for chunk', delErr);
+        // skip this chunk
+        continue;
+      }
+      if (delRows && delRows.length) {
+        deleted.push(...delRows.map((r: any) => r.id));
+      }
+    }
+
+    const notDeleted = (ids as string[]).filter((id) => !deleted.includes(id) && idSet.has(id));
     res.json({ success: true, deleted: deleted.length, notDeleted });
   } catch (e) {
     console.error('Bulk delete (leads router) error:', e);
