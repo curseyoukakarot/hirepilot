@@ -30,16 +30,17 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
       return;
     }
 
-    // Ensure team_settings row exists and populate team_admin_id if missing
+    // Ensure team_settings row exists and populate team_admin_id (PK in newer schema)
     const { data: existingSettings } = await supabaseDb
       .from('team_settings')
       .select('team_id, team_admin_id')
-      .eq('team_id', userData.team_id)
+      .or(`team_id.eq.${userData.team_id},team_admin_id.eq.${req.user.id}`)
       .maybeSingle();
 
-    // Build update payload
+    // Build update payload (write both keys for compatibility with mixed schema)
     const updateData: any = {
       team_id: userData.team_id,
+      team_admin_id: req.user.id,
       updated_at: new Date().toISOString()
     };
 
@@ -50,14 +51,10 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
       updateData.share_candidates = shareCandidates;
     }
 
-    // Set team_admin_id on first create or if column is empty
-    if (!existingSettings?.team_admin_id) {
-      updateData.team_admin_id = req.user.id;
-    }
-
     const { error: updateError } = await supabaseDb
       .from('team_settings')
-      .upsert(updateData, { onConflict: 'team_id' });
+      // In newer schema PK is team_admin_id; use it as conflict target to satisfy NOT NULL
+      .upsert(updateData, { onConflict: 'team_admin_id' });
 
     if (updateError) {
       throw updateError;
