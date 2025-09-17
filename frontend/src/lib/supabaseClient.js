@@ -18,5 +18,5 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 });
 
 // Attach globally for debug
-(window as any).supabase = supabase;
+window.supabase = supabase;
 console.log("⚡ Supabase client attached to window.supabase");
