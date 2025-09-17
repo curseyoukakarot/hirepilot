@@ -353,32 +353,23 @@ export default function SettingsTeamMembers() {
 
   const updateTeamSetting = async (setting, value) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
 
-      // Get user's team_id
-      const { data: userData } = await supabase
-        .from('users')
-        .select('team_id')
-        .eq('id', user.id)
-        .single();
-
-      if (!userData?.team_id) {
-        toast.error('You are not part of a team');
-        return;
-      }
-
-      // Update team settings
-      const updateData = {
-        team_id: userData.team_id,
-        [setting === 'shareLeads' ? 'share_leads' : 'share_candidates']: value
-      };
-
-      const { error } = await supabase
-        .from('team_settings')
-        .upsert(updateData, { onConflict: 'team_id' });
-
-      if (error) throw error;
+      // Call backend so server can populate team_admin_id
+      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/team/updateSettings`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          shareLeads: setting === 'shareLeads' ? value : undefined,
+          shareCandidates: setting === 'shareCandidates' ? value : undefined,
+        })
+      });
+      const js = await resp.json().catch(()=>({}));
+      if (!resp.ok) throw new Error(js?.error || 'Failed to update team settings');
 
       // Update local state
       setTeamSettings(prev => ({
