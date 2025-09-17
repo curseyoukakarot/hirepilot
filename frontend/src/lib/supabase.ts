@@ -26,4 +26,10 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     storageKey: 'hirepilot-auth',
     storage: window.localStorage
   }
-}); 
+});
+
+// 🐛 Debug helper: expose supabase globally in dev mode
+if (import.meta.env.DEV) {
+  (window as any).supabase = supabase;
+  console.log('⚡ Supabase client attached to window.supabase (dev only)');
+} 
