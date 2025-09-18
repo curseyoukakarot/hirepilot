@@ -183,7 +183,40 @@ export default function SequenceBuilderModal({ isOpen, onClose, initialSequence,
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-gray-700 mb-1">Subject (email)</label>
-                  <input className="w-full border rounded-lg px-3 py-2" value={s.subject} onChange={e => setSteps(prev => prev.map((p,i) => i===idx ? { ...p, subject: e.target.value } : p))} placeholder="Optional subject" />
+                  <div className="flex gap-2">
+                    <input className="w-full border rounded-lg px-3 py-2" value={s.subject} onChange={e => setSteps(prev => prev.map((p,i) => i===idx ? { ...p, subject: e.target.value } : p))} placeholder="Use tokens like {{Candidate.FirstName}}" />
+                    <div className="relative">
+                      <button type="button" className="px-3 py-2 border rounded text-blue-600 bg-blue-50 border-blue-200 hover:bg-blue-100" onClick={(e) => {
+                        e.preventDefault();
+                        const options = [
+                          { label: 'Candidate First Name', value: '{{Candidate.FirstName}}' },
+                          { label: 'Candidate Job', value: '{{Candidate.Job}}' },
+                          { label: 'Candidate Company', value: '{{Candidate.Company}}' },
+                          { label: 'Job Title', value: '{{Job.Title}}' },
+                          { label: 'Job Company', value: '{{Job.Company}}' }
+                        ];
+                        const menu = document.createElement('div');
+                        menu.style.position = 'absolute';
+                        menu.style.zIndex = '50';
+                        menu.style.background = 'white';
+                        menu.style.border = '1px solid #e5e7eb';
+                        options.forEach(opt => {
+                          const btn = document.createElement('button');
+                          btn.textContent = opt.label;
+                          btn.className = 'block w-full text-left px-4 py-2 text-sm hover:bg-blue-50';
+                          btn.onclick = () => {
+                            setSteps(prev => prev.map((p,i) => i===idx ? { ...p, subject: (p.subject||'') + opt.value } : p));
+                            document.body.removeChild(menu);
+                          };
+                          menu.appendChild(btn);
+                        });
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        menu.style.left = rect.left + 'px';
+                        menu.style.top = (rect.bottom + window.scrollY) + 'px';
+                        document.body.appendChild(menu);
+                      }}>Insert Field</button>
+                    </div>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>

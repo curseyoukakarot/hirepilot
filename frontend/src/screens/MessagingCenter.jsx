@@ -349,7 +349,28 @@ export default function MessagingCenter() {
 
   const handleTemplateSelect = (template) => {
     setSelectedTemplate(template);
-    setSubjectField(template.subject);
+    // Personalize subject using selected lead data if present
+    if (selectedLead && template.subject) {
+      const data = {
+        Candidate: {
+          FirstName: selectedLead.name ? selectedLead.name.split(' ')[0] : '',
+          LastName: selectedLead.name ? selectedLead.name.split(' ').slice(1).join(' ') : '',
+          Company: selectedLead.company || '',
+          Job: selectedLead.title || '',
+          Email: selectedLead.email || '',
+          LinkedIn: selectedLead.linkedin_url || ''
+        },
+        first_name: selectedLead.name ? selectedLead.name.split(' ')[0] : '',
+        last_name: selectedLead.name ? selectedLead.name.split(' ').slice(1).join(' ') : '',
+        full_name: selectedLead.name || '',
+        company: selectedLead.company || '',
+        title: selectedLead.title || '',
+        email: selectedLead.email || ''
+      };
+      setSubjectField(replaceTokens(template.subject, data));
+    } else {
+      setSubjectField(template.subject);
+    }
     const data = selectedLead ? {
       Candidate: {
         FirstName: selectedLead.name ? selectedLead.name.split(' ')[0] : '',
@@ -516,6 +537,7 @@ export default function MessagingCenter() {
       } : {};
 
       const personalizedBody = replaceTokens(messageBody, data);
+      const personalizedSubject = replaceTokens(subjectField, data);
       const htmlBody = personalizedBody.replace(/\n/g, '<br/>');
 
       // Send via backend API (will also store the message)
@@ -527,7 +549,7 @@ export default function MessagingCenter() {
         },
         body: JSON.stringify({
           to: toField,
-          subject: subjectField,
+          subject: personalizedSubject,
           html: htmlBody,
           provider: selectedProvider,
           attachments: attachments, // Send full attachments to API
@@ -819,13 +841,38 @@ export default function MessagingCenter() {
               {templateType === 'email' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
-                  <input
-                    type="text"
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2 px-3 border"
-                    value={templateSubject}
-                    onChange={e => setTemplateSubject(e.target.value)}
-                    placeholder="Enter subject line..."
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2 px-3 border"
+                      value={templateSubject}
+                      onChange={e => setTemplateSubject(e.target.value)}
+                      placeholder="Enter subject line... Use tokens like {{Candidate.FirstName}}"
+                    />
+                    <div className="relative">
+                      <button
+                        type="button"
+                        className="px-3 py-2 rounded bg-blue-50 border border-blue-200 text-blue-600 hover:bg-blue-100"
+                        onClick={() => setShowTokenDropdown(v => !v)}
+                      >
+                        Insert Field
+                      </button>
+                      {showTokenDropdown && (
+                        <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded shadow-lg z-20">
+                          {tokens.map(token => (
+                            <button
+                              key={token.value}
+                              type="button"
+                              className="w-full text-left px-4 py-2 text-sm hover:bg-blue-50"
+                              onClick={() => { setTemplateSubject(prev => prev + token.value); setShowTokenDropdown(false); }}
+                            >
+                              {token.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
               
