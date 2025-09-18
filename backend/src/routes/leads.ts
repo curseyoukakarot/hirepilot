@@ -14,6 +14,7 @@ import axios from 'axios';
 import decodoRouter from './leads/decodo/salesNavigatorScraper';
 import enrichmentRouter from './leads/decodo/enrichLeadProfile';
 import { fetchHtml } from '../lib/decodoProxy';
+import { notifySlack } from '../../lib/slack';
 
 const router = express.Router();
 
@@ -1305,6 +1306,21 @@ router.post('/import', requireAuth, async (req: Request, res: Response) => {
       } catch (importError) {
         console.error('[Leads Import] Error importing Apollo notification service:', importError);
       }
+    }
+
+    // Fire-and-forget Slack notification for CSV/Apollo lead import
+    try {
+      const { data: me } = await supabase
+        .from('users')
+        .select('email')
+        .eq('id', userId)
+        .maybeSingle();
+      const userEmail = (me as any)?.email || 'unknown@user';
+      const count = Array.isArray(data) ? data.length : 0;
+      const src = source || 'csv';
+      notifySlack(`📥 CSV Leads Import: ${count} leads imported by ${userEmail}${src ? ` (source: ${src})` : ''}`);
+    } catch (e) {
+      console.warn('[Leads Import] Slack notify failed (non-fatal):', (e as any)?.message || e);
     }
 
     res.json({ 

@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { notifySlack } from '../../../lib/slack';
 import { supabaseDb } from '../../../lib/supabase';
 import { requireAuth } from '../../../middleware/authMiddleware';
 
@@ -159,6 +160,14 @@ export default async function handler(req: Request, res: Response) {
     if (fetchError) {
       console.error('Failed to fetch complete pipeline:', fetchError);
       // Still return success with basic data
+      // Fire-and-forget Slack notification
+      try {
+        const userEmail = (req as any).user?.email || '';
+        await notifySlack(`🧩 Pipeline created: ${pipeline.name} for job ${job.title} by ${userEmail || 'unknown user'}`);
+      } catch (e) {
+        console.warn('[jobs/:id/pipeline] Slack notify failed (non-fatal):', (e as any)?.message || e);
+      }
+
       res.status(200).json({ 
         success: true,
         pipeline_id: job.pipeline_id,
@@ -166,6 +175,14 @@ export default async function handler(req: Request, res: Response) {
         message: `Pipeline created with ${insertedStages?.length || 0} stages`
       });
     } else {
+      // Fire-and-forget Slack notification
+      try {
+        const userEmail = (req as any).user?.email || '';
+        await notifySlack(`🧩 Pipeline created: ${fullPipeline?.name || pipeline.name} for job ${job.title} by ${userEmail || 'unknown user'}`);
+      } catch (e) {
+        console.warn('[jobs/:id/pipeline] Slack notify failed (non-fatal):', (e as any)?.message || e);
+      }
+
       res.status(200).json({ 
         success: true,
         pipeline: fullPipeline,

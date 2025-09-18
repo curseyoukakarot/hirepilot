@@ -7,6 +7,7 @@ import {
   generatePipelineStageEvent,
 } from '../lib/zapEventEmitter';
 import { createPipelineWithDefaultStages } from '../lib/pipelineHelpers';
+import { notifySlack } from '../lib/slack';
 
 const router = express.Router();
 
@@ -276,6 +277,14 @@ router.post('/', requireAuth as any, async (req: Request, res: Response) => {
         pipeline: { ...pipeline, stages: insertedStages || [] },
         message: 'Pipeline created and stages set!'
       });
+    }
+
+    // Fire-and-forget Slack notification
+    try {
+      const userEmail = (req as any).user?.email || '';
+      await notifySlack(`🧩 Pipeline created: ${fullPipeline?.name || name} for job ${job.title} by ${userEmail || 'unknown user'}`);
+    } catch (e) {
+      console.warn('[pipelines POST] Slack notify failed (non-fatal):', (e as any)?.message || e);
     }
 
     return res.status(200).json({ 

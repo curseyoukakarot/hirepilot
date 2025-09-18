@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Papa from 'papaparse';
-import { supabase } from '../../lib/supabaseClient';
 import { toast } from 'react-hot-toast';
+import { supabase } from '../../lib/supabaseClient';
 
 const REQUIRED_FIELDS = [
   { key: 'first_name', label: 'First Name' },
@@ -114,6 +114,21 @@ export default function CsvImportButton({ onImportComplete }) {
       if (error) throw error;
       
       toast.success(`Successfully imported ${mappedLeads.length} leads!`);
+
+      // Fire-and-forget Slack notification via backend endpoint (if available)
+      try {
+        const base = (import.meta.env.VITE_BACKEND_URL || (window.location.host.endsWith('thehirepilot.com') ? 'https://api.thehirepilot.com' : 'http://localhost:8080')).replace(/\/$/, '');
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        fetch(`${base}/api/sendSlackNotification`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          body: JSON.stringify({
+            event_type: 'csv_leads_imported',
+            details: { count: mappedLeads.length, source: 'csv' }
+          })
+        }).catch(() => {});
+      } catch {}
       setShowMappingModal(false);
       onImportComplete?.(); // Trigger refresh of leads list
     } catch (err) {

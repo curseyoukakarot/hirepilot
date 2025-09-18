@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { supabaseDb } from '../../lib/supabase';
 import { createPipelineWithDefaultStages } from '../../lib/pipelineHelpers';
+import { notifySlack } from '../../lib/slack';
 import { requireAuth } from '../../middleware/authMiddleware';
 
 export default async function createJob(req: Request, res: Response) {
@@ -41,6 +42,14 @@ export default async function createJob(req: Request, res: Response) {
     }
 
     console.log(`✅ Created job ${jobId} with pipeline ${job.pipeline_id} using RPC function`);
+
+    // Fire-and-forget Slack notification
+    try {
+      const userEmail = (req as any).user?.email || '';
+      await notifySlack(`💼 Job created: ${job?.title || title} (job_id=${jobId}) by ${userEmail || 'unknown user'}`);
+    } catch (e) {
+      console.warn('[createJob] Slack notify failed (non-fatal):', (e as any)?.message || e);
+    }
     
     return res.status(201).json({ 
       success: true, 
