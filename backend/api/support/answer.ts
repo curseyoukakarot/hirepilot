@@ -1,5 +1,6 @@
 import type { ApiHandler } from '../../apiRouter';
 import { createClient } from '@supabase/supabase-js';
+import { chatLLM } from '../../lib/llm';
 
 async function embed(text: string): Promise<number[]> {
   const key = process.env.OPENAI_API_KEY as string;
@@ -15,7 +16,7 @@ async function embed(text: string): Promise<number[]> {
 
 const handler: ApiHandler = async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method Not Allowed' }); return; }
-  const { query, userId } = (req.body || {}) as { query?: string; userId?: string | null };
+  const { query, userId, history = [] } = (req.body || {}) as { query?: string; userId?: string | null, history?: Array<{ role: 'user'|'assistant', content: string }> };
   if (!query) { res.status(400).json({ error: 'Missing query' }); return; }
   try {
     const q = String(query);
@@ -47,14 +48,11 @@ const handler: ApiHandler = async (req, res) => {
       return;
     }
 
-    // Retrieval
+    // Retrieval (keep concise; LLM will paraphrase)
     const vector = await embed(q);
-    const { data: results } = await supabase.rpc('search_support_knowledge', { query_embedding: vector as any, match_limit: 5 });
-    let top = '';
-    if (Array.isArray(results) && results.length) {
-      top = results.slice(0, 3).map((h: any) => `• ${h.title || h.type}: ${String(h.content || '').slice(0, 240)}${(h.content || '').length > 240 ? '…' : ''}`).join('\n');
-      if (results.some((h: any) => h.restricted)) top += '\n\nNote: Some features are explain-only here. Use REX chat to execute.';
-    }
+    const { data: results } = await supabase.rpc('search_support_knowledge', { query_embedding: vector as any, match_limit: 4 });
+    const contextBlocks = (Array.isArray(results) ? results : []).map((r: any, i: number) => `#${i + 1} [${r.type}:${r.title}] ${r.content}`).join('\n\n');
+
     // Suggestions
     const derived: string[] = [];
     const lq = q.toLowerCase();
@@ -72,10 +70,21 @@ const handler: ApiHandler = async (req, res) => {
         .in('tag', uniq)
         .order('weight', { ascending: false })
         .limit(2);
-      if (Array.isArray(suggs) && suggs.length) tips = '\n\n' + suggs.map((s: any) => `💡 ${s.suggestion}`).join('\n');
+      if (Array.isArray(suggs) && suggs.length) tips = suggs.map((s: any) => `• ${s.suggestion}`).join('\n');
     }
-    const response = top ? `${top}${tips}` : `I don’t have that answer yet. Quick option: open the REX drawer and ask directly — I’ll take care of it.`;
-    res.json({ response, escalation: 'none' });
+    const SYSTEM = `You are REX, HirePilot’s AI-powered Account Manager and Customer Success partner.
+Warm, friendly, consultative. Explain with brief steps and UI breadcrumbs. Never execute actions here; redirect to REX chat/Slack if asked to do something. Add one practical idea only when helpful. Avoid sounding like a manual.`;
+
+    const messages: Array<{ role: 'system'|'user'|'assistant'; content: string }> = [
+      { role: 'system', content: SYSTEM },
+      ...history.slice(-6),
+      { role: 'user', content: `Question: "${q}"
+Context (summaries; paraphrase, do not paste verbatim):
+${contextBlocks || '(none)'}
+Optional Ideas:\n${tips}` }
+    ];
+    const text = await chatLLM(messages);
+    res.json({ response: text || 'Thanks! Let me know what you want to do next.', escalation: 'none' });
     return;
   } catch (e: any) {
     res.status(500).json({ error: e?.message || 'answer failed' });
