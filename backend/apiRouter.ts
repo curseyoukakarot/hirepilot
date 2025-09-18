@@ -51,6 +51,7 @@ import supportCreate from './api/support/create';
 import supportSearch from './api/support/search';
 import supportIngest from './api/support/ingest';
 import supportSuggest from './api/support/suggest';
+import supportAnswer from './api/support/answer';
 // Temporary: admin tools for support
 import type { Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
@@ -299,6 +300,7 @@ router.post('/support/create', supportCreate);
 router.post('/support/search', supportSearch);
 router.post('/support/ingest', supportIngest);
 router.post('/support/suggest', supportSuggest);
+router.post('/support/answer', supportAnswer);
 
 // Admin-only helper: reset guest password (support-only; add real admin auth in production)
 // Simple admin gate: require bearer and user role from Supabase to be an admin-like role

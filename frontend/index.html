@@ -246,14 +246,10 @@
           }
           addMessageToChat(message, 'user');
           if (messageInput) messageInput.value = '';
-          // Route to Support Agent backend instead of Slack live chat
-          fetch(getApiBase() + '/support/search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: message, limit: 5 }) })
-            .then(function(){ return fetch(getApiBase() + '/support/suggest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: message }) }); })
-            .then(function(r){ return r.json().catch(function(){ return { suggestions: [] }; }); })
-            .then(function(body){
-              var tips = (body && body.suggestions || []).slice(0,2).map(function(s){ return '💡 ' + s.suggestion; }).join('\n');
-              addMessageToChat((tips ? tips : 'Thanks! If you want me to execute this, open REX chat.'), 'team');
-            })
+          // Route to unified Support Agent answer endpoint (RAG + suggestions)
+          fetch(getApiBase() + '/support/answer', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: message }) })
+            .then(function(r){ return r.json().catch(function(){ return { response: 'Sorry, something went wrong.' }; }); })
+            .then(function(body){ addMessageToChat(String(body.response || 'Thanks!'), 'team'); })
             .catch(function(){ addMessageToChat('Thanks! I captured that. Open the REX drawer if you want me to run it for you.', 'team'); });
         }
 
