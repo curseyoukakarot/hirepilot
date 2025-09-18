@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JWT Debug Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>JWT Debug Test</h1>
+    <div id="output"></div>
+    
+    <script>
+        const supabaseUrl = 'https://lqcsassinqfruvpgcooo.supabase.co';
+        const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxxY3Nhc3NpbnFmcnV2cGdjb29vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM0NTYzNTQsImV4cCI6MjA1OTAzMjM1NH0._s3bVTIJCDQCS2WCgOqE5WvMvMDtJ9tjgslR5om7DHw';
+        
+        const supabase = supabase.createClient(supabaseUrl, supabaseAnonKey, {
+            auth: {
+                persistSession: true,
+                autoRefreshToken: true,
+                detectSessionInUrl: true,
+                storageKey: 'hirepilot-auth',
+                storage: window.localStorage
+            }
+        });
+        
+        async function checkJWT() {
+            const output = document.getElementById('output');
+            
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+                
+                if (error) {
+                    output.innerHTML = `<p style="color: red;">❌ Error: ${error.message}</p>`;
+                    return;
+                }
+                
+                if (!session) {
+                    output.innerHTML = '<p style="color: orange;">⚠️ No active session. Please log in first.</p>';
+                    return;
+                }
+                
+                // Decode JWT
+                const token = session.access_token;
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                
+                output.innerHTML = `
+                    <h2>✅ Session Found</h2>
+                    <p><strong>User ID:</strong> ${session.user.id}</p>
+                    <p><strong>Email:</strong> ${session.user.email}</p>
+                    <h3>JWT Claims:</h3>
+                    <pre>${JSON.stringify(payload, null, 2)}</pre>
+                    <h3>Role Analysis:</h3>
+                    <p><strong>Top-level role:</strong> ${payload.role || '❌ MISSING'}</p>
+                    <p><strong>App metadata role:</strong> ${payload.app_metadata?.role || '❌ MISSING'}</p>
+                    <p><strong>User metadata role:</strong> ${payload.user_metadata?.role || '❌ MISSING'}</p>
+                `;
+                
+                if (!payload.role) {
+                    output.innerHTML += '<p style="color: red; font-weight: bold;">🚨 CRITICAL: No role claim in JWT! Access Token Hook is not working.</p>';
+                }
+                
+            } catch (err) {
+                output.innerHTML = `<p style="color: red;">❌ Error: ${err.message}</p>`;
+            }
+        }
+        
+        // Check JWT on load
+        checkJWT();
+        
+        // Also expose globally for console debugging
+        window.supabase = supabase;
+        window.checkJWT = checkJWT;
+    </script>
+</body>
+</html>

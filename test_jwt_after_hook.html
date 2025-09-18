@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JWT Test After Access Token Hook</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        .warning { color: orange; font-weight: bold; }
+        pre { background: #f5f5f5; padding: 10px; border-radius: 5px; overflow-x: auto; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>🔍 JWT Test After Access Token Hook</h1>
+    <div id="status"></div>
+    <div id="output"></div>
+    
+    <button onclick="checkJWT()">Check Current JWT</button>
+    <button onclick="testRLS()">Test RLS Query</button>
+    <button onclick="clearStorage()">Clear Storage & Reload</button>
+    
+    <script>
+        const supabaseUrl = 'https://lqcsassinqfruvpgcooo.supabase.co';
+        const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxxY3Nhc3NpbnFmcnV2cGdjb29vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM0NTYzNTQsImV4cCI6MjA1OTAzMjM1NH0._s3bVTIJCDQCS2WCgOqE5WvMvMDtJ9tjgslR5om7DHw';
+        
+        const supabase = supabase.createClient(supabaseUrl, supabaseAnonKey, {
+            auth: {
+                persistSession: true,
+                autoRefreshToken: true,
+                detectSessionInUrl: true,
+                storageKey: 'hirepilot-auth',
+                storage: window.localStorage
+            }
+        });
+        
+        function updateStatus(message, type = 'info') {
+            const status = document.getElementById('status');
+            const className = type === 'success' ? 'success' : type === 'error' ? 'error' : type === 'warning' ? 'warning' : '';
+            status.innerHTML = `<p class="${className}">${message}</p>`;
+        }
+        
+        function updateOutput(content) {
+            document.getElementById('output').innerHTML = content;
+        }
+        
+        async function checkJWT() {
+            updateStatus('🔍 Checking JWT claims...', 'info');
+            
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+                
+                if (error) {
+                    updateStatus(`❌ Error: ${error.message}`, 'error');
+                    return;
+                }
+                
+                if (!session) {
+                    updateStatus('⚠️ No active session. Please log in first.', 'warning');
+                    updateOutput('<p>Please log in to the application first, then come back to this page.</p>');
+                    return;
+                }
+                
+                // Decode JWT
+                const token = session.access_token;
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                
+                const hasRole = !!payload.role;
+                const roleValue = payload.role || 'MISSING';
+                const appMetadataRole = payload.app_metadata?.role || 'MISSING';
+                const userMetadataRole = payload.user_metadata?.role || 'MISSING';
+                
+                let statusMessage = '';
+                let statusType = 'info';
+                
+                if (hasRole) {
+                    statusMessage = `✅ SUCCESS: Role claim found! Role: ${roleValue}`;
+                    statusType = 'success';
+                } else {
+                    statusMessage = '❌ FAILED: No role claim in JWT! Access Token Hook not working.';
+                    statusType = 'error';
+                }
+                
+                updateStatus(statusMessage, statusType);
+                
+                updateOutput(`
+                    <h2>📊 JWT Analysis</h2>
+                    <p><strong>User ID:</strong> ${session.user.id}</p>
+                    <p><strong>Email:</strong> ${session.user.email}</p>
+                    <p><strong>Session Created:</strong> ${new Date(session.created_at).toLocaleString()}</p>
+                    
+                    <h3>🔑 JWT Claims:</h3>
+                    <pre>${JSON.stringify(payload, null, 2)}</pre>
+                    
+                    <h3>🎯 Role Analysis:</h3>
+                    <p><strong>Top-level role:</strong> <span class="${hasRole ? 'success' : 'error'}">${roleValue}</span></p>
+                    <p><strong>App metadata role:</strong> ${appMetadataRole}</p>
+                    <p><strong>User metadata role:</strong> ${userMetadataRole}</p>
+                    <p><strong>Allowed roles:</strong> ${JSON.stringify(payload.allowed_roles || [])}</p>
+                    
+                    ${!hasRole ? '<p class="error">🚨 CRITICAL: Access Token Hook is not working. Check Supabase Dashboard configuration.</p>' : ''}
+                `);
+                
+            } catch (err) {
+                updateStatus(`❌ Error: ${err.message}`, 'error');
+                updateOutput(`<pre>${err.stack}</pre>`);
+            }
+        }
+        
+        async function testRLS() {
+            updateStatus('🧪 Testing RLS with job_requisitions...', 'info');
+            
+            try {
+                const { data, error } = await supabase
+                    .from('job_requisitions')
+                    .select('id, title, user_id')
+                    .limit(3);
+                
+                if (error) {
+                    updateStatus(`❌ RLS Test Failed: ${error.message}`, 'error');
+                    updateOutput(`<p class="error">RLS Error: ${error.message}</p><p>This confirms the 403 issue is still present.</p>`);
+                } else {
+                    updateStatus(`✅ RLS Test Passed: Retrieved ${data.length} job requisitions`, 'success');
+                    updateOutput(`
+                        <h3>✅ RLS Working!</h3>
+                        <p>Successfully retrieved job requisitions:</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `);
+                }
+            } catch (err) {
+                updateStatus(`❌ RLS Test Error: ${err.message}`, 'error');
+                updateOutput(`<pre>${err.stack}</pre>`);
+            }
+        }
+        
+        function clearStorage() {
+            localStorage.clear();
+            sessionStorage.clear();
+            updateStatus('🧹 Storage cleared. Please refresh the page and log in again.', 'warning');
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        }
+        
+        // Auto-check on load
+        checkJWT();
+        
+        // Expose globally for console debugging
+        window.supabase = supabase;
+        window.checkJWT = checkJWT;
+        window.testRLS = testRLS;
+    </script>
+</body>
+</html>

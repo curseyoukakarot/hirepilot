@@ -1,0 +1,5 @@
+#!/bin/bash
+cd backend
+export SUPABASE_URL="https://lqcsassinqfruvpgcooo.supabase.co"
+export SUPABASE_SERVICE_ROLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxxY3Nhc3NpbnFmcnV2cGdjb29vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MzQ1NjM1NCwiZXhwIjoyMDU5MDMyMzU0fQ.mb-M6FKECyol3rJg9V1Py4WXu73F8NS9rH6Eq3vqIjs"
+npx ts-node scripts/backfillUserRoles.ts

@@ -47,6 +47,9 @@ import getJob from './api/getJob';
 import advancedInfo from './api/advancedInfo';
 import authDebug from './api/authDebug';
 import jobsShareRouter from './api/jobsShare';
+import supportCreate from './api/support/create';
+import supportSearch from './api/support/search';
+import supportIngest from './api/support/ingest';
 // Temporary: admin tools for support
 import type { Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
@@ -289,6 +292,11 @@ router.post('/guest-status', guestStatus);
 router.get('/jobs/:id', getJob);
 router.get('/advanced-info', advancedInfo);
 router.get('/auth-debug', authDebug);
+
+// Support: create ticket endpoint used by Support Agent
+router.post('/support/create', supportCreate);
+router.post('/support/search', supportSearch);
+router.post('/support/ingest', supportIngest);
 
 // Admin-only helper: reset guest password (support-only; add real admin auth in production)
 // Simple admin gate: require bearer and user role from Supabase to be an admin-like role
