@@ -25,10 +25,11 @@ const handler: ApiHandler = async (req, res) => {
     const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
     if (isAction) {
-      return res.json({
+      res.json({
         response: "I can’t run that directly, but it’s quick to do in REX chat. Open the REX drawer and say what you want done — I’ll handle it from there.",
         escalation: 'rex_chat'
       });
+      return;
     }
 
     if (isBug) {
@@ -42,7 +43,8 @@ const handler: ApiHandler = async (req, res) => {
       if (hook) {
         try { await fetch(hook, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: `📩 New Support Ticket\nUser: ${userId || 'anon'}\nQuery: ${q}\nTicket ID: ${data.id}` }) }); } catch {}
       }
-      return res.json({ response: `Thanks for flagging this — I logged it for our team. Ticket ID: ${data.id}. We’ll take a look and follow up.`, escalation: 'support_ticket' });
+      res.json({ response: `Thanks for flagging this — I logged it for our team. Ticket ID: ${data.id}. We’ll take a look and follow up.`, escalation: 'support_ticket' });
+      return;
     }
 
     // Retrieval
@@ -73,7 +75,8 @@ const handler: ApiHandler = async (req, res) => {
       if (Array.isArray(suggs) && suggs.length) tips = '\n\n' + suggs.map((s: any) => `💡 ${s.suggestion}`).join('\n');
     }
     const response = top ? `${top}${tips}` : `I don’t have that answer yet. Quick option: open the REX drawer and ask directly — I’ll take care of it.`;
-    return res.json({ response, escalation: 'none' });
+    res.json({ response, escalation: 'none' });
+    return;
   } catch (e: any) {
     res.status(500).json({ error: e?.message || 'answer failed' });
   }
