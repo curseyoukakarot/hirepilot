@@ -280,55 +280,27 @@
             .catch(function(){});
         }, 3000);
 
-        // Admin toggles (reads from window.__REX_FLAGS__ if available)
-        function applyRexFlags() {
-          var flags = (window.__REX_FLAGS__) || {};
-          var isProductHuntMode = !!flags.isProductHuntMode;
-          var isPopupEnabled = !!flags.isPopupEnabled;
+        // Always enable the original popup globally (single surface)
+        function enablePopup() {
           var host = document.getElementById('rex-popup');
           if (!host) return;
-          if (isProductHuntMode && isPopupEnabled) {
-            host.style.display = 'block';
-            // Detect mobile and keep popup closed by default on small screens
-            var isMobile = false;
-            try { isMobile = (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) || /Mobi|Android/i.test(navigator.userAgent); } catch (_) {}
-            if (isMobile) {
-              if (faqPanel) faqPanel.classList.add('hidden');
-              if (liveChatPanel) liveChatPanel.classList.add('hidden');
-              if (popupToggle) popupToggle.classList.remove('hidden');
-            } else {
-              // On desktop, keep toggle hidden only if panels are visible
-              if (popupToggle) {
-                var anyOpen = faqPanel && !faqPanel.classList.contains('hidden');
-                if (!anyOpen) popupToggle.classList.remove('hidden');
-              }
-            }
-            // Offset REX popup vertically if a support/chat widget bubble exists
-            try {
-              var possibleBubbles = document.querySelectorAll(
-                '.IntercomLauncher, .intercom-launcher, .intercom-lightweight-app-launcher,' +
-                ' .crisp-client, .crisp-client .cc-bottom, .tawk-custom-color,' +
-                ' .hs-beacon, .zEWidget-launcher, .helpcrunch-launcher'
-              );
-              if (possibleBubbles && possibleBubbles.length > 0) {
-                // Nudge our popup up and to the left so they never overlap
-                host.style.bottom = '96px';
-                host.style.right = '96px';
-                // Also move the white pill toggle further left so it doesn't sit beneath the bubble
-                if (popupToggle) popupToggle.style.right = '120px';
-              } else {
-                host.style.bottom = '24px';
-                host.style.right = '24px';
-                if (popupToggle) popupToggle.style.right = '0px';
-              }
-            } catch (_) {}
-            if (typeof window.hideREXChatbot === 'function') window.hideREXChatbot();
+          host.style.display = 'block';
+          // Detect mobile and keep popup closed by default on small screens
+          var isMobile = false;
+          try { isMobile = (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) || /Mobi|Android/i.test(navigator.userAgent); } catch (_) {}
+          if (isMobile) {
+            if (faqPanel) faqPanel.classList.add('hidden');
+            if (liveChatPanel) liveChatPanel.classList.add('hidden');
+            if (popupToggle) popupToggle.classList.remove('hidden');
           } else {
-            host.style.display = 'none';
+            if (popupToggle) {
+              var anyOpen = faqPanel && !faqPanel.classList.contains('hidden');
+              if (!anyOpen) popupToggle.classList.remove('hidden');
+            }
           }
+          try { if (typeof window.hideREXChatbot === 'function') window.hideREXChatbot(); } catch(_){}
         }
-        applyRexFlags();
-        window.addEventListener('rex_flags_ready', applyRexFlags);
+        enablePopup();
       })();
     </script>
     <script>
