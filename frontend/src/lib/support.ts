@@ -27,4 +27,11 @@ export async function searchSupportKnowledge(query: string, limit = 5): Promise<
   return res.results || [];
 }
 
+export type SupportSuggestion = { title?: string | null; suggestion: string; tag?: string };
+
+export async function suggestSupportPlaybook(query: string): Promise<SupportSuggestion[]> {
+  const res = await apiPost('/api/support/suggest', { query }, { requireAuth: false });
+  return res.suggestions || [];
+}
+
 
