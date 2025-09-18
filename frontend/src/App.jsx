@@ -64,7 +64,6 @@ import PartnersRouteGuard from './pages/partners/PartnersRouteGuard';
 const RequirePartnersAuth = ({ children }) => <PartnersRouteGuard>{children}</PartnersRouteGuard>;
 import RexWidget from './widgets/rex/RexWidget';
 import PromoBanner from './components/PromoBanner';
-import SupportChatWidget from './components/SupportChatWidget';
 import { PlanProvider } from './context/PlanContext';
 import PublicJobPage from './screens/PublicJobPage.jsx';
 import ApplyForm from './screens/ApplyForm.jsx';
@@ -568,8 +567,6 @@ function InnerApp() {
           }}
         />
       )}
-      {/* Restricted Support Agent UI (lightweight). Only on app pages */}
-      {!isAuthPage && <SupportChatWidget />}
       {/* Promo banner: show on all public pages and blog landing (exclude blog articles) */}
       {isAuthPage && !location.pathname.startsWith('/blog/') && (
         <PromoBanner show={true} />

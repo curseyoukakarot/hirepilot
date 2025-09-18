@@ -160,7 +160,8 @@
         var userEmail = '';
         var userInfoProvided = false;
 
-        if (chatWithTeamBtn) chatWithTeamBtn.addEventListener('click', function(){ faqPanel.classList.add('hidden'); liveChatPanel.classList.remove('hidden'); });
+        // Temporarily disable live human chat UI
+        if (chatWithTeamBtn) chatWithTeamBtn.addEventListener('click', function(){ try{ console.log('Live chat temporarily disabled'); } catch(e){} });
         if (backToFaqBtn) backToFaqBtn.addEventListener('click', function(){ liveChatPanel.classList.add('hidden'); faqPanel.classList.remove('hidden'); });
         function hidePanelsShowToggle(){
           if (faqPanel) faqPanel.classList.add('hidden');
@@ -245,8 +246,15 @@
           }
           addMessageToChat(message, 'user');
           if (messageInput) messageInput.value = '';
-          sendToSlack(userName, userEmail, message);
-          showTypingIndicator();
+          // Route to Support Agent backend instead of Slack live chat
+          fetch(getApiBase() + '/support/search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: message, limit: 5 }) })
+            .then(function(){ return fetch(getApiBase() + '/support/suggest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: message }) }); })
+            .then(function(r){ return r.json().catch(function(){ return { suggestions: [] }; }); })
+            .then(function(body){
+              var tips = (body && body.suggestions || []).slice(0,2).map(function(s){ return '💡 ' + s.suggestion; }).join('\n');
+              addMessageToChat((tips ? tips : 'Thanks! If you want me to execute this, open REX chat.'), 'team');
+            })
+            .catch(function(){ addMessageToChat('Thanks! I captured that. Open the REX drawer if you want me to run it for you.', 'team'); });
         }
 
         if (sendMessageBtn) sendMessageBtn.addEventListener('click', sendMessage);
