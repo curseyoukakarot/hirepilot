@@ -172,35 +172,53 @@ export function useRexWidget(options?: UseRexWidgetOptions) {
     setLoading(true);
 
     try {
-      const resp = await fetch(`${API_BASE}/api/rex_widget/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-rex-anon-id': anonIdRef.current },
-        body: JSON.stringify({
-          threadId,
-          mode,
-          messages: [...messages, userMessage].slice(-15).map(m => ({ role: m.role, text: m.text })),
-          context: {
-            url: typeof window !== 'undefined' ? window.location.href : '',
-            pathname: typeof window !== 'undefined' ? window.location.pathname : '',
-            rb2b: (typeof window !== 'undefined' ? (window as any).rb2b : null) ?? null,
-          },
-        }),
-      });
-      const data = await resp.json().catch(() => null);
-      if (data?.state === 'live') {
-        setIsLive(true);
-        setLiveStatus('connected');
+      let assistantMessage: RexMessage;
+      if (mode === 'support') {
+        // Use the new Support Agent answer endpoint (explain-only + suggestions)
+        const resp = await fetch(`${API_BASE}/api/support/answer`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: trimmed })
+        });
+        const data = await resp.json().catch(() => ({ response: 'Thanks! I will get back to you shortly.', escalation: 'none' }));
+        assistantMessage = {
+          id: `a_${Date.now()}`,
+          role: 'assistant',
+          text: String(data?.response || 'Thanks! I will get back to you shortly.'),
+          ts: Date.now(),
+        };
+        setCta(null);
+      } else {
+        // Keep legacy sales flow for marketing
+        const resp = await fetch(`${API_BASE}/api/rex_widget/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-rex-anon-id': anonIdRef.current },
+          body: JSON.stringify({
+            threadId,
+            mode,
+            messages: [...messages, userMessage].slice(-15).map(m => ({ role: m.role, text: m.text })),
+            context: {
+              url: typeof window !== 'undefined' ? window.location.href : '',
+              pathname: typeof window !== 'undefined' ? window.location.pathname : '',
+              rb2b: (typeof window !== 'undefined' ? (window as any).rb2b : null) ?? null,
+            },
+          }),
+        });
+        const data = await resp.json().catch(() => null);
+        if (data?.state === 'live') {
+          setIsLive(true);
+          setLiveStatus('connected');
+        }
+        assistantMessage = {
+          id: `a_${Date.now()}`,
+          role: 'assistant',
+          text: data?.message?.text || data?.message?.content || 'Thanks! I will get back to you shortly.',
+          ts: Date.now(),
+          sources: data?.message?.sources || data?.sources || [],
+        };
+        setThreadId(data?.threadId || data?.thread_id || threadId);
+        setCta(data?.cta || null);
       }
-
-      const assistantMessage: RexMessage = {
-        id: `a_${Date.now()}`,
-        role: 'assistant',
-        text: data?.message?.text || data?.message?.content || 'Thanks! I will get back to you shortly.',
-        ts: Date.now(),
-        sources: data?.message?.sources || data?.sources || [],
-      };
-      setThreadId(data?.threadId || data?.thread_id || threadId);
-      setCta(data?.cta || null);
       setMessages(prev => {
         // replace typing placeholder with the real message
         const copy = [...prev];
