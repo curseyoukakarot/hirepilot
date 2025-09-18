@@ -50,7 +50,8 @@ async function sendViaSendGrid(lead: any, content: string, userId: string, templ
         .single();
       
       if (!templateError && template?.subject) {
-        subject = template.subject;
+        // Personalize subject with lead data (supports {{Candidate.*}} tokens)
+        subject = personalizeMessage(template.subject, lead);
       } else {
         console.log(`[sendViaSendGrid] Could not fetch template subject for ${templateId}, using fallback parsing`);
         // Fallback to parsing from content
@@ -199,7 +200,7 @@ async function sendViaGoogle(lead: any, content: string, userId: string, templat
         .single();
       
       if (!templateError && template?.subject) {
-        subject = template.subject;
+        subject = personalizeMessage(template.subject, lead);
       } else {
         console.log(`[sendViaGoogle] Could not fetch template subject for ${templateId}, using fallback parsing`);
         // Fallback to parsing from content
@@ -302,7 +303,7 @@ async function sendViaOutlook(lead: any, content: string, userId: string, templa
         .single();
       
       if (!templateError && template?.subject) {
-        subject = template.subject;
+        subject = personalizeMessage(template.subject, lead);
       } else {
         console.log(`[sendViaOutlook] Could not fetch template subject for ${templateId}, using fallback parsing`);
         // Fallback to parsing from content

@@ -64,6 +64,16 @@ export function personalizeMessage(template: string, lead: Lead): string {
     email: lead.email || ''
   } as Record<string, any>;
 
+  // Provide Candidate.* namespace for template compatibility (frontend uses {{Candidate.FirstName}} etc.)
+  augmented.Candidate = {
+    FirstName: augmented.first_name,
+    LastName: augmented.last_name,
+    Company: augmented.company,
+    Job: augmented.title,
+    Email: augmented.email,
+    LinkedIn: (lead as any)?.linkedin_url || (lead as any)?.linkedin || null
+  };
+
   // First pass: quick replacements for common variables (snake_case and camelCase)
   const commonKeys = [
     'first_name','last_name','full_name',

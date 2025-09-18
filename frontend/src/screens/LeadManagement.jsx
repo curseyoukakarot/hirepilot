@@ -707,6 +707,14 @@ function LeadManagement() {
       newMessages[lead.id] = personalizeTemplate(template.content, lead);
     });
     setBulkMessages(newMessages);
+    // Also prefill a preview subject per lead for any UI needs (not required for send)
+    try {
+      const previewSubjects = {};
+      (leads || []).filter(l => selectedLeadIds.includes(l.id)).forEach(lead => {
+        previewSubjects[lead.id] = personalizeTemplate(template.subject || '', lead);
+      });
+      setBulkSubjects?.(previewSubjects);
+    } catch {}
   };
 
   // Handle message edit for a lead
