@@ -18,8 +18,8 @@
   <body>
     <div id="root"></div>
     </div>
-    <!-- Live Chat Popup (replaces old FAQ popup) -->
-    <div id="rex-popup" class="fixed bottom-6 right-6 z-[70]" style="display: none;">
+    <!-- Live Chat Popup disabled while React RexWidget is active -->
+    <div id="rex-popup" class="fixed bottom-6 right-6 z-[70] hidden" style="display: none;">
       <!-- Sticky toggle pill to reopen popup -->
       <button id="rex-popup-toggle" class="px-4 py-2 rounded-full shadow-lg bg-white text-slate-800 border border-slate-200 hover:bg-slate-50 text-sm mb-3 hidden">
         💬 Chat with HirePilot
@@ -280,27 +280,8 @@
             .catch(function(){});
         }, 3000);
 
-        // Always enable the original popup globally (single surface)
-        function enablePopup() {
-          var host = document.getElementById('rex-popup');
-          if (!host) return;
-          host.style.display = 'block';
-          // Detect mobile and keep popup closed by default on small screens
-          var isMobile = false;
-          try { isMobile = (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) || /Mobi|Android/i.test(navigator.userAgent); } catch (_) {}
-          if (isMobile) {
-            if (faqPanel) faqPanel.classList.add('hidden');
-            if (liveChatPanel) liveChatPanel.classList.add('hidden');
-            if (popupToggle) popupToggle.classList.remove('hidden');
-          } else {
-            if (popupToggle) {
-              var anyOpen = faqPanel && !faqPanel.classList.contains('hidden');
-              if (!anyOpen) popupToggle.classList.remove('hidden');
-            }
-          }
-          try { if (typeof window.hideREXChatbot === 'function') window.hideREXChatbot(); } catch(_){}
-        }
-        enablePopup();
+        // Disable marketing popup (Option B) while Option A is active
+        (function(){ var host = document.getElementById('rex-popup'); if (host) { host.style.display = 'none'; host.classList.add('hidden'); } })();
       })();
     </script>
     <script>

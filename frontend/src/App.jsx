@@ -557,7 +557,16 @@ function InnerApp() {
           </Suspense>
         </main>
       </div>
-      {/* REX widget disabled to avoid overlapping with Support popup */}
+      {/* REX widget mounted (Option A) */}
+      {!(rexFlags.producthunt && rexFlags.popup && isAuthPage) && (
+        <RexWidget
+          mode={isAuthPage ? 'sales' : 'support'}
+          config={{
+            demoUrl: (import.meta?.env && import.meta.env.VITE_DEMO_URL) || undefined,
+            calendlyUrl: (import.meta?.env && import.meta.env.VITE_CALENDLY_URL) || undefined,
+          }}
+        />
+      )}
       {/* Promo banner: show on all public pages and blog landing (exclude blog articles) */}
       {isAuthPage && !location.pathname.startsWith('/blog/') && (
         <PromoBanner show={true} />
