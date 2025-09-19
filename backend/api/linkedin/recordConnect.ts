@@ -40,6 +40,22 @@ export default async function recordConnect(req: ApiRequest, res: Response) {
       .eq('user_id', userId);
     if (deductErr) return res.status(500).json({ error: deductErr.message || 'Failed to deduct credits' });
 
+    // Log credit usage so it appears in Recent Usage
+    try {
+      await supabaseDb
+        .from('credit_usage_log')
+        .insert({
+          user_id: userId,
+          amount: -creditCost,
+          type: 'debit',
+          usage_type: 'api_usage',
+          description: 'LinkedIn connection request'
+        });
+    } catch (logErr) {
+      // Non-fatal
+      console.warn('[record-connect] credit usage log failed:', logErr);
+    }
+
     // Increment daily invite stats (stored procedure available in migrations)
     try {
       await supabaseDb.rpc('update_daily_invite_stats', { p_user_id: userId, p_increment_count: 1, p_was_successful: true });

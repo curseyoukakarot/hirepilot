@@ -146,6 +146,21 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           args: [msg.message],
           world: 'MAIN'
         });
+        // On success, record credit usage in backend
+        if (result && result.ok) {
+          try {
+            const apiBase = await getApiBase();
+            const { hp_jwt } = await chrome.storage.local.get('hp_jwt');
+            if (hp_jwt && apiBase) {
+              await fetch(`${apiBase.replace(/\/api$/, '')}/api/linkedin/record-connect`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${hp_jwt}` }
+              });
+            }
+          } catch (e) {
+            console.warn('[HirePilot Background] record-connect failed:', e);
+          }
+        }
         sendResponse(result || { error: 'No result from injected connect' });
       } catch (e) {
         // As a fallback, try messaging the content script
