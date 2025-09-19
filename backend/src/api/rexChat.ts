@@ -250,71 +250,68 @@ CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` :
       // Do not fail chat on persistence errors
     }
 
-    // If tool call requested
-    let call = completion.choices[0].message.tool_calls?.[0] as any;
-    if (call) {
-      // OpenAI returns { id, function: { name, arguments } }
-      const toolName: string | undefined = call.function?.name || call.name;
-      if (!toolName) throw new Error('Tool name missing in tool_call');
-
-      let args: any = {};
-      try {
-        args = call.function?.arguments ? JSON.parse(call.function.arguments) : call.arguments;
-      } catch (_) {
-        // If arguments not valid JSON, keep raw string
-        args = call.function?.arguments || call.arguments;
-      }
-
-      // If user explicitly asked to "create a new campaign", force a new campaign id (avoid 'latest' reuse)
-      try {
-        // ALWAYS create a fresh campaign for REX sourcing to avoid confusion with dedupe and reuse
-        if (toolName === 'source_leads') {
-          const lastUserMsg = [...(messages || [])].reverse().find(m => m.role === 'user');
-          const titleGuess = (String(lastUserMsg?.content || '').match(/find\s+\d+\s+(.+?)\s+in/i)?.[1] || 'Sourcing Campaign').slice(0,80);
-          try {
-            const { data: newCamp, error: newErr } = await supabase
-              .from('sourcing_campaigns')
-              .insert({ title: titleGuess, created_by: userId, audience_tag: 'rex' })
-              .select('id')
-              .single();
-            if (newErr) throw newErr;
-            args.campaignId = newCamp.id;
-            await supabase
-              .from('rex_user_context')
-              .upsert({ supabase_user_id: userId, latest_campaign_id: newCamp.id }, { onConflict: 'supabase_user_id' });
-          } catch {
-            args.campaignId = `new_${Date.now()}`;
-          }
-        }
-      } catch {}
-
+    // If tool calls were requested, process ALL of them to satisfy the API contract
+    const toolCalls = completion.choices[0].message.tool_calls as any[] | undefined;
+    if (toolCalls && toolCalls.length > 0) {
       const { server: rexServer } = await import('../rex/server');
       const capabilities = rexServer.getCapabilities?.();
-      if (!capabilities?.tools?.[toolName]?.handler) {
-        throw new Error(`Tool handler not found for ${toolName}`);
+
+      for (const call of toolCalls) {
+        const toolName: string | undefined = call.function?.name || call.name;
+        if (!toolName) continue;
+        let args: any = {};
+        try {
+          args = call.function?.arguments ? JSON.parse(call.function.arguments) : call.arguments;
+        } catch {
+          args = call.function?.arguments || call.arguments;
+        }
+        // Force new campaign for sourcing
+        try {
+          if (toolName === 'source_leads') {
+            const lastUserMsg = [...(messages || [])].reverse().find(m => m.role === 'user');
+            const titleGuess = (String(lastUserMsg?.content || '').match(/find\s+\d+\s+(.+?)\s+in/i)?.[1] || 'Sourcing Campaign').slice(0,80);
+            try {
+              const { data: newCamp, error: newErr } = await supabase
+                .from('sourcing_campaigns')
+                .insert({ title: titleGuess, created_by: userId, audience_tag: 'rex' })
+                .select('id')
+                .single();
+              if (newErr) throw newErr;
+              args.campaignId = newCamp.id;
+              await supabase
+                .from('rex_user_context')
+                .upsert({ supabase_user_id: userId, latest_campaign_id: newCamp.id }, { onConflict: 'supabase_user_id' });
+            } catch {
+              args.campaignId = `new_${Date.now()}`;
+            }
+          }
+        } catch {}
+
+        if (!capabilities?.tools?.[toolName]?.handler) {
+          // Push an error tool response to satisfy API
+          messages.push(
+            assistantMessage as any,
+            { role:'tool', tool_call_id: call.id, name: toolName, content: JSON.stringify({ error:`Tool handler not found for ${toolName}` }) } as any
+          );
+          continue;
+        }
+
+        let toolResult: any = null;
+        try {
+          toolResult = await withTimeout(capabilities.tools[toolName].handler(args), 45000);
+        } catch (toolErr: any) {
+          console.error('[rexChat] tool error', toolName, toolErr?.message || toolErr);
+          toolResult = { error: String(toolErr?.message || toolErr) };
+        }
+        lastToolResult = toolResult;
+        executedSourcing = executedSourcing || ['source_leads','filter_leads'].includes(toolName);
+        messages.push(
+          assistantMessage as any,
+          { role:'tool', tool_call_id: call.id, name: toolName, content: JSON.stringify(toolResult) } as any
+        );
       }
 
-      let toolResult: any = null;
-      try {
-        toolResult = await withTimeout(capabilities.tools[toolName].handler(args), 45000);
-      } catch (toolErr: any) {
-        console.error('[rexChat] tool error', toolName, toolErr?.message || toolErr);
-        toolResult = { error: String(toolErr?.message || toolErr) };
-      }
-      lastToolResult = toolResult;
-      executedSourcing = ['source_leads','filter_leads'].includes(toolName);
-
-      // Feed the tool result back into the conversation
-      messages.push(
-        assistantMessage as any,
-        {
-          role: 'tool',
-          tool_call_id: call.id,
-          name: toolName,
-          content: JSON.stringify(toolResult)
-        } as any
-      );
-
+      // Now ask the model to respond after all tool results are included
       completion = await withTimeout(openai.chat.completions.create({ model: 'gpt-4o-mini', messages }), 30000);
       assistantMessage = completion.choices[0].message;
       // Persist the final assistant message (post-tools) only to the SAME conversation

@@ -7387,7 +7387,7 @@
   var bulkList = q("bulkList");
   var sendSelectedBtn = q("sendSelectedBtn");
   var bulkAutoToggle = q("bulkAutoToggle");
-  var API = "http://localhost:8080/api/linkedin/save-cookie";
+  var API = "https://api.thehirepilot.com/api/linkedin/save-cookie";
   var emailInput = q("email");
   var pwInput = q("pw");
   var userEmail = q("userEmail");
@@ -7420,7 +7420,7 @@
         const storage = await chrome.storage.local.get(['hp_jwt']);
         const jwt = storage.hp_jwt;
         if (!jwt) return;
-        const api = (window.HP_BACKEND || 'http://localhost:8080');
+        const api = (window.HP_BACKEND || 'https://api.thehirepilot.com');
         // Templates
         try {
           const tRes = await fetch(`${api}/api/email/templates`, { headers:{ 'Authorization':`Bearer ${jwt}` } });
@@ -7619,7 +7619,7 @@
       const storage = await chrome.storage.local.get(['hp_jwt']);
       const jwt = storage.hp_jwt;
       if (!jwt) { showStatus('Not logged in', true); return; }
-      const api = (window.HP_BACKEND || 'http://localhost:8080');
+      const api = (window.HP_BACKEND || 'https://api.thehirepilot.com');
       const profileUrl = (currentProfile && (currentProfile.profileUrl || currentProfile.linkedinUrl)) || '';
       // Create the lead using bulk-add (no campaign required)
       const addRes = await fetch(`${api}/api/leads/bulk-add`, { 
@@ -7739,7 +7739,7 @@
       };
       const subject = replaceTokens((window.__hp_current_email_subject || '').trim() || ' ');
       const body = replaceTokens(bodyRaw);
-      const api = (window.HP_BACKEND || 'http://localhost:8080');
+      const api = (window.HP_BACKEND || 'https://api.thehirepilot.com');
       const res = await fetch(`${api}/api/message/send`, { method:'POST', headers:{ 'Authorization':`Bearer ${jwt}`, 'Content-Type':'application/json' }, body: JSON.stringify({ to, subject, html: body.replace(/\n/g,'<br/>'), provider, template_data: { Candidate: { FirstName:firstName, LastName:lastName, Company:company, Job:title }, first_name:firstName, last_name:lastName, company, title } }) });
       if (!res.ok) throw new Error(await res.text());
       showStatus('Email Sent ✅', false);
@@ -7761,7 +7761,7 @@
   if (rexGenBtn) rexGenBtn.onclick = async ()=>{
     try {
       showStatus('Generating message with REX…', false);
-      const api = (window.HP_BACKEND || 'http://localhost:8080');
+      const api = (window.HP_BACKEND || 'https://api.thehirepilot.com');
       const storage = await chrome.storage.local.get(['hp_jwt','hp_user_id']);
       const jwt = storage.hp_jwt;
       const userId = storage.hp_user_id;

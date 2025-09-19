@@ -17,7 +17,7 @@ const uploadBtn = q('uploadBtn');
 const scrapeBtn = q('scrapeBtn');
 const logoutBtn = q('logoutBtn');
 
-const API   = 'http://localhost:8080/api/linkedin/save-cookie';
+const API   = 'https://api.thehirepilot.com/api/linkedin/save-cookie';
 
 const emailInput = q('email');
 const pwInput = q('pw');

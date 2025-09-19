@@ -1,9 +1,9 @@
-const API_BASE = 'http://localhost:8080/api';
+const API_BASE = 'https://api.thehirepilot.com/api';
 // Resolve backend API base dynamically so the extension works in prod and local
 const DEFAULT_API_BASES = [
   'https://api.thehirepilot.com/api',
-  'http://localhost:8080/api',
-  'http://127.0.0.1:8080/api'
+  'http://127.0.0.1:8080/api',
+  'http://localhost:8080/api'
 ];
 
 async function getApiBase() {

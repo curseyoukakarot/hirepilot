@@ -1328,57 +1328,9 @@ server.connect(new StdioServerTransport());
 console.log('✅ REX MCP server running on stdio');
 
 async function assertPremium(userId: string) {
-  // Determine role and plan from public.users
-  let role = '';
-  let plan: string | null = null;
-  try {
-    const { data } = await supabase
-      .from('users')
-      .select('role, plan')
-      .eq('id', userId)
-      .maybeSingle();
-    role = data?.role || '';
-    plan = (data as any)?.plan ?? null;
-  } catch (e) {
-    // Non-fatal; continue to integration/subscription checks
-  }
-
-  // Normalize role and enforce premium-only roles (exclude generic "member"/"user")
-  const roleLc = String(role || '').toLowerCase();
-  const allowedRoles = new Set([
-    'recruitpro', 'recruiter', 'teamadmin', 'team_admin', 'superadmin', 'super_admin', 'admin'
-  ]);
-
-  // Check rex integration flag as a separate gate
-  let rexEnabled = false;
-  try {
-    const { data: integ } = await supabase
-      .from('integrations')
-      .select('status')
-      .eq('user_id', userId)
-      .eq('provider', 'rex')
-      .maybeSingle();
-    rexEnabled = ['enabled','connected','on','true'].includes(String(integ?.status || '').toLowerCase());
-  } catch {}
-
-  // Block free users: prefer public.users.plan; fallback to subscriptions
-  const normalizedPlan = String(plan || '').toLowerCase();
-  let isFree = normalizedPlan === 'free' || normalizedPlan === '';
-  if (!isFree) {
-    const { data: sub } = await supabase
-      .from('subscriptions')
-      .select('plan_tier')
-      .eq('user_id', userId)
-      .maybeSingle();
-    const subTier = String(sub?.plan_tier || '').toLowerCase();
-    // Treat missing subscription or explicit free tier as free
-    if (!subTier || subTier === 'free') isFree = true;
-  }
-  if (isFree) throw new Error('REX access restricted to paid plans.');
-
-  if (!(rexEnabled || allowedRoles.has(roleLc))) {
-    throw new Error('REX access restricted to premium plans.');
-  }
+  // Temporary override: allow all users and plans to use REX features.
+  // If you want to re-enable gating later, restore the previous checks.
+  return;
 }
 
 export { server }; 
