@@ -122,6 +122,7 @@ import { salesSendWorker } from './src/workers/sales.send.worker';
 import { salesSweepWorker } from './src/workers/sales.sweep.worker';
 import sendLiveChatFallbacksRouter from './cron/sendLiveChatFallbacks';
 import chatRoutes from './src/routes/chatRoutes';
+import { freeForeverWorker } from './jobs/freeForeverCadence';
 
 declare module 'express-list-endpoints';
 
@@ -376,6 +377,8 @@ app.use('/api/payouts', requireAuth as any, payoutsRouter);
   void salesInboundWorker;
   void salesSendWorker;
   void salesSweepWorker;
+  // Boot Free Forever cadence worker
+  void freeForeverWorker;
 
 // Public API routes (no authentication required)
 app.get('/api/public/jobs/:id', require('./api/public/jobs/[id]').default);

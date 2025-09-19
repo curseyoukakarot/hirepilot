@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { supabaseDb } from '../../lib/supabase';
 import { notifySlack } from '../../lib/slack';
 import { CreditService } from '../../services/creditService';
+import { freeForeverQueue } from '../../jobs/freeForeverCadence';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2022-11-15' });
 
@@ -21,7 +22,7 @@ export default async function userCreatedWebhook(req: Request, res: Response) {
     return res.status(401).json({ error: 'Invalid token' });
   }
 
-  const { id: user_id, email } = req.body?.record || {};
+  const { id: user_id, email, raw_user_meta_data } = req.body?.record || {};
   if (!user_id || !email) return res.status(400).json({ error: 'Invalid payload' });
 
   try {
@@ -81,6 +82,20 @@ export default async function userCreatedWebhook(req: Request, res: Response) {
 
     // seed trial_emails row
     await supabaseDb.from('trial_emails').upsert({ user_id }, { onConflict: 'user_id' });
+
+    // Queue Free Forever cadence (best-effort) only for free plan users
+    try {
+      const { data: planRow } = await supabaseDb
+        .from('users')
+        .select('plan')
+        .eq('id', user_id)
+        .single();
+      const plan = String(planRow?.plan || '').toLowerCase();
+      if (plan === 'free' || plan === '') {
+        const first_name = (raw_user_meta_data?.first_name || '').trim();
+        await freeForeverQueue.add('step-0', { email, first_name, step: 0 });
+      }
+    } catch {}
 
     return res.json({ ok: true });
   } catch (err:any) {

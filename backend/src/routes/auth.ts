@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { supabase } from '../lib/supabase';
 import { sendSignupWelcomeEmail } from '../../services/sendUserHtmlEmail';
+import { freeForeverQueue } from '../../jobs/freeForeverCadence';
 
 const router = Router();
 
@@ -57,6 +58,12 @@ router.post('/signup', async (req, res) => {
         await supabase
           .from('trial_emails')
           .upsert({ user_id: userId }, { onConflict: 'user_id' });
+      } catch {}
+
+      // Queue Free Forever email cadence (best-effort)
+      try {
+        const firstName = (first_name || (metadata && metadata.first_name)) || '';
+        await freeForeverQueue.add('step-0', { email: userEmail, first_name: firstName, step: 0 });
       } catch {}
     }
 
