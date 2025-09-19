@@ -93,16 +93,17 @@ export async function addLeads(campaignId: string, leads: any[], options?: { sou
     console.warn('[sourcing.addLeads] non-fatal activation error:', e);
   }
 
-  // Optional: deduct credits if these leads originated from Apollo via REX
+  // Optional: deduct credits if these leads originated from Apollo via REX or campaign wizard
   try {
     if (options?.source === 'apollo' && options?.userId) {
       const { CreditService } = await import('../../services/creditService');
-      await CreditService.useCreditsEffective(options.userId, payload.length);
+      // Charge 2 credits per lead for Apollo-sourced leads
+      await CreditService.useCreditsEffective(options.userId, payload.length * 2);
       await CreditService.logCreditUsage(
         options.userId,
-        payload.length,
+        payload.length * 2,
         'api_usage',
-        `REX Apollo import: ${payload.length} leads added to sourcing campaign ${campaignId}`
+        `Apollo import: ${payload.length} leads added to sourcing campaign ${campaignId} (2 credits/lead)`
       );
     }
   } catch (e) {

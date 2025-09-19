@@ -290,9 +290,9 @@ export async function sourceLeads({
       // 3) Deduct credits and log
       try {
         const { CreditService } = await import('../services/creditService');
-        // 3 credits per lead for Apollo house account sourcing
-        const totalCost = normalizedLeads.length * 3;
-        await CreditService.deductCredits(userId, totalCost, 'api_usage', `REX sourcing (Apollo): ${normalizedLeads.length} leads → ${totalCost} credits`);
+        // 2 credits per lead for Apollo house account sourcing
+        const totalCost = normalizedLeads.length * 2;
+        await CreditService.deductCredits(userId, totalCost, 'api_usage', `REX sourcing (Apollo): ${normalizedLeads.length} leads → ${totalCost} credits (2 per lead)`);
       } catch (creditErr) {
         console.error('[sourceLeads] credit deduction failed (non-fatal):', creditErr);
       }
@@ -2331,7 +2331,7 @@ export async function linkedin_connect({
       throw new Error(`Failed to check daily limit: ${countError.message}`);
     }
 
-    const DAILY_LIMIT = 10;
+    const DAILY_LIMIT = 20;
     const remainingRequests = DAILY_LIMIT - (dailyCount || 0);
     
     if (linkedin_urls.length > remainingRequests) {

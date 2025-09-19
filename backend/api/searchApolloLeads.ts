@@ -129,7 +129,8 @@ export default async function searchApolloLeads(req: Request, res: Response) {
     try {
       if (isRecruitPro && leads.length) {
         const { CreditService } = await import('../services/creditService');
-        await CreditService.deductCredits(user_id, leads.length, 'api_usage', `Apollo search pulled ${leads.length} leads`);
+        const totalCost = leads.length * 2; // 2 credits per lead
+        await CreditService.deductCredits(user_id, totalCost, 'api_usage', `Apollo search pulled ${leads.length} leads (2 credits/lead)`);
       }
     } catch (deductErr) {
       console.warn('Credit deduction failed:', deductErr);

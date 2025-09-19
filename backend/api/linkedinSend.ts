@@ -49,7 +49,7 @@ export default async function handler(req: Request, res: Response) {
       return res.status(500).json({ error: 'Failed to check daily limit' });
     }
 
-    const DAILY_LIMIT = 10;
+    const DAILY_LIMIT = 20;
     if (dailyCount >= DAILY_LIMIT) {
       return res.status(429).json({ 
         error: `Daily limit of ${DAILY_LIMIT} LinkedIn requests reached. Try again tomorrow.` 
@@ -78,7 +78,7 @@ export default async function handler(req: Request, res: Response) {
     }
 
     // Check user credits before queuing
-    const creditCost = 20;
+    const creditCost = 5;
     const { data: userCredits, error: creditsError } = await supabase
       .from('user_credits')
       .select('used_credits, remaining_credits')

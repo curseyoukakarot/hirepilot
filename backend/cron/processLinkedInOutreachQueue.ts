@@ -9,7 +9,7 @@ const supabase = createClient(
 );
 
 const ZAPIER_WEBHOOK_URL = process.env.ZAPIER_LINKEDIN_WEBHOOK_URL2 || "https://hooks.zapier.com/hooks/catch/18279230/u2qdg1l/";
-const DAILY_LIMIT = 10;
+const DAILY_LIMIT = 20;
 
 // Cookie decryption (matches linkedinSaveCookie.ts)
 const ENCRYPTION_KEY = process.env.COOKIE_ENCRYPTION_KEY?.slice(0, 32) || 'default_key_32_bytes_long_123456';

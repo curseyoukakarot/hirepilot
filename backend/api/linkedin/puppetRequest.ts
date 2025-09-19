@@ -198,8 +198,8 @@ export default async function puppetLinkedInRequestHandler(req: Request, res: Re
       });
     }
 
-    // Check user credits before queuing - Using 10 credits for premium automation feature
-    const creditCost = 10;
+    // Check user credits before queuing - 5 credits per LinkedIn connection request
+    const creditCost = 5;
     const { data: userCredits, error: creditsError } = await supabase
       .from('user_credits')
       .select('used_credits, remaining_credits')
