@@ -878,12 +878,12 @@ server.registerCapabilities({
 
         // Credit check: 1 credit per email
         const totalCreditsNeeded = list.length;
-        const { CreditService } = await import('../services/creditService');
-        const ok = await CreditService.hasSufficientCredits(userId, totalCreditsNeeded);
-        if (!ok) throw new Error(`Insufficient credits. Need ${totalCreditsNeeded}.`);
+        const { deductCredits } = await import('../services/creditService');
+        const current = await deductCredits(userId, 0, true);
+        if (Number(current || 0) < totalCreditsNeeded) throw new Error(`Insufficient credits. Need ${totalCreditsNeeded}.`);
 
         // Queue messages via existing scheduler flow
-        const { messageScheduler } = await import('../workers/messageScheduler');
+        const { messageScheduler } = await import('../../workers/messageScheduler');
         const when = scheduled_for ? new Date(scheduled_for) : new Date();
         for (const L of list) {
           const subject = personalizeMessage(tpl.subject || 'Message', L);
@@ -899,7 +899,7 @@ server.registerCapabilities({
           });
         }
 
-        await CreditService.deductCredits(userId, totalCreditsNeeded, 'api_usage', `Campaign ${campaign_id} bulk email via template '${template_name}'`);
+        await deductCredits(userId, totalCreditsNeeded);
         return { queued: list.length, scheduled_for: when.toISOString() };
       }
     },
