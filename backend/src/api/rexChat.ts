@@ -159,6 +159,13 @@ export default async function rexChat(req: Request, res: Response) {
       { type:'function',function:{name:'move_candidate_to_stage',parameters:{ type:'object', properties:{ userId:{type:'string'}, candidate:{type:'string'}, stage:{type:'string'}, jobId:{type:'string'} }, required:['userId','candidate','stage']}}},
       { type:'function',function:{name:'move_candidate',parameters:{ type:'object', properties:{ userId:{type:'string'}, candidateId:{type:'string'}, newStage:{type:'string'} }, required:['userId','candidateId','newStage']}}},
       { type:'function',function:{name:'update_candidate_notes',parameters:{ type:'object', properties:{ userId:{type:'string'}, candidateId:{type:'string'}, note:{type:'string'}, author:{type:'string'} }, required:['userId','candidateId','note','author']}}},
+      // Bulk campaign email helpers
+      { type:'function', function:{ name:'preview_campaign_email', parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'}, template_name:{type:'string'} }, required:['userId','campaign_id','template_name'] } } },
+      { type:'function', function:{ name:'send_campaign_email_by_template_name', parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'}, template_name:{type:'string'}, scheduled_for:{type:'string', optional:true}, channel:{type:'string', optional:true} }, required:['userId','campaign_id','template_name'] } } },
+      // Sequence enrollment by name
+      { type:'function', function:{ name:'enroll_campaign_in_sequence_by_name', parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'}, sequence_name:{type:'string'}, start_time_local:{type:'string'}, timezone:{type:'string'}, provider:{type:'string'} }, required:['userId','campaign_id','sequence_name'] } } },
+      // Create a sequence from a template + delays then enroll
+      { type:'function', function:{ name:'create_sequence_from_template_and_enroll', parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'}, template_name:{type:'string'}, delays_business_days:{type:'array'}, timezone:{type:'string'}, start_time_local:{type:'string'}, provider:{type:'string'} }, required:['userId','campaign_id','template_name','delays_business_days'] } } },
       // Sniper tools (temporarily disabled)
       // { type:'function', function:{ name:'sniper_collect_post', parameters:{ type:'object', properties:{ userId:{type:'string'}, post_url:{type:'string'}, limit:{type:'number'} }, required:['userId','post_url'] } } },
       // { type:'function', function:{ name:'sniper_poll_leads', parameters:{ type:'object', properties:{ userId:{type:'string'}, target_id:{type:'string'}, campaign_id:{type:'string'}, limit:{type:'number'}, cursor:{type:'string'} }, required:['userId'] } } }
@@ -205,6 +212,12 @@ Be concise. Do not output generic plans when a tool can fulfill the request.
 Note: If 'linkedin' is chosen and it is not available, clearly state that LinkedIn sourcing is queued and offer to proceed with Apollo.
 If the user asks to "go to this LinkedIn post" or to "pull everyone who liked/commented on a post" and provides a LinkedIn post URL, call the tool 'sniper_collect_post' with { userId, post_url: <url>, limit: 0 }. Do not send outreach; simply return queued status (target_id, campaign_id) and ETA.
 If the user says "poll sniper <target_id>" or asks to check results for a target/campaign, call 'sniper_poll_leads' with { userId, target_id: <uuid>, limit: 50 } and return leads plus last run status.
+When the user asks to email the newly sourced campaign using a named template, do this:
+1) If they ask for a preview, call 'preview_campaign_email' with { userId, campaign_id: '<latest or given>', template_name } and return the subject/body.
+2) If they confirm sending, call 'send_campaign_email_by_template_name' with { userId, campaign_id: '<latest or given>', template_name } and report how many were queued.
+Prefer using these bulk tools instead of single-lead tools when the intent is to email a whole campaign.
+If the user asks to send using a sequence template by name (e.g., "send with sequence XYZ every 2 business days"), resolve the sequence by name and call 'enroll_campaign_in_sequence_by_name' with { userId, campaign_id: '<latest or given>', sequence_name: 'XYZ', start_time_local: '<now or provided>', timezone: 'America/Chicago' }. The business-day spacing comes from the sequence steps; do not hardcode delays.
+If the user says "send using template <NAME>" but does not provide timing for steps, ask a single follow-up question to collect step timing (e.g., "When should step 1, 2, and 3 send? (e.g., 0,2,4 business days)"), then call 'create_sequence_from_template_and_enroll' with delays_business_days like [0,2,4].
 CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` : ''}`
     } as any;
 

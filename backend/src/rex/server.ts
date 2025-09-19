@@ -785,6 +785,194 @@ server.registerCapabilities({
         return await getEmailStatus({ emailId });
       }
     },
+    // === Sequence enrollment by sequence name (natural language) ===
+    enroll_campaign_in_sequence_by_name: {
+      parameters: {
+        userId: { type: 'string' },
+        campaign_id: { type: 'string' },
+        sequence_name: { type: 'string' },
+        start_time_local: { type: 'string', optional: true },
+        timezone: { type: 'string', optional: true },
+        provider: { type: 'string', optional: true }
+      },
+      handler: async ({ userId, campaign_id, sequence_name, start_time_local, timezone, provider }) => {
+        // 1) Resolve sequence by name (case-insensitive)
+        const { data: seq } = await supabase
+          .from('message_sequences')
+          .select('id, name')
+          .eq('owner_user_id', userId)
+          .ilike('name', sequence_name)
+          .maybeSingle();
+        if (!seq) throw new Error(`Sequence '${sequence_name}' not found`);
+
+        // 2) Gather lead ids from campaign (only with emails)
+        const { data: leads, error } = await supabase
+          .from('leads')
+          .select('id, email')
+          .eq('campaign_id', campaign_id)
+          .not('email', 'is', null)
+          .neq('email', '')
+          .limit(5000);
+        if (error) throw new Error(error.message);
+        const leadIds = (leads || []).map((l:any)=> l.id);
+        if (leadIds.length === 0) throw new Error('No leads with email in this campaign');
+
+        // 3) Enroll via HTTP API (leverages existing scheduling logic and business-day handling)
+        const body = {
+          leadIds,
+          startTimeLocal: start_time_local || new Date().toISOString(),
+          timezone: timezone || 'America/Chicago',
+          ...(provider ? { provider } : {})
+        };
+        const resp = await api(`/api/sequences/${seq.id}/enroll`, { method: 'POST', body: JSON.stringify(body) });
+        return { sequence_id: seq.id, enrolled: resp.enrolled, skipped: resp.skipped, first_send_at: resp.first_send_at };
+      }
+    },
+    // === Campaign bulk email helpers ===
+    preview_campaign_email: {
+      parameters: { userId:{type:'string'}, campaign_id:{type:'string'}, template_name:{type:'string'} },
+      handler: async ({ userId, campaign_id, template_name }) => {
+        const { data: tpl } = await supabase
+          .from('email_templates')
+          .select('id,name,subject,content')
+          .eq('user_id', userId)
+          .ilike('name', template_name)
+          .maybeSingle();
+        if (!tpl) throw new Error(`Template '${template_name}' not found`);
+        // Use first lead in campaign to personalize preview
+        const { data: lead } = await supabase
+          .from('leads')
+          .select('*')
+          .eq('campaign_id', campaign_id)
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        const subject = personalizeMessage(tpl.subject || '', lead || {});
+        const body = personalizeMessage(tpl.content || '', lead || {});
+        return { subject, body_preview: body };
+      }
+    },
+    send_campaign_email_by_template_name: {
+      parameters: { userId:{type:'string'}, campaign_id:{type:'string'}, template_name:{type:'string'}, scheduled_for:{type:'string', optional:true}, channel:{type:'string', optional:true} },
+      handler: async ({ userId, campaign_id, template_name, scheduled_for, channel }) => {
+        // Resolve template
+        const { data: tpl } = await supabase
+          .from('email_templates')
+          .select('id,name,subject,content')
+          .eq('user_id', userId)
+          .ilike('name', template_name)
+          .maybeSingle();
+        if (!tpl) throw new Error(`Template '${template_name}' not found`);
+
+        // Select leads for the campaign
+        const { data: leads, error } = await supabase
+          .from('leads')
+          .select('id,email,first_name,last_name,company')
+          .eq('campaign_id', campaign_id)
+          .not('email', 'is', null)
+          .neq('email', '')
+          .limit(1000);
+        if (error) throw new Error(error.message);
+        const list = leads || [];
+        if (list.length === 0) throw new Error('No leads with emails in this campaign');
+
+        // Credit check: 1 credit per email
+        const totalCreditsNeeded = list.length;
+        const { CreditService } = await import('../services/creditService');
+        const ok = await CreditService.hasSufficientCredits(userId, totalCreditsNeeded);
+        if (!ok) throw new Error(`Insufficient credits. Need ${totalCreditsNeeded}.`);
+
+        // Queue messages via existing scheduler flow
+        const { messageScheduler } = await import('../workers/messageScheduler');
+        const when = scheduled_for ? new Date(scheduled_for) : new Date();
+        for (const L of list) {
+          const subject = personalizeMessage(tpl.subject || 'Message', L);
+          const html = personalizeMessage(tpl.content || '', L).replace(/\n/g, '<br/>');
+          await messageScheduler.queueOne({
+            userId,
+            to: L.email,
+            subject,
+            html,
+            leadId: L.id,
+            provider: (channel as any) || undefined,
+            scheduledFor: when
+          });
+        }
+
+        await CreditService.deductCredits(userId, totalCreditsNeeded, 'api_usage', `Campaign ${campaign_id} bulk email via template '${template_name}'`);
+        return { queued: list.length, scheduled_for: when.toISOString() };
+      }
+    },
+    create_sequence_from_template_and_enroll: {
+      parameters: {
+        userId: { type:'string' },
+        campaign_id: { type:'string' },
+        template_name: { type:'string' },
+        delays_business_days: { type:'array' },
+        timezone: { type:'string', optional:true },
+        start_time_local: { type:'string', optional:true },
+        provider: { type:'string', optional:true }
+      },
+      handler: async ({ userId, campaign_id, template_name, delays_business_days, timezone, start_time_local, provider }) => {
+        if (!Array.isArray(delays_business_days) || delays_business_days.length === 0) {
+          throw new Error('delays_business_days must be a non-empty array like [0,2,4]');
+        }
+        // 1) Resolve template
+        const { data: tpl } = await supabase
+          .from('email_templates')
+          .select('id,name,subject,content')
+          .eq('user_id', userId)
+          .ilike('name', template_name)
+          .maybeSingle();
+        if (!tpl) throw new Error(`Template '${template_name}' not found`);
+
+        // 2) Create sequence
+        const seqName = `REX • ${tpl.name} • ${new Date().toISOString().slice(0,10)}`;
+        const { data: seq, error: seqErr } = await supabase
+          .from('message_sequences')
+          .insert({ name: seqName, description: `Auto-created from template '${tpl.name}'`, owner_user_id: userId, stop_on_reply: true })
+          .select('id')
+          .single();
+        if (seqErr) throw new Error(seqErr.message);
+
+        // 3) Create steps based on delays
+        const stepsRows = delays_business_days.map((d: number, idx: number) => ({
+          sequence_id: seq.id,
+          step_order: idx + 1,
+          subject: idx === 0 ? (tpl.subject || 'Message') : (tpl.subject || 'Message'),
+          body: tpl.content || '',
+          delay_days: Number(d) || 0,
+          delay_hours: 0,
+          send_only_business_days: true
+        }));
+        const { error: stepsErr } = await supabase
+          .from('message_sequence_steps')
+          .insert(stepsRows);
+        if (stepsErr) throw new Error(stepsErr.message);
+
+        // 4) Fetch campaign leads (emails only)
+        const { data: leads, error: leadsErr } = await supabase
+          .from('leads')
+          .select('id,email')
+          .eq('campaign_id', campaign_id)
+          .not('email', 'is', null)
+          .neq('email', '')
+          .limit(5000);
+        if (leadsErr) throw new Error(leadsErr.message);
+        const leadIds = (leads || []).map((l:any)=> l.id);
+        if (leadIds.length === 0) throw new Error('No leads with email in this campaign');
+
+        // 5) Enroll
+        const body = {
+          leadIds,
+          startTimeLocal: start_time_local || new Date().toISOString(),
+          timezone: timezone || 'America/Chicago',
+          ...(provider ? { provider } : {})
+        };
+        const resp = await api(`/api/sequences/${seq.id}/enroll`, { method: 'POST', body: JSON.stringify(body) });
+        return { sequence_id: seq.id, enrolled: resp.enrolled, skipped: resp.skipped, first_send_at: resp.first_send_at };
+      }
+    },
     // ----------------- Newly added dynamic REX tools -----------------
     source_leads: {
       parameters: {
