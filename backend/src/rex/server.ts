@@ -1349,6 +1349,28 @@ server.registerCapabilities({
         return await api(url, { method: 'GET' });
       }
     },
+    // Control campaigns from REX
+    sourcing_pause_campaign: {
+      parameters: { userId:{type:'string'}, campaign_id:{type:'string'} },
+      handler: async ({ userId, campaign_id }) => {
+        await api(`/api/sourcing/campaigns/${campaign_id}/pause`, { method:'POST' });
+        return { ok:true };
+      }
+    },
+    sourcing_resume_campaign: {
+      parameters: { userId:{type:'string'}, campaign_id:{type:'string'} },
+      handler: async ({ userId, campaign_id }) => {
+        await api(`/api/sourcing/campaigns/${campaign_id}/resume`, { method:'POST' });
+        return { ok:true };
+      }
+    },
+    sourcing_cancel_campaign: {
+      parameters: { userId:{type:'string'}, campaign_id:{type:'string'} },
+      handler: async ({ userId, campaign_id }) => {
+        await api(`/api/sourcing/campaigns/${campaign_id}/cancel`, { method:'POST' });
+        return { ok:true };
+      }
+    },
     sourcing_get_senders: {
       parameters: { userId: {type:'string'} },
       handler: async ({ userId }) => {

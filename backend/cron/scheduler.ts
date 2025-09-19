@@ -1,6 +1,7 @@
 import { resetStuckPhantoms } from './resetStuckPhantoms';
 import { monitorCampaignExecutions } from './monitorCampaignExecutions';
 import { supabaseDb } from '../lib/supabase';
+import { notifySlack } from '../lib/slack';
 import { personalizeMessage } from '../utils/messageUtils';
 import { DateTime } from 'luxon';
 
@@ -312,6 +313,53 @@ export function startCronJobs() {
     await processPhantomJobQueue();
     await processScheduledMessages();
     await processSequenceStepRuns();
+    // Weekly campaign performance digest (runs once per day; digest logic checks last sent time)
+    try {
+      const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const { data: campaigns } = await supabaseDb
+        .from('sourcing_campaigns')
+        .select('id,title,created_by');
+      for (const c of campaigns || []) {
+        try {
+          // Basic metrics from email_events
+          const { count: sent } = await supabaseDb
+            .from('email_events')
+            .select('id', { count: 'exact', head: true })
+            .eq('campaign_id', c.id)
+            .eq('event_type', 'sent')
+            .gte('created_at', oneWeekAgo.toISOString());
+          const { count: replies } = await supabaseDb
+            .from('email_events')
+            .select('id', { count: 'exact', head: true })
+            .eq('campaign_id', c.id)
+            .eq('event_type', 'reply')
+            .gte('created_at', oneWeekAgo.toISOString());
+          // Meetings booked: placeholder - count messages tagged calendar_scheduled
+          const { count: meetings } = await supabaseDb
+            .from('email_events')
+            .select('id', { count: 'exact', head: true })
+            .eq('campaign_id', c.id)
+            .eq('event_type', 'calendar_scheduled')
+            .gte('created_at', oneWeekAgo.toISOString());
+
+          // Avoid duplicate digests: store last_digest_at in campaign
+          const { data: meta } = await supabaseDb
+            .from('sourcing_campaigns')
+            .select('last_digest_at')
+            .eq('id', c.id)
+            .maybeSingle();
+          const lastDigest = meta?.last_digest_at ? new Date(meta.last_digest_at) : null;
+          const sevenDays = 7 * 24 * 60 * 60 * 1000;
+          if (!lastDigest || Date.now() - lastDigest.getTime() > sevenDays) {
+            await notifySlack(`📊 Weekly update: *${c.title}*\nSent: ${Number(sent || 0)} • Replies: ${Number(replies || 0)} • Meetings: ${Number(meetings || 0)}\nReply here or use /rex to adjust next week.`);
+            await supabaseDb
+              .from('sourcing_campaigns')
+              .update({ last_digest_at: new Date().toISOString() })
+              .eq('id', c.id);
+          }
+        } catch {}
+      }
+    } catch {}
     // Weekly REX check-in: once a week per user
     try {
       const { supabaseDb } = require('../lib/supabase');

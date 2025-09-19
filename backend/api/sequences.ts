@@ -3,6 +3,7 @@ import { DateTime } from 'luxon';
 import { requireAuth } from '../middleware/authMiddleware';
 import { ApiRequest } from '../types/api';
 import { supabaseDb } from '../lib/supabase';
+import { notifySlack } from '../lib/slack';
 import { personalizeMessage } from '../utils/messageUtils';
 
 const router = Router();
@@ -437,6 +438,28 @@ router.post('/sequences/:id/enroll', requireAuth, async (req: ApiRequest, res) =
     if (toInsertRuns.length) {
       const { error: runsErr } = await supabaseDb.from('sequence_step_runs').insert(toInsertRuns);
       if (runsErr) throw runsErr;
+    }
+
+    try {
+      // Slack notify on launch
+      // Derive campaign from first valid lead
+      let campaignName = 'Campaign';
+      let campaignId: string | null = null;
+      try {
+        const firstLeadId = (leadIds || [])[0];
+        if (firstLeadId) {
+          const { data: lrow } = await supabaseDb.from('leads').select('campaign_id').eq('id', firstLeadId).maybeSingle();
+          campaignId = (lrow as any)?.campaign_id || null;
+          if (campaignId) {
+            const { data: crow } = await supabaseDb.from('sourcing_campaigns').select('title').eq('id', campaignId).maybeSingle();
+            campaignName = (crow as any)?.title || campaignName;
+          }
+        }
+      } catch {}
+      const firstTime = baseUtc.toISO();
+      await notifySlack(`📣 Sequence launched: *${campaignName}*${campaignId ? ` (${campaignId})` : ''}\nEnrolled ${leadIds.length - skippedCount} leads • First send: ${firstTime}`);
+    } catch (e) {
+      console.warn('[sequences/enroll] Slack notify failed', e);
     }
 
     res.status(201).json({ enrolled: leadIds.length - skippedCount, skipped: skippedCount, first_send_at: baseUtc.toISO() });

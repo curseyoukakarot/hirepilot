@@ -166,6 +166,10 @@ export default async function rexChat(req: Request, res: Response) {
       { type:'function', function:{ name:'enroll_campaign_in_sequence_by_name', parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'}, sequence_name:{type:'string'}, start_time_local:{type:'string'}, timezone:{type:'string'}, provider:{type:'string'} }, required:['userId','campaign_id','sequence_name'] } } },
       // Create a sequence from a template + delays then enroll
       { type:'function', function:{ name:'create_sequence_from_template_and_enroll', parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'}, template_name:{type:'string'}, delays_business_days:{type:'array'}, timezone:{type:'string'}, start_time_local:{type:'string'}, provider:{type:'string'} }, required:['userId','campaign_id','template_name','delays_business_days'] } } },
+      // Campaign controls
+      { type:'function', function:{ name:'sourcing_pause_campaign', parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'} }, required:['userId','campaign_id'] } } },
+      { type:'function', function:{ name:'sourcing_resume_campaign', parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'} }, required:['userId','campaign_id'] } } },
+      { type:'function', function:{ name:'sourcing_cancel_campaign', parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'} }, required:['userId','campaign_id'] } } },
       // Sniper tools (temporarily disabled)
       // { type:'function', function:{ name:'sniper_collect_post', parameters:{ type:'object', properties:{ userId:{type:'string'}, post_url:{type:'string'}, limit:{type:'number'} }, required:['userId','post_url'] } } },
       // { type:'function', function:{ name:'sniper_poll_leads', parameters:{ type:'object', properties:{ userId:{type:'string'}, target_id:{type:'string'}, campaign_id:{type:'string'}, limit:{type:'number'}, cursor:{type:'string'} }, required:['userId'] } } }
