@@ -888,15 +888,17 @@ server.registerCapabilities({
         for (const L of list) {
           const subject = personalizeMessage(tpl.subject || 'Message', L);
           const html = personalizeMessage(tpl.content || '', L).replace(/\n/g, '<br/>');
-          await messageScheduler.queueOne({
-            userId,
-            to: L.email,
-            subject,
-            html,
-            leadId: L.id,
-            provider: (channel as any) || undefined,
-            scheduledFor: when
-          });
+          await supabase
+            .from('scheduled_messages')
+            .insert({
+              user_id: userId,
+              lead_id: L.id,
+              content: html,
+              template_id: null,
+              channel: (channel as any) || 'sendgrid',
+              scheduled_for: when.toISOString(),
+              status: 'scheduled'
+            });
         }
 
         await deductCredits(userId, totalCreditsNeeded);
