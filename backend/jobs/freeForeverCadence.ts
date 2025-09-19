@@ -8,7 +8,10 @@ dayjs.extend(businessDays as any);
 
 const redisUrl = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
 const connection = new IORedis(redisUrl, {
-  maxRetriesPerRequest: null,
+  // Avoid long blocking retries in web process
+  lazyConnect: true,
+  connectTimeout: 2000,
+  maxRetriesPerRequest: 2,
   enableReadyCheck: true,
   tls: redisUrl.startsWith('rediss://') ? { rejectUnauthorized: false } : undefined
 });
@@ -21,27 +24,33 @@ export interface FreeForeverJobData {
 
 export const freeForeverQueue = new Queue<FreeForeverJobData>('free-forever-cadence', { connection });
 
-// Worker to process cadence steps
-export const freeForeverWorker = new Worker<FreeForeverJobData>(
-  'free-forever-cadence',
-  async (job) => {
-    const { email, first_name, step } = job.data;
+// Factory to start worker on demand; avoids side-effects on import
+export function startFreeForeverWorker(): Worker<FreeForeverJobData> {
+  const worker = new Worker<FreeForeverJobData>(
+    'free-forever-cadence',
+    async (job) => {
+      const { email, first_name, step } = job.data;
 
-    if (step === 0) {
-      await sendEmail(email, '🎉 Your Free HirePilot Account is Live!', 'welcome.html', { first_name });
-      const nextAt = (dayjs() as any).businessDaysAdd(2);
-      const opts: JobsOptions = { delay: Math.max(nextAt.diff(dayjs()), 0) }; // +2 business days
-      await freeForeverQueue.add('step-1', { email, first_name, step: 1 }, opts);
-    } else if (step === 1) {
-      await sendEmail(email, 'How to make the most of your free account', 'getMostOut.html', { first_name });
-      const nextAt = (dayjs() as any).businessDaysAdd(2);
-      const opts: JobsOptions = { delay: Math.max(nextAt.diff(dayjs()), 0) }; // +2 business days
-      await freeForeverQueue.add('step-2', { email, first_name, step: 2 }, opts);
-    } else if (step === 2) {
-      await sendEmail(email, 'Scale your hiring with integrations + AI 🚀', 'scale.html', { first_name });
-    }
-  },
-  { connection }
-);
+      if (step === 0) {
+        await sendEmail(email, '🎉 Your Free HirePilot Account is Live!', 'welcome.html', { first_name });
+        const nextAt = (dayjs() as any).businessDaysAdd(2);
+        const opts: JobsOptions = { delay: Math.max(nextAt.diff(dayjs()), 0) }; // +2 business days
+        await freeForeverQueue.add('step-1', { email, first_name, step: 1 }, opts);
+      } else if (step === 1) {
+        await sendEmail(email, 'How to make the most of your free account', 'getMostOut.html', { first_name });
+        const nextAt = (dayjs() as any).businessDaysAdd(2);
+        const opts: JobsOptions = { delay: Math.max(nextAt.diff(dayjs()), 0) }; // +2 business days
+        await freeForeverQueue.add('step-2', { email, first_name, step: 2 }, opts);
+      } else if (step === 2) {
+        await sendEmail(email, 'Scale your hiring with integrations + AI 🚀', 'scale.html', { first_name });
+      }
+    },
+    { connection }
+  );
+  worker.on('error', (err) => {
+    console.error('[freeForeverWorker] error', err);
+  });
+  return worker;
+}
 
 
