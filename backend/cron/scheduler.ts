@@ -318,7 +318,8 @@ export function startCronJobs() {
       const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
       const { data: campaigns } = await supabaseDb
         .from('sourcing_campaigns')
-        .select('id,title,created_by');
+        .select('id,title,created_by,status')
+        .eq('status', 'running');
       for (const c of campaigns || []) {
         try {
           // Basic metrics from email_events
