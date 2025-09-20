@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell } from 'recharts';
 
 type ViewTab = 'clients' | 'opportunities' | 'billing' | 'revenue';
 type ClientsSubView = 'companies' | 'decisionMakers';
@@ -21,6 +22,7 @@ export default function DealsPage() {
   const [revSummary, setRevSummary] = useState<{ total_paid: number; forecasted: number; overdue: number; unpaid: number } | null>(null);
   const [revMonthly, setRevMonthly] = useState<Array<{ month: string; paid: number; forecasted: number; outstanding: number }>>([]);
   const [revByClient, setRevByClient] = useState<Array<{ client_id: string; client_name: string; total: number; paid: number; unpaid: number }>>([]);
+  const [revByType, setRevByType] = useState<Array<{ type: string; total: number }>>([]);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [invoiceSubmitting, setInvoiceSubmitting] = useState(false);
   const [invoiceBillingType, setInvoiceBillingType] = useState<'contingency'|'retainer'|'rpo'|'staffing'>('contingency');
@@ -60,6 +62,18 @@ export default function DealsPage() {
       setRevSummary(sRes.ok ? await sRes.json() : null);
       setRevMonthly(mRes.ok ? await mRes.json() : []);
       setRevByClient(cRes.ok ? await cRes.json() : []);
+      // Derive type split from invoices
+      try {
+        const invRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/invoices`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        const inv = invRes.ok ? await invRes.json() : [];
+        const agg: Record<string, number> = {};
+        for (const r of (inv||[])) {
+          const t = String(r.billing_type||'unknown').toLowerCase();
+          const amt = Number(r.amount)||0;
+          agg[t] = (agg[t]||0) + amt;
+        }
+        setRevByType(Object.entries(agg).map(([type,total])=>({ type, total })));
+      } catch {}
     };
     fetchRevenue();
   }, [access?.can_view_revenue]);
@@ -708,6 +722,22 @@ export default function DealsPage() {
                       <div className="w-28 text-right text-sm">{row.total.toLocaleString('en-US',{style:'currency',currency:'USD'})}</div>
                     </div>
                   ))}
+                </div>
+              </div>
+              <div className="rounded-xl border bg-white p-4 shadow-sm">
+                <h3 className="text-sm font-medium text-gray-500 mb-3">Engagement Types</h3>
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={revByType} dataKey="total" nameKey="type" innerRadius={50} outerRadius={80} label>
+                        {revByType.map((entry, idx) => (
+                          <Cell key={`cell-${idx}`} fill={["#8b5cf6","#3b82f6","#10b981","#f59e0b"][idx % 4]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(v)=>[(Number(v).toLocaleString('en-US',{style:'currency',currency:'USD'})),'']} />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
                 </div>
               </div>
             </div>

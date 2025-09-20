@@ -33,6 +33,14 @@ export default function Navbar() {
         {!isGuest && (
           <>
             <NavLink
+              to="/deals"
+              className={({ isActive }) =>
+                isActive ? 'text-indigo-600 font-semibold' : 'text-gray-600 hover:text-indigo-600'
+              }
+            >
+              Deals
+            </NavLink>
+            <NavLink
               to="/campaigns"
               className={({ isActive }) =>
                 isActive ? 'text-indigo-600 font-semibold' : 'text-gray-600 hover:text-indigo-600'
