@@ -243,6 +243,51 @@ export default async function backfillCampaignAttribution(req: Request, res: Res
       console.warn('[backfillCampaignAttribution] Step 4 warning:', e);
     }
 
+    // Step 5: Backfill email_replies.campaign_id using leads/messages
+    console.log('[backfillCampaignAttribution] Step 5: Backfilling email_replies campaign_id');
+    try {
+      const { data: replies } = await supabaseDb
+        .from('email_replies')
+        .select('id, user_id, lead_id, campaign_id')
+        .eq('user_id', userId)
+        .is('campaign_id', null)
+        .limit(1000);
+      for (const r of (replies || []) as any[]) {
+        let cid: string | null = null;
+        // Prefer lead.campaign_id
+        if (r.lead_id) {
+          const { data: leadRow } = await supabaseDb
+            .from('leads')
+            .select('campaign_id')
+            .eq('id', r.lead_id)
+            .maybeSingle();
+          if (leadRow?.campaign_id) cid = leadRow.campaign_id;
+        }
+        // Fallback: latest message to same lead for this user
+        if (!cid && r.lead_id) {
+          const { data: msgRow } = await supabaseDb
+            .from('messages')
+            .select('campaign_id')
+            .eq('user_id', userId)
+            .eq('lead_id', r.lead_id)
+            .not('campaign_id', 'is', null)
+            .order('sent_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (msgRow?.campaign_id) cid = msgRow.campaign_id;
+        }
+        if (cid && !dryRun) {
+          const { error: upd } = await supabaseDb
+            .from('email_replies')
+            .update({ campaign_id: cid })
+            .eq('id', r.id);
+          if (!upd) results.email_events_fixed++; // reuse counter for simplicity
+        }
+      }
+    } catch (e) {
+      console.warn('[backfillCampaignAttribution] Step 5 warning:', e);
+    }
+
     const summary = {
       status: 'completed',
       ...results,
