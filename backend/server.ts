@@ -71,6 +71,12 @@ import slackRouter from './routes/slack';
 import billingRouter from './routes/billing';
 import creditsRouter from './routes/credits';
 import candidatesRouter from './src/routes/candidates';
+import clientsRouter from './src/routes/clients';
+import dealAccessRouter from './src/routes/dealAccess';
+import contactsRouter from './src/routes/contacts';
+import clientsRouterModule from './src/routes/clients';
+import opportunitiesRouter from './src/routes/opportunities';
+import opportunityPipelineRouter from './src/routes/opportunityPipeline';
 import cronProcessorRouter from './routes/cronProcessor';
 import cookieParser from 'cookie-parser';
 import listEndpoints from 'express-list-endpoints';
@@ -318,6 +324,16 @@ app.use('/api/collaborators', requireAuth as any, collaboratorsRouter);
   app.use('/api/billing', billingRouter);
   app.use('/api/credits', creditsRouter);
   app.use('/api/candidates', candidatesRouter);
+  app.use('/api/clients', clientsRouter);
+  // Conversion endpoint
+  try {
+    const { convertLeadToClient } = clientsRouterModule as any;
+    app.post('/api/clients/convert-lead', requireAuth as any, convertLeadToClient);
+  } catch {}
+  app.use('/api/opportunities', opportunitiesRouter);
+  app.use('/api/opportunity-pipeline', opportunityPipelineRouter);
+  app.use('/api', dealAccessRouter);
+  app.use('/api/contacts', contactsRouter);
   app.use('/api/cron', cronProcessorRouter);
   app.use('/api/admin', adminUsersRouter);
   app.use('/api/admin', adminRouter);
