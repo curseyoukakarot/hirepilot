@@ -39,6 +39,7 @@ export default function CampaignDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [data, setData] = useState<CampaignData | null>(null);
+  const [stats, setStats] = useState<{ total_leads: number; emails_sent: number; replies_received: number; positive_replies: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -59,6 +60,10 @@ export default function CampaignDetailPage() {
       setError(null);
       const campaignData = await api(`/api/sourcing/campaigns/${id}`);
       setData(campaignData);
+      try {
+        const s = await api(`/api/sourcing/campaigns/${id}/stats`);
+        setStats(s || null);
+      } catch {}
     } catch (err) {
       console.error('Error loading campaign:', err);
       setError(err instanceof Error ? err.message : 'Failed to load campaign');
@@ -594,25 +599,19 @@ export default function CampaignDetailPage() {
           <h2 className="text-white font-semibold text-lg mb-4">Campaign Statistics</h2>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
             <div>
-              <div className="text-2xl font-bold text-white">{leads.length}</div>
+              <div className="text-2xl font-bold text-white">{stats?.total_leads ?? leads.length}</div>
               <div className="text-sm text-gray-400">Total Leads</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-blue-400">
-                {leads.filter(l => ['step1_sent', 'step2_sent', 'step3_sent', 'replied'].includes(l.outreach_stage)).length}
-              </div>
-              <div className="text-sm text-gray-400">Contacted</div>
+              <div className="text-2xl font-bold text-blue-400">{stats?.emails_sent ?? 0}</div>
+              <div className="text-sm text-gray-400">Emails Sent</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-green-400">
-                {leads.filter(l => l.outreach_stage === 'replied').length}
-              </div>
+              <div className="text-2xl font-bold text-green-400">{stats?.replies_received ?? 0}</div>
               <div className="text-sm text-gray-400">Replied</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-yellow-400">
-                {leads.filter(l => l.reply_status === 'positive').length}
-              </div>
+              <div className="text-2xl font-bold text-yellow-400">{stats?.positive_replies ?? 0}</div>
               <div className="text-sm text-gray-400">Positive</div>
             </div>
             <div>
