@@ -141,6 +141,13 @@ export async function scheduleCampaign(campaignId: string) {
   await supabase.from('sourcing_campaigns')
     .update({ status: 'running' })
     .eq('id', campaignId);
+  // One-time launch notification
+  try {
+    const { sendSourcingCampaignNotification } = await import('./sourcingNotifications');
+    await sendSourcingCampaignNotification('launched', campaignId, { leadsScheduled: leads.length });
+  } catch (e) {
+    console.warn('[sourcing.scheduleCampaign] launch notification failed (non-fatal):', e);
+  }
     
   return { scheduled: leads.length };
 }

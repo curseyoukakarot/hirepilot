@@ -183,6 +183,19 @@ export async function sendgridEventsHandler(req: express.Request, res: express.R
           if (updErr) console.error('[sendgridEventsHandler] set clicked failed (message_id_header):', updErr);
         }
       }
+
+      // Immediate Slack notification on reply (optional based on env flag)
+      if (eventType === 'reply' && (process.env.NOTIFY_SLACK_ON_REPLY || 'true') === 'true') {
+        try {
+          const { notifySlack } = await import('../lib/slack');
+          const title = 'New reply';
+          const camp = campaign_id ? `Campaign: ${campaign_id}` : 'Campaign: unknown';
+          const lead = lead_id ? `Lead: ${lead_id}` : email ? `Lead: ${email}` : 'Lead: unknown';
+          await notifySlack(`💬 ${title}\n${camp}\n${lead}`);
+        } catch (e) {
+          console.warn('[sendgridEventsHandler] slack notify on reply failed:', e);
+        }
+      }
     }
 
     res.status(204).end();

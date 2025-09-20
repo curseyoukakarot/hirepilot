@@ -331,9 +331,15 @@ export function startCronJobs() {
     await processPhantomJobQueue();
     await processScheduledMessages();
     await processSequenceStepRuns();
-    // Weekly campaign performance digest (runs once per day; digest logic checks last sent time)
+    // Weekly campaign performance digest (run only during a narrow daily window and enforce 7-day gap)
     try {
-      const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const now = DateTime.now().setZone('America/Chicago');
+      // Only run digest between 09:00 and 09:10 local to avoid multiple runs per day
+      const withinDailyWindow = now.hour === 9 && now.minute < 10;
+      if (!withinDailyWindow) {
+        // Skip; will run again later
+      } else {
+        const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
       const { data: campaigns } = await supabaseDb
         .from('sourcing_campaigns')
         .select('id,title,created_by,status')
@@ -377,6 +383,7 @@ export function startCronJobs() {
               .eq('id', c.id);
           }
         } catch {}
+      }
       }
     } catch {}
     // Weekly REX check-in: once a week per user
