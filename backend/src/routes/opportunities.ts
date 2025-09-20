@@ -63,7 +63,10 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       oppIds.length ? supabase.from('opportunity_job_reqs').select('opportunity_id,req_id').in('opportunity_id', oppIds) : Promise.resolve({ data: [] as any })
     ] as any);
 
-    const clientMap = new Map((clients || []).map((c: any) => [c.id, c]));
+    type ClientLite = { id: string; name?: string | null; domain?: string | null };
+    const clientMap: Map<string, ClientLite> = new Map<string, ClientLite>(
+      ((clients || []) as any[]).map((c: any) => [String(c.id), { id: String(c.id), name: c.name ?? null, domain: c.domain ?? null }])
+    );
     const ownerMap = new Map((owners || []).map((u: any) => [u.id, u]));
     const reqMap = new Map<string, string[]>();
     for (const l of (links || [])) {
@@ -75,7 +78,8 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     // Optional search over title/company domain
     const filtered = (opps || []).filter((o: any) => {
       if (!search) return true;
-      const company = clientMap.get(o.client_id)?.name || clientMap.get(o.client_id)?.domain || '';
+      const clientRow = clientMap.get(String(o.client_id)) as ClientLite | undefined;
+      const company = (clientRow?.name || clientRow?.domain || '') as string;
       const tags = (reqMap.get(o.id) || []).join(' ');
       const s = search.toLowerCase();
       return String(o.title || '').toLowerCase().includes(s) || String(company).toLowerCase().includes(s) || tags.toLowerCase().includes(s);
