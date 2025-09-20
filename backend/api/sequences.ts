@@ -351,7 +351,7 @@ router.post('/sequences/:id/enroll', requireAuth, async (req: ApiRequest, res) =
         // 2) Otherwise try to interpret it as sourcing_leads.id and upsert into leads
         const { data: sLead } = await supabaseDb
           .from('sourcing_leads')
-          .select('email, name, title, company, linkedin_url')
+          .select('email, name, title, company, linkedin_url, campaign_id')
           .eq('id', leadId)
           .maybeSingle();
         if (sLead) {
@@ -373,6 +373,7 @@ router.post('/sequences/:id/enroll', requireAuth, async (req: ApiRequest, res) =
                 title: sLead.title || null,
                 company: sLead.company || null,
                 linkedin_url: sLead.linkedin_url || null,
+                campaign_id: sLead.campaign_id || null,
                 source: 'sourcing_campaign'
               };
               const { data: created, error: createErr } = await supabaseDb
@@ -414,6 +415,27 @@ router.post('/sequences/:id/enroll', requireAuth, async (req: ApiRequest, res) =
         enrollmentId = ins.id;
       } else {
         enrollmentId = existing.id;
+        // If lead existed but had no campaign_id, try to populate from sourcing_leads
+        try {
+          const { data: leadRow } = await supabaseDb
+            .from('leads')
+            .select('campaign_id')
+            .eq('id', enrollmentId ? (existing as any).lead_id || resolvedLeadId : resolvedLeadId as string)
+            .maybeSingle();
+          if (leadRow && !leadRow.campaign_id) {
+            const { data: src } = await supabaseDb
+              .from('sourcing_leads')
+              .select('campaign_id')
+              .eq('id', leadId)
+              .maybeSingle();
+            if (src?.campaign_id) {
+              await supabaseDb
+                .from('leads')
+                .update({ campaign_id: src.campaign_id })
+                .eq('id', (existing as any).lead_id || resolvedLeadId);
+            }
+          }
+        } catch {}
         // Update provider if specified
         if (provider) {
           await supabaseDb

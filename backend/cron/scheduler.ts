@@ -228,6 +228,24 @@ export async function processSequenceStepRuns(){
         continue;
       }
 
+      // Ensure lead has campaign_id populated from sourcing_leads if missing (so messages get campaign_id)
+      if (!(leadRes as any).campaign_id) {
+        try {
+          const { data: srcLead } = await supabaseDb
+            .from('sourcing_leads')
+            .select('campaign_id')
+            .eq('id', enrollment.lead_id)
+            .maybeSingle();
+          if (srcLead?.campaign_id) {
+            await supabaseDb
+              .from('leads')
+              .update({ campaign_id: srcLead.campaign_id })
+              .eq('id', enrollment.lead_id);
+            (leadRes as any).campaign_id = srcLead.campaign_id;
+          }
+        } catch {}
+      }
+
       // Render content
       const body = personalizeMessage(step.body || '', leadRes);
       const subject = step.subject ? personalizeMessage(step.subject, leadRes) : undefined;
