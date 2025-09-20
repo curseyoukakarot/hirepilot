@@ -75,19 +75,21 @@ export default async function backfillCampaignAttribution(req: Request, res: Res
     // Step 2: Fix email_events with null campaign_id by getting it from their associated message
     console.log('[backfillCampaignAttribution] Step 2: Finding email_events with null campaign_id...');
     
+    // Prefer relationship if present, otherwise we will do a manual fallback below
     const { data: eventsWithoutCampaign, error: eventsError } = await supabaseDb
       .from('email_events')
       .select(`
-        id, 
-        message_id, 
+        id,
+        message_id,
         campaign_id,
         event_type,
         event_timestamp,
-        messages!inner(campaign_id, to_email, subject)
+        lead_id,
+        metadata
       `)
       .eq('user_id', userId)
       .is('campaign_id', null)
-      .not('messages.campaign_id', 'is', null);
+      .limit(1000);
 
     if (eventsError) {
       console.error('[backfillCampaignAttribution] Error finding email events:', eventsError);
@@ -97,27 +99,64 @@ export default async function backfillCampaignAttribution(req: Request, res: Res
       
       if (eventsWithoutCampaign && eventsWithoutCampaign.length > 0) {
         if (!dryRun) {
-          // Update email_events in batches
-          const batchSize = 10;
+          const batchSize = 50;
           for (let i = 0; i < eventsWithoutCampaign.length; i += batchSize) {
             const batch = eventsWithoutCampaign.slice(i, i + batchSize);
-            
-            for (const event of batch) {
-              const { error: updateError } = await supabaseDb
-                .from('email_events')
-                .update({ campaign_id: (event.messages as any).campaign_id })
-                .eq('id', event.id);
+            for (const ev of batch as any[]) {
+              let campaignIdToSet: string | null = null;
+              // 1) Try to resolve via message identifiers
+              if (ev.message_id) {
+                try {
+                  const { data: msgByHeader } = await supabaseDb
+                    .from('messages')
+                    .select('campaign_id')
+                    .or(`message_id.eq.${ev.message_id},message_id_header.eq.${ev.message_id},sg_message_id.eq.${ev.message_id}`)
+                    .limit(1)
+                    .maybeSingle();
+                  if (msgByHeader?.campaign_id) campaignIdToSet = msgByHeader.campaign_id;
+                } catch {}
+              }
+              // 2) Try via lead_id
+              if (!campaignIdToSet && ev.lead_id) {
+                try {
+                  const { data: leadRow } = await supabaseDb
+                    .from('leads')
+                    .select('campaign_id')
+                    .eq('id', ev.lead_id)
+                    .maybeSingle();
+                  if (leadRow?.campaign_id) campaignIdToSet = leadRow.campaign_id;
+                } catch {}
+              }
+              // 3) Try via recipient email (metadata.email) → latest message
+              const metaEmail = (ev.metadata && ev.metadata.email) ? ev.metadata.email : null;
+              if (!campaignIdToSet && metaEmail) {
+                try {
+                  const { data: msgByEmail } = await supabaseDb
+                    .from('messages')
+                    .select('campaign_id,sent_at')
+                    .eq('to_email', metaEmail)
+                    .order('sent_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+                  if (msgByEmail?.campaign_id) campaignIdToSet = msgByEmail.campaign_id;
+                } catch {}
+              }
 
-              if (updateError) {
-                console.error(`[backfillCampaignAttribution] Error updating event ${event.id}:`, updateError);
-                results.errors.push({ step: 'update_email_event', event_id: event.id, error: updateError.message });
-              } else {
-                results.email_events_fixed++;
+              if (campaignIdToSet) {
+                const { error: updErr } = await supabaseDb
+                  .from('email_events')
+                  .update({ campaign_id: campaignIdToSet })
+                  .eq('id', ev.id);
+                if (updErr) {
+                  console.error(`[backfillCampaignAttribution] Error updating email_event ${ev.id}:`, updErr);
+                  results.errors.push({ step: 'update_email_event', event_id: ev.id, error: updErr.message });
+                } else {
+                  results.email_events_fixed++;
+                }
               }
             }
           }
         } else {
-          // Dry run - just count
           results.email_events_fixed = eventsWithoutCampaign.length;
         }
       }
