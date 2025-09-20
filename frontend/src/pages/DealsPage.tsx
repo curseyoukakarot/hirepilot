@@ -15,11 +15,91 @@ export default function DealsPage() {
   const [oppFilters, setOppFilters] = useState<{ status: string; client: string; search: string }>({ status: '', client: '', search: '' });
   const [oppView, setOppView] = useState<OppView>('table');
   const [board, setBoard] = useState<Array<{ stage: string; weight_percent: number; order_index: number; total: number; weighted: number; items: any[] }>>([]);
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [invLoading, setInvLoading] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [addStage, setAddStage] = useState('Pipeline');
   const [form, setForm] = useState<{ title: string; client_id: string; value: string; billing_type: string }>({ title: '', client_id: '', value: '', billing_type: '' });
 
   useEffect(() => {
+    const fetchInvoices = async () => {
+      if (!access?.can_view_billing) return;
+      setInvLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/invoices`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const js = resp.ok ? await resp.json() : [];
+      setInvoices(js || []);
+      setInvLoading(false);
+    };
+    fetchInvoices();
+  }, [access?.can_view_billing]);
+
+  const BillingSection = () => (
+    <div className="w-full">
+      <div className="bg-white rounded-xl border p-6 mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="relative w-72">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔎</span>
+            <input className="w-full pl-8 pr-3 py-2 bg-white border rounded-lg text-sm" placeholder="Search invoices..." />
+          </div>
+          <select className="border rounded-lg text-sm py-2 px-3">
+            <option value="">All Statuses</option>
+            <option>unbilled</option>
+            <option>sent</option>
+            <option>paid</option>
+            <option>overdue</option>
+          </select>
+          <select className="border rounded-lg text-sm py-2 px-3">
+            <option value="">All Billing Types</option>
+            <option>contingency</option>
+            <option>retainer</option>
+            <option>rpo</option>
+            <option>staffing</option>
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg">Create Invoice</button>
+        </div>
+      </div>
+      <div className="bg-white border rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="p-4 w-12"><input type="checkbox" /></th>
+                <th className="p-4 text-left">Opportunity</th>
+                <th className="p-4 text-left">Client</th>
+                <th className="p-4 text-left">Billing Type</th>
+                <th className="p-4 text-left">Value</th>
+                <th className="p-4 text-left">Invoice Status</th>
+                <th className="p-4 text-left">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {invLoading ? (
+                <tr><td colSpan={7} className="p-6 text-center text-gray-500">Loading…</td></tr>
+              ) : invoices.length === 0 ? (
+                <tr><td colSpan={7} className="p-6 text-center text-gray-500">No invoices</td></tr>
+              ) : (
+                invoices.map((inv) => (
+                  <tr key={inv.id} className="hover:bg-gray-50">
+                    <td className="p-4"><input type="checkbox" /></td>
+                    <td className="p-4">{inv.opportunity_id?.slice(0,8)}</td>
+                    <td className="p-4">{inv.client_id?.slice(0,8)}</td>
+                    <td className="p-4 capitalize">{inv.billing_type || '—'}</td>
+                    <td className="p-4">${(Number(inv.amount)||0).toLocaleString()}</td>
+                    <td className="p-4"><span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">{inv.status}</span></td>
+                    <td className="p-4 space-x-3"><button className="text-blue-600">View</button>{inv.status!=='paid' && <button className="text-blue-600">Send Reminder</button>}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
     const run = async () => {
       setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
@@ -371,7 +451,7 @@ export default function DealsPage() {
         <>
           {activeTab==='clients' && (canSee('clients') ? <ClientsSection /> : renderAccessDenied())}
           {activeTab==='opportunities' && (canSee('opportunities') ? <><OpportunitiesSection /><AddModal /></> : renderAccessDenied())}
-          {activeTab==='billing' && (canSee('billing') ? <div /> : renderAccessDenied())}
+          {activeTab==='billing' && (canSee('billing') ? <BillingSection /> : renderAccessDenied())}
           {activeTab==='revenue' && (canSee('revenue') ? <div /> : renderAccessDenied())}
         </>
       )}
