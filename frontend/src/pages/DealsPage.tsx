@@ -17,6 +17,17 @@ export default function DealsPage() {
   const [board, setBoard] = useState<Array<{ stage: string; weight_percent: number; order_index: number; total: number; weighted: number; items: any[] }>>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [invLoading, setInvLoading] = useState(false);
+  const [revSummary, setRevSummary] = useState<{ total_paid: number; forecasted: number; overdue: number; unpaid: number } | null>(null);
+  const [revMonthly, setRevMonthly] = useState<Array<{ month: string; paid: number; forecasted: number; outstanding: number }>>([]);
+  const [revByClient, setRevByClient] = useState<Array<{ client_id: string; client_name: string; total: number; paid: number; unpaid: number }>>([]);
+  const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const [invoiceSubmitting, setInvoiceSubmitting] = useState(false);
+  const [invoiceBillingType, setInvoiceBillingType] = useState<'contingency'|'retainer'|'rpo'|'staffing'>('contingency');
+  const [invoiceFields, setInvoiceFields] = useState<any>({ salary: '', percent: '20', flat_fee: '', monthly: '', hours: '', hourly_rate: '' });
+  const [invoiceRecipient, setInvoiceRecipient] = useState('');
+  const [invoiceNotes, setInvoiceNotes] = useState('');
+  const [invoiceOpportunityId, setInvoiceOpportunityId] = useState<string>('');
+  const [availableOpps, setAvailableOpps] = useState<any[]>([]);
   const [addOpen, setAddOpen] = useState(false);
   const [addStage, setAddStage] = useState('Pipeline');
   const [form, setForm] = useState<{ title: string; client_id: string; value: string; billing_type: string }>({ title: '', client_id: '', value: '', billing_type: '' });
@@ -34,6 +45,88 @@ export default function DealsPage() {
     };
     fetchInvoices();
   }, [access?.can_view_billing]);
+
+  useEffect(() => {
+    const fetchRevenue = async () => {
+      if (!access?.can_view_revenue) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const [sRes, mRes, cRes] = await Promise.all([
+        fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/summary`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+        fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/monthly`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+        fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/by-client`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+      ]);
+      setRevSummary(sRes.ok ? await sRes.json() : null);
+      setRevMonthly(mRes.ok ? await mRes.json() : []);
+      setRevByClient(cRes.ok ? await cRes.json() : []);
+    };
+    fetchRevenue();
+  }, [access?.can_view_revenue]);
+
+  const openInvoiceModal = async (opportunityId?: string, billingType?: 'contingency'|'retainer'|'rpo'|'staffing') => {
+    // Load minimal opportunities list for selector
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const js = resp.ok ? await resp.json() : [];
+      setAvailableOpps((js || []).map((o: any) => ({ id: o.id, title: o.title, client: o.client }))); 
+    } catch {}
+    setInvoiceOpportunityId(opportunityId || '');
+    setInvoiceBillingType(billingType || 'contingency');
+    setInvoiceFields({ salary: '', percent: '20', flat_fee: '', monthly: '', hours: '', hourly_rate: '' });
+    setInvoiceRecipient('');
+    setInvoiceNotes('');
+    setInvoiceOpen(true);
+  };
+
+  const computedInvoiceTotal = (): number => {
+    const bt = invoiceBillingType;
+    if (bt === 'contingency') {
+      const salary = Number(String(invoiceFields.salary || '').replace(/[^0-9.]/g,'')) || 0;
+      const pct = Number(invoiceFields.percent || 20);
+      return Math.max(0, Math.round(salary * (pct/100)));
+    }
+    if (bt === 'retainer') {
+      return Math.max(0, Number(String(invoiceFields.flat_fee || '').replace(/[^0-9.]/g,'')) || 0);
+    }
+    if (bt === 'rpo') {
+      return Math.max(0, Number(String(invoiceFields.monthly || '').replace(/[^0-9.]/g,'')) || 0);
+    }
+    if (bt === 'staffing') {
+      const hrs = Number(invoiceFields.hours || 0);
+      const rate = Number(invoiceFields.hourly_rate || 0);
+      return Math.max(0, Math.round(hrs * rate));
+    }
+    return 0;
+  };
+
+  const submitInvoice = async () => {
+    setInvoiceSubmitting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const payload: any = {
+        opportunity_id: invoiceOpportunityId,
+        billing_type: invoiceBillingType,
+        fields: invoiceFields,
+        recipient_email: invoiceRecipient || undefined,
+        notes: invoiceNotes || undefined
+      };
+      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/invoices/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify(payload)
+      });
+      if (resp.ok) {
+        setInvoiceOpen(false);
+        // refresh invoices list
+        const list = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/invoices`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        const js = list.ok ? await list.json() : [];
+        setInvoices(js || []);
+      }
+    } finally { setInvoiceSubmitting(false); }
+  };
 
   const BillingSection = () => (
     <div className="w-full">
@@ -59,7 +152,7 @@ export default function DealsPage() {
           </select>
         </div>
         <div className="flex items-center gap-2">
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg">Create Invoice</button>
+          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg" onClick={()=>openInvoiceModal()}>Create Invoice</button>
         </div>
       </div>
       <div className="bg-white border rounded-xl overflow-hidden">
@@ -90,7 +183,11 @@ export default function DealsPage() {
                     <td className="p-4 capitalize">{inv.billing_type || '—'}</td>
                     <td className="p-4">${(Number(inv.amount)||0).toLocaleString()}</td>
                     <td className="p-4"><span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">{inv.status}</span></td>
-                    <td className="p-4 space-x-3"><button className="text-blue-600">View</button>{inv.status!=='paid' && <button className="text-blue-600">Send Reminder</button>}</td>
+                    <td className="p-4 space-x-3">
+                      <button className="text-blue-600" onClick={()=>openInvoiceModal(inv.opportunity_id, (inv.billing_type||'contingency'))}>Bill Now</button>
+                      <button className="text-blue-600">View</button>
+                      {inv.status!=='paid' && <button className="text-blue-600">Send Reminder</button>}
+                    </td>
                   </tr>
                 ))
               )}
@@ -100,6 +197,7 @@ export default function DealsPage() {
       </div>
     </div>
   );
+  useEffect(() => {
     const run = async () => {
       setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
@@ -436,6 +534,115 @@ export default function DealsPage() {
     </div>
   );
 
+  const InvoiceModal = () => !invoiceOpen ? null : (
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col">
+        <div className="p-6 border-b flex justify-between items-center">
+          <h2 className="text-xl font-semibold text-gray-900">Create Invoice</h2>
+          <button className="text-gray-500" onClick={()=>setInvoiceOpen(false)}>✕</button>
+        </div>
+        <div className="p-6 space-y-6 bg-gray-50">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="text-xs font-medium text-gray-500 block mb-1">Opportunity</label>
+              <select className="w-full border rounded-md p-2 text-sm" value={invoiceOpportunityId} onChange={e=>setInvoiceOpportunityId(e.target.value)}>
+                <option value="">Select opportunity…</option>
+                {availableOpps.map(o => (
+                  <option key={o.id} value={o.id}>{o.title}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-500 block mb-1">Billing Type</label>
+              <select className="w-full border rounded-md p-2 text-sm" value={invoiceBillingType} onChange={e=>setInvoiceBillingType(e.target.value as any)}>
+                <option value="contingency">Contingency</option>
+                <option value="retainer">Retained Search</option>
+                <option value="rpo">RPO (Monthly)</option>
+                <option value="staffing">Staffing (Hourly)</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-500 block mb-1">Recipient Email</label>
+              <input className="w-full border rounded-md p-2 text-sm" placeholder="billing@client.com" value={invoiceRecipient} onChange={e=>setInvoiceRecipient(e.target.value)} />
+            </div>
+          </div>
+          {/* Dynamic fields */}
+          {invoiceBillingType === 'contingency' && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Placement Salary</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
+                  <input className="pl-7 pr-3 py-2 text-sm bg-white border rounded-md w-full" value={invoiceFields.salary} onChange={e=>setInvoiceFields((p:any)=>({ ...p, salary: e.target.value }))} />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Fee Percentage</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500">%</span>
+                  <input type="number" className="pr-7 pl-3 py-2 text-sm bg-white border rounded-md w-full" value={invoiceFields.percent} onChange={e=>setInvoiceFields((p:any)=>({ ...p, percent: e.target.value }))} />
+                </div>
+              </div>
+            </div>
+          )}
+          {invoiceBillingType === 'retainer' && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Retainer Amount</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
+                  <input className="pl-7 pr-3 py-2 text-sm bg-white border rounded-md w-full" value={invoiceFields.flat_fee} onChange={e=>setInvoiceFields((p:any)=>({ ...p, flat_fee: e.target.value }))} />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <textarea className="p-2 text-sm bg-white border rounded-md w-full" rows={2} value={invoiceNotes} onChange={e=>setInvoiceNotes(e.target.value)} />
+              </div>
+            </div>
+          )}
+          {invoiceBillingType === 'rpo' && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Monthly Fee</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
+                  <input className="pl-7 pr-3 py-2 text-sm bg-white border rounded-md w-full" value={invoiceFields.monthly} onChange={e=>setInvoiceFields((p:any)=>({ ...p, monthly: e.target.value }))} />
+                </div>
+              </div>
+            </div>
+          )}
+          {invoiceBillingType === 'staffing' && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Hourly Bill Rate</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
+                  <input type="number" className="pl-7 pr-3 py-2 text-sm bg-white border rounded-md w-full" value={invoiceFields.hourly_rate} onChange={e=>setInvoiceFields((p:any)=>({ ...p, hourly_rate: e.target.value }))} />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Hours Worked</label>
+                <input type="number" className="p-2 text-sm bg-white border rounded-md w-full" value={invoiceFields.hours} onChange={e=>setInvoiceFields((p:any)=>({ ...p, hours: e.target.value }))} />
+              </div>
+            </div>
+          )}
+          <div className="bg-white rounded-lg p-4 flex justify-between items-center border">
+            <div>
+              <p className="text-sm text-gray-600">Invoice Total</p>
+              <p className="text-3xl font-bold text-gray-900 mt-1">{computedInvoiceTotal().toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</p>
+            </div>
+          </div>
+        </div>
+        <div className="p-6 bg-gray-100 border-t rounded-b-xl flex justify-end gap-3">
+          <button className="px-4 py-2 text-sm font-medium text-gray-700 border rounded-md" onClick={()=>setInvoiceOpen(false)}>Cancel</button>
+          <button className="px-6 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md disabled:opacity-60" disabled={!invoiceOpportunityId || invoiceSubmitting} onClick={submitInvoice}>
+            {invoiceSubmitting ? 'Creating…' : 'Create Invoice'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-4">Deals</h1>
@@ -451,8 +658,58 @@ export default function DealsPage() {
         <>
           {activeTab==='clients' && (canSee('clients') ? <ClientsSection /> : renderAccessDenied())}
           {activeTab==='opportunities' && (canSee('opportunities') ? <><OpportunitiesSection /><AddModal /></> : renderAccessDenied())}
-          {activeTab==='billing' && (canSee('billing') ? <BillingSection /> : renderAccessDenied())}
-          {activeTab==='revenue' && (canSee('revenue') ? <div /> : renderAccessDenied())}
+          {activeTab==='billing' && (canSee('billing') ? <><BillingSection /><InvoiceModal /></> : renderAccessDenied())}
+          {activeTab==='revenue' && (canSee('revenue') ? (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-white rounded-2xl p-5 shadow-sm border">
+                  <h2 className="text-sm text-gray-500">Total Revenue</h2>
+                  <p className="text-2xl font-semibold mt-1 text-green-600">{(revSummary?.total_paid||0).toLocaleString('en-US', { style:'currency', currency:'USD' })}</p>
+                </div>
+                <div className="bg-white rounded-2xl p-5 shadow-sm border">
+                  <h2 className="text-sm text-gray-500">Forecasted Revenue</h2>
+                  <p className="text-2xl font-semibold mt-1">{(revSummary?.forecasted||0).toLocaleString('en-US', { style:'currency', currency:'USD' })}</p>
+                </div>
+                <div className="bg-white rounded-2xl p-5 shadow-sm border">
+                  <h2 className="text-sm text-gray-500">Open Pipeline (Unpaid)</h2>
+                  <p className="text-2xl font-semibold mt-1">{(revSummary?.unpaid||0).toLocaleString('en-US', { style:'currency', currency:'USD' })}</p>
+                </div>
+                <div className="bg-white rounded-2xl p-5 shadow-sm border">
+                  <h2 className="text-sm text-gray-500">Overdue Invoices</h2>
+                  <p className="text-2xl font-semibold mt-1 text-red-600">{(revSummary?.overdue||0).toLocaleString('en-US', { style:'currency', currency:'USD' })}</p>
+                </div>
+              </div>
+              <div className="rounded-xl border bg-white p-4 shadow-sm">
+                <h3 className="text-sm font-medium text-gray-500 mb-3">Monthly Revenue</h3>
+                <div className="grid grid-cols-12 gap-2">
+                  {revMonthly.map(b => (
+                    <div key={b.month} className="col-span-3 md:col-span-1">
+                      <div className="text-xs text-gray-500 mb-1">{b.month}</div>
+                      <div className="h-24 flex flex-col justify-end gap-1">
+                        <div className="bg-green-500/80" style={{ height: Math.min(100, Math.round((b.paid/1000))) + 'px' }} title={`Paid ${b.paid}`}></div>
+                        <div className="bg-blue-500/80" style={{ height: Math.min(100, Math.round((b.forecasted/1000))) + 'px' }} title={`Forecasted ${b.forecasted}`}></div>
+                        <div className="bg-amber-500/80" style={{ height: Math.min(100, Math.round((b.outstanding/1000))) + 'px' }} title={`Outstanding ${b.outstanding}`}></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-xl border bg-white p-4 shadow-sm">
+                <h3 className="text-sm font-medium text-gray-500 mb-3">Top Clients</h3>
+                <div className="space-y-2">
+                  {revByClient.map(row => (
+                    <div key={row.client_id} className="flex items-center gap-3">
+                      <div className="w-40 text-sm text-gray-700 truncate">{row.client_name}</div>
+                      <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-green-500" style={{ width: `${(row.paid/Math.max(1,row.total))*100}%` }} />
+                      </div>
+                      <div className="w-28 text-right text-sm">{row.total.toLocaleString('en-US',{style:'currency',currency:'USD'})}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : renderAccessDenied())}
         </>
       )}
     </div>
