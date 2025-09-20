@@ -208,6 +208,41 @@ export default async function backfillCampaignAttribution(req: Request, res: Res
       }
     }
 
+    // Step 4: Events with null user_id but resolvable via messages by recipient (attach to this user only)
+    console.log('[backfillCampaignAttribution] Step 4: Resolving events with null user_id via recipient email → latest message for this user');
+    try {
+      const { data: unknownEvents } = await supabaseDb
+        .from('email_events')
+        .select('id, user_id, campaign_id, message_id, metadata')
+        .is('campaign_id', null)
+        .is('user_id', null)
+        .limit(1000);
+      for (const ev of (unknownEvents || []) as any[]) {
+        const metaEmail = ev?.metadata?.email;
+        if (!metaEmail) continue;
+        const { data: msgByEmail } = await supabaseDb
+          .from('messages')
+          .select('campaign_id, user_id, sent_at')
+          .eq('to_email', metaEmail)
+          .order('sent_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (msgByEmail?.campaign_id && msgByEmail?.user_id === userId) {
+          if (!dryRun) {
+            const { error: upd } = await supabaseDb
+              .from('email_events')
+              .update({ campaign_id: msgByEmail.campaign_id, user_id: userId })
+              .eq('id', ev.id);
+            if (!upd) results.email_events_fixed++;
+          } else {
+            results.email_events_fixed++;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[backfillCampaignAttribution] Step 4 warning:', e);
+    }
+
     const summary = {
       status: 'completed',
       ...results,
