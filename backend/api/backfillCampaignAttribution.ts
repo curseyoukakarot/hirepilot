@@ -4,13 +4,14 @@ import { supabaseDb } from '../lib/supabase';
 export default async function backfillCampaignAttribution(req: Request, res: Response) {
   try {
     const userId = req.query.user_id as string;
+    const campaignIdParam = (req.query.campaign_id as string) || '';
     const dryRun = req.query.dry_run === 'true';
 
     if (!userId) {
       return res.status(400).json({ error: 'user_id required' });
     }
 
-    console.log('[backfillCampaignAttribution] Starting backfill for user:', userId, 'dry_run:', dryRun);
+    console.log('[backfillCampaignAttribution] Starting backfill for user:', userId, 'dry_run:', dryRun, 'campaign_id:', campaignIdParam || 'ALL');
 
     const results = {
       user_id: userId,
@@ -19,6 +20,88 @@ export default async function backfillCampaignAttribution(req: Request, res: Res
       email_events_fixed: 0,
       errors: [] as any[]
     };
+
+    // If a specific campaign_id is provided, run a targeted backfill just for that campaign
+    if (campaignIdParam) {
+      try {
+        const campaignId = campaignIdParam;
+        // 1) Fetch lead ids in this campaign for this user
+        const { data: leadsInCampaign } = await supabaseDb
+          .from('leads')
+          .select('id')
+          .eq('campaign_id', campaignId)
+          .eq('user_id', userId);
+        const leadIds = (leadsInCampaign || []).map((l:any)=> l.id);
+        // 2) Update messages for those leads where campaign_id is null
+        if (!dryRun && leadIds.length) {
+          const { error: updNull } = await supabaseDb
+            .from('messages')
+            .update({ campaign_id: campaignId })
+            .in('lead_id', leadIds)
+            .is('campaign_id', null);
+          if (updNull) results.errors.push({ step: 'target_messages_null', error: updNull.message });
+          const { error: updDiff } = await supabaseDb
+            .from('messages')
+            .update({ campaign_id: campaignId })
+            .in('lead_id', leadIds)
+            .neq('campaign_id', campaignId);
+          if (updDiff) results.errors.push({ step: 'target_messages_diff', error: updDiff.message });
+        }
+        // 3) Collect message_ids for those leads to update events
+        let msgIds: string[] = [];
+        try {
+          const { data: msgs } = await supabaseDb
+            .from('messages')
+            .select('message_id')
+            .in('lead_id', leadIds)
+            .not('message_id', 'is', null);
+          msgIds = (msgs || []).map((m:any)=> m.message_id).filter(Boolean);
+        } catch {}
+        // 4) Update email_events for those leads or message_ids with null campaign_id
+        if (!dryRun && (leadIds.length || msgIds.length)) {
+          if (leadIds.length) {
+            const { error: updEvLead } = await supabaseDb
+              .from('email_events')
+              .update({ campaign_id: campaignId })
+              .in('lead_id', leadIds)
+              .is('campaign_id', null);
+            if (updEvLead) results.errors.push({ step: 'target_events_lead', error: updEvLead.message });
+          }
+          if (msgIds.length) {
+            const { error: updEvMsg } = await supabaseDb
+              .from('email_events')
+              .update({ campaign_id: campaignId })
+              .in('message_id', msgIds)
+              .is('campaign_id', null);
+            if (updEvMsg) results.errors.push({ step: 'target_events_msg', error: updEvMsg.message });
+          }
+        }
+        // 5) Update email_replies for those leads
+        if (!dryRun && leadIds.length) {
+          const { error: updRep } = await supabaseDb
+            .from('email_replies')
+            .update({ campaign_id: campaignId })
+            .in('lead_id', leadIds)
+            .is('campaign_id', null);
+          if (updRep) results.errors.push({ step: 'target_replies_lead', error: updRep.message });
+        }
+      } catch (e:any) {
+        results.errors.push({ step: 'targeted_campaign', error: e?.message || String(e) });
+      }
+      // Return early for targeted backfill
+      const summaryTarget = {
+        status: 'completed (targeted)',
+        ...results,
+        summary: {
+          messages_fixed: results.messages_fixed,
+          email_events_fixed: results.email_events_fixed,
+          total_fixes: results.messages_fixed + results.email_events_fixed,
+          errors_count: results.errors.length,
+          recommendation: 'Targeted backfill executed.'
+        }
+      };
+      return res.json(summaryTarget);
+    }
 
     // Step 1: Fix messages with null campaign_id by getting it from their associated lead
     console.log('[backfillCampaignAttribution] Step 1: Finding messages with null campaign_id...');
