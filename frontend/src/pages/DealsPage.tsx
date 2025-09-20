@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 type ViewTab = 'clients' | 'opportunities' | 'billing' | 'revenue';
 type ClientsSubView = 'companies' | 'decisionMakers';
@@ -681,17 +682,18 @@ export default function DealsPage() {
               </div>
               <div className="rounded-xl border bg-white p-4 shadow-sm">
                 <h3 className="text-sm font-medium text-gray-500 mb-3">Monthly Revenue</h3>
-                <div className="grid grid-cols-12 gap-2">
-                  {revMonthly.map(b => (
-                    <div key={b.month} className="col-span-3 md:col-span-1">
-                      <div className="text-xs text-gray-500 mb-1">{b.month}</div>
-                      <div className="h-24 flex flex-col justify-end gap-1">
-                        <div className="bg-green-500/80" style={{ height: Math.min(100, Math.round((b.paid/1000))) + 'px' }} title={`Paid ${b.paid}`}></div>
-                        <div className="bg-blue-500/80" style={{ height: Math.min(100, Math.round((b.forecasted/1000))) + 'px' }} title={`Forecasted ${b.forecasted}`}></div>
-                        <div className="bg-amber-500/80" style={{ height: Math.min(100, Math.round((b.outstanding/1000))) + 'px' }} title={`Outstanding ${b.outstanding}`}></div>
-                      </div>
-                    </div>
-                  ))}
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={revMonthly}>
+                      <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} />
+                      <YAxis stroke="#9ca3af" fontSize={12} tickFormatter={(v)=>`$${Math.round(v/1000)}k`} />
+                      <Tooltip formatter={(v)=>[(Number(v).toLocaleString('en-US',{style:'currency',currency:'USD'})),'']} />
+                      <Legend />
+                      <Bar dataKey="paid" stackId="a" fill="#10b981" name="Paid" />
+                      <Bar dataKey="forecasted" stackId="a" fill="#3b82f6" name="Forecasted" />
+                      <Bar dataKey="outstanding" stackId="a" fill="#f59e0b" name="Outstanding" />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
               </div>
               <div className="rounded-xl border bg-white p-4 shadow-sm">
