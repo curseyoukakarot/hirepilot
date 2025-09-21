@@ -85,7 +85,7 @@ router.patch('/reorder', requireAuth, async (req: Request, res: Response) => {
 
     const { error } = await supabase
       .from('opportunities')
-      .update({ stage: to_stage, updated_at: new Date().toISOString() as any })
+      .update({ stage: to_stage })
       .eq('id', opportunity_id);
     if (error) { res.status(500).json({ error: error.message }); return; }
     res.json({ success: true });
