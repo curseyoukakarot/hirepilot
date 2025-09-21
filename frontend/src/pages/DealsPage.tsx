@@ -109,6 +109,21 @@ export default function DealsPage() {
     setClients(js || []);
   };
 
+  const syncClientFromEnrichment = async (id: string) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients/${id}/sync-enrichment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ override: false })
+    });
+    if (resp.ok) {
+      const refreshed = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const js = refreshed.ok ? await refreshed.json() : [];
+      setClients(js || []);
+    }
+  };
+
   const saveContactEdits = async (id: string) => {
     const payload: any = {};
     ['name','title','email','phone'].forEach(k => { if (contactDraft[k] !== undefined) payload[k] = contactDraft[k]; });
@@ -631,7 +646,10 @@ export default function DealsPage() {
                                     <button className="px-3 py-1.5 text-sm" onClick={()=>{ setEditingClientId(null); setClientDraft({}); }}>Cancel</button>
                                   </>
                                 ) : (
-                                  <button className="px-3 py-1.5 text-sm bg-gray-100 rounded" onClick={()=>{ setEditingClientId(c.id); setClientDraft({}); }}>Edit</button>
+                                  <>
+                                    <button className="px-3 py-1.5 text-sm bg-gray-100 rounded" onClick={()=>{ setEditingClientId(c.id); setClientDraft({}); }}>Edit</button>
+                                    <button className="px-3 py-1.5 text-sm bg-blue-50 text-blue-700 rounded" onClick={()=>syncClientFromEnrichment(c.id)}>Sync from Enrichment</button>
+                                  </>
                                 )}
                               </div>
                             </div>

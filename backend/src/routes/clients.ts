@@ -216,16 +216,25 @@ export async function convertLeadToClient(req: ApiRequest, res: Response) {
     const { data: lead } = await supabase.from('leads').select('*').eq('id', lead_id).maybeSingle();
     if (!lead) { res.status(404).json({ error: 'lead_not_found' }); return; }
 
-    // Create client from lead.company if present
+    // Derive company info from enrichment if available
+    const enrich: any = (lead as any).enrichment_data || {};
+    const apolloOrg = enrich?.apollo?.organization || {};
+    const domainFromEnrich = apolloOrg.website_url || apolloOrg.domain || null;
+    const industryFromEnrich = apolloOrg.industry || null;
+    const locationFromEnrich = apolloOrg.location || (enrich?.apollo?.location?.city ? `${enrich.apollo.location.city}${enrich.apollo.location.state ? ', ' + enrich.apollo.location.state : ''}` : null);
+    const revenueFromEnrichRaw = apolloOrg.estimated_annual_revenue || apolloOrg.revenue || null;
+    const revenueFromEnrich = revenueFromEnrichRaw ? parseRevenueToNumber(revenueFromEnrichRaw) : null;
+
+    // Create client from lead + enrichment
     const insertClient = {
-      name: lead.company || 'Untitled Company',
-      domain: null as string | null,
-      industry: null as string | null,
-      revenue: null as number | null,
-      location: lead.location || null,
+      name: lead.company || apolloOrg.name || 'Untitled Company',
+      domain: domainFromEnrich || null,
+      industry: industryFromEnrich || null,
+      revenue: revenueFromEnrich,
+      location: locationFromEnrich || (lead as any).location || null,
       owner_id: userId,
       created_at: new Date().toISOString()
-    };
+    } as any;
     const { data: clientRow, error: clientErr } = await supabase
       .from('clients')
       .insert(insertClient)
@@ -258,5 +267,81 @@ export async function convertLeadToClient(req: ApiRequest, res: Response) {
     res.status(500).json({ error: e.message || 'Internal server error' });
   }
 }
+// Helper: normalize revenue strings (e.g. "300K", "22.7M", "$1,200,000") → number
+function parseRevenueToNumber(value: any): number | null {
+  if (value == null) return null;
+  if (typeof value === 'number') return value;
+  const str = String(value).trim().toUpperCase();
+  const multiplier = str.endsWith('B') ? 1_000_000_000 : str.endsWith('M') ? 1_000_000 : str.endsWith('K') ? 1_000 : 1;
+  const cleaned = str.replace(/[^0-9.]/g, '');
+  const num = Number(cleaned);
+  if (isNaN(num)) return null;
+  return Math.round(num * multiplier);
+}
+
+// POST /api/clients/:id/sync-enrichment
+router.post('/:id/sync-enrichment', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    const allowed = await canViewClients(userId);
+    if (!allowed) { res.status(403).json({ error: 'access_denied' }); return; }
+
+    const { id } = req.params;
+    const overrideExisting = Boolean(req.body?.override);
+
+    // Fetch client
+    const { data: client, error: clientErr } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (clientErr) { res.status(500).json({ error: clientErr.message }); return; }
+    if (!client) { res.status(404).json({ error: 'client_not_found' }); return; }
+
+    // Find a matching enriched lead for this client
+    const clientName = (client as any).name || (client as any).domain || '';
+    const { data: leads } = await supabase
+      .from('leads')
+      .select('id, company, enrichment_data, owner_id, updated_at')
+      .or(`company.ilike.%${clientName}%,enrichment_data->apollo->organization->>name.ilike.%${clientName}%`)
+      .order('updated_at', { ascending: false })
+      .limit(25);
+
+    let chosen: any = null;
+    for (const l of (leads || [])) {
+      const org = (l as any).enrichment_data?.apollo?.organization;
+      if (org && (org.website_url || org.domain || org.industry || org.estimated_annual_revenue || org.revenue)) {
+        chosen = l; break;
+      }
+    }
+    if (!chosen) { res.status(404).json({ error: 'no_enriched_lead_found' }); return; }
+
+    const org = chosen.enrichment_data?.apollo?.organization || {};
+    const locationFromEnrich = org.location || chosen.enrichment_data?.apollo?.location || null;
+    const revenueParsed = parseRevenueToNumber(org.estimated_annual_revenue || org.revenue);
+
+    const update: any = {};
+    if (overrideExisting || !client.domain) update.domain = org.website_url || org.domain || client.domain || null;
+    if (overrideExisting || !client.industry) update.industry = org.industry || client.industry || null;
+    if (overrideExisting || !client.location) {
+      if (typeof locationFromEnrich === 'string') update.location = locationFromEnrich;
+    }
+    if (overrideExisting || !client.revenue) update.revenue = revenueParsed ?? client.revenue ?? null;
+
+    if (Object.keys(update).length === 0) { res.json({ updated: false, client }); return; }
+
+    const { data: updated, error: upErr } = await supabase
+      .from('clients')
+      .update(update)
+      .eq('id', id)
+      .select('*')
+      .maybeSingle();
+    if (upErr) { res.status(500).json({ error: upErr.message }); return; }
+    res.json({ updated: true, client: updated });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message || 'Internal server error' });
+  }
+});
 
 
