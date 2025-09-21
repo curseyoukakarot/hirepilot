@@ -317,25 +317,12 @@ router.post('/:id/sync-enrichment', requireAuth, async (req: Request, res: Respo
 
     // Find a matching enriched lead for this client (owner/team scoped)
     if (!chosen) {
-      const { role, team_id } = await getUserRoleAndTeam(userId);
-      const isSuper = ['super_admin','superadmin'].includes(String(role || '').toLowerCase());
-      const isTeamAdmin = String(role || '').toLowerCase() === 'team_admin';
-
+      // Search across recent leads. We do not rely on owner scoping since leads may not have owner_id
       let query = supabase
         .from('leads')
-        .select('id, company, enrichment_data, owner_id, updated_at')
+        .select('id, company, enrichment_data, updated_at')
         .order('updated_at', { ascending: false })
         .limit(500);
-
-      if (isSuper) {
-        // no owner filter
-      } else if (isTeamAdmin && team_id) {
-        const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', team_id);
-        const ids = (teamUsers || []).map((u: any) => u.id);
-        query = query.in('owner_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
-      } else {
-        query = query.eq('owner_id', userId);
-      }
 
       const { data: leads, error: leadsErr } = await query;
       if (leadsErr) { res.status(500).json({ error: leadsErr.message }); return; }
