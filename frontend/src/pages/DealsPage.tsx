@@ -174,26 +174,19 @@ export default function DealsPage() {
       if (!access?.can_view_revenue) return;
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
-      const [sRes, mRes, cRes] = await Promise.all([
+      const [sRes, mRes, cRes, pcRes, etRes] = await Promise.all([
         fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/summary`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
         fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/monthly`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
         fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/by-client`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+        fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/projected-by-client`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+        fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/engagement-types`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
       ]);
       setRevSummary(sRes.ok ? await sRes.json() : null);
       setRevMonthly(mRes.ok ? await mRes.json() : []);
       setRevByClient(cRes.ok ? await cRes.json() : []);
-      // Derive type split from invoices
-      try {
-        const invRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/invoices`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-        const inv = invRes.ok ? await invRes.json() : [];
-        const agg: Record<string, number> = {};
-        for (const r of (inv||[])) {
-          const t = String(r.billing_type||'unknown').toLowerCase();
-          const amt = Number(r.amount)||0;
-          agg[t] = (agg[t]||0) + amt;
-        }
-        setRevByType(Object.entries(agg).map(([type,total])=>({ type, total })));
-      } catch {}
+      const projClients = pcRes.ok ? await pcRes.json() : [];
+      setRevByClient(prev => (prev && prev.length ? prev : projClients));
+      setRevByType(etRes.ok ? await etRes.json() : []);
     };
     fetchRevenue();
   }, [access?.can_view_revenue]);
