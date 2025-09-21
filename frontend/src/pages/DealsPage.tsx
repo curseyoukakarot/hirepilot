@@ -652,7 +652,7 @@ export default function DealsPage() {
                                   <span className="text-gray-500 w-20">Website</span>
                                   {editingClientId === c.id ? (
                                     <input
-                                      onFocus={(e)=>{ activeInputRef.current = e.currentTarget; }}
+                                      ref={(el)=>{ if (el) activeInputRef.current = el; }}
                                       onSelect={(e)=>{ const t=e.target as HTMLInputElement; selectionRef.current={ start: t.selectionStart, end: t.selectionEnd }; }}
                                       className="border rounded px-2 py-1 w-full"
                                       value={clientDraft.domain ?? c.domain ?? ''}
@@ -666,7 +666,7 @@ export default function DealsPage() {
                                   <span className="text-gray-500 w-20">Industry</span>
                                   {editingClientId === c.id ? (
                                     <input
-                                      onFocus={(e)=>{ activeInputRef.current = e.currentTarget; }}
+                                      ref={(el)=>{ if (el) activeInputRef.current = el; }}
                                       onSelect={(e)=>{ const t=e.target as HTMLInputElement; selectionRef.current={ start: t.selectionStart, end: t.selectionEnd }; }}
                                       className="border rounded px-2 py-1 w-full"
                                       value={clientDraft.industry ?? c.industry ?? ''}
@@ -680,7 +680,7 @@ export default function DealsPage() {
                                   <span className="text-gray-500 w-20">Location</span>
                                   {editingClientId === c.id ? (
                                     <input
-                                      onFocus={(e)=>{ activeInputRef.current = e.currentTarget; }}
+                                      ref={(el)=>{ if (el) activeInputRef.current = el; }}
                                       onSelect={(e)=>{ const t=e.target as HTMLInputElement; selectionRef.current={ start: t.selectionStart, end: t.selectionEnd }; }}
                                       className="border rounded px-2 py-1 w-full"
                                       value={clientDraft.location ?? c.location ?? ''}
@@ -928,7 +928,7 @@ export default function DealsPage() {
           <div>
             <label className="block text-sm text-gray-600 mb-1">Opportunity Name</label>
             <input
-              onFocus={(e)=>{ addInputRef.current = e.currentTarget; }}
+              ref={(el)=>{ if (el) addInputRef.current = el; }}
               onSelect={(e)=>{ const t=e.target as HTMLInputElement; addSelectionRef.current={ start: t.selectionStart, end: t.selectionEnd }; }}
               value={form.title}
               onChange={(e)=>{ addSelectionRef.current={ start: e.target.selectionStart, end: e.target.selectionEnd }; setForm(p=>({ ...p, title: e.target.value })); }}
@@ -939,7 +939,7 @@ export default function DealsPage() {
           <div>
             <label className="block text-sm text-gray-600 mb-1">Client</label>
             <input
-              onFocus={(e)=>{ addInputRef.current = e.currentTarget; }}
+              ref={(el)=>{ if (el) addInputRef.current = el; }}
               onSelect={(e)=>{ const t=e.target as HTMLInputElement; addSelectionRef.current={ start: t.selectionStart, end: t.selectionEnd }; }}
               value={form.client_id}
               onChange={(e)=>{ addSelectionRef.current={ start: e.target.selectionStart, end: e.target.selectionEnd }; setForm(p=>({ ...p, client_id: e.target.value })); }}
@@ -951,7 +951,7 @@ export default function DealsPage() {
             <div className="flex-1">
               <label className="block text-sm text-gray-600 mb-1">Value (USD)</label>
               <input
-                onFocus={(e)=>{ addInputRef.current = e.currentTarget; }}
+                ref={(el)=>{ if (el) addInputRef.current = el; }}
                 onSelect={(e)=>{ const t=e.target as HTMLInputElement; addSelectionRef.current={ start: t.selectionStart, end: t.selectionEnd }; }}
                 value={form.value}
                 onChange={(e)=>{ addSelectionRef.current={ start: e.target.selectionStart, end: e.target.selectionEnd }; setForm(p=>({ ...p, value: e.target.value })); }}
