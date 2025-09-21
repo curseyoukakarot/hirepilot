@@ -113,7 +113,13 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
 
     // fetch req links
     const { data: links } = await supabase.from('opportunity_job_reqs').select('req_id').eq('opportunity_id', id);
-    res.json({ ...opp, req_ids: (links||[]).map((l:any)=>l.req_id) });
+    // fetch client and owner
+    const [{ data: clientRow }, { data: ownerRow }] = await Promise.all([
+      opp.client_id ? supabase.from('clients').select('id,name,domain').eq('id', opp.client_id).maybeSingle() : Promise.resolve({ data: null }),
+      opp.owner_id ? supabase.from('users').select('id,first_name,last_name,email').eq('id', opp.owner_id).maybeSingle() : Promise.resolve({ data: null })
+    ] as any);
+    const owner_name = ownerRow ? [ownerRow.first_name, ownerRow.last_name].filter(Boolean).join(' ') || ownerRow.email : null;
+    res.json({ ...opp, req_ids: (links||[]).map((l:any)=>l.req_id), client: clientRow, owner: { id: ownerRow?.id, name: owner_name, email: ownerRow?.email } });
   } catch (e: any) {
     res.status(500).json({ error: e.message || 'Internal server error' });
   }
@@ -129,6 +135,48 @@ router.patch('/:id/notes', requireAuth, async (req: Request, res: Response) => {
     const { data, error } = await supabase.from('opportunities').update({ notes: notes ?? null }).eq('id', id).select('id,notes').maybeSingle();
     if (error) { res.status(500).json({ error: error.message }); return; }
     res.json(data);
+  } catch (e:any) { res.status(500).json({ error: e.message || 'Internal server error' }); }
+});
+
+// Activity log (simple)
+router.get('/:id/activity', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { data, error } = await supabase.from('opportunity_activity').select('*').eq('opportunity_id', id).order('created_at', { ascending: false });
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    res.json(data || []);
+  } catch (e:any) { res.status(500).json({ error: e.message || 'Internal server error' }); }
+});
+
+router.post('/:id/activity', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    const { id } = req.params;
+    const { message } = req.body || {};
+    const { data, error } = await supabase.from('opportunity_activity').insert({ opportunity_id: id, user_id: userId, message, created_at: new Date().toISOString() }).select('*').single();
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    res.status(201).json(data);
+  } catch (e:any) { res.status(500).json({ error: e.message || 'Internal server error' }); }
+});
+
+// Collaborators (basic by email)
+router.get('/:id/collaborators', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { data, error } = await supabase.from('opportunity_collaborators').select('*').eq('opportunity_id', id);
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    res.json(data || []);
+  } catch (e:any) { res.status(500).json({ error: e.message || 'Internal server error' }); }
+});
+
+router.post('/:id/collaborators', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { email, role } = req.body || {};
+    const { data, error } = await supabase.from('opportunity_collaborators').insert({ opportunity_id: id, email, role: role || 'collaborator', created_at: new Date().toISOString() }).select('*').single();
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    res.status(201).json(data);
   } catch (e:any) { res.status(500).json({ error: e.message || 'Internal server error' }); }
 });
 

@@ -7,6 +7,8 @@ export default function OpportunityDetail() {
   const [opp, setOpp] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [notes, setNotes] = useState('');
+  const [activity, setActivity] = useState<any[]>([]);
+  const [newActivity, setNewActivity] = useState('');
 
   useEffect(() => {
     const run = async () => {
@@ -17,6 +19,11 @@ export default function OpportunityDetail() {
       const js = resp.ok ? await resp.json() : null;
       setOpp(js);
       setNotes(js?.notes || '');
+      // load activity
+      try {
+        const actRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities/${id}/activity`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        setActivity(actRes.ok ? await actRes.json() : []);
+      } catch {}
       setLoading(false);
     };
     run();
@@ -30,6 +37,22 @@ export default function OpportunityDetail() {
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({ notes })
     });
+  };
+
+  const addActivity = async () => {
+    if (!newActivity.trim()) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities/${id}/activity`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ message: newActivity.trim() })
+    });
+    if (resp.ok) {
+      const row = await resp.json();
+      setActivity([row, ...activity]);
+      setNewActivity('');
+    }
   };
 
   if (loading) return <div className="p-6">Loading…</div>;
@@ -46,7 +69,18 @@ export default function OpportunityDetail() {
               <span>Owner: {opp.owner_id?.slice(0,8)}</span>
             </div>
           </div>
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">{opp.stage || 'Open'}</span>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">{opp.stage || 'Open'}</span>
+            <select className="border rounded px-2 py-1 text-sm" value={opp.stage || 'Pipeline'} onChange={async e=>{
+              const newStage = e.target.value;
+              const { data: { session } } = await supabase.auth.getSession();
+              const token = session?.access_token;
+              await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities/${id}`, { method:'PATCH', headers: { 'Content-Type':'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ stage: newStage }) });
+              setOpp((o:any)=>({ ...o, stage: newStage }));
+            }}>
+              {['Pipeline','Best Case','Commit','Close Won','Closed Lost'].map(s=> <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-gray-50 rounded-lg p-3"><div className="text-xs text-gray-500">Stage</div><div className="text-sm font-semibold">{opp.stage || '—'}</div></div>
@@ -66,19 +100,28 @@ export default function OpportunityDetail() {
 
           <div className="bg-white rounded-xl shadow-sm border p-6">
             <div className="flex items-center justify-between mb-3"><h3 className="text-lg font-semibold">Linked Job Reqs</h3><button className="text-sm text-blue-600">Attach REQ</button></div>
-            <div className="text-sm text-gray-600">{(opp.req_ids||[]).length ? (opp.req_ids||[]).join(', ') : 'No linked REQs'}</div>
+          <div className="text-sm text-gray-600">{(opp.req_ids||[]).length ? (opp.req_ids||[]).join(', ') : 'No linked REQs'}</div>
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border p-6">
             <h3 className="text-lg font-semibold mb-3">Activity Log</h3>
-            <div className="text-sm text-gray-600">Coming soon…</div>
+            <div className="space-y-3 mb-3">
+              {activity.map((a:any)=> (
+                <div key={a.id} className="bg-gray-50 rounded p-2 text-sm text-gray-800">{a.message}<div className="text-xs text-gray-400">{a.created_at ? new Date(a.created_at).toLocaleString() : ''}</div></div>
+              ))}
+              {activity.length===0 && <div className="text-sm text-gray-500">No activity yet</div>}
+            </div>
+            <div className="flex gap-2">
+              <input className="flex-1 border rounded px-3 py-2 text-sm" placeholder="Add internal note…" value={newActivity} onChange={e=>setNewActivity(e.target.value)} />
+              <button className="px-3 py-2 bg-gray-900 text-white rounded" onClick={addActivity}>Add</button>
+            </div>
           </div>
         </div>
 
         <div className="space-y-6">
           <div className="bg-white rounded-xl shadow-sm border p-6">
             <div className="flex items-center justify-between mb-3"><h3 className="text-lg font-semibold">Assigned Team</h3><button className="text-sm text-blue-600">Add</button></div>
-            <div className="text-sm text-gray-600">Owner: {opp.owner_id?.slice(0,8)}</div>
+          <div className="text-sm text-gray-600">Owner: {opp.owner?.name || opp.owner?.email || opp.owner_id?.slice(0,8)}</div>
           </div>
           <div className="bg-white rounded-xl shadow-sm border p-6">
             <h3 className="text-lg font-semibold mb-3">Internal Notes</h3>
