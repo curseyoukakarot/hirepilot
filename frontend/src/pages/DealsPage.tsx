@@ -47,6 +47,7 @@ export default function DealsPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [addStage, setAddStage] = useState('Pipeline');
   const [form, setForm] = useState<{ title: string; client_id: string; value: string; billing_type: string }>({ title: '', client_id: '', value: '', billing_type: '' });
+  const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
     const fetchInvoices = async () => {
@@ -807,6 +808,7 @@ export default function DealsPage() {
               <span className="font-semibold">{currency(board.reduce((s, col)=>s+col.weighted, 0))}</span>
             </>
           )}
+          <button className="ml-4 px-3 py-2 text-sm bg-indigo-600 text-white rounded-md" onClick={()=>{ setAddStage('Pipeline'); setForm({ title:'', client_id:'', value:'', billing_type:'' }); setAddOpen(true); }}>New Opportunity</button>
         </div>
       </div>
       {oppView==='table' ? (
@@ -908,12 +910,12 @@ export default function DealsPage() {
         <h3 className="text-lg font-semibold mb-4">Add Opportunity</h3>
         <div className="space-y-3">
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Title</label>
-            <input value={form.title} onChange={e=>setForm(p=>({ ...p, title: e.target.value }))} className="w-full border rounded-md px-3 py-2" placeholder="Opportunity title" />
+            <label className="block text-sm text-gray-600 mb-1">Opportunity Name</label>
+            <input value={form.title} onChange={e=>setForm(p=>({ ...p, title: e.target.value }))} className="w-full border rounded-md px-3 py-2" placeholder="e.g. VP of Sales Search" />
           </div>
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Client ID</label>
-            <input value={form.client_id} onChange={e=>setForm(p=>({ ...p, client_id: e.target.value }))} className="w-full border rounded-md px-3 py-2" placeholder="UUID of client" />
+            <label className="block text-sm text-gray-600 mb-1">Client</label>
+            <input value={form.client_id} onChange={e=>setForm(p=>({ ...p, client_id: e.target.value }))} className="w-full border rounded-md px-3 py-2" placeholder="Client ID (paste)" />
           </div>
           <div className="flex gap-3">
             <div className="flex-1">
@@ -921,13 +923,25 @@ export default function DealsPage() {
               <input value={form.value} onChange={e=>setForm(p=>({ ...p, value: e.target.value }))} className="w-full border rounded-md px-3 py-2" placeholder="e.g. 50000" />
             </div>
             <div className="flex-1">
-              <label className="block text-sm text-gray-600 mb-1">Billing Type</label>
-              <input value={form.billing_type} onChange={e=>setForm(p=>({ ...p, billing_type: e.target.value }))} className="w-full border rounded-md px-3 py-2" placeholder="retainer / contingency" />
+              <label className="block text-sm text-gray-600 mb-1">Revenue Type</label>
+              <select value={form.billing_type} onChange={e=>setForm(p=>({ ...p, billing_type: e.target.value }))} className="w-full border rounded-md px-3 py-2">
+                <option value="">Select…</option>
+                <option value="contingency">Contingency</option>
+                <option value="retainer">Retained Search</option>
+                <option value="rpo">RPO (Monthly)</option>
+                <option value="staffing">Staffing (Hourly)</option>
+              </select>
             </div>
           </div>
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Stage</label>
-            <input value={addStage} onChange={e=>setAddStage(e.target.value)} className="w-full border rounded-md px-3 py-2" />
+            <label className="block text-sm text-gray-600 mb-1">Starting Stage</label>
+            <select value={addStage} onChange={e=>setAddStage(e.target.value)} className="w-full border rounded-md px-3 py-2">
+              <option>Pipeline</option>
+              <option>Best Case</option>
+              <option>Commit</option>
+              <option>Close Won</option>
+              <option>Closed Lost</option>
+            </select>
           </div>
         </div>
         <div className="mt-5 flex justify-end gap-3">
