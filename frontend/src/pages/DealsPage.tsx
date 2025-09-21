@@ -586,6 +586,7 @@ export default function DealsPage() {
               <thead className="bg-gray-50 border-b">
                 <tr>
                   <th className="p-4 text-left">Company</th>
+                  <th className="p-4 text-left">Status</th>
                   <th className="p-4 text-left">Industry</th>
                   <th className="p-4 text-left">Revenue</th>
                   <th className="p-4 text-left">Location</th>
@@ -595,7 +596,7 @@ export default function DealsPage() {
               </thead>
               <tbody className="divide-y">
                 {filteredClients.length === 0 ? (
-                  <tr><td colSpan={6} className="p-6 text-gray-500">No clients yet</td></tr>
+                  <tr><td colSpan={7} className="p-6 text-gray-500">No clients yet</td></tr>
                 ) : filteredClients.map((c: any) => (
                   <React.Fragment key={c.id}>
                     <tr
@@ -608,11 +609,11 @@ export default function DealsPage() {
                         setExpandedClientId(prev => prev===c.id? null : c.id);
                       }}
                     >
-                      <td className="p-4 font-medium text-gray-900 flex items-center gap-2">
-                        <span>{c.name || c.domain || '—'}</span>
-                        {c.stage && (
+                      <td className="p-4 font-medium text-gray-900">{c.name || c.domain || '—'}</td>
+                      <td className="p-4">
+                        {c.stage ? (
                           <span className={`px-2 py-0.5 text-xs rounded-full ${String(c.stage).toLowerCase()==='active' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{String(c.stage).toLowerCase()==='active' ? 'Active' : 'Prospect'}</span>
-                        )}
+                        ) : '—'}
                       </td>
                       <td className="p-4">{c.industry || '—'}</td>
                       <td className="p-4">{c.revenue != null ? Number(c.revenue).toLocaleString('en-US',{style:'currency',currency:'USD'}) : '—'}</td>
@@ -622,7 +623,7 @@ export default function DealsPage() {
                     </tr>
                     {expandedClientId === c.id && (
                       <tr>
-                        <td colSpan={6} className="p-5 bg-gray-50">
+                        <td colSpan={7} className="p-5 bg-gray-50">
                           <ClientRowEditor
                             client={c}
                             onSave={async ()=>{ const { data: { session } } = await supabase.auth.getSession(); const token = session?.access_token; const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }); const js = resp.ok ? await resp.json() : []; setClients(js||[]); setExpandedClientId(null); }}
