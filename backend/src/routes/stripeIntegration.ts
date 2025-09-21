@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
-import { supabaseDb } from '../lib/supabase';
-import { requireAuth } from '../middleware/authMiddleware';
+import { supabase } from '../lib/supabase';
+import { requireAuth } from '../../middleware/authMiddleware';
 import { ensureConnectAccount, connectOnboardingLink } from '../services/stripe';
 
 const router = express.Router();
@@ -11,7 +11,7 @@ router.get('/status', requireAuth as any, async (req: Request, res: Response) =>
     const userId = (req as any).user?.id;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
 
-    const { data, error } = await supabaseDb
+    const { data, error } = await supabase
       .from('user_integrations')
       .select('stripe_secret_key, stripe_publishable_key, stripe_connected_account_id')
       .eq('user_id', userId)
@@ -35,7 +35,7 @@ router.post('/save-keys', requireAuth as any, async (req: Request, res: Response
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     if (!secret_key || !publishable_key) return res.status(400).json({ error: 'missing_keys' });
 
-    const { error } = await supabaseDb
+    const { error } = await supabase
       .from('user_integrations')
       .upsert({
         user_id: userId,
@@ -56,7 +56,7 @@ router.post('/connect/init', requireAuth as any, async (req: Request, res: Respo
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
 
     // Read existing account id if present
-    const { data: row, error: readErr } = await supabaseDb
+    const { data: row, error: readErr } = await supabase
       .from('user_integrations')
       .select('stripe_connected_account_id')
       .eq('user_id', userId)
@@ -65,7 +65,7 @@ router.post('/connect/init', requireAuth as any, async (req: Request, res: Respo
 
     const accountId = await ensureConnectAccount(userId, row?.stripe_connected_account_id || undefined);
     if (!row?.stripe_connected_account_id) {
-      await supabaseDb
+      await supabase
         .from('user_integrations')
         .upsert({ user_id: userId, stripe_connected_account_id: accountId }, { onConflict: 'user_id' });
     }
@@ -83,7 +83,7 @@ router.post('/disconnect', requireAuth as any, async (req: Request, res: Respons
     const userId = (req as any).user?.id;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
 
-    const { error } = await supabaseDb
+    const { error } = await supabase
       .from('user_integrations')
       .upsert({ user_id: userId, stripe_secret_key: null, stripe_publishable_key: null, stripe_connected_account_id: null }, { onConflict: 'user_id' });
     if (error) throw error;
