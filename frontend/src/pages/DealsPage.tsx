@@ -13,6 +13,9 @@ export default function DealsPage() {
   const [loading, setLoading] = useState(true);
   const [access, setAccess] = useState<{ can_view_clients: boolean; can_view_opportunities: boolean; can_view_billing: boolean; can_view_revenue: boolean } | null>(null);
   const [opps, setOpps] = useState<any[]>([]);
+  const [clients, setClients] = useState<any[]>([]);
+  const [clientsLoading, setClientsLoading] = useState(false);
+  const [clientsSearch, setClientsSearch] = useState('');
   const [oppLoading, setOppLoading] = useState(false);
   const [oppFilters, setOppFilters] = useState<{ status: string; client: string; search: string }>({ status: '', client: '', search: '' });
   const [oppView, setOppView] = useState<OppView>('table');
@@ -48,6 +51,20 @@ export default function DealsPage() {
     };
     fetchInvoices();
   }, [access?.can_view_billing]);
+
+  useEffect(() => {
+    const fetchClients = async () => {
+      if (!access?.can_view_clients || activeTab !== 'clients') return;
+      setClientsLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const js = resp.ok ? await resp.json() : [];
+      setClients(js || []);
+      setClientsLoading(false);
+    };
+    fetchClients();
+  }, [access?.can_view_clients, activeTab]);
 
   useEffect(() => {
     const fetchRevenue = async () => {
@@ -212,6 +229,13 @@ export default function DealsPage() {
       </div>
     </div>
   );
+  const filteredClients = useMemo(() => {
+    const q = clientsSearch.trim().toLowerCase();
+    if (!q) return clients;
+    return clients.filter((c: any) => (
+      String(c.name || '').toLowerCase().includes(q) || String(c.domain || '').toLowerCase().includes(q) || String(c.industry || '').toLowerCase().includes(q) || String(c.location || '').toLowerCase().includes(q)
+    ));
+  }, [clients, clientsSearch]);
   useEffect(() => {
     const run = async () => {
       setLoading(true);
@@ -370,12 +394,43 @@ export default function DealsPage() {
       <div className="flex items-center justify-between mb-4">
         <div className="relative w-72">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔎</span>
-          <input className="w-full pl-8 pr-3 py-2 bg-white border rounded-lg text-sm" placeholder="Search clients..." />
+          <input value={clientsSearch} onChange={e=>setClientsSearch(e.target.value)} className="w-full pl-8 pr-3 py-2 bg-white border rounded-lg text-sm" placeholder="Search clients..." />
         </div>
         <button className="text-sm text-gray-600">Filters</button>
       </div>
-      <div className="bg-white border rounded-xl">
-        <div className="p-6 text-gray-600 text-sm">Table placeholder — wired in next step using existing Clients UI components.</div>
+      <div className="bg-white border rounded-xl overflow-hidden">
+        {clientsLoading ? (
+          <div className="p-6 text-gray-500 text-sm">Loading…</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="p-4 text-left">Company</th>
+                  <th className="p-4 text-left">Industry</th>
+                  <th className="p-4 text-left">Revenue</th>
+                  <th className="p-4 text-left">Location</th>
+                  <th className="p-4 text-left">Decision Makers</th>
+                  <th className="p-4 text-left">Created</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {filteredClients.length === 0 ? (
+                  <tr><td colSpan={6} className="p-6 text-gray-500">No clients yet</td></tr>
+                ) : filteredClients.map((c: any) => (
+                  <tr key={c.id} className="hover:bg-gray-50">
+                    <td className="p-4 font-medium text-gray-900">{c.name || c.domain || '—'}</td>
+                    <td className="p-4">{c.industry || '—'}</td>
+                    <td className="p-4">{c.revenue != null ? Number(c.revenue).toLocaleString('en-US',{style:'currency',currency:'USD'}) : '—'}</td>
+                    <td className="p-4">{c.location || '—'}</td>
+                    <td className="p-4">{c.contact_count != null ? c.contact_count : '—'}</td>
+                    <td className="p-4 text-gray-500">{c.created_at ? new Date(c.created_at).toLocaleDateString() : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
