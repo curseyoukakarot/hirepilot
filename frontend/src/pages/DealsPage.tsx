@@ -573,7 +573,17 @@ export default function DealsPage() {
                   <tr><td colSpan={6} className="p-6 text-gray-500">No clients yet</td></tr>
                 ) : filteredClients.map((c: any) => (
                   <>
-                    <tr key={c.id} className="hover:bg-gray-50 cursor-pointer" onClick={()=>setExpandedClientId(prev => prev===c.id? null : c.id)}>
+                    <tr
+                      key={c.id}
+                      className="hover:bg-gray-50 cursor-pointer"
+                      onClick={(e)=>{
+                        // Do not toggle when interacting with inputs/controls or while editing this client
+                        if (editingClientId === c.id) return;
+                        const target = e.target as HTMLElement;
+                        if (target.closest('input, textarea, select, button, a, [data-no-row-toggle]')) return;
+                        setExpandedClientId(prev => prev===c.id? null : c.id);
+                      }}
+                    >
                       <td className="p-4 font-medium text-gray-900 flex items-center gap-2">
                         <span>{c.name || c.domain || '—'}</span>
                         {c.stage && (
@@ -596,26 +606,27 @@ export default function DealsPage() {
                                 <div className="flex items-center gap-2">
                                   <span className="text-gray-500 w-20">Website</span>
                                   {editingClientId === c.id ? (
-                                    <input className="border rounded px-2 py-1 w-full" defaultValue={c.domain || ''} onChange={(e)=>setClientDraft((s:any)=>({ ...s, domain: e.target.value }))} />
+                                    <input className="border rounded px-2 py-1 w-full" defaultValue={c.domain || ''} onChange={(e)=>setClientDraft((s:any)=>({ ...s, domain: e.target.value }))} onMouseDown={(e)=>e.stopPropagation()} onClick={(e)=>e.stopPropagation()} />
                                   ) : <span>{c.domain || '—'}</span>}
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <span className="text-gray-500 w-20">Industry</span>
                                   {editingClientId === c.id ? (
-                                    <input className="border rounded px-2 py-1 w-full" defaultValue={c.industry || ''} onChange={(e)=>setClientDraft((s:any)=>({ ...s, industry: e.target.value }))} />
+                                    <input className="border rounded px-2 py-1 w-full" defaultValue={c.industry || ''} onChange={(e)=>setClientDraft((s:any)=>({ ...s, industry: e.target.value }))} onMouseDown={(e)=>e.stopPropagation()} onClick={(e)=>e.stopPropagation()} />
                                   ) : <span>{c.industry || '—'}</span>}
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <span className="text-gray-500 w-20">Location</span>
                                   {editingClientId === c.id ? (
-                                    <input className="border rounded px-2 py-1 w-full" defaultValue={c.location || ''} onChange={(e)=>setClientDraft((s:any)=>({ ...s, location: e.target.value }))} />
+                                    <input className="border rounded px-2 py-1 w-full" defaultValue={c.location || ''} onChange={(e)=>setClientDraft((s:any)=>({ ...s, location: e.target.value }))} onMouseDown={(e)=>e.stopPropagation()} onClick={(e)=>e.stopPropagation()} />
                                   ) : <span>{c.location || '—'}</span>}
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <span className="text-gray-500 w-20">Stage</span>
                                   {editingClientId === c.id ? (
-                                    <select className="border rounded px-2 py-1" defaultValue={String(c.stage || 'prospect')}
-                                      onChange={(e)=>setClientDraft((s:any)=>({ ...s, stage: e.target.value }))}>
+                                    <select className="border rounded px-2 py-1" value={(clientDraft.stage ?? String(c.stage || 'prospect'))}
+                                      onChange={(e)=>setClientDraft((s:any)=>({ ...s, stage: e.target.value }))}
+                                      onMouseDown={(e)=>e.stopPropagation()} onClick={(e)=>e.stopPropagation()}>
                                       <option value="prospect">Prospect</option>
                                       <option value="active">Active</option>
                                     </select>
@@ -639,7 +650,9 @@ export default function DealsPage() {
                                 <h4 className="text-sm font-semibold text-gray-700 mb-2">Activity Notes</h4>
                                 {editingClientId === c.id ? (
                                   <textarea className="border rounded w-full p-2" rows={3} defaultValue={c.notes || ''}
-                                    onChange={(e)=>setClientDraft((s:any)=>({ ...s, notes: e.target.value }))} />
+                                    onChange={(e)=>setClientDraft((s:any)=>({ ...s, notes: e.target.value }))}
+                                    onMouseDown={(e)=>e.stopPropagation()} onClick={(e)=>e.stopPropagation()}
+                                  />
                                 ) : (
                                   <div className="text-sm text-gray-700 whitespace-pre-wrap">{c.notes || '—'}</div>
                                 )}
@@ -678,8 +691,8 @@ export default function DealsPage() {
                                   </>
                                 ) : (
                                   <>
-                                    <button className="px-3 py-1.5 text-sm bg-gray-100 rounded" onClick={()=>{ setEditingClientId(c.id); setClientDraft({}); }}>Edit</button>
-                                    <button className="px-3 py-1.5 text-sm bg-blue-50 text-blue-700 rounded" onClick={()=>syncClientFromEnrichment(c.id)}>Sync from Enrichment</button>
+                                    <button className="px-3 py-1.5 text-sm bg-gray-100 rounded" onClick={(e)=>{ e.stopPropagation(); setEditingClientId(c.id); setClientDraft({}); }}>Edit</button>
+                                    <button className="px-3 py-1.5 text-sm bg-blue-50 text-blue-700 rounded" onClick={(e)=>{ e.stopPropagation(); syncClientFromEnrichment(c.id); }}>Sync from Enrichment</button>
                                   </>
                                 )}
                               </div>
