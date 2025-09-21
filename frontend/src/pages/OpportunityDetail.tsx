@@ -9,6 +9,9 @@ export default function OpportunityDetail() {
   const [notes, setNotes] = useState('');
   const [activity, setActivity] = useState<any[]>([]);
   const [newActivity, setNewActivity] = useState('');
+  const [collabs, setCollabs] = useState<any[]>([]);
+  const [newCollab, setNewCollab] = useState('');
+  const [newReqId, setNewReqId] = useState('');
 
   useEffect(() => {
     const run = async () => {
@@ -23,6 +26,10 @@ export default function OpportunityDetail() {
       try {
         const actRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities/${id}/activity`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
         setActivity(actRes.ok ? await actRes.json() : []);
+      } catch {}
+      try {
+        const cRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities/${id}/collaborators`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        setCollabs(cRes.ok ? await cRes.json() : []);
       } catch {}
       setLoading(false);
     };
@@ -55,6 +62,39 @@ export default function OpportunityDetail() {
     }
   };
 
+  const addCollaborator = async () => {
+    if (!newCollab.trim()) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities/${id}/collaborators`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ email: newCollab.trim() })
+    });
+    if (resp.ok) {
+      const row = await resp.json();
+      setCollabs((c:any[]) => [row, ...c]);
+      setNewCollab('');
+    }
+  };
+
+  const attachReq = async () => {
+    const idStr = newReqId.trim();
+    if (!idStr) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    const reqIds = Array.from(new Set([...(opp?.req_ids || []), idStr]));
+    const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ req_ids: reqIds })
+    });
+    if (resp.ok) {
+      setOpp((o:any) => ({ ...o, req_ids: reqIds }));
+      setNewReqId('');
+    }
+  };
+
   if (loading) return <div className="p-6">Loading…</div>;
   if (!opp) return <div className="p-6">Not found</div>;
 
@@ -65,8 +105,8 @@ export default function OpportunityDetail() {
           <div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">{opp.title}</h2>
             <div className="flex items-center space-x-4 text-sm text-gray-600">
-              <span>Client: {opp.client_id?.slice(0,8)}</span>
-              <span>Owner: {opp.owner_id?.slice(0,8)}</span>
+              <span>Client: {opp.client?.name || opp.client?.domain || opp.client_id?.slice(0,8)}</span>
+              <span>Owner: {opp.owner?.name || opp.owner?.email || opp.owner_id?.slice(0,8)}</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -99,8 +139,14 @@ export default function OpportunityDetail() {
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border p-6">
-            <div className="flex items-center justify-between mb-3"><h3 className="text-lg font-semibold">Linked Job Reqs</h3><button className="text-sm text-blue-600">Attach REQ</button></div>
-          <div className="text-sm text-gray-600">{(opp.req_ids||[]).length ? (opp.req_ids||[]).join(', ') : 'No linked REQs'}</div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold">Linked Job Reqs</h3>
+              <div className="flex items-center gap-2">
+                <input className="border rounded px-2 py-1 text-sm" placeholder="Add REQ ID" value={newReqId} onChange={e=>setNewReqId(e.target.value)} />
+                <button className="text-sm text-blue-600" onClick={attachReq}>Attach REQ</button>
+              </div>
+            </div>
+            <div className="text-sm text-gray-600">{(opp.req_ids||[]).length ? (opp.req_ids||[]).join(', ') : 'No linked REQs'}</div>
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border p-6">
@@ -120,8 +166,18 @@ export default function OpportunityDetail() {
 
         <div className="space-y-6">
           <div className="bg-white rounded-xl shadow-sm border p-6">
-            <div className="flex items-center justify-between mb-3"><h3 className="text-lg font-semibold">Assigned Team</h3><button className="text-sm text-blue-600">Add</button></div>
-          <div className="text-sm text-gray-600">Owner: {opp.owner?.name || opp.owner?.email || opp.owner_id?.slice(0,8)}</div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold">Assigned Team</h3>
+              <div className="flex items-center gap-2">
+                <input className="border rounded px-2 py-1 text-sm" placeholder="Add collaborator email" value={newCollab} onChange={e=>setNewCollab(e.target.value)} />
+                <button className="text-sm text-blue-600" onClick={addCollaborator}>Add</button>
+              </div>
+            </div>
+            <div className="text-sm text-gray-600 mb-2">Owner: {opp.owner?.name || opp.owner?.email || opp.owner_id?.slice(0,8)}</div>
+            <div className="space-y-1 text-sm">
+              {collabs.map((c:any)=> (<div key={c.id} className="text-gray-800">{c.email} <span className="text-gray-400">({c.role||'collaborator'})</span></div>))}
+              {collabs.length===0 && <div className="text-gray-500">No collaborators yet</div>}
+            </div>
           </div>
           <div className="bg-white rounded-xl shadow-sm border p-6">
             <h3 className="text-lg font-semibold mb-3">Internal Notes</h3>
