@@ -52,7 +52,13 @@ router.get('/summary', requireAuth, async (req: Request, res: Response) => {
       return s + (Number(o.value)||0) * (w/100);
     }, 0));
 
-    res.json({ total_paid, forecasted, overdue, unpaid });
+    // Open pipeline from opportunities in open stages (Pipeline/Best Case/Commit)
+    const openStages = ['Pipeline','Best Case','Commit'];
+    const open_pipeline = applyCurrency((opps || [])
+      .filter(o => oppIds.includes(o.id) && openStages.includes(String(o.stage||'')))
+      .reduce((s, o: any) => s + (Number(o.value)||0), 0));
+
+    res.json({ total_paid, forecasted, overdue, unpaid: open_pipeline });
   } catch (e: any) {
     res.status(500).json({ error: e.message || 'Internal server error' });
   }
@@ -98,6 +104,45 @@ router.get('/by-client', requireAuth, async (req: Request, res: Response) => {
     const { data: clients } = ids.length ? await supabase.from('clients').select('id,name').in('id', ids) : { data: [] as any };
     const map = new Map((clients || []).map((c: any) => [c.id, c.name]));
     const rows = ids.map(id => ({ client_id: id, client_name: map.get(id) || id, ...byClient[id] }))
+      .sort((a,b)=>b.total-a.total).slice(0,5);
+    res.json(rows);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message || 'Internal server error' });
+  }
+});
+
+// GET /api/revenue/projected-by-client (from opportunities)
+router.get('/projected-by-client', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    const { role, team_id } = await getRoleTeam(userId);
+    const isSuper = ['super_admin','superadmin'].includes(role.toLowerCase());
+    const isTeamAdmin = role.toLowerCase() === 'team_admin';
+
+    let base = supabase.from('opportunities').select('client_id,value,stage');
+    if (!isSuper) {
+      if (isTeamAdmin && team_id) {
+        const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', team_id);
+        const ids = (teamUsers || []).map((u: any) => u.id);
+        base = base.in('owner_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
+      } else {
+        base = base.eq('owner_id', userId);
+      }
+    }
+    const { data: opps, error } = await base;
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    const openStages = ['Pipeline','Best Case','Commit'];
+    const byClient: Record<string, number> = {};
+    for (const o of (opps || [])) {
+      if (!openStages.includes(String((o as any).stage||''))) continue;
+      const key = String((o as any).client_id || 'unknown');
+      byClient[key] = (byClient[key] || 0) + (Number((o as any).value)||0);
+    }
+    const ids = Object.keys(byClient).filter(Boolean);
+    const { data: clients } = ids.length ? await supabase.from('clients').select('id,name').in('id', ids) : { data: [] as any };
+    const nameMap = new Map((clients || []).map((c: any) => [c.id, c.name]));
+    const rows = ids.map(id => ({ client_id: id, client_name: nameMap.get(id) || id, total: byClient[id] }))
       .sort((a,b)=>b.total-a.total).slice(0,5);
     res.json(rows);
   } catch (e: any) {
@@ -152,6 +197,41 @@ router.get('/monthly', requireAuth, async (req: Request, res: Response) => {
       if ((r as any).status === 'paid') b.paid += amt; else b.outstanding += amt;
     }
     res.json(buckets);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message || 'Internal server error' });
+  }
+});
+
+// GET /api/revenue/engagement-types (projected from opportunities)
+router.get('/engagement-types', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    const { role, team_id } = await getRoleTeam(userId);
+    const isSuper = ['super_admin','superadmin'].includes(role.toLowerCase());
+    const isTeamAdmin = role.toLowerCase() === 'team_admin';
+
+    let base = supabase.from('opportunities').select('billing_type,stage,value');
+    if (!isSuper) {
+      if (isTeamAdmin && team_id) {
+        const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', team_id);
+        const ids = (teamUsers || []).map((u: any) => u.id);
+        base = base.in('owner_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
+      } else {
+        base = base.eq('owner_id', userId);
+      }
+    }
+    const { data: opps, error } = await base;
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    const openStages = ['Pipeline','Best Case','Commit','Close Won'];
+    const map: Record<string, number> = {};
+    for (const o of (opps || [])) {
+      if (!openStages.includes(String((o as any).stage||''))) continue;
+      const key = String((o as any).billing_type || 'unknown');
+      map[key] = (map[key] || 0) + (Number((o as any).value)||0);
+    }
+    const rows = Object.keys(map).map(k => ({ type: k, total: map[k] })).sort((a,b)=>b.total-a.total);
+    res.json(rows);
   } catch (e: any) {
     res.status(500).json({ error: e.message || 'Internal server error' });
   }
