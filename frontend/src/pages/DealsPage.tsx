@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import ClientRowEditor from '../components/deals/ClientRowEditor';
+import AddOpportunityModal from '../components/deals/AddOpportunityModal';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { PieChart, Pie, Cell } from 'recharts';
 
@@ -38,8 +40,7 @@ export default function DealsPage() {
   const [invoiceSubmitting, setInvoiceSubmitting] = useState(false);
   const [invoiceBillingType, setInvoiceBillingType] = useState<'contingency'|'retainer'|'rpo'|'staffing'>('contingency');
   const [invoiceFields, setInvoiceFields] = useState<any>({ salary: '', percent: '20', flat_fee: '', monthly: '', hours: '', hourly_rate: '' });
-  const activeInputRef = React.useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
-  const selectionRef = React.useRef<{ start: number | null; end: number | null }>({ start: null, end: null });
+  // Removed focus/selection refs per engineer's plan
   const [invoiceRecipient, setInvoiceRecipient] = useState('');
   const [invoiceNotes, setInvoiceNotes] = useState('');
   const [invoiceOpportunityId, setInvoiceOpportunityId] = useState<string>('');
@@ -48,10 +49,7 @@ export default function DealsPage() {
   const [addStage, setAddStage] = useState('Pipeline');
   const [form, setForm] = useState<{ title: string; client_id: string; value: string; billing_type: string }>({ title: '', client_id: '', value: '', billing_type: '' });
   const [showAddModal, setShowAddModal] = useState(false);
-  const addInputRef = React.useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
-  const addSelectionRef = React.useRef<{ start: number | null; end: number | null }>({ start: null, end: null });
-  const addTitleRef = React.useRef<HTMLInputElement | null>(null);
-  const addClientRef = React.useRef<HTMLInputElement | null>(null);
+  // Removed modal caret refs
 
   useEffect(() => {
     const fetchInvoices = async () => {
@@ -128,34 +126,7 @@ export default function DealsPage() {
     });
   };
 
-  useEffect(() => {
-    // After draft updates, ensure the focused input retains cursor/selection
-    const el = activeInputRef.current as any;
-    if (editingClientId && el) {
-      // Only refocus if something stole focus
-      if (document.activeElement !== el) {
-        el.focus({ preventScroll: true });
-      }
-      const { start, end } = selectionRef.current;
-      if (typeof start === 'number' && typeof end === 'number' && el.setSelectionRange) {
-        try { el.setSelectionRange(start, end); } catch {}
-      }
-    }
-  }, [clientDraft, editingClientId]);
-
-  useEffect(() => {
-    // Preserve caret within the Add Opportunity modal
-    const el = addInputRef.current as any;
-    if (addOpen && el) {
-      if (document.activeElement !== el) {
-        el.focus({ preventScroll: true });
-      }
-      const { start, end } = addSelectionRef.current;
-      if (typeof start === 'number' && typeof end === 'number' && el.setSelectionRange) {
-        try { el.setSelectionRange(start, end); } catch {}
-      }
-    }
-  }, [form, addOpen]);
+  // Removed caret/selection preservation effects per engineer guidance
 
   const syncClientFromEnrichment = async (id: string) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -646,131 +617,11 @@ export default function DealsPage() {
                     {expandedClientId === c.id && (
                       <tr>
                         <td colSpan={6} className="p-5 bg-gray-50">
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                              <h4 className="text-sm font-semibold text-gray-700 mb-2">Company Insights</h4>
-                              <div className="text-sm text-gray-600 space-y-2">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-gray-500 w-20">Website</span>
-                                  {editingClientId === c.id ? (
-                                    <input
-                                      ref={(el)=>{ if (el) activeInputRef.current = el; }}
-                                      className="border rounded px-2 py-1 w-full"
-                                      defaultValue={clientDraft.domain || ''}
-                                      onChange={(e)=> setClientDraft((s:any)=>({ ...s, domain: e.target.value }))}
-                                      onMouseDown={(e)=>{ e.stopPropagation(); }}
-                                      onClick={(e)=>e.stopPropagation()}
-                                    />
-                                  ) : <span>{c.domain || '—'}</span>}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-gray-500 w-20">Industry</span>
-                                  {editingClientId === c.id ? (
-                                    <input
-                                      ref={(el)=>{ if (el) activeInputRef.current = el; }}
-                                      className="border rounded px-2 py-1 w-full"
-                                      defaultValue={clientDraft.industry || ''}
-                                      onChange={(e)=> setClientDraft((s:any)=>({ ...s, industry: e.target.value }))}
-                                      onMouseDown={(e)=>{ e.stopPropagation(); }}
-                                      onClick={(e)=>e.stopPropagation()}
-                                    />
-                                  ) : <span>{c.industry || '—'}</span>}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-gray-500 w-20">Location</span>
-                                  {editingClientId === c.id ? (
-                                    <input
-                                      ref={(el)=>{ if (el) activeInputRef.current = el; }}
-                                      className="border rounded px-2 py-1 w-full"
-                                      defaultValue={clientDraft.location || ''}
-                                      onChange={(e)=> setClientDraft((s:any)=>({ ...s, location: e.target.value }))}
-                                      onMouseDown={(e)=>{ e.stopPropagation(); }}
-                                      onClick={(e)=>e.stopPropagation()}
-                                    />
-                                  ) : <span>{c.location || '—'}</span>}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-gray-500 w-20">Stage</span>
-                                  {editingClientId === c.id ? (
-                                    <select className="border rounded px-2 py-1" value={(clientDraft.stage ?? String(c.stage || 'prospect'))}
-                                      onChange={(e)=>setClientDraft((s:any)=>({ ...s, stage: e.target.value }))}
-                                      onMouseDown={(e)=>e.stopPropagation()} onClick={(e)=>e.stopPropagation()}>
-                                      <option value="prospect">Prospect</option>
-                                      <option value="active">Active</option>
-                                    </select>
-                                  ) : (
-                                    <span className={`px-2 py-0.5 text-xs rounded-full ${String(c.stage||'prospect').toLowerCase()==='active' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{String(c.stage||'prospect').toLowerCase()==='active' ? 'Active' : 'Prospect'}</span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                            <div className="md:col-span-2">
-                              <h4 className="text-sm font-semibold text-gray-700 mb-2">Decision Makers</h4>
-                              <div className="flex flex-wrap gap-2">
-                                {contacts.filter(dm => dm.client_id === c.id).slice(0,6).map(dm => (
-                                  <span key={dm.id} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-md">{dm.name || dm.email || 'Contact'}</span>
-                                ))}
-                                {contacts.filter(dm=>dm.client_id===c.id).length===0 && (
-                                  <span className="text-sm text-gray-500">No decision makers yet</span>
-                                )}
-                              </div>
-                              <div className="mt-4">
-                                <h4 className="text-sm font-semibold text-gray-700 mb-2">Activity Notes</h4>
-                                {editingClientId === c.id ? (
-                                  <textarea
-                                    ref={(el)=>{ if (el) activeInputRef.current = el; }}
-                                    onSelect={(e)=>{ const t=e.target as HTMLTextAreaElement; selectionRef.current={ start: t.selectionStart, end: t.selectionEnd }; }}
-                                    className="border rounded w-full p-2"
-                                    rows={3}
-                                    value={clientDraft.notes ?? c.notes ?? ''}
-                                    onChange={(e)=>{ selectionRef.current={ start: e.target.selectionStart, end: e.target.selectionEnd }; setClientDraft((s:any)=>({ ...s, notes: e.target.value })); }}
-                                    onMouseDown={(e)=>e.stopPropagation()} onClick={(e)=>e.stopPropagation()}
-                                  />
-                                ) : (
-                                  <div className="text-sm text-gray-700 whitespace-pre-wrap">{c.notes || '—'}</div>
-                                )}
-                              </div>
-                              {/* Enriched org snapshot if available */}
-                              {c.org_meta?.apollo?.organization && (
-                                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  <div className="p-3 bg-white border rounded">
-                                    <div className="text-xs text-gray-500 mb-1">Revenue</div>
-                                    <div className="text-sm text-gray-900">{c.org_meta.apollo.organization.organization_revenue_printed || c.org_meta.apollo.organization.annual_revenue_printed || c.org_meta.apollo.organization.estimated_annual_revenue || '—'}</div>
-                                  </div>
-                                  <div className="p-3 bg-white border rounded">
-                                    <div className="text-xs text-gray-500 mb-1">Funding</div>
-                                    <div className="text-sm text-gray-900">{c.org_meta.apollo.total_funding_printed || c.org_meta.apollo.organization.total_funding_printed || '—'}</div>
-                                  </div>
-                                  <div className="p-3 bg-white border rounded">
-                                    <div className="text-xs text-gray-500 mb-1">Founded</div>
-                                    <div className="text-sm text-gray-900">{c.org_meta.apollo.organization.founded_year || '—'}</div>
-                                  </div>
-                                  <div className="p-3 bg-white border rounded">
-                                    <div className="text-xs text-gray-500 mb-1">Tech Stack</div>
-                                    <div className="flex flex-wrap gap-1">
-                                      {([...(c.org_meta.apollo.organization.technology_names||[]), ...(c.org_meta.apollo.organization.current_technologies||[])]).slice(0,8).map((t:any,idx:number)=> (
-                                        <span key={idx} className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-700">{typeof t==='string'? t : (t?.name || '')}</span>
-                                      ))}
-                                      {(!c.org_meta.apollo.organization.technology_names || c.org_meta.apollo.organization.technology_names.length===0) && <span className="text-sm text-gray-500">—</span>}
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                              <div className="mt-3 flex gap-2">
-                                {editingClientId === c.id ? (
-                                  <>
-                                    <button className="px-3 py-1.5 text-sm bg-gray-900 text-white rounded" onClick={()=>saveClientEdits(c.id)}>Save</button>
-                                    <button className="px-3 py-1.5 text-sm" onClick={()=>{ setEditingClientId(null); setClientDraft({}); }}>Cancel</button>
-                                  </>
-                                ) : (
-                                  <>
-                                    <button className="px-3 py-1.5 text-sm bg-gray-100 rounded" onClick={(e)=>{ e.stopPropagation(); beginEditClient(c); }}>Edit</button>
-                                    <button className="px-3 py-1.5 text-sm bg-blue-50 text-blue-700 rounded" onClick={(e)=>{ e.stopPropagation(); syncClientFromEnrichment(c.id); }}>Sync from Enrichment</button>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          </div>
+                          <ClientRowEditor
+                            client={c}
+                            onSave={async ()=>{ const { data: { session } } = await supabase.auth.getSession(); const token = session?.access_token; const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }); const js = resp.ok ? await resp.json() : []; setClients(js||[]); setExpandedClientId(null); }}
+                            onCancel={()=> setExpandedClientId(null)}
+                          />
                         </td>
                       </tr>
                     )}
@@ -919,72 +770,7 @@ export default function DealsPage() {
     </div>
   );
 
-  const AddModal = () => !addOpen ? null : (
-    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-        <h3 className="text-lg font-semibold mb-4">Add Opportunity</h3>
-        <div className="space-y-3">
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">Opportunity Name</label>
-            <input
-              ref={addTitleRef}
-              defaultValue={form.title}
-              onChange={(e)=> setForm(p=>({ ...p, title: e.target.value }))}
-              className="w-full border rounded-md px-3 py-2"
-              placeholder="e.g. VP of Sales Search"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">Client</label>
-            <input
-              ref={addClientRef}
-              defaultValue={form.client_id}
-              onChange={(e)=> setForm(p=>({ ...p, client_id: e.target.value }))}
-              className="w-full border rounded-md px-3 py-2"
-              placeholder="Client ID (paste)"
-            />
-          </div>
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className="block text-sm text-gray-600 mb-1">Value (USD)</label>
-              <input
-                ref={(el)=>{ if (el) addInputRef.current = el; }}
-                onSelect={(e)=>{ const t=e.target as HTMLInputElement; addSelectionRef.current={ start: t.selectionStart, end: t.selectionEnd }; }}
-                value={form.value}
-                onChange={(e)=>{ addSelectionRef.current={ start: e.target.selectionStart, end: e.target.selectionEnd }; setForm(p=>({ ...p, value: e.target.value })); }}
-                className="w-full border rounded-md px-3 py-2"
-                placeholder="e.g. 50000"
-              />
-            </div>
-            <div className="flex-1">
-              <label className="block text-sm text-gray-600 mb-1">Revenue Type</label>
-              <select value={form.billing_type} onChange={e=>setForm(p=>({ ...p, billing_type: e.target.value }))} className="w-full border rounded-md px-3 py-2">
-                <option value="">Select…</option>
-                <option value="contingency">Contingency</option>
-                <option value="retainer">Retained Search</option>
-                <option value="rpo">RPO (Monthly)</option>
-                <option value="staffing">Staffing (Hourly)</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">Starting Stage</label>
-            <select value={addStage} onChange={e=>setAddStage(e.target.value)} className="w-full border rounded-md px-3 py-2">
-              <option>Pipeline</option>
-              <option>Best Case</option>
-              <option>Commit</option>
-              <option>Close Won</option>
-              <option>Closed Lost</option>
-            </select>
-          </div>
-        </div>
-        <div className="mt-5 flex justify-end gap-3">
-          <button className="px-4 py-2 rounded-md border" onClick={()=>setAddOpen(false)}>Cancel</button>
-          <button className="px-4 py-2 rounded-md bg-blue-600 text-white" onClick={submitAdd}>Create</button>
-        </div>
-      </div>
-    </div>
-  );
+  const AddModal = () => null;
 
   const InvoiceModal = () => !invoiceOpen ? null : (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
@@ -1109,7 +895,7 @@ export default function DealsPage() {
       ) : (
         <>
           {activeTab==='clients' && (canSee('clients') ? <ClientsSection /> : renderAccessDenied())}
-          {activeTab==='opportunities' && (canSee('opportunities') ? <><OpportunitiesSection /><AddModal /></> : renderAccessDenied())}
+          {activeTab==='opportunities' && (canSee('opportunities') ? <><OpportunitiesSection /><AddOpportunityModal open={addOpen} clients={clients} onClose={()=>setAddOpen(false)} onCreated={async ()=>{ await refetchBoard(); }} /></> : renderAccessDenied())}
           {activeTab==='billing' && (canSee('billing') ? <><BillingSection /><InvoiceModal /></> : renderAccessDenied())}
           {activeTab==='revenue' && (canSee('revenue') ? (
             <div className="space-y-6">
