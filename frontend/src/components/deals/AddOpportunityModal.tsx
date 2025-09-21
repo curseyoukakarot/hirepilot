@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabaseClient';
 
 interface AddOpportunityModalProps {
@@ -21,12 +22,18 @@ function AddOpportunityModal({ open, clients, onClose, onCreated }: AddOpportuni
       setSubmitting(true);
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
-      await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities`, {
+      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ title, client_id: clientId, value: Number(value)||0, billing_type: billingType, stage })
       });
-      onCreated();
+      if (resp.ok) {
+        toast.success('Opportunity created');
+        try { await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/sendSlackNotification`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: `New opportunity created: ${title} (${billingType || 'type n/a'})` }) }); } catch {}
+        onCreated();
+      } else {
+        toast.error('Failed to create opportunity');
+      }
       onClose();
       setTitle(''); setClientId(''); setValue(''); setBillingType(''); setStage('Pipeline');
     } finally {
