@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import Stripe from 'stripe';
 
 const router = express.Router();
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2022-11-15' });
+const platformStripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2022-11-15' });
 
 async function getRoleTeam(userId: string): Promise<{ role: string; team_id: string | null }> {
   const { data } = await supabase.from('users').select('role, team_id').eq('id', userId).maybeSingle();
@@ -115,24 +115,48 @@ router.post('/create', requireAuth, async (req: Request, res: Response) => {
       }
     }
 
-    // Create Stripe invoice item and invoice (simple version without products)
-    const customerId = process.env.STRIPE_DEFAULT_CUSTOMER_ID!; // Placeholder: map client to stripe customer
+    // Resolve Stripe mode and customer
+    const { data: integ } = await supabase
+      .from('user_integrations')
+      .select('stripe_mode,stripe_secret_key,stripe_connected_account_id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    const mode = (integ as any)?.stripe_mode || 'connect';
+    const useUserKeys = mode === 'keys' && (integ as any)?.stripe_secret_key;
+    const connectedId = (integ as any)?.stripe_connected_account_id || null;
+
+    const stripe = useUserKeys
+      ? new Stripe((integ as any).stripe_secret_key, { apiVersion: '2022-11-15' })
+      : platformStripe;
+
+    // Ensure or reuse Stripe customer id for this client
+    let stripeCustomerId = (client as any)?.stripe_customer_id || null;
+    if (!stripeCustomerId) {
+      const customer = await stripe.customers.create({
+        name: client?.name || undefined,
+      }, connectedId && !useUserKeys ? { stripeAccount: connectedId } as any : undefined);
+      stripeCustomerId = customer.id;
+      await supabase.from('clients').update({ stripe_customer_id: stripeCustomerId }).eq('id', client?.id || '');
+    }
+
+    // Create Stripe invoice item and invoice
     const invItem = await stripe.invoiceItems.create({
-      customer: customerId,
+      customer: stripeCustomerId,
       description: `${client?.name || 'Client'} • ${opp.title}`,
       currency: 'usd',
       unit_amount: Math.max(0, Math.round(amount * 100)),
       quantity: 1
-    });
+    }, connectedId && !useUserKeys ? { stripeAccount: connectedId } as any : undefined);
     const invoice = await stripe.invoices.create({
-      customer: customerId,
+      customer: stripeCustomerId,
       auto_advance: true,
       collection_method: 'send_invoice',
       days_until_due: 14,
       description: notes || undefined
-    });
-    await stripe.invoices.finalizeInvoice(invoice.id);
-    const hosted = await stripe.invoices.sendInvoice(invoice.id);
+    }, connectedId && !useUserKeys ? { stripeAccount: connectedId } as any : undefined);
+    await stripe.invoices.finalizeInvoice(invoice.id, connectedId && !useUserKeys ? { stripeAccount: connectedId } as any : undefined);
+    const hosted = await stripe.invoices.sendInvoice(invoice.id, connectedId && !useUserKeys ? { stripeAccount: connectedId } as any : undefined);
 
     // Store invoice row
     const { data, error } = await supabase.from('invoices').insert({
