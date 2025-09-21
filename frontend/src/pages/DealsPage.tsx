@@ -38,6 +38,8 @@ export default function DealsPage() {
   const [invoiceSubmitting, setInvoiceSubmitting] = useState(false);
   const [invoiceBillingType, setInvoiceBillingType] = useState<'contingency'|'retainer'|'rpo'|'staffing'>('contingency');
   const [invoiceFields, setInvoiceFields] = useState<any>({ salary: '', percent: '20', flat_fee: '', monthly: '', hours: '', hourly_rate: '' });
+  const activeInputRef = React.useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+  const selectionRef = React.useRef<{ start: number | null; end: number | null }>({ start: null, end: null });
   const [invoiceRecipient, setInvoiceRecipient] = useState('');
   const [invoiceNotes, setInvoiceNotes] = useState('');
   const [invoiceOpportunityId, setInvoiceOpportunityId] = useState<string>('');
@@ -120,6 +122,21 @@ export default function DealsPage() {
       notes: client.notes || ''
     });
   };
+
+  useEffect(() => {
+    // After draft updates, ensure the focused input retains cursor/selection
+    const el = activeInputRef.current as any;
+    if (editingClientId && el) {
+      // Only refocus if something stole focus
+      if (document.activeElement !== el) {
+        el.focus({ preventScroll: true });
+      }
+      const { start, end } = selectionRef.current;
+      if (typeof start === 'number' && typeof end === 'number' && el.setSelectionRange) {
+        try { el.setSelectionRange(start, end); } catch {}
+      }
+    }
+  }, [clientDraft, editingClientId]);
 
   const syncClientFromEnrichment = async (id: string) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -617,19 +634,43 @@ export default function DealsPage() {
                                 <div className="flex items-center gap-2">
                                   <span className="text-gray-500 w-20">Website</span>
                                   {editingClientId === c.id ? (
-                                    <input className="border rounded px-2 py-1 w-full" value={clientDraft.domain ?? c.domain ?? ''} onChange={(e)=>setClientDraft((s:any)=>({ ...s, domain: e.target.value }))} onMouseDown={(e)=>e.stopPropagation()} onClick={(e)=>e.stopPropagation()} />
+                                    <input
+                                      ref={(el)=>{ if (el) activeInputRef.current = el; }}
+                                      onSelect={(e)=>{ const t=e.target as HTMLInputElement; selectionRef.current={ start: t.selectionStart, end: t.selectionEnd }; }}
+                                      className="border rounded px-2 py-1 w-full"
+                                      value={clientDraft.domain ?? c.domain ?? ''}
+                                      onChange={(e)=>{ selectionRef.current={ start: e.target.selectionStart, end: e.target.selectionEnd }; setClientDraft((s:any)=>({ ...s, domain: e.target.value })); }}
+                                      onMouseDown={(e)=>{ selectionRef.current={ start: null, end: null }; e.stopPropagation(); }}
+                                      onClick={(e)=>e.stopPropagation()}
+                                    />
                                   ) : <span>{c.domain || '—'}</span>}
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <span className="text-gray-500 w-20">Industry</span>
                                   {editingClientId === c.id ? (
-                                    <input className="border rounded px-2 py-1 w-full" value={clientDraft.industry ?? c.industry ?? ''} onChange={(e)=>setClientDraft((s:any)=>({ ...s, industry: e.target.value }))} onMouseDown={(e)=>e.stopPropagation()} onClick={(e)=>e.stopPropagation()} />
+                                    <input
+                                      ref={(el)=>{ if (el) activeInputRef.current = el; }}
+                                      onSelect={(e)=>{ const t=e.target as HTMLInputElement; selectionRef.current={ start: t.selectionStart, end: t.selectionEnd }; }}
+                                      className="border rounded px-2 py-1 w-full"
+                                      value={clientDraft.industry ?? c.industry ?? ''}
+                                      onChange={(e)=>{ selectionRef.current={ start: e.target.selectionStart, end: e.target.selectionEnd }; setClientDraft((s:any)=>({ ...s, industry: e.target.value })); }}
+                                      onMouseDown={(e)=>{ selectionRef.current={ start: null, end: null }; e.stopPropagation(); }}
+                                      onClick={(e)=>e.stopPropagation()}
+                                    />
                                   ) : <span>{c.industry || '—'}</span>}
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <span className="text-gray-500 w-20">Location</span>
                                   {editingClientId === c.id ? (
-                                    <input className="border rounded px-2 py-1 w-full" value={clientDraft.location ?? c.location ?? ''} onChange={(e)=>setClientDraft((s:any)=>({ ...s, location: e.target.value }))} onMouseDown={(e)=>e.stopPropagation()} onClick={(e)=>e.stopPropagation()} />
+                                    <input
+                                      ref={(el)=>{ if (el) activeInputRef.current = el; }}
+                                      onSelect={(e)=>{ const t=e.target as HTMLInputElement; selectionRef.current={ start: t.selectionStart, end: t.selectionEnd }; }}
+                                      className="border rounded px-2 py-1 w-full"
+                                      value={clientDraft.location ?? c.location ?? ''}
+                                      onChange={(e)=>{ selectionRef.current={ start: e.target.selectionStart, end: e.target.selectionEnd }; setClientDraft((s:any)=>({ ...s, location: e.target.value })); }}
+                                      onMouseDown={(e)=>{ selectionRef.current={ start: null, end: null }; e.stopPropagation(); }}
+                                      onClick={(e)=>e.stopPropagation()}
+                                    />
                                   ) : <span>{c.location || '—'}</span>}
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -660,8 +701,13 @@ export default function DealsPage() {
                               <div className="mt-4">
                                 <h4 className="text-sm font-semibold text-gray-700 mb-2">Activity Notes</h4>
                                 {editingClientId === c.id ? (
-                                  <textarea className="border rounded w-full p-2" rows={3} value={clientDraft.notes ?? c.notes ?? ''}
-                                    onChange={(e)=>setClientDraft((s:any)=>({ ...s, notes: e.target.value }))}
+                                  <textarea
+                                    ref={(el)=>{ if (el) activeInputRef.current = el; }}
+                                    onSelect={(e)=>{ const t=e.target as HTMLTextAreaElement; selectionRef.current={ start: t.selectionStart, end: t.selectionEnd }; }}
+                                    className="border rounded w-full p-2"
+                                    rows={3}
+                                    value={clientDraft.notes ?? c.notes ?? ''}
+                                    onChange={(e)=>{ selectionRef.current={ start: e.target.selectionStart, end: e.target.selectionEnd }; setClientDraft((s:any)=>({ ...s, notes: e.target.value })); }}
                                     onMouseDown={(e)=>e.stopPropagation()} onClick={(e)=>e.stopPropagation()}
                                   />
                                 ) : (
