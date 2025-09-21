@@ -922,40 +922,42 @@ export default function DealsPage() {
                   <p className="text-2xl font-semibold mt-1 text-red-600">{(revSummary?.overdue||0).toLocaleString('en-US', { style:'currency', currency:'USD' })}</p>
                 </div>
               </div>
-              <div className="rounded-xl border bg-white p-4 shadow-sm">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-medium text-gray-500">Monthly Revenue</h3>
-                <div className="flex items-center gap-2 text-xs">
-                  <button className={`px-2 py-1 rounded ${revMonthlyMode==='actual'?'bg-gray-200':''}`} onClick={()=>setRevMonthlyMode('actual')}>Actual</button>
-                  <button className={`px-2 py-1 rounded ${revMonthlyMode==='projected'?'bg-gray-200':''}`} onClick={()=>setRevMonthlyMode('projected')}>Projected</button>
-                </div>
-              </div>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={revMonthlyMode==='actual' ? revMonthly : revMonthlyProjected}>
-                      <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} />
-                      <YAxis stroke="#9ca3af" fontSize={12} tickFormatter={(v)=>`$${Math.round(v/1000)}k`} />
-                      <Tooltip formatter={(v)=>[(Number(v).toLocaleString('en-US',{style:'currency',currency:'USD'})),'']} />
-                      <Legend />
-                      <Bar dataKey="paid" stackId="a" fill="#10b981" name="Paid" />
-                      <Bar dataKey="forecasted" stackId="a" fill="#3b82f6" name="Forecasted" />
-                      <Bar dataKey="outstanding" stackId="a" fill="#f59e0b" name="Outstanding" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-              <div className="rounded-xl border bg-white p-4 shadow-sm">
-                <h3 className="text-sm font-medium text-gray-500 mb-3">Top Clients</h3>
-                <div className="space-y-2">
-                  {revByClient.map(row => (
-                    <div key={row.client_id} className="flex items-center gap-3">
-                      <div className="w-40 text-sm text-gray-700 truncate">{row.client_name}</div>
-                      <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-green-500" style={{ width: `${(row.paid/Math.max(1,row.total))*100}%` }} />
-                      </div>
-                      <div className="w-28 text-right text-sm">{row.total.toLocaleString('en-US',{style:'currency',currency:'USD'})}</div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="rounded-xl border bg-white p-4 shadow-sm">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-medium text-gray-500">Monthly Revenue</h3>
+                    <div className="flex items-center gap-2 text-xs">
+                      <button className={`px-2 py-1 rounded ${revMonthlyMode==='actual'?'bg-gray-200':''}`} onClick={()=>setRevMonthlyMode('actual')}>Actual</button>
+                      <button className={`px-2 py-1 rounded ${revMonthlyMode==='projected'?'bg-gray-200':''}`} onClick={()=>setRevMonthlyMode('projected')}>Projected</button>
                     </div>
-                  ))}
+                  </div>
+                  <div className="h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={revMonthlyMode==='actual' ? revMonthly : revMonthlyProjected}>
+                        <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} />
+                        <YAxis stroke="#9ca3af" fontSize={12} tickFormatter={(v)=>`$${Math.round(v/1000)}k`} />
+                        <Tooltip formatter={(v)=>[(Number(v).toLocaleString('en-US',{style:'currency',currency:'USD'})),'']} />
+                        <Legend />
+                        <Bar dataKey="paid" stackId="a" fill="#10b981" name="Paid" />
+                        <Bar dataKey="forecasted" stackId="a" fill="#3b82f6" name="Forecasted" />
+                        <Bar dataKey="outstanding" stackId="a" fill="#f59e0b" name="Outstanding" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+                <div className="rounded-xl border bg-white p-4 shadow-sm">
+                  <h3 className="text-sm font-medium text-gray-500 mb-3">Top Clients</h3>
+                  <div className="space-y-2">
+                    {revByClient.map(row => (
+                      <div key={row.client_id} className="flex items-center gap-3">
+                        <div className="w-40 text-sm text-gray-700 truncate">{row.client_name}</div>
+                        <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-green-500" style={{ width: `${(row.paid/Math.max(1,row.total))*100}%` }} />
+                        </div>
+                        <div className="w-28 text-right text-sm">{row.total.toLocaleString('en-US',{style:'currency',currency:'USD'})}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
               <div className="rounded-xl border bg-white p-4 shadow-sm">
