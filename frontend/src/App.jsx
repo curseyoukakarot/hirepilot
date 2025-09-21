@@ -128,6 +128,7 @@ const Campaigns = lazy(() => import("./screens/Campaigns"));
 const Analytics = lazy(() => import("./screens/Analytics"));
 const BillingScreen = lazy(() => import("./screens/BillingScreen"));
 const DealsPage = lazy(() => import("./pages/DealsPage"));
+const OpportunityDetail = lazy(() => import("./pages/OpportunityDetail"));
 
 // Campaign Wizard Component
 function CampaignWizard() {
@@ -492,6 +493,7 @@ function InnerApp() {
               <Route path="/job/:id/pipeline" element={<JobPipeline />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/deals" element={<DealsPage />} />
+              <Route path="/deals/opportunities/:id" element={<OpportunityDetail />} />
               <Route path="/phantom-monitor" element={<PhantomMonitor />} />
               <Route path="/phantom/cookie-refresh" element={<CookieRefresh />} />
               <Route path="/phantom/bulk-refresh" element={<BulkCookieRefresh />} />

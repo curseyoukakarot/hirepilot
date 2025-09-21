@@ -98,6 +98,40 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/opportunities/:id (detail)
+router.get('/:id', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    const allowed = await canViewOpportunities(userId);
+    if (!allowed) { res.status(403).json({ error: 'access_denied' }); return; }
+
+    const { id } = req.params;
+    const { data: opp, error } = await supabase.from('opportunities').select('*').eq('id', id).maybeSingle();
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    if (!opp) { res.status(404).json({ error: 'not_found' }); return; }
+
+    // fetch req links
+    const { data: links } = await supabase.from('opportunity_job_reqs').select('req_id').eq('opportunity_id', id);
+    res.json({ ...opp, req_ids: (links||[]).map((l:any)=>l.req_id) });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message || 'Internal server error' });
+  }
+});
+
+// PATCH /api/opportunities/:id/notes
+router.patch('/:id/notes', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    const { id } = req.params;
+    const { notes } = req.body || {};
+    const { data, error } = await supabase.from('opportunities').update({ notes: notes ?? null }).eq('id', id).select('id,notes').maybeSingle();
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    res.json(data);
+  } catch (e:any) { res.status(500).json({ error: e.message || 'Internal server error' }); }
+});
+
 // POST /api/opportunities
 router.post('/', requireAuth, async (req: Request, res: Response) => {
   try {

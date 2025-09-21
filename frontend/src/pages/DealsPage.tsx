@@ -723,7 +723,7 @@ export default function DealsPage() {
                         <div className="w-8 h-8 rounded-full bg-gray-200" title={`${o.owner?.first_name||''} ${o.owner?.last_name||''}`}></div>
                       </td>
                       <td className="p-4 text-gray-500">{new Date(o.created_at).toLocaleDateString()}</td>
-                      <td className="p-4 text-right"><button className="text-blue-600 font-semibold">View Pipeline</button></td>
+                      <td className="p-4 text-right"><a className="text-blue-600 font-semibold" href={`/deals/opportunities/${o.id}`}>View</a></td>
                     </tr>
                   ))
                 )}
