@@ -289,6 +289,9 @@ router.post('/:id/sync-enrichment', requireAuth, async (req: Request, res: Respo
 
     const { id } = req.params;
     const overrideExisting = Boolean(req.body?.override);
+    const hintName: string | undefined = req.body?.name;
+    const hintDomain: string | undefined = req.body?.domain;
+    const specificLeadId: string | undefined = req.body?.lead_id;
 
     // Fetch client
     const { data: client, error: clientErr } = await supabase
@@ -299,20 +302,59 @@ router.post('/:id/sync-enrichment', requireAuth, async (req: Request, res: Respo
     if (clientErr) { res.status(500).json({ error: clientErr.message }); return; }
     if (!client) { res.status(404).json({ error: 'client_not_found' }); return; }
 
-    // Find a matching enriched lead for this client
-    const clientName = (client as any).name || (client as any).domain || '';
-    const { data: leads } = await supabase
-      .from('leads')
-      .select('id, company, enrichment_data, owner_id, updated_at')
-      .or(`company.ilike.%${clientName}%,enrichment_data->apollo->organization->>name.ilike.%${clientName}%`)
-      .order('updated_at', { ascending: false })
-      .limit(25);
-
+    // If a specific lead is requested, try that first
     let chosen: any = null;
-    for (const l of (leads || [])) {
-      const org = (l as any).enrichment_data?.apollo?.organization;
-      if (org && (org.website_url || org.domain || org.industry || org.estimated_annual_revenue || org.revenue)) {
-        chosen = l; break;
+    if (specificLeadId) {
+      const { data: leadById } = await supabase
+        .from('leads')
+        .select('id, company, enrichment_data, owner_id, updated_at')
+        .eq('id', specificLeadId)
+        .maybeSingle();
+      if (leadById?.enrichment_data?.apollo?.organization) {
+        chosen = leadById;
+      }
+    }
+
+    // Find a matching enriched lead for this client (owner/team scoped)
+    if (!chosen) {
+      const { role, team_id } = await getUserRoleAndTeam(userId);
+      const isSuper = ['super_admin','superadmin'].includes(String(role || '').toLowerCase());
+      const isTeamAdmin = String(role || '').toLowerCase() === 'team_admin';
+
+      let query = supabase
+        .from('leads')
+        .select('id, company, enrichment_data, owner_id, updated_at')
+        .order('updated_at', { ascending: false })
+        .limit(500);
+
+      if (isSuper) {
+        // no owner filter
+      } else if (isTeamAdmin && team_id) {
+        const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', team_id);
+        const ids = (teamUsers || []).map((u: any) => u.id);
+        query = query.in('owner_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
+      } else {
+        query = query.eq('owner_id', userId);
+      }
+
+      const { data: leads, error: leadsErr } = await query;
+      if (leadsErr) { res.status(500).json({ error: leadsErr.message }); return; }
+
+      const clientName = (hintName || (client as any).name || '').toLowerCase();
+      const clientDomain = (hintDomain || (client as any).domain || '').toLowerCase();
+
+      const normalizeDomain = (d: string) => d.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+
+      for (const l of (leads || [])) {
+        const enrich = (l as any).enrichment_data || {};
+        const org = enrich?.apollo?.organization || {};
+        const name = String(org.name || l.company || '').toLowerCase();
+        const website = String(org.website_url || org.domain || '').toLowerCase();
+        const websiteNorm = website ? normalizeDomain(website) : '';
+        const matchByDomain = clientDomain && websiteNorm && normalizeDomain(clientDomain) === websiteNorm;
+        const matchByName = clientName && name.includes(clientName);
+        const hasUseful = org && (org.website_url || org.domain || org.industry || org.estimated_annual_revenue || org.revenue);
+        if ((matchByDomain || matchByName) && hasUseful) { chosen = l; break; }
       }
     }
     if (!chosen) { res.status(404).json({ error: 'no_enriched_lead_found' }); return; }

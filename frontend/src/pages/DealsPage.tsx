@@ -112,15 +112,20 @@ export default function DealsPage() {
   const syncClientFromEnrichment = async (id: string) => {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
+    // Send optional hints to improve matching
+    const current = clients.find((c:any)=>c.id===id);
     const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients/${id}/sync-enrichment`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: JSON.stringify({ override: false })
+      body: JSON.stringify({ override: false, name: current?.name || null, domain: current?.domain || null })
     });
     if (resp.ok) {
       const refreshed = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       const js = refreshed.ok ? await refreshed.json() : [];
       setClients(js || []);
+    } else {
+      // Surface brief error toast in UI console for now
+      try { const e = await resp.json(); console.warn('Sync enrichment failed', e); } catch {}
     }
   };
 
