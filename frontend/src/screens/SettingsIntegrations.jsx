@@ -1205,8 +1205,7 @@ export default function SettingsIntegrations() {
           </label>
           <span className={`text-sm ${stripeConnected.mode==='keys'?'font-semibold text-indigo-700':'text-gray-600'}`}>Use My Keys</span>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 ${stripeConnected.mode==='keys' ? '' : 'opacity-50 pointer-events-none'}`}
-        >
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${stripeConnected.mode==='keys' ? '' : 'opacity-50 pointer-events-none'}`}>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Publishable Key</label>
             <input type="password" className="w-full border rounded-md px-3 py-2" placeholder="pk_live_..." value={stripeKeys.publishable} onChange={e=>setStripeKeys(p=>({ ...p, publishable: e.target.value }))} />
