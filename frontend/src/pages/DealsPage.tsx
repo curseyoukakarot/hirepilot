@@ -662,7 +662,7 @@ export default function DealsPage() {
                                   <div className="p-3 bg-white border rounded">
                                     <div className="text-xs text-gray-500 mb-1">Tech Stack</div>
                                     <div className="flex flex-wrap gap-1">
-                                      {(c.org_meta.apollo.organization.technology_names || []).slice(0,8).map((t:any,idx:number)=> (
+                                      {([...(c.org_meta.apollo.organization.technology_names||[]), ...(c.org_meta.apollo.organization.current_technologies||[])]).slice(0,8).map((t:any,idx:number)=> (
                                         <span key={idx} className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-700">{typeof t==='string'? t : (t?.name || '')}</span>
                                       ))}
                                       {(!c.org_meta.apollo.organization.technology_names || c.org_meta.apollo.organization.technology_names.length===0) && <span className="text-sm text-gray-500">—</span>}

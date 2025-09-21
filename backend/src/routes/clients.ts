@@ -47,7 +47,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     const isTeamAdmin = String(role || '').toLowerCase() === 'team_admin';
 
     let base = supabase.from('clients')
-      .select('id,name,domain,industry,revenue,location,owner_id,created_at,stage,notes');
+      .select('id,name,domain,industry,revenue,location,owner_id,created_at,stage,notes,org_meta');
 
     if (isSuper) {
       // No filter
