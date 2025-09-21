@@ -635,7 +635,7 @@ export default function DealsPage() {
                                   <span className="text-gray-500 w-20">Website</span>
                                   {editingClientId === c.id ? (
                                     <input
-                                      ref={(el)=>{ if (el) activeInputRef.current = el; }}
+                                      onFocus={(e)=>{ activeInputRef.current = e.currentTarget; }}
                                       onSelect={(e)=>{ const t=e.target as HTMLInputElement; selectionRef.current={ start: t.selectionStart, end: t.selectionEnd }; }}
                                       className="border rounded px-2 py-1 w-full"
                                       value={clientDraft.domain ?? c.domain ?? ''}
@@ -649,7 +649,7 @@ export default function DealsPage() {
                                   <span className="text-gray-500 w-20">Industry</span>
                                   {editingClientId === c.id ? (
                                     <input
-                                      ref={(el)=>{ if (el) activeInputRef.current = el; }}
+                                      onFocus={(e)=>{ activeInputRef.current = e.currentTarget; }}
                                       onSelect={(e)=>{ const t=e.target as HTMLInputElement; selectionRef.current={ start: t.selectionStart, end: t.selectionEnd }; }}
                                       className="border rounded px-2 py-1 w-full"
                                       value={clientDraft.industry ?? c.industry ?? ''}
@@ -663,7 +663,7 @@ export default function DealsPage() {
                                   <span className="text-gray-500 w-20">Location</span>
                                   {editingClientId === c.id ? (
                                     <input
-                                      ref={(el)=>{ if (el) activeInputRef.current = el; }}
+                                      onFocus={(e)=>{ activeInputRef.current = e.currentTarget; }}
                                       onSelect={(e)=>{ const t=e.target as HTMLInputElement; selectionRef.current={ start: t.selectionStart, end: t.selectionEnd }; }}
                                       className="border rounded px-2 py-1 w-full"
                                       value={clientDraft.location ?? c.location ?? ''}
