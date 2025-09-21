@@ -13,7 +13,7 @@ router.get('/status', requireAuth as any, async (req: Request, res: Response) =>
 
     const { data, error } = await supabase
       .from('user_integrations')
-      .select('stripe_secret_key, stripe_publishable_key, stripe_connected_account_id')
+      .select('stripe_secret_key, stripe_publishable_key, stripe_connected_account_id, stripe_mode')
       .eq('user_id', userId)
       .maybeSingle();
     if (error) throw error;
@@ -21,6 +21,7 @@ router.get('/status', requireAuth as any, async (req: Request, res: Response) =>
     res.json({
       has_keys: !!(data?.stripe_secret_key && data?.stripe_publishable_key),
       connected_account_id: data?.stripe_connected_account_id || null,
+      mode: data?.stripe_mode || 'connect',
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -31,7 +32,7 @@ router.get('/status', requireAuth as any, async (req: Request, res: Response) =>
 router.post('/save-keys', requireAuth as any, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id;
-    const { secret_key, publishable_key } = req.body || {};
+    const { secret_key, publishable_key, mode } = req.body || {};
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     if (!secret_key || !publishable_key) return res.status(400).json({ error: 'missing_keys' });
 
@@ -41,6 +42,7 @@ router.post('/save-keys', requireAuth as any, async (req: Request, res: Response
         user_id: userId,
         stripe_secret_key: secret_key,
         stripe_publishable_key: publishable_key,
+        stripe_mode: mode === 'keys' ? 'keys' : 'connect',
       }, { onConflict: 'user_id' });
     if (error) throw error;
     res.json({ success: true });
@@ -63,11 +65,12 @@ router.post('/connect/init', requireAuth as any, async (req: Request, res: Respo
       .maybeSingle();
     if (readErr) throw readErr;
 
+    // Set mode to connect
     const accountId = await ensureConnectAccount(userId, row?.stripe_connected_account_id || undefined);
     if (!row?.stripe_connected_account_id) {
       await supabase
         .from('user_integrations')
-        .upsert({ user_id: userId, stripe_connected_account_id: accountId }, { onConflict: 'user_id' });
+        .upsert({ user_id: userId, stripe_connected_account_id: accountId, stripe_mode: 'connect' }, { onConflict: 'user_id' });
     }
 
     const link = await connectOnboardingLink(accountId);
@@ -85,7 +88,7 @@ router.post('/disconnect', requireAuth as any, async (req: Request, res: Respons
 
     const { error } = await supabase
       .from('user_integrations')
-      .upsert({ user_id: userId, stripe_secret_key: null, stripe_publishable_key: null, stripe_connected_account_id: null }, { onConflict: 'user_id' });
+      .upsert({ user_id: userId, stripe_secret_key: null, stripe_publishable_key: null, stripe_connected_account_id: null, stripe_mode: null }, { onConflict: 'user_id' });
     if (error) throw error;
     res.json({ success: true });
   } catch (err: any) {

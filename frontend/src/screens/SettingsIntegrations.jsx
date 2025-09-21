@@ -96,7 +96,7 @@ export default function SettingsIntegrations() {
   // Stripe state
   const [stripeKeys, setStripeKeys] = useState({ publishable: '', secret: '' });
   const [stripeLoading, setStripeLoading] = useState(false);
-  const [stripeConnected, setStripeConnected] = useState({ hasKeys: false, accountId: null });
+  const [stripeConnected, setStripeConnected] = useState({ hasKeys: false, accountId: null, mode: 'connect' });
 
   // Fetch integration status from Supabase on mount
   useEffect(() => {
@@ -847,7 +847,7 @@ export default function SettingsIntegrations() {
           const { data: { session } } = await supabase.auth.getSession();
           const res = await fetch(`${BACKEND}/api/stripe/status`, { headers: { Authorization: `Bearer ${session?.access_token}` } });
           const js = await res.json();
-          if (res.ok) setStripeConnected({ hasKeys: !!js.has_keys, accountId: js.connected_account_id || null });
+          if (res.ok) setStripeConnected({ hasKeys: !!js.has_keys, accountId: js.connected_account_id || null, mode: js.mode || 'connect' });
         } catch {}
       })();
     }
@@ -1196,7 +1196,17 @@ export default function SettingsIntegrations() {
             <FaStripeS className="text-2xl text-indigo-600" />
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Mode toggle */}
+        <div className="mb-4 flex items-center gap-3">
+          <span className={`text-sm ${stripeConnected.mode==='connect'?'font-semibold text-indigo-700':'text-gray-600'}`}>Stripe Connect</span>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" className="sr-only peer" checked={stripeConnected.mode==='keys'} onChange={(e)=>setStripeConnected(s=>({ ...s, mode: e.target.checked ? 'keys' : 'connect' }))} />
+            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+          </label>
+          <span className={`text-sm ${stripeConnected.mode==='keys'?'font-semibold text-indigo-700':'text-gray-600'}`}>Use My Keys</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 ${stripeConnected.mode==='keys' ? '' : 'opacity-50 pointer-events-none'}`}
+        >
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Publishable Key</label>
             <input type="password" className="w-full border rounded-md px-3 py-2" placeholder="pk_live_..." value={stripeKeys.publishable} onChange={e=>setStripeKeys(p=>({ ...p, publishable: e.target.value }))} />
@@ -1209,14 +1219,14 @@ export default function SettingsIntegrations() {
         <div className="mt-4 flex items-center gap-3">
           <button
             className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium disabled:opacity-50"
-            disabled={stripeLoading || !stripeKeys.publishable || !stripeKeys.secret}
+            disabled={stripeLoading || stripeConnected.mode!=='keys' || !stripeKeys.publishable || !stripeKeys.secret}
             onClick={async ()=>{
               setStripeLoading(true);
               try {
                 const { data: { session } } = await supabase.auth.getSession();
-                const resp = await fetch(`${BACKEND}/api/stripe/save-keys`, { method:'POST', headers: { 'Content-Type':'application/json', Authorization: `Bearer ${session?.access_token}` }, body: JSON.stringify({ publishable_key: stripeKeys.publishable, secret_key: stripeKeys.secret }) });
+                const resp = await fetch(`${BACKEND}/api/stripe/save-keys`, { method:'POST', headers: { 'Content-Type':'application/json', Authorization: `Bearer ${session?.access_token}` }, body: JSON.stringify({ publishable_key: stripeKeys.publishable, secret_key: stripeKeys.secret, mode: 'keys' }) });
                 const js = await resp.json();
-                if (resp.ok) { setStripeConnected(s=>({ ...s, hasKeys: true })); toast.success('Stripe keys saved'); }
+                if (resp.ok) { setStripeConnected(s=>({ ...s, hasKeys: true, mode: 'keys' })); toast.success('Stripe keys saved'); }
                 else toast.error(js.error || 'Failed to save keys');
               } finally { setStripeLoading(false); }
             }}
@@ -1233,7 +1243,7 @@ export default function SettingsIntegrations() {
               } catch (e) { toast.error('Failed to start onboarding'); }
             }}
           >{stripeConnected.accountId ? 'Manage Stripe Connect' : 'Start Stripe Connect'}</button>
-          {stripeConnected.hasKeys && <span className="text-sm text-green-600">Keys saved</span>}
+          {stripeConnected.mode==='keys' && stripeConnected.hasKeys && <span className="text-sm text-green-600">Keys saved</span>}
           {stripeConnected.accountId && <span className="text-sm text-gray-600">Account: {stripeConnected.accountId}</span>}
         </div>
       </div>
