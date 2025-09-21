@@ -948,15 +948,18 @@ export default function DealsPage() {
                 <div className="rounded-xl border bg-white p-4 shadow-sm">
                   <h3 className="text-sm font-medium text-gray-500 mb-3">Top Clients</h3>
                   <div className="space-y-2">
-                    {revByClient.map(row => (
-                      <div key={row.client_id} className="flex items-center gap-3">
-                        <div className="w-40 text-sm text-gray-700 truncate">{row.client_name}</div>
-                        <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-green-500" style={{ width: `${(row.paid/Math.max(1,row.total))*100}%` }} />
+                    {(() => {
+                      const topMax = Math.max(1, ...revByClient.map(r => Number(r.total) || 0));
+                      return revByClient.map(row => (
+                        <div key={row.client_id} className="flex items-center gap-3">
+                          <div className="w-40 text-sm text-gray-700 truncate">{row.client_name}</div>
+                          <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-green-500" style={{ width: `${Math.max(4, Math.round(((Number(row.total)||0) / topMax) * 100))}%` }} />
+                          </div>
+                          <div className="w-28 text-right text-sm">{Number(row.total||0).toLocaleString('en-US',{style:'currency',currency:'USD'})}</div>
                         </div>
-                        <div className="w-28 text-right text-sm">{row.total.toLocaleString('en-US',{style:'currency',currency:'USD'})}</div>
-                      </div>
-                    ))}
+                      ));
+                    })()}
                   </div>
                 </div>
               </div>
