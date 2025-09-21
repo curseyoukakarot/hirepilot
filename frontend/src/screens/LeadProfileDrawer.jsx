@@ -1502,6 +1502,22 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                 </button>
               </div>
             </div>
+            {/* Compact Enrich control below header icons */}
+            <div className="px-6 pt-3 pb-2 border-b border-gray-100 flex justify-end">
+              <button
+                className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 border ${isEnriching ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-white text-purple-700 border-purple-300 hover:bg-purple-50'}`}
+                onClick={handleEnrich}
+                disabled={isEnriching}
+                title="Find or update contact data"
+              >
+                {isEnriching ? (
+                  <svg className="animate-spin h-4 w-4 text-purple-500" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+                ) : (
+                  <FaWandMagicSparkles className="text-purple-600" />
+                )}
+                {isEnriching ? 'Enriching…' : 'Enrich'}
+              </button>
+            </div>
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto">
@@ -1604,7 +1620,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                     <i className="fa-brands fa-linkedin mr-2"></i>
                     LinkedIn Request {dailyLinkedInCount >= 20 && '(Limit Reached)'}
                   </button>
-                  {entityType !== 'candidate' && (() => {
+                  {false && entityType !== 'candidate' && (() => {
                     const emailInfo = getEmailWithSource(localLead);
                     const phantomStatus = getPhantomBusterStatus(localLead);
                     const errorContext = getEnrichmentErrorContext(localLead);
