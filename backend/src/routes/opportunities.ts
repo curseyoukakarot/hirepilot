@@ -180,6 +180,44 @@ router.post('/:id/collaborators', requireAuth, async (req: Request, res: Respons
   } catch (e:any) { res.status(500).json({ error: e.message || 'Internal server error' }); }
 });
 
+// List selectable job reqs for the user's scope (name sorted)
+router.get('/:id/available-reqs', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    const { role, team_id } = await getRoleTeam(userId);
+    const isSuper = ['super_admin','superadmin'].includes(role.toLowerCase());
+    const isTeamAdmin = role.toLowerCase() === 'team_admin';
+    let base = supabase.from('job_requisitions').select('id,title,owner_id');
+    if (!isSuper) {
+      if (isTeamAdmin && team_id) {
+        const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', team_id);
+        const ids = (teamUsers || []).map((u: any) => u.id);
+        base = base.in('owner_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
+      } else {
+        base = base.eq('owner_id', userId);
+      }
+    }
+    const { data, error } = await base.order('title', { ascending: true });
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    res.json(data || []);
+  } catch (e:any) { res.status(500).json({ error: e.message || 'Internal server error' }); }
+});
+
+// List users visible to Team Admin for assigning
+router.get('/:id/available-users', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    const { role, team_id } = await getRoleTeam(userId);
+    if (role.toLowerCase() !== 'team_admin' || !team_id) { res.json([]); return; }
+    const { data, error } = await supabase.from('users').select('id,first_name,last_name,email').eq('team_id', team_id);
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    const rows = (data||[]).map((u:any)=>({ id: u.id, name: [u.first_name,u.last_name].filter(Boolean).join(' ') || u.email, email: u.email }));
+    res.json(rows);
+  } catch (e:any) { res.status(500).json({ error: e.message || 'Internal server error' }); }
+});
+
 // POST /api/opportunities
 router.post('/', requireAuth, async (req: Request, res: Response) => {
   try {

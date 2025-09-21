@@ -12,6 +12,8 @@ export default function OpportunityDetail() {
   const [collabs, setCollabs] = useState<any[]>([]);
   const [newCollab, setNewCollab] = useState('');
   const [newReqId, setNewReqId] = useState('');
+  const [availableReqs, setAvailableReqs] = useState<any[]>([]);
+  const [availableUsers, setAvailableUsers] = useState<any[]>([]);
 
   useEffect(() => {
     const run = async () => {
@@ -30,6 +32,14 @@ export default function OpportunityDetail() {
       try {
         const cRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities/${id}/collaborators`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
         setCollabs(cRes.ok ? await cRes.json() : []);
+      } catch {}
+      try {
+        const rRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities/${id}/available-reqs`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        setAvailableReqs(rRes.ok ? await rRes.json() : []);
+      } catch {}
+      try {
+        const uRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities/${id}/available-users`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        setAvailableUsers(uRes.ok ? await uRes.json() : []);
       } catch {}
       setLoading(false);
     };
@@ -142,7 +152,10 @@ export default function OpportunityDetail() {
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-semibold">Linked Job Reqs</h3>
               <div className="flex items-center gap-2">
-                <input className="border rounded px-2 py-1 text-sm" placeholder="Add REQ ID" value={newReqId} onChange={e=>setNewReqId(e.target.value)} />
+                <select className="border rounded px-2 py-1 text-sm" value={newReqId} onChange={e=>setNewReqId(e.target.value)}>
+                  <option value="">Select job req…</option>
+                  {availableReqs.map((r:any)=> (<option key={r.id} value={r.id}>{r.title}</option>))}
+                </select>
                 <button className="text-sm text-blue-600" onClick={attachReq}>Attach REQ</button>
               </div>
             </div>
@@ -169,7 +182,10 @@ export default function OpportunityDetail() {
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-semibold">Assigned Team</h3>
               <div className="flex items-center gap-2">
-                <input className="border rounded px-2 py-1 text-sm" placeholder="Add collaborator email" value={newCollab} onChange={e=>setNewCollab(e.target.value)} />
+                <select className="border rounded px-2 py-1 text-sm" value={newCollab} onChange={e=>setNewCollab(e.target.value)}>
+                  <option value="">Select teammate…</option>
+                  {availableUsers.map((u:any)=> (<option key={u.id} value={u.email}>{u.name}</option>))}
+                </select>
                 <button className="text-sm text-blue-600" onClick={addCollaborator}>Add</button>
               </div>
             </div>
