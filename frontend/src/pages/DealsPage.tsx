@@ -34,6 +34,8 @@ export default function DealsPage() {
   const [invLoading, setInvLoading] = useState(false);
   const [revSummary, setRevSummary] = useState<{ total_paid: number; forecasted: number; overdue: number; unpaid: number } | null>(null);
   const [revMonthly, setRevMonthly] = useState<Array<{ month: string; paid: number; forecasted: number; outstanding: number }>>([]);
+  const [revMonthlyProjected, setRevMonthlyProjected] = useState<Array<{ month: string; paid: number; forecasted: number; outstanding: number }>>([]);
+  const [revMonthlyMode, setRevMonthlyMode] = useState<'actual'|'projected'>('actual');
   const [revByClient, setRevByClient] = useState<Array<{ client_id: string; client_name: string; total: number; paid: number; unpaid: number }>>([]);
   const [revByType, setRevByType] = useState<Array<{ type: string; total: number }>>([]);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
@@ -174,19 +176,29 @@ export default function DealsPage() {
       if (!access?.can_view_revenue) return;
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
-      const [sRes, mRes, cRes, pcRes, etRes] = await Promise.all([
+      const [sRes, mRes, cRes, pcRes, etRes, mpRes] = await Promise.all([
         fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/summary`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
         fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/monthly`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
         fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/by-client`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
         fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/projected-by-client`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
         fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/engagement-types`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+        fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/monthly-projected`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
       ]);
       setRevSummary(sRes.ok ? await sRes.json() : null);
-      setRevMonthly(mRes.ok ? await mRes.json() : []);
+      const monthly = mRes.ok ? await mRes.json() : [];
+      const monthlyProj = mpRes.ok ? await mpRes.json() : [];
+      setRevMonthly(monthly);
+      setRevMonthlyProjected(monthlyProj);
       setRevByClient(cRes.ok ? await cRes.json() : []);
       const projClients = pcRes.ok ? await pcRes.json() : [];
       setRevByClient(prev => (prev && prev.length ? prev : projClients));
       setRevByType(etRes.ok ? await etRes.json() : []);
+
+      // Auto-toggle to Projected if no actuals exist but projected has data
+      const sum = (rows: any[]) => rows.reduce((s, r) => s + (Number(r.paid||0)+Number(r.forecasted||0)+Number(r.outstanding||0)), 0);
+      if (sum(monthly) === 0 && sum(monthlyProj) > 0) {
+        setRevMonthlyMode('projected');
+      }
     };
     fetchRevenue();
   }, [access?.can_view_revenue]);
@@ -911,10 +923,16 @@ export default function DealsPage() {
                 </div>
               </div>
               <div className="rounded-xl border bg-white p-4 shadow-sm">
-                <h3 className="text-sm font-medium text-gray-500 mb-3">Monthly Revenue</h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-medium text-gray-500">Monthly Revenue</h3>
+                <div className="flex items-center gap-2 text-xs">
+                  <button className={`px-2 py-1 rounded ${revMonthlyMode==='actual'?'bg-gray-200':''}`} onClick={()=>setRevMonthlyMode('actual')}>Actual</button>
+                  <button className={`px-2 py-1 rounded ${revMonthlyMode==='projected'?'bg-gray-200':''}`} onClick={()=>setRevMonthlyMode('projected')}>Projected</button>
+                </div>
+              </div>
                 <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={revMonthly}>
+                  <BarChart data={revMonthlyMode==='actual' ? revMonthly : revMonthlyProjected}>
                       <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} />
                       <YAxis stroke="#9ca3af" fontSize={12} tickFormatter={(v)=>`$${Math.round(v/1000)}k`} />
                       <Tooltip formatter={(v)=>[(Number(v).toLocaleString('en-US',{style:'currency',currency:'USD'})),'']} />

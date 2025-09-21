@@ -202,6 +202,56 @@ router.get('/monthly', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/revenue/monthly-projected from opportunities (stage-weighted)
+router.get('/monthly-projected', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    const { role, team_id } = await getRoleTeam(userId);
+    const isSuper = ['super_admin','superadmin'].includes(role.toLowerCase());
+    const isTeamAdmin = role.toLowerCase() === 'team_admin';
+
+    let base = supabase.from('opportunities').select('created_at,stage,value,owner_id');
+    if (!isSuper) {
+      if (isTeamAdmin && team_id) {
+        const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', team_id);
+        const ids = (teamUsers || []).map((u: any) => u.id);
+        base = base.in('owner_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
+      } else {
+        base = base.eq('owner_id', userId);
+      }
+    }
+    const { data: opps, error } = await base;
+    if (error) { res.status(500).json({ error: error.message }); return; }
+
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth()-11, 1);
+    const buckets: Array<{ month: string; paid: number; forecasted: number; outstanding: number }> = [];
+    for (let i=0; i<12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth()-11+i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      buckets.push({ month: key, paid: 0, forecasted: 0, outstanding: 0 });
+    }
+
+    const stageWeights: Record<string, number> = { 'Pipeline': 25, 'Best Case': 50, 'Commit': 90, 'Close Won': 100, 'Closed Lost': 0 };
+    for (const o of (opps || [])) {
+      const created = new Date((o as any).created_at || new Date());
+      if (created < start) continue;
+      const key = `${created.getFullYear()}-${String(created.getMonth()+1).padStart(2,'0')}`;
+      const b = buckets.find(b => b.month === key);
+      if (!b) continue;
+      const w = stageWeights[String((o as any).stage || 'Pipeline')] ?? 0;
+      b.forecasted += (Number((o as any).value)||0) * (w/100);
+    }
+
+    // round
+    for (const b of buckets) b.forecasted = applyCurrency(b.forecasted);
+    res.json(buckets);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message || 'Internal server error' });
+  }
+});
+
 // GET /api/revenue/engagement-types (projected from opportunities)
 router.get('/engagement-types', requireAuth, async (req: Request, res: Response) => {
   try {
