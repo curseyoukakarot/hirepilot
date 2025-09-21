@@ -26,6 +26,9 @@ export default async function sendSlackNotification(req: Request, res: Response)
       case 'job_created':
         message = `💼 Job created: ${details?.title || details?.job_title || 'Untitled'} by ${user_email || 'unknown user'}`;
         break;
+      case 'opportunity_created':
+        message = `🧠 Opportunity created: ${details?.title || 'Untitled'} — ${details?.amount || '$0'}${details?.billing_type ? ` (${details.billing_type})` : ''}${details?.stage ? ` • ${details.stage}` : ''}`;
+        break;
       case 'pipeline_created':
         message = `🧩 Pipeline created: ${details?.name || 'Pipeline'}${details?.job_title ? ` for job ${details.job_title}` : ''} by ${user_email || 'unknown user'}`;
         break;
@@ -33,7 +36,7 @@ export default async function sendSlackNotification(req: Request, res: Response)
         message = `⚠️ Error reported by ${user_email || 'system'}: ${details?.error}`;
         break;
       default:
-        message = `ℹ️ Event: ${event_type} – ${JSON.stringify(details)}`;
+        message = `ℹ️ Event: ${event_type || 'unknown'} – ${details ? JSON.stringify(details) : 'no details'}`;
     }
 
     await notifySlack(message);

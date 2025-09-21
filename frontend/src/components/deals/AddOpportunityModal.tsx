@@ -29,7 +29,17 @@ function AddOpportunityModal({ open, clients, onClose, onCreated }: AddOpportuni
       });
       if (resp.ok) {
         toast.success('Opportunity created');
-        try { await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/sendSlackNotification`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: `New opportunity created: ${title} (${billingType || 'type n/a'})` }) }); } catch {}
+        try {
+          const amount = Number(value || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+          await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/sendSlackNotification`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              event_type: 'opportunity_created',
+              details: { title, amount, billing_type: billingType, stage },
+            })
+          });
+        } catch {}
         onCreated();
       } else {
         toast.error('Failed to create opportunity');
