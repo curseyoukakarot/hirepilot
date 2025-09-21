@@ -542,6 +542,49 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     }
   };
 
+  const handleConvertToClient = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+      // Build payload from lead + enrichment
+      const enrich = (localLead?.enrichment_data || {});
+      const company = getEnrichedCompany(localLead) || enrich?.apollo?.organization?.name || localLead?.company || '';
+      const location = getEnrichedLocation(localLead) || enrich?.apollo?.organization?.location || null;
+      const domain = enrich?.apollo?.organization?.website_url || null;
+      const industry = enrich?.apollo?.organization?.industry || null;
+      const owner_id = session.user.id;
+      const contacts = [];
+      const emailInfo = getEmailWithSource(localLead);
+      if (getDisplayName(localLead) || emailInfo?.email) {
+        contacts.push({
+          name: getDisplayName(localLead) || '',
+          title: getEnrichedTitle(localLead) || null,
+          email: emailInfo?.email || null,
+          phone: localLead?.phone || null,
+        });
+      }
+      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ name: company, domain, industry, location, owner_id })
+      });
+      if (!resp.ok) throw new Error('Failed to create client');
+      const client = await resp.json();
+      if (contacts.length) {
+        for (const c of contacts) {
+          await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients/contacts`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+            body: JSON.stringify({ ...c, client_id: client.id })
+          }).catch(()=>{});
+        }
+      }
+      showToast('Client created from lead', 'success');
+    } catch (e) {
+      showToast(e.message || 'Conversion failed', 'error');
+    }
+  };
+
   // Helper to get display name with Apollo fallback
   const getDisplayName = (lead) => {
     const enrichmentData = lead.enrichment_data || {};
@@ -1524,6 +1567,13 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                   >
                     <i className="fa-regular fa-paper-plane mr-2"></i>
                     Message
+                  </button>
+                  <button
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg flex items-center whitespace-nowrap shrink-0"
+                    onClick={handleConvertToClient}
+                  >
+                    <i className="fa-solid fa-building mr-2"></i>
+                    Convert to Client
                   </button>
                   {entityType !== 'candidate' && (
                     <button
