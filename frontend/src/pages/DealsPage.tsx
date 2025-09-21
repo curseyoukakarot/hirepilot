@@ -50,6 +50,8 @@ export default function DealsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const addInputRef = React.useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   const addSelectionRef = React.useRef<{ start: number | null; end: number | null }>({ start: null, end: null });
+  const addTitleRef = React.useRef<HTMLInputElement | null>(null);
+  const addClientRef = React.useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const fetchInvoices = async () => {
@@ -653,11 +655,10 @@ export default function DealsPage() {
                                   {editingClientId === c.id ? (
                                     <input
                                       ref={(el)=>{ if (el) activeInputRef.current = el; }}
-                                      onSelect={(e)=>{ const t=e.target as HTMLInputElement; selectionRef.current={ start: t.selectionStart, end: t.selectionEnd }; }}
                                       className="border rounded px-2 py-1 w-full"
-                                      value={clientDraft.domain ?? c.domain ?? ''}
-                                      onChange={(e)=>{ selectionRef.current={ start: e.target.selectionStart, end: e.target.selectionEnd }; setClientDraft((s:any)=>({ ...s, domain: e.target.value })); }}
-                                      onMouseDown={(e)=>{ selectionRef.current={ start: null, end: null }; e.stopPropagation(); }}
+                                      defaultValue={clientDraft.domain || ''}
+                                      onChange={(e)=> setClientDraft((s:any)=>({ ...s, domain: e.target.value }))}
+                                      onMouseDown={(e)=>{ e.stopPropagation(); }}
                                       onClick={(e)=>e.stopPropagation()}
                                     />
                                   ) : <span>{c.domain || '—'}</span>}
@@ -667,11 +668,10 @@ export default function DealsPage() {
                                   {editingClientId === c.id ? (
                                     <input
                                       ref={(el)=>{ if (el) activeInputRef.current = el; }}
-                                      onSelect={(e)=>{ const t=e.target as HTMLInputElement; selectionRef.current={ start: t.selectionStart, end: t.selectionEnd }; }}
                                       className="border rounded px-2 py-1 w-full"
-                                      value={clientDraft.industry ?? c.industry ?? ''}
-                                      onChange={(e)=>{ selectionRef.current={ start: e.target.selectionStart, end: e.target.selectionEnd }; setClientDraft((s:any)=>({ ...s, industry: e.target.value })); }}
-                                      onMouseDown={(e)=>{ selectionRef.current={ start: null, end: null }; e.stopPropagation(); }}
+                                      defaultValue={clientDraft.industry || ''}
+                                      onChange={(e)=> setClientDraft((s:any)=>({ ...s, industry: e.target.value }))}
+                                      onMouseDown={(e)=>{ e.stopPropagation(); }}
                                       onClick={(e)=>e.stopPropagation()}
                                     />
                                   ) : <span>{c.industry || '—'}</span>}
@@ -681,11 +681,10 @@ export default function DealsPage() {
                                   {editingClientId === c.id ? (
                                     <input
                                       ref={(el)=>{ if (el) activeInputRef.current = el; }}
-                                      onSelect={(e)=>{ const t=e.target as HTMLInputElement; selectionRef.current={ start: t.selectionStart, end: t.selectionEnd }; }}
                                       className="border rounded px-2 py-1 w-full"
-                                      value={clientDraft.location ?? c.location ?? ''}
-                                      onChange={(e)=>{ selectionRef.current={ start: e.target.selectionStart, end: e.target.selectionEnd }; setClientDraft((s:any)=>({ ...s, location: e.target.value })); }}
-                                      onMouseDown={(e)=>{ selectionRef.current={ start: null, end: null }; e.stopPropagation(); }}
+                                      defaultValue={clientDraft.location || ''}
+                                      onChange={(e)=> setClientDraft((s:any)=>({ ...s, location: e.target.value }))}
+                                      onMouseDown={(e)=>{ e.stopPropagation(); }}
                                       onClick={(e)=>e.stopPropagation()}
                                     />
                                   ) : <span>{c.location || '—'}</span>}
@@ -928,10 +927,9 @@ export default function DealsPage() {
           <div>
             <label className="block text-sm text-gray-600 mb-1">Opportunity Name</label>
             <input
-              ref={(el)=>{ if (el) addInputRef.current = el; }}
-              onSelect={(e)=>{ const t=e.target as HTMLInputElement; addSelectionRef.current={ start: t.selectionStart, end: t.selectionEnd }; }}
-              value={form.title}
-              onChange={(e)=>{ addSelectionRef.current={ start: e.target.selectionStart, end: e.target.selectionEnd }; setForm(p=>({ ...p, title: e.target.value })); }}
+              ref={addTitleRef}
+              defaultValue={form.title}
+              onChange={(e)=> setForm(p=>({ ...p, title: e.target.value }))}
               className="w-full border rounded-md px-3 py-2"
               placeholder="e.g. VP of Sales Search"
             />
@@ -939,10 +937,9 @@ export default function DealsPage() {
           <div>
             <label className="block text-sm text-gray-600 mb-1">Client</label>
             <input
-              ref={(el)=>{ if (el) addInputRef.current = el; }}
-              onSelect={(e)=>{ const t=e.target as HTMLInputElement; addSelectionRef.current={ start: t.selectionStart, end: t.selectionEnd }; }}
-              value={form.client_id}
-              onChange={(e)=>{ addSelectionRef.current={ start: e.target.selectionStart, end: e.target.selectionEnd }; setForm(p=>({ ...p, client_id: e.target.value })); }}
+              ref={addClientRef}
+              defaultValue={form.client_id}
+              onChange={(e)=> setForm(p=>({ ...p, client_id: e.target.value }))}
               className="w-full border rounded-md px-3 py-2"
               placeholder="Client ID (paste)"
             />
