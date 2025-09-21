@@ -348,7 +348,14 @@ router.post('/:id/sync-enrichment', requireAuth, async (req: Request, res: Respo
 
     const org = chosen.enrichment_data?.apollo?.organization || {};
     const locationFromEnrich = org.location || chosen.enrichment_data?.apollo?.location || null;
-    const revenueParsed = parseRevenueToNumber(org.estimated_annual_revenue || org.revenue);
+    const revenueParsed = parseRevenueToNumber(
+      org.organization_revenue_printed ||
+      org.organization_revenue ||
+      org.estimated_annual_revenue ||
+      org.annual_revenue_printed ||
+      org.annual_revenue ||
+      chosen.enrichment_data?.apollo?.total_revenue || null
+    );
 
     const update: any = {};
     if (overrideExisting || !client.domain) update.domain = org.website_url || org.domain || client.domain || null;
@@ -357,6 +364,8 @@ router.post('/:id/sync-enrichment', requireAuth, async (req: Request, res: Respo
       if (typeof locationFromEnrich === 'string') update.location = locationFromEnrich;
     }
     if (overrideExisting || !client.revenue) update.revenue = revenueParsed ?? client.revenue ?? null;
+    // Save raw org meta for UI richness
+    update.org_meta = { apollo: { organization: org, latest_funding_stage: chosen.enrichment_data?.apollo?.latest_funding_stage || null, total_funding_printed: chosen.enrichment_data?.apollo?.total_funding_printed || null } };
 
     if (Object.keys(update).length === 0) { res.json({ updated: false, client }); return; }
 
