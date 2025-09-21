@@ -36,6 +36,7 @@ export default function DealsPage() {
   const [revMonthly, setRevMonthly] = useState<Array<{ month: string; paid: number; forecasted: number; outstanding: number }>>([]);
   const [revMonthlyProjected, setRevMonthlyProjected] = useState<Array<{ month: string; paid: number; forecasted: number; outstanding: number }>>([]);
   const [revMonthlyMode, setRevMonthlyMode] = useState<'actual'|'projected'>('actual');
+  const [revMonthlyRange, setRevMonthlyRange] = useState<'90d'|'6m'|'1y'|'ytd'>('1y');
   const [revByClient, setRevByClient] = useState<Array<{ client_id: string; client_name: string; total: number; paid: number; unpaid: number }>>([]);
   const [revByType, setRevByType] = useState<Array<{ type: string; total: number }>>([]);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
@@ -924,16 +925,40 @@ export default function DealsPage() {
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="rounded-xl border bg-white p-4 shadow-sm">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-medium text-gray-500">Monthly Revenue</h3>
-                    <div className="flex items-center gap-2 text-xs">
-                      <button className={`px-2 py-1 rounded ${revMonthlyMode==='actual'?'bg-gray-200':''}`} onClick={()=>setRevMonthlyMode('actual')}>Actual</button>
-                      <button className={`px-2 py-1 rounded ${revMonthlyMode==='projected'?'bg-gray-200':''}`} onClick={()=>setRevMonthlyMode('projected')}>Projected</button>
-                    </div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-medium text-gray-500">Monthly Revenue</h3>
+                <div className="flex items-center gap-4 text-xs">
+                  <div className="flex items-center gap-1">
+                    <button className={`px-2 py-1 rounded ${revMonthlyRange==='90d'?'bg-gray-200':''}`} onClick={()=>setRevMonthlyRange('90d')}>90 Days</button>
+                    <button className={`px-2 py-1 rounded ${revMonthlyRange==='6m'?'bg-gray-200':''}`} onClick={()=>setRevMonthlyRange('6m')}>6 Months</button>
+                    <button className={`px-2 py-1 rounded ${revMonthlyRange==='1y'?'bg-gray-200':''}`} onClick={()=>setRevMonthlyRange('1y')}>1 Year</button>
+                    <button className={`px-2 py-1 rounded ${revMonthlyRange==='ytd'?'bg-gray-200':''}`} onClick={()=>setRevMonthlyRange('ytd')}>YTD</button>
                   </div>
+                  <div className="flex items-center gap-2">
+                    <button className={`px-2 py-1 rounded ${revMonthlyMode==='actual'?'bg-gray-200':''}`} onClick={()=>setRevMonthlyMode('actual')}>Actual</button>
+                    <button className={`px-2 py-1 rounded ${revMonthlyMode==='projected'?'bg-gray-200':''}`} onClick={()=>setRevMonthlyMode('projected')}>Projected</button>
+                  </div>
+                </div>
+              </div>
                   <div className="h-80">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={revMonthlyMode==='actual' ? revMonthly : revMonthlyProjected}>
+                  <BarChart data={(()=>{
+                    const src = revMonthlyMode==='actual' ? revMonthly : revMonthlyProjected;
+                    const now = new Date();
+                    let start: Date;
+                    if (revMonthlyRange==='ytd') {
+                      start = new Date(now.getFullYear(), 0, 1);
+                    } else {
+                      const monthsBack = revMonthlyRange==='90d' ? 3 : revMonthlyRange==='6m' ? 6 : 12;
+                      start = new Date(now.getFullYear(), now.getMonth()-monthsBack+1, 1);
+                    }
+                    const parseMonth = (s: string) => {
+                      const [y,m] = String(s).split('-');
+                      const yy = Number(y); const mm = Number(m)-1; if (!isFinite(yy) || !isFinite(mm)) return new Date(0);
+                      return new Date(yy, mm, 1);
+                    };
+                    return (src||[]).filter(r => parseMonth(r.month) >= start);
+                  })()}>
                         <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} />
                         <YAxis stroke="#9ca3af" fontSize={12} tickFormatter={(v)=>`$${Math.round(v/1000)}k`} />
                         <Tooltip formatter={(v)=>[(Number(v).toLocaleString('en-US',{style:'currency',currency:'USD'})),'']} />
