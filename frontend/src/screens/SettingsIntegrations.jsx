@@ -1192,7 +1192,9 @@ export default function SettingsIntegrations() {
             <h2 className="text-2xl font-semibold text-gray-900">Stripe</h2>
             <p className="text-gray-600 mt-2">Connect Stripe to create and send invoices directly from HirePilot.</p>
           </div>
-          <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold">S</div>
+          <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center">
+            <FaStripeS className="text-2xl text-indigo-600" />
+          </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
