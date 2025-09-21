@@ -48,6 +48,8 @@ export default function DealsPage() {
   const [addStage, setAddStage] = useState('Pipeline');
   const [form, setForm] = useState<{ title: string; client_id: string; value: string; billing_type: string }>({ title: '', client_id: '', value: '', billing_type: '' });
   const [showAddModal, setShowAddModal] = useState(false);
+  const addInputRef = React.useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+  const addSelectionRef = React.useRef<{ start: number | null; end: number | null }>({ start: null, end: null });
 
   useEffect(() => {
     const fetchInvoices = async () => {
@@ -138,6 +140,20 @@ export default function DealsPage() {
       }
     }
   }, [clientDraft, editingClientId]);
+
+  useEffect(() => {
+    // Preserve caret within the Add Opportunity modal
+    const el = addInputRef.current as any;
+    if (addOpen && el) {
+      if (document.activeElement !== el) {
+        el.focus({ preventScroll: true });
+      }
+      const { start, end } = addSelectionRef.current;
+      if (typeof start === 'number' && typeof end === 'number' && el.setSelectionRange) {
+        try { el.setSelectionRange(start, end); } catch {}
+      }
+    }
+  }, [form, addOpen]);
 
   const syncClientFromEnrichment = async (id: string) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -911,16 +927,37 @@ export default function DealsPage() {
         <div className="space-y-3">
           <div>
             <label className="block text-sm text-gray-600 mb-1">Opportunity Name</label>
-            <input value={form.title} onChange={e=>setForm(p=>({ ...p, title: e.target.value }))} className="w-full border rounded-md px-3 py-2" placeholder="e.g. VP of Sales Search" />
+            <input
+              onFocus={(e)=>{ addInputRef.current = e.currentTarget; }}
+              onSelect={(e)=>{ const t=e.target as HTMLInputElement; addSelectionRef.current={ start: t.selectionStart, end: t.selectionEnd }; }}
+              value={form.title}
+              onChange={(e)=>{ addSelectionRef.current={ start: e.target.selectionStart, end: e.target.selectionEnd }; setForm(p=>({ ...p, title: e.target.value })); }}
+              className="w-full border rounded-md px-3 py-2"
+              placeholder="e.g. VP of Sales Search"
+            />
           </div>
           <div>
             <label className="block text-sm text-gray-600 mb-1">Client</label>
-            <input value={form.client_id} onChange={e=>setForm(p=>({ ...p, client_id: e.target.value }))} className="w-full border rounded-md px-3 py-2" placeholder="Client ID (paste)" />
+            <input
+              onFocus={(e)=>{ addInputRef.current = e.currentTarget; }}
+              onSelect={(e)=>{ const t=e.target as HTMLInputElement; addSelectionRef.current={ start: t.selectionStart, end: t.selectionEnd }; }}
+              value={form.client_id}
+              onChange={(e)=>{ addSelectionRef.current={ start: e.target.selectionStart, end: e.target.selectionEnd }; setForm(p=>({ ...p, client_id: e.target.value })); }}
+              className="w-full border rounded-md px-3 py-2"
+              placeholder="Client ID (paste)"
+            />
           </div>
           <div className="flex gap-3">
             <div className="flex-1">
               <label className="block text-sm text-gray-600 mb-1">Value (USD)</label>
-              <input value={form.value} onChange={e=>setForm(p=>({ ...p, value: e.target.value }))} className="w-full border rounded-md px-3 py-2" placeholder="e.g. 50000" />
+              <input
+                onFocus={(e)=>{ addInputRef.current = e.currentTarget; }}
+                onSelect={(e)=>{ const t=e.target as HTMLInputElement; addSelectionRef.current={ start: t.selectionStart, end: t.selectionEnd }; }}
+                value={form.value}
+                onChange={(e)=>{ addSelectionRef.current={ start: e.target.selectionStart, end: e.target.selectionEnd }; setForm(p=>({ ...p, value: e.target.value })); }}
+                className="w-full border rounded-md px-3 py-2"
+                placeholder="e.g. 50000"
+              />
             </div>
             <div className="flex-1">
               <label className="block text-sm text-gray-600 mb-1">Revenue Type</label>
