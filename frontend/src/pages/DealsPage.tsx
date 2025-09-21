@@ -16,6 +16,9 @@ export default function DealsPage() {
   const [clients, setClients] = useState<any[]>([]);
   const [clientsLoading, setClientsLoading] = useState(false);
   const [clientsSearch, setClientsSearch] = useState('');
+  const [contacts, setContacts] = useState<any[]>([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const [expandedClientId, setExpandedClientId] = useState<string | null>(null);
   const [oppLoading, setOppLoading] = useState(false);
   const [oppFilters, setOppFilters] = useState<{ status: string; client: string; search: string }>({ status: '', client: '', search: '' });
   const [oppView, setOppView] = useState<OppView>('table');
@@ -65,6 +68,20 @@ export default function DealsPage() {
     };
     fetchClients();
   }, [access?.can_view_clients, activeTab]);
+
+  useEffect(() => {
+    const fetchContacts = async () => {
+      if (!access?.can_view_clients || activeTab !== 'clients' || clientsView !== 'decisionMakers') return;
+      setContactsLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/contacts`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const js = resp.ok ? await resp.json() : [];
+      setContacts(js || []);
+      setContactsLoading(false);
+    };
+    fetchContacts();
+  }, [access?.can_view_clients, activeTab, clientsView]);
 
   useEffect(() => {
     const fetchRevenue = async () => {
@@ -398,7 +415,46 @@ export default function DealsPage() {
         </div>
         <button className="text-sm text-gray-600">Filters</button>
       </div>
-      <div className="bg-white border rounded-xl overflow-hidden">
+      {clientsView === 'decisionMakers' ? (
+        <div className="bg-white border rounded-xl overflow-hidden">
+          {contactsLoading ? (
+            <div className="p-6 text-gray-500 text-sm">Loading…</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    <th className="p-4 text-left">Name</th>
+                    <th className="p-4 text-left">Title</th>
+                    <th className="p-4 text-left">Email</th>
+                    <th className="p-4 text-left">Client</th>
+                    <th className="p-4 text-left">Owner</th>
+                    <th className="p-4 text-left">Created</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {contacts.length === 0 ? (
+                    <tr><td colSpan={6} className="p-6 text-gray-500">No decision makers yet</td></tr>
+                  ) : contacts.map((dm: any) => {
+                    const client = clients.find((c: any) => c.id === dm.client_id);
+                    return (
+                      <tr key={dm.id} className="hover:bg-gray-50">
+                        <td className="p-4 font-medium text-gray-900">{dm.name || '—'}</td>
+                        <td className="p-4">{dm.title || '—'}</td>
+                        <td className="p-4">{dm.email || '—'}</td>
+                        <td className="p-4">{client?.name || '—'}</td>
+                        <td className="p-4">{dm.owner_id ? dm.owner_id.slice(0,6) : '—'}</td>
+                        <td className="p-4 text-gray-500">{dm.created_at ? new Date(dm.created_at).toLocaleDateString() : '—'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="bg-white border rounded-xl overflow-hidden">
         {clientsLoading ? (
           <div className="p-6 text-gray-500 text-sm">Loading…</div>
         ) : (
@@ -418,20 +474,50 @@ export default function DealsPage() {
                 {filteredClients.length === 0 ? (
                   <tr><td colSpan={6} className="p-6 text-gray-500">No clients yet</td></tr>
                 ) : filteredClients.map((c: any) => (
-                  <tr key={c.id} className="hover:bg-gray-50">
-                    <td className="p-4 font-medium text-gray-900">{c.name || c.domain || '—'}</td>
-                    <td className="p-4">{c.industry || '—'}</td>
-                    <td className="p-4">{c.revenue != null ? Number(c.revenue).toLocaleString('en-US',{style:'currency',currency:'USD'}) : '—'}</td>
-                    <td className="p-4">{c.location || '—'}</td>
-                    <td className="p-4">{c.contact_count != null ? c.contact_count : '—'}</td>
-                    <td className="p-4 text-gray-500">{c.created_at ? new Date(c.created_at).toLocaleDateString() : '—'}</td>
-                  </tr>
+                  <>
+                    <tr key={c.id} className="hover:bg-gray-50 cursor-pointer" onClick={()=>setExpandedClientId(prev => prev===c.id? null : c.id)}>
+                      <td className="p-4 font-medium text-gray-900">{c.name || c.domain || '—'}</td>
+                      <td className="p-4">{c.industry || '—'}</td>
+                      <td className="p-4">{c.revenue != null ? Number(c.revenue).toLocaleString('en-US',{style:'currency',currency:'USD'}) : '—'}</td>
+                      <td className="p-4">{c.location || '—'}</td>
+                      <td className="p-4">{c.contact_count != null ? c.contact_count : '—'}</td>
+                      <td className="p-4 text-gray-500">{c.created_at ? new Date(c.created_at).toLocaleDateString() : '—'}</td>
+                    </tr>
+                    {expandedClientId === c.id && (
+                      <tr>
+                        <td colSpan={6} className="p-5 bg-gray-50">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                              <h4 className="text-sm font-semibold text-gray-700 mb-2">Company Insights</h4>
+                              <div className="text-sm text-gray-600 space-y-1">
+                                <div><span className="text-gray-500">Website:</span> <span className="ml-1">{c.domain || '—'}</span></div>
+                                <div><span className="text-gray-500">Industry:</span> <span className="ml-1">{c.industry || '—'}</span></div>
+                                <div><span className="text-gray-500">Location:</span> <span className="ml-1">{c.location || '—'}</span></div>
+                              </div>
+                            </div>
+                            <div className="md:col-span-2">
+                              <h4 className="text-sm font-semibold text-gray-700 mb-2">Decision Makers</h4>
+                              <div className="flex flex-wrap gap-2">
+                                {contacts.filter(dm => dm.client_id === c.id).slice(0,6).map(dm => (
+                                  <span key={dm.id} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-md">{dm.name || dm.email || 'Contact'}</span>
+                                ))}
+                                {contacts.filter(dm=>dm.client_id===c.id).length===0 && (
+                                  <span className="text-sm text-gray-500">No decision makers yet</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </>
                 ))}
               </tbody>
             </table>
           </div>
         )}
-      </div>
+        </div>
+      )}
     </div>
   );
 
