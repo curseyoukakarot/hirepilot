@@ -19,6 +19,11 @@ export default function DealsPage() {
   const [contacts, setContacts] = useState<any[]>([]);
   const [contactsLoading, setContactsLoading] = useState(false);
   const [expandedClientId, setExpandedClientId] = useState<string | null>(null);
+  const [editingClientId, setEditingClientId] = useState<string | null>(null);
+  const [clientDraft, setClientDraft] = useState<any>({});
+  const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set());
+  const [editingContactId, setEditingContactId] = useState<string | null>(null);
+  const [contactDraft, setContactDraft] = useState<any>({});
   const [oppLoading, setOppLoading] = useState(false);
   const [oppFilters, setOppFilters] = useState<{ status: string; client: string; search: string }>({ status: '', client: '', search: '' });
   const [oppView, setOppView] = useState<OppView>('table');
@@ -82,6 +87,48 @@ export default function DealsPage() {
     };
     fetchContacts();
   }, [access?.can_view_clients, activeTab, clientsView]);
+
+  const saveClientEdits = async (id: string) => {
+    const payload: any = {};
+    ['name','domain','industry','revenue','location','stage','notes'].forEach(k => {
+      if (clientDraft[k] !== undefined) payload[k] = clientDraft[k];
+    });
+    if (Object.keys(payload).length === 0) { setEditingClientId(null); return; }
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify(payload)
+    });
+    setEditingClientId(null);
+    setClientDraft({});
+    // refresh
+    const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    const js = resp.ok ? await resp.json() : [];
+    setClients(js || []);
+  };
+
+  const saveContactEdits = async (id: string) => {
+    const payload: any = {};
+    ['name','title','email','phone'].forEach(k => { if (contactDraft[k] !== undefined) payload[k] = contactDraft[k]; });
+    if (Object.keys(payload).length === 0) { setEditingContactId(null); return; }
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/contacts/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify(payload)
+    });
+    if (resp.ok) {
+      setEditingContactId(null);
+      setContactDraft({});
+      // refresh contacts
+      const r = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/contacts`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const js = r.ok ? await r.json() : [];
+      setContacts(js || []);
+    }
+  };
 
   useEffect(() => {
     const fetchRevenue = async () => {
@@ -424,6 +471,10 @@ export default function DealsPage() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b">
                   <tr>
+                    <th className="p-4 text-left w-8"><input type="checkbox" onChange={(e)=>{
+                      if (e.target.checked) setSelectedContactIds(new Set(contacts.map((d:any)=>d.id)));
+                      else setSelectedContactIds(new Set());
+                    }} /></th>
                     <th className="p-4 text-left">Name</th>
                     <th className="p-4 text-left">Title</th>
                     <th className="p-4 text-left">Email</th>
@@ -434,17 +485,44 @@ export default function DealsPage() {
                 </thead>
                 <tbody className="divide-y">
                   {contacts.length === 0 ? (
-                    <tr><td colSpan={6} className="p-6 text-gray-500">No decision makers yet</td></tr>
+                    <tr><td colSpan={7} className="p-6 text-gray-500">No decision makers yet</td></tr>
                   ) : contacts.map((dm: any) => {
                     const client = clients.find((c: any) => c.id === dm.client_id);
                     return (
                       <tr key={dm.id} className="hover:bg-gray-50">
-                        <td className="p-4 font-medium text-gray-900">{dm.name || '—'}</td>
-                        <td className="p-4">{dm.title || '—'}</td>
-                        <td className="p-4">{dm.email || '—'}</td>
+                        <td className="p-4 w-8"><input type="checkbox" checked={selectedContactIds.has(dm.id)} onChange={(e)=>{
+                          const next = new Set(selectedContactIds);
+                          if (e.target.checked) next.add(dm.id); else next.delete(dm.id);
+                          setSelectedContactIds(next);
+                        }} /></td>
+                        <td className="p-4 font-medium text-gray-900">
+                          {editingContactId === dm.id ? (
+                            <input className="border rounded px-2 py-1 w-full" defaultValue={dm.name || ''} onChange={(e)=>setContactDraft((s:any)=>({ ...s, name: e.target.value }))} />
+                          ) : (dm.name || '—')}
+                        </td>
+                        <td className="p-4">
+                          {editingContactId === dm.id ? (
+                            <input className="border rounded px-2 py-1 w-full" defaultValue={dm.title || ''} onChange={(e)=>setContactDraft((s:any)=>({ ...s, title: e.target.value }))} />
+                          ) : (dm.title || '—')}
+                        </td>
+                        <td className="p-4">
+                          {editingContactId === dm.id ? (
+                            <input className="border rounded px-2 py-1 w-full" defaultValue={dm.email || ''} onChange={(e)=>setContactDraft((s:any)=>({ ...s, email: e.target.value }))} />
+                          ) : (dm.email || '—')}
+                        </td>
                         <td className="p-4">{client?.name || '—'}</td>
                         <td className="p-4">{dm.owner_id ? dm.owner_id.slice(0,6) : '—'}</td>
-                        <td className="p-4 text-gray-500">{dm.created_at ? new Date(dm.created_at).toLocaleDateString() : '—'}</td>
+                        <td className="p-4 text-gray-500 flex items-center gap-2">
+                          <span>{dm.created_at ? new Date(dm.created_at).toLocaleDateString() : '—'}</span>
+                          {editingContactId === dm.id ? (
+                            <>
+                              <button className="px-2 py-1 text-xs bg-gray-200 rounded" onClick={()=>saveContactEdits(dm.id)}>Save</button>
+                              <button className="px-2 py-1 text-xs" onClick={()=>{ setEditingContactId(null); setContactDraft({}); }}>Cancel</button>
+                            </>
+                          ) : (
+                            <button className="px-2 py-1 text-xs bg-gray-100 rounded" onClick={()=>{ setEditingContactId(dm.id); setContactDraft({}); }}>Edit</button>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}
@@ -476,7 +554,12 @@ export default function DealsPage() {
                 ) : filteredClients.map((c: any) => (
                   <>
                     <tr key={c.id} className="hover:bg-gray-50 cursor-pointer" onClick={()=>setExpandedClientId(prev => prev===c.id? null : c.id)}>
-                      <td className="p-4 font-medium text-gray-900">{c.name || c.domain || '—'}</td>
+                      <td className="p-4 font-medium text-gray-900 flex items-center gap-2">
+                        <span>{c.name || c.domain || '—'}</span>
+                        {c.stage && (
+                          <span className={`px-2 py-0.5 text-xs rounded-full ${String(c.stage).toLowerCase()==='active' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{String(c.stage).toLowerCase()==='active' ? 'Active' : 'Prospect'}</span>
+                        )}
+                      </td>
                       <td className="p-4">{c.industry || '—'}</td>
                       <td className="p-4">{c.revenue != null ? Number(c.revenue).toLocaleString('en-US',{style:'currency',currency:'USD'}) : '—'}</td>
                       <td className="p-4">{c.location || '—'}</td>
@@ -489,10 +572,37 @@ export default function DealsPage() {
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
                               <h4 className="text-sm font-semibold text-gray-700 mb-2">Company Insights</h4>
-                              <div className="text-sm text-gray-600 space-y-1">
-                                <div><span className="text-gray-500">Website:</span> <span className="ml-1">{c.domain || '—'}</span></div>
-                                <div><span className="text-gray-500">Industry:</span> <span className="ml-1">{c.industry || '—'}</span></div>
-                                <div><span className="text-gray-500">Location:</span> <span className="ml-1">{c.location || '—'}</span></div>
+                              <div className="text-sm text-gray-600 space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-gray-500 w-20">Website</span>
+                                  {editingClientId === c.id ? (
+                                    <input className="border rounded px-2 py-1 w-full" defaultValue={c.domain || ''} onChange={(e)=>setClientDraft((s:any)=>({ ...s, domain: e.target.value }))} />
+                                  ) : <span>{c.domain || '—'}</span>}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-gray-500 w-20">Industry</span>
+                                  {editingClientId === c.id ? (
+                                    <input className="border rounded px-2 py-1 w-full" defaultValue={c.industry || ''} onChange={(e)=>setClientDraft((s:any)=>({ ...s, industry: e.target.value }))} />
+                                  ) : <span>{c.industry || '—'}</span>}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-gray-500 w-20">Location</span>
+                                  {editingClientId === c.id ? (
+                                    <input className="border rounded px-2 py-1 w-full" defaultValue={c.location || ''} onChange={(e)=>setClientDraft((s:any)=>({ ...s, location: e.target.value }))} />
+                                  ) : <span>{c.location || '—'}</span>}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-gray-500 w-20">Stage</span>
+                                  {editingClientId === c.id ? (
+                                    <select className="border rounded px-2 py-1" defaultValue={String(c.stage || 'prospect')}
+                                      onChange={(e)=>setClientDraft((s:any)=>({ ...s, stage: e.target.value }))}>
+                                      <option value="prospect">Prospect</option>
+                                      <option value="active">Active</option>
+                                    </select>
+                                  ) : (
+                                    <span className={`px-2 py-0.5 text-xs rounded-full ${String(c.stage||'prospect').toLowerCase()==='active' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{String(c.stage||'prospect').toLowerCase()==='active' ? 'Active' : 'Prospect'}</span>
+                                  )}
+                                </div>
                               </div>
                             </div>
                             <div className="md:col-span-2">
@@ -503,6 +613,25 @@ export default function DealsPage() {
                                 ))}
                                 {contacts.filter(dm=>dm.client_id===c.id).length===0 && (
                                   <span className="text-sm text-gray-500">No decision makers yet</span>
+                                )}
+                              </div>
+                              <div className="mt-4">
+                                <h4 className="text-sm font-semibold text-gray-700 mb-2">Activity Notes</h4>
+                                {editingClientId === c.id ? (
+                                  <textarea className="border rounded w-full p-2" rows={3} defaultValue={c.notes || ''}
+                                    onChange={(e)=>setClientDraft((s:any)=>({ ...s, notes: e.target.value }))} />
+                                ) : (
+                                  <div className="text-sm text-gray-700 whitespace-pre-wrap">{c.notes || '—'}</div>
+                                )}
+                              </div>
+                              <div className="mt-3 flex gap-2">
+                                {editingClientId === c.id ? (
+                                  <>
+                                    <button className="px-3 py-1.5 text-sm bg-gray-900 text-white rounded" onClick={()=>saveClientEdits(c.id)}>Save</button>
+                                    <button className="px-3 py-1.5 text-sm" onClick={()=>{ setEditingClientId(null); setClientDraft({}); }}>Cancel</button>
+                                  </>
+                                ) : (
+                                  <button className="px-3 py-1.5 text-sm bg-gray-100 rounded" onClick={()=>{ setEditingClientId(c.id); setClientDraft({}); }}>Edit</button>
                                 )}
                               </div>
                             </div>

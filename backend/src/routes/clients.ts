@@ -47,7 +47,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     const isTeamAdmin = String(role || '').toLowerCase() === 'team_admin';
 
     let base = supabase.from('clients')
-      .select('id,name,domain,industry,revenue,location,owner_id,created_at');
+      .select('id,name,domain,industry,revenue,location,owner_id,created_at,stage,notes');
 
     if (isSuper) {
       // No filter
@@ -126,7 +126,7 @@ router.patch('/:id', requireAuth, async (req: Request, res: Response) => {
 
     const { id } = req.params;
     const update: any = {};
-    const fields = ['name','domain','industry','revenue','location','owner_id'];
+    const fields = ['name','domain','industry','revenue','location','owner_id','stage','notes'];
     for (const f of fields) if (req.body?.[f] !== undefined) update[f] = req.body[f];
     const { data, error } = await supabase
       .from('clients')

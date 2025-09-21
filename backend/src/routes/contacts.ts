@@ -66,6 +66,43 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
+// PATCH /api/contacts/:id
+router.patch('/:id', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    const role = await userRole(userId);
+    if (!['super_admin','superadmin'].includes(role)) {
+      const { data: perms } = await supabase
+        .from('deal_permissions')
+        .select('can_view_clients')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (!((perms as any)?.can_view_clients)) { res.status(403).json({ error: 'access_denied' }); return; }
+    }
+
+    const { id } = req.params;
+    const { name, title, email, phone } = req.body || {};
+    const update: any = {};
+    if (name !== undefined) update.name = name;
+    if (title !== undefined) update.title = title;
+    if (email !== undefined) update.email = email;
+    if (phone !== undefined) update.phone = phone;
+
+    const { data, error } = await supabase
+      .from('contacts')
+      .update(update)
+      .eq('id', id)
+      .select('*')
+      .maybeSingle();
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    if (!data) { res.status(404).json({ error: 'not_found' }); return; }
+    res.json(data);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message || 'Internal server error' });
+  }
+});
+
 export default router;
 
 
