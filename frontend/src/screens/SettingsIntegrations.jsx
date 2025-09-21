@@ -1,6 +1,6 @@
 // SettingsIntegrations.jsx
 import React, { useState, useEffect } from 'react';
-import { FaCircle, FaGoogle, FaMicrosoft, FaRocket, FaGhost, FaEnvelope, FaCalendarDays, FaGear, FaLinkedin, FaPlug, FaFloppyDisk, FaPowerOff, FaShieldHalved } from 'react-icons/fa6';
+import { FaCircle, FaGoogle, FaMicrosoft, FaRocket, FaGhost, FaEnvelope, FaCalendarDays, FaGear, FaLinkedin, FaPlug, FaFloppyDisk, FaPowerOff, FaShieldHalved, FaStripeS } from 'react-icons/fa6';
 import { supabase } from '../lib/supabaseClient';
 import { toast } from 'react-hot-toast';
 import { useLocation, useSearchParams } from 'react-router-dom';
@@ -93,6 +93,10 @@ export default function SettingsIntegrations() {
   const [enrichmentSaving, setEnrichmentSaving] = useState(false);
   const [enrichmentError, setEnrichmentError] = useState('');
   const [enrichmentSuccess, setEnrichmentSuccess] = useState('');
+  // Stripe state
+  const [stripeKeys, setStripeKeys] = useState({ publishable: '', secret: '' });
+  const [stripeLoading, setStripeLoading] = useState(false);
+  const [stripeConnected, setStripeConnected] = useState({ hasKeys: false, accountId: null });
 
   // Fetch integration status from Supabase on mount
   useEffect(() => {
@@ -837,6 +841,15 @@ export default function SettingsIntegrations() {
   useEffect(() => {
     if (currentUser) {
       fetchEnrichmentKeys();
+      // Load Stripe status
+      (async () => {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const res = await fetch(`${BACKEND}/api/stripe/status`, { headers: { Authorization: `Bearer ${session?.access_token}` } });
+          const js = await res.json();
+          if (res.ok) setStripeConnected({ hasKeys: !!js.has_keys, accountId: js.connected_account_id || null });
+        } catch {}
+      })();
     }
   }, [currentUser]);
 
@@ -1169,6 +1182,57 @@ export default function SettingsIntegrations() {
             Your security is our priority. HirePilot only uses your LinkedIn access to search for leads. We never post, message, or interact on your behalf.
             <span className="text-blue-600 hover:underline cursor-pointer"> Learn more about our security measures</span>
           </p>
+        </div>
+      </div>
+
+      {/* Stripe Integration */}
+      <div className="bg-white rounded-lg border shadow-sm p-6 mt-6 w-full max-w-3xl mx-auto">
+        <div className="flex items-start justify-between mb-6">
+          <div>
+            <h2 className="text-2xl font-semibold text-gray-900">Stripe</h2>
+            <p className="text-gray-600 mt-2">Connect Stripe to create and send invoices directly from HirePilot.</p>
+          </div>
+          <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold">S</div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Publishable Key</label>
+            <input type="password" className="w-full border rounded-md px-3 py-2" placeholder="pk_live_..." value={stripeKeys.publishable} onChange={e=>setStripeKeys(p=>({ ...p, publishable: e.target.value }))} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Secret Key</label>
+            <input type="password" className="w-full border rounded-md px-3 py-2" placeholder="sk_live_..." value={stripeKeys.secret} onChange={e=>setStripeKeys(p=>({ ...p, secret: e.target.value }))} />
+          </div>
+        </div>
+        <div className="mt-4 flex items-center gap-3">
+          <button
+            className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium disabled:opacity-50"
+            disabled={stripeLoading || !stripeKeys.publishable || !stripeKeys.secret}
+            onClick={async ()=>{
+              setStripeLoading(true);
+              try {
+                const { data: { session } } = await supabase.auth.getSession();
+                const resp = await fetch(`${BACKEND}/api/stripe/save-keys`, { method:'POST', headers: { 'Content-Type':'application/json', Authorization: `Bearer ${session?.access_token}` }, body: JSON.stringify({ publishable_key: stripeKeys.publishable, secret_key: stripeKeys.secret }) });
+                const js = await resp.json();
+                if (resp.ok) { setStripeConnected(s=>({ ...s, hasKeys: true })); toast.success('Stripe keys saved'); }
+                else toast.error(js.error || 'Failed to save keys');
+              } finally { setStripeLoading(false); }
+            }}
+          >Save Keys</button>
+          <button
+            className="px-4 py-2 border rounded-md text-sm"
+            onClick={async ()=>{
+              try {
+                const { data: { session } } = await supabase.auth.getSession();
+                const resp = await fetch(`${BACKEND}/api/stripe/connect/init`, { method:'POST', headers: { Authorization: `Bearer ${session?.access_token}` } });
+                const js = await resp.json();
+                if (resp.ok && js.url) { window.location.href = js.url; }
+                else toast.error(js.error || 'Failed to start Stripe Connect onboarding');
+              } catch (e) { toast.error('Failed to start onboarding'); }
+            }}
+          >{stripeConnected.accountId ? 'Manage Stripe Connect' : 'Start Stripe Connect'}</button>
+          {stripeConnected.hasKeys && <span className="text-sm text-green-600">Keys saved</span>}
+          {stripeConnected.accountId && <span className="text-sm text-gray-600">Account: {stripeConnected.accountId}</span>}
         </div>
       </div>
       {/* SendGrid API Key Modal */}

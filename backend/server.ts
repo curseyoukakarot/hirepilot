@@ -79,6 +79,7 @@ import opportunitiesRouter from './src/routes/opportunities';
 import opportunityPipelineRouter from './src/routes/opportunityPipeline';
 import invoicesRouter from './src/routes/invoices';
 import revenueRouter from './src/routes/revenue';
+import stripeIntegrationRouter from './src/routes/stripeIntegration';
 import cronProcessorRouter from './routes/cronProcessor';
 import cookieParser from 'cookie-parser';
 import listEndpoints from 'express-list-endpoints';
@@ -336,6 +337,7 @@ app.use('/api/collaborators', requireAuth as any, collaboratorsRouter);
   app.use('/api/opportunity-pipeline', opportunityPipelineRouter);
   app.use('/api/invoices', invoicesRouter);
   app.use('/api/revenue', revenueRouter);
+app.use('/api/stripe', stripeIntegrationRouter);
   // Stripe webhook already mounted above; ensure it updates invoice status if needed in future.
   app.use('/api', dealAccessRouter);
   app.use('/api/contacts', contactsRouter);
