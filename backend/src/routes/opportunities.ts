@@ -188,14 +188,14 @@ router.get('/:id/available-reqs', requireAuth, async (req: Request, res: Respons
     const { role, team_id } = await getRoleTeam(userId);
     const isSuper = ['super_admin','superadmin'].includes(role.toLowerCase());
     const isTeamAdmin = role.toLowerCase() === 'team_admin';
-    let base = supabase.from('job_requisitions').select('id,title,owner_id');
+    let base = supabase.from('job_requisitions').select('id,title,user_id');
     if (!isSuper) {
       if (isTeamAdmin && team_id) {
         const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', team_id);
         const ids = (teamUsers || []).map((u: any) => u.id);
-        base = base.in('owner_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
+        base = base.in('user_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
       } else {
-        base = base.eq('owner_id', userId);
+        base = base.eq('user_id', userId);
       }
     }
     const { data, error } = await base.order('title', { ascending: true });
