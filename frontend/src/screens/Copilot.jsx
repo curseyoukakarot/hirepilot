@@ -23,7 +23,8 @@ export default function Copilot() {
       const end=-rect.height; // when section leaves top
       const range=start-end||1;
       const t=Math.max(0,Math.min(1,(start-rect.top)/range));
-      const inward=t*80; // 0 -> 80px toward center
+      const base=144; // 1.5in in CSS pixels
+      const inward=t*80+base; // move inward plus fixed offset
       const vertical=(1-t)*10-5; // slight vertical drift
       left.style.transform=`translateX(${inward}px) translateY(${vertical}px) rotate(0deg)`;
       right.style.transform=`translateX(${-inward}px) translateY(${-vertical}px) rotate(0deg)`;
