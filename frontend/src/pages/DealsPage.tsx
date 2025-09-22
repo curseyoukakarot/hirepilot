@@ -768,7 +768,7 @@ export default function DealsPage() {
                     <tr key={o.id} className="hover:bg-gray-50">
                       <td className="p-4"><input type="checkbox" /></td>
                       <td className="p-4 font-medium text-gray-900">{o.title}</td>
-                      <td className="p-4"><div className="flex items-center gap-2"><div className="w-6 h-6 rounded bg-gray-200" /> <span className="font-medium">{o.client?.name || o.client?.domain || '—'}</span></div></td>
+                      <td className="p-4"><div className="flex items-center gap-2">{(() => { const u = o.client && clientsLogoMap.get(String(o.client.id || o.client_id)); return u ? <img src={u} alt="logo" className="w-6 h-6 rounded" /> : <div className="w-6 h-6 rounded bg-gray-200" />; })()} <span className="font-medium">{o.client?.name || o.client?.domain || '—'}</span></div></td>
                       <td className="p-4"><span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">{o.stage || 'Pipeline'}</span></td>
                       <td className="p-4 text-right font-medium">{currency(Number(o.value)||0)}</td>
                       <td className="p-4">
@@ -779,9 +779,7 @@ export default function DealsPage() {
                         </div>
                       </td>
                       <td className="p-4">
-                        <div className="flex items-center gap-2">
-                          {(() => { const u = o.client && clientsLogoMap.get(String(o.client.id || o.client_id)); return u ? <img src={u} alt="logo" className="w-6 h-6 rounded" /> : <div className="w-6 h-6 rounded bg-gray-200" />; })()}
-                        </div>
+                        <div className="w-8 h-8 rounded-full bg-gray-200" title={`${o.owner?.first_name||''} ${o.owner?.last_name||''}`}></div>
                       </td>
                       <td className="p-4 text-gray-500">{new Date(o.created_at).toLocaleDateString()}</td>
                       <td className="p-4 text-right"><a className="text-blue-600 font-semibold" href={`/deals/opportunities/${o.id}`}>View</a></td>
