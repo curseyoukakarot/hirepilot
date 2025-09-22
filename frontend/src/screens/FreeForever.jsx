@@ -178,7 +178,7 @@ export default function FreeForever() {
                             <td className="text-center py-3"><i className="fas fa-check text-green-400" /></td>
                           </tr>
                           <tr>
-                            <td className="py-3 text-gray-300 flex items-center"><i className="fas fa-bolt text-yellow-400 mr-2" />Agent Mode</td>
+                            <td className="py-3 text-gray-300 flex items-center"><i className="fas fa-bolt text-yellow-400 mr-2" />Advanced Agent Mode</td>
                             <td className="text-center py-3"><i className="fas fa-times text-red-400" /></td>
                             <td className="text-center py-3"><i className="fas fa-check text-green-400" /></td>
                           </tr>
