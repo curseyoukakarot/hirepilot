@@ -8,6 +8,32 @@ export default function Copilot() {
     document.querySelectorAll('.fade-in').forEach(el=>io.observe(el));
     return ()=>io.disconnect();
   },[]);
+
+  // Parallax for cascading images (invoice + stripe)
+  useEffect(()=>{
+    const section=document.getElementById('billing-parallax');
+    const left=document.getElementById('parallax-left');
+    const right=document.getElementById('parallax-right');
+    if(!section||!left||!right) return;
+    let raf=0;
+    const update=()=>{
+      const rect=section.getBoundingClientRect();
+      const vh=window.innerHeight||0;
+      const start=vh; // when section enters viewport
+      const end=-rect.height; // when section leaves top
+      const range=start-end||1;
+      const t=Math.max(0,Math.min(1,(start-rect.top)/range));
+      const leftOffset=(1-t)*30-15;  // +15px -> -15px
+      const rightOffset=(t-0.5)*30;  // -15px -> +15px
+      left.style.transform=`translateY(${leftOffset}px) rotate(-2deg)`;
+      right.style.transform=`translateY(${rightOffset}px) rotate(2deg)`;
+    };
+    const onScroll=()=>{cancelAnimationFrame(raf);raf=requestAnimationFrame(update)};
+    update();
+    window.addEventListener('scroll',onScroll,{passive:true});
+    window.addEventListener('resize',onScroll);
+    return ()=>{window.removeEventListener('scroll',onScroll);window.removeEventListener('resize',onScroll);cancelAnimationFrame(raf)};
+  },[]);
   return (
     <div className="h-full text-base-content">
       <div className="min-h-screen bg-gray-900 text-white">
@@ -123,6 +149,26 @@ export default function Copilot() {
               alt="collaboration workflow overview"
               className="w-[60vw] md:w-[55vw] max-w-none relative left-1/2 -translate-x-1/2 rounded-2xl shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)] object-cover"
             />
+          </div>
+        </section>
+
+        {/* Cascading Billing Images (Parallax) */}
+        <section id="billing-parallax" className="relative py-16 bg-gray-900 overflow-hidden fade-in">
+          <div className="w-screen px-6">
+            <div className="relative h-[420px] md:h-[520px]">
+              <img
+                id="parallax-left"
+                src="/invoice.png"
+                alt="in-app invoice preview"
+                className="absolute top-6 md:top-10 -left-[14vw] w-[70vw] md:w-[46vw] max-w-none rounded-2xl shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)] will-change-transform transition-transform duration-300"
+              />
+              <img
+                id="parallax-right"
+                src="/stripe.png"
+                alt="stripe integration preview"
+                className="absolute bottom-6 md:bottom-10 -right-[14vw] w-[70vw] md:w-[46vw] max-w-none rounded-2xl shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)] will-change-transform transition-transform duration-300"
+              />
+            </div>
           </div>
         </section>
 
