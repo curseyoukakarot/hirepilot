@@ -79,8 +79,9 @@ export default function SettingsProfileInfo() {
       });
     } catch {}
     const fileExt = file.name.split('.').pop();
-    const filePath = `avatars/${user.id}.${fileExt}`;
-    const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file, { upsert: true });
+    // Store inside a user-scoped folder to satisfy RLS policies like foldername(name)[1] = auth.uid()
+    const filePath = `${user.id}/avatar.${fileExt}`;
+    const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file, { upsert: true, contentType: file.type });
     if (uploadError) {
       alert(uploadError.message || 'Failed to upload avatar');
       return;

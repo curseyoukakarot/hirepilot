@@ -5,12 +5,14 @@ import { supabase } from '../lib/supabaseClient';
 
 export default function Navbar() {
   const [isGuest, setIsGuest] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState('');
   useEffect(() => {
     (async () => {
       let guestFlag = (typeof window !== 'undefined' && sessionStorage.getItem('guest_mode') === '1');
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user?.email) {
+          setAvatarUrl(user.user_metadata?.avatar_url || '');
           const { data } = await supabase
             .from('job_guest_collaborators')
             .select('id')
@@ -29,7 +31,7 @@ export default function Navbar() {
         <img src="/logo.png" alt="HirePilot Logo" className="h-10 w-10" />
         <span className="text-2xl font-bold text-indigo-600">HirePilot</span>
       </NavLink>
-      <nav className="flex space-x-6">
+      <nav className="flex items-center space-x-6">
         {!isGuest && (
           <>
             <NavLink
@@ -81,6 +83,13 @@ export default function Navbar() {
           }
         >
           Dashboard
+        </NavLink>
+        <NavLink to="/settings" className="flex items-center">
+          {avatarUrl ? (
+            <img src={avatarUrl} alt="avatar" className="w-8 h-8 rounded-full object-cover" />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-gray-200" />
+          )}
         </NavLink>
       </nav>
     </header>
