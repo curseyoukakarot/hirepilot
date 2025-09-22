@@ -211,7 +211,7 @@ router.post('/create', requireAuth, async (req: Request, res: Response) => {
       due_at: new Date(Date.now() + 14*24*60*60*1000).toISOString(),
       recipient_email: recipient_email || null,
       notes: notes || null,
-      stripe_invoice_id: invoice.id
+      stripe_invoice_id: (hosted as any)?.invoice || null
     }).select('*').single();
     if (error) { res.status(500).json({ error: error.message }); return; }
 
