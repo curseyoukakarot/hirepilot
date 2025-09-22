@@ -125,27 +125,32 @@ router.post('/create', requireAuth, async (req: Request, res: Response) => {
     if (!opp) { res.status(404).json({ error: 'opportunity_not_found' }); return; }
     const { data: client } = await supabase.from('clients').select('id,name').eq('id', opp.client_id).maybeSingle();
 
-    // Calculate amount based on billing_type
+    // Calculate amount based on billing_type (sanitize inputs like "$5,000" or "20%")
+    const parseNum = (v: any): number => {
+      const n = Number(String(v ?? '').replace(/[^0-9.]/g, ''));
+      return Number.isFinite(n) ? n : 0;
+    };
+
     let amount = Number(opp.value) || 0;
     const f = fields || {};
     switch (String(billing_type).toLowerCase()) {
       case 'contingency': {
-        const salary = Number(f.salary || 0);
-        const pct = Number(f.percent || 20);
+        const salary = parseNum(f.salary);
+        const pct = parseNum(f.percent || 20);
         amount = Math.round(salary * (pct / 100));
         break;
       }
       case 'retainer': {
-        amount = Number(f.flat_fee || 0);
+        amount = parseNum(f.flat_fee);
         break;
       }
       case 'rpo': {
-        amount = Number(f.monthly || 0);
+        amount = parseNum(f.monthly);
         break;
       }
       case 'staffing': {
-        const hours = Number(f.hours || 0);
-        const rate = Number(f.hourly_rate || 0);
+        const hours = parseNum(f.hours);
+        const rate = parseNum(f.hourly_rate);
         amount = Math.round(hours * rate);
         break;
       }
