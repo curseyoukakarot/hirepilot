@@ -378,7 +378,7 @@ const HomePage = () => {
               <span className="bg-white/20 px-4 py-2 rounded-lg">Close</span>
             </div>
           </div>
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
+          <div className="max-w-5xl mx-auto">
             <div className="space-y-6">
               <div className="flex items-start space-x-4">
                 <div className="w-6 h-6 bg-green-400 rounded-full flex items-center justify-center mt-1">
@@ -416,13 +416,6 @@ const HomePage = () => {
                 </div>
                 <p className="text-white text-lg">Slack alerts + workflow automation with Zapier and Make</p>
               </div>
-            </div>
-            <div>
-              <img
-                className="w-full h-80 rounded-xl shadow-2xl object-cover"
-                src="https://storage.googleapis.com/uxpilot-auth.appspot.com/d9f343367a-6b016e39d289a053ba13.png"
-                alt="recruiting workflow visualization with candidate pipeline stages and automation"
-              />
             </div>
           </div>
         </div>
