@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient';
 import ClientRowEditor from '../components/deals/ClientRowEditor';
 import AddOpportunityModal from '../components/deals/AddOpportunityModal';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import CreateInvoiceModal from '../components/deals/CreateInvoiceModal';
 import { PieChart, Pie, Cell } from 'recharts';
 
 type ViewTab = 'clients' | 'opportunities' | 'billing' | 'revenue';
@@ -814,113 +815,21 @@ export default function DealsPage() {
 
   const AddModal = () => null;
 
-  const InvoiceModal = () => !invoiceOpen ? null : (
-    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col">
-        <div className="p-6 border-b flex justify-between items-center">
-          <h2 className="text-xl font-semibold text-gray-900">Create Invoice</h2>
-          <button className="text-gray-500" onClick={()=>setInvoiceOpen(false)}>✕</button>
-        </div>
-        <div className="p-6 space-y-6 bg-gray-50">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="text-xs font-medium text-gray-500 block mb-1">Opportunity</label>
-              <select className="w-full border rounded-md p-2 text-sm" value={invoiceOpportunityId} onChange={e=>setInvoiceOpportunityId(e.target.value)}>
-                <option value="">Select opportunity…</option>
-                {availableOpps.map(o => (
-                  <option key={o.id} value={o.id}>{o.title}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-500 block mb-1">Billing Type</label>
-              <select className="w-full border rounded-md p-2 text-sm" value={invoiceBillingType} onChange={e=>setInvoiceBillingType(e.target.value as any)}>
-                <option value="contingency">Contingency</option>
-                <option value="retainer">Retained Search</option>
-                <option value="rpo">RPO (Monthly)</option>
-                <option value="staffing">Staffing (Hourly)</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-500 block mb-1">Recipient Email</label>
-              <input className="w-full border rounded-md p-2 text-sm" placeholder="billing@client.com" value={invoiceRecipient} onChange={e=>setInvoiceRecipient(e.target.value)} />
-            </div>
-          </div>
-          {/* Dynamic fields */}
-          {invoiceBillingType === 'contingency' && (
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Placement Salary</label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
-                  <input className="pl-7 pr-3 py-2 text-sm bg-white border rounded-md w-full" value={invoiceFields.salary} onChange={e=>setInvoiceFields((p:any)=>({ ...p, salary: e.target.value }))} />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Fee Percentage</label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500">%</span>
-                  <input type="number" className="pr-7 pl-3 py-2 text-sm bg-white border rounded-md w-full" value={invoiceFields.percent} onChange={e=>setInvoiceFields((p:any)=>({ ...p, percent: e.target.value }))} />
-                </div>
-              </div>
-            </div>
-          )}
-          {invoiceBillingType === 'retainer' && (
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Retainer Amount</label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
-                  <input className="pl-7 pr-3 py-2 text-sm bg-white border rounded-md w-full" value={invoiceFields.flat_fee} onChange={e=>setInvoiceFields((p:any)=>({ ...p, flat_fee: e.target.value }))} />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                <textarea className="p-2 text-sm bg-white border rounded-md w-full" rows={2} value={invoiceNotes} onChange={e=>setInvoiceNotes(e.target.value)} />
-              </div>
-            </div>
-          )}
-          {invoiceBillingType === 'rpo' && (
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Monthly Fee</label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
-                  <input className="pl-7 pr-3 py-2 text-sm bg-white border rounded-md w-full" value={invoiceFields.monthly} onChange={e=>setInvoiceFields((p:any)=>({ ...p, monthly: e.target.value }))} />
-                </div>
-              </div>
-            </div>
-          )}
-          {invoiceBillingType === 'staffing' && (
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Hourly Bill Rate</label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
-                  <input type="number" className="pl-7 pr-3 py-2 text-sm bg-white border rounded-md w-full" value={invoiceFields.hourly_rate} onChange={e=>setInvoiceFields((p:any)=>({ ...p, hourly_rate: e.target.value }))} />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Hours Worked</label>
-                <input type="number" className="p-2 text-sm bg-white border rounded-md w-full" value={invoiceFields.hours} onChange={e=>setInvoiceFields((p:any)=>({ ...p, hours: e.target.value }))} />
-              </div>
-            </div>
-          )}
-          <div className="bg-white rounded-lg p-4 flex justify-between items-center border">
-            <div>
-              <p className="text-sm text-gray-600">Invoice Total</p>
-              <p className="text-3xl font-bold text-gray-900 mt-1">{computedInvoiceTotal().toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</p>
-            </div>
-          </div>
-        </div>
-        <div className="p-6 bg-gray-100 border-t rounded-b-xl flex justify-end gap-3">
-          <button className="px-4 py-2 text-sm font-medium text-gray-700 border rounded-md" onClick={()=>setInvoiceOpen(false)}>Cancel</button>
-          <button className="px-6 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md disabled:opacity-60" disabled={!invoiceOpportunityId || invoiceSubmitting} onClick={submitInvoice}>
-            {invoiceSubmitting ? 'Creating…' : 'Create Invoice'}
-          </button>
-        </div>
-      </div>
-    </div>
+  const InvoiceModal = () => (
+    <CreateInvoiceModal
+      open={invoiceOpen}
+      opportunities={availableOpps}
+      defaultOpportunityId={invoiceOpportunityId}
+      defaultBillingType={invoiceBillingType}
+      onClose={()=>setInvoiceOpen(false)}
+      onCreated={async ()=>{
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        const list = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/invoices`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        const js = list.ok ? await list.json() : [];
+        setInvoices(js || []);
+      }}
+    />
   );
 
   return (
