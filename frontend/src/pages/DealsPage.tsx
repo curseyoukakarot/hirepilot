@@ -30,6 +30,7 @@ export default function DealsPage() {
   const [oppFilters, setOppFilters] = useState<{ status: string; client: string; search: string }>({ status: '', client: '', search: '' });
   const [oppView, setOppView] = useState<OppView>('table');
   const [board, setBoard] = useState<Array<{ stage: string; weight_percent: number; order_index: number; total: number; weighted: number; items: any[] }>>([]);
+  const [savingStageId, setSavingStageId] = useState<string | null>(null);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [invLoading, setInvLoading] = useState(false);
   const [revSummary, setRevSummary] = useState<{ total_paid: number; forecasted: number; overdue: number; unpaid: number } | null>(null);
@@ -149,6 +150,23 @@ export default function DealsPage() {
       // Surface brief error toast in UI console for now
       try { const e = await resp.json(); console.warn('Sync enrichment failed', e); } catch {}
     }
+  };
+
+  const updateClientStage = async (id: string, stage: 'prospect' | 'active') => {
+    try {
+      setSavingStageId(id);
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ stage })
+      });
+      if (!resp.ok) throw new Error('Failed to update stage');
+      setClients(prev => prev.map((c: any) => (c.id === id ? { ...c, stage } : c)));
+    } catch (e) {
+      // no-op; UI will remain unchanged on failure
+    } finally { setSavingStageId(null); }
   };
 
   const saveContactEdits = async (id: string) => {
@@ -611,9 +629,18 @@ export default function DealsPage() {
                     >
                       <td className="p-4 font-medium text-gray-900">{c.name || c.domain || '—'}</td>
                       <td className="p-4">
-                        {c.stage ? (
+                        <div className="flex items-center gap-2">
                           <span className={`px-2 py-0.5 text-xs rounded-full ${String(c.stage).toLowerCase()==='active' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{String(c.stage).toLowerCase()==='active' ? 'Active' : 'Prospect'}</span>
-                        ) : '—'}
+                          <select
+                            className="border rounded px-1 py-0.5 text-xs text-gray-700"
+                            value={String(c.stage || 'prospect')}
+                            onChange={(e)=>updateClientStage(c.id, e.target.value === 'active' ? 'active' : 'prospect')}
+                            disabled={savingStageId===c.id}
+                          >
+                            <option value="prospect">Prospect</option>
+                            <option value="active">Active</option>
+                          </select>
+                        </div>
                       </td>
                       <td className="p-4">{c.industry || '—'}</td>
                       <td className="p-4">{c.revenue != null ? Number(c.revenue).toLocaleString('en-US',{style:'currency',currency:'USD'}) : '—'}</td>
