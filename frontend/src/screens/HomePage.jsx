@@ -65,7 +65,7 @@ const HomePage = () => {
       },
       { threshold: 0.15 }
     );
-    const elements = document.querySelectorAll('.scroll-fade-in');
+    const elements = document.querySelectorAll('.scroll-fade-in, .pipeline-sunrise');
     elements.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
   }, []);
@@ -83,6 +83,8 @@ const HomePage = () => {
         .feature-card:hover { transform: translateY(-10px); }
         .scroll-fade-in { opacity: 0; transform: translateY(40px); transition: all 0.6s ease-out; }
         .scroll-fade-in.in-view { opacity: 1; transform: translateY(0); }
+        .pipeline-sunrise { opacity: 0; transform: translateY(100px); transition: transform 0.9s ease-out, opacity 0.9s ease-out; }
+        .pipeline-sunrise.in-view { opacity: 1; transform: translateY(0); }
         .accordion { max-height: 0; overflow: hidden; opacity: 0; transition: max-height 0.6s ease, opacity 0.4s ease; }
         .accordion.open { max-height: 900px; opacity: 1; }
       `}</style>
@@ -306,6 +308,17 @@ const HomePage = () => {
               <p className="text-gray-600">Enrichment, contact data, notes</p>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Sunrise Image Reveal */}
+      <section id="pipeline-sunrise" className="relative py-8 sm:py-12 bg-black">
+        <div className="container mx-auto px-6 overflow-hidden">
+          <img
+            src="/homepage-sunrise.png"
+            alt="HirePilot pipeline overview"
+            className="pipeline-sunrise w-full max-w-6xl mx-auto rounded-2xl shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)] object-cover"
+          />
         </div>
       </section>
 
