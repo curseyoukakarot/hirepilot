@@ -39,6 +39,8 @@ export default function DealsPage() {
   const [revMonthlyProjected, setRevMonthlyProjected] = useState<Array<{ month: string; paid: number; forecasted: number; outstanding: number }>>([]);
   const [revMonthlyMode, setRevMonthlyMode] = useState<'actual'|'projected'>('actual');
   const [revMonthlyRange, setRevMonthlyRange] = useState<'90d'|'6m'|'1y'|'ytd'>('1y');
+  const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [currentUserAvatar, setCurrentUserAvatar] = useState<string>('');
   const [revByClient, setRevByClient] = useState<Array<{ client_id: string; client_name: string; total: number; paid: number; unpaid: number }>>([]);
   const [revByType, setRevByType] = useState<Array<{ type: string; total: number }>>([]);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
@@ -57,6 +59,15 @@ export default function DealsPage() {
   // Removed modal caret refs
 
   useEffect(() => {
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          setCurrentUserId(user.id);
+          setCurrentUserAvatar(user.user_metadata?.avatar_url || '');
+        }
+      } catch {}
+    })();
     const fetchInvoices = async () => {
       if (!access?.can_view_billing) return;
       setInvLoading(true);
@@ -780,9 +791,10 @@ export default function DealsPage() {
                       </td>
                       <td className="p-4">
                         <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden">
-                          {o.owner?.avatar_url ? (
-                            <img src={o.owner.avatar_url} alt="owner" className="w-8 h-8 object-cover" />
-                          ) : null}
+                          {(() => {
+                            const src = o.owner?.avatar_url || (o.owner_id===currentUserId ? currentUserAvatar : '');
+                            return src ? <img src={src} alt="owner" className="w-8 h-8 object-cover" /> : null;
+                          })()}
                         </div>
                       </td>
                       <td className="p-4 text-gray-500">{new Date(o.created_at).toLocaleDateString()}</td>
