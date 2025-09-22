@@ -9,7 +9,7 @@ export default function Copilot() {
     return ()=>io.disconnect();
   },[]);
 
-  // Parallax for cascading images (invoice + stripe)
+  // Parallax for cascading images (invoice + stripe) – move inward toward center
   useEffect(()=>{
     const section=document.getElementById('billing-parallax');
     const left=document.getElementById('parallax-left');
@@ -23,10 +23,10 @@ export default function Copilot() {
       const end=-rect.height; // when section leaves top
       const range=start-end||1;
       const t=Math.max(0,Math.min(1,(start-rect.top)/range));
-      const leftOffset=(1-t)*30-15;  // +15px -> -15px
-      const rightOffset=(t-0.5)*30;  // -15px -> +15px
-      left.style.transform=`translateY(${leftOffset}px) rotate(-2deg)`;
-      right.style.transform=`translateY(${rightOffset}px) rotate(2deg)`;
+      const inward=t*60; // 0 -> 60px toward center
+      const vertical=(1-t)*16-8; // +8px -> -8px subtle
+      left.style.transform=`translateX(${inward}px) translateY(${vertical}px) rotate(-2deg)`;
+      right.style.transform=`translateX(${-inward}px) translateY(${-vertical}px) rotate(2deg)`;
     };
     const onScroll=()=>{cancelAnimationFrame(raf);raf=requestAnimationFrame(update)};
     update();
@@ -37,7 +37,7 @@ export default function Copilot() {
   return (
     <div className="h-full text-base-content">
       <div className="min-h-screen bg-gray-900 text-white">
-        <style>{`.fade-in{opacity:0;transform:translateY(12px);transition:opacity .6s ease,transform .6s ease}.fade-in.in-view{opacity:1;transform:none}`}</style>
+        <style>{`.fade-in{opacity:0;transform:translateY(12px);transition:opacity .6s ease,transform .6s ease}.fade-in.in-view{opacity:1;transform:none}.gradient-text{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}`}</style>
         {/* Header */}
         <PublicNavbar />
 
@@ -155,18 +155,21 @@ export default function Copilot() {
         {/* Cascading Billing Images (Parallax) */}
         <section id="billing-parallax" className="relative py-16 bg-gray-900 overflow-hidden fade-in">
           <div className="w-screen px-6">
+            <h3 className="text-center text-2xl md:text-3xl font-bold mb-6">
+              <span className="gradient-text">Request Payments directly from your portal</span>
+            </h3>
             <div className="relative h-[420px] md:h-[520px]">
               <img
                 id="parallax-left"
                 src="/invoice.png"
                 alt="in-app invoice preview"
-                className="absolute top-6 md:top-10 -left-[14vw] w-[70vw] md:w-[46vw] max-w-none rounded-2xl shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)] will-change-transform transition-transform duration-300"
+                className="absolute top-6 md:top-10 -left-[8vw] w-[60vw] md:w-[42vw] max-w-none rounded-2xl shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)] will-change-transform transition-transform duration-300"
               />
               <img
                 id="parallax-right"
                 src="/stripe.png"
                 alt="stripe integration preview"
-                className="absolute bottom-6 md:bottom-10 -right-[14vw] w-[70vw] md:w-[46vw] max-w-none rounded-2xl shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)] will-change-transform transition-transform duration-300"
+                className="absolute bottom-6 md:bottom-10 -right-[8vw] w-[60vw] md:w-[42vw] max-w-none rounded-2xl shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)] will-change-transform transition-transform duration-300"
               />
             </div>
           </div>
