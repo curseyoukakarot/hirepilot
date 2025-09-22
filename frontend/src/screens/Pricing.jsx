@@ -74,39 +74,6 @@ export default function Pricing() {
           </div>
         </div>
 
-        {/* All-features banner (no paragraphs) */}
-        <div className="w-full py-6 fade-in">
-          <div className="max-w-4xl mx-auto px-6 text-center" aria-label="all-features-banner">
-            <h3 className="text-xl font-semibold text-gray-200">All plans include every feature.</h3>
-          </div>
-        </div>
-
-        {/* All features included checklist (moved above pricing) */}
-        <div className="w-full py-10 fade-in">
-          <div className="max-w-6xl mx-auto px-6">
-            <div className="bg-gray-800 rounded-2xl border border-gray-700 shadow-lg p-8">
-              <h3 className="text-xl font-semibold text-white mb-4">All features on paid plans include:</h3>
-              <div className="grid sm:grid-cols-2 gap-4 text-gray-300">
-                <div className="flex items-start"><span className="mr-3">🤖</span><span><strong className="text-white">REX AI Assistant</strong><br />Candidate summaries, message drafting, scoring, auto-follow-ups, and more</span></div>
-                <div className="flex items-start"><span className="mr-3">📈</span><span><strong className="text-white">Campaigns & Sequences</strong><br />Automated outreach with reply tracking and performance analytics</span></div>
-                <div className="flex items-start"><span className="mr-3">🔎</span><span><strong className="text-white">Lead Enrichment</strong><br />Email + profile data via Apollo, Hunter, Skrapp, and fallback systems</span></div>
-                <div className="flex items-start"><span className="mr-3">🔗</span><span><strong className="text-white">LinkedIn Automation</strong><br />Connection requests, profile capture, and scraping via Chrome Extension</span></div>
-                <div className="flex items-start"><span className="mr-3">✉️</span><span><strong className="text-white">Smart Email Sending</strong><br />Send emails with built-in deliverability support (SendGrid + Gmail/Outlook ready)</span></div>
-                <div className="flex items-start"><span className="mr-3">📬</span><span><strong className="text-white">Unified Inbox</strong><br />Track replies by lead, campaign, and job — all in one view</span></div>
-                <div className="flex items-start"><span className="mr-3">📊</span><span><strong className="text-white">Analytics Dashboard</strong><br />Real-time insights into sourcing, messaging, conversion, and hires</span></div>
-                <div className="flex items-start"><span className="mr-3">🧩</span><span><strong className="text-white">Integrations</strong><br />Slack, Zapier, Make.com, ATS tools, Google, Outlook, and Webhooks</span></div>
-                <div className="flex items-start"><span className="mr-3">🧑‍💼</span><span><strong className="text-white">Job Req Management</strong><br />Unlimited Job REQs with full candidate pipelines, stages, and activity tracking</span></div>
-                <div className="flex items-start"><span className="mr-3">🤝</span><span><strong className="text-white">Collaboration Tools</strong><br />Add team members or guests, assign roles, share notes, and manage together</span></div>
-                <div className="flex items-start"><span className="mr-3">💳</span><span><strong className="text-white">Billing & Invoicing</strong><br />Request payments, create invoices, and track revenue — right inside HirePilot</span></div>
-                <div className="flex items-start"><span className="mr-3">📅</span><span><strong className="text-white">Calendar Scheduling</strong><br />Auto-schedule interviews with candidates or clients</span></div>
-                <div className="flex items-start"><span className="mr-3">⚡</span><span><strong className="text-white">Custom Automations</strong><br />Trigger workflows with Zapier, Make, or native APIs</span></div>
-                <div className="flex items-start"><span className="mr-3">🪙</span><span><strong className="text-white">Credit System</strong><br />Credits power enrichment, automations, messaging, and AI actions. Top up anytime.</span></div>
-              </div>
-              <p className="text-sm text-gray-400 mt-4" aria-label="credits-explainer">Credits power enrichment, automations, messaging, and AI actions. Top up anytime.</p>
-            </div>
-          </div>
-        </div>
-
         {/* Pricing Plans (full-width, 4 across on xl) */}
         <div className="w-full py-12 fade-in">
           <div id="pricing-plans" className="max-w-screen-2xl 2xl:max-w-[1800px] mx-auto px-6 lg:px-8">
@@ -165,7 +132,7 @@ export default function Pricing() {
               <p className="text-gray-400 text-sm mb-6">Ideal for: 1 active role, light weekly sourcing, fast validation.</p>
               <button className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold hover:bg-blue-500 transition-colors" onClick={() => handleCheckout('starter')}>Get Started for Free</button>
             </div>
-
+            
             {/* Pro Plan */}
             <div id="pro-plan" className="bg-gray-800 rounded-2xl p-8 border-2 border-blue-500 shadow-lg hover:shadow-xl transition-all duration-300">
               <div className="flex justify-between items-start mb-6">
@@ -195,7 +162,7 @@ export default function Pricing() {
               </ul>
               <button className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold hover:bg-blue-500 transition-colors" onClick={() => handleCheckout('pro')}>Get Started for Free</button>
             </div>
-
+            
             {/* Team Plan */}
             <div id="team-plan" className="bg-gray-800 rounded-2xl p-8 border border-gray-700 shadow-lg hover:shadow-xl transition-all duration-300">
               <div className="flex justify-between items-start mb-6">
@@ -229,6 +196,40 @@ export default function Pricing() {
           </div>
         </div>
         </div>
+        {/* All-features banner (no paragraphs) */}
+        <div className="w-full py-6 fade-in">
+          <div className="max-w-4xl mx-auto px-6 text-center" aria-label="all-features-banner">
+            <h3 className="text-xl font-semibold text-gray-200">All plans include every feature.</h3>
+          </div>
+        </div>
+
+        {/* All features included checklist (moved above pricing) */}
+        <div className="w-full py-10 fade-in">
+          <div className="max-w-6xl mx-auto px-6">
+            <div className="bg-gray-800 rounded-2xl border border-gray-700 shadow-lg p-8">
+              <h3 className="text-xl font-semibold text-white mb-4">All features on paid plans include:</h3>
+              <div className="grid sm:grid-cols-2 gap-4 text-gray-300">
+                <div className="flex items-start"><span className="mr-3">🤖</span><span><strong className="text-white">REX AI Assistant</strong><br />Candidate summaries, message drafting, scoring, auto-follow-ups, and more</span></div>
+                <div className="flex items-start"><span className="mr-3">📈</span><span><strong className="text-white">Campaigns & Sequences</strong><br />Automated outreach with reply tracking and performance analytics</span></div>
+                <div className="flex items-start"><span className="mr-3">🔎</span><span><strong className="text-white">Lead Enrichment</strong><br />Email + profile data via Apollo, Hunter, Skrapp, and fallback systems</span></div>
+                <div className="flex items-start"><span className="mr-3">🔗</span><span><strong className="text-white">LinkedIn Automation</strong><br />Connection requests, profile capture, and scraping via Chrome Extension</span></div>
+                <div className="flex items-start"><span className="mr-3">✉️</span><span><strong className="text-white">Smart Email Sending</strong><br />Send emails with built-in deliverability support (SendGrid + Gmail/Outlook ready)</span></div>
+                <div className="flex items-start"><span className="mr-3">📬</span><span><strong className="text-white">Unified Inbox</strong><br />Track replies by lead, campaign, and job — all in one view</span></div>
+                <div className="flex items-start"><span className="mr-3">📊</span><span><strong className="text-white">Analytics Dashboard</strong><br />Real-time insights into sourcing, messaging, conversion, and hires</span></div>
+                <div className="flex items-start"><span className="mr-3">🧩</span><span><strong className="text-white">Integrations</strong><br />Slack, Zapier, Make.com, ATS tools, Google, Outlook, and Webhooks</span></div>
+                <div className="flex items-start"><span className="mr-3">🧑‍💼</span><span><strong className="text-white">Job Req Management</strong><br />Unlimited Job REQs with full candidate pipelines, stages, and activity tracking</span></div>
+                <div className="flex items-start"><span className="mr-3">🤝</span><span><strong className="text-white">Collaboration Tools</strong><br />Add team members or guests, assign roles, share notes, and manage together</span></div>
+                <div className="flex items-start"><span className="mr-3">💳</span><span><strong className="text-white">Billing & Invoicing</strong><br />Request payments, create invoices, and track revenue — right inside HirePilot</span></div>
+                <div className="flex items-start"><span className="mr-3">📅</span><span><strong className="text-white">Calendar Scheduling</strong><br />Auto-schedule interviews with candidates or clients</span></div>
+                <div className="flex items-start"><span className="mr-3">⚡</span><span><strong className="text-white">Custom Automations</strong><br />Trigger workflows with Zapier, Make, or native APIs</span></div>
+                <div className="flex items-start"><span className="mr-3">🪙</span><span><strong className="text-white">Credit System</strong><br />Credits power enrichment, automations, messaging, and AI actions. Top up anytime.</span></div>
+              </div>
+              <p className="text-sm text-gray-400 mt-4" aria-label="credits-explainer">Credits power enrichment, automations, messaging, and AI actions. Top up anytime.</p>
+            </div>
+          </div>
+        </div>
+
+        
 
         {/* (Removed) duplicate features card below pricing; keep fine print */}
         <div className="w-full py-6 fade-in">
