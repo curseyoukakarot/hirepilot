@@ -372,6 +372,23 @@ export default function DealsPage() {
       String(c.name || '').toLowerCase().includes(q) || String(c.domain || '').toLowerCase().includes(q) || String(c.industry || '').toLowerCase().includes(q) || String(c.location || '').toLowerCase().includes(q)
     ));
   }, [clients, clientsSearch]);
+
+  const getClientLogo = (c: any): string | null => {
+    const org = c?.org_meta?.apollo?.organization || c?.org_meta?.apollo || {};
+    const logo = org?.logo_url || org?.logo || null;
+    if (logo) return logo;
+    const domain = c?.domain || org?.website_url || org?.domain || null;
+    return domain ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64` : null;
+  };
+
+  const clientsLogoMap = useMemo(() => {
+    const map = new Map<string, string>();
+    (clients || []).forEach((c: any) => {
+      const u = getClientLogo(c);
+      if (u) map.set(String(c.id), u);
+    });
+    return map;
+  }, [clients]);
   useEffect(() => {
     const run = async () => {
       setLoading(true);
@@ -613,6 +630,7 @@ export default function DealsPage() {
               <thead className="bg-gray-50 border-b">
                 <tr>
                   <th className="p-4 text-left">Company</th>
+                  <th className="p-4 text-left">Logo</th>
                   <th className="p-4 text-left">Status</th>
                   <th className="p-4 text-left">Industry</th>
                   <th className="p-4 text-left">Revenue</th>
@@ -623,7 +641,7 @@ export default function DealsPage() {
               </thead>
               <tbody className="divide-y">
                 {filteredClients.length === 0 ? (
-                  <tr><td colSpan={7} className="p-6 text-gray-500">No clients yet</td></tr>
+                  <tr><td colSpan={8} className="p-6 text-gray-500">No clients yet</td></tr>
                 ) : filteredClients.map((c: any) => (
                   <React.Fragment key={c.id}>
                     <tr
@@ -637,6 +655,9 @@ export default function DealsPage() {
                       }}
                     >
                       <td className="p-4 font-medium text-gray-900">{c.name || c.domain || '—'}</td>
+                      <td className="p-4">
+                        {(() => { const u = getClientLogo(c); return u ? <img src={u} alt="logo" className="w-6 h-6 rounded" /> : <div className="w-6 h-6 rounded bg-gray-200" />; })()}
+                      </td>
                       <td className="p-4">
                         <div className="flex items-center gap-2">
                           <span className={`px-2 py-0.5 text-xs rounded-full ${String(c.stage).toLowerCase()==='active' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{String(c.stage).toLowerCase()==='active' ? 'Active' : 'Prospect'}</span>
@@ -659,7 +680,7 @@ export default function DealsPage() {
                     </tr>
                     {expandedClientId === c.id && (
                       <tr>
-                        <td colSpan={7} className="p-5 bg-gray-50">
+                        <td colSpan={8} className="p-5 bg-gray-50">
                           <ClientRowEditor
                             client={c}
                             onSave={async ()=>{ const { data: { session } } = await supabase.auth.getSession(); const token = session?.access_token; const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }); const js = resp.ok ? await resp.json() : []; setClients(js||[]); setExpandedClientId(null); }}
@@ -758,7 +779,9 @@ export default function DealsPage() {
                         </div>
                       </td>
                       <td className="p-4">
-                        <div className="w-8 h-8 rounded-full bg-gray-200" title={`${o.owner?.first_name||''} ${o.owner?.last_name||''}`}></div>
+                        <div className="flex items-center gap-2">
+                          {(() => { const u = o.client && clientsLogoMap.get(String(o.client.id || o.client_id)); return u ? <img src={u} alt="logo" className="w-6 h-6 rounded" /> : <div className="w-6 h-6 rounded bg-gray-200" />; })()}
+                        </div>
                       </td>
                       <td className="p-4 text-gray-500">{new Date(o.created_at).toLocaleDateString()}</td>
                       <td className="p-4 text-right"><a className="text-blue-600 font-semibold" href={`/deals/opportunities/${o.id}`}>View</a></td>
