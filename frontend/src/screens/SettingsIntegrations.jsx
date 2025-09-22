@@ -1242,6 +1242,12 @@ export default function SettingsIntegrations() {
               } catch (e) { toast.error('Failed to start onboarding'); }
             }}
           >{stripeConnected.accountId ? 'Manage Stripe Connect' : 'Start Stripe Connect'}</button>
+          <a
+            className="px-4 py-2 border rounded-md text-sm text-indigo-700 hover:text-indigo-900"
+            href="https://connect.stripe.com/d/setup/s/_T6BzX7m3hnTTg3KgqfMVo7PwJD/YWNjdF8xUzl6YkpBVmVNVThabHl6/62e4d011e0d51d6b2"
+            target="_blank"
+            rel="noopener noreferrer"
+          >Open Stripe Connect Setup</a>
           {stripeConnected.mode==='keys' && stripeConnected.hasKeys && <span className="text-sm text-green-600">Keys saved</span>}
           {stripeConnected.accountId && <span className="text-sm text-gray-600">Account: {stripeConnected.accountId}</span>}
         </div>
