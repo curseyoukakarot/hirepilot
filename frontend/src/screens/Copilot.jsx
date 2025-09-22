@@ -115,6 +115,17 @@ export default function Copilot() {
           </div>
         </section>
 
+        {/* Collaboration Sunrise Image */}
+        <section id="collaboration-sunrise" className="relative py-8 sm:py-12 bg-gray-900 overflow-hidden fade-in">
+          <div className="w-screen px-6">
+            <img
+              src="/collaborate.png"
+              alt="collaboration workflow overview"
+              className="w-[120vw] md:w-[110vw] max-w-none relative left-1/2 -translate-x-1/2 rounded-2xl shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)] object-cover"
+            />
+          </div>
+        </section>
+
         {/* CTA */}
         <section id="cta" className="py-20 bg-gradient-to-r from-blue-900 to-blue-700 text-white fade-in">
           <div className="max-w-4xl mx-auto px-6 text-center">
