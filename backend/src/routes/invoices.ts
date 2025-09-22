@@ -132,13 +132,22 @@ router.post('/create', requireAuth, async (req: Request, res: Response) => {
 
     // Ensure or reuse Stripe customer id for this client
     let stripeCustomerId = (client as any)?.stripe_customer_id || null;
-    if (!stripeCustomerId) {
-      const customer = await stripe.customers.create({
-        name: client?.name || undefined,
-      }, connectedId && !useUserKeys ? { stripeAccount: connectedId } as any : undefined);
-      stripeCustomerId = customer.id;
-      await supabase.from('clients').update({ stripe_customer_id: stripeCustomerId }).eq('id', client?.id || '');
-    }
+    const createOrUpdateCustomer = async () => {
+      if (!stripeCustomerId) {
+        const customer = await stripe.customers.create({
+          name: client?.name || undefined,
+          email: recipient_email || undefined,
+        }, connectedId && !useUserKeys ? { stripeAccount: connectedId } as any : undefined);
+        stripeCustomerId = customer.id;
+        await supabase.from('clients').update({ stripe_customer_id: stripeCustomerId }).eq('id', client?.id || '');
+        return customer;
+      } else if (recipient_email) {
+        // Ensure email is present on existing customer for sendInvoice
+        await stripe.customers.update(stripeCustomerId, { email: recipient_email }, connectedId && !useUserKeys ? { stripeAccount: connectedId } as any : undefined);
+      }
+      return null as any;
+    };
+    await createOrUpdateCustomer();
 
     // Create Stripe invoice item and invoice
     const invItem = await stripe.invoiceItems.create({
