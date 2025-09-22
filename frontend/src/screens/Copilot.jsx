@@ -23,10 +23,10 @@ export default function Copilot() {
       const end=-rect.height; // when section leaves top
       const range=start-end||1;
       const t=Math.max(0,Math.min(1,(start-rect.top)/range));
-      const inward=t*60; // 0 -> 60px toward center
-      const vertical=(1-t)*16-8; // +8px -> -8px subtle
-      left.style.transform=`translateX(${inward}px) translateY(${vertical}px) rotate(-2deg)`;
-      right.style.transform=`translateX(${-inward}px) translateY(${-vertical}px) rotate(2deg)`;
+      const inward=t*80; // 0 -> 80px toward center
+      const vertical=(1-t)*10-5; // slight vertical drift
+      left.style.transform=`translateX(${inward}px) translateY(${vertical}px) rotate(0deg)`;
+      right.style.transform=`translateX(${-inward}px) translateY(${-vertical}px) rotate(0deg)`;
     };
     const onScroll=()=>{cancelAnimationFrame(raf);raf=requestAnimationFrame(update)};
     update();
@@ -163,13 +163,13 @@ export default function Copilot() {
                 id="parallax-left"
                 src="/invoice.png"
                 alt="in-app invoice preview"
-                className="absolute top-6 md:top-10 -left-[8vw] w-[60vw] md:w-[42vw] max-w-none rounded-2xl shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)] will-change-transform transition-transform duration-300"
+                className="absolute top-6 md:top-10 -left-[4vw] w-[54vw] md:w-[38vw] max-w-none rounded-2xl shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)] will-change-transform transition-transform duration-300"
               />
               <img
                 id="parallax-right"
                 src="/stripe.png"
                 alt="stripe integration preview"
-                className="absolute bottom-6 md:bottom-10 -right-[8vw] w-[60vw] md:w-[42vw] max-w-none rounded-2xl shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)] will-change-transform transition-transform duration-300"
+                className="absolute bottom-6 md:bottom-10 -right-[4vw] w-[54vw] md:w-[38vw] max-w-none rounded-2xl shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)] will-change-transform transition-transform duration-300"
               />
             </div>
           </div>
