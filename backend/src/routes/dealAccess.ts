@@ -43,7 +43,7 @@ router.get('/deal-access/:userId', requireAuth, async (req: Request, res: Respon
 
     // Free user => no access
     if (['free','free_user','guest'].includes(targetRole)) {
-      res.json({ user_id: userId, can_view_clients: false, can_view_opportunities: false, can_view_billing: false, can_view_revenue: false });
+      res.json({ user_id: userId, can_view_clients: false, can_view_opportunities: false, can_view_billing: false, can_view_revenue: false, reason: 'free_plan' });
       return;
     }
 
@@ -59,7 +59,8 @@ router.get('/deal-access/:userId', requireAuth, async (req: Request, res: Respon
         can_view_clients: Boolean((perms as any)?.can_view_clients),
         can_view_opportunities: Boolean((perms as any)?.can_view_opportunities),
         can_view_billing: Boolean((perms as any)?.can_view_billing),
-        can_view_revenue: Boolean((perms as any)?.can_view_revenue)
+        can_view_revenue: Boolean((perms as any)?.can_view_revenue),
+        reason: 'team_restricted'
       });
       return;
     }
@@ -70,7 +71,8 @@ router.get('/deal-access/:userId', requireAuth, async (req: Request, res: Respon
       can_view_clients: true,
       can_view_opportunities: true,
       can_view_billing: true,
-      can_view_revenue: true
+      can_view_revenue: true,
+      reason: null
     });
   } catch (e: any) {
     res.status(500).json({ error: e.message || 'Internal server error' });

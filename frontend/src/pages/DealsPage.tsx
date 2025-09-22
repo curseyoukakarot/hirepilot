@@ -511,7 +511,7 @@ export default function DealsPage() {
   const renderAccessDenied = () => (
     <div className="p-8 text-center border rounded-lg bg-gray-50">
       <h3 className="text-lg font-semibold text-gray-800 mb-1">Access not granted</h3>
-      <p className="text-gray-600 text-sm">Ask your Team Admin for access to Deals.</p>
+      <p className="text-gray-600 text-sm">Deals is available on paid plans. Upgrade your plan or ask your Team Admin for access.</p>
     </div>
   );
 
