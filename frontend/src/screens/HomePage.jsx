@@ -95,8 +95,10 @@ const HomePage = () => {
         <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 to-purple-900/20"></div>
         <div className="container mx-auto px-6 text-center relative z-10">
           <div className="max-w-4xl mx-auto">
-            <h1 className="text-5xl md:text-7xl font-bold mb-8">
-              The All-in-One Recruiting OS for Modern Teams
+            <h1 className="text-4xl md:text-6xl font-bold mb-8 leading-tight">
+              The All-in-One Recruiting OS
+              <br />
+              for <span className="gradient-text">Modern Teams</span>
                 </h1>
             <div className="bg-gray-900 rounded-xl p-8 mb-8 text-left max-w-2xl mx-auto">
               <div className="flex items-center mb-4">
