@@ -47,10 +47,10 @@ export default function Copilot() {
           <div className="max-w-7xl mx-auto px-6 md:px-10 flex flex-col-reverse md:flex-row items-center justify-between gap-12">
             <div className="w-full md:w-1/2 text-center md:text-left">
               <h1 className="text-4xl md:text-6xl font-bold leading-tight text-white">
-                Recruit Smarter. Hire Faster. Manage Everything in One Place.
+                Recruit Smarter. Hire Faster.
               </h1>
               <p className="mt-6 text-xl text-gray-200">
-                HirePilot Replaces Your ATS, Sourcing Tools, and CRM — in One Dashboard.
+                HirePilot Replaces Your ATS, Sourcing Tools, and CRM — in One Dashboard. Manage everything in one place.
               </p>
               <div className="mt-8 flex flex-col sm:flex-row gap-4 sm:justify-start justify-center">
                 <a href="#" className="group bg-white text-blue-700 font-semibold py-3 px-10 whitespace-nowrap rounded-lg shadow-lg hover:shadow-xl transition-all duration-200">
