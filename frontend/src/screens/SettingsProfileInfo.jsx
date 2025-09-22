@@ -73,11 +73,16 @@ export default function SettingsProfileInfo() {
     const file = e.target.files[0];
     if (!file) return;
     const { data: { user } } = await supabase.auth.getUser();
+    try {
+      await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/storage/ensure-bucket`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bucket: 'avatars' })
+      });
+    } catch {}
     const fileExt = file.name.split('.').pop();
     const filePath = `avatars/${user.id}.${fileExt}`;
     const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file, { upsert: true });
     if (uploadError) {
-      alert('Failed to upload avatar');
+      alert(uploadError.message || 'Failed to upload avatar');
       return;
     }
     const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
