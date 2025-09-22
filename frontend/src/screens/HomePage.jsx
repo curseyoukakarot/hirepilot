@@ -312,12 +312,12 @@ const HomePage = () => {
       </section>
 
       {/* Sunrise Image Reveal */}
-      <section id="pipeline-sunrise" className="relative py-8 sm:py-12 bg-black">
-        <div className="container mx-auto px-6 overflow-hidden">
+      <section id="pipeline-sunrise" className="relative py-8 sm:py-12 bg-black overflow-hidden">
+        <div className="w-screen px-6">
           <img
             src="/homepage-sunrise.png"
             alt="HirePilot pipeline overview"
-            className="pipeline-sunrise w-full max-w-6xl mx-auto rounded-2xl shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)] object-cover"
+            className="pipeline-sunrise w-[120vw] md:w-[110vw] max-w-none relative left-1/2 -translate-x-1/2 rounded-2xl shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)] object-cover"
           />
         </div>
       </section>
