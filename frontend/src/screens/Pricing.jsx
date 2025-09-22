@@ -86,19 +86,23 @@ export default function Pricing() {
           <div className="max-w-6xl mx-auto px-6">
             <div className="bg-gray-800 rounded-2xl border border-gray-700 shadow-lg p-8">
               <h3 className="text-xl font-semibold text-white mb-4">All features on paid plans include:</h3>
-              <div className="grid sm:grid-cols-2 gap-3 text-gray-300">
-                <div className="flex items-start"><span className="mr-3">🤖</span><span>REX AI: candidate analysis, message drafts, smart follow-ups</span></div>
-                <div className="flex items-start"><span className="mr-3">🧰</span><span>Campaigns & Sequences with reply tracking</span></div>
-                <div className="flex items-start"><span className="mr-3">🔎</span><span>Enrichment (Apollo/Hunter/Skrapp) with graceful fallbacks</span></div>
-                <div className="flex items-start"><span className="mr-3">🔗</span><span>LinkedIn requests & profile capture (via extension/automation)</span></div>
-                <div className="flex items-start"><span className="mr-3">✉️</span><span>Email sending + deliverability helpers</span></div>
-                <div className="flex items-start"><span className="mr-3">🧵</span><span>Unified Inbox (see replies per campaign/lead)</span></div>
-                <div className="flex items-start"><span className="mr-3">🧭</span><span>Analytics Dashboard (success rate, replies, interviews, hires)</span></div>
-                <div className="flex items-start"><span className="mr-3">🧩</span><span>Integrations: Slack, Zapier, Make, ATS, Webhooks</span></div>
-                <div className="flex items-start"><span className="mr-3">📅</span><span>Calendar scheduling & interview coordination</span></div>
-                <div className="flex items-start"><span className="mr-3">🧑‍💼</span><span>Unlimited job reqs (no caps)</span></div>
+              <div className="grid sm:grid-cols-2 gap-4 text-gray-300">
+                <div className="flex items-start"><span className="mr-3">🤖</span><span><strong className="text-white">REX AI Assistant</strong><br />Candidate summaries, message drafting, scoring, auto-follow-ups, and more</span></div>
+                <div className="flex items-start"><span className="mr-3">📈</span><span><strong className="text-white">Campaigns & Sequences</strong><br />Automated outreach with reply tracking and performance analytics</span></div>
+                <div className="flex items-start"><span className="mr-3">🔎</span><span><strong className="text-white">Lead Enrichment</strong><br />Email + profile data via Apollo, Hunter, Skrapp, and fallback systems</span></div>
+                <div className="flex items-start"><span className="mr-3">🔗</span><span><strong className="text-white">LinkedIn Automation</strong><br />Connection requests, profile capture, and scraping via Chrome Extension</span></div>
+                <div className="flex items-start"><span className="mr-3">✉️</span><span><strong className="text-white">Smart Email Sending</strong><br />Send emails with built-in deliverability support (SendGrid + Gmail/Outlook ready)</span></div>
+                <div className="flex items-start"><span className="mr-3">📬</span><span><strong className="text-white">Unified Inbox</strong><br />Track replies by lead, campaign, and job — all in one view</span></div>
+                <div className="flex items-start"><span className="mr-3">📊</span><span><strong className="text-white">Analytics Dashboard</strong><br />Real-time insights into sourcing, messaging, conversion, and hires</span></div>
+                <div className="flex items-start"><span className="mr-3">🧩</span><span><strong className="text-white">Integrations</strong><br />Slack, Zapier, Make.com, ATS tools, Google, Outlook, and Webhooks</span></div>
+                <div className="flex items-start"><span className="mr-3">🧑‍💼</span><span><strong className="text-white">Job Req Management</strong><br />Unlimited Job REQs with full candidate pipelines, stages, and activity tracking</span></div>
+                <div className="flex items-start"><span className="mr-3">🤝</span><span><strong className="text-white">Collaboration Tools</strong><br />Add team members or guests, assign roles, share notes, and manage together</span></div>
+                <div className="flex items-start"><span className="mr-3">💳</span><span><strong className="text-white">Billing & Invoicing</strong><br />Request payments, create invoices, and track revenue — right inside HirePilot</span></div>
+                <div className="flex items-start"><span className="mr-3">📅</span><span><strong className="text-white">Calendar Scheduling</strong><br />Auto-schedule interviews with candidates or clients</span></div>
+                <div className="flex items-start"><span className="mr-3">⚡</span><span><strong className="text-white">Custom Automations</strong><br />Trigger workflows with Zapier, Make, or native APIs</span></div>
+                <div className="flex items-start"><span className="mr-3">🪙</span><span><strong className="text-white">Credit System</strong><br />Credits power enrichment, automations, messaging, and AI actions. Top up anytime.</span></div>
               </div>
-              <p className="text-sm text-gray-400 mt-4" aria-label="credits-explainer">Credits power enrichment, AI analysis, automations, and outreach actions. Add more credits any time.</p>
+              <p className="text-sm text-gray-400 mt-4" aria-label="credits-explainer">Credits power enrichment, automations, messaging, and AI actions. Top up anytime.</p>
             </div>
           </div>
         </div>
