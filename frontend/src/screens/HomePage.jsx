@@ -70,6 +70,44 @@ const HomePage = () => {
     return () => observer.disconnect();
   }, []);
 
+  // Subtle parallax for the sunrise image
+  useEffect(() => {
+    const img = document.getElementById('sunrise-img');
+    if (!img) return;
+
+    let rafId = 0;
+    const update = () => {
+      const rect = img.getBoundingClientRect();
+      const viewportHeight = window.innerHeight || 0;
+
+      // Progress: 0 when below viewport, 1 when fully past top
+      const start = viewportHeight; // when bottom hits viewport bottom
+      const end = -rect.height;     // when top passes above viewport
+      const range = start - end || 1;
+      const t = Math.max(0, Math.min(1, (start - rect.top) / range));
+
+      // Parallax offset in px. Slight upward movement as user scrolls.
+      const parallaxOffset = (1 - t) * 40 - 20; // from +20px to -20px
+      const revealBase = img.classList.contains('in-view') ? 0 : 100; // match CSS reveal
+
+      img.style.transform = `translateX(-50%) translateY(${revealBase + parallaxOffset}px)`;
+    };
+
+    const onScroll = () => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(update);
+    };
+
+    update();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      cancelAnimationFrame(rafId);
+    };
+  }, []);
+
   return (
     <div className="bg-black text-white">
       <style>{`
@@ -315,6 +353,7 @@ const HomePage = () => {
       <section id="pipeline-sunrise" className="relative py-8 sm:py-12 bg-black overflow-hidden">
         <div className="w-screen px-6">
           <img
+            id="sunrise-img"
             src="/homepage-sunrise.png"
             alt="HirePilot pipeline overview"
             className="pipeline-sunrise w-[120vw] md:w-[110vw] max-w-none relative left-1/2 -translate-x-1/2 rounded-2xl shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)] object-cover"
