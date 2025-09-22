@@ -96,7 +96,7 @@ const HomePage = () => {
         <div className="container mx-auto px-6 text-center relative z-10">
           <div className="max-w-4xl mx-auto">
             <h1 className="text-5xl md:text-7xl font-bold mb-8">
-              AI-Powered <span className="gradient-text">Recruiting</span>
+              The All-in-One Recruiting OS for Modern Teams
                 </h1>
             <div className="bg-gray-900 rounded-xl p-8 mb-8 text-left max-w-2xl mx-auto">
               <div className="flex items-center mb-4">
@@ -108,7 +108,7 @@ const HomePage = () => {
               <div className="text-green-400 mb-2">$ REX</div>
               <div id="typing-text" className="text-white text-lg typing-animation">Find senior React developers in San Francisco</div>
             </div>
-            <p className="text-xl text-gray-300 mb-8">Automate candidate sourcing, screening, and outreach with AI</p>
+            <p className="text-xl text-gray-300 mb-8">An all in one collaborative hiring platform. Powered by AI, driven by data, designed for scale.</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <a href="/pricing" className="bg-blue-600 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-blue-700 transition-colors">
                 Use Free Forever
@@ -236,6 +236,208 @@ const HomePage = () => {
             </div>
           </div>
           <div className="mt-16 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+        </div>
+      </section>
+
+      {/* Features Overview */}
+      <section id="features-overview" className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">Sourcing, ATS, CRM, and Collaboration — Unified</h2>
+            <p className="text-xl text-gray-600">Everything you need in one powerful platform</p>
+          </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="bg-gray-50 p-6 rounded-xl">
+              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                <i className="fa-solid fa-briefcase text-blue-600"></i>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Job REQs & Pipelines</h3>
+              <p className="text-gray-600">Custom stages, notes, candidate tracking</p>
+            </div>
+            <div className="bg-gray-50 p-6 rounded-xl">
+              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+                <i className="fa-brands fa-chrome text-green-600"></i>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Chrome Extension</h3>
+              <p className="text-gray-600">Source from LinkedIn, Apollo, SalesNav</p>
+            </div>
+            <div className="bg-gray-50 p-6 rounded-xl">
+              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
+                <i className="fa-solid fa-robot text-purple-600"></i>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">AI Messaging</h3>
+              <p className="text-gray-600">REX drafts, sequences, replies</p>
+            </div>
+            <div className="bg-gray-50 p-6 rounded-xl">
+              <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mb-4">
+                <i className="fa-solid fa-users text-orange-600"></i>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Client CRM</h3>
+              <p className="text-gray-600">Convert leads to clients & deals</p>
+            </div>
+            <div className="bg-gray-50 p-6 rounded-xl">
+              <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center mb-4">
+                <i className="fa-solid fa-credit-card text-yellow-600"></i>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Stripe Invoicing</h3>
+              <p className="text-gray-600">Create/send invoices inside HirePilot</p>
+            </div>
+            <div className="bg-gray-50 p-6 rounded-xl">
+              <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center mb-4">
+                <i className="fa-solid fa-user-plus text-indigo-600"></i>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Guest Collaboration</h3>
+              <p className="text-gray-600">Invite hiring managers or clients</p>
+            </div>
+            <div className="bg-gray-50 p-6 rounded-xl">
+              <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mb-4">
+                <i className="fa-solid fa-link text-red-600"></i>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Zapier & API</h3>
+              <p className="text-gray-600">Automate anything</p>
+            </div>
+            <div className="bg-gray-50 p-6 rounded-xl">
+              <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center mb-4">
+                <i className="fa-solid fa-id-card text-teal-600"></i>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Full Candidate Profiles</h3>
+              <p className="text-gray-600">Enrichment, contact data, notes</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Deeper Value Section */}
+      <section id="deeper-value" className="py-20 bg-gradient-to-r from-blue-600 to-purple-600">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-white mb-6">Everything You Need to Run a Modern Recruiting Operation</h2>
+            <div className="flex items-center justify-center space-x-4 text-white text-lg">
+              <span className="bg-white/20 px-4 py-2 rounded-lg">Source</span>
+              <i className="fa-solid fa-arrow-right"></i>
+              <span className="bg-white/20 px-4 py-2 rounded-lg">Enrich</span>
+              <i className="fa-solid fa-arrow-right"></i>
+              <span className="bg-white/20 px-4 py-2 rounded-lg">Engage</span>
+              <i className="fa-solid fa-arrow-right"></i>
+              <span className="bg-white/20 px-4 py-2 rounded-lg">Track</span>
+              <i className="fa-solid fa-arrow-right"></i>
+              <span className="bg-white/20 px-4 py-2 rounded-lg">Close</span>
+            </div>
+          </div>
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div className="space-y-6">
+              <div className="flex items-start space-x-4">
+                <div className="w-6 h-6 bg-green-400 rounded-full flex items-center justify-center mt-1">
+                  <i className="fa-solid fa-check text-green-800 text-sm"></i>
+                </div>
+                <p className="text-white text-lg">Job REQs and candidate pipelines with notes and custom stages</p>
+              </div>
+              <div className="flex items-start space-x-4">
+                <div className="w-6 h-6 bg-green-400 rounded-full flex items-center justify-center mt-1">
+                  <i className="fa-solid fa-check text-green-800 text-sm"></i>
+                </div>
+                <p className="text-white text-lg">AI-drafted outreach on email + LinkedIn</p>
+              </div>
+              <div className="flex items-start space-x-4">
+                <div className="w-6 h-6 bg-green-400 rounded-full flex items-center justify-center mt-1">
+                  <i className="fa-solid fa-check text-green-800 text-sm"></i>
+                </div>
+                <p className="text-white text-lg">Stripe-powered billing and invoicing</p>
+              </div>
+              <div className="flex items-start space-x-4">
+                <div className="w-6 h-6 bg-green-400 rounded-full flex items-center justify-center mt-1">
+                  <i className="fa-solid fa-check text-green-800 text-sm"></i>
+                </div>
+                <p className="text-white text-lg">Collaborate with hiring managers and clients</p>
+              </div>
+              <div className="flex items-start space-x-4">
+                <div className="w-6 h-6 bg-green-400 rounded-full flex items-center justify-center mt-1">
+                  <i className="fa-solid fa-check text-green-800 text-sm"></i>
+                </div>
+                <p className="text-white text-lg">Chrome extension for seamless sourcing</p>
+              </div>
+              <div className="flex items-start space-x-4">
+                <div className="w-6 h-6 bg-green-400 rounded-full flex items-center justify-center mt-1">
+                  <i className="fa-solid fa-check text-green-800 text-sm"></i>
+                </div>
+                <p className="text-white text-lg">Slack alerts + workflow automation with Zapier and Make</p>
+              </div>
+            </div>
+            <div>
+              <img
+                className="w-full h-80 rounded-xl shadow-2xl object-cover"
+                src="https://storage.googleapis.com/uxpilot-auth.appspot.com/d9f343367a-6b016e39d289a053ba13.png"
+                alt="recruiting workflow visualization with candidate pipeline stages and automation"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Comparison Section */}
+      <section id="comparison" className="py-20 bg-white">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">HirePilot vs. Legacy ATS Tools</h2>
+            <p className="text-xl text-gray-600">Built for speed. Designed for flexibility. Priced for growth.</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full bg-white rounded-xl shadow-lg overflow-hidden">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-4 text-left font-semibold text-gray-900">Feature</th>
+                  <th className="px-6 py-4 text-center font-semibold text-blue-600">HirePilot</th>
+                  <th className="px-6 py-4 text-center font-semibold text-gray-900">Lever</th>
+                  <th className="px-6 py-4 text-center font-semibold text-gray-900">Ashby</th>
+                  <th className="px-6 py-4 text-center font-semibold text-gray-900">Greenhouse</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                <tr>
+                  <td className="px-6 py-4 font-medium text-gray-900">Chrome Extension</td>
+                  <td className="px-6 py-4 text-center"><i className="fa-solid fa-check text-green-600"></i></td>
+                  <td className="px-6 py-4 text-center"><i className="fa-solid fa-times text-red-500"></i></td>
+                  <td className="px-6 py-4 text-center"><i className="fa-solid fa-times text-red-500"></i></td>
+                  <td className="px-6 py-4 text-center"><i className="fa-solid fa-times text-red-500"></i></td>
+                </tr>
+                <tr className="bg-gray-50">
+                  <td className="px-6 py-4 font-medium text-gray-900">AI Outreach</td>
+                  <td className="px-6 py-4 text-center"><i className="fa-solid fa-check text-green-600"></i></td>
+                  <td className="px-6 py-4 text-center"><i className="fa-solid fa-times text-red-500"></i></td>
+                  <td className="px-6 py-4 text-center"><i className="fa-solid fa-check text-green-600"></i></td>
+                  <td className="px-6 py-4 text-center"><i className="fa-solid fa-times text-red-500"></i></td>
+                </tr>
+                <tr>
+                  <td className="px-6 py-4 font-medium text-gray-900">In-App Invoicing</td>
+                  <td className="px-6 py-4 text-center"><i className="fa-solid fa-check text-green-600"></i></td>
+                  <td className="px-6 py-4 text-center"><i className="fa-solid fa-times text-red-500"></i></td>
+                  <td className="px-6 py-4 text-center"><i className="fa-solid fa-times text-red-500"></i></td>
+                  <td className="px-6 py-4 text-center"><i className="fa-solid fa-times text-red-500"></i></td>
+                </tr>
+                <tr className="bg-gray-50">
+                  <td className="px-6 py-4 font-medium text-gray-900">Guest Collaboration</td>
+                  <td className="px-6 py-4 text-center text-green-600 font-medium">Unlimited</td>
+                  <td className="px-6 py-4 text-center text-orange-500 font-medium">Limited</td>
+                  <td className="px-6 py-4 text-center"><i className="fa-solid fa-times text-red-500"></i></td>
+                  <td className="px-6 py-4 text-center text-orange-500 font-medium">Limited</td>
+                </tr>
+                <tr>
+                  <td className="px-6 py-4 font-medium text-gray-900">Zapier + API</td>
+                  <td className="px-6 py-4 text-center"><i className="fa-solid fa-check text-green-600"></i></td>
+                  <td className="px-6 py-4 text-center"><i className="fa-solid fa-check text-green-600"></i></td>
+                  <td className="px-6 py-4 text-center"><i className="fa-solid fa-check text-green-600"></i></td>
+                  <td className="px-6 py-4 text-center"><i className="fa-solid fa-check text-green-600"></i></td>
+                </tr>
+                <tr className="bg-gray-50">
+                  <td className="px-6 py-4 font-medium text-gray-900">Price</td>
+                  <td className="px-6 py-4 text-center text-green-600 font-bold">Free Forever</td>
+                  <td className="px-6 py-4 text-center text-red-500 font-bold">$$$</td>
+                  <td className="px-6 py-4 text-center text-red-500 font-bold">$$$</td>
+                  <td className="px-6 py-4 text-center text-red-500 font-bold">$$$</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 
