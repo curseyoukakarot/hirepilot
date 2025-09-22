@@ -180,6 +180,22 @@ router.post('/:id/collaborators', requireAuth, async (req: Request, res: Respons
   } catch (e:any) { res.status(500).json({ error: e.message || 'Internal server error' }); }
 });
 
+// Invite guest collaborator for a Job REQ (email)
+router.post('/:id/guest-invite', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const inviterId = (req as any).user?.id as string | undefined;
+    if (!inviterId) return res.status(401).json({ error: 'Unauthorized' });
+    const { id } = req.params; // job req id
+    const { email } = req.body || {};
+    if (!email) return res.status(400).json({ error: 'missing_email' });
+
+    const payload = { job_id: id, email: String(email).toLowerCase(), inviter_id: inviterId, status: 'pending', created_at: new Date().toISOString() } as any;
+    const { data, error } = await supabase.from('job_guest_collaborators').upsert(payload, { onConflict: 'job_id,email' }).select('*').single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+  } catch (e:any) { res.status(500).json({ error: e.message || 'Internal server error' }); }
+});
+
 // List selectable job reqs for the user's scope (name sorted)
 router.get('/:id/available-reqs', requireAuth, async (req: Request, res: Response) => {
   try {

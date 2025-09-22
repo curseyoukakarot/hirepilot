@@ -136,6 +136,12 @@ router.post('/onboarding-complete', requireAuth, async (req: ApiRequest, res: Re
           .eq('status', 'pending');
         
         console.log(`[ONBOARDING] Updated team invite status to 'accepted' for user: ${userEmail}`);
+        // Accept any pending job guest invites for this email
+        await supabase
+          .from('job_guest_collaborators')
+          .update({ status: 'accepted', user_id: userId, updated_at: new Date().toISOString() })
+          .eq('email', userEmail)
+          .eq('status', 'pending');
       } catch (inviteError) {
         console.warn('[ONBOARDING] Failed to update team invite status:', inviteError);
         // Don't fail the onboarding completion if invite update fails
@@ -224,10 +230,22 @@ router.get('/settings', requireAuth, async (req: Request, res: Response) => {
     // Connected if we have any key available or an OAuth integration
     let apolloConnected = !!apolloApiKey || !!integration;
 
+    // Fetch guest jobs for visibility
+    let guestJobs: any[] = [];
+    try {
+      const { data: j } = await supabase
+        .from('job_guest_collaborators')
+        .select('job_id,status')
+        .eq('email', (req as any).user?.email || '')
+        .in('status', ['pending','accepted']);
+      guestJobs = j || [];
+    } catch {}
+
     // Return both OAuth status and API key
     res.json({
       apollo_connected: apolloConnected,
-      apollo_api_key: apolloApiKey
+      apollo_api_key: apolloApiKey,
+      guest_jobs: guestJobs
     });
   } catch (err) {
     logger.error('Error in /api/user/settings:', err);
