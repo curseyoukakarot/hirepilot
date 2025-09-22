@@ -342,8 +342,8 @@ const HomePage = () => {
               <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center mb-4">
                 <i className="fa-solid fa-id-card text-teal-600"></i>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Full Candidate Profiles</h3>
-              <p className="text-gray-600">Enrichment, contact data, notes</p>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Recruiting AI Agent</h3>
+              <p className="text-gray-600">REX automates every part of your workflow</p>
             </div>
           </div>
         </div>
