@@ -121,7 +121,7 @@ export default function Copilot() {
             <img
               src="/collaborate.png"
               alt="collaboration workflow overview"
-              className="w-[120vw] md:w-[110vw] max-w-none relative left-1/2 -translate-x-1/2 rounded-2xl shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)] object-cover"
+              className="w-[60vw] md:w-[55vw] max-w-none relative left-1/2 -translate-x-1/2 rounded-2xl shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)] object-cover"
             />
           </div>
         </section>
