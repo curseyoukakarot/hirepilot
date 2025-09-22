@@ -78,10 +78,10 @@ export default function Copilot() {
 
         {/* Features Included */}
         <section id="features-section" className="py-20 px-6 fade-in">
-          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+          <div className="max-w-5xl mx-auto">
             <div className="fade-in">
               <h2 className="text-4xl md:text-5xl font-bold mb-8">
-                <span className="gradient-text">Features</span> included:
+                <span className="gradient-text">Collaboration</span> Built into every job req.
               </h2>
 
               <div className="space-y-6">
@@ -111,22 +111,6 @@ export default function Copilot() {
                 </div>
               </div>
 
-              <div className="mt-8 glass-card p-4 rounded-lg border border-purple-500/30">
-                <p className="text-purple-400 font-semibold flex items-center gap-2">
-                  <i className="fa-solid fa-lock"></i>
-                  Pro &amp; Team plans only
-                </p>
-              </div>
-            </div>
-
-            <div className="relative fade-in" style={{ animationDelay: '0.2s' }}>
-              <div className="glass-card glow-card p-8 rounded-2xl">
-                <img
-                  className="w-full h-80 object-cover rounded-lg"
-                  src="https://storage.googleapis.com/uxpilot-auth.appspot.com/a155c8f8fb-80793d93b7351db81a40.png"
-                  alt="dark collaboration interface showing team members working on hiring pipeline with comments and real-time updates"
-                />
-              </div>
             </div>
           </div>
         </section>
