@@ -38,6 +38,23 @@ function ClientRowEditor({ client, onSave, onCancel }: ClientRowEditorProps) {
     }
   }, [client.id, website, industry, location, onSave]);
 
+  const syncFromEnrichment = useCallback(async () => {
+    try {
+      setSaving(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients/${client.id}/sync-enrichment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ override: false, name: client?.name || null, domain: client?.domain || null })
+      });
+      if (!resp.ok) {
+        try { console.warn('sync enrichment failed', await resp.json()); } catch {}
+      }
+      onSave();
+    } finally { setSaving(false); }
+  }, [client?.name, client?.domain, client.id, onSave]);
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       <div>
@@ -91,6 +108,7 @@ function ClientRowEditor({ client, onSave, onCancel }: ClientRowEditorProps) {
           </div>
         )}
         <div className="mt-4 flex items-center justify-end gap-2">
+          <button className="px-3 py-1.5 text-sm bg-blue-50 text-blue-700 rounded" disabled={saving} onClick={syncFromEnrichment}>Sync from Enrichment</button>
           <button className="px-3 py-1.5 text-sm" onClick={onCancel}>Cancel</button>
           <button className="px-3 py-1.5 text-sm bg-gray-900 text-white rounded" disabled={saving} onClick={handleSave}>{saving ? 'Saving…' : 'Save'}</button>
         </div>
