@@ -1235,19 +1235,13 @@ export default function SettingsIntegrations() {
             onClick={async ()=>{
               try {
                 const { data: { session } } = await supabase.auth.getSession();
-                const resp = await fetch(`${BACKEND}/api/stripe/connect/init`, { method:'POST', headers: { Authorization: `Bearer ${session?.access_token}` } });
+                const resp = await fetch(`${BACKEND}/api/stripe/oauth/init`, { headers: { Authorization: `Bearer ${session?.access_token}` } });
                 const js = await resp.json();
                 if (resp.ok && js.url) { window.location.href = js.url; }
-                else toast.error(js.error || 'Failed to start Stripe Connect onboarding');
-              } catch (e) { toast.error('Failed to start onboarding'); }
+                else toast.error(js.error || 'Failed to start Stripe Connect OAuth');
+              } catch (e) { toast.error('Failed to start OAuth'); }
             }}
-          >{stripeConnected.accountId ? 'Manage Stripe Connect' : 'Start Stripe Connect'}</button>
-          <a
-            className="px-4 py-2 border rounded-md text-sm text-indigo-700 hover:text-indigo-900"
-            href="https://connect.stripe.com/d/setup/s/_T6BzX7m3hnTTg3KgqfMVo7PwJD/YWNjdF8xUzl6YkpBVmVNVThabHl6/62e4d011e0d51d6b2"
-            target="_blank"
-            rel="noopener noreferrer"
-          >Open Stripe Connect Setup</a>
+          >{stripeConnected.accountId ? 'Manage Stripe Connect' : 'Connect with Stripe'}</button>
           {stripeConnected.mode==='keys' && stripeConnected.hasKeys && <span className="text-sm text-green-600">Keys saved</span>}
           {stripeConnected.accountId && <span className="text-sm text-gray-600">Account: {stripeConnected.accountId}</span>}
         </div>

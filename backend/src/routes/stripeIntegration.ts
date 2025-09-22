@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import { supabase } from '../lib/supabase';
 import { requireAuth } from '../../middleware/authMiddleware';
 import { ensureConnectAccount, connectOnboardingLink } from '../services/stripe';
+import { stripe as platformStripe } from '../services/stripe';
 
 const router = express.Router();
 
@@ -97,5 +98,39 @@ router.post('/disconnect', requireAuth as any, async (req: Request, res: Respons
 });
 
 export default router;
+
+// OAuth (Standard/Express) — init
+router.get('/oauth/init', requireAuth as any, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const clientId = process.env.STRIPE_CONNECT_CLIENT_ID!;
+    const redirectUri = process.env.STRIPE_CONNECT_REDIRECT_URL!; // e.g. https://app.yourdomain.com/api/stripe/oauth/callback
+    const url = `https://connect.stripe.com/oauth/authorize?response_type=code&client_id=${encodeURIComponent(clientId)}&scope=read_write&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(userId)}`;
+    res.json({ url });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// OAuth callback
+router.get('/oauth/callback', async (req: Request, res: Response) => {
+  try {
+    const code = String(req.query.code || '');
+    const stateUserId = String(req.query.state || '');
+    if (!code || !stateUserId) {
+      return res.status(400).json({ error: 'missing_code_or_state' });
+    }
+    const tokenResp = await platformStripe.oauth.token({ grant_type: 'authorization_code', code });
+    const connectedId = (tokenResp as any)?.stripe_user_id as string;
+    if (connectedId) {
+      await supabase
+        .from('user_integrations')
+        .upsert({ user_id: stateUserId, stripe_connected_account_id: connectedId, stripe_mode: 'connect' }, { onConflict: 'user_id' });
+    }
+    const redirect = process.env.APP_SETTINGS_URL || `${process.env.APP_BASE_URL || ''}/settings/integrations`;
+    res.redirect(redirect);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message || 'oauth_failed' });
+  }
+});
 
 
