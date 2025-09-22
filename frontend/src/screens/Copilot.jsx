@@ -76,6 +76,61 @@ export default function Copilot() {
           </div>
         </section>
 
+        {/* Features Included */}
+        <section id="features-section" className="py-20 px-6 fade-in">
+          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            <div className="fade-in">
+              <h2 className="text-4xl md:text-5xl font-bold mb-8">
+                <span className="gradient-text">Features</span> included:
+              </h2>
+
+              <div className="space-y-6">
+                <div className="flex items-start gap-4 fade-in" style={{ animationDelay: '0.1s' }}>
+                  <i className="fa-solid fa-check text-green-400 text-xl mt-1"></i>
+                  <p className="text-lg">Invite collaborators by email (even if they're not in HirePilot)</p>
+                </div>
+                <div className="flex items-start gap-4 fade-in" style={{ animationDelay: '0.2s' }}>
+                  <i className="fa-solid fa-check text-green-400 text-xl mt-1"></i>
+                  <p className="text-lg">Assign team roles and permission levels</p>
+                </div>
+                <div className="flex items-start gap-4 fade-in" style={{ animationDelay: '0.3s' }}>
+                  <i className="fa-solid fa-check text-green-400 text-xl mt-1"></i>
+                  <p className="text-lg">Track every edit, comment, and status update</p>
+                </div>
+                <div className="flex items-start gap-4 fade-in" style={{ animationDelay: '0.4s' }}>
+                  <i className="fa-solid fa-check text-green-400 text-xl mt-1"></i>
+                  <p className="text-lg">Leave notes and tag your teammates</p>
+                </div>
+                <div className="flex items-start gap-4 fade-in" style={{ animationDelay: '0.5s' }}>
+                  <i className="fa-solid fa-check text-green-400 text-xl mt-1"></i>
+                  <p className="text-lg">See the full candidate pipeline — in motion</p>
+                </div>
+                <div className="flex items-start gap-4 fade-in" style={{ animationDelay: '0.6s' }}>
+                  <i className="fa-solid fa-check text-green-400 text-xl mt-1"></i>
+                  <p className="text-lg">Collaborate with REX for summaries, suggestions, and candidate scoring</p>
+                </div>
+              </div>
+
+              <div className="mt-8 glass-card p-4 rounded-lg border border-purple-500/30">
+                <p className="text-purple-400 font-semibold flex items-center gap-2">
+                  <i className="fa-solid fa-lock"></i>
+                  Pro &amp; Team plans only
+                </p>
+              </div>
+            </div>
+
+            <div className="relative fade-in" style={{ animationDelay: '0.2s' }}>
+              <div className="glass-card glow-card p-8 rounded-2xl">
+                <img
+                  className="w-full h-80 object-cover rounded-lg"
+                  src="https://storage.googleapis.com/uxpilot-auth.appspot.com/a155c8f8fb-80793d93b7351db81a40.png"
+                  alt="dark collaboration interface showing team members working on hiring pipeline with comments and real-time updates"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* CTA */}
         <section id="cta" className="py-20 bg-gradient-to-r from-blue-900 to-blue-700 text-white fade-in">
           <div className="max-w-4xl mx-auto px-6 text-center">
