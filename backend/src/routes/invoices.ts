@@ -74,6 +74,42 @@ router.patch('/:id', requireAuth, async (req: Request, res: Response) => {
   res.json(data || {});
 });
 
+// DELETE /api/invoices/:id
+router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    if (!(await canViewBilling(userId))) { res.status(403).json({ error: 'access_denied' }); return; }
+
+    const { id } = req.params;
+    const { data: row, error: fetchErr } = await supabase.from('invoices').select('*').eq('id', id).maybeSingle();
+    if (fetchErr) { res.status(500).json({ error: fetchErr.message }); return; }
+    if (!row) { res.status(404).json({ error: 'not_found' }); return; }
+
+    // Try to void Stripe invoice if present
+    try {
+      if (row.stripe_invoice_id) {
+        const { data: integ } = await supabase
+          .from('user_integrations')
+          .select('stripe_mode,stripe_secret_key,stripe_connected_account_id')
+          .eq('user_id', userId)
+          .maybeSingle();
+        const mode = (integ as any)?.stripe_mode || 'connect';
+        const useUserKeys = mode === 'keys' && (integ as any)?.stripe_secret_key;
+        const connectedId = (integ as any)?.stripe_connected_account_id || null;
+        const s = useUserKeys ? new Stripe((integ as any).stripe_secret_key, { apiVersion: '2022-11-15' }) : platformStripe;
+        await s.invoices.voidInvoice(row.stripe_invoice_id, connectedId && !useUserKeys ? { stripeAccount: connectedId } as any : undefined);
+      }
+    } catch (e) {
+      // ignore void errors; proceed to delete locally
+    }
+
+    const { error: delErr } = await supabase.from('invoices').delete().eq('id', id);
+    if (delErr) { res.status(500).json({ error: delErr.message }); return; }
+    res.json({ success: true });
+  } catch (e: any) { res.status(500).json({ error: e.message || 'Internal server error' }); }
+});
+
 // POST /api/invoices/create
 router.post('/create', requireAuth, async (req: Request, res: Response) => {
   try {
@@ -154,8 +190,7 @@ router.post('/create', requireAuth, async (req: Request, res: Response) => {
       customer: stripeCustomerId,
       description: `${client?.name || 'Client'} • ${opp.title}`,
       currency: 'usd',
-      unit_amount: Math.max(0, Math.round(amount * 100)),
-      quantity: 1
+      amount: Math.max(0, Math.round(amount * 100))
     }, connectedId && !useUserKeys ? { stripeAccount: connectedId } as any : undefined);
     const invoice = await stripe.invoices.create({
       customer: stripeCustomerId,

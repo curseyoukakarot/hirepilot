@@ -346,6 +346,14 @@ export default function DealsPage() {
                       <button className="text-blue-600" onClick={()=>openInvoiceModal(inv.opportunity_id, (inv.billing_type||'contingency'))}>Bill Now</button>
                       <button className="text-blue-600">View</button>
                       {inv.status!=='paid' && <button className="text-blue-600">Send Reminder</button>}
+                      <button className="text-red-600" onClick={async ()=>{
+                        const { data: { session } } = await supabase.auth.getSession();
+                        const token = session?.access_token;
+                        await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/invoices/${inv.id}`, { method: 'DELETE', headers: token ? { Authorization: `Bearer ${token}` } : {} });
+                        const list = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/invoices`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+                        const js = list.ok ? await list.json() : [];
+                        setInvoices(js || []);
+                      }}>Delete</button>
                     </td>
                   </tr>
                 ))
