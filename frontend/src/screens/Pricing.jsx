@@ -98,7 +98,7 @@ export default function Pricing() {
                 <li className="flex items-center"><i className="fa-solid fa-folder-open text-gray-600 mr-3"></i><span>Save templates</span></li>
                 <li className="flex items-center"><i className="fa-solid fa-briefcase text-gray-600 mr-3"></i><span>3 job reqs & 3 active campaigns</span></li>
                 <li className="flex items-center"><i className="fa-brands fa-slack text-blue-500 mr-3"></i><span>Slack/Gmail/Outlook connect</span></li>
-                <li className="flex items-center"><i className="fa-solid fa-ban text-red-500 mr-3"></i><span>No sequences / exports / Agent Mode</span></li>
+                <li className="flex items-center"><i className="fa-solid fa-ban text-red-500 mr-3"></i><span>No sequences / exports / Advanced Agent Mode</span></li>
               </ul>
               <a href="/signup?plan=free" className="block w-full text-center bg-green-600 text-white py-4 rounded-xl font-semibold hover:bg-green-500 transition-colors">Get Started Free</a>
               <div className="text-xs text-gray-400 mt-2 text-center">No credit card required</div>
@@ -126,7 +126,7 @@ export default function Pricing() {
               </div>
               <ul className="space-y-4 mb-8 flex-1" aria-label="starter-features">
                 <li className="flex items-center text-gray-300"><i className="fa-solid fa-recycle text-green-500 mr-3"></i><span>Credit rollover while subscribed</span></li>
-                <li className="flex items-center text-gray-300"><i className="fa-solid fa-plug text-blue-600 mr-3"></i><span>Unlimited job reqs & campaigns</span></li>
+                <li className="flex items-center text-gray-300"><i className="fa-solid fa-plug text-blue-600 mr-3"></i><span>Unlimited job reqs, campaigns and collaborators</span></li>
                 <li className="flex items-center text-gray-300"><i className="fa-solid fa-wrench text-gray-400 mr-3"></i><span>Add credits anytime from Billing</span></li>
               </ul>
               <p className="text-gray-400 text-sm mb-6">Ideal for: 1 active role, light weekly sourcing, fast validation.</p>
