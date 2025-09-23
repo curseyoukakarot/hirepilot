@@ -1,21 +1,29 @@
 import React, { FC } from 'react'
-import { rexTheme, trafficDot } from '../../theme/rexTheme'
 
 export const ChatHeader: FC = () => {
   return (
-    <header className={`sticky top-0 z-10 ${rexTheme.bg.terminal} ${rexTheme.ring} ${rexTheme.card} px-4 py-3 flex items-center justify-between`}>
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1">
-          <span className={`h-3 w-3 rounded-full ${trafficDot.red}`}></span>
-          <span className={`h-3 w-3 rounded-full ${trafficDot.yellow}`}></span>
-          <span className={`h-3 w-3 rounded-full ${trafficDot.green}`}></span>
+    <header className="bg-gray-800 border-b border-gray-700 p-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <div className="flex space-x-2">
+            <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+            <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+          </div>
+          <div>
+            <h1 className="text-lg font-semibold">HirePilot AI Assistant – REX</h1>
+            <p className="text-sm text-gray-400">Terminal v2.1.0</p>
+          </div>
         </div>
-        <div className="leading-tight">
-          <div className={`font-semibold ${rexTheme.text.loud}`}>HirePilot AI Assistant — REX</div>
-          <div className={`text-xs ${rexTheme.text.dim}`}>Terminal v2.1.0</div>
+        <div className="flex items-center space-x-3">
+          <button className="p-2 hover:bg-gray-700 rounded-lg transition-colors" aria-label="Settings">
+            <i className="fa-solid fa-gear text-gray-400"></i>
+          </button>
+          <button className="p-2 hover:bg-gray-700 rounded-lg transition-colors" aria-label="Menu">
+            <i className="fa-solid fa-ellipsis-vertical text-gray-400"></i>
+          </button>
         </div>
       </div>
-      <div className={`text-xs ${rexTheme.text.dim}`}>REX Online</div>
     </header>
   )
 }
