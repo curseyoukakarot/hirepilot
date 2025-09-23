@@ -70,8 +70,10 @@ export type ChatPart = { role: 'user'|'assistant'; content: string }
 
 export async function* chatStream(parts: ChatPart[]) {
   try {
-    const url = '/api/rex/chat'
-    for await (const chunk of streamFetch(url, { messages: parts })) {
+    const base = import.meta.env.VITE_BACKEND_URL || ''
+    const url = `${base}/api/rex/chat`
+    const headers = await authHeaders()
+    for await (const chunk of streamFetch(url, { messages: parts }, { headers })) {
       yield chunk
     }
   } catch (e) {

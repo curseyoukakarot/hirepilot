@@ -1,7 +1,7 @@
 import React, { FC } from 'react'
 
 type Item = { id: string; title: string; subtitle?: string; onClick: () => void }
-export const SidebarHistory: FC<{ items: Item[] }> = ({ items }) => {
+export const SidebarHistory: FC<{ items: Item[]; onNew?: () => void }> = ({ items, onNew }) => {
   return (
     <aside className="hidden md:flex md:w-64 bg-gray-800 border-r border-gray-700 flex-col">
       <div className="p-4 border-b border-gray-700">
@@ -14,7 +14,7 @@ export const SidebarHistory: FC<{ items: Item[] }> = ({ items }) => {
             <p className="text-xs text-gray-400">REX Assistant</p>
           </div>
         </div>
-        <button className="w-full bg-gray-700 hover:bg-gray-600 rounded-lg p-3 text-left transition-colors mt-4">
+        <button onClick={onNew} className="w-full bg-gray-700 hover:bg-gray-600 rounded-lg p-3 text-left transition-colors mt-4">
           <div className="flex items-center space-x-3">
             <i className="fa-solid fa-plus text-green-400"></i>
             <span className="text-sm">New Chat</span>

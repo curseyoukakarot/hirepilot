@@ -6,7 +6,8 @@ import CandidateCard from '../components/rex/CandidateCard'
 import ChatInput from '../components/rex/ChatInput'
 import SidebarHistory from '../components/rex/SidebarHistory'
 import { rexTheme } from '../theme/rexTheme'
-import { chatStream, ChatPart } from '../lib/rexApi'
+import { chatStream, ChatPart, listConversations, createConversation, fetchMessages, postMessage, type RexConversation } from '../lib/rexApi'
+import { supabase } from '../lib/supabaseClient'
 import '../styles/rex.css'
 
 export default function REXChat() {
@@ -16,15 +17,49 @@ export default function REXChat() {
   const [status, setStatus] = useState<string | null>(null)
   const [streaming, setStreaming] = useState(false)
   const [resultCandidates, setResultCandidates] = useState<any[] | null>(null)
+  const [conversations, setConversations] = useState<RexConversation[]>([])
+  const [activeConversationId, setActiveConversationId] = useState<string>('')
   const scroller = useRef<HTMLDivElement>(null)
 
   useEffect(()=>{ scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: 'smooth' }) }, [messages, status, streaming, resultCandidates])
+
+  useEffect(() => {
+    (async () => {
+      const list = await listConversations()
+      setConversations(list)
+      if (list.length > 0) {
+        setActiveConversationId(list[0].id)
+        const msgs = await fetchMessages(list[0].id)
+        setMessages(msgs.map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: typeof m.content === 'string' ? m.content : (m.content?.text ?? JSON.stringify(m.content)) })))
+      }
+    })()
+  }, [])
+
+  useEffect(() => {
+    if (!activeConversationId) return
+    (async () => {
+      const msgs = await fetchMessages(activeConversationId)
+      setMessages(msgs.map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: typeof m.content === 'string' ? m.content : (m.content?.text ?? JSON.stringify(m.content)) })))
+    })()
+  }, [activeConversationId])
 
   async function send(text: string) {
     const next = [...messages, { role: 'user' as const, content: text }, { role: 'assistant' as const, content: '' }]
     setMessages(next)
     setStatus('$ REX Initiating search')
     setStreaming(true)
+
+    // ensure conversation exists
+    let convId = activeConversationId
+    if (!convId) {
+      const conv = await createConversation(text.slice(0, 120))
+      convId = conv.id
+      setActiveConversationId(conv.id)
+      setConversations(await listConversations())
+    }
+
+    // persist user message
+    await postMessage(convId, 'user', { text })
 
     let acc = ''
     for await (const chunk of chatStream(next)) {
@@ -40,6 +75,10 @@ export default function REXChat() {
     setStreaming(false)
     setStatus(null)
 
+    // persist assistant text
+    await postMessage(convId, 'assistant', { text: acc })
+    setConversations(await listConversations())
+
     setResultCandidates([
       { name: 'Sarah Chen', title: 'Senior React Developer', company: 'Stripe', experience: '6 years', salary: '$180k – $220k', location: 'SF, CA', skills: ['React', 'TypeScript', 'Node.js'], matchPct: 97 },
       { name: 'Marcus Rodriguez', title: 'Lead Frontend Engineer', company: 'Airbnb', experience: '8 years', salary: '$200k – $250k', location: 'SF, CA', skills: ['React', 'GraphQL', 'AWS'], matchPct: 94 },
@@ -47,17 +86,21 @@ export default function REXChat() {
     ])
   }
 
-  const historyItems = useMemo(() => [
-    { id: '1', title: 'React developers in SF', onClick: () => {} },
-    { id: '2', title: 'Senior Python engineers', onClick: () => {} },
-    { id: '3', title: 'DevOps talent search', onClick: () => {} },
-  ], [])
+  const historyItems = useMemo(() =>
+    conversations.map(c => ({ id: c.id, title: c.title || 'New chat', subtitle: new Date(c.updated_at).toLocaleString(), onClick: () => setActiveConversationId(c.id) })),
+    [conversations]
+  )
 
   return (
     <div className="bg-gray-900 text-white min-h-screen">
       <div className="mx-auto max-w-7xl">
         <div className="min-h-screen flex">
-          <SidebarHistory items={historyItems as any} />
+          <SidebarHistory items={historyItems as any} onNew={async () => {
+            const conv = await createConversation('New chat')
+            setActiveConversationId(conv.id)
+            setConversations(await listConversations())
+            setMessages([])
+          }} />
           <div className="flex-1 flex flex-col">
             <ChatHeader />
             <div className="flex-1 overflow-y-auto p-6 space-y-6" ref={scroller}>
