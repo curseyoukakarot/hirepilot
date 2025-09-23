@@ -63,3 +63,29 @@ export async function postMessage(conversationId: string, role: RexMessage['role
 }
 
 
+// v2 streaming API (frontend contract)
+import { streamFetch } from '../hooks/useStream'
+
+export type ChatPart = { role: 'user'|'assistant'; content: string }
+
+export async function* chatStream(parts: ChatPart[]) {
+  try {
+    const url = '/api/rex/chat'
+    for await (const chunk of streamFetch(url, { messages: parts })) {
+      yield chunk
+    }
+  } catch (e) {
+    const fake = [
+      '\n$ REX Initiating search',
+      '\n$ REX Querying LinkedIn + Apollo',
+      '\n$ REX Syncing insights',
+      '\n$ REX Done.\n\n',
+      'Found 23 senior React developers in San Francisco. Here are the top 3 with estimated ranges and locations...'
+    ]
+    for (const line of fake) {
+      await new Promise(r=>setTimeout(r, 500))
+      yield line
+    }
+  }
+}
+

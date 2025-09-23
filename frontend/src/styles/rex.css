@@ -1,0 +1,6 @@
+.caret-blink { display:inline-block; animation: caret 1s steps(1) infinite; }
+@keyframes caret { 50% { opacity: 0; } }
+/* Nice scrollbars */
+* { scrollbar-width: thin; scrollbar-color: #2b3447 transparent; }
+
+
