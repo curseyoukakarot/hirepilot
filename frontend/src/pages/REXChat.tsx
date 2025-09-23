@@ -5,12 +5,14 @@ import StatusLine from '../components/rex/StatusLine'
 import CandidateCard from '../components/rex/CandidateCard'
 import ChatInput from '../components/rex/ChatInput'
 import SidebarHistory from '../components/rex/SidebarHistory'
+import { usePlan } from '../context/PlanContext'
 import { rexTheme } from '../theme/rexTheme'
 import { chatStream, ChatPart, listConversations, createConversation, fetchMessages, postMessage, type RexConversation } from '../lib/rexApi'
 import { supabase } from '../lib/supabaseClient'
 import '../styles/rex.css'
 
 export default function REXChat() {
+  const { role, plan } = usePlan()
   const [messages, setMessages] = useState<ChatPart[]>([
     { role: 'assistant', content: 'Hey there! 👋 I\'m REX, your AI recruiting assistant.\n\nI can help you find, analyze, and connect with top talent across:\n\n• LinkedIn profiles & connections\n• Apollo database searches\n• GitHub developer insights\n• Market salary analysis\n\nReady to find some amazing talent? 🚀' }
   ])
@@ -74,14 +76,18 @@ export default function REXChat() {
 
     let acc = ''
     for await (const chunk of chatStream(next)) {
-      if (chunk.includes('Initiating search')) setStatus('$ REX Initiating search')
-      else if (chunk.includes('Querying')) setStatus('$ REX Querying LinkedIn + Apollo')
-      else if (chunk.includes('Syncing')) setStatus('$ REX Syncing insights')
-      else if (chunk.includes('Done')) setStatus('$ REX Done.')
-      else {
-        acc += chunk
-        setMessages(prev => prev.map((m, i) => i === prev.length - 1 ? { ...m, content: acc } : m))
+      // If backend sends JSON objects by chunk, normalize to text
+      let text = ''
+      try {
+        const maybeObj = JSON.parse(chunk)
+        // Support shape { reply: { content: string } }
+        text = maybeObj?.reply?.content || maybeObj?.content || ''
+      } catch {
+        text = chunk
       }
+      if (!text) continue
+      acc += text
+      setMessages(prev => prev.map((m, i) => i === prev.length - 1 ? { ...m, content: acc } : m))
     }
     setStreaming(false)
     setStatus(null)
@@ -90,11 +96,17 @@ export default function REXChat() {
     await postMessage(convId, 'assistant', { text: acc })
     setConversations(await listConversations())
 
-    setResultCandidates([
-      { name: 'Sarah Chen', title: 'Senior React Developer', company: 'Stripe', experience: '6 years', salary: '$180k – $220k', location: 'SF, CA', skills: ['React', 'TypeScript', 'Node.js'], matchPct: 97 },
-      { name: 'Marcus Rodriguez', title: 'Lead Frontend Engineer', company: 'Airbnb', experience: '8 years', salary: '$200k – $250k', location: 'SF, CA', skills: ['React', 'GraphQL', 'AWS'], matchPct: 94 },
-      { name: 'Emily Park', title: 'Senior Software Engineer', company: 'Meta', experience: '5 years', salary: '$170k – $210k', location: 'SF, CA', skills: ['React', 'Redux', 'Python'], matchPct: 91 },
-    ])
+    // Only show candidates when a real search result is detected
+    // Expect backend to emit a special marker like "__CANDIDATES_JSON__:{...}"
+    try {
+      const marker = '__CANDIDATES_JSON__:'
+      const idx = acc.indexOf(marker)
+      if (idx >= 0) {
+        const jsonStr = acc.slice(idx + marker.length)
+        const parsed = JSON.parse(jsonStr)
+        if (Array.isArray(parsed?.candidates)) setResultCandidates(parsed.candidates)
+      }
+    } catch {}
   }
 
   const historyItems = useMemo(() =>
@@ -106,7 +118,7 @@ export default function REXChat() {
     <div className="bg-gray-900 text-white min-h-screen">
       <div className="mx-auto max-w-7xl">
         <div className="min-h-screen flex">
-          <SidebarHistory items={historyItems as any} userAvatarUrl={userAvatarUrl} userName={userName} userPlan={undefined as any} onNew={async () => {
+          <SidebarHistory items={historyItems as any} userAvatarUrl={userAvatarUrl} userName={userName} userPlan={(role && role !== 'free') ? role : (plan || 'Free Plan')} onNew={async () => {
             const conv = await createConversation('New chat')
             setActiveConversationId(conv.id)
             setConversations(await listConversations())

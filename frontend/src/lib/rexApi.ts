@@ -79,16 +79,11 @@ export async function* chatStream(parts: ChatPart[]) {
       yield chunk
     }
   } catch (e) {
-    const fake = [
-      '\n$ REX Initiating search',
-      '\n$ REX Querying LinkedIn + Apollo',
-      '\n$ REX Syncing insights',
-      '\n$ REX Done.\n\n',
-      'Found 23 senior React developers in San Francisco. Here are the top 3 with estimated ranges and locations...'
-    ]
-    for (const line of fake) {
-      await new Promise(r=>setTimeout(r, 500))
-      yield line
+    // DEV FALLBACK: simple assistant text only (no fake status/search)
+    const fallback = 'Hi! I\'m REX. Ask me to search or help with recruiting tasks.'
+    for (const ch of fallback) {
+      await new Promise(r=>setTimeout(r, 12))
+      yield ch
     }
   }
 }
