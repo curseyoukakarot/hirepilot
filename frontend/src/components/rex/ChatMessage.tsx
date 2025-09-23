@@ -2,8 +2,8 @@ import React, { FC } from 'react'
 import { motion } from 'framer-motion'
 import { rexTheme } from '../../theme/rexTheme'
 
-type Msg = { role: 'user' | 'assistant'; content: string; streaming?: boolean }
-export const ChatMessage: FC<Msg> = ({ role, content, streaming }) => {
+type Msg = { role: 'user' | 'assistant'; content: string; streaming?: boolean; userAvatarUrl?: string }
+export const ChatMessage: FC<Msg> = ({ role, content, streaming, userAvatarUrl }) => {
   const isUser = role === 'user'
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full message-fade-in">
@@ -18,7 +18,7 @@ export const ChatMessage: FC<Msg> = ({ role, content, streaming }) => {
               <p className="whitespace-pre-wrap">{content}</p>
             </div>
           </div>
-          <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" className="w-8 h-8 rounded-full flex-shrink-0" />
+          <img src={userAvatarUrl || 'https://ui-avatars.com/api/?name=You&background=random'} className="w-8 h-8 rounded-full flex-shrink-0" />
         </div>
       ) : (
         <div className="flex items-start space-x-4">

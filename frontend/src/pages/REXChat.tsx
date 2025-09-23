@@ -20,11 +20,22 @@ export default function REXChat() {
   const [conversations, setConversations] = useState<RexConversation[]>([])
   const [activeConversationId, setActiveConversationId] = useState<string>('')
   const scroller = useRef<HTMLDivElement>(null)
+  const [userAvatarUrl, setUserAvatarUrl] = useState<string>('')
+  const [userName, setUserName] = useState<string>('')
 
   useEffect(()=>{ scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: 'smooth' }) }, [messages, status, streaming, resultCandidates])
 
   useEffect(() => {
     (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const name = `${(user.user_metadata as any)?.first_name || ''} ${(user.user_metadata as any)?.last_name || ''}`.trim() || (user.email || 'You')
+          setUserName(name)
+          const metaUrl = (user.user_metadata as any)?.avatar_url as string | undefined
+          setUserAvatarUrl(metaUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`)
+        }
+      } catch {}
       const list = await listConversations()
       setConversations(list)
       if (list.length > 0) {
@@ -95,7 +106,7 @@ export default function REXChat() {
     <div className="bg-gray-900 text-white min-h-screen">
       <div className="mx-auto max-w-7xl">
         <div className="min-h-screen flex">
-          <SidebarHistory items={historyItems as any} onNew={async () => {
+          <SidebarHistory items={historyItems as any} userAvatarUrl={userAvatarUrl} userName={userName} userPlan={undefined as any} onNew={async () => {
             const conv = await createConversation('New chat')
             setActiveConversationId(conv.id)
             setConversations(await listConversations())
@@ -105,7 +116,7 @@ export default function REXChat() {
             <ChatHeader />
             <div className="flex-1 overflow-y-auto p-6 space-y-6" ref={scroller}>
               {messages.map((m, idx) => (
-                <ChatMessage key={idx} role={m.role} content={m.content} streaming={idx === messages.length - 1 && streaming} />
+                <ChatMessage key={idx} role={m.role} content={m.content} streaming={idx === messages.length - 1 && streaming} userAvatarUrl={userAvatarUrl} />
               ))}
               {status && (
                 <div className="space-y-1">

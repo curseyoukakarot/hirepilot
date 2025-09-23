@@ -73,7 +73,9 @@ export async function* chatStream(parts: ChatPart[]) {
     const base = import.meta.env.VITE_BACKEND_URL || ''
     const url = `${base}/api/rex/chat`
     const headers = await authHeaders()
-    for await (const chunk of streamFetch(url, { messages: parts }, { headers })) {
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id;
+    for await (const chunk of streamFetch(url, { userId, messages: parts }, { headers })) {
       yield chunk
     }
   } catch (e) {

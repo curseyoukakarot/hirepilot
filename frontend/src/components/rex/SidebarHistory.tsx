@@ -1,7 +1,7 @@
 import React, { FC } from 'react'
 
 type Item = { id: string; title: string; subtitle?: string; onClick: () => void }
-export const SidebarHistory: FC<{ items: Item[]; onNew?: () => void }> = ({ items, onNew }) => {
+export const SidebarHistory: FC<{ items: Item[]; onNew?: () => void; userAvatarUrl?: string; userName?: string; userPlan?: string }> = ({ items, onNew, userAvatarUrl, userName = 'You', userPlan = 'Free Plan' }) => {
   return (
     <aside className="hidden md:flex md:w-64 bg-gray-800 border-r border-gray-700 flex-col">
       <div className="p-4 border-b border-gray-700">
@@ -34,10 +34,10 @@ export const SidebarHistory: FC<{ items: Item[]; onNew?: () => void }> = ({ item
       </div>
       <div className="p-4 border-t border-gray-700">
         <div className="flex items-center space-x-3">
-          <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" className="w-8 h-8 rounded-full" />
+          <img src={userAvatarUrl || 'https://ui-avatars.com/api/?name=You&background=random'} className="w-8 h-8 rounded-full" />
           <div>
-            <p className="text-sm font-medium">Brandon</p>
-            <p className="text-xs text-gray-400">Free Plan</p>
+            <p className="text-sm font-medium">{userName}</p>
+            <p className="text-xs text-gray-400">{userPlan}</p>
           </div>
         </div>
       </div>
