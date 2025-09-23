@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import ChatHeader from '../components/rex/ChatHeader'
 import ChatMessage from '../components/rex/ChatMessage'
 import StatusLine from '../components/rex/StatusLine'
+import SearchVisualizer from '../components/rex/SearchVisualizer'
 import CandidateCard from '../components/rex/CandidateCard'
 import ChatInput from '../components/rex/ChatInput'
 import SidebarHistory from '../components/rex/SidebarHistory'
@@ -17,6 +18,7 @@ export default function REXChat() {
     { role: 'assistant', content: 'Hey there! 👋 I\'m REX, your AI recruiting assistant.\n\nI can help you find, analyze, and connect with top talent across:\n\n• LinkedIn profiles & connections\n• Apollo database searches\n• GitHub developer insights\n• Market salary analysis\n\nReady to find some amazing talent? 🚀' }
   ])
   const [status, setStatus] = useState<string | null>(null)
+  const [statusSteps, setStatusSteps] = useState<string[]>([])
   const [streaming, setStreaming] = useState(false)
   const [resultCandidates, setResultCandidates] = useState<any[] | null>(null)
   const [conversations, setConversations] = useState<RexConversation[]>([])
@@ -86,6 +88,17 @@ export default function REXChat() {
         text = chunk
       }
       if (!text) continue
+
+      // Detect and render status events only for searches
+      if (text.startsWith('__STATUS__:')) {
+        const label = text.replace('__STATUS__:', '').trim()
+        setStatus(label)
+        setStatusSteps(prev => [...prev, label])
+        continue
+      }
+
+      // Clear status steps when normal assistant text streams
+      if (statusSteps.length) setStatusSteps([])
       acc += text
       setMessages(prev => prev.map((m, i) => i === prev.length - 1 ? { ...m, content: acc } : m))
     }
@@ -130,12 +143,8 @@ export default function REXChat() {
               {messages.map((m, idx) => (
                 <ChatMessage key={idx} role={m.role} content={m.content} streaming={idx === messages.length - 1 && streaming} userAvatarUrl={userAvatarUrl} />
               ))}
-              {status && (
-                <div className="space-y-1">
-                  <StatusLine text="Initiating search" done={status.includes('Done')} />
-                  {!status.includes('Done') && <StatusLine text="Querying LinkedIn + Apollo" />}
-                  {!status.includes('Done') && <StatusLine text="Syncing insights" />}
-                </div>
+              {Boolean(statusSteps.length) && (
+                <SearchVisualizer steps={statusSteps} done={status?.includes('Done')} />
               )}
 
               {resultCandidates && (
