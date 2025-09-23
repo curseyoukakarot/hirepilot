@@ -38,7 +38,7 @@ import Copilot from './screens/Copilot';
 import Handsfree from './screens/Handsfree';
 import Pricing from './screens/Pricing';
 import RexChatBox from './components/RexChatBox';
-import RexChatPage from './screens/RexChatPage';
+import REXChat from './pages/REXChat';
 import { apiPost } from './lib/api';
 import BlogLandingPage from './screens/BlogLandingPage';
 import MeetRex from './screens/MeetRex';
@@ -280,7 +280,7 @@ export default function App() {
 
 function InnerApp() {
   const location = useLocation();
-  const landingPages = ["/", "/signup", "/login", "/reset-password", "/copilot", "/enterprise", "/pricing", "/rex", "/rexsupport", "/chromeextension", "/chromeextension/privacy", "/terms", "/apidoc", "/test-gmail", "/affiliates", "/blog/zapierguide", "/producthunt", "/dfydashboard", "/freeforever", "/jobs/share", "/apply"];
+  const landingPages = ["/", "/signup", "/login", "/reset-password", "/copilot", "/enterprise", "/pricing", "/rex", "/rex-chat", "/rexsupport", "/chromeextension", "/chromeextension/privacy", "/terms", "/apidoc", "/test-gmail", "/affiliates", "/blog/zapierguide", "/producthunt", "/dfydashboard", "/freeforever", "/jobs/share", "/apply"];
   // Treat blog landing and article pages as public landing pages (no dashboard UI)
   const isPartnerArea = location.pathname.startsWith('/partners');
   // Public dynamic pages (e.g., share/apply) should not be gated by auth
@@ -466,7 +466,7 @@ function InnerApp() {
               <Route path="/settings" element={isGuestUser ? <GuestLayout><SettingsGuest /></GuestLayout> : <Settings />} />
               <Route path="/signout" element={<SignOutRedirect />} />
               <Route path="/billing" element={<BillingScreen />} />
-              <Route path="/rex-chat" element={<RexChatPage />} />
+              <Route path="/rex-chat" element={<REXChat />} />
               <Route path="/jobs/share/:shareId" element={<PublicJobPage />} />
               <Route path="/jobs/share/:shareId/*" element={<PublicJobPage />} />
               <Route path="/apply/:jobId" element={<ApplyForm />} />
