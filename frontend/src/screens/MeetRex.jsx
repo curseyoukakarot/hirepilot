@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import PublicNavbar from '../components/PublicNavbar';
 import PublicFooter from '../components/PublicFooter';
+import InteractiveRexPreview from '../components/rex/InteractiveRexPreview';
 
 export default function MeetRex() {
   useEffect(() => {
@@ -101,8 +102,8 @@ export default function MeetRex() {
         .gradient-bg{background:linear-gradient(135deg,#3b82f6 0%,#8b5cf6 100%)}
         .gradient-text{background:linear-gradient(135deg,#60a5fa 0%,#a78bfa 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
         .sunrise{position:relative;overflow:hidden}
-        .sunrise img{display:block;width:100%;height:auto;clip-path:inset(100% 0 0 0);transform:scale(1.02)}
-        .sunrise.in-view img{animation:sunriseReveal 1.1s ease-out forwards}
+        .sunrise img{display:block;width:100%;height:auto;transform:scale(1.02);clip-path:inset(0 0 0 0)}
+        .fade-in.in-view .sunrise img{animation:sunriseReveal 1.1s ease-out forwards}
         @keyframes sunriseReveal{from{clip-path:inset(100% 0 0 0)}to{clip-path:inset(0 0 0 0)}}
       `}</style>
 
@@ -285,13 +286,9 @@ export default function MeetRex() {
         </div>
       </section>
 
-      {/* REX Full-Width Image */}
-      <section id="rex-image-section" className="py-0 bg-gray-900 fade-in">
-        <div className="w-full">
-          <div className="sunrise">
-            <img src="/rex-image.png" alt="REX Overview" />
-          </div>
-        </div>
+      {/* REX Interactive Preview Section */}
+      <section id="rex-interactive" className="py-0 bg-gray-900 fade-in">
+        <InteractiveRexPreview />
       </section>
 
       {/* Features Grid */}
