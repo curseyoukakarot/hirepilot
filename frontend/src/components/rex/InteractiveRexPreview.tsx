@@ -53,7 +53,7 @@ const InteractiveRexPreview: React.FC = () => {
               <div className="flex items-center space-x-3">
                 <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" className="w-8 h-8 rounded-full" />
                 <div>
-                  <p className="text-sm font-medium">Brandon</p>
+                  <p className="text-sm font-medium">David</p>
                   <p className="text-xs text-gray-400">Free Plan</p>
                 </div>
               </div>
