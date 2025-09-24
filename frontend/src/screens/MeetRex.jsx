@@ -169,7 +169,7 @@ export default function MeetRex() {
           <div className="w-full mb-16">
             <div
               id="diagram-container"
-              className="relative w-full max-w-6xl mx-auto h-[600px] sm:h-[700px] rounded-xl border border-white/10 overflow-hidden"
+              className="relative w-full max-w-6xl mx-auto h-[780px] sm:h-[700px] rounded-xl border border-white/10 overflow-hidden"
               style={{
                 backgroundImage:
                   'linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.06) 1px, transparent 1px)',
