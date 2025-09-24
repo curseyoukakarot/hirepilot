@@ -5,6 +5,7 @@ dayjs.extend(businessDays as any);
 import { supabase } from '../lib/supabase';
 import { emailQueue } from '../queues/redis';
 import { buildThreeStepSequence } from './sequenceBuilder';
+import { personalizeMessage } from '../utils/messageUtils';
 import { ApiRequest } from '../../types/api';
 
 type Steps = { step1: any; step2?: any; step3?: any; spacingBusinessDays?: number };
@@ -32,8 +33,8 @@ async function enqueueStepEmail(campaignId: string, lead: any, step: any, when: 
   const headers = await buildSenderHeaders(campaignId, { 'X-Campaign-Id': campaignId, 'X-Lead-Id': lead.id });
   await emailQueue.add('send', {
     to: lead.email,
-    subject: personalize(step.subject, lead),
-    html: personalize(step.body, lead),
+    subject: personalizeMessage(step.subject, lead),
+    html: personalizeMessage(step.body, lead),
     headers
   }, {
     delay: delayMs,
@@ -41,13 +42,6 @@ async function enqueueStepEmail(campaignId: string, lead: any, step: any, when: 
     backoff: { type: 'exponential', delay: 5000 },
     removeOnComplete: 1000
   });
-}
-
-function personalize(text: string, lead: any) {
-  return (text || '')
-    .replace(/\{\{name\}\}/gi, lead.name || '')
-    .replace(/\{\{company\}\}/gi, lead.company || '')
-    .replace(/\{\{title\}\}/gi, lead.title || '');
 }
 
 async function buildSenderHeaders(campaignId: string, base: Record<string, string>) {
@@ -200,8 +194,8 @@ export async function sendSingleMessageToCampaign(params: { campaignId: string; 
     const headers = { 'X-Campaign-Id': campaignId, 'X-Lead-Id': l.id } as Record<string, string>;
     await emailQueue.add('send', {
       to: l.email,
-      subject: personalize(finalSubject, l),
-      html: personalize(finalHtml, l),
+      subject: personalizeMessage(finalSubject, l),
+      html: personalizeMessage(finalHtml, l),
       headers: await buildSenderHeaders(campaignId, headers)
     }, {
       delay: 0,
