@@ -9,7 +9,7 @@ export const ChatMessage: FC<Msg> = ({ role, content, streaming, userAvatarUrl }
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full message-fade-in">
       {isUser ? (
         <div className="flex items-start space-x-4 justify-end">
-          <div className="flex-1 max-w-3xl">
+          <div className="flex-1">
             <div className="flex items-center space-x-2 mb-2 justify-end">
               <span className="text-xs text-gray-400">Just now</span>
               <span className="font-medium">You</span>
@@ -30,7 +30,7 @@ export const ChatMessage: FC<Msg> = ({ role, content, streaming, userAvatarUrl }
               <span className="font-mono text-green-400 font-semibold">$ REX</span>
               <span className="text-xs text-gray-400">Response</span>
             </div>
-            <div className="bg-gray-800 rounded-lg p-4 terminal-glow">
+            <div className="bg-gray-800 rounded-lg p-4 terminal-glow w-full">
               <p className={`${rexTheme.text.base} whitespace-pre-wrap`}>{content}{streaming && <span className="caret-blink">▋</span>}</p>
             </div>
           </div>

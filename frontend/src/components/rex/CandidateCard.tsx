@@ -14,7 +14,7 @@ type Candidate = {
 
 export const CandidateCard: FC<{ c: Candidate }> = ({ c }) => {
   return (
-    <div className={`${rexTheme.card} ${rexTheme.bg.panelSoft} ${rexTheme.ring} p-4`}>
+    <div className={`${rexTheme.card} ${rexTheme.bg.panelSoft} ${rexTheme.ring} p-4 w-full`}>
       <div className="flex items-start justify-between">
         <div>
           <div className="font-semibold text-slate-100">{c.name}</div>

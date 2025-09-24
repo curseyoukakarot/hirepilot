@@ -1,13 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import ChatHeader from '../components/rex/ChatHeader'
 import ChatMessage from '../components/rex/ChatMessage'
-import StatusLine from '../components/rex/StatusLine'
 import SearchVisualizer from '../components/rex/SearchVisualizer'
 import CandidateCard from '../components/rex/CandidateCard'
 import ChatInput from '../components/rex/ChatInput'
 import SidebarHistory from '../components/rex/SidebarHistory'
 import { usePlan } from '../context/PlanContext'
-import { rexTheme } from '../theme/rexTheme'
 import { chatStream, ChatPart, listConversations, createConversation, fetchMessages, postMessage, type RexConversation } from '../lib/rexApi'
 import { supabase } from '../lib/supabaseClient'
 import '../styles/rex.css'
@@ -128,18 +126,19 @@ export default function REXChat() {
   )
 
   return (
-    <div className="bg-gray-900 text-white min-h-screen">
-      <div className="mx-auto max-w-7xl">
-        <div className="min-h-screen flex">
+    <div className="bg-gray-900 text-white h-full min-h-screen">
+      <div className="flex h-full min-h-0">
           <SidebarHistory items={historyItems as any} userAvatarUrl={userAvatarUrl} userName={userName} userPlan={(role && role !== 'free') ? role : (plan || 'Free Plan')} onNew={async () => {
             const conv = await createConversation('New chat')
             setActiveConversationId(conv.id)
             setConversations(await listConversations())
             setMessages([])
           }} />
-          <div className="flex-1 flex flex-col">
+          <div className="flex-1 flex flex-col min-h-0">
             <ChatHeader />
-            <div className="flex-1 overflow-y-auto p-6 space-y-6" ref={scroller}>
+            <div className="flex-1 min-h-0">
+              <div className="h-full min-h-0 flex flex-col">
+                <div className="flex-1 overflow-y-auto py-6 space-y-6 px-0 md:px-4" ref={scroller}>
               {messages.map((m, idx) => (
                 <ChatMessage key={idx} role={m.role} content={m.content} streaming={idx === messages.length - 1 && streaming} userAvatarUrl={userAvatarUrl} />
               ))}
@@ -161,8 +160,10 @@ export default function REXChat() {
                   </div>
                 </div>
               )}
+                </div>
+                <ChatInput onSend={send} disabled={streaming} />
+              </div>
             </div>
-            <ChatInput onSend={send} disabled={streaming} />
           </div>
         </div>
       </div>
