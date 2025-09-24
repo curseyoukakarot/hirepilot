@@ -162,6 +162,8 @@ export default async function rexChat(req: Request, res: Response) {
       // Bulk campaign email helpers
       { type:'function', function:{ name:'preview_campaign_email', parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'}, template_name:{type:'string'} }, required:['userId','campaign_id','template_name'] } } },
       { type:'function', function:{ name:'send_campaign_email_by_template_name', parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'}, template_name:{type:'string'}, scheduled_for:{type:'string', optional:true}, channel:{type:'string', optional:true} }, required:['userId','campaign_id','template_name'] } } },
+      // New: allow the model to send a raw drafted email to the campaign if no template is needed
+      { type:'function', function:{ name:'send_campaign_email_draft', parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'}, subject:{type:'string'}, html:{type:'string'}, scheduled_for:{type:'string', optional:true}, channel:{type:'string', optional:true} }, required:['userId','campaign_id','subject','html'] } } },
       // Sequence enrollment by name
       { type:'function', function:{ name:'enroll_campaign_in_sequence_by_name', parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'}, sequence_name:{type:'string'}, start_time_local:{type:'string'}, timezone:{type:'string'}, provider:{type:'string'} }, required:['userId','campaign_id','sequence_name'] } } },
       // Create a sequence from a template + delays then enroll

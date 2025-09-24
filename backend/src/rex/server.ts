@@ -905,6 +905,39 @@ server.registerCapabilities({
         return { queued: list.length, scheduled_for: when.toISOString() };
       }
     },
+    // Send a drafted message to all leads in a campaign (no template required)
+    send_campaign_email_draft: {
+      parameters: { userId:{ type:'string' }, campaign_id:{ type:'string' }, subject:{ type:'string' }, html:{ type:'string' }, scheduled_for:{ type:'string', optional:true }, channel:{ type:'string', optional:true } },
+      handler: async ({ userId, campaign_id, subject, html, scheduled_for, channel }) => {
+        // Get leads (emails only)
+        const { data: leads, error } = await supabase
+          .from('leads')
+          .select('id,email,first_name,last_name,company')
+          .eq('campaign_id', campaign_id)
+          .not('email', 'is', null)
+          .neq('email', '')
+          .limit(1000);
+        if (error) throw new Error(error.message);
+        const list = leads || [];
+        if (list.length === 0) throw new Error('No leads with emails in this campaign');
+
+        // Credits: 1 per email
+        const totalCreditsNeeded = list.length;
+        const { deductCredits } = await import('../services/creditService');
+        const current = await deductCredits(userId, 0, true);
+        if (Number(current || 0) < totalCreditsNeeded) throw new Error(`Insufficient credits. Need ${totalCreditsNeeded}.`);
+
+        const when = scheduled_for ? new Date(scheduled_for) : new Date();
+
+        // Use existing single-message scheduling logic that handles personalization
+        const { sendSingleMessageToCampaign } = await import('../services/messagingCampaign');
+        const result = await sendSingleMessageToCampaign({ campaignId: campaign_id, userId, subject, html });
+
+        // Deduct credits equal to scheduled count
+        await deductCredits(userId, result.scheduled);
+        return { queued: result.scheduled, scheduled_for: when.toISOString(), channel: channel || 'sendgrid' };
+      }
+    },
     create_sequence_from_template_and_enroll: {
       parameters: {
         userId: { type:'string' },
