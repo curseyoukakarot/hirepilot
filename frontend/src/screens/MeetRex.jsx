@@ -228,7 +228,7 @@ export default function MeetRex() {
 
               <div
                 id="node-sync"
-                className="absolute top-[60%] sm:top-[45%] right-[3%] sm:right-[6%] w-52 sm:w-64 h-32 sm:h-40 bg-gray-800 rounded-2xl border border-white/10 flex flex-col items-center justify-center text-center p-4 shadow-lg"
+                className="absolute top-[68%] sm:top-[45%] right-[3%] sm:right-[6%] w-52 sm:w-64 h-32 sm:h-40 bg-gray-800 rounded-2xl border border-white/10 flex flex-col items-center justify-center text-center p-4 shadow-lg"
               >
                 <p className="font-semibold text-gray-100 mb-3 text-sm sm:text-base">Syncs into your workflow</p>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 opacity-90 text-xs sm:text-sm">
