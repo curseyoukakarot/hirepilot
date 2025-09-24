@@ -5,7 +5,7 @@ dayjs.extend(businessDays as any);
 import { supabase } from '../lib/supabase';
 import { emailQueue } from '../queues/redis';
 import { buildThreeStepSequence } from './sequenceBuilder';
-import { personalizeMessage } from '../utils/messageUtils';
+import { personalizeMessage } from '../../utils/messageUtils';
 import { ApiRequest } from '../../types/api';
 
 type Steps = { step1: any; step2?: any; step3?: any; spacingBusinessDays?: number };
