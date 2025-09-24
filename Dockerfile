@@ -1,5 +1,5 @@
-# Use a Debian-based Node image (glibc-compatible, avoids Alpine issues)
-FROM node:20-bookworm-slim
+# Use AWS Public ECR mirror for Docker Official Images to avoid Docker Hub rate/auth issues
+FROM public.ecr.aws/docker/library/node:20-bookworm-slim
 
 # Install Playwright system dependencies (equivalent to --with-deps)
 RUN apt-get update && apt-get install -y \
