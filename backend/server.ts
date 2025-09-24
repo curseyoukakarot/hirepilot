@@ -269,6 +269,8 @@ app.use('/api', notificationsRouter);
 console.table(listEndpoints(app).filter((r: any) => r.path.includes('/notifications') || r.path.includes('/agent-interactions')));
 app.use('/api', slackApiRouter);
 console.table(listEndpoints(app).filter((r: any) => r.path.includes('/slack')));
+// Mount legacy Slack OAuth routes to provide /api/auth/slack/* endpoints
+app.use('/api', slackRouter);
 console.table(listEndpoints(app).filter((r: any) => r.path.includes('sendgrid/sourcing')));
 app.use('/api/outreach', outreachRouter);
 app.get('/api/getCampaigns', getCampaigns);

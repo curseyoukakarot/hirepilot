@@ -115,14 +115,14 @@ router.get('/auth/slack/callback', async (req, res) => {
       throw new Error('Failed to get access token');
     }
 
-    // Store webhook URL in user settings
+    // Store webhook URL in user settings (upsert to ensure row exists)
     const { error: updateError } = await supabase
       .from('user_settings')
-      .update({
+      .upsert({
+        user_id: userId,
         slack_webhook_url: result.incoming_webhook?.url,
         slack_channel: result.incoming_webhook?.channel
-      })
-      .eq('user_id', userId);
+      }, { onConflict: 'user_id' });
 
     if (updateError) {
       throw new Error('Failed to update user settings');
@@ -158,7 +158,7 @@ router.post('/auth/slack/test', async (req, res) => {
       .from('user_settings')
       .select('slack_webhook_url, slack_channel')
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
 
     if (settingsError || !settings?.slack_webhook_url) {
       res.status(400).json({ error: 'Slack webhook URL not found' });
