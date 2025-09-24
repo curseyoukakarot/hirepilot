@@ -119,6 +119,76 @@ server.registerCapabilities({
       parameters: { a: { type: 'number' }, b: { type: 'number' } },
       handler: async ({ a, b }: { a: number; b: number }) => a + b
     },
+    // Auto: send by template if found, otherwise use provided draft
+    send_campaign_email_auto: {
+      parameters: {
+        userId: { type: 'string' },
+        campaign_id: { type: 'string' },
+        template_name: { type: 'string', optional: true },
+        subject: { type: 'string', optional: true },
+        html: { type: 'string', optional: true },
+        scheduled_for: { type: 'string', optional: true },
+        channel: { type: 'string', optional: true }
+      },
+      handler: async ({ userId, campaign_id, template_name, subject, html, scheduled_for, channel }) => {
+        const hasDraft = Boolean(subject && html);
+        let tpl: any = null;
+        if (template_name) {
+          const { data } = await supabase
+            .from('email_templates')
+            .select('id,name,subject,content')
+            .eq('user_id', userId)
+            .ilike('name', template_name)
+            .maybeSingle();
+          tpl = data || null;
+        }
+
+        if (!tpl && !hasDraft) {
+          throw new Error("Please provide either a 'template_name' or both 'subject' and 'html' for a draft.");
+        }
+
+        if (tpl) {
+          // Use the existing template bulk sender
+          const when = scheduled_for ? new Date(scheduled_for) : new Date();
+          const { data: leads, error } = await supabase
+            .from('leads')
+            .select('id,email,first_name,last_name,company')
+            .eq('campaign_id', campaign_id)
+            .not('email', 'is', null)
+            .neq('email', '')
+            .limit(1000);
+          if (error) throw new Error(error.message);
+          const list = leads || [];
+          if (list.length === 0) throw new Error('No leads with emails in this campaign');
+
+          const { deductCredits } = await import('../services/creditService');
+          const totalCreditsNeeded = list.length;
+          const current = await deductCredits(userId, 0, true);
+          if (Number(current || 0) < totalCreditsNeeded) throw new Error(`Insufficient credits. Need ${totalCreditsNeeded}.`);
+
+          for (const L of list) {
+            const subj = personalizeMessage(tpl.subject || 'Message', L);
+            const htmlBody = personalizeMessage(tpl.content || '', L).replace(/\n/g, '<br/>');
+            await supabase.from('scheduled_messages').insert({
+              user_id: userId,
+              lead_id: L.id,
+              content: htmlBody,
+              template_id: null,
+              channel: (channel as any) || 'sendgrid',
+              scheduled_for: when.toISOString(),
+              status: 'scheduled'
+            });
+          }
+          await (await import('../services/creditService')).deductCredits(userId, list.length);
+          return { queued: list.length, mode: 'template', template_name: template_name, scheduled_for: when.toISOString() };
+        }
+
+        // Fallback: send the provided draft to the entire campaign
+        const { sendSingleMessageToCampaign } = await import('../services/messagingCampaign');
+        const result = await sendSingleMessageToCampaign({ campaignId: campaign_id, userId, subject: subject || 'Message', html: html || '' });
+        return { queued: result.scheduled, mode: 'draft' };
+      }
+    },
     // Convenience: queue collection from a LinkedIn post and return queued status immediately
     sniper_collect_post: {
       parameters: {
