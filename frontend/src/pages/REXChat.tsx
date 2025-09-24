@@ -22,10 +22,11 @@ export default function REXChat() {
   const [conversations, setConversations] = useState<RexConversation[]>([])
   const [activeConversationId, setActiveConversationId] = useState<string>('')
   const scroller = useRef<HTMLDivElement>(null)
+  const endRef = useRef<HTMLDivElement>(null)
   const [userAvatarUrl, setUserAvatarUrl] = useState<string>('')
   const [userName, setUserName] = useState<string>('')
 
-  useEffect(()=>{ scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: 'smooth' }) }, [messages, status, streaming, resultCandidates])
+  useEffect(()=>{ scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: 'smooth' }); endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, status, streaming, resultCandidates])
   useEffect(()=>{ scroller.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }) }, [])
 
   useEffect(() => {
@@ -159,6 +160,7 @@ export default function REXChat() {
                       Want to see more candidates or refine the search? Just let me know your specific requirements!
                     </p>
                   </div>
+                  <div ref={endRef} />
                 </div>
               )}
                 </div>

@@ -1,4 +1,4 @@
-.caret-blink { display:inline-block; animation: caret 1s steps(1) infinite; }
+.caret-blink { display:inline-block; animation: caret 1s steps(1) infinite; font-size: .8em; line-height: 1; transform: translateY(1px); }
 @keyframes caret { 50% { opacity: 0; } }
 
 /* Typewriter + cursor */
