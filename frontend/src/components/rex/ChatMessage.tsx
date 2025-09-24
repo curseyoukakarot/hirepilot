@@ -9,7 +9,7 @@ export const ChatMessage: FC<Msg> = ({ role, content, streaming, userAvatarUrl }
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full message-fade-in">
       {isUser ? (
         <div className="flex items-start space-x-4 justify-end">
-          <div className="flex-1">
+          <div className="w-full max-w-[33%]">
             <div className="flex items-center space-x-2 mb-2 justify-end">
               <span className="text-xs text-gray-400">Just now</span>
               <span className="font-medium">You</span>

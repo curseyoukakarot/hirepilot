@@ -26,6 +26,7 @@ export default function REXChat() {
   const [userName, setUserName] = useState<string>('')
 
   useEffect(()=>{ scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: 'smooth' }) }, [messages, status, streaming, resultCandidates])
+  useEffect(()=>{ scroller.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }) }, [])
 
   useEffect(() => {
     (async () => {
