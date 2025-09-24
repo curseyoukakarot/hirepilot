@@ -4,7 +4,7 @@ type Props = { onSend: (text: string) => void; disabled?: boolean }
 export const ChatInput: FC<Props> = ({ onSend, disabled }) => {
   const [v, setV] = useState('')
   return (
-    <div className="border-t border-gray-700 p-4 bg-gray-800">
+    <div className="sticky bottom-0 border-t border-gray-700 p-4 bg-gray-800 z-10">
       <div className="flex items-center space-x-4">
         <div className="flex-1 relative">
           <input
