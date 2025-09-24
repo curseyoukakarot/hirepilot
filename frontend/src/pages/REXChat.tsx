@@ -167,7 +167,6 @@ export default function REXChat() {
           </div>
         </div>
       </div>
-    </div>
   )
 }
 
