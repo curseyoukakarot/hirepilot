@@ -212,6 +212,10 @@ router.post('/:id/guest-invite', requireAuth, async (req: Request, res: Response
     const payload = { job_id: id, email: String(email).toLowerCase(), inviter_id: inviterId, status: 'pending', created_at: new Date().toISOString() } as any;
     const { data, error } = await supabase.from('job_guest_collaborators').upsert(payload, { onConflict: 'job_id,email' }).select('*').single();
     if (error) return res.status(500).json({ error: error.message });
+    // server-side log (not subject to client RLS)
+    try {
+      await supabase.from('job_activity_log').insert({ job_id: id, actor_id: inviterId, type: 'guest_invited', metadata: { email: String(email).toLowerCase() }, created_at: new Date().toISOString() });
+    } catch {}
     res.json(data);
   } catch (e:any) { res.status(500).json({ error: e.message || 'Internal server error' }); }
 });
