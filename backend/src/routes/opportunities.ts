@@ -209,7 +209,7 @@ router.post('/:id/guest-invite', requireAuth, async (req: Request, res: Response
     const { email } = req.body || {};
     if (!email) return res.status(400).json({ error: 'missing_email' });
 
-    const payload = { job_id: id, email: String(email).toLowerCase(), inviter_id: inviterId, status: 'pending', created_at: new Date().toISOString() } as any;
+    const payload = { job_id: id, email: String(email).toLowerCase(), invited_by: inviterId, status: 'pending', created_at: new Date().toISOString() } as any;
     const { data, error } = await supabase.from('job_guest_collaborators').upsert(payload, { onConflict: 'job_id,email' }).select('*').single();
     if (error) return res.status(500).json({ error: error.message });
     // server-side log (not subject to client RLS)
