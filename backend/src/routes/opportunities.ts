@@ -243,6 +243,35 @@ router.post('/:id/collaborators', requireAuth, async (req: Request, res: Respons
             .eq('job_id', id)
             .eq('email', normalizedEmail);
         } catch {}
+        // Notify existing user by email (no acceptance needed)
+        try {
+          const appUrl = process.env.APP_URL || 'https://thehirepilot.com';
+          const { data: jobRow } = await supabase
+            .from('job_requisitions')
+            .select('title')
+            .eq('id', id)
+            .maybeSingle();
+          const { data: inviter } = await supabase
+            .from('users')
+            .select('first_name,last_name,email')
+            .eq('id', inviterId)
+            .maybeSingle();
+          const inviterName = [inviter?.first_name, inviter?.last_name].filter(Boolean).join(' ') || inviter?.email || 'a teammate';
+          const subject = `You were added to "${jobRow?.title || 'a Job Requisition'}" on HirePilot`;
+          const html = `
+            <p>Hi${existingUser?.id ? '' : ''},</p>
+            <p>${inviterName} added you as a collaborator to the job requisition <strong>${jobRow?.title || ''}</strong>.</p>
+            <p>No action is required. The requisition will now appear in your Jobs list.</p>
+            <p><a href="${appUrl}/job/${id}">Open the requisition</a></p>
+            <p style="color:#888;font-size:12px">You received this because your email (${normalizedEmail}) is a HirePilot account.</p>
+          `;
+          try {
+            const { sendEmail } = await import('../../services/emailService');
+            await sendEmail(normalizedEmail, subject, subject, html);
+          } catch (e) {
+            console.error('Email send failed (existing user collaborator notice):', e);
+          }
+        } catch {}
         row = { job_id: id, user_id: existingUser.id, is_member: true };
       } else {
         // Guest path: Ensure single row by (job_id, email) without requiring DB unique
@@ -273,7 +302,8 @@ router.post('/:id/collaborators', requireAuth, async (req: Request, res: Respons
       }
     // server-side log (not subject to client RLS)
     try {
-        await supabase.from('job_activity_log').insert({ job_id: id, actor_id: inviterId, type: 'guest_invited', metadata: { email: normalizedEmail, role: roleToUse }, created_at: new Date().toISOString() });
+        const type = existingUser?.id ? 'collaborator_added' : 'guest_invited';
+        await supabase.from('job_activity_log').insert({ job_id: id, actor_id: inviterId, type, metadata: { email: normalizedEmail, role: roleToUse, user_id: existingUser?.id || null }, created_at: new Date().toISOString() });
     } catch {}
       res.json(row || {});
   } catch (e:any) { res.status(500).json({ error: e.message || 'Internal server error' }); }

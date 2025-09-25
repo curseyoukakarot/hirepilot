@@ -726,12 +726,11 @@ export default function JobRequisitionPage() {
                   const err = await resp.json().catch(()=>({}));
                   throw new Error(err?.error || 'Failed to invite guest');
                 }
-                // Send invite email (best-effort)
-                try {
-                  await fetch(`${base}/api/send-guest-invite`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, job_id: id, role }) });
-                } catch {}
-                setTeam(prev => [...prev, { is_guest: true, role, email, users: null }]);
-                setShowAddGuestModal(false); setGuestEmail('');
+                // Backend now handles emailing both guests and existing users.
+                // Reload data to reflect correct collaborator vs guest state.
+                await fetchData();
+                setShowAddGuestModal(false);
+                setGuestEmail('');
               } catch (e) { alert('Failed to invite guest: ' + (e.message || e)); }
             }}
           />
