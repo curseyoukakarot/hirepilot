@@ -123,7 +123,8 @@ export default function Step2Pipeline({ onBack, onNext }) {
               user_id: session.user.id,
               name: pipelineName,
               department,
-              stages
+              stages,
+              job_id: wizard?.campaign?.job_id || null
             }),
           });
 
