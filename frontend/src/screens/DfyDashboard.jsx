@@ -250,7 +250,7 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
           let summaries = [];
           if (jobId) {
             try {
-              const pub = await fetch(`${base}/api/jobs/${jobId}/campaigns`);
+              const pub = await fetch(`${base}/api/jobs/${jobId}/campaigns`, { headers: token ? { Authorization: `Bearer ${token}` } : {}, credentials: 'include' });
               if (pub.ok) {
                 const body = await pub.json();
                 const list = Array.isArray(body?.campaigns) ? body.campaigns : [];

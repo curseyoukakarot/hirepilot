@@ -1,11 +1,19 @@
 import { Request, Response } from 'express';
-import { supabaseDb } from '../lib/supabase';
+import { supabaseDb, supabase } from '../lib/supabase';
 
-// Public: Get campaigns attached to a job with lightweight performance
+// Public or authed: Get campaigns attached to a job with lightweight performance
 export default async function jobCampaigns(req: Request, res: Response) {
   try {
     const jobId = req.params.id || String(req.query.job_id || '');
     if (!jobId) return res.status(400).json({ error: 'Missing job id' });
+
+    // Try to parse auth (best-effort). Not required, but if present we'll still proceed.
+    try {
+      const bearer = req.headers.authorization?.split(' ')[1];
+      if (bearer) {
+        await supabase.auth.getUser(bearer);
+      }
+    } catch {}
 
     // Find campaigns linked to this job
     const { data: campaigns, error } = await supabaseDb
