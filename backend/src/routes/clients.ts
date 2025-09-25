@@ -163,6 +163,26 @@ router.patch('/:id', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
+// DELETE /api/clients/:id - delete client (contacts cascade via FK)
+router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    const allowed = await canViewClients(userId);
+    if (!allowed) { res.status(403).json({ error: 'access_denied' }); return; }
+
+    const { id } = req.params;
+    const { error } = await supabase
+      .from('clients')
+      .delete()
+      .eq('id', id);
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    res.json({ success: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message || 'Internal server error' });
+  }
+});
+
 // Contacts endpoints
 router.get('/contacts/all', requireAuth, async (req: Request, res: Response) => {
   try {

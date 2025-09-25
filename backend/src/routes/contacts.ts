@@ -105,4 +105,27 @@ router.patch('/:id', requireAuth, async (req: Request, res: Response) => {
 
 export default router;
 
+// DELETE /api/contacts/:id
+router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    const role = await userRole(userId);
+    if (!['super_admin','superadmin'].includes(role)) {
+      const { data: perms } = await supabase
+        .from('deal_permissions')
+        .select('can_view_clients')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (!((perms as any)?.can_view_clients)) { res.status(403).json({ error: 'access_denied' }); return; }
+    }
+
+    const { id } = req.params;
+    const { error } = await supabase.from('contacts').delete().eq('id', id);
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    res.json({ success: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message || 'Internal server error' });
+  }
+});
 

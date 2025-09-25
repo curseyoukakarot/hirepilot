@@ -543,6 +543,28 @@ export default function DealsPage() {
     </div>
   );
 
+  const confirmDelete = async (type: 'client'|'contact', id: string) => {
+    try {
+      const label = type === 'client' ? 'client' : 'contact';
+      if (!window.confirm(`This will permanently delete this ${label} from the system. Continue?`)) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const url = type === 'client' ? `${import.meta.env.VITE_BACKEND_URL}/api/clients/${id}` : `${import.meta.env.VITE_BACKEND_URL}/api/contacts/${id}`;
+      const resp = await fetch(url, { method: 'DELETE', headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      if (resp.ok) {
+        if (type==='client') {
+          const refreshed = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+          const js = refreshed.ok ? await refreshed.json() : [];
+          setClients(js || []);
+        } else {
+          const r = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/contacts`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+          const js = r.ok ? await r.json() : [];
+          setContacts(js || []);
+        }
+      }
+    } catch {}
+  };
+
   const ClientsSection = () => (
     <div className="w-full">
       <div className="flex items-center justify-between mb-4">
@@ -581,6 +603,7 @@ export default function DealsPage() {
                     <th className="p-4 text-left">Client</th>
                     <th className="p-4 text-left">Owner</th>
                     <th className="p-4 text-left">Created</th>
+                    <th className="p-4 text-left w-10"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -623,6 +646,7 @@ export default function DealsPage() {
                             <button className="px-2 py-1 text-xs bg-gray-100 rounded" onClick={()=>{ setEditingContactId(dm.id); setContactDraft({}); }}>Edit</button>
                           )}
                         </td>
+                        <td className="p-4"><button title="Delete" onClick={()=>confirmDelete('contact', dm.id)} className="text-red-500 hover:text-red-600">🗑️</button></td>
                       </tr>
                     );
                   })}
@@ -648,6 +672,7 @@ export default function DealsPage() {
                   <th className="p-4 text-left">Location</th>
                   <th className="p-4 text-left">Decision Makers</th>
                   <th className="p-4 text-left">Created</th>
+                  <th className="p-4 text-left w-10"></th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -688,6 +713,7 @@ export default function DealsPage() {
                       <td className="p-4">{c.location || '—'}</td>
                       <td className="p-4">{c.contact_count != null ? c.contact_count : '—'}</td>
                       <td className="p-4 text-gray-500">{c.created_at ? new Date(c.created_at).toLocaleDateString() : '—'}</td>
+                      <td className="p-4"><button title="Delete" onClick={()=>confirmDelete('client', c.id)} className="text-red-500 hover:text-red-600">🗑️</button></td>
                     </tr>
                     {expandedClientId === c.id && (
                       <tr>
