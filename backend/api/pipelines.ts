@@ -425,9 +425,16 @@ router.post('/:id/stages', requireAuth as any, async (req: Request, res: Respons
     const userId = (req as any).user?.id;
     if (!pipelineId || !title || userId == null) return res.status(400).json({ error: 'Missing fields' });
 
+    // Resolve job_id for the pipeline to satisfy FK on legacy rows
+    let jobId: string | null = null;
+    try {
+      const { data: p } = await supabaseDb.from('pipelines').select('job_id').eq('id', pipelineId).maybeSingle();
+      jobId = (p as any)?.job_id || null;
+    } catch {}
+
     const { data: stage, error } = await supabaseDb
       .from('pipeline_stages')
-      .insert({ pipeline_id: pipelineId, title, color, position })
+      .insert({ pipeline_id: pipelineId, job_id: jobId, title, color, position })
       .select()
       .single();
     if (error) throw error;
