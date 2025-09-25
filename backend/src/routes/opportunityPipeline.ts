@@ -10,11 +10,15 @@ async function getRoleTeam(userId: string): Promise<{ role: string; team_id: str
 }
 
 async function canView(userId: string): Promise<boolean> {
-  const { role } = await getRoleTeam(userId);
-  const lc = role.toLowerCase();
+  const { role, team_id } = await getRoleTeam(userId);
+  const lc = String(role || '').toLowerCase();
   if (['super_admin','superadmin'].includes(lc)) return true;
-  const { data } = await supabase.from('deal_permissions').select('can_view_opportunities').eq('user_id', userId).maybeSingle();
-  return Boolean((data as any)?.can_view_opportunities);
+  if (['free','free_user','guest'].includes(lc)) return false;
+  if (team_id && lc !== 'team_admin') {
+    const { data } = await supabase.from('deal_permissions').select('can_view_opportunities').eq('user_id', userId).maybeSingle();
+    return Boolean((data as any)?.can_view_opportunities);
+  }
+  return true;
 }
 
 const defaultWeights: Record<string, number> = {

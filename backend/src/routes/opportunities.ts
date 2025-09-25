@@ -10,11 +10,18 @@ async function getRoleTeam(userId: string): Promise<{ role: string; team_id: str
 }
 
 async function canViewOpportunities(userId: string): Promise<boolean> {
-  const { role } = await getRoleTeam(userId);
-  const lc = role.toLowerCase();
+  const { role, team_id } = await getRoleTeam(userId);
+  const lc = String(role || '').toLowerCase();
   if (['super_admin','superadmin'].includes(lc)) return true;
-  const { data } = await supabase.from('deal_permissions').select('can_view_opportunities').eq('user_id', userId).maybeSingle();
-  return Boolean((data as any)?.can_view_opportunities);
+  // Block Free/guest
+  if (['free','free_user','guest'].includes(lc)) return false;
+  // Team members (non-admin) use explicit permissions
+  if (team_id && lc !== 'team_admin') {
+    const { data } = await supabase.from('deal_permissions').select('can_view_opportunities').eq('user_id', userId).maybeSingle();
+    return Boolean((data as any)?.can_view_opportunities);
+  }
+  // Everyone else (paid roles, including team_admin, recruitpro, member, admin)
+  return true;
 }
 
 // GET /api/opportunities

@@ -20,17 +20,25 @@ async function getUserRoleAndTeam(userId: string): Promise<{ role: string; team_
 
 async function canViewClients(userId: string): Promise<boolean> {
   // Super admin shortcut from users.role
-  const { role } = await getUserRoleAndTeam(userId);
+  const { role, team_id } = await getUserRoleAndTeam(userId);
   const roleLc = String(role || '').toLowerCase();
   if (roleLc === 'super_admin' || roleLc === 'superadmin') return true;
 
-  // Check deal_permissions flag
-  const { data } = await supabase
-    .from('deal_permissions')
-    .select('can_view_clients')
-    .eq('user_id', userId)
-    .maybeSingle();
-  return Boolean((data as any)?.can_view_clients);
+  // Block Free/guest roles entirely
+  if (['free', 'free_user', 'guest'].includes(roleLc)) return false;
+
+  // If the user belongs to a Team and is not the Team Admin, defer to team permissions
+  if (team_id && roleLc !== 'team_admin') {
+    const { data } = await supabase
+      .from('deal_permissions')
+      .select('can_view_clients')
+      .eq('user_id', userId)
+      .maybeSingle();
+    return Boolean((data as any)?.can_view_clients);
+  }
+
+  // All other paid roles (member/starter, admin/pro, team_admin, recruitpro) have access by default
+  return true;
 }
 
 // GET /api/clients - list allowed clients with contact counts

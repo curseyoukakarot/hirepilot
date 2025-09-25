@@ -9,6 +9,18 @@ async function getRoleTeam(userId: string): Promise<{ role: string; team_id: str
   return { role: String((data as any)?.role || ''), team_id: (data as any)?.team_id || null };
 }
 
+async function canViewRevenue(userId: string): Promise<boolean> {
+  const { role, team_id } = await getRoleTeam(userId);
+  const lc = String(role || '').toLowerCase();
+  if (['super_admin','superadmin'].includes(lc)) return true;
+  if (['free','free_user','guest'].includes(lc)) return false;
+  if (team_id && lc !== 'team_admin') {
+    const { data } = await supabase.from('deal_permissions').select('can_view_revenue').eq('user_id', userId).maybeSingle();
+    return Boolean((data as any)?.can_view_revenue);
+  }
+  return true;
+}
+
 function applyCurrency(n: number): number { return Math.max(0, Math.round(n)); }
 
 // GET /api/revenue/summary
@@ -17,6 +29,7 @@ router.get('/summary', requireAuth, async (req: Request, res: Response) => {
     const userId = (req as any).user?.id as string | undefined;
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
     const { role, team_id } = await getRoleTeam(userId);
+    if (!(await canViewRevenue(userId))) { res.status(403).json({ error: 'access_denied' }); return; }
     const isSuper = ['super_admin','superadmin'].includes(role.toLowerCase());
     const isTeamAdmin = role.toLowerCase() === 'team_admin';
 
@@ -70,6 +83,7 @@ router.get('/by-client', requireAuth, async (req: Request, res: Response) => {
     const userId = (req as any).user?.id as string | undefined;
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
     const { role, team_id } = await getRoleTeam(userId);
+    if (!(await canViewRevenue(userId))) { res.status(403).json({ error: 'access_denied' }); return; }
     const isSuper = ['super_admin','superadmin'].includes(role.toLowerCase());
     const isTeamAdmin = role.toLowerCase() === 'team_admin';
 
@@ -117,6 +131,7 @@ router.get('/projected-by-client', requireAuth, async (req: Request, res: Respon
     const userId = (req as any).user?.id as string | undefined;
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
     const { role, team_id } = await getRoleTeam(userId);
+    if (!(await canViewRevenue(userId))) { res.status(403).json({ error: 'access_denied' }); return; }
     const isSuper = ['super_admin','superadmin'].includes(role.toLowerCase());
     const isTeamAdmin = role.toLowerCase() === 'team_admin';
 
@@ -156,6 +171,7 @@ router.get('/monthly', requireAuth, async (req: Request, res: Response) => {
     const userId = (req as any).user?.id as string | undefined;
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
     const { role, team_id } = await getRoleTeam(userId);
+    if (!(await canViewRevenue(userId))) { res.status(403).json({ error: 'access_denied' }); return; }
     const isSuper = ['super_admin','superadmin'].includes(role.toLowerCase());
     const isTeamAdmin = role.toLowerCase() === 'team_admin';
 
