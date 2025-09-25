@@ -154,13 +154,14 @@ export default function Step2Pipeline({ onBack, onNext }) {
             }),
           });
 
+          const respClone = response.clone();
           if (!response.ok) {
             // Try to parse error as JSON, else show raw text
             try {
               data = await response.json();
               throw new Error(data.error || 'Failed to create pipeline');
             } catch (jsonErr) {
-              const text = await response.text();
+              const text = await respClone.text();
               console.error('Pipeline creation failed, non-JSON response:', text);
               throw new Error('Pipeline creation failed: ' + text);
             }
@@ -170,7 +171,7 @@ export default function Step2Pipeline({ onBack, onNext }) {
           try {
             data = await response.json();
           } catch (jsonErr) {
-            const text = await response.text();
+            const text = await respClone.text();
             console.error('Pipeline creation succeeded, but non-JSON response:', text);
             throw new Error('Pipeline creation succeeded, but response was not valid JSON.');
           }
