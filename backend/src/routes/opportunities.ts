@@ -213,31 +213,55 @@ router.post('/:id/collaborators', requireAuth, async (req: Request, res: Respons
       const allowedRoles = new Set(['View Only','Commenter','View + Comment']);
       const roleToUse = allowedRoles.has(String(role)) ? String(role) : 'View Only';
 
-      // Ensure single row by (job_id, email) without requiring a DB unique constraint
-      const { data: existing } = await supabase
-        .from('job_guest_collaborators')
+      // If email belongs to an existing user, add as full collaborator (job_collaborators)
+      const { data: existingUser } = await supabase
+        .from('users')
         .select('id')
-        .eq('job_id', id)
         .eq('email', normalizedEmail)
         .maybeSingle();
+
       let row: any = null;
-      if (existing?.id) {
-        const { data: upd, error: upErr } = await supabase
-          .from('job_guest_collaborators')
-          .update({ invited_by: inviterId, role: roleToUse })
-          .eq('id', existing.id)
-          .select('*')
+      if (existingUser?.id) {
+        // Ensure single row by (job_id, user_id)
+        const { data: existingCollab } = await supabase
+          .from('job_collaborators')
+          .select('user_id')
+          .eq('job_id', id)
+          .eq('user_id', existingUser.id)
           .maybeSingle();
-        if (upErr) return res.status(500).json({ error: upErr.message });
-        row = upd;
+        if (!existingCollab) {
+          const { error: insErr } = await supabase
+            .from('job_collaborators')
+            .insert({ job_id: id, user_id: existingUser.id, role: 'Editor' });
+          if (insErr) return res.status(500).json({ error: insErr.message });
+        }
+        row = { job_id: id, user_id: existingUser.id, is_member: true };
       } else {
-        const { data: ins, error: insErr } = await supabase
+        // Guest path: Ensure single row by (job_id, email) without requiring DB unique
+        const { data: existing } = await supabase
           .from('job_guest_collaborators')
-          .insert({ job_id: id, email: normalizedEmail, role: roleToUse, invited_by: inviterId, created_at: new Date().toISOString() })
-          .select('*')
+          .select('id')
+          .eq('job_id', id)
+          .eq('email', normalizedEmail)
           .maybeSingle();
-        if (insErr) return res.status(500).json({ error: insErr.message });
-        row = ins;
+        if (existing?.id) {
+          const { data: upd, error: upErr } = await supabase
+            .from('job_guest_collaborators')
+            .update({ invited_by: inviterId, role: roleToUse })
+            .eq('id', existing.id)
+            .select('*')
+            .maybeSingle();
+          if (upErr) return res.status(500).json({ error: upErr.message });
+          row = upd;
+        } else {
+          const { data: ins, error: insErr } = await supabase
+            .from('job_guest_collaborators')
+            .insert({ job_id: id, email: normalizedEmail, role: roleToUse, invited_by: inviterId, created_at: new Date().toISOString() })
+            .select('*')
+            .maybeSingle();
+          if (insErr) return res.status(500).json({ error: insErr.message });
+          row = ins;
+        }
       }
     // server-side log (not subject to client RLS)
     try {
