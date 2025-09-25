@@ -48,9 +48,21 @@ router.get('/', requireAuth as any, async (req: Request, res: Response) => {
       return res.json([]);
     }
 
-    const pipelineId = data.pipeline_id;
+    let pipelineId = data.pipeline_id as any;
     if (!pipelineId) {
-      console.warn('[pipelines] no pipeline_id on job', jobId);
+      console.warn('[pipelines] no pipeline_id on job', jobId, '- attempting fallback by job_id');
+      const { data: foundByJob } = await supabaseDb
+        .from('pipelines')
+        .select('id, name, department')
+        .eq('job_id', jobId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (foundByJob?.id) {
+        // opportunistically repair job.pipeline_id
+        try { await supabaseDb.from('job_requisitions').update({ pipeline_id: foundByJob.id }).eq('id', jobId); } catch {}
+        return res.json({ pipelines: [foundByJob] });
+      }
       return res.json([]);
     }
 
