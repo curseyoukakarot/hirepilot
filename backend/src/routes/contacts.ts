@@ -9,22 +9,40 @@ async function userRole(userId: string): Promise<string> {
   return String((data as any)?.role || '').toLowerCase();
 }
 
+async function getRoleTeam(userId: string): Promise<{ role: string; team_id: string | null }> {
+  const { data } = await supabase.from('users').select('role, team_id').eq('id', userId).maybeSingle();
+  return { role: String((data as any)?.role || ''), team_id: (data as any)?.team_id || null };
+}
+
+async function canViewContacts(userId: string): Promise<boolean> {
+  const { role, team_id } = await getRoleTeam(userId);
+  const lc = String(role || '').toLowerCase();
+  if (['super_admin','superadmin'].includes(lc)) return true;
+  // Block Free plan explicitly
+  try {
+    const { data: sub } = await supabase.from('subscriptions').select('plan_tier').eq('user_id', userId).maybeSingle();
+    const tier = String((sub as any)?.plan_tier || '').toLowerCase();
+    if (tier === 'free') return false;
+  } catch {}
+  // Team members (non-admin) require explicit permission only on Team plan
+  try {
+    const { data: sub2 } = await supabase.from('subscriptions').select('plan_tier').eq('user_id', userId).maybeSingle();
+    const tier2 = String((sub2 as any)?.plan_tier || '').toLowerCase();
+    if (tier2 === 'team' && team_id && lc !== 'team_admin') {
+      const { data: perms } = await supabase.from('deal_permissions').select('can_view_clients').eq('user_id', userId).maybeSingle();
+      return Boolean((perms as any)?.can_view_clients);
+    }
+  } catch {}
+  return true;
+}
+
 // GET /api/contacts
 router.get('/', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id as string | undefined;
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
-    const role = await userRole(userId);
-
-    // Check permissions
-    if (!['super_admin','superadmin'].includes(role)) {
-      const { data: perms } = await supabase
-        .from('deal_permissions')
-        .select('can_view_clients')
-        .eq('user_id', userId)
-        .maybeSingle();
-      if (!((perms as any)?.can_view_clients)) { res.status(403).json({ error: 'access_denied' }); return; }
-    }
+    const allowed = await canViewContacts(userId);
+    if (!allowed) { res.status(403).json({ error: 'access_denied' }); return; }
 
     const { data, error } = await supabase
       .from('contacts')
@@ -42,15 +60,8 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id as string | undefined;
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
-    const role = await userRole(userId);
-    if (!['super_admin','superadmin'].includes(role)) {
-      const { data: perms } = await supabase
-        .from('deal_permissions')
-        .select('can_view_clients')
-        .eq('user_id', userId)
-        .maybeSingle();
-      if (!((perms as any)?.can_view_clients)) { res.status(403).json({ error: 'access_denied' }); return; }
-    }
+    const allowed = await canViewContacts(userId);
+    if (!allowed) { res.status(403).json({ error: 'access_denied' }); return; }
 
     const { client_id, name, title, email, phone, owner_id } = req.body || {};
     if (!client_id) { res.status(400).json({ error: 'client_id required' }); return; }
@@ -71,15 +82,8 @@ router.patch('/:id', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id as string | undefined;
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
-    const role = await userRole(userId);
-    if (!['super_admin','superadmin'].includes(role)) {
-      const { data: perms } = await supabase
-        .from('deal_permissions')
-        .select('can_view_clients')
-        .eq('user_id', userId)
-        .maybeSingle();
-      if (!((perms as any)?.can_view_clients)) { res.status(403).json({ error: 'access_denied' }); return; }
-    }
+    const allowed = await canViewContacts(userId);
+    if (!allowed) { res.status(403).json({ error: 'access_denied' }); return; }
 
     const { id } = req.params;
     const { name, title, email, phone } = req.body || {};
@@ -110,15 +114,8 @@ router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id as string | undefined;
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
-    const role = await userRole(userId);
-    if (!['super_admin','superadmin'].includes(role)) {
-      const { data: perms } = await supabase
-        .from('deal_permissions')
-        .select('can_view_clients')
-        .eq('user_id', userId)
-        .maybeSingle();
-      if (!((perms as any)?.can_view_clients)) { res.status(403).json({ error: 'access_denied' }); return; }
-    }
+    const allowed = await canViewContacts(userId);
+    if (!allowed) { res.status(403).json({ error: 'access_denied' }); return; }
 
     const { id } = req.params;
     const { error } = await supabase.from('contacts').delete().eq('id', id);
