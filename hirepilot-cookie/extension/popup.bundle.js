@@ -7906,11 +7906,13 @@
     try {
       const response = await new Promise((resolve, reject) => {
         chrome.runtime.sendMessage({ action: "scrapeSalesNav" }, (response2) => {
-          if (chrome.runtime.lastError || (response2 && response2.error)) {
-            reject(new Error("Please open a Sales Navigator search page first"));
-          } else {
-            resolve(response2);
+          if (chrome.runtime.lastError) {
+            return reject(new Error(chrome.runtime.lastError.message || "Extension messaging failed"));
           }
+          if (response2 && response2.error) {
+            return reject(new Error(response2.error));
+          }
+          resolve(response2);
         });
       });
       console.log("Scrape response:", response);

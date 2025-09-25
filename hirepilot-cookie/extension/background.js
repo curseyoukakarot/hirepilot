@@ -120,17 +120,35 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   
   if (msg.action === 'scrapeSalesNav') {
     // Use injected scraper for Sales Navigator People search results
-    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
-      const tab = tabs[0];
-      if (!tab?.url?.includes('linkedin.com/sales')) return sendResponse({ error: 'Open a Sales Navigator search page' });
+    (async () => {
       try {
+        // Prefer the last known LinkedIn tab because the popup window may be the active window
+        let tab = null;
+        try {
+          const act = await chrome.tabs.query({ active: true, currentWindow: true });
+          if (act && act[0] && /linkedin\.com/i.test(act[0].url || '')) tab = act[0];
+        } catch {}
+        if (!tab) {
+          const stored = await chrome.storage.local.get('lastLinkedInTabId');
+          const lastId = stored?.lastLinkedInTabId || lastLinkedInTabId || null;
+          if (lastId) {
+            try { const t = await chrome.tabs.get(lastId); if (t?.url && /linkedin\.com/i.test(t.url)) tab = t; } catch {}
+          }
+        }
+        if (!tab) {
+          const liTabs = await chrome.tabs.query({ url: ['*://*.linkedin.com/*'] });
+          if (liTabs && liTabs.length) tab = liTabs[0];
+        }
+        if (!tab || !/linkedin\.com\/sales\//i.test(tab.url || '')) {
+          return sendResponse({ error: 'Open a Sales Navigator search page' });
+        }
         const resp = await scrapeSalesNavListInjected(tab.id);
-        sendResponse(resp);
+        return sendResponse(resp);
       } catch (e) {
-        sendResponse({ error: e.message || 'Failed to scrape Sales Nav' });
+        return sendResponse({ error: e.message || 'Failed to scrape Sales Nav' });
       }
-    });
-    return true;
+    })();
+    return true; // keep channel open
   }
   // scrapeLinkedInSearch disabled for now
 
