@@ -24,8 +24,12 @@ async function canViewClients(userId: string): Promise<boolean> {
   const roleLc = String(role || '').toLowerCase();
   if (roleLc === 'super_admin' || roleLc === 'superadmin') return true;
 
-  // Block Free/guest roles entirely
-  if (['free', 'free_user', 'guest'].includes(roleLc)) return false;
+  // Block Free plan regardless of role
+  try {
+    const { data: sub } = await supabase.from('subscriptions').select('plan_tier').eq('user_id', userId).maybeSingle();
+    const tier = String((sub as any)?.plan_tier || '').toLowerCase();
+    if (tier === 'free') return false;
+  } catch {}
 
   // If the user belongs to a Team and is not the Team Admin, defer to team permissions
   if (team_id && roleLc !== 'team_admin') {

@@ -13,7 +13,12 @@ async function canViewRevenue(userId: string): Promise<boolean> {
   const { role, team_id } = await getRoleTeam(userId);
   const lc = String(role || '').toLowerCase();
   if (['super_admin','superadmin'].includes(lc)) return true;
-  if (['free','free_user','guest'].includes(lc)) return false;
+  // Block Free plan regardless of role
+  try {
+    const { data: sub } = await supabase.from('subscriptions').select('plan_tier').eq('user_id', userId).maybeSingle();
+    const tier = String((sub as any)?.plan_tier || '').toLowerCase();
+    if (tier === 'free') return false;
+  } catch {}
   if (team_id && lc !== 'team_admin') {
     const { data } = await supabase.from('deal_permissions').select('can_view_revenue').eq('user_id', userId).maybeSingle();
     return Boolean((data as any)?.can_view_revenue);

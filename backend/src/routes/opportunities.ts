@@ -13,8 +13,12 @@ async function canViewOpportunities(userId: string): Promise<boolean> {
   const { role, team_id } = await getRoleTeam(userId);
   const lc = String(role || '').toLowerCase();
   if (['super_admin','superadmin'].includes(lc)) return true;
-  // Block Free/guest
-  if (['free','free_user','guest'].includes(lc)) return false;
+  // Block Free plan regardless of role
+  try {
+    const { data: sub } = await supabase.from('subscriptions').select('plan_tier').eq('user_id', userId).maybeSingle();
+    const tier = String((sub as any)?.plan_tier || '').toLowerCase();
+    if (tier === 'free') return false;
+  } catch {}
   // Team members (non-admin) use explicit permissions
   if (team_id && lc !== 'team_admin') {
     const { data } = await supabase.from('deal_permissions').select('can_view_opportunities').eq('user_id', userId).maybeSingle();

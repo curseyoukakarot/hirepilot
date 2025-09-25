@@ -4,6 +4,27 @@ import { supabase } from '../lib/supabase';
 
 const router = express.Router();
 
+async function getPlanTier(userId: string): Promise<string> {
+  try {
+    const { data: sub } = await supabase
+      .from('subscriptions')
+      .select('plan_tier')
+      .eq('user_id', userId)
+      .maybeSingle();
+    const tier = String((sub as any)?.plan_tier || '').toLowerCase();
+    if (tier) return tier;
+  } catch {}
+  try {
+    const { data: usr } = await supabase
+      .from('users')
+      .select('plan')
+      .eq('id', userId)
+      .maybeSingle();
+    return String((usr as any)?.plan || '').toLowerCase();
+  } catch {}
+  return '';
+}
+
 router.get('/deal-access/:userId', requireAuth, async (req: Request, res: Response) => {
   try {
     const callerId = (req as any).user?.id as string | undefined;
@@ -28,6 +49,7 @@ router.get('/deal-access/:userId', requireAuth, async (req: Request, res: Respon
       .maybeSingle();
     const targetRole = String((target as any)?.role || '').toLowerCase();
     const targetTeamId = (target as any)?.team_id || null;
+    const planTier = await getPlanTier(userId);
 
     // Super admin => full access
     if (['super_admin','superadmin'].includes(targetRole)) {
@@ -41,8 +63,8 @@ router.get('/deal-access/:userId', requireAuth, async (req: Request, res: Respon
       return;
     }
 
-    // Free user => no access
-    if (['free','free_user','guest'].includes(targetRole)) {
+    // Free plan => no access (regardless of users.role)
+    if (['free','free_user','guest'].includes(targetRole) || planTier === 'free') {
       res.json({ user_id: userId, can_view_clients: false, can_view_opportunities: false, can_view_billing: false, can_view_revenue: false, reason: 'free_plan' });
       return;
     }
@@ -65,7 +87,7 @@ router.get('/deal-access/:userId', requireAuth, async (req: Request, res: Respon
       return;
     }
 
-    // All other paid roles (member/starter, admin/pro, team_admin, recruitpro) => full access
+    // All other paid roles/plans (starter/member, pro/admin, team/team_admin, recruitpro, etc.) => full access
     res.json({
       user_id: userId,
       can_view_clients: true,
