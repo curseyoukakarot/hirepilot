@@ -274,8 +274,8 @@ export default function SettingsTeamMembers() {
   const canSeeCollaborators = (effectiveRole === 'super_admin') || (planKey !== 'free');
 
   useEffect(() => {
-    if (userRole === 'super_admin') setShowCollaborators(true);
-  }, [userRole]);
+    if (effectiveRole === 'super_admin') setShowCollaborators(true);
+  }, [effectiveRole]);
 
   const loadCollaborators = async () => {
     setCollabLoading(true);
