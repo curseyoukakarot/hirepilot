@@ -146,6 +146,14 @@ export default function SettingsTeamMembers() {
       // Jobs for collaborator assignment
       const { data: jobs } = await supabase.from('job_requisitions').select('id,title').eq('user_id', user.id);
       setJobOptions(jobs || []);
+      // Preload collaborators so they appear without toggling
+      try {
+        const { data: collabRows } = await supabase
+          .from('job_guest_collaborators')
+          .select('id,email,role,created_at,job_id, job_requisitions(title)')
+          .order('created_at', { ascending: false });
+        setCollaborators(collabRows || []);
+      } catch {}
     } catch (error) {
       console.error('Error fetching team data:', error);
       toast.error('Failed to load team members');
@@ -866,8 +874,17 @@ export default function SettingsTeamMembers() {
               } else {
                 const list = (jobs && jobs.length ? jobs : [null]);
                 for (const jid of list) {
-                  await supabase.from('job_guest_collaborators').insert({ email, role, job_id: jid || null, invited_by: currentUser?.id || null });
-                  await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/send-guest-invite`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, job_id: jid, role }) });
+                  if (jid) {
+                    // use backend route to ensure status and constraints are consistent
+                    await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities/${jid}/guest-invite`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ email })
+                    });
+                  } else {
+                    await supabase.from('job_guest_collaborators').insert({ email, role, job_id: null, invited_by: currentUser?.id || null, status: 'pending' });
+                    await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/send-guest-invite`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, job_id: null, role }) });
+                  }
                 }
               }
               setCollabModalOpen(false); setCollabEdit(null);
