@@ -17,7 +17,11 @@ async function canViewRevenue(userId: string): Promise<boolean> {
   try {
     const { data: sub } = await supabase.from('subscriptions').select('plan_tier').eq('user_id', userId).maybeSingle();
     const tier = String((sub as any)?.plan_tier || '').toLowerCase();
-    if (tier === 'free') return false;
+    if (tier === 'free' || !tier) {
+      const { data: usr } = await supabase.from('users').select('plan').eq('id', userId).maybeSingle();
+      const plan = String((usr as any)?.plan || 'free').toLowerCase();
+      if (plan === 'free') return false;
+    }
   } catch {}
   if (team_id && lc !== 'team_admin') {
     const { data } = await supabase.from('deal_permissions').select('can_view_revenue').eq('user_id', userId).maybeSingle();

@@ -20,9 +20,11 @@ async function getPlanTier(userId: string): Promise<string> {
       .select('plan')
       .eq('id', userId)
       .maybeSingle();
-    return String((usr as any)?.plan || '').toLowerCase();
+    const plan = String((usr as any)?.plan || '').toLowerCase();
+    if (plan) return plan;
   } catch {}
-  return '';
+  // Default to free if no explicit plan/subscription is found
+  return 'free';
 }
 
 router.get('/deal-access/:userId', requireAuth, async (req: Request, res: Response) => {

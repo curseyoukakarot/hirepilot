@@ -28,7 +28,12 @@ async function canViewClients(userId: string): Promise<boolean> {
   try {
     const { data: sub } = await supabase.from('subscriptions').select('plan_tier').eq('user_id', userId).maybeSingle();
     const tier = String((sub as any)?.plan_tier || '').toLowerCase();
-    if (tier === 'free') return false;
+    if (tier === 'free' || !tier) {
+      // Fallback to users.plan if subscription missing
+      const { data: usr } = await supabase.from('users').select('plan').eq('id', userId).maybeSingle();
+      const plan = String((usr as any)?.plan || 'free').toLowerCase();
+      if (plan === 'free') return false;
+    }
   } catch {}
 
   // If the user belongs to a Team and is not the Team Admin, defer to team permissions
