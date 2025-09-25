@@ -98,10 +98,23 @@ export default function Step2Pipeline({ onBack, onNext }) {
         const selected = existingPipelines.find(p => p.id === selectedPipeline);
         if (!selected) throw new Error('Selected pipeline not found');
         setWizard(prev => ({ ...prev, pipeline: selected }));
-        // If campaign has a job_id, attach pipeline to job immediately
-        if (wizard?.campaign?.job_id) {
+        // Ensure a job exists; create if missing
+        let jobId = wizard?.campaign?.job_id;
+        if (!jobId) {
+          const createRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/jobs/create`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+            body: JSON.stringify({ title: wizard?.campaign?.title || pipelineName || 'Campaign Job' })
+          });
+          const created = await createRes.json();
+          if (!createRes.ok) throw new Error(created?.error || 'Failed to create job');
+          jobId = created?.jobId;
+          if (jobId) setWizard(prev => ({ ...prev, campaign: { ...(prev.campaign || {}), job_id: jobId } }));
+        }
+        // Attach pipeline to job
+        if (jobId) {
           try {
-            await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/jobs/${wizard.campaign.job_id}/pipeline`, {
+            await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/jobs/${jobId}/pipeline`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
               body: JSON.stringify({ pipeline_id: selected.id })
@@ -112,6 +125,19 @@ export default function Step2Pipeline({ onBack, onNext }) {
         // Create new pipeline
         let data;
         try {
+          // Ensure a job exists; create if missing
+          let jobId = wizard?.campaign?.job_id || null;
+          if (!jobId) {
+            const createRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/jobs/create`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+              body: JSON.stringify({ title: wizard?.campaign?.title || pipelineName || 'Campaign Job' })
+            });
+            const created = await createRes.json();
+            if (!createRes.ok) throw new Error(created?.error || 'Failed to create job');
+            jobId = created?.jobId;
+            if (jobId) setWizard(prev => ({ ...prev, campaign: { ...(prev.campaign || {}), job_id: jobId } }));
+          }
           const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/pipelines`, {
             method: 'POST',
             headers: {
@@ -124,7 +150,7 @@ export default function Step2Pipeline({ onBack, onNext }) {
               name: pipelineName,
               department,
               stages,
-              job_id: wizard?.campaign?.job_id || null
+              job_id: jobId
             }),
           });
 
