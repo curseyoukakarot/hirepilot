@@ -71,8 +71,8 @@ router.get('/deal-access/:userId', requireAuth, async (req: Request, res: Respon
       return;
     }
 
-    // Team members controlled by Team Admin permissions
-    if (targetTeamId && !['team_admin'].includes(targetRole)) {
+    // Team members controlled by Team Admin permissions (only for Team plan)
+    if (planTier === 'team' && targetTeamId && !['team_admin'].includes(targetRole)) {
       const { data: perms } = await supabase
         .from('deal_permissions')
         .select('*')

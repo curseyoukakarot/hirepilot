@@ -23,11 +23,15 @@ async function canViewOpportunities(userId: string): Promise<boolean> {
       if (plan === 'free') return false;
     }
   } catch {}
-  // Team members (non-admin) use explicit permissions
-  if (team_id && lc !== 'team_admin') {
+  // Team members (non-admin) use explicit permissions only for Team plan
+  try {
+    const { data: sub2 } = await supabase.from('subscriptions').select('plan_tier').eq('user_id', userId).maybeSingle();
+    const tier2 = String((sub2 as any)?.plan_tier || '').toLowerCase();
+    if (tier2 === 'team' && team_id && lc !== 'team_admin') {
     const { data } = await supabase.from('deal_permissions').select('can_view_opportunities').eq('user_id', userId).maybeSingle();
     return Boolean((data as any)?.can_view_opportunities);
-  }
+    }
+  } catch {}
   // Everyone else (paid roles, including team_admin, recruitpro, member, admin)
   return true;
 }

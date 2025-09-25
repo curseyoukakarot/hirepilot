@@ -36,15 +36,19 @@ async function canViewClients(userId: string): Promise<boolean> {
     }
   } catch {}
 
-  // If the user belongs to a Team and is not the Team Admin, defer to team permissions
-  if (team_id && roleLc !== 'team_admin') {
+  // If plan is Team and the user belongs to a Team and is not the Team Admin, defer to team permissions
+  try {
+    const { data: sub2 } = await supabase.from('subscriptions').select('plan_tier').eq('user_id', userId).maybeSingle();
+    const tier2 = String((sub2 as any)?.plan_tier || '').toLowerCase();
+    if (tier2 === 'team' && team_id && roleLc !== 'team_admin') {
     const { data } = await supabase
       .from('deal_permissions')
       .select('can_view_clients')
       .eq('user_id', userId)
       .maybeSingle();
     return Boolean((data as any)?.can_view_clients);
-  }
+    }
+  } catch {}
 
   // All other paid roles (member/starter, admin/pro, team_admin, recruitpro) have access by default
   return true;

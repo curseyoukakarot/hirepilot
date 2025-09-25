@@ -23,10 +23,14 @@ async function canViewRevenue(userId: string): Promise<boolean> {
       if (plan === 'free') return false;
     }
   } catch {}
-  if (team_id && lc !== 'team_admin') {
-    const { data } = await supabase.from('deal_permissions').select('can_view_revenue').eq('user_id', userId).maybeSingle();
-    return Boolean((data as any)?.can_view_revenue);
-  }
+  try {
+    const { data: sub2 } = await supabase.from('subscriptions').select('plan_tier').eq('user_id', userId).maybeSingle();
+    const tier2 = String((sub2 as any)?.plan_tier || '').toLowerCase();
+    if (tier2 === 'team' && team_id && lc !== 'team_admin') {
+      const { data } = await supabase.from('deal_permissions').select('can_view_revenue').eq('user_id', userId).maybeSingle();
+      return Boolean((data as any)?.can_view_revenue);
+    }
+  } catch {}
   return true;
 }
 
