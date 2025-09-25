@@ -527,36 +527,105 @@ async function scrapeSalesNavListInjected(tabId) {
     func: async () => {
       // Sales Navigator People Search list scraping
       const wait = (ms)=> new Promise(r=>setTimeout(r, ms));
-      for (let i=0;i<8;i++){ window.scrollBy(0, window.innerHeight/2); await wait(800); }
-      const containers = [
-        'li.search-results__result-item',
+      const debug = (...args) => { try { console.debug('[HP SN]', ...args); } catch {} };
+
+      // Wait for any recognizable results container to appear
+      const containerSelectors = [
+        'ol.search-results__result-list > li',
         'div.search-results__result-item',
+        'li.search-results__result-item',
         'li.artdeco-list__item',
-        'div.entity-result__item'
+        'div.entity-result__item',
+        'div.search-results__content ol > li',
+        '[data-anonymize="entity-result"]',
+        'div.result-lockup',
       ];
+
+      const waitForContainers = async (timeout = 15000) => new Promise((resolve) => {
+        const start = Date.now();
+        const found = () => containerSelectors.some(sel => document.querySelector(sel));
+        if (found()) return resolve(true);
+        const obs = new MutationObserver(() => { if (found()) { obs.disconnect(); resolve(true); } });
+        obs.observe(document.body, { childList: true, subtree: true });
+        setTimeout(() => { obs.disconnect(); resolve(false); }, timeout + 50);
+      });
+      await waitForContainers();
+
+      // Scroll to load more results
+      let lastH = 0; let stable = 0;
+      for (let i=0;i<18 && stable < 3;i++) {
+        window.scrollBy(0, Math.max(400, window.innerHeight/1.5));
+        await wait(700);
+        const h = document.documentElement.scrollHeight;
+        if (h === lastH) stable++; else { stable = 0; lastH = h; }
+      }
+
+      // Collect items with broader selectors
       let items = [];
-      for (const sel of containers) { const n = document.querySelectorAll(sel); if (n.length) { items = n; break; } }
+      const counts = {};
+      for (const sel of containerSelectors) {
+        const n = document.querySelectorAll(sel);
+        counts[sel] = n.length;
+        if (n.length && items.length === 0) items = n;
+      }
+      debug('container counts', counts);
+
       const leads = [];
       const toText = (el)=> (el && el.textContent ? el.textContent.trim() : '');
-      const abs = (href)=>{ if(!href) return ''; const c=href.split('?')[0]; return /^https?:\/\//.test(c)?c:(c.startsWith('/')?`https://www.linkedin.com${c}`:`https://www.linkedin.com/${c}`); };
+      const abs = (href)=>{ if(!href) return ''; const c=(href.split('#')[0]||'').split('?')[0]; return /^https?:\/\//.test(c)?c:(c.startsWith('/')?`https://www.linkedin.com${c}`:`https://www.linkedin.com/${c}`); };
+
+      const linkSelectors = [
+        'a[data-anonymize="person-name"]',
+        'a.result-lockup__name',
+        'a[href*="/in/"]',
+        'a[href*="/sales/people/"]',
+      ];
+      const nameSelectors = [
+        '[data-anonymize="person-name"]',
+        '.result-lockup__name',
+        '.artdeco-entity-lockup__title',
+        'span[aria-hidden="true"]',
+      ];
+      const titleSelectors = [
+        '[data-anonymize="headline"]',
+        '.result-lockup__highlight',
+        '.artdeco-entity-lockup__subtitle',
+      ];
+      const companySelectors = [
+        '[data-anonymize="company-name"]',
+        '.result-lockup__misc',
+      ];
+      const pick = (root, sels) => {
+        for (const s of sels) { const el = root.querySelector(s); const t = toText(el); if (t) return t; }
+        return '';
+      };
+      const pickHref = (root, sels) => {
+        for (const s of sels) { const el = root.querySelector(s); const href = el && (el.getAttribute('href') || el.href); if (href) return abs(href); }
+        return '';
+      };
+
       items.forEach((el)=>{
-        const linkEl = el.querySelector('a[data-anonymize="person-name"], a.result-lockup__name, a[href*="/in/"]');
-        const nameEl = el.querySelector('[data-anonymize="person-name"], .result-lockup__name, .artdeco-entity-lockup__title');
-        const titleEl = el.querySelector('[data-anonymize="headline"], .result-lockup__highlight, .artdeco-entity-lockup__subtitle');
-        const companyEl = el.querySelector('[data-anonymize="company-name"], .result-lockup__misc');
-        const avatarEl = el.querySelector('img, .presence-entity__image');
-        const profileUrl = abs(linkEl && (linkEl.getAttribute('href') || linkEl.href));
-        const name = toText(nameEl);
-        const title = toText(titleEl);
-        let company = toText(companyEl);
+        const profileUrl = pickHref(el, linkSelectors);
+        const name = pick(el, nameSelectors);
+        const title = pick(el, titleSelectors);
+        let company = pick(el, companySelectors);
         if (!company && /\bat\b/i.test(title)) { const m=title.match(/\bat\s+([^|•,]+)\b/i); if (m) company = m[1].trim(); }
-        const avatarUrl = avatarEl && (avatarEl.getAttribute && avatarEl.getAttribute('src')) ? avatarEl.getAttribute('src') : (avatarEl && avatarEl.src) || '';
-        if (profileUrl && name) leads.push({ name, title, company, profileUrl, avatarUrl });
+        if (profileUrl && name) leads.push({ name, title, company, profileUrl, avatarUrl: '' });
       });
+
+      debug('extracted leads', leads.length);
+      if (!leads.length) {
+        // Return structured debug so the popup can display details
+        return { __hp_debug__: { counts } };
+      }
       return leads;
     }
   });
-  if (!data.length) return { error: 'No Sales Nav leads found on this page' };
+  if (!data.length) {
+    // If we got structured debug, surface it for easier support
+    const dbg = (data && data.__hp_debug__) ? ` | debug: ${JSON.stringify(data.__hp_debug__)}` : '';
+    return { error: 'No Sales Nav leads found on this page' + dbg };
+  }
   const result = await handleBulkAddLeads(data);
   return { leads: data, result };
 }
