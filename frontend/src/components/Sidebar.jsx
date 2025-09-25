@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { FaEnvelope, FaChartBar, FaCog, FaSignOutAlt, FaCreditCard, FaShieldAlt, FaRobot, FaExclamationTriangle, FaCookie, FaSlidersH, FaPlug, FaBell, FaUsers } from 'react-icons/fa';
 import { supabase } from '../lib/supabaseClient';
+import { usePlan } from '../context/PlanContext';
 
 const baseLinks = [
   { to: '/messages', label: 'Messages', icon: <FaEnvelope /> },
@@ -11,9 +12,9 @@ const baseLinks = [
 
 export default function Sidebar() {
   const navigate = useNavigate();
+  const { isFree } = usePlan();
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
-  const [isFree, setIsFree] = useState(false);
   const [rexEnabled, setRexEnabled] = useState(false);
   const [isGuest, setIsGuest] = useState(false);
 
@@ -54,7 +55,6 @@ export default function Sidebar() {
       const roleLc = (role || '').toLowerCase();
       const premiumRoles = ['recruitpro','teamadmin','team_admin','superadmin','super_admin','admin','member'];
       setIsPremium(premiumRoles.includes(roleLc) || rexEnabled);
-      setIsFree(roleLc === 'free');
       setIsSuperAdmin(role === 'super_admin');
       setRexEnabled(rexEnabled);
       setIsGuest(guestFlag);

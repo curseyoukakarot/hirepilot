@@ -36,7 +36,9 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
       // Preload role from auth metadata immediately to avoid gating flicker
       try {
         const { data: authUser } = await supabase.auth.getUser();
-        const preloadRole = (authUser?.user?.user_metadata as any)?.role || null;
+        const meta = authUser?.user?.user_metadata as any;
+        const appMeta = (authUser?.user as any)?.app_metadata as any;
+        const preloadRole = meta?.role || meta?.account_type || appMeta?.role || null;
         if (preloadRole && !info.role) {
           setInfo(prev => ({ ...prev, role: preloadRole }));
         }
@@ -61,7 +63,9 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
       if (!role) {
         try {
           const { data: authUser } = await supabase.auth.getUser();
-          role = (authUser?.user?.user_metadata as any)?.role || null;
+          const meta = authUser?.user?.user_metadata as any;
+          const appMeta = (authUser?.user as any)?.app_metadata as any;
+          role = meta?.role || meta?.account_type || appMeta?.role || null;
         } catch {}
       }
       // Fallbacks: if plan is missing, infer from role and credits
@@ -81,7 +85,9 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
         ? creditsJson.total_credits
         : (typeof data?.monthly_credits === 'number' ? data.monthly_credits : null);
 
-      const resolvedPlan = planServer || ((String(role||'').toLowerCase()==='free' || (remainingCredits===50)) ? 'free' : null);
+      const roleLc = String(role || '').toLowerCase();
+      // Treat guest as free for gating purposes unless a paid plan is explicitly set
+      const resolvedPlan = planServer || ((roleLc==='free' || roleLc==='guest' || (remainingCredits===50)) ? 'free' : null);
 
       setInfo({
         plan: resolvedPlan,
@@ -109,7 +115,7 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
       const normalizedRole = (info.role || '').toLowerCase().replace(/\s|-/g, '_');
       const isSuperAdmin = ['super_admin', 'superadmin'].includes(normalizedRole);
       const planLc = String(info.plan || '').toLowerCase();
-      return (planLc === 'free' || normalizedRole === 'free') && !isSuperAdmin;
+      return (planLc === 'free' || normalizedRole === 'free' || normalizedRole === 'guest') && !isSuperAdmin;
     })(),
     remainingCredits: info.remaining_credits,
     monthlyCredits: info.monthly_credits,

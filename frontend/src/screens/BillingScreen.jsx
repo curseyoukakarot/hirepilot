@@ -288,7 +288,8 @@ export default function BillingScreen() {
   if (error) return <div className="min-h-screen bg-gray-50 flex items-center justify-center text-red-600">{error}</div>;
 
   const { subscription, credits, recentUsage, recentInvoices, nextInvoice, seatUsage } = billingOverview;
-  const currentPlan = subscription?.planTier ? PRICING_CONFIG[subscription.planTier] : (isFree ? { name: 'Free', credits: 50 } : null);
+  // If subscription not present or planTier empty, show Free when isFree
+  const currentPlan = (subscription?.planTier ? PRICING_CONFIG[subscription.planTier] : null) || (isFree ? { name: 'Free', credits: 50 } : null);
   
   // Calculate credit usage percentage for animation
   const creditUsagePercentage = creditInfo.totalCredits > 0 
