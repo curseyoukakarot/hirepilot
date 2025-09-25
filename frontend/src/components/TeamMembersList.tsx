@@ -28,32 +28,26 @@ export default function TeamMembersList({ currentUserRole }: { currentUserRole: 
     const fetchMembers = async () => {
       try {
         setLoading(true);
-        
         // Get current user
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
-
         setCurrentUser(user);
-
-        // Get user's team_id
+        // Get user's team_id (tolerate missing row)
         const { data: userData } = await supabase
           .from('users')
           .select('team_id')
           .eq('id', user.id)
-          .single();
-
+          .maybeSingle();
         if (!userData?.team_id) {
           setMembers([]);
           return;
         }
-
         // Get all team members
         const { data, error } = await supabase
           .from('users')
           .select('id, email, role, first_name, last_name')
           .eq('team_id', userData.team_id)
           .order('role', { ascending: false });
-
         if (error) throw error;
         setMembers(data || []);
       } catch (error) {
@@ -63,7 +57,6 @@ export default function TeamMembersList({ currentUserRole }: { currentUserRole: 
         setLoading(false);
       }
     };
-
     fetchMembers();
   }, []);
 
@@ -74,16 +67,13 @@ export default function TeamMembersList({ currentUserRole }: { currentUserRole: 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, role: newRole }),
       });
-
       if (!res.ok) {
         const error = await res.json();
         throw new Error(error.error || 'Failed to update role');
       }
-
       setMembers((prev) =>
         prev.map((m) => (m.id === userId ? { ...m, role: newRole } : m))
       );
-      
       toast.success('Role updated successfully');
     } catch (error) {
       console.error('Error updating role:', error);

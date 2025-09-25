@@ -409,7 +409,7 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
       .from('team_invites')
       .select('*')
       .eq('id', inviteId)
-      .single();
+      .maybeSingle();
 
     if (inviteError || !invite) {
       console.error('Error fetching invite:', inviteError);
@@ -422,7 +422,7 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
       .from('users')
       .select('*')
       .eq('id', currentUser.id)
-      .single();
+      .maybeSingle();
 
     if (inviterError) {
       console.error('Error fetching inviter details:', inviterError);
@@ -631,7 +631,7 @@ router.delete('/invite/:id', async (req: Request, res: Response) => {
       .from('team_invites')
       .select('*')
       .eq('id', id)
-      .single();
+      .maybeSingle();
 
     if (inviteError) {
       console.error('Error fetching invite:', inviteError);

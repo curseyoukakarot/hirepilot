@@ -7,42 +7,40 @@ export default function TeamSettings() {
   const [currentUserRole, setCurrentUserRole] = useState(null);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
+  const [planTier, setPlanTier] = useState('');
 
   useEffect(() => {
     const fetchUserRole = async () => {
       try {
         setLoading(true);
-        
         // Get current user
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
           setUser(null);
           return;
         }
-
         setUser(user);
-
-        // Get user's role
-        const { data: userData, error } = await supabase
+        // Get user's role (avoid 406 when no row)
+        const { data: userData } = await supabase
           .from('users')
           .select('role')
           .eq('id', user.id)
-          .single();
-
-        if (error) {
-          console.error('Error fetching user role:', error);
-          setCurrentUserRole('member'); // Default fallback
-        } else {
-          setCurrentUserRole(userData?.role || 'member');
-        }
+          .maybeSingle();
+        setCurrentUserRole(userData?.role || 'member');
+        // Get plan tier for gating
+        const { data: sub } = await supabase
+          .from('subscriptions')
+          .select('plan_tier')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        setPlanTier(String(sub?.plan_tier || ''));
       } catch (error) {
         console.error('Error fetching user data:', error);
-        setCurrentUserRole('member'); // Default fallback
+        setCurrentUserRole('member');
       } finally {
         setLoading(false);
       }
     };
-
     fetchUserRole();
   }, []);
 
@@ -85,6 +83,12 @@ export default function TeamSettings() {
                 {currentUserRole?.replace('_', ' ').toUpperCase()}
               </span>
             </div>
+            {/* Collaborators CTA visible for super_admin or any non-free plan */}
+            {((String(currentUserRole||'').toLowerCase()==='super_admin') || (String(planTier||'').toLowerCase()!=='free')) && (
+              <a href="/settings/team?collaborators=1" className="ml-auto inline-flex items-center px-4 py-2 rounded-md text-sm bg-purple-600 text-white hover:bg-purple-700">
+                👤 Collaborators
+              </a>
+            )}
           </div>
         </div>
       </header>
@@ -94,7 +98,6 @@ export default function TeamSettings() {
         <div className="max-w-4xl mx-auto space-y-6">
           {/* Team Members */}
           <TeamMembersList currentUserRole={currentUserRole} />
-          
           {/* Team Sharing Settings */}
           <TeamSharingSettings currentUserRole={currentUserRole} />
         </div>
