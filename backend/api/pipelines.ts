@@ -104,15 +104,17 @@ router.get('/:id/stages', requireAuth as any, async (req: Request, res: Response
       job = retry.data as any;
     }
     if (!job || String(job.pipeline_id) !== String(pipelineId)) {
-      console.warn('[pipelines:stages] job-pipeline mismatch', { jobId, pipelineId, job });
-      return res.json({ stages: [], candidates: {} });
+      console.warn('[pipelines:stages] job-pipeline mismatch; proceeding to fetch stages anyway', { jobId, pipelineId, job });
+      // Do not return early; some flows link later. We'll still return stages for visibility.
     }
 
+    // Fetch stages; tolerate empty result without error
     const { data: stages, error: stageErr } = await supabaseDb
       .from('pipeline_stages')
       .select('*')
       .eq('pipeline_id', pipelineId)
       .order('position', { ascending: true });
+    if (stageErr) console.error('[pipelines:stages] stage fetch error', stageErr);
     if (stageErr) throw stageErr;
 
     const { data: candData, error: candErr } = await supabaseDb

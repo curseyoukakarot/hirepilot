@@ -124,13 +124,15 @@ export default async function handler(req: Request, res: Response) {
     const pipelineId = job.pipeline_id;
     console.log(`Creating stages for pipeline ID: ${pipelineId}`);
     
-    const stageRows = stages
-      .filter((title: string) => title && title.trim())
+    const defaults = ['Sourced','Contacted','Interviewed','Offered','Hired'];
+    const source = Array.isArray(stages) && stages.length > 0 ? stages : defaults;
+    const stageRows = source
+      .filter((title: string) => title && String(title).trim())
       .map((title: string, i: number) => ({
         pipeline_id: pipelineId,
-        title: title.trim(),
+        title: String(title).trim(),
         position: i + 1,
-        color: '#3B82F6', // Default blue color
+        color: '#3B82F6',
       }));
 
     console.log(`Inserting ${stageRows.length} stages:`, stageRows.map(s => s.title));
