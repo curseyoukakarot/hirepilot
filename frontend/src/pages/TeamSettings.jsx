@@ -26,7 +26,8 @@ export default function TeamSettings() {
           .select('role')
           .eq('id', user.id)
           .maybeSingle();
-        setCurrentUserRole(userData?.role || 'member');
+        const role = String(userData?.role || user.user_metadata?.role || '').toLowerCase();
+        setCurrentUserRole(role || 'member');
         // Get plan tier for gating
         const { data: sub } = await supabase
           .from('subscriptions')
@@ -71,6 +72,9 @@ export default function TeamSettings() {
     );
   }
 
+  const isSuper = String(currentUserRole||'').toLowerCase()==='super_admin';
+  const nonFree = String(planTier||'').toLowerCase()!=='free';
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -80,11 +84,11 @@ export default function TeamSettings() {
             <div className="flex items-center space-x-4">
               <h1 className="text-2xl font-semibold text-gray-900">Team Settings</h1>
               <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                {currentUserRole?.replace('_', ' ').toUpperCase()}
+                {String(currentUserRole||'member').replace('_', ' ').toUpperCase()}
               </span>
             </div>
             {/* Collaborators CTA visible for super_admin or any non-free plan */}
-            {((String(currentUserRole||'').toLowerCase()==='super_admin') || (String(planTier||'').toLowerCase()!=='free')) && (
+            {(isSuper || nonFree) && (
               <a href="/settings/team?collaborators=1" className="ml-auto inline-flex items-center px-4 py-2 rounded-md text-sm bg-purple-600 text-white hover:bg-purple-700">
                 👤 Collaborators
               </a>
@@ -97,9 +101,9 @@ export default function TeamSettings() {
       <div className="container mx-auto px-6 py-8">
         <div className="max-w-4xl mx-auto space-y-6">
           {/* Team Members */}
-          <TeamMembersList currentUserRole={currentUserRole} />
+          <TeamMembersList currentUserRole={String(currentUserRole||'member')} />
           {/* Team Sharing Settings */}
-          <TeamSharingSettings currentUserRole={currentUserRole} />
+          <TeamSharingSettings currentUserRole={String(currentUserRole||'member')} />
         </div>
       </div>
     </div>

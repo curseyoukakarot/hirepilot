@@ -18,6 +18,7 @@ export default function SettingsTeamMembers() {
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
   const [planTier, setPlanTier] = useState(null);
+  const [dbRole, setDbRole] = useState('');
   const [requireCheckout, setRequireCheckout] = useState(false);
   const [showCollaborators, setShowCollaborators] = useState(false);
   const [collaborators, setCollaborators] = useState([]);
@@ -112,9 +113,10 @@ export default function SettingsTeamMembers() {
         .from('users')
         .select('*')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
       if (profileError) throw profileError;
+      setDbRole(currentUserProfile?.role || '');
 
       // Fetch all team members if user has a team
       let users = [currentUserProfile];
@@ -260,14 +262,16 @@ export default function SettingsTeamMembers() {
   };
 
   // derive UI gating by role (Starter=member; Pro=admin; Team=team_admin; super_admin)
-  const userRole = (currentUser?.user_metadata?.role || currentUser?.user_metadata?.account_type || '').toLowerCase();
-  const roleAllowsInvite = ['admin', 'team_admin', 'super_admin'].includes(userRole);
+  const userRoleMeta = (currentUser?.user_metadata?.role || currentUser?.user_metadata?.account_type || '').toLowerCase();
+  const userRoleDb = String(dbRole || '').toLowerCase();
+  const effectiveRole = userRoleDb || userRoleMeta;
+  const roleAllowsInvite = ['admin', 'team_admin', 'super_admin'].includes(effectiveRole);
   const allowedPlans = ['pro','team','recruitpro'];
   const allowedRoles = ['admin','team_admin','super_admin'];
   const planKey = (planTier || '').toLowerCase();
   const canInvite = roleAllowsInvite && planKey !== 'starter';
-  // Show collaborators for all team roles except free users
-  const canSeeCollaborators = (userRole === 'super_admin') || (planKey !== 'free' && ['admin', 'team_admin', 'member'].includes(userRole));
+  // Show collaborators for super_admin or any non-free plan
+  const canSeeCollaborators = (effectiveRole === 'super_admin') || (planKey !== 'free');
 
   useEffect(() => {
     if (userRole === 'super_admin') setShowCollaborators(true);
@@ -329,7 +333,7 @@ export default function SettingsTeamMembers() {
         .from('users')
         .select('team_id')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
       if (!userData?.team_id) return;
 
@@ -338,7 +342,7 @@ export default function SettingsTeamMembers() {
         .from('team_settings')
         .select('share_leads, share_candidates')
         .eq('team_id', userData.team_id)
-        .single();
+        .maybeSingle();
 
       if (settings) {
         setTeamSettings({
