@@ -575,25 +575,35 @@ async function scrapeSalesNavListInjected(tabId) {
       const abs = (href)=>{ if(!href) return ''; const c=(href.split('#')[0]||'').split('?')[0]; return /^https?:\/\//.test(c)?c:(c.startsWith('/')?`https://www.linkedin.com${c}`:`https://www.linkedin.com/${c}`); };
 
       const linkSelectors = [
+        'a.app-aware-link[href*="/sales/people/"]',
+        'a[href*="/sales/people/"]',
+        'a[href*="/sales/lead/"]',
         'a[data-anonymize="person-name"]',
         'a.result-lockup__name',
         'a[href*="/in/"]',
-        'a[href*="/sales/people/"]',
+        'a.app-aware-link[href*="/in/"]',
+        'a.app-aware-link'
       ];
       const nameSelectors = [
         '[data-anonymize="person-name"]',
         '.result-lockup__name',
         '.artdeco-entity-lockup__title',
+        'a.app-aware-link span[aria-hidden="true"]',
+        'a.app-aware-link strong',
         'span[aria-hidden="true"]',
       ];
       const titleSelectors = [
         '[data-anonymize="headline"]',
         '.result-lockup__highlight',
         '.artdeco-entity-lockup__subtitle',
+        '.result-lockup__subtitle',
+        'span.t-12, div.t-12'
       ];
       const companySelectors = [
         '[data-anonymize="company-name"]',
         '.result-lockup__misc',
+        'span.t-12.t-black--light',
+        '.artdeco-entity-lockup__caption',
       ];
       const pick = (root, sels) => {
         for (const s of sels) { const el = root.querySelector(s); const t = toText(el); if (t) return t; }
@@ -604,19 +614,33 @@ async function scrapeSalesNavListInjected(tabId) {
         return '';
       };
 
-      items.forEach((el)=>{
-        const profileUrl = pickHref(el, linkSelectors);
-        const name = pick(el, nameSelectors);
+      items.forEach((el, idx)=>{
+        let profileUrl = pickHref(el, linkSelectors);
+        let name = pick(el, nameSelectors);
+        // Fallback: use anchor text if name not found
+        if (!name) {
+          const a = el.querySelector('a[href*="/sales/people/"], a[href*="/in/"]') || el.querySelector('a.app-aware-link');
+          if (a && a.textContent) name = a.textContent.trim();
+        }
         const title = pick(el, titleSelectors);
         let company = pick(el, companySelectors);
         if (!company && /\bat\b/i.test(title)) { const m=title.match(/\bat\s+([^|•,]+)\b/i); if (m) company = m[1].trim(); }
-        if (profileUrl && name) leads.push({ name, title, company, profileUrl, avatarUrl: '' });
+        // Normalize missing link by trying parent anchor
+        if (!profileUrl) {
+          const a2 = el.querySelector('a');
+          if (a2) profileUrl = a2.href || a2.getAttribute('href') || '';
+          profileUrl = abs(profileUrl);
+        }
+        if (profileUrl && name) {
+          leads.push({ name, title, company, profileUrl, avatarUrl: '' });
+        }
       });
 
       debug('extracted leads', leads.length);
       if (!leads.length) {
         // Return structured debug so the popup can display details
-        return { __hp_debug__: { counts } };
+        const sample = items && items[0] ? (items[0].outerHTML || '').slice(0, 1200) : '';
+        return { __hp_debug__: { counts, sample } };
       }
       return leads;
     }
