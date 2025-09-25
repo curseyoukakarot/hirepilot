@@ -23,8 +23,8 @@ async function getPlanTier(userId: string): Promise<string> {
     const plan = String((usr as any)?.plan || '').toLowerCase();
     if (plan) return plan;
   } catch {}
-  // Default to free if no explicit plan/subscription is found
-  return 'free';
+  // Unknown plan by default (do NOT assume free)
+  return '';
 }
 
 router.get('/deal-access/:userId', requireAuth, async (req: Request, res: Response) => {
@@ -65,8 +65,8 @@ router.get('/deal-access/:userId', requireAuth, async (req: Request, res: Respon
       return;
     }
 
-    // Free plan => no access (regardless of users.role)
-    if (['free','free_user','guest'].includes(targetRole) || planTier === 'free') {
+    // Free plan => no access
+    if (planTier === 'free') {
       res.json({ user_id: userId, can_view_clients: false, can_view_opportunities: false, can_view_billing: false, can_view_revenue: false, reason: 'free_plan' });
       return;
     }
