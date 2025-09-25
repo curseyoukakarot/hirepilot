@@ -714,14 +714,22 @@ export default function JobRequisitionPage() {
             onClose={() => { setShowAddGuestModal(false); setGuestEmail(''); }}
             onSubmit={async ({ email, role }) => {
               try {
-                await supabase.from('job_guest_collaborators').insert({ job_id: id, email, role, invited_by: currentUser?.id || null });
-                // Always send invite via backend endpoint (RPC may not exist in this project)
-                await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/send-guest-invite`, {
+                // Use server endpoint to avoid RLS and ensure activity is logged
+                const { data: { session } } = await supabase.auth.getSession();
+                const base = (import.meta.env.VITE_BACKEND_URL || (window.location.host.endsWith('thehirepilot.com') ? 'https://api.thehirepilot.com' : 'http://localhost:8080')).replace(/\/$/, '');
+                const resp = await fetch(`${base}/api/opportunities/${id}/guest-invite`, {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ email, job_id: id, role })
+                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
+                  body: JSON.stringify({ email })
                 });
-                await supabase.from('job_activity_log').insert({ type: 'guest_invited', job_id: id, actor_id: currentUser?.id || null, metadata: { email, role, invited_by: currentUser?.id || null }, created_at: new Date().toISOString() });
+                if (!resp.ok) {
+                  const err = await resp.json().catch(()=>({}));
+                  throw new Error(err?.error || 'Failed to invite guest');
+                }
+                // Send invite email (best-effort)
+                try {
+                  await fetch(`${base}/api/send-guest-invite`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, job_id: id, role }) });
+                } catch {}
                 setTeam(prev => [...prev, { is_guest: true, role, email, users: null }]);
                 setShowAddGuestModal(false); setGuestEmail('');
               } catch (e) { alert('Failed to invite guest: ' + (e.message || e)); }
