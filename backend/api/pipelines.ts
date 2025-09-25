@@ -434,7 +434,7 @@ router.post('/:id/stages', requireAuth as any, async (req: Request, res: Respons
 
     const { data: stage, error } = await supabaseDb
       .from('pipeline_stages')
-      .insert({ pipeline_id: pipelineId, job_id: jobId, title, color, position })
+      .insert({ pipeline_id: pipelineId, title, color, position })
       .select()
       .single();
     if (error) throw error;

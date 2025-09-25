@@ -130,7 +130,6 @@ export default async function handler(req: Request, res: Response) {
       .filter((title: string) => title && String(title).trim())
       .map((title: string, i: number) => ({
         pipeline_id: pipelineId,
-        job_id: jobId,
         title: String(title).trim(),
         position: i + 1,
         color: '#3B82F6',
