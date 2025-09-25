@@ -882,7 +882,8 @@ export default function SettingsTeamMembers() {
                       body: JSON.stringify({ email })
                     });
                   } else {
-                    await supabase.from('job_guest_collaborators').insert({ email, role, job_id: null, invited_by: currentUser?.id || null, status: 'pending' });
+                    // For non-job invites, fall back to direct insert without 'status' (column not in schema)
+                    await supabase.from('job_guest_collaborators').insert({ email, role, job_id: null, invited_by: currentUser?.id || null });
                     await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/send-guest-invite`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, job_id: null, role }) });
                   }
                 }
