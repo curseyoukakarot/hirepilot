@@ -109,12 +109,23 @@ router.get('/:id/stages', requireAuth as any, async (req: Request, res: Response
     }
 
     // Fetch stages; tolerate empty result without error
-    const { data: stages, error: stageErr } = await supabaseDb
+    let { data: stages, error: stageErr } = await supabaseDb
       .from('pipeline_stages')
       .select('*')
       .eq('pipeline_id', pipelineId)
       .order('position', { ascending: true });
     if (stageErr) console.error('[pipelines:stages] stage fetch error', stageErr);
+
+    // Fallback: some historical rows may be keyed by job_id only
+    if (!Array.isArray(stages) || stages.length === 0) {
+      const { data: stagesByJob, error: stageByJobErr } = await supabaseDb
+        .from('pipeline_stages')
+        .select('*')
+        .eq('job_id', jobId)
+        .order('position', { ascending: true });
+      if (stageByJobErr) console.error('[pipelines:stages] stage-by-job fetch error', stageByJobErr);
+      if (Array.isArray(stagesByJob) && stagesByJob.length > 0) stages = stagesByJob;
+    }
     if (stageErr) throw stageErr;
 
     const { data: candData, error: candErr } = await supabaseDb
