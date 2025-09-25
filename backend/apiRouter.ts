@@ -40,6 +40,7 @@ import testGmailConnection from './api/testGmailConnection';
 import testLeadStatusUpdate from './api/testLeadStatusUpdate';
 import enrichJobDetails from './api/enrichJobDetails';
 import sendGuestInvite from './api/sendGuestInvite';
+import guestExists from './src/api/guestExists';
 import guestSignup from './api/guestSignup';
 import guestUpsert from './api/guestUpsert';
 import guestStatus from './api/guestStatus';
@@ -284,6 +285,7 @@ router.post('/enrich-job-details', enrichJobDetails);
 
 // Guest invite (backend route alternative to Supabase RPC)
 router.post('/send-guest-invite', sendGuestInvite);
+router.get('/guest-exists', guestExists);
 
 // Guest signup (admin create confirmed user)
 router.post('/guest-signup', guestSignup);

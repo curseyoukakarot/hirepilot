@@ -32,16 +32,21 @@ export default function AcceptGuest() {
       const base = (import.meta.env.VITE_BACKEND_URL || (window.location.host.endsWith('thehirepilot.com') ? 'https://api.thehirepilot.com' : 'http://localhost:8080')).replace(/\/$/, '');
       const cleanEmail = String(email || inviteEmail).trim().toLowerCase();
       const cleanPassword = String(password);
-      // Ensure an Auth user exists (idempotent upsert) before sign-in
-      const upsert = await fetch(`${base}/api/guest-upsert`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail, password: cleanPassword })
-      });
-      if (!upsert.ok) {
-        let msg = 'Failed to prepare guest account';
-        try { const j = await upsert.json(); msg = j.error || msg; } catch {}
-        throw new Error(msg);
+      // If account already exists, skip account creation flow entirely
+      const existsResp = await fetch(`${base}/api/guest-exists?email=${encodeURIComponent(cleanEmail)}`);
+      const existsJs = existsResp.ok ? await existsResp.json() : { exists: false };
+      if (!existsJs.exists) {
+        // Ensure an Auth user exists (idempotent upsert) before sign-in
+        const upsert = await fetch(`${base}/api/guest-upsert`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: cleanEmail, password: cleanPassword })
+        });
+        if (!upsert.ok) {
+          let msg = 'Failed to prepare guest account';
+          try { const j = await upsert.json(); msg = j.error || msg; } catch {}
+          throw new Error(msg);
+        }
       }
       // Now sign in; if invalid, force-reset password via admin endpoint then retry
       let { error: signErr } = await supabase.auth.signInWithPassword({ email: cleanEmail, password: cleanPassword });
