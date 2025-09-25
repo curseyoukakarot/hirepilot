@@ -235,6 +235,14 @@ router.post('/:id/collaborators', requireAuth, async (req: Request, res: Respons
             .insert({ job_id: id, user_id: existingUser.id, role: 'Editor' });
           if (insErr) return res.status(500).json({ error: insErr.message });
         }
+        // Clean up any legacy guest record for this job/email so frontend doesn't mark as guest
+        try {
+          await supabase
+            .from('job_guest_collaborators')
+            .delete()
+            .eq('job_id', id)
+            .eq('email', normalizedEmail);
+        } catch {}
         row = { job_id: id, user_id: existingUser.id, is_member: true };
       } else {
         // Guest path: Ensure single row by (job_id, email) without requiring DB unique
