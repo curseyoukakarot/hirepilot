@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import toast from 'react-hot-toast';
@@ -76,8 +76,7 @@ export default function JobRequisitionPage() {
     return <div className={`${classBase} bg-gray-400`}>{initialsFrom(label || email)}</div>;
   };
 
-  useEffect(() => {
-    const fetchData = async () => {
+  const fetchData = useCallback(async () => {
       setLoading(true);
       // Load current user profile to determine org and permissions
       let profile = null;
@@ -207,9 +206,11 @@ export default function JobRequisitionPage() {
       setCandidates(grouped);
 
       setLoading(false);
-    };
-    fetchData();
   }, [id]);
+
+  useEffect(() => {
+    fetchData();
+  }, [id, fetchData]);
 
   const collaboratorUserIds = useMemo(() => new Set((team || []).map(t => t.user_id || t.users?.id)), [team]);
   const availableOrgUsers = useMemo(() => (orgUsers || []).filter(u => !collaboratorUserIds.has(u.id)), [orgUsers, collaboratorUserIds]);
