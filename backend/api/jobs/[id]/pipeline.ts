@@ -66,7 +66,7 @@ export default async function handler(req: Request, res: Response) {
         job_id: jobId,
         user_id: job.user_id,
         name: pipelineName,
-        department: job.department || null,
+        department: job.department || 'General',
       }])
       .select()
       .single();

@@ -203,7 +203,7 @@ router.post('/', requireAuth as any, async (req: Request, res: Response) => {
           job_id: targetJobId,
           user_id: targetUserId,
           name,
-          department: department || null,
+          department: department || 'General',
         },
       ])
       .select()
