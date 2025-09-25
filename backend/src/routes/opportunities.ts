@@ -333,6 +333,57 @@ router.get('/:id/available-reqs', requireAuth, async (req: Request, res: Respons
   } catch (e:any) { res.status(500).json({ error: e.message || 'Internal server error' }); }
 });
 
+// Unified collaborators for a job (members + guests)
+router.get('/:id/collaborators-unified', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const { id } = req.params;
+
+    // Basic access: owner, team_admin of owner team, or existing collaborator/guest
+    const { data: job } = await supabase
+      .from('job_requisitions')
+      .select('id,user_id,team_id')
+      .eq('id', id)
+      .maybeSingle();
+    if (!job) return res.status(404).json({ error: 'not_found' });
+
+    const { role, team_id } = await getRoleTeam(userId);
+    const isOwner = job.user_id === userId;
+    const isTeamAdmin = role.toLowerCase() === 'team_admin' && !!team_id && team_id === job.team_id;
+
+    // Also allow if requester is already a collaborator/guest
+    let isExisting = false;
+    if (!isOwner && !isTeamAdmin) {
+      const [{ data: collab }, { data: guest }] = await Promise.all([
+        supabase.from('job_collaborators').select('user_id').eq('job_id', id).eq('user_id', userId).maybeSingle(),
+        supabase.from('job_guest_collaborators').select('email').eq('job_id', id).maybeSingle()
+      ] as any);
+      isExisting = Boolean(collab) || false; // Email check omitted; this is an owner/team-admin view endpoint
+    }
+    if (!(isOwner || isTeamAdmin || isExisting)) return res.status(403).json({ error: 'access_denied' });
+
+    const [{ data: members }, { data: guests }] = await Promise.all([
+      supabase.from('job_collaborators').select('user_id,role').eq('job_id', id),
+      supabase.from('job_guest_collaborators').select('email,role').eq('job_id', id)
+    ] as any);
+
+    const ids = [...new Set(((members || []).map((m:any)=>m.user_id)))];
+    const { data: users } = ids.length
+      ? await supabase.from('users').select('id,first_name,last_name,email,team_id,avatar_url').in('id', ids)
+      : { data: [] as any } as any;
+    const byId = new Map((users || []).map((u:any)=>[u.id,u]));
+
+    const unified = [
+      ...((members || []).map((m:any)=>({ kind: 'member', user_id: m.user_id, role: m.role || 'Editor', users: byId.get(m.user_id) || null }))),
+      ...((guests || []).map((g:any)=>({ kind: 'guest', email: String(g.email||'').toLowerCase(), role: g.role || 'View Only' })))
+    ];
+    res.json(unified);
+  } catch (e:any) {
+    res.status(500).json({ error: e.message || 'Internal server error' });
+  }
+});
+
 // List users visible to Team Admin for assigning
 router.get('/:id/available-users', requireAuth, async (req: Request, res: Response) => {
   try {

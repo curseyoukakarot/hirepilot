@@ -145,42 +145,22 @@ export default function JobRequisitionPage() {
         setNotes((notesResp || []).map(r => ({ id: r.id, content: r.metadata?.text || '', actor_id: r.actor_id, created_at: r.created_at })));
       } catch { setNotes([]); }
 
-      // Collaborators (no nested joins) → then fetch users by ids
-      const { data: teamData } = await supabase
-        .from('job_collaborators')
-        .select('user_id, role')
-        .eq('job_id', id);
-      let mergedTeam = teamData || [];
-      if (mergedTeam.length > 0) {
-        const ids = [...new Set(mergedTeam.map(r => r.user_id))];
-        const { data: userRows } = await supabase
-          .from('users')
-          .select('*')
-          .in('id', ids);
-        const byId = new Map((userRows || []).map(u => [u.id, u]));
-        mergedTeam = mergedTeam.map(r => ({ ...r, users: byId.get(r.user_id) }));
-      }
-      const filteredTeam = (mergedTeam || []).filter(r => !profile?.team_id || r.users?.team_id === profile.team_id);
-      // Append guest collaborators (email only) to show in Team list
+      // Use backend endpoint to avoid client RLS and unify members + guests
       try {
-        const { data: guestRows } = await supabase
-          .from('job_guest_collaborators')
-          .select('email, role')
-          .eq('job_id', id);
-        const guestList = guestRows || [];
-        const emails = [...new Set(guestList.map(g => String(g.email || '').toLowerCase()).filter(Boolean))];
-        let usersByEmail = new Map();
-        if (emails.length) {
-          const { data: userByEmailRows } = await supabase
-            .from('users')
-            .select('*')
-            .in('email', emails);
-          (userByEmailRows || []).forEach(u => usersByEmail.set(String(u.email || '').toLowerCase(), u));
+        const { data: { session } } = await supabase.auth.getSession();
+        const base = (import.meta.env.VITE_BACKEND_URL || (window.location.host.endsWith('thehirepilot.com') ? 'https://api.thehirepilot.com' : 'http://localhost:8080')).replace(/\/$/, '');
+        const resp = await fetch(`${base}/api/opportunities/${id}/collaborators-unified`, { headers: { Authorization: `Bearer ${session?.access_token || ''}` } });
+        if (resp.ok) {
+          const unified = await resp.json();
+          // Map to legacy team shape used by UI
+          const members = (unified || []).filter(x => x.kind === 'member').map(x => ({ user_id: x.user_id, role: x.role, users: x.users }));
+          const guests = (unified || []).filter(x => x.kind === 'guest').map(x => ({ is_guest: true, role: x.role, email: x.email, users: null }));
+          setTeam([...(members || []), ...(guests || [])]);
+        } else {
+          setTeam([]);
         }
-        const guestAsTeam = guestList.map(g => ({ is_guest: true, role: g.role, email: g.email, users: usersByEmail.get(String(g.email || '').toLowerCase()) || null }));
-        setTeam([...(filteredTeam || []), ...guestAsTeam]);
       } catch {
-        setTeam(filteredTeam);
+        setTeam([]);
       }
 
       // Load team users for Add Teammate
