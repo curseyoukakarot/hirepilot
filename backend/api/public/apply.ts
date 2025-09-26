@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { supabaseDb } from '../../lib/supabase';
+import { notifySlack } from '../../lib/slack';
 
 export default async function handler(req: Request, res: Response) {
   if (req.method !== 'POST') {
@@ -33,7 +34,7 @@ export default async function handler(req: Request, res: Response) {
     // Get job_id and pipeline_id from share_id
     const { data: job, error: jobError } = await supabaseDb
       .from('job_requisitions')
-      .select('id, pipeline_id, title')
+      .select('id, pipeline_id, title, user_id')
       .eq('share_id', share_id)
       .single();
 
@@ -58,6 +59,7 @@ export default async function handler(req: Request, res: Response) {
     const { data: candidate, error: insertError } = await supabaseDb
       .from('candidates')
       .insert({
+        user_id: job.user_id,
         job_id: job.id,
         pipeline_id: job.pipeline_id,
         first_name: name.split(' ')[0] || name,
@@ -65,7 +67,7 @@ export default async function handler(req: Request, res: Response) {
         email,
         linkedin_url: linkedin || null,
         resume_url: resume_url || null,
-        cover_letter: cover_note || null,
+        notes: cover_note || null,
         status: 'applied',
         source: 'public_application',
         created_at: new Date().toISOString(),
@@ -98,6 +100,19 @@ export default async function handler(req: Request, res: Response) {
     } catch (logError) {
       console.warn('Failed to log application activity:', logError);
       // Don't fail the request if logging fails
+    }
+
+    // Slack notification to job owner (best-effort)
+    try {
+      const { data: owner } = await supabaseDb
+        .from('users')
+        .select('email')
+        .eq('id', job.user_id)
+        .maybeSingle();
+      const ownerEmail = (owner as any)?.email || 'unknown';
+      await notifySlack(`✅ Public application for *${job.title || 'Job'}*\n• Candidate: ${name} (${email})\n• Recruiter: ${ownerEmail}`);
+    } catch (e) {
+      console.warn('[public/apply] slack notify failed', e);
     }
 
     console.log(`✅ Public application received for job ${job.id} (${job.title}) from ${name} (${email})`);
