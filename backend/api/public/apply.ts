@@ -67,7 +67,7 @@ export default async function handler(req: Request, res: Response) {
         linkedin_url: linkedin || null,
         resume_url: resume_url || null,
         notes: cover_note || null,
-        status: 'applied',
+        status: 'sourced',
         source: 'public_application',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
