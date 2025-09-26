@@ -73,7 +73,16 @@ export default function JobRequisitionPage() {
     if (t?.user_id) {
       const match = (orgUsers || []).find(x => x.id === t.user_id);
       if (match) return displayName(match) || match.email || 'Unknown';
-      return t.user_id; // last-resort: show id to avoid "Unknown"
+      // If backend didn't send users, request best-effort user row (non-blocking)
+      (async () => {
+        try {
+          const { data } = await supabase.from('users').select('id,first_name,last_name,email,avatar_url').eq('id', t.user_id).maybeSingle();
+          if (data) {
+            setTeam(prev => prev.map(p => p === t ? { ...p, users: data } : p));
+          }
+        } catch {}
+      })();
+      return 'Loading…';
     }
     return 'Unknown';
   };
