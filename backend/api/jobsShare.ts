@@ -350,7 +350,7 @@ router.post('/:id/apply', async (req: Request, res: Response) => {
       phone: phone || null,
       linkedin_url: linkedin_url || null,
       resume_url: resumeUrl,
-      cover_note: cover_note || null,
+      notes: cover_note || null,
       status: 'sourced',
       created_at: new Date().toISOString()
     };

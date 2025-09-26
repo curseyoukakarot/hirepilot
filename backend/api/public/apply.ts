@@ -34,7 +34,7 @@ export default async function handler(req: Request, res: Response) {
     // Get job_id and pipeline_id from share_id
     const { data: job, error: jobError } = await supabaseDb
       .from('job_requisitions')
-      .select('id, pipeline_id, title, user_id')
+      .select('id, title, user_id')
       .eq('share_id', share_id)
       .single();
 
@@ -61,7 +61,6 @@ export default async function handler(req: Request, res: Response) {
       .insert({
         user_id: job.user_id,
         job_id: job.id,
-        pipeline_id: job.pipeline_id,
         first_name: name.split(' ')[0] || name,
         last_name: name.split(' ').slice(1).join(' ') || '',
         email,
