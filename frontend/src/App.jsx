@@ -437,7 +437,7 @@ function InnerApp() {
         {!isAuthPage && !isPartnerArea && !(location.pathname.startsWith('/accept-guest') || location.pathname === '/signout' || (isGuestUser && (location.pathname.startsWith('/job/') || location.pathname === '/settings'))) && (
           <div className="fixed left-0 top-[72px] bottom-0 w-64"><Sidebar /></div>
         )}
-        <main className={`flex-1 ${!isAuthPage && !isPartnerArea && !(location.pathname.startsWith('/accept-guest') || location.pathname === '/signout' || (isGuestUser && (location.pathname.startsWith('/job/') || location.pathname === '/settings'))) ? (location.pathname === '/rex-chat' ? 'ml-64 min-h-0 overflow-hidden' : 'ml-64 p-6 min-h-0 overflow-y-auto') : ''}`}>
+        <main className={`flex-1 ${!isAuthPage && !isPartnerArea && !(location.pathname.startsWith('/accept-guest') || location.pathname === '/signout' || (isGuestUser && (location.pathname.startsWith('/job/') || location.pathname === '/settings'))) ? (location.pathname === '/rex-chat' ? 'ml-64 min-h-0 overflow-hidden' : 'ml-64 min-h-0 overflow-y-auto') : ''}`}>
           {!isAuthPage && <OnboardingModals />}
           <Suspense fallback={
             <div className="flex items-center justify-center w-full h-[50vh]">
