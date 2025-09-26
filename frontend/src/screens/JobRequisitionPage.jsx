@@ -15,6 +15,7 @@ export default function JobRequisitionPage() {
   const [job, setJob] = useState(null);
   const [keywords, setKeywords] = useState([]);
   const [notes, setNotes] = useState([]);
+  const [noteActors, setNoteActors] = useState({});
   const [team, setTeam] = useState([]);
   const [orgUsers, setOrgUsers] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
@@ -142,7 +143,21 @@ export default function JobRequisitionPage() {
           .eq('job_id', id)
           .eq('type', 'note_added')
           .order('created_at', { ascending: true });
-        setNotes((notesResp || []).map(r => ({ id: r.id, content: r.metadata?.text || '', actor_id: r.actor_id, created_at: r.created_at })));
+        const mapped = (notesResp || []).map(r => ({ id: r.id, content: r.metadata?.text || '', actor_id: r.actor_id, created_at: r.created_at }));
+        setNotes(mapped);
+        // Load actor profiles for avatars
+        const actorIds = [...new Set((notesResp || []).map(r => r.actor_id).filter(Boolean))];
+        if (actorIds.length) {
+          const { data: users } = await supabase
+            .from('users')
+            .select('id, first_name, last_name, full_name, email, avatar_url')
+            .in('id', actorIds);
+          const map = {};
+          (users || []).forEach(u => { map[u.id] = u; });
+          setNoteActors(map);
+        } else {
+          setNoteActors({});
+        }
       } catch { setNotes([]); }
 
       // Use backend endpoint to avoid client RLS and unify members + guests
@@ -245,6 +260,10 @@ export default function JobRequisitionPage() {
         throw new Error(err?.error || 'Failed to post note');
       }
       setNotes(prev => [...prev, { id: crypto.randomUUID?.() || String(Date.now()), content: text, actor_id: currentUser?.id || null, created_at: new Date().toISOString() }]);
+      // Ensure actor map includes current user for immediate avatar/name display
+      if (currentUser?.id) {
+        setNoteActors(prev => ({ ...prev, [currentUser.id]: { id: currentUser.id, first_name: currentUser.first_name, last_name: currentUser.last_name, full_name: currentUser.full_name, email: currentUser.email, avatar_url: currentUser.avatar_url } }));
+      }
       setNoteText('');
     } catch (e) {
       alert(e.message || 'Failed to post note');
@@ -548,13 +567,13 @@ export default function JobRequisitionPage() {
                     {notes.length === 0 && <p className="text-sm text-gray-500">No notes yet</p>}
                     {notes.map((n) => (
                       <div key={n.id} className="flex space-x-3">
-                        <img src={''} className="w-8 h-8 rounded-full" />
+                        <Avatar user={noteActors[n.actor_id]} email={noteActors[n.actor_id]?.email} size={8} />
                         <div className="flex-1">
                           <div className="bg-gray-50 rounded-lg p-3">
                             <div className="text-sm text-gray-700 whitespace-pre-line break-words">{n.content}</div>
                           </div>
                           <div className="flex items-center mt-2 text-xs text-gray-500">
-                            <span>{n.actor_id || 'Unknown'}</span>
+                            <span>{displayName(noteActors[n.actor_id])}</span>
                             <span className="mx-1">•</span>
                             <span>{new Date(n.created_at).toLocaleString()}</span>
                           </div>
