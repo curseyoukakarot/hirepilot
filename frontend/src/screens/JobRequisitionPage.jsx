@@ -175,15 +175,24 @@ export default function JobRequisitionPage() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         const base = (import.meta.env.VITE_BACKEND_URL || (window.location.host.endsWith('thehirepilot.com') ? 'https://api.thehirepilot.com' : 'http://localhost:8080')).replace(/\/$/, '');
-        const resp = await fetch(`${base}/api/opportunities/${id}/collaborators-unified`, { headers: { Authorization: `Bearer ${session?.access_token || ''}` } });
+        // Prefer new collaborators endpoint with proper user joins
+        const resp = await fetch(`${base}/api/jobs/${id}/collaborators`, { headers: { Authorization: `Bearer ${session?.access_token || ''}` } });
         if (resp.ok) {
           const unified = await resp.json();
-          // Map to legacy team shape used by UI
           const members = (unified || []).filter(x => x.kind === 'member').map(x => ({ user_id: x.user_id, role: x.role, users: x.users }));
           const guests = (unified || []).filter(x => x.kind === 'guest').map(x => ({ is_guest: true, role: x.role, email: x.email, users: null }));
           setTeam([...(members || []), ...(guests || [])]);
         } else {
-          setTeam([]);
+          // Fallback to previous unified endpoint
+          const resp2 = await fetch(`${base}/api/opportunities/${id}/collaborators-unified`, { headers: { Authorization: `Bearer ${session?.access_token || ''}` } });
+          if (resp2.ok) {
+            const unified = await resp2.json();
+            const members = (unified || []).filter(x => x.kind === 'member').map(x => ({ user_id: x.user_id, role: x.role, users: x.users }));
+            const guests = (unified || []).filter(x => x.kind === 'guest').map(x => ({ is_guest: true, role: x.role, email: x.email, users: null }));
+            setTeam([...(members || []), ...(guests || [])]);
+          } else {
+            setTeam([]);
+          }
         }
       } catch {
         setTeam([]);

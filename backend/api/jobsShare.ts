@@ -7,6 +7,85 @@ import { notifySlack } from '../lib/slack';
 const router = express.Router();
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+// GET /api/jobs/:id/collaborators
+// Returns unified collaborators with user join so frontend can render names and avatars
+router.get('/:id/collaborators', async (req: Request, res: Response) => {
+  try {
+    const jobId = req.params.id;
+    // Validate auth via Supabase JWT in Authorization header
+    const authHeader = String(req.headers.authorization || '');
+    const token = authHeader.replace(/^Bearer\s+/i, '');
+    const { data: auth } = await supabase.auth.getUser(token);
+    const requesterId = auth?.user?.id || null;
+    if (!requesterId) return res.status(401).json({ error: 'Unauthorized' });
+
+    // Ensure job exists and requester has at least owner/collaborator/guest access
+    const { data: job } = await supabaseDb
+      .from('job_requisitions')
+      .select('id,user_id,team_id')
+      .eq('id', jobId)
+      .maybeSingle();
+    if (!job) return res.status(404).json({ error: 'Job not found' });
+
+    let allowed = job.user_id === requesterId;
+    if (!allowed) {
+      try {
+        const [{ data: collab }, { data: guest }, { data: me }] = await Promise.all([
+          supabaseDb.from('job_collaborators').select('id').eq('job_id', jobId).eq('user_id', requesterId).maybeSingle(),
+          supabaseDb.from('job_guest_collaborators').select('email').eq('job_id', jobId).maybeSingle(),
+          supabaseDb.from('users').select('email').eq('id', requesterId).maybeSingle()
+        ] as any);
+        const email = (me as any)?.email ? String((me as any).email).toLowerCase() : '';
+        allowed = Boolean(collab) || (email && Boolean(guest && String((guest as any).email || '').toLowerCase() === email));
+      } catch {}
+    }
+    if (!allowed) return res.status(403).json({ error: 'access_denied' });
+
+    // Fetch collaborators with user join
+    const { data: collabs, error: collabErr } = await supabaseDb
+      .from('job_collaborators')
+      .select(`id, job_id, user_id, role, created_at,
+        users:users!job_collaborators_user_id_fkey (
+          id, email, first_name, last_name, full_name, avatar_url
+        )
+      `)
+      .eq('job_id', jobId);
+    if (collabErr) return res.status(500).json({ error: collabErr.message });
+
+    // Fetch guests (email + role)
+    const { data: guests, error: guestErr } = await supabaseDb
+      .from('job_guest_collaborators')
+      .select('id, job_id, email, role, created_at')
+      .eq('job_id', jobId);
+    if (guestErr) return res.status(500).json({ error: guestErr.message });
+
+    const unified = [
+      ...((collabs || []).map((c: any) => ({
+        id: c.id,
+        kind: 'member',
+        job_id: c.job_id,
+        user_id: c.user_id,
+        role: c.role || 'Editor',
+        users: c.users || null,
+        created_at: c.created_at
+      }))),
+      ...((guests || []).map((g: any) => ({
+        id: g.id,
+        kind: 'guest',
+        job_id: g.job_id,
+        email: String(g.email || '').toLowerCase(),
+        role: g.role || 'View Only',
+        created_at: g.created_at
+      })))
+    ];
+
+    return res.json(unified);
+  } catch (e: any) {
+    console.error('[jobs:collaborators] error', e);
+    return res.status(500).json({ error: e.message || 'Internal error' });
+  }
+});
+
 // POST /api/jobs/:id/share
 router.post('/:id/share', async (req: Request, res: Response) => {
   try {
