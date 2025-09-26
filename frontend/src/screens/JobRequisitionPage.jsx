@@ -544,7 +544,7 @@ export default function JobRequisitionPage() {
                         <img src={''} className="w-8 h-8 rounded-full" />
                         <div className="flex-1">
                           <div className="bg-gray-50 rounded-lg p-3">
-                            <p className="text-sm text-gray-700">{n.content}</p>
+                            <div className="text-sm text-gray-700 whitespace-pre-line break-words">{n.content}</div>
                           </div>
                           <div className="flex items-center mt-2 text-xs text-gray-500">
                             <span>{n.actor_id || 'Unknown'}</span>
