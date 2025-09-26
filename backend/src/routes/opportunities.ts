@@ -180,6 +180,55 @@ router.post('/:id/activity', requireAuth, async (req: Request, res: Response) =>
   } catch (e:any) { res.status(500).json({ error: e.message || 'Internal server error' }); }
 });
 
+// POST /api/opportunities/:id/notes — add Internal Note to job_activity_log
+router.post('/:id/notes', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    const { id } = req.params; // job req id
+    const text = String((req.body || {}).text || '').trim();
+    if (!text) { res.status(400).json({ error: 'missing_text' }); return; }
+
+    // Basic access check: owner, team_admin of same team, collaborator, or guest by email
+    const { data: job } = await supabase
+      .from('job_requisitions')
+      .select('id,user_id,team_id')
+      .eq('id', id)
+      .maybeSingle();
+    if (!job) return res.status(404).json({ error: 'not_found' });
+
+    const { role, team_id } = await getRoleTeam(userId);
+    const isOwner = (job as any).user_id === userId;
+    const isTeamAdmin = String(role || '').toLowerCase() === 'team_admin' && !!team_id && team_id === (job as any).team_id;
+
+    let allowed = isOwner || isTeamAdmin;
+    if (!allowed) {
+      const [{ data: collab }, { data: me }] = await Promise.all([
+        supabase.from('job_collaborators').select('user_id').eq('job_id', id).eq('user_id', userId).maybeSingle(),
+        supabase.from('users').select('email').eq('id', userId).maybeSingle()
+      ] as any);
+      const email = String((me as any)?.email || '').toLowerCase();
+      if (collab) allowed = true;
+      else if (email) {
+        const { data: guest } = await supabase.from('job_guest_collaborators').select('id').eq('job_id', id).eq('email', email).maybeSingle();
+        allowed = Boolean(guest);
+      }
+    }
+    if (!allowed) { res.status(403).json({ error: 'access_denied' }); return; }
+
+    // Insert server-side to bypass client RLS
+    const { data, error } = await supabase
+      .from('job_activity_log')
+      .insert({ job_id: id, actor_id: userId, type: 'note_added', metadata: { text }, created_at: new Date().toISOString() })
+      .select('id')
+      .maybeSingle();
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    res.status(201).json({ id: (data as any)?.id || null });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message || 'Internal server error' });
+  }
+});
+
 // Collaborators (basic by email)
 router.get('/:id/collaborators', requireAuth, async (req: Request, res: Response) => {
   try {

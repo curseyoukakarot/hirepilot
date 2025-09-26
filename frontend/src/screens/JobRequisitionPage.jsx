@@ -232,16 +232,23 @@ export default function JobRequisitionPage() {
     if (guestRole === 'view_only') return;
     const text = (noteText || '').trim();
     if (!text) return;
-    const row = {
-      job_id: id,
-      actor_id: currentUser?.id || null,
-      type: 'note_added',
-      metadata: { text },
-      created_at: new Date().toISOString()
-    };
-    await supabase.from('job_activity_log').insert(row);
-    setNotes(prev => [...prev, { id: crypto.randomUUID?.() || String(Date.now()), content: text, actor_id: currentUser?.id || null, created_at: new Date().toISOString() }]);
-    setNoteText('');
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const base = (import.meta.env.VITE_BACKEND_URL || (window.location.host.endsWith('thehirepilot.com') ? 'https://api.thehirepilot.com' : 'http://localhost:8080')).replace(/\/$/, '');
+      const resp = await fetch(`${base}/api/opportunities/${id}/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
+        body: JSON.stringify({ text })
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(()=>({}));
+        throw new Error(err?.error || 'Failed to post note');
+      }
+      setNotes(prev => [...prev, { id: crypto.randomUUID?.() || String(Date.now()), content: text, actor_id: currentUser?.id || null, created_at: new Date().toISOString() }]);
+      setNoteText('');
+    } catch (e) {
+      alert(e.message || 'Failed to post note');
+    }
   };
   const handleAddTeammate = () => setShowAddTeammateModal(true);
 
