@@ -45,7 +45,7 @@ router.get('/:id/collaborators', async (req: Request, res: Response) => {
     const { data: collabs, error: collabErr } = await supabaseDb
       .from('job_collaborators')
       .select(`id, job_id, user_id, role, created_at,
-        users:users!job_collaborators_user_id_fkey (
+        users (
           id, email, first_name, last_name, full_name, avatar_url
         )
       `)

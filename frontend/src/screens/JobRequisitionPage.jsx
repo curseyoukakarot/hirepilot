@@ -63,8 +63,18 @@ export default function JobRequisitionPage() {
   };
 
   const collaboratorDisplayName = (t) => {
-    if (t?.users) return displayName(t.users);
+    const u = t?.users;
+    if (u) {
+      const n = displayName(u);
+      if (n && n !== 'Unknown') return n;
+      if (u.email) return nameFromEmail(u.email);
+    }
     if (t?.email) return nameFromEmail(t.email);
+    if (t?.user_id) {
+      const match = (orgUsers || []).find(x => x.id === t.user_id);
+      if (match) return displayName(match) || match.email || 'Unknown';
+      return t.user_id; // last-resort: show id to avoid "Unknown"
+    }
     return 'Unknown';
   };
 
@@ -179,7 +189,7 @@ export default function JobRequisitionPage() {
         const resp = await fetch(`${base}/api/jobs/${id}/collaborators`, { headers: { Authorization: `Bearer ${session?.access_token || ''}` } });
         if (resp.ok) {
           const unified = await resp.json();
-          const members = (unified || []).filter(x => x.kind === 'member').map(x => ({ user_id: x.user_id, role: x.role, users: x.users }));
+          const members = (unified || []).filter(x => x.kind === 'member').map(x => ({ user_id: x.user_id, role: x.role, users: x.users, email: x.users?.email }));
           const guests = (unified || []).filter(x => x.kind === 'guest').map(x => ({ is_guest: true, role: x.role, email: x.email, users: null }));
           setTeam([...(members || []), ...(guests || [])]);
         } else {
@@ -187,7 +197,7 @@ export default function JobRequisitionPage() {
           const resp2 = await fetch(`${base}/api/opportunities/${id}/collaborators-unified`, { headers: { Authorization: `Bearer ${session?.access_token || ''}` } });
           if (resp2.ok) {
             const unified = await resp2.json();
-            const members = (unified || []).filter(x => x.kind === 'member').map(x => ({ user_id: x.user_id, role: x.role, users: x.users }));
+            const members = (unified || []).filter(x => x.kind === 'member').map(x => ({ user_id: x.user_id, role: x.role, users: x.users, email: x.users?.email }));
             const guests = (unified || []).filter(x => x.kind === 'guest').map(x => ({ is_guest: true, role: x.role, email: x.email, users: null }));
             setTeam([...(members || []), ...(guests || [])]);
           } else {
