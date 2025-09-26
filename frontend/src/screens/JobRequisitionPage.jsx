@@ -154,6 +154,12 @@ export default function JobRequisitionPage() {
             .in('id', actorIds);
           const map = {};
           (users || []).forEach(u => { map[u.id] = u; });
+          // Ensure current user is present if they authored any note
+          try {
+            if (profile?.id && actorIds.includes(profile.id)) {
+              map[profile.id] = { ...profile };
+            }
+          } catch {}
           setNoteActors(map);
         } else {
           setNoteActors({});
@@ -567,13 +573,13 @@ export default function JobRequisitionPage() {
                     {notes.length === 0 && <p className="text-sm text-gray-500">No notes yet</p>}
                     {notes.map((n) => (
                       <div key={n.id} className="flex space-x-3">
-                        <Avatar user={noteActors[n.actor_id]} email={noteActors[n.actor_id]?.email} size={8} />
+                        <Avatar user={noteActors[n.actor_id] || currentUser} email={(noteActors[n.actor_id]?.email) || currentUser?.email} size={8} />
                         <div className="flex-1">
                           <div className="bg-gray-50 rounded-lg p-3">
                             <div className="text-sm text-gray-700 whitespace-pre-line break-words">{n.content}</div>
                           </div>
                           <div className="flex items-center mt-2 text-xs text-gray-500">
-                            <span>{displayName(noteActors[n.actor_id])}</span>
+                            <span>{displayName(noteActors[n.actor_id]) || displayName(currentUser) || (n.actor_id || 'Unknown')}</span>
                             <span className="mx-1">•</span>
                             <span>{new Date(n.created_at).toLocaleString()}</span>
                           </div>
