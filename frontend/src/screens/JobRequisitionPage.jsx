@@ -89,8 +89,13 @@ export default function JobRequisitionPage() {
             .select('*')
             .eq('id', user.id)
             .single();
-          profile = p || null;
-          setCurrentUser(profile);
+          let enhanced = p || null;
+          // Fallback to auth metadata avatar if users.avatar_url not set
+          if (enhanced && !enhanced.avatar_url && user?.user_metadata?.avatar_url) {
+            enhanced = { ...enhanced, avatar_url: user.user_metadata.avatar_url };
+          }
+          profile = enhanced;
+          setCurrentUser(enhanced);
           const roleKey = (profile?.role || '').toLowerCase().replace(/[-\s]/g, '_');
           const manageable = ['account_owner','team_admin','super_admin','admin','owner','org_admin'].includes(roleKey);
           setCanManage(manageable);
