@@ -42,50 +42,49 @@ router.get('/:id/collaborators', async (req: Request, res: Response) => {
     if (!allowed) return res.status(403).json({ error: 'access_denied' });
 
     // Fetch collaborators with user join
-    let { data: collabs, error: collabErr } = await supabaseDb
+    // Fetch collaborators without join (some environments lack FK relationship)
+    const { data: collabRows, error: collabErr } = await supabaseDb
       .from('job_collaborators')
-      .select(`id, job_id, user_id, role, created_at,
-        users (
-          id, email, first_name, last_name, full_name, avatar_url
-        )
-      `)
+      .select('id, job_id, user_id, role, created_at')
       .eq('job_id', jobId);
     if (collabErr) return res.status(500).json({ error: collabErr.message });
 
-    // Backfill missing user objects
+    let collabs: any[] = collabRows || [];
+
+    // Fetch users in a separate query (schema-agnostic)
     try {
-      const missingIds = (collabs || []).filter((c: any) => !c.users).map((c: any) => c.user_id);
-      if (missingIds.length) {
+      const userIds = Array.from(new Set((collabs || []).map((c: any) => c.user_id).filter(Boolean)));
+      let usersMap: Record<string, any> = {};
+      if (userIds.length) {
         const { data: userRows } = await supabaseDb
           .from('users')
-          .select('id, email, first_name, last_name, full_name, avatar_url')
-          .in('id', missingIds as any);
-        const byId: Record<string, any> = {};
-        (userRows || []).forEach((u: any) => { byId[u.id] = u; });
-        collabs = (collabs || []).map((c: any) => (c.users ? c : { ...c, users: byId[c.user_id] || null }));
+          .select('*')
+          .in('id', userIds as any);
+        (userRows || []).forEach((u: any) => { usersMap[u.id] = u; });
+      }
+      collabs = (collabs || []).map((c: any) => ({ ...c, users: usersMap[c.user_id] || null }));
 
-        // For any still missing, use Auth Admin as last resort
-        const stillMissing = (collabs || []).filter((c: any) => !c.users).map((c: any) => c.user_id);
-        if (stillMissing.length) {
-          const filled = await Promise.all(stillMissing.map(async (uid: string) => {
-            try {
-              const { data, error } = await supabaseDb.auth.admin.getUserById(uid);
-              if (error || !data?.user) return { uid, user: null };
-              const u = data.user as any;
-              const meta = (u.user_metadata || {}) as any;
-              const full_name = meta.full_name || [meta.first_name, meta.last_name].filter(Boolean).join(' ');
-              return { uid, user: { id: uid, email: u.email, full_name, avatar_url: meta.avatar_url || null } };
-            } catch {
-              return { uid, user: null };
-            }
-          }));
-          const authById: Record<string, any> = {};
-          for (const f of filled) if (f.user) authById[f.uid] = f.user;
-          collabs = (collabs || []).map((c: any) => (c.users ? c : { ...c, users: authById[c.user_id] || null }));
-        }
+      // For any still missing, use Auth Admin as last resort
+      const stillMissing = (collabs || []).filter((c: any) => !c.users).map((c: any) => c.user_id);
+      if (stillMissing.length) {
+        const filled = await Promise.all(stillMissing.map(async (uid: string) => {
+          try {
+            const { data, error } = await supabaseDb.auth.admin.getUserById(uid);
+            if (error || !data?.user) return { uid, user: null };
+            const u = data.user as any;
+            const meta = (u.user_metadata || {}) as any;
+            const full_name = meta.full_name || [meta.first_name, meta.last_name].filter(Boolean).join(' ');
+            return { uid, user: { id: uid, email: u.email, full_name, first_name: meta.first_name, last_name: meta.last_name, avatar_url: meta.avatar_url || null } };
+          } catch {
+            return { uid, user: null };
+          }
+        }));
+        const authById: Record<string, any> = {};
+        for (const f of filled) if (f.user) authById[f.uid] = f.user;
+        collabs = (collabs || []).map((c: any) => (c.users ? c : { ...c, users: authById[c.user_id] || null }));
       }
     } catch (e) {
-      console.warn('[jobs:collaborators] user backfill failed', e);
+      console.warn('[jobs:collaborators] user enrichment failed', e);
     }
 
     // Fetch guests (email + role)
