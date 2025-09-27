@@ -238,18 +238,19 @@ router.post('/', requireAuth as any, async (req: Request, res: Response) => {
     } catch {}
 
     // Start transaction (pseudo since Supabase JS has no native transaction)
+    // Use upsert to avoid unique constraint errors on job_id and prefer existing pipeline
     const { data: pipeline, error: pipelineError } = await supabaseDb
-      .from("pipelines")
-      .insert([
+      .from('pipelines')
+      .upsert([
         {
           job_id: targetJobId,
           user_id: targetUserId,
           name,
           department: department || 'General',
         },
-      ])
+      ], { onConflict: 'job_id', ignoreDuplicates: true })
       .select()
-      .single();
+      .maybeSingle();
 
     if (pipelineError) {
       // If unique constraint hit, fetch the existing pipeline and return it
@@ -267,28 +268,62 @@ router.post('/', requireAuth as any, async (req: Request, res: Response) => {
             try { await supabaseDb.from('job_requisitions').update({ pipeline_id: existing.id }).eq('id', targetJobId); } catch {}
             return res.status(200).json({ success: true, pipeline: existing, message: 'Existing pipeline returned' });
           }
+          // Last resort: read pipeline_id from job and return minimal shape
+          const { data: jobRow } = await supabaseDb
+            .from('job_requisitions')
+            .select('pipeline_id')
+            .eq('id', targetJobId)
+            .maybeSingle();
+          if ((jobRow as any)?.pipeline_id) {
+            return res.status(200).json({ success: true, pipeline: { id: (jobRow as any).pipeline_id }, message: 'Existing pipeline (minimal)' });
+          }
         } catch {}
       }
       console.error("Pipeline insert failed:", pipelineError);
       return res.status(500).json({ error: "Pipeline creation failed" });
     }
 
+    // If upsert ignored duplicate and returned no row, resolve existing pipeline now
+    let createdOrExisting = pipeline as any;
+    if (!createdOrExisting) {
+      const { data: existing } = await supabaseDb
+        .from('pipelines')
+        .select(`*, pipeline_stages(*)`)
+        .eq('job_id', targetJobId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (existing) {
+        createdOrExisting = existing;
+      } else {
+        const { data: jobRow } = await supabaseDb
+          .from('job_requisitions')
+          .select('pipeline_id')
+          .eq('id', targetJobId)
+          .maybeSingle();
+        if ((jobRow as any)?.pipeline_id) {
+          createdOrExisting = { id: (jobRow as any).pipeline_id };
+        }
+      }
+    }
+
     // Define stages: use provided or default
+    const resolvedPipelineId = (createdOrExisting?.id || (pipeline as any)?.id);
     const stageList =
       stages && stages.length > 0
         ? stages.map((s: any, idx: number) => ({
-            pipeline_id: pipeline.id,
+            pipeline_id: resolvedPipelineId,
             title: s.title || s.name,
             position: idx + 1,
             color: s.color || '#3B82F6',
             icon: s.icon || null,
           }))
         : [
-            { pipeline_id: pipeline.id, title: "Sourced", position: 1, color: '#3B82F6', icon: null },
-            { pipeline_id: pipeline.id, title: "Contacted", position: 2, color: '#10B981', icon: null },
-            { pipeline_id: pipeline.id, title: "Interviewed", position: 3, color: '#F59E0B', icon: null },
-            { pipeline_id: pipeline.id, title: "Offered", position: 4, color: '#8B5CF6', icon: null },
-            { pipeline_id: pipeline.id, title: "Hired", position: 5, color: '#059669', icon: null },
+            { pipeline_id: resolvedPipelineId, title: "Sourced", position: 1, color: '#3B82F6', icon: null },
+            { pipeline_id: resolvedPipelineId, title: "Contacted", position: 2, color: '#10B981', icon: null },
+            { pipeline_id: resolvedPipelineId, title: "Interviewed", position: 3, color: '#F59E0B', icon: null },
+            { pipeline_id: resolvedPipelineId, title: "Offered", position: 4, color: '#8B5CF6', icon: null },
+            { pipeline_id: resolvedPipelineId, title: "Hired", position: 5, color: '#059669', icon: null },
           ];
 
     const { data: insertedStages, error: stageError } = await supabaseDb
@@ -308,7 +343,7 @@ router.post('/', requireAuth as any, async (req: Request, res: Response) => {
     // Update job with pipeline_id
     const { error: updateError } = await supabaseDb
       .from('job_requisitions')
-      .update({ pipeline_id: pipeline.id })
+      .update({ pipeline_id: resolvedPipelineId })
       .eq('id', targetJobId);
 
     if (updateError) {
@@ -316,7 +351,7 @@ router.post('/', requireAuth as any, async (req: Request, res: Response) => {
       // Don't fail the request, just log the error
     }
 
-    console.log(`✅ Created pipeline ${pipeline.id} with ${insertedStages?.length || 0} stages for job ${targetJobId}`);
+    console.log(`✅ Created/linked pipeline ${resolvedPipelineId} with ${insertedStages?.length || 0} stages for job ${targetJobId}`);
 
     // Fetch the complete pipeline with stages for consistent response
     const { data: fullPipeline, error: fetchError } = await supabaseDb
@@ -325,7 +360,7 @@ router.post('/', requireAuth as any, async (req: Request, res: Response) => {
         *,
         pipeline_stages(*)
       `)
-      .eq("id", pipeline.id)
+      .eq("id", resolvedPipelineId)
       .single();
 
     if (fetchError) {
@@ -333,7 +368,7 @@ router.post('/', requireAuth as any, async (req: Request, res: Response) => {
       // Fallback to basic response
       return res.status(200).json({ 
         success: true, 
-        pipeline: { ...pipeline, stages: insertedStages || [] },
+        pipeline: { ...(createdOrExisting || pipeline), id: resolvedPipelineId, stages: insertedStages || [] },
         message: 'Pipeline created and stages set!'
       });
     }
