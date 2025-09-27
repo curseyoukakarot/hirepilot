@@ -91,7 +91,8 @@ function Campaigns() {
 
   const handleCampaignClick = (campaign) => {
     if (campaign.status === 'draft') {
-      navigate(`/campaigns/new/job-description?campaign_id=${campaign.id}`);
+      // Resume draft campaigns at Step 2 (Pipeline) instead of Step 1
+      navigate(`/campaigns/new/pipeline?campaign_id=${campaign.id}`);
     } else if (campaign.status === 'active' || campaign.status === 'live') {
       navigate(`/leads?campaignId=${campaign.id}&campaignName=${encodeURIComponent(campaign.name || campaign.title || 'Campaign')}`);
     }

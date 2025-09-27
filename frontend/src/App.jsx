@@ -170,6 +170,27 @@ function CampaignWizard() {
     }
   }, [location.pathname]);
 
+  // If a campaign_id exists in query params (resuming a draft), preload it
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const campaignId = params.get('campaign_id');
+    if (!campaignId) return;
+    // Only fetch if not already loaded
+    if (wizard?.campaign?.id === campaignId) return;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('campaigns')
+          .select('*')
+          .eq('id', campaignId)
+          .single();
+        if (data) {
+          setWizard(prev => ({ ...prev, campaign: data, campaignId: data.id }));
+        }
+      } catch {}
+    })();
+  }, [location.search]);
+
   // Navigate based on wizard step
   useEffect(() => {
     const currentPath = location.pathname.split('/').pop();
