@@ -220,6 +220,23 @@ router.post('/', requireAuth as any, async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Job not found or access denied' });
     }
 
+    // Idempotency: if a pipeline already exists for this job, return it instead of
+    // attempting to create a duplicate (unique_pipeline_per_job on job_id)
+    try {
+      const { data: existing } = await supabaseDb
+        .from('pipelines')
+        .select(`*, pipeline_stages(*)`)
+        .eq('job_id', targetJobId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (existing) {
+        // Ensure job points to the existing pipeline
+        try { await supabaseDb.from('job_requisitions').update({ pipeline_id: existing.id }).eq('id', targetJobId); } catch {}
+        return res.status(200).json({ success: true, pipeline: existing, message: 'Existing pipeline returned' });
+      }
+    } catch {}
+
     // Start transaction (pseudo since Supabase JS has no native transaction)
     const { data: pipeline, error: pipelineError } = await supabaseDb
       .from("pipelines")
@@ -235,6 +252,23 @@ router.post('/', requireAuth as any, async (req: Request, res: Response) => {
       .single();
 
     if (pipelineError) {
+      // If unique constraint hit, fetch the existing pipeline and return it
+      const code = (pipelineError as any)?.code;
+      if (code === '23505') {
+        try {
+          const { data: existing } = await supabaseDb
+            .from('pipelines')
+            .select(`*, pipeline_stages(*)`)
+            .eq('job_id', targetJobId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (existing) {
+            try { await supabaseDb.from('job_requisitions').update({ pipeline_id: existing.id }).eq('id', targetJobId); } catch {}
+            return res.status(200).json({ success: true, pipeline: existing, message: 'Existing pipeline returned' });
+          }
+        } catch {}
+      }
       console.error("Pipeline insert failed:", pipelineError);
       return res.status(500).json({ error: "Pipeline creation failed" });
     }
