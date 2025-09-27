@@ -110,6 +110,38 @@
       </div>
     </div>
 
+    <!-- Auto-Scraper (Sales Navigator) -->
+    <div id="scraperSection" class="card" style="margin-top:12px">
+      <div class="row space-between">
+        <div class="lead-name">Sales Navigator Auto-Scraper</div>
+        <div class="muted" id="scraperModeText">Manual</div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <label class="label" for="pageSlider" style="margin-right:8px">Pages to scrape</label>
+        <input id="pageSlider" type="range" min="1" max="20" step="1" value="1" style="flex:1">
+        <div id="pageSliderValue" class="lead-meta" style="min-width:36px; text-align:right">1</div>
+      </div>
+      <div class="row gap" style="margin-top:8px">
+        <button id="preset1" class="btn">1</button>
+        <button id="preset5" class="btn">5</button>
+        <button id="preset10" class="btn">10</button>
+      </div>
+      <div class="row gap" style="margin-top:10px">
+        <button id="startScrapeBtn" class="btn success">Start</button>
+        <button id="stopScrapeBtn" class="btn">Stop</button>
+      </div>
+      <div class="status-section" style="margin-top:10px">
+        <div class="status-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+            <path d="M12 16V12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M12 8H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div id="scrapeProgressText" class="status-text">Pages: 0/0 • Leads: 0</div>
+      </div>
+    </div>
+
     <!-- Email Accordion (appears when enriched email exists) -->
     <div id="emailAccordion" class="card hidden">
       <div id="emailAccordionHeader" class="row space-between" style="cursor:pointer">
@@ -191,5 +223,6 @@
   </section>
 
   <script src="popup.bundle.js"></script>
+  <script src="popup.scraper.js"></script>
 </body>
 </html>

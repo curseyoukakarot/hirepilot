@@ -43,5 +43,14 @@
   ],
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:"
+  },
+  "externally_connectable": {
+    "matches": [
+      "https://app.thehirepilot.com/*",
+      "https://www.thehirepilot.com/*",
+      "https://thehirepilot.com/*",
+      "http://localhost:3000/*",
+      "http://127.0.0.1:3000/*"
+    ]
   }
 }

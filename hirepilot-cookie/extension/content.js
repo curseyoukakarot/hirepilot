@@ -152,6 +152,32 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     sendResponse({ ok: true });
     return true;
   }
+
+  // Step 1: Auto-scraper entrypoint (content script) — start signal from popup/background/app
+  if (msg.action === 'START_SCRAPE') {
+    (async () => {
+      try {
+        const { pageLimit = 1, campaignId = null } = msg || {};
+        console.log('[HirePilot Extension] START_SCRAPE received', { pageLimit, campaignId });
+        const result = await runAutoScrapeLoop({ pageLimit, campaignId });
+        sendResponse(result || { ok: true });
+      } catch (e) {
+        console.error('[HirePilot Extension] START_SCRAPE failed:', e);
+        sendResponse({ error: e?.message || 'Failed to start scrape' });
+      }
+    })();
+    return true; // async
+  }
+
+  if (msg.action === 'STOP_SCRAPE') {
+    try {
+      window.__HP_SCRAPE_STOP__ = true;
+      sendResponse({ ok: true });
+    } catch (e) {
+      sendResponse({ error: e?.message || 'Failed to stop' });
+    }
+    return true;
+  }
   
   if (msg.action === 'getFullCookie') {
     try {
@@ -979,4 +1005,377 @@ async function scrollToLoadAllResults() {
   console.log(`[HirePilot Extension] ✅ SCROLL COMPLETE: ${initialCount} -> ${finalResultCount} results loaded`);
   
   return finalResultCount;
+}
+
+// ===== New modular Auto-Scraper functions (Step 1) =====
+
+// Random helpers
+const __hp_randBetween = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+const __hp_wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Detects a resilient set of selectors for result items
+function __hp_pickResultSelectors() {
+  const containerCandidates = [
+    'ul.reusable-search__entity-result-list',
+    'ul.search-results__result-list',
+    'div.search-results__content',
+    'main',
+    'div.artdeco-card',
+  ];
+  const itemCandidates = [
+    'li.reusable-search__result-container',
+    'div.reusable-search__result-container',
+    'ul.reusable-search__entity-result-list > li',
+    'li.entity-result',
+    'div.entity-result__item',
+    'div.result-lockup',
+    '.artdeco-entity-lockup',
+    '[data-view-name="search-result"]',
+    '[data-anonymize="entity-result"]',
+  ];
+  let container = null;
+  for (const c of containerCandidates) {
+    const el = document.querySelector(c);
+    if (el) { container = el; break; }
+  }
+  return { container, itemCandidates };
+}
+
+// Checks if a global/loading spinner is present
+function __hp_isLoading() {
+  const spinners = [
+    '.artdeco-loader',
+    'div[role="progressbar"]',
+    '[data-test-spinner]',
+    '.search-marvel-srp__loading',
+  ];
+  return spinners.some((s) => !!document.querySelector(s));
+}
+
+// Checks if the page indicates there are no more results
+function __hp_noMoreResultsVisible() {
+  const texts = [
+    'No more results',
+    'No results found',
+    'Try adjusting your filters',
+  ];
+  const nodes = Array.from(document.querySelectorAll('div,span,p,h2,h3')); 
+  return nodes.some((n) => texts.some((t) => (n.textContent || '').trim().toLowerCase().includes(t.toLowerCase())));
+}
+
+// Auto-scroll the page until results finish lazy-loading
+async function autoScrollPage(options = {}) {
+  const { maxRetries = 3, minPauseMs = 500, maxPauseMs = 1000 } = options;
+  const start = Date.now();
+  const { container, itemCandidates } = __hp_pickResultSelectors();
+  const getItems = () => {
+    for (const sel of itemCandidates) {
+      const list = (container || document).querySelectorAll(sel);
+      if (list && list.length) return Array.from(list);
+    }
+    return [];
+  };
+
+  let lastCount = getItems().length;
+  let lastHeight = document.documentElement.scrollHeight;
+  let retries = 0;
+  let stop = false;
+
+  let lastMutationAt = Date.now();
+  const obs = new MutationObserver(() => { lastMutationAt = Date.now(); });
+  try {
+    obs.observe(container || document.documentElement, { childList: true, subtree: true });
+  } catch {}
+
+  while (!stop) {
+    // Variable scroll increments to mimic human behavior
+    const step = 300 + __hp_randBetween(0, 200);
+    window.scrollBy({ top: step, left: 0, behavior: 'smooth' });
+    await __hp_wait(__hp_randBetween(minPauseMs, maxPauseMs));
+
+    const currentCount = getItems().length;
+    const currentHeight = document.documentElement.scrollHeight;
+    const loading = __hp_isLoading();
+
+    const noProgress = currentCount === lastCount && currentHeight === lastHeight;
+
+    if (!loading && __hp_noMoreResultsVisible()) {
+      stop = true;
+      break;
+    }
+
+    if (!noProgress) {
+      lastCount = currentCount;
+      lastHeight = currentHeight;
+      retries = 0;
+      continue;
+    }
+
+    // If stalled, try small jiggle scrolls to trigger lazy loaders
+    if (Date.now() - lastMutationAt > 1200) {
+      window.scrollBy({ top: __hp_randBetween(50, 180), left: 0, behavior: 'auto' });
+      await __hp_wait(__hp_randBetween(minPauseMs, maxPauseMs));
+    }
+
+    // If still stalled and no spinner, count a retry
+    if (!loading) {
+      retries += 1;
+      // Final push to bottom on last retry
+      if (retries >= maxRetries) {
+        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+        await __hp_wait(1200);
+        stop = true;
+      }
+    }
+  }
+
+  obs.disconnect();
+  // Return to top for deterministic scraping
+  window.scrollTo({ top: 0, behavior: 'auto' });
+  return { totalVisible: getItems().length, retriesUsed: retries, durationMs: Date.now() - start };
+}
+
+// Extract visible leads from the DOM using resilient selectors
+async function scrapeResults() {
+  const { container, itemCandidates } = __hp_pickResultSelectors();
+  const scope = container || document;
+  let items = [];
+  for (const sel of itemCandidates) {
+    const n = scope.querySelectorAll(sel);
+    if (n && n.length) { items = Array.from(n); break; }
+  }
+  if (!items.length) items = Array.from(document.querySelectorAll('li, .entity-result, .result-lockup, .artdeco-entity-lockup'));
+
+  const toText = (el) => (el && el.textContent ? el.textContent.trim().replace(/\s+/g, ' ') : '');
+  const abs = (href) => {
+    if (!href) return '';
+    const cleaned = (href.split('#')[0] || '').split('?')[0];
+    if (/^https?:\/\//i.test(cleaned)) return cleaned;
+    if (cleaned.startsWith('/')) return `https://www.linkedin.com${cleaned}`;
+    return `https://www.linkedin.com/${cleaned}`;
+  };
+
+  const leads = [];
+
+  const nameSelectors = [
+    '[data-testid="search-result-name"]',
+    '[data-anonymize="person-name"]',
+    '.entity-result__title-text a span[aria-hidden="true"]',
+    '.artdeco-entity-lockup__title a span',
+    '.result-lockup__name',
+    'a.app-aware-link span[aria-hidden="true"]',
+    'span[aria-hidden="true"]',
+  ];
+  const titleSelectors = [
+    '[data-testid="search-result-headline"]',
+    '[data-anonymize="headline"]',
+    '.entity-result__primary-subtitle',
+    '.artdeco-entity-lockup__subtitle',
+    '.result-lockup__highlight',
+    '.entity-result__summary',
+  ];
+  const companySelectors = [
+    '[data-testid="search-result-company-name"]',
+    '[data-anonymize="company-name"]',
+    '.entity-result__secondary-subtitle',
+    '.artdeco-entity-lockup__caption',
+    '.result-lockup__misc',
+    'a[href*="/company/"]',
+  ];
+  const linkSelectors = [
+    'a.app-aware-link[href*="/in/"]',
+    'a[href*="/in/"]',
+    'a.app-aware-link[href*="/sales/people/"]',
+    'a[href*="/sales/people/"]',
+    'a.result-lockup__name',
+  ];
+
+  const pick = (root, sels) => {
+    for (const s of sels) { const el = root.querySelector(s); const t = toText(el); if (t) return t; }
+    return '';
+  };
+  const pickHref = (root, sels) => {
+    for (const s of sels) {
+      const el = root.querySelector(s);
+      const href = el && (el.getAttribute('href') || el.href);
+      if (href) return abs(href);
+    }
+    return '';
+  };
+
+  for (const el of items) {
+    try {
+      let name = pick(el, nameSelectors);
+      if (!name) {
+        const a = el.querySelector('a[href*="/in/"]') || el.querySelector('a.app-aware-link');
+        if (a && a.textContent) name = a.textContent.trim();
+      }
+      const title = pick(el, titleSelectors);
+      let company = pick(el, companySelectors);
+      if (!company && /\bat\b/i.test(title)) {
+        const m = title.match(/\bat\s+([^|•,]+)\b/i); if (m) company = m[1].trim();
+      }
+      const profileUrl = pickHref(el, linkSelectors);
+      if (name && profileUrl) {
+        leads.push({ name, title, company, profileUrl });
+      }
+    } catch (e) {
+      console.warn('[HirePilot Extension] scrapeResults item error:', e?.message);
+    }
+  }
+
+  return leads;
+}
+
+// Locate and click the Next button (human-like), but do not loop pages here
+async function clickNextPageHumanLike() {
+  const candidates = [
+    'button[aria-label="Next"]',
+    'a[aria-label="Next"]',
+    'li[aria-label="Next"] button',
+    'button[aria-label*="Next" i]',
+    'button[aria-label*="Next page" i]'
+  ];
+  let next = null;
+  for (const sel of candidates) { const el = document.querySelector(sel); if (el) { next = el; break; } }
+  if (!next) return { clicked: false, reason: 'Next not found' };
+  const disabled = next.getAttribute('aria-disabled') === 'true' || next.disabled;
+  if (disabled) return { clicked: false, reason: 'Next disabled' };
+
+  // Randomized delay 3–7s before navigating
+  const delay = __hp_randBetween(3000, 7000);
+  await __hp_wait(delay);
+
+  try {
+    next.focus?.();
+    next.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+    next.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    next.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }));
+    next.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    next.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+    return { clicked: true, delayMs: delay };
+  } catch (e) {
+    return { clicked: false, error: e?.message || 'Failed to click Next' };
+  }
+}
+
+// Expose for tests
+try {
+  if (typeof window !== 'undefined') {
+    window.__HP = window.__HP || {};
+    window.__HP.autoScrollPage = autoScrollPage;
+    window.__HP.scrapeResults = scrapeResults;
+    window.__HP.clickNextPageHumanLike = clickNextPageHumanLike;
+  }
+} catch {}
+
+// ===== Full loop controller =====
+async function runAutoScrapeLoop(opts) {
+  const pageLimit = Number(opts?.pageLimit || 1);
+  const campaignId = opts?.campaignId || null;
+  const maxErrors = 3;
+  window.__HP_SCRAPE_STOP__ = false;
+  let maxHeap = 0;
+  let lastHeap = null;
+
+  const getCurrentPageFromUrl = () => {
+    try {
+      const u = new URL(location.href);
+      const p = Number(u.searchParams.get('page') || u.searchParams.get('p') || '1');
+      return Number.isFinite(p) && p > 0 ? p : 1;
+    } catch { return 1; }
+  };
+
+  // Load persisted state
+  const stateKey = `hp_scrape_state`;
+  let persisted = {};
+  try { persisted = (await chrome.storage.session.get(stateKey))[stateKey] || {}; } catch {}
+  let currentPage = persisted.currentPage || getCurrentPageFromUrl();
+  let totalLeads = persisted.totalLeads || 0;
+  let errorCount = 0;
+
+  const persist = async () => {
+    try { await chrome.storage.session.set({ [stateKey]: { currentPage, totalLeads, campaignId } }); } catch {}
+  };
+
+  const waitForFocus = async () => {
+    // Pause if tab is not focused
+    if (document.visibilityState === 'visible') return;
+    await new Promise((resolve) => {
+      const onVis = () => { if (document.visibilityState === 'visible') { document.removeEventListener('visibilitychange', onVis); resolve(); } };
+      document.addEventListener('visibilitychange', onVis);
+    });
+  };
+
+  const randomDelay = async (min = 3000, max = 7000) => { await __hp_wait(__hp_randBetween(min, max)); };
+
+  try {
+    for (;;) {
+      if (window.__HP_SCRAPE_STOP__) return { ok: true, stopped: true, currentPage, totalLeads };
+      if (currentPage > pageLimit) break;
+
+      await waitForFocus();
+
+      try {
+        const scrollInfo = await autoScrollPage({ maxRetries: 3 });
+        console.log('[HirePilot Extension] Scroll info', scrollInfo);
+        const leads = await scrapeResults();
+        console.log('[HirePilot Extension] Page', currentPage, 'leads:', leads.length);
+
+        // Collect heap metric if available
+        try {
+          const h = (performance && performance.memory && performance.memory.usedJSHeapSize) ? performance.memory.usedJSHeapSize : null;
+          lastHeap = h;
+          if (h && h > maxHeap) maxHeap = h;
+        } catch {}
+
+        // Deliver page chunk
+        await new Promise((resolve) => {
+          chrome.runtime.sendMessage(
+            { action: 'HP_SCRAPE_CHUNK', page: currentPage, pageLimit, campaignId, leads, heap: lastHeap },
+            () => resolve()
+          );
+        });
+
+        totalLeads += leads.length;
+        errorCount = 0;
+
+        // Notify popup
+        try { chrome.runtime.sendMessage({ action: 'SCRAPE_PROGRESS', page: currentPage, pageLimit, sentThisPage: leads.length, totalSent: totalLeads, pagesDone: currentPage, campaignId, heap: lastHeap, maxHeap }); } catch {}
+
+        await persist();
+      } catch (e) {
+        console.warn('[HirePilot Extension] Page scrape error:', e?.message || e);
+        errorCount += 1;
+        if (errorCount >= maxErrors) {
+          await logRunSummary({ status: 'error', error: e?.message || 'max errors', currentPage, totalLeads, campaignId });
+          return { error: e?.message || 'Too many errors', currentPage, totalLeads };
+        }
+      }
+
+      // Try next page
+      const next = await clickNextPageHumanLike();
+      if (!next?.clicked) {
+        console.log('[HirePilot Extension] No next page or click failed:', next?.reason || next?.error);
+        break; // No more pages
+      }
+
+      currentPage += 1;
+      await persist();
+      await randomDelay(3000, 7000);
+      await waitForFocus();
+    }
+
+    await logRunSummary({ status: 'ok', currentPage, totalLeads, campaignId, maxHeap, lastHeap });
+    return { ok: true, currentPage, totalLeads };
+  } catch (e) {
+    await logRunSummary({ status: 'error', error: e?.message || 'loop failed', currentPage, totalLeads, campaignId, maxHeap, lastHeap });
+    return { error: e?.message || 'Loop failed', currentPage, totalLeads };
+  }
+}
+
+async function logRunSummary(summary) {
+  try {
+    chrome.runtime.sendMessage({ action: 'SCRAPE_RUN_SUMMARY', summary });
+  } catch {}
 }

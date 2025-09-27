@@ -30,6 +30,59 @@ async function getApiBase() {
 let lastLinkedInTabId = null;
 const portsByTab = new Map();
 
+// --- Helpers for API posting with retry/backoff and error reporting ---
+async function postLeadsScrape(leads, campaignId) {
+  const api = await getApiBase();
+  const url = `${api}/leads/scrape`;
+  const payload = { leads, campaignId };
+  const maxAttempts = 3;
+  let delay = 800;
+  let lastErr = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (e) {
+      lastErr = e;
+      console.warn(`[HP-BG] scrape upload attempt ${attempt}/${maxAttempts} failed:`, e?.message || e);
+      if (attempt < maxAttempts) {
+        await new Promise(r => setTimeout(r, delay));
+        delay *= 2;
+      }
+    }
+  }
+  // Persistent failure: report to backend logging endpoint (best-effort)
+  try { await reportClientError(`leads/scrape persistent failure: ${lastErr?.message || lastErr}`); } catch {}
+  throw lastErr || new Error('Upload failed');
+}
+
+async function reportClientError(message) {
+  try {
+    const api = await getApiBase();
+    await fetch(`${api}/logs/client`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source: 'extension-bg', message, when: new Date().toISOString() })
+    });
+  } catch {}
+}
+
+async function reportRunSummary(summary) {
+  try {
+    const api = await getApiBase();
+    await fetch(`${api}/logs/scrape-run`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source: 'extension-bg', when: new Date().toISOString(), ...summary })
+    });
+  } catch {}
+}
+
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete' && tab?.url?.includes('linkedin.com')) {
     lastLinkedInTabId = tabId;
@@ -99,6 +152,19 @@ chrome.runtime.onConnect.addListener((port) => {
 });
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.action === 'SCRAPE_RUN_SUMMARY') {
+    (async () => {
+      try {
+        const { summary } = msg || {};
+        await reportRunSummary(summary || {});
+        sendResponse({ ok: true });
+      } catch (e) {
+        try { await reportClientError(`run summary failed: ${e?.message || e}`); } catch {}
+        sendResponse({ error: e?.message || 'Failed to log run summary' });
+      }
+    })();
+    return true;
+  }
   if (msg.action === 'getFullCookie') {
     // Use chrome.cookies API to get ALL cookies including HttpOnly ones
     chrome.cookies.getAll({ domain: '.linkedin.com' }, (cookies) => {
@@ -118,6 +184,84 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;  // Keep channel open
   }
   
+  // Step 2: Receive per-page chunk from content, upload to API with retry/backoff, and notify popup
+  if (msg.action === 'HP_SCRAPE_CHUNK' || msg.action === 'LEADS_SCRAPED') {
+    (async () => {
+      try {
+        const tabId = sender?.tab?.id || lastLinkedInTabId || null;
+        const leads = Array.isArray(msg.leads) ? msg.leads : [];
+        const campaignId = msg.campaignId || null;
+        const page = Number(msg.page || 1);
+        const pageLimit = Number(msg.pageLimit || 1);
+
+        // Track progress state per tab
+        const stateKey = `scrape_state_${tabId || 'global'}`;
+        let state = (await chrome.storage.session.get(stateKey))[stateKey] || { totalSent: 0, pagesDone: 0 };
+
+        // Upload leads for this page
+        const result = await postLeadsScrape(leads, campaignId);
+
+        // Update progress
+        state.totalSent += leads.length;
+        state.pagesDone = Math.max(state.pagesDone, page);
+        await chrome.storage.session.set({ [stateKey]: state });
+
+        // Notify popup of progress
+        try {
+          chrome.runtime.sendMessage({
+            action: 'SCRAPE_PROGRESS',
+            page,
+            pageLimit,
+            sentThisPage: leads.length,
+            totalSent: state.totalSent,
+            pagesDone: state.pagesDone,
+            campaignId,
+            apiResult: result
+          });
+        } catch {}
+
+        sendResponse({ ok: true, uploaded: leads.length, result });
+      } catch (e) {
+        console.error('[HirePilot Background] HP_SCRAPE_CHUNK error:', e);
+        try {
+          await reportClientError(`HP_SCRAPE_CHUNK failed: ${e?.message || e}`);
+        } catch {}
+        sendResponse({ error: e?.message || 'Chunk upload failed' });
+      }
+    })();
+    return true; // async
+  }
+
+  // Step 2: Relay START/STOP between popup/external and content script
+  if (msg.action === 'START_SCRAPE' || msg.action === 'STOP_SCRAPE') {
+    (async () => {
+      try {
+        const pageLimit = msg.pageLimit;
+        const campaignId = msg.campaignId;
+        // Mark autopilot=false for manual popup start
+        try { await chrome.storage.session.set({ hp_autopilot_mode: false }); } catch {}
+        // Pick a LinkedIn tab
+        let tabId = sender?.tab?.id || lastLinkedInTabId || null;
+        if (!tabId) {
+          try { const stored = await chrome.storage.local.get('lastLinkedInTabId'); tabId = stored?.lastLinkedInTabId || null; } catch {}
+        }
+        if (!tabId) {
+          const liTabs = await chrome.tabs.query({ url: ['*://*.linkedin.com/*'] });
+          if (liTabs && liTabs.length) tabId = liTabs[0].id;
+        }
+        if (!tabId) return sendResponse({ error: 'No LinkedIn tab available' });
+
+        chrome.tabs.sendMessage(tabId, { action: msg.action, pageLimit, campaignId }, (resp) => {
+          if (chrome.runtime.lastError) return sendResponse({ error: chrome.runtime.lastError.message });
+          sendResponse(resp || { ok: true });
+        });
+      } catch (e) {
+        sendResponse({ error: e?.message || 'Failed to relay command' });
+      }
+    })();
+    return true;
+  }
+
   if (msg.action === 'scrapeSalesNav') {
     // Use injected scraper for Sales Navigator People search results
     (async () => {
@@ -333,6 +477,59 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       .catch(error => sendResponse({ error: error.message }));
     return true;  // Keep channel open for async
   }
+});
+
+// External messaging support (HirePilot app autopilot). Validate origin then forward.
+chrome.runtime.onMessageExternal?.addListener((request, sender, sendResponse) => {
+  (async () => {
+    try {
+      const allowed = [
+        'https://app.thehirepilot.com',
+        'https://www.thehirepilot.com',
+        'https://thehirepilot.com',
+        'http://localhost:3000',
+        'http://127.0.0.1:3000'
+      ];
+      const origin = sender?.origin || sender?.url || '';
+      const ok = allowed.some((p) => (origin || '').startsWith(p));
+      if (!ok) return sendResponse({ error: 'Origin not allowed' });
+
+      if (request?.action === 'START_SCRAPE' || request?.action === 'STOP_SCRAPE') {
+        // Token validation: compare token with value stored in local storage (set by popup/app)
+        try {
+          const { hp_ext_token } = await chrome.storage.local.get('hp_ext_token');
+          const tokenOk = !!hp_ext_token && hp_ext_token === (request?.token || '');
+          if (!tokenOk) return sendResponse({ error: 'Invalid token' });
+        } catch {
+          return sendResponse({ error: 'Token validation failed' });
+        }
+        const pageLimit = request.pageLimit;
+        const campaignId = request.campaignId;
+        // Mark autopilot mode for popup to hide controls
+        try { await chrome.storage.session.set({ hp_autopilot_mode: true }); } catch {}
+        // Relay to content script similar to internal path
+        let tabId = lastLinkedInTabId || null;
+        if (!tabId) {
+          try { const stored = await chrome.storage.local.get('lastLinkedInTabId'); tabId = stored?.lastLinkedInTabId || null; } catch {}
+        }
+        if (!tabId) {
+          const liTabs = await chrome.tabs.query({ url: ['*://*.linkedin.com/*'] });
+          if (liTabs && liTabs.length) tabId = liTabs[0].id;
+        }
+        if (!tabId) return sendResponse({ error: 'No LinkedIn tab available' });
+        chrome.tabs.sendMessage(tabId, { action: request.action, pageLimit, campaignId }, (resp) => {
+          if (chrome.runtime.lastError) return sendResponse({ error: chrome.runtime.lastError.message });
+          sendResponse(resp || { ok: true });
+        });
+        return; // keep channel open
+      }
+
+      sendResponse({ error: 'Unsupported external action' });
+    } catch (e) {
+      sendResponse({ error: e?.message || 'External message failed' });
+    }
+  })();
+  return true; // async
 });
 
 async function handleBulkAddLeads(leads) {
