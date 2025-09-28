@@ -158,10 +158,20 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     (async () => {
       try {
         const { pageLimit = 1, campaignId = null } = msg || {};
+        // Show overlay if autopilot mode is set
+        try {
+          const st = await chrome.storage.session.get(['hp_autopilot_mode']);
+          if (st && st.hp_autopilot_mode) {
+            __hp_showOverlay('HirePilot is gathering leads… keep this tab open.');
+          }
+        } catch {}
+        console.debug('[HP Content] START_SCRAPE: initiating loop with', { pageLimit, campaignId });
         console.log('[HirePilot Extension] START_SCRAPE received', { pageLimit, campaignId });
         const result = await runAutoScrapeLoop({ pageLimit, campaignId });
+        __hp_hideOverlay();
         sendResponse(result || { ok: true });
       } catch (e) {
+        __hp_hideOverlay();
         console.error('[HirePilot Extension] START_SCRAPE failed:', e);
         sendResponse({ error: e?.message || 'Failed to start scrape' });
       }
@@ -198,27 +208,23 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     // Check if on Sales Nav search page - prioritize URL-based detection
     const url = window.location.href;
     const isSalesNavSearch = (
-      url.includes('/sales/search/people') ||
-      url.includes('/sales/search/') ||
-      url.includes('linkedin.com/sales/') ||
-      url.includes('salesnavigator') ||
-      (url.includes('linkedin.com') && url.includes('search'))
+      /linkedin\.com\/sales\/search/i.test(url) ||
+      /linkedin\.com\/sales\//i.test(url)
     );
-    
     console.log('[HirePilot Extension] URL check:', url);
     console.log('[HirePilot Extension] Is Sales Nav search page?', isSalesNavSearch);
     
     if (isSalesNavSearch) {
-      console.log('[HirePilot Extension] ✅ On Sales Nav page, starting scrape');
-      scrapeLeads()
-        .then(leads => {
-          console.log('[HirePilot Extension] Scrape successful:', leads.length, 'leads');
-          sendResponse({ leads });
-        })
-        .catch(err => {
-          console.error('[HirePilot Extension] Scrape error:', err);
+      console.log('[HirePilot Extension] ✅ On Sales Nav page, preloading without scroll');
+      (async () => {
+        try {
+          const leads = await preloadLeads();
+          sendResponse({ leads, mode: 'sn_preload_single_page' });
+        } catch (err) {
+          console.error('[HirePilot Extension] Preload scrape error:', err);
           sendResponse({ error: err.message });
-        });
+        }
+      })();
     } else {
       const error = 'Not on Sales Navigator search page. Current URL: ' + url;
       console.warn('[HirePilot Extension] ❌', error);
@@ -541,9 +547,9 @@ async function scrapeLeads() {
   const initialResults = document.querySelectorAll('.artdeco-entity-lockup');
   console.log('[HirePilot Extension] Results found BEFORE scrolling:', initialResults.length);
 
-  // Scroll to load all results on the page
-  console.log('[HirePilot Extension] Scrolling to load all results...');
-  await scrollToLoadAllResults();
+  // Scroll to load all results on the page using shared autoScrollPage for robustness
+  console.log('[HirePilot Extension] autoScrollPage to load all results...');
+  await autoScrollPage({ maxRetries: 3 });
 
   // Check again after scrolling
   const finalResults = document.querySelectorAll('.artdeco-entity-lockup');
@@ -1030,6 +1036,7 @@ function __hp_pickResultSelectors() {
     'div.entity-result__item',
     'div.result-lockup',
     '.artdeco-entity-lockup',
+    '.artdeco-entity-lockup--size-4',
     '[data-view-name="search-result"]',
     '[data-anonymize="entity-result"]',
   ];
@@ -1039,6 +1046,24 @@ function __hp_pickResultSelectors() {
     if (el) { container = el; break; }
   }
   return { container, itemCandidates };
+}
+
+// Find the best-matching list of result items by scanning multiple selectors
+function __hp_findResultItems() {
+  const { container, itemCandidates } = __hp_pickResultSelectors();
+  const scope = container || document;
+  let best = [];
+  let bestSel = '';
+  const counts = {};
+  for (const sel of itemCandidates) {
+    try {
+      const list = Array.from(scope.querySelectorAll(sel));
+      counts[sel] = list.length;
+      if (list.length > best.length) { best = list; bestSel = sel; }
+    } catch {}
+  }
+  try { console.log('[HP-CS] Item selector counts:', counts, 'chosen=', bestSel, 'count=', best.length); } catch {}
+  return best.length ? best : Array.from(document.querySelectorAll('li, .entity-result__item, .reusable-search__result-container, .artdeco-entity-lockup, .artdeco-entity-lockup--size-4'));
 }
 
 // Checks if a global/loading spinner is present
@@ -1065,86 +1090,78 @@ function __hp_noMoreResultsVisible() {
 
 // Auto-scroll the page until results finish lazy-loading
 async function autoScrollPage(options = {}) {
-  const { maxRetries = 3, minPauseMs = 500, maxPauseMs = 1000 } = options;
-  const start = Date.now();
-  const { container, itemCandidates } = __hp_pickResultSelectors();
-  const getItems = () => {
-    for (const sel of itemCandidates) {
-      const list = (container || document).querySelectorAll(sel);
-      if (list && list.length) return Array.from(list);
-    }
-    return [];
-  };
+  const { maxRetries = 3 } = options;
+  console.log('[HP-CS] Auto-scroll starting');
+  return new Promise((resolve) => {
+    const maxTimeMs = 20000 + (maxRetries * 3000);
+    const start = Date.now();
 
-  let lastCount = getItems().length;
-  let lastHeight = document.documentElement.scrollHeight;
-  let retries = 0;
-  let stop = false;
+    const hasLoader = () => !!document.querySelector('.artdeco-loader, .search-reusables__loading-spinner, .reusable-search__entity-result-list--loading, [role="progressbar"]');
 
-  let lastMutationAt = Date.now();
-  const obs = new MutationObserver(() => { lastMutationAt = Date.now(); });
-  try {
-    obs.observe(container || document.documentElement, { childList: true, subtree: true });
-  } catch {}
-
-  while (!stop) {
-    // Variable scroll increments to mimic human behavior
-    const step = 300 + __hp_randBetween(0, 200);
-    window.scrollBy({ top: step, left: 0, behavior: 'smooth' });
-    await __hp_wait(__hp_randBetween(minPauseMs, maxPauseMs));
-
-    const currentCount = getItems().length;
-    const currentHeight = document.documentElement.scrollHeight;
-    const loading = __hp_isLoading();
-
-    const noProgress = currentCount === lastCount && currentHeight === lastHeight;
-
-    if (!loading && __hp_noMoreResultsVisible()) {
-      stop = true;
-      break;
+    const resultsContainer = document.querySelector('ul.reusable-search__entity-result-list, .search-results__result-list, .reusable-search-results-list, .artdeco-list, main');
+    if (!resultsContainer) {
+      console.warn('[HP-CS] No results container found');
     }
 
-    if (!noProgress) {
-      lastCount = currentCount;
-      lastHeight = currentHeight;
-      retries = 0;
-      continue;
-    }
+    let lastHeight = document.documentElement.scrollHeight;
+    let stable = 0;
 
-    // If stalled, try small jiggle scrolls to trigger lazy loaders
-    if (Date.now() - lastMutationAt > 1200) {
-      window.scrollBy({ top: __hp_randBetween(50, 180), left: 0, behavior: 'auto' });
-      await __hp_wait(__hp_randBetween(minPauseMs, maxPauseMs));
-    }
+    const onTick = () => {
+      window.scrollBy(0, 400 + __hp_randBetween(100, 300));
+      const h = document.documentElement.scrollHeight;
+      if (h > lastHeight) { lastHeight = h; stable = 0; }
+      else if (!hasLoader()) { stable += 1; }
 
-    // If still stalled and no spinner, count a retry
-    if (!loading) {
-      retries += 1;
-      // Final push to bottom on last retry
-      if (retries >= maxRetries) {
-        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
-        await __hp_wait(1200);
-        stop = true;
+      if (stable >= 3 || (Date.now() - start) > maxTimeMs) {
+        clearInterval(tick);
+        if (obs) try { obs.disconnect(); } catch {}
+        console.log('[HP-CS] Scroll complete; height:', h, 'stable checks:', stable);
+        resolve();
       }
-    }
-  }
+    };
 
-  obs.disconnect();
-  // Return to top for deterministic scraping
-  window.scrollTo({ top: 0, behavior: 'auto' });
-  return { totalVisible: getItems().length, retriesUsed: retries, durationMs: Date.now() - start };
+    // IntersectionObserver to kick lazy loads as last item appears
+    let obs = null;
+    try {
+      obs = new IntersectionObserver((entries) => {
+        const e = entries[0];
+        if (e && e.isIntersecting) {
+          window.scrollBy(0, Math.round(window.innerHeight * 0.8));
+          stable = 0; // reset to allow more loads
+          // Re-observe new last child when list grows
+          const lc = resultsContainer && resultsContainer.lastElementChild;
+          if (lc) { obs.unobserve(e.target); obs.observe(lc); }
+        }
+      }, { threshold: 0.1 });
+      const lastChild = resultsContainer && resultsContainer.lastElementChild;
+      if (lastChild) obs.observe(lastChild);
+    } catch {}
+
+    const tick = setInterval(onTick, 300 + __hp_randBetween(0, 300));
+  });
+}
+
+function startNavigationMonitor(pageLimit, onPageChange) {
+  let lastPage = 0;
+  const getPageFromUrl = () => {
+    try { const u = new URL(location.href); return Number(u.searchParams.get('page') || '1') || 1; } catch { return 1; }
+  };
+  const interval = setInterval(() => {
+    const p = getPageFromUrl();
+    if (p !== lastPage) {
+      if (p > lastPage) console.debug(`[HP-CS] Detected navigation to page ${p}`);
+      lastPage = p;
+      onPageChange?.(p);
+      if (p >= pageLimit) { clearInterval(interval); }
+    }
+  }, 1000 + __hp_randBetween(0, 500));
+  return () => clearInterval(interval);
 }
 
 // Extract visible leads from the DOM using resilient selectors
 async function scrapeResults() {
-  const { container, itemCandidates } = __hp_pickResultSelectors();
-  const scope = container || document;
-  let items = [];
-  for (const sel of itemCandidates) {
-    const n = scope.querySelectorAll(sel);
-    if (n && n.length) { items = Array.from(n); break; }
-  }
-  if (!items.length) items = Array.from(document.querySelectorAll('li, .entity-result, .result-lockup, .artdeco-entity-lockup'));
+  const items = __hp_findResultItems();
+  console.log('[HP-CS] Found result items:', items.length);
 
   const toText = (el) => (el && el.textContent ? el.textContent.trim().replace(/\s+/g, ' ') : '');
   const abs = (href) => {
@@ -1158,31 +1175,31 @@ async function scrapeResults() {
   const leads = [];
 
   const nameSelectors = [
+    '.entity-result__title-text span[dir="ltr"] > span[aria-hidden="true"]',
+    '.artdeco-entity-lockup__title a span',
     '[data-testid="search-result-name"]',
     '[data-anonymize="person-name"]',
-    '.entity-result__title-text a span[aria-hidden="true"]',
-    '.artdeco-entity-lockup__title a span',
     '.result-lockup__name',
     'a.app-aware-link span[aria-hidden="true"]',
-    'span[aria-hidden="true"]',
   ];
   const titleSelectors = [
-    '[data-testid="search-result-headline"]',
-    '[data-anonymize="headline"]',
     '.entity-result__primary-subtitle',
     '.artdeco-entity-lockup__subtitle',
+    '[data-testid="search-result-headline"]',
+    '[data-anonymize="headline"]',
     '.result-lockup__highlight',
-    '.entity-result__summary',
   ];
   const companySelectors = [
-    '[data-testid="search-result-company-name"]',
-    '[data-anonymize="company-name"]',
     '.entity-result__secondary-subtitle',
     '.artdeco-entity-lockup__caption',
+    '[data-testid="search-result-company-name"]',
+    '[data-anonymize="company-name"]',
     '.result-lockup__misc',
     'a[href*="/company/"]',
   ];
   const linkSelectors = [
+    '.entity-result__title-text a[href]',
+    '.artdeco-entity-lockup__link',
     'a.app-aware-link[href*="/in/"]',
     'a[href*="/in/"]',
     'a.app-aware-link[href*="/sales/people/"]',
@@ -1195,11 +1212,7 @@ async function scrapeResults() {
     return '';
   };
   const pickHref = (root, sels) => {
-    for (const s of sels) {
-      const el = root.querySelector(s);
-      const href = el && (el.getAttribute('href') || el.href);
-      if (href) return abs(href);
-    }
+    for (const s of sels) { const el = root.querySelector(s); const href = el && (el.getAttribute('href') || el.href); if (href) return abs(href); }
     return '';
   };
 
@@ -1212,19 +1225,141 @@ async function scrapeResults() {
       }
       const title = pick(el, titleSelectors);
       let company = pick(el, companySelectors);
-      if (!company && /\bat\b/i.test(title)) {
-        const m = title.match(/\bat\s+([^|•,]+)\b/i); if (m) company = m[1].trim();
-      }
+      if (!company && /\bat\b/i.test(title)) { const m = title.match(/\bat\s+([^|•,]+)\b/i); if (m) company = m[1].trim(); }
       const profileUrl = pickHref(el, linkSelectors);
-      if (name && profileUrl) {
-        leads.push({ name, title, company, profileUrl });
-      }
-    } catch (e) {
-      console.warn('[HirePilot Extension] scrapeResults item error:', e?.message);
-    }
+      if (name && profileUrl) { leads.push({ name, title, company, profileLink: profileUrl }); }
+    } catch (e) { console.warn('[HirePilot Extension] scrapeResults item error:', e?.message); }
   }
 
+  // Fallback: scan anchors if nothing matched
+  if (!leads.length) {
+    const anchorSel = 'a[href*="/in/"], a[href*="/sales/people/"], a[href*="/sales/lead/"]';
+    const anchors = Array.from(document.querySelectorAll(anchorSel));
+    const seen = new Set();
+    const getNameFrom = (a) => {
+      const aria = (a.getAttribute('aria-label') || '').trim();
+      if (aria) return aria;
+      const titleAttr = (a.getAttribute('title') || '').trim();
+      if (titleAttr) return titleAttr;
+      const text = (a.textContent || '').trim();
+      if (text) return text;
+      const parent = a.closest('.entity-result__title-text, .artdeco-entity-lockup__title');
+      if (parent && parent.textContent) return parent.textContent.trim();
+      return '';
+    };
+    for (const a of anchors) {
+      const href = abs(a.getAttribute('href') || a.href);
+      if (!href || seen.has(href)) continue;
+      seen.add(href);
+      const name = getNameFrom(a).slice(0, 120);
+      if (name) {
+        // Try to infer title/company nearby
+        let title = '';
+        let company = '';
+        const root = a.closest('.entity-result__item, .reusable-search__result-container, .artdeco-entity-lockup') || a.parentElement;
+        if (root) {
+          const tEl = root.querySelector('.entity-result__primary-subtitle, .artdeco-entity-lockup__subtitle');
+          const cEl = root.querySelector('.entity-result__secondary-subtitle, .artdeco-entity-lockup__caption');
+          title = tEl ? tEl.textContent.trim() : '';
+          company = cEl ? cEl.textContent.trim() : '';
+        }
+        leads.push({ name, title, company, profileLink: href });
+      }
+      if (leads.length >= 25) break;
+    }
+    if (leads.length) console.warn('[HP-CS] Fallback anchor-based extraction used:', leads.length);
+  }
+
+  if (!leads.length) console.warn('[HirePilot Extension] scrapeResults found 0 leads – verify selectors against current DOM');
   return leads;
+}
+
+// Helper to get the scrollable container for aggressive scrolling
+function __hp_getScrollableContainer() {
+  // Find the nearest scrollable ancestor of the first result item
+  try {
+    const firstItem = __hp_findResultItems()[0];
+    let node = firstItem ? firstItem.parentElement : null;
+    while (node && node !== document.body) {
+      const style = getComputedStyle(node);
+      const overY = style.overflowY;
+      const scrollable = node.scrollHeight > node.clientHeight && (overY === 'auto' || overY === 'scroll');
+      if (scrollable) return node;
+      node = node.parentElement;
+    }
+  } catch {}
+  // Fallbacks: common containers
+  return document.querySelector('div.search-results-container, div.search-results__content, ul.reusable-search__entity-result-list, main') || document.scrollingElement || document.documentElement;
+}
+
+// Ensure all results are rendered by scrolling only the results container (no window scroll)
+async function __hp_ensureAllResultsRendered(maxMs = 9000, target = 25) {
+  try {
+    const container = __hp_getScrollableContainer();
+    if (!container) return;
+    const start = Date.now();
+    let lastCount = 0;
+    let stableTicks = 0;
+
+    // Focus container to ensure wheel/PageDown events target it
+    try { container.focus?.(); } catch {}
+
+    while (Date.now() - start < maxMs) {
+      // Scroll container in large steps to bottom
+      container.scrollTop = Math.min(container.scrollTop + Math.max(600, Math.round(container.clientHeight * 0.8)), container.scrollHeight);
+      // Send a PageDown key to reinforce virtualization triggers
+      try {
+        container.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageDown', bubbles: true }));
+      } catch {}
+
+      await __hp_wait(220 + __hp_randBetween(0, 160));
+      const current = __hp_findResultItems().length;
+      if (current >= target) break;
+      if (current > lastCount) { lastCount = current; stableTicks = 0; }
+      else { stableTicks += 1; }
+      // If we are stable for a while, try a big jump to bottom
+      if (stableTicks >= 6) {
+        container.scrollTop = container.scrollHeight;
+        await __hp_wait(250);
+        const c2 = __hp_findResultItems().length;
+        if (c2 <= lastCount) break; // really stable
+        lastCount = c2; stableTicks = 0;
+      }
+    }
+    // Return to top to normalize scraping order
+    try { container.scrollTop = 0; } catch {}
+  } catch {}
+}
+
+// Preload leads without scrolling: wait for results to render and parse them
+async function preloadLeads() {
+  console.log('[HP-CS] Preloading leads');
+  return new Promise((resolve) => {
+    const finish = async () => {
+      try { observer.disconnect(); } catch {}
+      // short initial wait to allow list to hydrate
+      await __hp_wait(1000 + __hp_randBetween(0, 800));
+      await __hp_ensureAllResultsRendered(10000, 25);
+      setTimeout(() => resolve(scrapeResults()), 200);
+    };
+
+    const checkLoaded = () => {
+      const items = __hp_findResultItems();
+      if (items && items.length >= 1) {
+        console.log('[HP-CS] Results detected, items:', items.length);
+        finish();
+      }
+    };
+
+    const observer = new MutationObserver(() => { checkLoaded(); });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    checkLoaded();
+    setTimeout(() => {
+      console.warn('[HP-CS] Preload timeout fallback');
+      finish();
+    }, 8000 + __hp_randBetween(0, 3000));
+  });
 }
 
 // Locate and click the Next button (human-like), but do not loop pages here
@@ -1269,6 +1404,39 @@ try {
   }
 } catch {}
 
+// Lightweight in-page overlay for autopilot
+function __hp_showOverlay(text) {
+  try {
+    let el = document.getElementById('hp-scrape-overlay');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'hp-scrape-overlay';
+      el.style.position = 'fixed';
+      el.style.bottom = '16px';
+      el.style.right = '16px';
+      el.style.zIndex = '2147483647';
+      el.style.background = 'rgba(20,23,26,0.95)';
+      el.style.color = '#fff';
+      el.style.padding = '10px 12px';
+      el.style.borderRadius = '8px';
+      el.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+      el.style.fontFamily = 'Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
+      el.style.fontSize = '13px';
+      el.style.maxWidth = '340px';
+      el.style.lineHeight = '1.35';
+      document.body.appendChild(el);
+    }
+    el.textContent = text || 'HirePilot is gathering leads. Please keep this tab open.';
+    el.style.display = 'block';
+  } catch {}
+}
+function __hp_updateOverlay(text) {
+  try { const el = document.getElementById('hp-scrape-overlay'); if (el && text) el.textContent = text; } catch {}
+}
+function __hp_hideOverlay() {
+  try { const el = document.getElementById('hp-scrape-overlay'); if (el) el.style.display = 'none'; } catch {}
+}
+
 // ===== Full loop controller =====
 async function runAutoScrapeLoop(opts) {
   const pageLimit = Number(opts?.pageLimit || 1);
@@ -1299,7 +1467,6 @@ async function runAutoScrapeLoop(opts) {
   };
 
   const waitForFocus = async () => {
-    // Pause if tab is not focused
     if (document.visibilityState === 'visible') return;
     await new Promise((resolve) => {
       const onVis = () => { if (document.visibilityState === 'visible') { document.removeEventListener('visibilitychange', onVis); resolve(); } };
@@ -1310,26 +1477,30 @@ async function runAutoScrapeLoop(opts) {
   const randomDelay = async (min = 3000, max = 7000) => { await __hp_wait(__hp_randBetween(min, max)); };
 
   try {
+    if (!/linkedin\.com\/sales\/search/i.test(location.href)) {
+      throw new Error('Not on Sales Navigator search page');
+    }
+
+    // Small initial delay on first run so SN can stabilize
+    await __hp_wait(1200 + __hp_randBetween(0, 800));
+
     for (;;) {
-      if (window.__HP_SCRAPE_STOP__) return { ok: true, stopped: true, currentPage, totalLeads };
+      if (window.__HP_SCRAPE_STOP__) return { ok: true, stopped: true, currentPage, totalLeads, maxHeap, lastHeap };
       if (currentPage > pageLimit) break;
 
       await waitForFocus();
 
       try {
-        const scrollInfo = await autoScrollPage({ maxRetries: 3 });
-        console.log('[HirePilot Extension] Scroll info', scrollInfo);
-        const leads = await scrapeResults();
+        console.debug('[HP Content] Processing page', currentPage);
+        const leads = await preloadLeads();
         console.log('[HirePilot Extension] Page', currentPage, 'leads:', leads.length);
 
-        // Collect heap metric if available
         try {
           const h = (performance && performance.memory && performance.memory.usedJSHeapSize) ? performance.memory.usedJSHeapSize : null;
           lastHeap = h;
           if (h && h > maxHeap) maxHeap = h;
         } catch {}
 
-        // Deliver page chunk
         await new Promise((resolve) => {
           chrome.runtime.sendMessage(
             { action: 'HP_SCRAPE_CHUNK', page: currentPage, pageLimit, campaignId, leads, heap: lastHeap },
@@ -1340,7 +1511,6 @@ async function runAutoScrapeLoop(opts) {
         totalLeads += leads.length;
         errorCount = 0;
 
-        // Notify popup
         try { chrome.runtime.sendMessage({ action: 'SCRAPE_PROGRESS', page: currentPage, pageLimit, sentThisPage: leads.length, totalSent: totalLeads, pagesDone: currentPage, campaignId, heap: lastHeap, maxHeap }); } catch {}
 
         await persist();
@@ -1348,25 +1518,23 @@ async function runAutoScrapeLoop(opts) {
         console.warn('[HirePilot Extension] Page scrape error:', e?.message || e);
         errorCount += 1;
         if (errorCount >= maxErrors) {
-          await logRunSummary({ status: 'error', error: e?.message || 'max errors', currentPage, totalLeads, campaignId });
+          await logRunSummary({ status: 'error', error: e?.message || 'max errors', currentPage, totalLeads, campaignId, maxHeap, lastHeap });
           return { error: e?.message || 'Too many errors', currentPage, totalLeads };
         }
       }
 
-      // Try next page
+      // Navigate to next page
       const next = await clickNextPageHumanLike();
-      if (!next?.clicked) {
-        console.log('[HirePilot Extension] No next page or click failed:', next?.reason || next?.error);
-        break; // No more pages
-      }
+      if (!next?.clicked) { console.log('[HirePilot Extension] No next page or click failed:', next?.reason || next?.error); break; }
 
-      currentPage += 1;
-      await persist();
       await randomDelay(3000, 7000);
       await waitForFocus();
+      currentPage = getCurrentPageFromUrl() || (currentPage + 1);
+      await persist();
     }
 
     await logRunSummary({ status: 'ok', currentPage, totalLeads, campaignId, maxHeap, lastHeap });
+    __hp_updateOverlay(`Done. Found ${totalLeads} leads across ${currentPage - 1 + (totalLeads>0?1:0)} page(s).`);
     return { ok: true, currentPage, totalLeads };
   } catch (e) {
     await logRunSummary({ status: 'error', error: e?.message || 'loop failed', currentPage, totalLeads, campaignId, maxHeap, lastHeap });

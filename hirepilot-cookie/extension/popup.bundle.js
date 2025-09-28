@@ -7423,13 +7423,21 @@
         const api = (window.HP_BACKEND || 'https://api.thehirepilot.com');
         // Templates
         try {
-          const tRes = await fetch(`${api}/api/email/templates`, { headers:{ 'Authorization':`Bearer ${jwt}` } });
           let templates = [];
-          if (tRes.ok) {
+          let apiUnauthorized = false;
+          const tRes = await fetch(`${api}/api/email/templates`, { headers:{ 'Authorization':`Bearer ${jwt}`, 'Content-Type':'application/json', 'Accept':'application/json' } });
+          if (tRes.status === 401) {
+            try {
+              const errBody = await tRes.text();
+              console.warn('Templates 401 response body:', errBody);
+            } catch {}
+            // Do NOT log the user out; fall back to Supabase direct read
+            apiUnauthorized = true;
+          } else if (tRes.ok) {
             const tData = await tRes.json();
             templates = Array.isArray(tData) ? tData : (tData?.templates || []);
           }
-          // Fallback: load directly from Supabase if API not available
+          // Fallback: load directly from Supabase if API not available or unauthorized
           if (!templates || templates.length === 0) {
             try {
               const store = await chrome.storage.local.get(['hp_user_id']);
@@ -7442,6 +7450,9 @@
                   .eq('user_id', uid)
                   .order('created_at', { ascending: false });
                 if (!error && Array.isArray(tpl)) templates = tpl;
+                if (apiUnauthorized && (!templates || templates.length === 0)) {
+                  console.warn('Using Supabase fallback for templates due to API 401.');
+                }
               }
             } catch {}
           }
@@ -7475,7 +7486,9 @@
           } else {
             // no templates: keep placeholder
           }
-        } catch {}
+        } catch (e) {
+          console.error('Templates fetch failed:', e);
+        }
         // Senders
         try {
           const sRes = await fetch(`${api}/api/sourcing/senders`, { headers:{ 'Authorization':`Bearer ${jwt}` } });
@@ -7543,13 +7556,16 @@
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     console.log("login result", { data, error });
     if (error) {
+      console.error('Supabase login error', error);
       showStatus(error.message, true, true);
-      btnState("loginBtn", "Log In", false);
+      btnState('loginBtn', 'Log In', false);
       return;
+    }
+    if (data && data.session && data.session.access_token) {
+      await chrome.storage.local.set({ hp_jwt: data.session.access_token });
     }
     await chrome.storage.local.set({
       hp_user_id: data.user.id,
-      hp_jwt: data.session.access_token,
       hp_user_email: data.user.email
     });
     btnState("loginBtn", "Sign In", false);
