@@ -37,12 +37,22 @@ async function postLeadsScrape(leads, campaignId) {
   const useImport = isUuid(campaignId);
   const endpoints = useImport ? [`${api}/leads/import`, `${api}/leads/bulk-add`] : [`${api}/leads/bulk-add`];
   // Normalize leads to expected shape
-  const normalizedLeads = Array.isArray(leads) ? leads.map((l) => ({
-    name: l?.name || '',
-    title: l?.title || '',
-    company: l?.company || '',
-    profileLink: l?.profileLink || l?.profileUrl || l?.link || l?.profile || ''
-  })).filter(l => l.name && l.profileLink) : [];
+  const normalizedLeads = Array.isArray(leads) ? leads.map((l) => {
+    const rawLink = l?.profileLink || l?.profileUrl || l?.link || l?.profile || '';
+    const cleanName = (l?.name || '')
+      .replace(/\bis reachable\b/gi, '')
+      .replace(/\bwas last active.*$/i, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return {
+      name: cleanName,
+      title: l?.title || '',
+      company: l?.company || '',
+      profileLink: rawLink,
+      profileUrl: rawLink,
+      linkedin_url: rawLink
+    };
+  }).filter(l => l.name && l.profileLink) : [];
 
   // Build payloads
   const payloadImport = { leads: normalizedLeads, source: 'sales_nav', campaignId };

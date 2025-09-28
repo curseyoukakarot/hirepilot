@@ -1204,6 +1204,7 @@ async function scrapeResults() {
     'a[href*="/in/"]',
     'a.app-aware-link[href*="/sales/people/"]',
     'a[href*="/sales/people/"]',
+    'a[href*="/sales/lead/"]',
     'a.result-lockup__name',
   ];
 
@@ -1223,6 +1224,12 @@ async function scrapeResults() {
         const a = el.querySelector('a[href*="/in/"]') || el.querySelector('a.app-aware-link');
         if (a && a.textContent) name = a.textContent.trim();
       }
+      // Clean noisy tags from names
+      name = (name || '')
+        .replace(/\bis reachable\b/gi, '')
+        .replace(/\bwas last active.*$/i, '')
+        .replace(/\s+/g, ' ')
+        .trim();
       const title = pick(el, titleSelectors);
       let company = pick(el, companySelectors);
       if (!company && /\bat\b/i.test(title)) { const m = title.match(/\bat\s+([^|•,]+)\b/i); if (m) company = m[1].trim(); }
