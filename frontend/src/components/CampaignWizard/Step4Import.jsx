@@ -97,6 +97,7 @@ export default function Step4Import({ onBack, onNext }) {
 
   // LinkedIn config state
   const [linkedinUrl, setLinkedinUrl] = useState('');
+  const [pageLimit, setPageLimit] = useState(1);
 
   // Lever config state
   const [leverApiKey, setLeverApiKey] = useState('');
@@ -427,7 +428,7 @@ export default function Step4Import({ onBack, onNext }) {
     const payload = {
       campaign_id: campaignId,
       lead_source_type: 'linkedin',
-      payload: { linkedin_search_url: linkedinUrl },
+      payload: { linkedin_search_url: linkedinUrl, page_limit: pageLimit },
     };
     console.log('[UI] payload ➜', payload);
     // 4 — call API
@@ -613,6 +614,29 @@ export default function Step4Import({ onBack, onNext }) {
                       value={linkedinUrl} 
                       onChange={e => setLinkedinUrl(e.target.value)} 
                     />
+                  </div>
+
+                  {/* Pages to scrape */}
+                  <div>
+                    <label className="block text-base font-semibold text-gray-700 mb-1">Pages to scrape</label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="range"
+                        min={1}
+                        max={20}
+                        step={1}
+                        value={pageLimit}
+                        onChange={(e)=> setPageLimit(Number(e.target.value))}
+                        className="flex-1"
+                      />
+                      <span className="text-sm text-gray-600 w-6 text-right">{pageLimit}</span>
+                    </div>
+                    <div className="mt-2 flex gap-2">
+                      <button type="button" className="px-2 py-1 border rounded" onClick={()=>setPageLimit(1)}>1</button>
+                      <button type="button" className="px-2 py-1 border rounded" onClick={()=>setPageLimit(5)}>5</button>
+                      <button type="button" className="px-2 py-1 border rounded" onClick={()=>setPageLimit(10)}>10</button>
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">About 25 leads per page are captured automatically.</p>
                   </div>
                   
                   {/* Chrome Extension CTA */}

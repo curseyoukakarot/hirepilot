@@ -256,6 +256,13 @@ export default function Step5ReviewLaunch({ onBack, onEdit }) {
                 </div>
               </div>
               <div className="flex items-center">
+                <Users className="h-5 w-5 text-gray-400 mr-2" />
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Pages to scrape</p>
+                  <p className="text-sm text-gray-900">{campaign?.lead_source_payload?.page_limit || 1}</p>
+                </div>
+              </div>
+              <div className="flex items-center">
                 <CheckCircle className="h-5 w-5 text-green-400 mr-2" />
                 <div>
                   <p className="text-sm font-medium text-gray-500">Status</p>
@@ -389,7 +396,20 @@ export default function Step5ReviewLaunch({ onBack, onEdit }) {
               const searchUrl = campaign?.lead_source_payload?.linkedin_search_url;
               if (searchUrl) {
                 const urlWithCampaign = searchUrl + (searchUrl.includes('?') ? '&' : '?') + `campaign_id=${campaign.id}`;
-                window.open(urlWithCampaign, '_blank');
+                const win = window.open(urlWithCampaign, '_blank');
+                // Attempt to auto-trigger extension after a short delay
+                setTimeout(async () => {
+                  try {
+                    // App→Extension handshake
+                    const extId = import.meta.env.VITE_EXTENSION_ID;
+                    const token = localStorage.getItem('hp_ext_token');
+                    if (!extId || !token) return;
+                    await new Promise((resolve)=>chrome.runtime.sendMessage(extId, { action: 'PING' }, ()=>resolve()));
+                    await new Promise((resolve)=>chrome.runtime.sendMessage(extId, { action: 'SET_TOKEN', token }, ()=>resolve()));
+                    const pageLimit = campaign?.lead_source_payload?.page_limit || 1;
+                    chrome.runtime.sendMessage(extId, { action: 'START_SCRAPE', pageLimit, campaignId: campaign.id, token });
+                  } catch {}
+                }, 1500);
               }
             } else {
               // For Apollo: Use existing launch logic
