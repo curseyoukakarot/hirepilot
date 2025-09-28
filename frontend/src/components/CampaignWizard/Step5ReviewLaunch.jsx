@@ -400,16 +400,22 @@ export default function Step5ReviewLaunch({ onBack, onEdit }) {
                 // Attempt to auto-trigger extension after a short delay
                 setTimeout(async () => {
                   try {
+                    const extId = import.meta.env.VITE_EXTENSION_ID || 'hocopaaojddfommlkiegnflimmmppbnk';
+                    if (!(window.chrome && chrome.runtime && extId)) return;
+                    let token = localStorage.getItem('hp_ext_token');
+                    if (!token) { try { token = crypto.randomUUID(); } catch { token = Math.random().toString(36).slice(2); } localStorage.setItem('hp_ext_token', token); }
+
                     // App→Extension handshake
-                    const extId = import.meta.env.VITE_EXTENSION_ID;
-                    const token = localStorage.getItem('hp_ext_token');
-                    if (!extId || !token) return;
                     await new Promise((resolve)=>chrome.runtime.sendMessage(extId, { action: 'PING' }, ()=>resolve()));
                     await new Promise((resolve)=>chrome.runtime.sendMessage(extId, { action: 'SET_TOKEN', token }, ()=>resolve()));
-                    const pageLimit = campaign?.lead_source_payload?.page_limit || 1;
-                    chrome.runtime.sendMessage(extId, { action: 'START_SCRAPE', pageLimit, campaignId: campaign.id, token });
+
+                    // Give LinkedIn tab time to load + extension to inject
+                    setTimeout(() => {
+                      const pageLimit = campaign?.lead_source_payload?.page_limit || 1;
+                      chrome.runtime.sendMessage(extId, { action: 'START_SCRAPE', pageLimit, campaignId: campaign.id, token }, ()=>{});
+                    }, 800);
                   } catch {}
-                }, 1500);
+                }, 1200);
               }
             } else {
               // For Apollo: Use existing launch logic
