@@ -133,6 +133,121 @@ async function reportRunSummary(summary) {
   } catch {}
 }
 
+// --- Injected single-profile scrapers (page-context) ---
+// These run in the page's MAIN world and must not reference chrome.* APIs
+function scrapeLinkedInProfileInjected() {
+  try {
+    const text = (sel) => {
+      const el = document.querySelector(sel);
+      return el ? (el.textContent || '').trim() : '';
+    };
+    const attr = (sel, a) => {
+      const el = document.querySelector(sel);
+      return el ? (el.getAttribute(a) || '') : '';
+    };
+
+    const name =
+      text('h1.text-heading-xlarge') ||
+      text('div.ph5 h1') ||
+      text('div.pv-text-details__left-panel h1') ||
+      text('h1');
+
+    const headline =
+      text('[data-test-id="hero__headline"]') ||
+      text('.text-body-medium.break-words') ||
+      text('.pv-text-details__left-panel .text-body-medium') ||
+      '';
+
+    // Best-effort company pick; may be empty depending on page structure
+    const company =
+      text('[data-anonymize="company-name"]') ||
+      text('.pv-text-details__right-panel .pv-text-details__right-panel-item a') ||
+      text('section.pv-top-card .pv-text-details__right-panel a') ||
+      '';
+
+    const avatarEl = document.querySelector(
+      'img.pv-top-card-profile-picture__image, img.profile-photo-edit__preview, img[alt*="profile" i]'
+    );
+    const avatarUrl = avatarEl ? (avatarEl.currentSrc || avatarEl.src || attr('img[alt*="profile" i]', 'src')) : '';
+
+    return { ok: !!name, name, headline, company, linkedinUrl: location.href, avatarUrl };
+  } catch (e) {
+    return { ok: false, error: e?.message || String(e) };
+  }
+}
+
+function scrapeSalesNavProfileInjected() {
+  try {
+    const text = (sel) => {
+      const el = document.querySelector(sel);
+      return el ? (el.textContent || '').trim() : '';
+    };
+    const href = (sel) => {
+      const el = document.querySelector(sel);
+      return el ? el.href || '' : '';
+    };
+
+    const name =
+      text('h1.profile-topcard-person-entity__name') ||
+      text('[data-anonymize="person-name"]') ||
+      text('.profile-topcard__title') ||
+      text('h1');
+
+    const headline =
+      text('[data-anonymize="headline"]') ||
+      text('.profile-topcard__summary') ||
+      '';
+
+    const company =
+      text('[data-anonymize="company-name"]') ||
+      text('.profile-topcard__current-positions a') ||
+      '';
+
+    // Try to discover canonical /in/ URL on the page; fallback to current URL
+    const profileLink =
+      href('a[href*="/in/"]') ||
+      href('a[data-control-name="contact_see_more"]') ||
+      location.href;
+
+    const avatarEl = document.querySelector('.profile-topcard-avatar__image, img[alt*="profile" i]');
+    const avatarUrl = avatarEl ? (avatarEl.currentSrc || avatarEl.src || '') : '';
+
+    return { ok: !!name, name, headline, company, linkedinUrl: profileLink, avatarUrl };
+  } catch (e) {
+    return { ok: false, error: e?.message || String(e) };
+  }
+}
+
+// Wrapper used by background fallbacks to execute appropriate scraper based on URL
+async function scrapeSingleProfileInjected(tabId) {
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    const url = tab?.url || '';
+    const fn = /linkedin\.com\/sales\/(people|lead)\//i.test(url)
+      ? scrapeSalesNavProfileInjected
+      : scrapeLinkedInProfileInjected;
+    const [{ result: prof } = {}] = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: fn,
+      world: 'MAIN'
+    });
+    if (prof && prof.ok) {
+      return {
+        profile: {
+          name: prof.name || '',
+          title: prof.headline || '',
+          company: prof.company || '',
+          profileUrl: prof.linkedinUrl || url,
+          avatarUrl: prof.avatarUrl || ''
+        }
+      };
+    }
+    return { error: 'Profile not detected' };
+  } catch (e) {
+    return { error: e?.message || 'Profile not detected' };
+  }
+}
+
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete' && tab?.url?.includes('linkedin.com')) {
     lastLinkedInTabId = tabId;
