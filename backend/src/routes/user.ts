@@ -91,7 +91,8 @@ router.get('/me', requireAuthReadOnly, async (req: ApiRequest, res: Response) =>
         const authUser: any = authUserRes?.user || {};
         const meta = (authUser?.user_metadata || {}) as any;
         const appMeta = (authUser?.app_metadata || {}) as any;
-        role = meta.role || meta.account_type || appMeta.role || null;
+        // Prefer app_metadata.role first to avoid guest overriding admin
+        role = appMeta.role || meta.role || meta.account_type || null;
       } catch {}
     }
 
@@ -135,7 +136,12 @@ router.get('/me', requireAuthReadOnly, async (req: ApiRequest, res: Response) =>
       isGuest = !!guestRow;
     } catch {}
 
-    res.json({ id: userId, email: userEmail, role, plan, remaining_credits: remaining, monthly_credits: monthly, is_guest: isGuest });
+    // If admin-like role, never return a free plan label to the client
+    const roleLc = String(role || '').toLowerCase();
+    const isAdminRole = ['super_admin','admin','team_admin','team_admins'].includes(roleLc);
+    const planOut = (isAdminRole && (!plan || plan === 'free')) ? 'admin' : plan;
+
+    res.json({ id: userId, email: userEmail, role, plan: planOut, remaining_credits: remaining, monthly_credits: monthly, is_guest: isGuest });
   } catch (e) {
     res.status(500).json({ error: 'Failed to load current user' });
   }

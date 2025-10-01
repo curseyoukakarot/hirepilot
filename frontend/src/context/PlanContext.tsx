@@ -48,7 +48,8 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
         const { data: authUser } = await supabase.auth.getUser();
         const meta = authUser?.user?.user_metadata as any;
         const appMeta = (authUser?.user as any)?.app_metadata as any;
-        const preloadRole = meta?.role || meta?.account_type || appMeta?.role || null;
+        // Prefer app_metadata.role over user_metadata to avoid guest overriding admin
+        const preloadRole = appMeta?.role || meta?.role || meta?.account_type || null;
         if (preloadRole && !info.role) {
           setInfo(prev => ({ ...prev, role: preloadRole }));
         }
@@ -95,7 +96,8 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
           const { data: authUser } = await supabase.auth.getUser();
           const meta = authUser?.user?.user_metadata as any;
           const appMeta = (authUser?.user as any)?.app_metadata as any;
-          role = meta?.role || meta?.account_type || appMeta?.role || null;
+          // Prefer app metadata first
+          role = appMeta?.role || meta?.role || meta?.account_type || null;
         } catch {}
       }
       // Fallbacks: if plan is missing, infer from role and credits
@@ -116,8 +118,13 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
         : (typeof data?.monthly_credits === 'number' ? data.monthly_credits : null);
 
       const roleLc = String(role || '').toLowerCase();
+      // Elevate admin-like roles to a non-free plan label to avoid free gating banners
+      const isAdminRole = ['super_admin','admin','team_admin','team_admins'].includes(roleLc);
       // Treat guest as free for gating purposes unless a paid plan is explicitly set
-      const resolvedPlan = planServer || ((roleLc==='free' || roleLc==='guest' || (remainingCredits===50)) ? 'free' : null);
+      let resolvedPlan = planServer || ((roleLc==='free' || roleLc==='guest' || (remainingCredits===50)) ? 'free' : null);
+      if (isAdminRole && (!resolvedPlan || resolvedPlan === 'free')) {
+        resolvedPlan = 'admin';
+      }
 
       setInfo({
         plan: resolvedPlan,

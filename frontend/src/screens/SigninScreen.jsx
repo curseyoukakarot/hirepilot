@@ -144,8 +144,8 @@ const handleMicrosoftSignin = async () => {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white px-8 py-10 shadow-lg sm:rounded-2xl sm:px-10 flex flex-col items-center">
-          {/* OAuth Buttons (feature-flagged) */}
-          {String((import.meta?.env && import.meta.env.VITE_ENABLE_OAUTH) || 'false').toLowerCase() === 'true' && (
+          {/* OAuth Buttons (visible by default; can disable with VITE_ENABLE_OAUTH=false) */}
+          {String((import.meta?.env && import.meta.env.VITE_ENABLE_OAUTH) || 'true').toLowerCase() === 'true' && (
             <div className="space-y-4 mb-6 w-full">
               <button type="button" onClick={handleGoogleSignin} disabled={oauthLoading} className="w-full flex justify-center items-center gap-3 bg-white px-4 py-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60">
                 <FaGoogle className="text-[20px]" /> {oauthLoading ? 'Redirecting…' : 'Sign in with Google'}
