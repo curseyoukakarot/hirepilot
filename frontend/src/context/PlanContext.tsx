@@ -33,6 +33,16 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
         setInfo({ plan: null, remaining_credits: null, monthly_credits: null, plan_updated_at: null, role: null });
         return;
       }
+      // Feature flag: prefer unified /api/user/me for canonical role + plan
+      const useUserMe = (() => {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const flag = (import.meta as any)?.env?.VITE_USE_USER_ME;
+          return String(flag || 'false').toLowerCase() === 'true';
+        } catch {
+          return false;
+        }
+      })();
       // Preload role from auth metadata immediately to avoid gating flicker
       try {
         const { data: authUser } = await supabase.auth.getUser();
@@ -44,6 +54,26 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
         }
       } catch {}
       const backend = (import.meta as any)?.env?.VITE_BACKEND_URL || '';
+      if (useUserMe) {
+        try {
+          const meRes = await fetch(`${backend}/api/user/me`, {
+            headers: { 'Authorization': `Bearer ${session.access_token}` },
+            credentials: 'include'
+          });
+          if (!meRes.ok) throw new Error(await meRes.text());
+          const me = await meRes.json();
+          setInfo({
+            plan: me?.plan || null,
+            remaining_credits: (typeof me?.remaining_credits === 'number') ? me.remaining_credits : null,
+            monthly_credits: (typeof me?.monthly_credits === 'number') ? me.monthly_credits : null,
+            plan_updated_at: null,
+            role: me?.role || info.role || null,
+          });
+          return;
+        } catch {
+          // fall through to legacy path
+        }
+      }
       const res = await fetch(`${backend}/api/user/plan`, {
         headers: { 'Authorization': `Bearer ${session.access_token}` },
         credentials: 'include'

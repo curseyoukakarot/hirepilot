@@ -15,6 +15,11 @@ export default function SigninScreen() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passcodeLoading, setPasscodeLoading] = useState(false);
+  const [passcodeSent, setPasscodeSent] = useState(false);
+  const [passcodeError, setPasscodeError] = useState('');
+  const enablePasscode = String((import.meta?.env && import.meta.env.VITE_ENABLE_PASSCODE_AUTH) || 'false').toLowerCase() === 'true';
+  const [otpCode, setOtpCode] = useState('');
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -43,6 +48,59 @@ export default function SigninScreen() {
     const paramsNext = new URLSearchParams(window.location.search);
     const next = paramsNext.get('next');
     if (next) navigate(next); else navigate('/dashboard');
+  };
+
+  const handleMagicLink = async () => {
+    if (!enablePasscode) return;
+    try {
+      setPasscodeError('');
+      setPasscodeLoading(true);
+      const emailInput = (document.getElementById('email') && document.getElementById('email').value) ? String(document.getElementById('email').value).trim().toLowerCase() : '';
+      const targetEmail = emailInput || email;
+      if (!targetEmail) { setPasscodeError('Enter your email first.'); return; }
+      const base = (import.meta.env.VITE_BACKEND_URL || (window.location.host.endsWith('thehirepilot.com') ? 'https://api.thehirepilot.com' : 'http://localhost:8080')).replace(/\/$/, '');
+      const res = await fetch(`${base}/api/auth/passcode/request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: targetEmail }),
+        credentials: 'include'
+      });
+      if (!res.ok) {
+        const t = await res.text();
+        throw new Error(t || 'Failed to request magic link');
+      }
+      setPasscodeSent(true);
+    } catch (e) {
+      setPasscodeError(e?.message || 'Failed to request magic link');
+    } finally {
+      setPasscodeLoading(false);
+    }
+  };
+
+  const handleOtpVerify = async () => {
+    if (!enablePasscode || !otpCode.trim()) return;
+    try {
+      setPasscodeError('');
+      setPasscodeLoading(true);
+      const backend = import.meta?.env?.VITE_BACKEND_URL || '';
+      const emailInput = (document.getElementById('email') && document.getElementById('email').value) ? String(document.getElementById('email').value).trim().toLowerCase() : '';
+      const res = await fetch(`${backend}/api/auth/otp/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailInput, code: otpCode.trim() })
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || 'Failed to verify code');
+      }
+      // On success, redirect to app
+      const redirect = import.meta?.env?.VITE_APP_WEB_URL || import.meta?.env?.VITE_FRONTEND_URL || window.location.origin;
+      window.location.href = redirect;
+    } catch (e) {
+      setPasscodeError(e?.message || 'Failed to verify code');
+    } finally {
+      setPasscodeLoading(false);
+    }
   };
 
 // OAuth sign-in handlers
@@ -91,6 +149,25 @@ const handleMicrosoftSignin = async () => {
               <span className="bg-white px-2 text-gray-500">Or sign in with email</span>
             </div>
           </div>
+
+          {enablePasscode && (
+            <div className="w-full mb-4">
+              <button
+                type="button"
+                onClick={handleMagicLink}
+                disabled={passcodeLoading}
+                className="w-full flex justify-center items-center gap-3 bg-indigo-50 px-4 py-3 border border-indigo-200 rounded-md text-sm font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-60"
+              >
+                {passcodeLoading ? 'Sending magic link…' : 'Continue with Email (Magic Link)'}
+              </button>
+              {passcodeSent && (
+                <div className="mt-3 rounded-md bg-green-50 p-3 text-sm text-green-700">Check your inbox for a secure sign-in link.</div>
+              )}
+              {passcodeError && (
+                <div className="mt-3 rounded-md bg-red-50 p-3 text-sm text-red-700">{passcodeError}</div>
+              )}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-6 w-full">
             <div>

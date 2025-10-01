@@ -111,6 +111,7 @@ import partnerPassRouter from './src/routes/partnerPass';
 import commissionLockerRouter from './src/routes/commissionLocker';
 import stripeWebhookRouter, { stripeWebhookHandler } from './src/routes/stripeWebhook';
 import { requireAuth } from './middleware/authMiddleware';
+import requireAuthUnified from './middleware/requireAuthUnified';
 import trackingRouter from './api/tracking';
 // Boot REX MCP server immediately so it's ready in Railway prod
 import './src/rex/server';
@@ -392,6 +393,44 @@ app.post('/api/stripe/webhook', bodyParser.raw({ type: 'application/json' }), st
 app.use('/api/affiliates', requireAuth as any, affiliatesRouter);
 app.use('/api/payouts', requireAuth as any, payoutsRouter);
   app.use('/api/tracking', trackingRouter);
+
+  // Feature-flagged: session cookie auth endpoints (safe additive)
+  if (String(process.env.ENABLE_SESSION_COOKIE_AUTH || 'false').toLowerCase() === 'true') {
+    try {
+      const sessionRouter = require('./routes/auth/session').default;
+      app.use('/api/auth/session', sessionRouter);
+      console.log('[Auth] Session cookie endpoints enabled');
+    } catch (e) {
+      console.warn('[Auth] Failed to mount session cookie endpoints', e);
+    }
+  }
+
+  // Feature-flagged: passwordless passcode/magic-link endpoints
+  if (String(process.env.ENABLE_PASSCODE_AUTH || 'false').toLowerCase() === 'true') {
+    try {
+      const passcodeRouter = require('./routes/auth/passcode').default;
+      app.use('/api/auth/passcode', passcodeRouter);
+      // CSRF token issue endpoint (double-submit cookie) under flag
+      if (String(process.env.ENABLE_CSRF || 'false').toLowerCase() === 'true') {
+        const { csrfIssueToken } = require('./middleware/csrfGuard');
+        app.get('/api/auth/csrf', csrfIssueToken);
+        console.log('[Security] CSRF issue endpoint enabled');
+      }
+      // Optional OTP code endpoints (rate-limited) under a separate flag
+      if (String(process.env.ENABLE_OTP_AUTH || 'false').toLowerCase() === 'true') {
+        try {
+          const otpRouter = require('./routes/auth/passcode.otp').default;
+          app.use('/api/auth/otp', otpRouter);
+          console.log('[Auth] OTP endpoints enabled');
+        } catch (e) {
+          console.warn('[Auth] Failed to mount OTP endpoints', e);
+        }
+      }
+      console.log('[Auth] Passcode endpoints enabled');
+    } catch (e) {
+      console.warn('[Auth] Failed to mount passcode endpoints', e);
+    }
+  }
   app.use('/api', attachTeam);
   // Sales Agent routes
   app.use('/', salesPolicyRouter);

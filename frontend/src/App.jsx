@@ -65,6 +65,7 @@ const RequirePartnersAuth = ({ children }) => <PartnersRouteGuard>{children}</Pa
 import RexWidget from './widgets/rex/RexWidget';
 import PromoBanner from './components/PromoBanner';
 import { PlanProvider } from './context/PlanContext';
+import { startSessionCookieSync } from './auth/sessionSync';
 import PublicJobPage from './screens/PublicJobPage.jsx';
 import ApplyForm from './screens/ApplyForm.jsx';
 import ApplySuccess from './screens/ApplySuccess.jsx';
@@ -284,6 +285,10 @@ function CampaignWizard() {
 }
 
 export default function App() {
+  useEffect(() => {
+    const stop = startSessionCookieSync();
+    return () => { try { stop(); } catch {} };
+  }, []);
   return (
     <ErrorBoundary>
       <WizardProvider>
