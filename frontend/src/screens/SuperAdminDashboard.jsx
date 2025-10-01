@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import AppHealthCard from '../components/AppHealthCard';
+import AuthHealthCard from '../components/AuthHealthCard';
 import REXChatToggleCard from '../components/REXChatToggleCard';
 import useAppHealth from '../hooks/useAppHealth';
 
@@ -146,6 +147,8 @@ export default function SuperAdminDashboard() {
               </div>
             </div>
           </div>
+          {/* Auth Health */}
+          <AuthHealthCard />
           {/* App Health Monitor */}
           <AppHealthCard />
           <div className="bg-gray-800 p-4 rounded-lg shadow-md">
