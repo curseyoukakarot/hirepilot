@@ -114,37 +114,75 @@ router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: 
       res.status(400).json({ error: 'Missing required fields' });
       return;
     }
-    // 1. Create user in Supabase Auth (invite)
-    const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
-      email,
-      email_confirm: true,
-      user_metadata: { firstName, lastName, role },
-    });
-    console.log('[ADMIN USERS] Auth user creation result:', { authUser, authError });
+    const normalizedRole = String(role);
+    // 1. Create user in Supabase Auth (prefer setting both user_metadata and app_metadata)
+    let userId: string | undefined;
+    let creationError: any | null = null;
+    try {
+      const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+        email,
+        email_confirm: true,
+        user_metadata: { firstName, lastName, role: normalizedRole },
+        app_metadata: { role: normalizedRole } as any
+      } as any);
+      console.log('[ADMIN USERS] Auth user creation result:', { authUser, authError });
+      userId = authUser?.user?.id;
+      creationError = authError || null;
+    } catch (e: any) {
+      creationError = e;
+      console.error('[ADMIN USERS] createUser threw exception:', e);
+    }
 
-    let userId = authUser?.user?.id;
+    // Fallbacks when creation failed or user missing
+    if (creationError || !userId) {
+      // If DB already has user with this email, reuse
+      const { data: existingDbUser } = await supabase
+        .from('users')
+        .select('id, email')
+        .eq('email', email)
+        .maybeSingle();
+      if (existingDbUser?.id) {
+        userId = existingDbUser.id;
+      }
 
-    if (authError) {
-      if ((authError as any).code === 'email_exists') {
-        // fetch existing user id
-        const { data: existingDbUser } = await supabase.from('users').select('*').eq('email', email).single();
-        if (existingDbUser?.id) {
-          // Already onboarded in DB – return that record
-          res.status(200).json({ success: true, user: existingDbUser, message: 'User already exists' });
-          return;
-        }
-        // if not in DB, bubble duplicate
-        res.status(409).json({ error: 'User already registered' });
-        return;
-      } else {
-        res.status(500).json({ error: authError.message });
+      // If still unknown, try to find in Auth via listUsers (best-effort)
+      if (!userId) {
+        try {
+          const pageSize = 200;
+          let page = 1;
+          while (page <= 5 && !userId) { // scan up to 1000 users to avoid heavy calls
+            const { data: pageData, error: listErr } = await (supabase as any).auth.admin.listUsers({ page, perPage: pageSize });
+            if (listErr) break;
+            const match = (pageData?.users || []).find((u: any) => (u.email || '').toLowerCase() === email.toLowerCase());
+            if (match) userId = match.id;
+            if (!pageData || (pageData.users || []).length < pageSize) break;
+            page += 1;
+          }
+        } catch {}
+      }
+
+      // As a last resort, attempt invite which also ensures an auth user exists
+      if (!userId) {
+        try {
+          const { data: inviteData, error: inviteError } = await (supabase as any).auth.admin.inviteUserByEmail(email, {
+            data: { firstName, lastName, role: normalizedRole },
+          });
+          if (!inviteError) userId = inviteData?.user?.id;
+        } catch {}
+      }
+
+      if (!userId) {
+        const message = (creationError && creationError.message) || 'Database error creating new user';
+        res.status(500).json({ error: message });
         return;
       }
     }
 
-    if (!userId) {
-      res.status(500).json({ error: 'Failed to determine user id' });
-      return;
+    // Ensure app_metadata.role is set for JWT consumption
+    try {
+      await supabase.auth.admin.updateUserById(userId, { app_metadata: { role: normalizedRole } as any });
+    } catch (e) {
+      console.warn('[ADMIN USERS] Failed to set app_metadata.role (non-fatal):', e);
     }
 
     // 2. Insert into users table
@@ -161,7 +199,7 @@ router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: 
       email,
       firstName,
       lastName,
-      role,
+      role: normalizedRole,
       onboardingComplete: false,
     }, { onConflict: 'id' }).select('*').single();
     console.log('[ADMIN USERS] Insert result:', { dbUser, dbError });
