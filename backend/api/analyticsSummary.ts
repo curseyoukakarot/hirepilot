@@ -1,10 +1,15 @@
 import express from 'express';
+import { requireAuth } from '../middleware/authMiddleware';
+import requireAuthUnified from '../middleware/requireAuthUnified';
 import { createClient } from '@supabase/supabase-js';
 
 const router = express.Router();
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
-router.get('/analytics/summary', async (req, res) => {
+const useUnified = String(process.env.ENABLE_SESSION_COOKIE_AUTH || 'false').toLowerCase() === 'true';
+const requireAuthFlag = (useUnified ? (requireAuthUnified as any) : (requireAuth as any));
+
+router.get('/analytics/summary', requireAuthFlag, async (req, res) => {
   try {
     const { user_id, campaign_id } = req.query as { user_id?: string; campaign_id?: string };
     if (!user_id) {

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import jwt from 'jsonwebtoken';
+import requireAuthUnified from './requireAuthUnified';
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -9,6 +10,12 @@ const supabase = createClient(
 
 export const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const useUnified = String(process.env.ENABLE_SESSION_COOKIE_AUTH || 'false').toLowerCase() === 'true';
+    if (useUnified) {
+      // Delegate to unified middleware (supports Bearer or hp_session cookie)
+      return requireAuthUnified(req, res, next);
+    }
+
     console.log('Auth headers:', req.headers); // Debug headers
     
     const auth = req.headers.authorization;

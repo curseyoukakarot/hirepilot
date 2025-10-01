@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sign in to HirePilot</title>
+    <style>
+      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', Arial, sans-serif; background: #f6f7fb; margin: 0; padding: 24px; }
+      .card { max-width: 520px; margin: 0 auto; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 18px rgba(0,0,0,0.06); padding: 24px; }
+      .title { font-size: 18px; color: #111827; margin: 0 0 10px; }
+      .subtitle { font-size: 14px; color: #4b5563; margin: 0 0 18px; }
+      .button { display: inline-block; background: #4f46e5; color: #ffffff; padding: 12px 18px; border-radius: 10px; font-weight: 600; text-decoration: none; }
+      .link { font-size: 12px; word-break: break-all; color: #4b5563; margin-top: 12px; }
+      .footer { text-align: center; font-size: 12px; color: #9ca3af; margin-top: 20px; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1 class="title">Sign in to HirePilot</h1>
+      <p class="subtitle">Click the secure button below to sign in. The link expires in 15 minutes.</p>
+      <p>
+        <a class="button" href="{{MAGIC_LINK}}" target="_blank" rel="noopener">Sign in</a>
+      </p>
+      <p class="link">If the button doesn’t work, paste this into your browser:<br />{{MAGIC_LINK}}</p>
+      <div class="footer">&copy; {{YEAR}} HirePilot</div>
+    </div>
+  </body>
+  </html>
+
+

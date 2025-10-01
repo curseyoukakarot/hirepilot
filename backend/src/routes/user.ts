@@ -3,12 +3,19 @@ import { supabase } from '../lib/supabase';
 // import { logger } from '../lib/logger';
 const logger = console;
 import { requireAuth } from '../../middleware/authMiddleware';
+import requireAuthUnified from '../../middleware/requireAuthUnified';
 import { ApiRequest } from '../../types/api';
 import { supabaseAdmin } from '../services/supabase';
 
 const router = express.Router();
 // GET /api/user/plan
-router.get('/plan', requireAuth, async (req: ApiRequest, res: Response) => {
+const requireAuthPlan = String(process.env.ENABLE_SESSION_COOKIE_AUTH || 'false').toLowerCase() === 'true'
+  ? (requireAuthUnified as any)
+  : (requireAuth as any);
+// Read-only routes can also use unified auth under flag
+const requireAuthReadOnly = requireAuthPlan;
+
+router.get('/plan', requireAuthPlan, async (req: ApiRequest, res: Response) => {
   try {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
@@ -56,6 +63,81 @@ router.get('/plan', requireAuth, async (req: ApiRequest, res: Response) => {
     res.json(data);
   } catch (e) {
     res.status(500).json({ error: 'Failed to get plan' });
+  }
+});
+
+// GET /api/user/me  → canonical user profile for gating: { id, email, role, plan, credits }
+router.get('/me', requireAuthReadOnly, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const userEmail = req.user?.email || null;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    // 1) Prefer DB users.role for gating
+    let role: string | null = null;
+    try {
+      const { data: userRow } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', userId)
+        .maybeSingle();
+      role = (userRow as any)?.role || null;
+    } catch {}
+
+    // 2) Fallback to auth metadata (user_metadata / app_metadata)
+    if (!role) {
+      try {
+        const { data: authUserRes } = await supabaseAdmin.auth.admin.getUserById(userId);
+        const authUser: any = authUserRes?.user || {};
+        const meta = (authUser?.user_metadata || {}) as any;
+        const appMeta = (authUser?.app_metadata || {}) as any;
+        role = meta.role || meta.account_type || appMeta.role || null;
+      } catch {}
+    }
+
+    // 3) Load plan + credits (idempotently ensure defaults)
+    let plan: string | null = null;
+    let remaining: number | null = null;
+    let monthly: number | null = null;
+    try {
+      let { data } = await supabase
+        .from('users')
+        .select('plan, remaining_credits, monthly_credits')
+        .eq('id', userId)
+        .maybeSingle();
+      if (!data) {
+        // Seed minimal row + starter credits if missing
+        await supabase.from('users').upsert({ id: userId, email: userEmail } as any, { onConflict: 'id' });
+        await supabase
+          .from('user_credits')
+          .upsert({ user_id: userId, total_credits: 50, used_credits: 0, remaining_credits: 50, last_updated: new Date().toISOString() } as any, { onConflict: 'user_id' });
+        const reread = await supabase
+          .from('users')
+          .select('plan, remaining_credits, monthly_credits')
+          .eq('id', userId)
+          .maybeSingle();
+        data = reread.data as any;
+      }
+      plan = (data as any)?.plan || null;
+      remaining = (data as any)?.remaining_credits ?? null;
+      monthly = (data as any)?.monthly_credits ?? null;
+    } catch {}
+
+    // Guest heuristic (optional): check guest collaborator rows
+    let isGuest = false;
+    try {
+      const { data: guestRow } = await supabase
+        .from('job_guest_collaborators')
+        .select('id')
+        .eq('email', userEmail)
+        .limit(1)
+        .maybeSingle();
+      isGuest = !!guestRow;
+    } catch {}
+
+    res.json({ id: userId, email: userEmail, role, plan, remaining_credits: remaining, monthly_credits: monthly, is_guest: isGuest });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load current user' });
   }
 });
 
@@ -156,7 +238,7 @@ router.post('/onboarding-complete', requireAuth, async (req: ApiRequest, res: Re
 
 
 // GET /api/user/settings
-router.get('/settings', requireAuth, async (req: Request, res: Response) => {
+router.get('/settings', requireAuthReadOnly, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id;
     if (!userId) {

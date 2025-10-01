@@ -1,6 +1,7 @@
 import React, { Suspense, lazy, useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import AuthQuerySync from './auth/AuthQuerySync';
 import Navbar from "./components/Navbar";
 import GuestLayout from './components/GuestLayout';
 import Sidebar from "./components/Sidebar";
@@ -65,6 +66,7 @@ const RequirePartnersAuth = ({ children }) => <PartnersRouteGuard>{children}</Pa
 import RexWidget from './widgets/rex/RexWidget';
 import PromoBanner from './components/PromoBanner';
 import { PlanProvider } from './context/PlanContext';
+import { startSessionCookieSync } from './auth/sessionSync';
 import PublicJobPage from './screens/PublicJobPage.jsx';
 import ApplyForm from './screens/ApplyForm.jsx';
 import ApplySuccess from './screens/ApplySuccess.jsx';
@@ -284,12 +286,17 @@ function CampaignWizard() {
 }
 
 export default function App() {
+  useEffect(() => {
+    const stop = startSessionCookieSync();
+    return () => { try { stop(); } catch {} };
+  }, []);
   return (
     <ErrorBoundary>
       <WizardProvider>
         <QueryClientProvider client={queryClient}>
           <BrowserRouter>
             <PlanProvider>
+              <AuthQuerySync />
               <InnerApp />
             </PlanProvider>
           </BrowserRouter>

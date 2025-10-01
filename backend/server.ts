@@ -13,6 +13,7 @@ if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
 }
 
 import express from 'express';
+import * as Sentry from '@sentry/node';
 import cors from 'cors';
 import rexWidgetRouter from './src/routes/rexWidget';
 import authRouter from './src/routes/auth';
@@ -100,6 +101,7 @@ import slackEventsHandler from './api/slack-events';
 import slackSlash from './src/api/slack/slash';
 import getAdvancedInfo from './api/getAdvancedInfo';
 import appHealth from './api/appHealth';
+import authHealth from './api/authHealth';
 import { incrementApiCalls, incrementFailedCalls } from './metrics/appMetrics';
 import userCreatedWebhook from './api/webhooks/userCreated';
 import stripeRouter from './routes/stripe';
@@ -111,6 +113,7 @@ import partnerPassRouter from './src/routes/partnerPass';
 import commissionLockerRouter from './src/routes/commissionLocker';
 import stripeWebhookRouter, { stripeWebhookHandler } from './src/routes/stripeWebhook';
 import { requireAuth } from './middleware/authMiddleware';
+import requireAuthUnified from './middleware/requireAuthUnified';
 import trackingRouter from './api/tracking';
 // Boot REX MCP server immediately so it's ready in Railway prod
 import './src/rex/server';
@@ -137,6 +140,21 @@ import { startFreeForeverWorker } from './jobs/freeForeverCadence';
 declare module 'express-list-endpoints';
 
 const app = express();
+
+// Feature-flagged: Sentry monitoring (backend)
+const enableSentry = String(process.env.ENABLE_SENTRY || 'false').toLowerCase() === 'true';
+if (enableSentry && process.env.SENTRY_DSN) {
+  try {
+    Sentry.init({
+      dsn: process.env.SENTRY_DSN,
+      environment: process.env.NODE_ENV || 'development',
+    });
+    app.use(Sentry.Handlers.requestHandler());
+    console.log('[Monitoring] Sentry (backend) enabled');
+  } catch (e) {
+    console.warn('[Monitoring] Failed to init Sentry (backend):', e);
+  }
+}
 const PORT = process.env.PORT || 8080;
 
 // Health check route (before CORS)
@@ -252,6 +270,8 @@ console.log('ENV SUPER_ADMIN_APOLLO_API_KEY present?', Boolean(process.env.SUPER
 console.log('Mounting routes...');
 
 // Routes
+const useUnified = String(process.env.ENABLE_SESSION_COOKIE_AUTH || 'false').toLowerCase() === 'true';
+const requireAuthFlag = (useUnified ? (requireAuthUnified as any) : (requireAuth as any));
 app.post('/api/sendSlackNotification', sendSlackNotification);
 app.post('/api/saveCampaign', saveCampaign);
 app.post('/api/campaigns/:id/launch', launchCampaign);
@@ -291,8 +311,8 @@ app.use('/api/campaigns', saveLeadSourceRouter);
 app.use('/api/campaigns', leadSourceRouter);
 app.use('/api/campaigns', launchDataRouter);
 app.use('/api/pipelines', pipelinesRouter);
-app.use('/api/jobs/create', requireAuth as any, createJob);
-app.use('/api/jobs', requireAuth as any, async (req, res, next) => {
+app.use('/api/jobs/create', requireAuthFlag, createJob);
+app.use('/api/jobs', requireAuthFlag, async (req, res, next) => {
   // Handle dynamic job pipeline routes
   if (req.path.match(/^\/[^\/]+\/pipeline$/)) {
     const jobId = req.path.split('/')[1];
@@ -313,6 +333,7 @@ app.use('/api/jobs', requireAuth as any, async (req, res, next) => {
 app.use('/api/admin', linkedinSessionAdminRouter);
 app.get('/api/advanced-info', getAdvancedInfo);
 app.get('/api/health/overview', appHealth);
+app.get('/api/health/auth', authHealth);
 app.use('/api/user', userRouter);
 app.use('/api/phantombuster', runPhantomRouter);
 app.use('/api/phantombuster', phantombusterWebhookRouter);
@@ -325,7 +346,7 @@ app.use('/api/rex_widget', rexWidgetRouter);
 app.use('/api', chatRoutes);
 app.delete('/api/deleteJobRequisitions', deleteJobRequisitions);
 app.use('/api/team', teamRouter);
-app.use('/api/collaborators', requireAuth as any, collaboratorsRouter);
+app.use('/api/collaborators', requireAuthFlag, collaboratorsRouter);
   app.use('/api', slackApiRouter);
   app.use('/api/billing', billingRouter);
   app.use('/api/credits', creditsRouter);
@@ -334,7 +355,7 @@ app.use('/api/collaborators', requireAuth as any, collaboratorsRouter);
   // Conversion endpoint
   try {
     const { convertLeadToClient } = clientsRouterModule as any;
-    app.post('/api/clients/convert-lead', requireAuth as any, convertLeadToClient);
+    app.post('/api/clients/convert-lead', requireAuthFlag, convertLeadToClient);
   } catch {}
   app.use('/api/opportunities', opportunitiesRouter);
   app.use('/api/opportunity-pipeline', opportunityPipelineRouter);
@@ -380,18 +401,56 @@ app.post('/api/slack/slash', slackSlash);
 app.post('/webhooks/user-created', userCreatedWebhook);
   app.use('/api/stripe', stripeRouter);
   // Affiliates + payouts APIs (require auth)
-  app.use('/api/affiliates', requireAuth as any, affiliatesRouter);
-  app.use('/api/admin/affiliates', requireAuth as any, affiliatesAdminRouter);
-  app.use('/api/payouts', requireAuth as any, payoutsRouter);
-  app.use('/api/checkout', requireAuth as any, checkoutRouter);
-  app.use('/api/partner-pass', requireAuth as any, partnerPassRouter);
-  app.use('/api/commissions/lock', requireAuth as any, commissionLockerRouter);
+  app.use('/api/affiliates', requireAuthFlag, affiliatesRouter);
+  app.use('/api/admin/affiliates', requireAuthFlag, affiliatesAdminRouter);
+  app.use('/api/payouts', requireAuthFlag, payoutsRouter);
+  app.use('/api/checkout', requireAuthFlag, checkoutRouter);
+  app.use('/api/partner-pass', requireAuthFlag, partnerPassRouter);
+  app.use('/api/commissions/lock', requireAuthFlag, commissionLockerRouter);
 // Mount Stripe affiliate webhook with raw body parsing for this route only
 app.post('/api/stripe/webhook', bodyParser.raw({ type: 'application/json' }), stripeWebhookHandler);
 // Affiliates + payouts APIs (require auth)
-app.use('/api/affiliates', requireAuth as any, affiliatesRouter);
-app.use('/api/payouts', requireAuth as any, payoutsRouter);
+app.use('/api/affiliates', requireAuthFlag, affiliatesRouter);
+app.use('/api/payouts', requireAuthFlag, payoutsRouter);
   app.use('/api/tracking', trackingRouter);
+
+  // Feature-flagged: session cookie auth endpoints (safe additive)
+  if (String(process.env.ENABLE_SESSION_COOKIE_AUTH || 'false').toLowerCase() === 'true') {
+    try {
+      const sessionRouter = require('./routes/auth/session').default;
+      app.use('/api/auth/session', sessionRouter);
+      console.log('[Auth] Session cookie endpoints enabled');
+    } catch (e) {
+      console.warn('[Auth] Failed to mount session cookie endpoints', e);
+    }
+  }
+
+  // Feature-flagged: passwordless passcode/magic-link endpoints
+  if (String(process.env.ENABLE_PASSCODE_AUTH || 'false').toLowerCase() === 'true') {
+    try {
+      const passcodeRouter = require('./routes/auth/passcode').default;
+      app.use('/api/auth/passcode', passcodeRouter);
+      // CSRF token issue endpoint (double-submit cookie) under flag
+      if (String(process.env.ENABLE_CSRF || 'false').toLowerCase() === 'true') {
+        const { csrfIssueToken } = require('./middleware/csrfGuard');
+        app.get('/api/auth/csrf', csrfIssueToken);
+        console.log('[Security] CSRF issue endpoint enabled');
+      }
+      // Optional OTP code endpoints (rate-limited) under a separate flag
+      if (String(process.env.ENABLE_OTP_AUTH || 'false').toLowerCase() === 'true') {
+        try {
+          const otpRouter = require('./routes/auth/passcode.otp').default;
+          app.use('/api/auth/otp', otpRouter);
+          console.log('[Auth] OTP endpoints enabled');
+        } catch (e) {
+          console.warn('[Auth] Failed to mount OTP endpoints', e);
+        }
+      }
+      console.log('[Auth] Passcode endpoints enabled');
+    } catch (e) {
+      console.warn('[Auth] Failed to mount passcode endpoints', e);
+    }
+  }
   app.use('/api', attachTeam);
   // Sales Agent routes
   app.use('/', salesPolicyRouter);
@@ -425,6 +484,11 @@ console.table(
 );
 
 // Insert a global error handler BEFORE the 404 catch-all (should be near the end of the file)
+// Sentry error handler should be before any other error middleware
+if (enableSentry && process.env.SENTRY_DSN) {
+  app.use(Sentry.Handlers.errorHandler());
+}
+
 app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err);
   incrementFailedCalls();

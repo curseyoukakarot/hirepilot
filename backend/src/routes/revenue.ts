@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import { requireAuth } from '../../middleware/authMiddleware';
+import requireAuthUnified from '../../middleware/requireAuthUnified';
 import { supabase } from '../lib/supabase';
 
 const router = express.Router();
@@ -38,7 +39,7 @@ async function canViewRevenue(userId: string): Promise<boolean> {
 function applyCurrency(n: number): number { return Math.max(0, Math.round(n)); }
 
 // GET /api/revenue/summary
-router.get('/summary', requireAuth, async (req: Request, res: Response) => {
+router.get('/summary', (String(process.env.ENABLE_SESSION_COOKIE_AUTH || 'false').toLowerCase() === 'true' ? (requireAuthUnified as any) : (requireAuth as any)), async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id as string | undefined;
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
@@ -92,7 +93,7 @@ router.get('/summary', requireAuth, async (req: Request, res: Response) => {
 });
 
 // GET /api/revenue/by-client
-router.get('/by-client', requireAuth, async (req: Request, res: Response) => {
+router.get('/by-client', (String(process.env.ENABLE_SESSION_COOKIE_AUTH || 'false').toLowerCase() === 'true' ? (requireAuthUnified as any) : (requireAuth as any)), async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id as string | undefined;
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
@@ -140,7 +141,7 @@ router.get('/by-client', requireAuth, async (req: Request, res: Response) => {
 });
 
 // GET /api/revenue/projected-by-client (from opportunities)
-router.get('/projected-by-client', requireAuth, async (req: Request, res: Response) => {
+router.get('/projected-by-client', (String(process.env.ENABLE_SESSION_COOKIE_AUTH || 'false').toLowerCase() === 'true' ? (requireAuthUnified as any) : (requireAuth as any)), async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id as string | undefined;
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
@@ -180,7 +181,7 @@ router.get('/projected-by-client', requireAuth, async (req: Request, res: Respon
 });
 
 // GET /api/revenue/monthly
-router.get('/monthly', requireAuth, async (req: Request, res: Response) => {
+router.get('/monthly', (String(process.env.ENABLE_SESSION_COOKIE_AUTH || 'false').toLowerCase() === 'true' ? (requireAuthUnified as any) : (requireAuth as any)), async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id as string | undefined;
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
@@ -233,7 +234,7 @@ router.get('/monthly', requireAuth, async (req: Request, res: Response) => {
 });
 
 // GET /api/revenue/monthly-projected from opportunities (stage-weighted)
-router.get('/monthly-projected', requireAuth, async (req: Request, res: Response) => {
+router.get('/monthly-projected', (String(process.env.ENABLE_SESSION_COOKIE_AUTH || 'false').toLowerCase() === 'true' ? (requireAuthUnified as any) : (requireAuth as any)), async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id as string | undefined;
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
@@ -283,7 +284,7 @@ router.get('/monthly-projected', requireAuth, async (req: Request, res: Response
 });
 
 // GET /api/revenue/engagement-types (projected from opportunities)
-router.get('/engagement-types', requireAuth, async (req: Request, res: Response) => {
+router.get('/engagement-types', (String(process.env.ENABLE_SESSION_COOKIE_AUTH || 'false').toLowerCase() === 'true' ? (requireAuthUnified as any) : (requireAuth as any)), async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id as string | undefined;
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
