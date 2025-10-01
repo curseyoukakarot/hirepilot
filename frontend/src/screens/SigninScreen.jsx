@@ -18,7 +18,8 @@ export default function SigninScreen() {
   const [passcodeLoading, setPasscodeLoading] = useState(false);
   const [passcodeSent, setPasscodeSent] = useState(false);
   const [passcodeError, setPasscodeError] = useState('');
-  const enablePasscode = String((import.meta?.env && import.meta.env.VITE_ENABLE_PASSCODE_AUTH) || 'false').toLowerCase() === 'true';
+  // Default ON so UI is visible even if env not set; backend still gated by its flags
+  const enablePasscode = String((import.meta?.env && import.meta.env.VITE_ENABLE_PASSCODE_AUTH) || 'true').toLowerCase() === 'true';
   const [otpCode, setOtpCode] = useState('');
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
