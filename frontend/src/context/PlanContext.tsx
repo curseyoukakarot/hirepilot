@@ -137,6 +137,22 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
     fetchPlan();
   }, [fetchPlan]);
 
+  // Refetch on auth changes to keep role/plan perfectly in sync
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, _session) => {
+      // Lightweight debounce to avoid double fetches on rapid state changes
+      const t = setTimeout(() => { fetchPlan(); }, 50);
+      (globalThis as any).__hp_plan_refetch_timer = t;
+    });
+    return () => {
+      try {
+        const stored = (globalThis as any).__hp_plan_refetch_timer;
+        if (stored) clearTimeout(stored);
+      } catch {}
+      try { sub.subscription?.unsubscribe?.(); } catch {}
+    };
+  }, [fetchPlan]);
+
   const value = useMemo<PlanContextValue>(() => ({
     loading,
     plan: info.plan,

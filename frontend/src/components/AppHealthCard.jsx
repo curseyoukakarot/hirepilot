@@ -2,7 +2,7 @@ import React from 'react';
 import useAppHealth from '../hooks/useAppHealth';
 
 export default function AppHealthCard() {
-  const { data, loading, refresh } = useAppHealth();
+  const { data, auth, loading, refresh } = useAppHealth();
 
   const items = [
     { key: 'supabase', label: 'Supabase DB' },
@@ -27,6 +27,22 @@ export default function AppHealthCard() {
         <button onClick={refresh} disabled={loading} className="text-xs text-blue-600 hover:text-blue-800 disabled:opacity-50">
           <i className="fa-solid fa-sync mr-1"></i> Refresh
         </button>
+        {/* Auth Health mini group */}
+        <div className="mt-4">
+          <div className="text-xs text-gray-300 mb-2">Auth Health</div>
+          {['session_cookie','passcode','otp','csrf','rate_limit','sendgrid','redis','supabase_auth'].map((k) => {
+            const st = auth?.items?.[k]?.status;
+            return (
+              <div key={k} className="flex items-center justify-between p-2 bg-gray-700 rounded-md mb-2">
+                <div className="flex items-center">
+                  <div className={`w-2 h-2 rounded-full mr-2 ${color(st).split(' ')[0]}`}></div>
+                  <span className={`${color(st).split(' ')[1]} text-xs`}>{k.replace(/_/g,' ')}</span>
+                </div>
+                <span className={`${color(st).split(' ')[1]} text-xs`}>{loading ? '—' : (st || 'unknown')}</span>
+              </div>
+            );
+          })}
+        </div>
       </div>
       <div className="space-y-3">
         {items.map(({ key, label }) => {

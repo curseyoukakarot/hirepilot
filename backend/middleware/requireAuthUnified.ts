@@ -42,14 +42,47 @@ export async function requireAuthUnified(req: Request, res: Response, next: Next
     const user = data.user as any;
     const appMeta = (user?.app_metadata || {}) as any;
     const userMeta = (user?.user_metadata || {}) as any;
-    const role = userMeta.role || userMeta.account_type || appMeta.role || user.role || null;
+
+    // Prefer canonical role/plan/credits from DB users table
+    let dbRole: string | null = null;
+    let dbPlan: string | null = null;
+    let dbRemainingCredits: number | null = null;
+    let dbMonthlyCredits: number | null = null;
+    let dbIsGuest = false;
+    try {
+      const { data: userRow } = await supabase
+        .from('users')
+        .select('role, plan, remaining_credits, monthly_credits, is_guest')
+        .eq('id', user.id)
+        .single();
+      if (userRow) {
+        dbRole = userRow.role ?? null;
+        dbPlan = userRow.plan ?? null;
+        dbRemainingCredits = userRow.remaining_credits ?? null;
+        dbMonthlyCredits = userRow.monthly_credits ?? null;
+        dbIsGuest = Boolean(userRow.is_guest);
+      }
+    } catch {
+      // non-fatal; fall through to metadata-based role
+    }
+
+    const resolvedRole = dbRole
+      || userMeta.role
+      || userMeta.account_type
+      || appMeta.role
+      || user.role
+      || 'authenticated';
 
     (req as any).user = {
       id: user.id,
       email: user.email,
-      role,
+      role: resolvedRole,
       first_name: userMeta.first_name,
       last_name: userMeta.last_name,
+      plan: dbPlan,
+      remaining_credits: dbRemainingCredits,
+      monthly_credits: dbMonthlyCredits,
+      is_guest: dbIsGuest,
     };
 
     next();

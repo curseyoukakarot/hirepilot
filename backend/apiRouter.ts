@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from './middleware/authMiddleware';
+import requireAuthUnified from './middleware/requireAuthUnified';
 import { ApiRequest } from './types/api';
 
 import getCampaigns from "./api/getCampaigns";
@@ -78,6 +79,8 @@ import adminUsersRouter from './src/routes/adminUsers';
 const linkedinSessionAdmin = require('./api/linkedinSessionAdmin');
 
 const router = Router();
+const useUnified = String(process.env.ENABLE_SESSION_COOKIE_AUTH || 'false').toLowerCase() === 'true';
+const requireAuthFlag = (useUnified ? (requireAuthUnified as any) : (requireAuth as any));
 
 export type ApiHandler = (req: ApiRequest, res: Response) => Promise<void>;
 
@@ -135,7 +138,7 @@ router.get('/jobs/:id/campaigns', jobCampaigns);
 router.get('/users/:id/performance', userPerformance);
 
 // Add analytics time series endpoint
-router.get('/analytics/time-series', analyticsTimeSeries);
+router.get('/analytics/time-series', requireAuthFlag, analyticsTimeSeries);
 
 // Add schedule mass message endpoint
 router.post('/scheduleMassMessage', scheduleMassMessage);
@@ -294,7 +297,7 @@ router.post('/guest-status', guestStatus);
 
 // Safe job fetch for guests avoiding PostgREST single-object errors
 router.get('/jobs/:id', getJob);
-router.get('/advanced-info', advancedInfo);
+router.get('/advanced-info', requireAuthFlag, advancedInfo);
 router.get('/auth-debug', authDebug);
 
 // Support: create ticket endpoint used by Support Agent

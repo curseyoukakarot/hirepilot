@@ -49,6 +49,7 @@
         "@prisma/client": "6.12.0",
         "@sendgrid/eventwebhook": "^8.0.0",
         "@sendgrid/mail": "^8.1.5",
+        "@sentry/node": "7.120.4",
         "@slack/web-api": "^7.9.2",
         "@supabase/supabase-js": "^2.50.0",
         "@types/cheerio": "0.22.31",

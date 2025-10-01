@@ -20,6 +20,7 @@ export default function SigninScreen() {
   const [passcodeError, setPasscodeError] = useState('');
   const enablePasscode = String((import.meta?.env && import.meta.env.VITE_ENABLE_PASSCODE_AUTH) || 'false').toLowerCase() === 'true';
   const [otpCode, setOtpCode] = useState('');
+  const [oauthLoading, setOauthLoading] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -104,17 +105,28 @@ export default function SigninScreen() {
   };
 
 // OAuth sign-in handlers
+const resolveRedirect = () => (import.meta?.env?.VITE_APP_WEB_URL || import.meta?.env?.VITE_FRONTEND_URL || `${window.location.origin}/dashboard`);
 const handleGoogleSignin = async () => {
-  await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: { redirectTo: `${window.location.origin}/dashboard` }
-  });
+  try {
+    setOauthLoading(true);
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: resolveRedirect() }
+    });
+  } finally {
+    setOauthLoading(false);
+  }
 };
 const handleMicrosoftSignin = async () => {
-  await supabase.auth.signInWithOAuth({
-    provider: 'azure',
-    options: { redirectTo: `${window.location.origin}/dashboard` }
-  });
+  try {
+    setOauthLoading(true);
+    await supabase.auth.signInWithOAuth({
+      provider: 'azure',
+      options: { redirectTo: resolveRedirect() }
+    });
+  } finally {
+    setOauthLoading(false);
+  }
 };
 
   return (
@@ -132,15 +144,17 @@ const handleMicrosoftSignin = async () => {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white px-8 py-10 shadow-lg sm:rounded-2xl sm:px-10 flex flex-col items-center">
-          {/* OAuth Buttons */}
-          <div className="space-y-4 mb-6 w-full">
-            <button type="button" onClick={handleGoogleSignin} className="w-full flex justify-center items-center gap-3 bg-white px-4 py-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50">
-              <FaGoogle className="text-[20px]" /> Sign in with Google
-            </button>
-            <button type="button" onClick={handleMicrosoftSignin} className="w-full flex justify-center items-center gap-3 bg-white px-4 py-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50">
-              <FaMicrosoft className="text-[20px] text-blue-600" /> Sign in with Outlook/365
-            </button>
-          </div>
+          {/* OAuth Buttons (feature-flagged) */}
+          {String((import.meta?.env && import.meta.env.VITE_ENABLE_OAUTH) || 'false').toLowerCase() === 'true' && (
+            <div className="space-y-4 mb-6 w-full">
+              <button type="button" onClick={handleGoogleSignin} disabled={oauthLoading} className="w-full flex justify-center items-center gap-3 bg-white px-4 py-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60">
+                <FaGoogle className="text-[20px]" /> {oauthLoading ? 'Redirecting…' : 'Sign in with Google'}
+              </button>
+              <button type="button" onClick={handleMicrosoftSignin} disabled={oauthLoading} className="w-full flex justify-center items-center gap-3 bg-white px-4 py-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60">
+                <FaMicrosoft className="text-[20px] text-blue-600" /> {oauthLoading ? 'Redirecting…' : 'Sign in with Outlook/365'}
+              </button>
+            </div>
+          )}
           <div className="relative my-6 w-full">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-gray-300"></div>
