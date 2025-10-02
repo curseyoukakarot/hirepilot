@@ -132,8 +132,14 @@ export default function Analytics() {
     
     setTimeSeriesLoading(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || '';
       const response = await fetch(
-        `${BACKEND_URL}/api/analytics/time-series?user_id=${user.id}&campaign_id=${selectedCampaignId}&time_range=${selectedTimeRange}`
+        `${BACKEND_URL}/api/analytics/time-series?user_id=${user.id}&campaign_id=${selectedCampaignId}&time_range=${selectedTimeRange}`,
+        {
+          credentials: 'include',
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        }
       );
       const result = await response.json();
       
