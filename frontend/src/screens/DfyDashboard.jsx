@@ -98,7 +98,9 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
                   const stages = js?.stages || [];
                   const grouped = js?.candidates || {};
                   totalCandidates = Object.values(grouped).reduce((a, arr) => a + (Array.isArray(arr) ? arr.length : 0), 0);
-                  const hiredIds = stages.filter(s => /hire/i.test(String(s.title || ''))).map(s => String(s.id));
+                  const hiredIds = stages
+                    .filter(s => /hire|offer\s*accepted/i.test(String(s.title || '')))
+                    .map(s => String(s.id));
                   hiresCount = hiredIds.reduce((a,id) => a + ((grouped[id] || []).length), 0);
                   const interviewIds = stages.filter(s => /interview/i.test(String(s.title || ''))).map(s => String(s.id));
                   interviewsCount = interviewIds.reduce((a,id)=> a + ((grouped[id] || []).length), 0);
@@ -169,6 +171,22 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
             repliesByWeek = weekly.map(w => Number(w.replies || 0));
           } catch {}
         }
+
+        // Fallback: compute totals/hires from candidate_jobs if pipeline API did not yield
+        try {
+          if (jobId && (totalCandidates === 0 || hiresCount === 0)) {
+            const { data: allCj } = await supabase
+              .from('candidate_jobs')
+              .select('status, pipeline_stages ( title )')
+              .eq('job_id', jobId);
+            if (Array.isArray(allCj) && allCj.length > 0) {
+              const altTotal = allCj.length;
+              const altHires = allCj.filter(r => /hire|offer\s*accepted/i.test(String(r?.pipeline_stages?.title || r?.status || ''))).length;
+              if (totalCandidates === 0) totalCandidates = altTotal;
+              if (hiresCount === 0) hiresCount = altHires;
+            }
+          }
+        } catch {}
 
         try {
           if (jobId) {
@@ -305,7 +323,7 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
     return () => { try { supabase.removeChannel(ch); } catch {} };
   }, [jobId]);
 
-  const successRate = metrics.totalCandidates > 0 ? Math.round((metrics.hiresCount / metrics.totalCandidates) * 100) : 0;
+  const successRate = metrics.totalCandidates > 0 ? Math.round((metrics.hiresCount / metrics.totalCandidates) * 1000) / 10 : 0;
   const fmt = (n) => (n || 0).toLocaleString();
   const pct = (n) => `${(Number(n) || 0).toFixed(1)}%`;
   const repliesPctOfOutreach = metrics.outreachSent > 0 ? Math.max(3, Math.round((metrics.repliesCount / metrics.outreachSent) * 100)) : 0;
