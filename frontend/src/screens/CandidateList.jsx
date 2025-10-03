@@ -857,18 +857,7 @@ export default function CandidateList() {
                 : candidate
             ));
           }}
-          extraHeaderActions={selectedCandidate.resume_url ? (
-            <a
-              href={selectedCandidate.resume_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center px-3 py-1.5 rounded-md text-sm bg-blue-600 text-white hover:bg-blue-700"
-              title="View resume"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <FaFileAlt className="mr-2" /> Resume
-            </a>
-          ) : null}
+          extraHeaderActions={null}
         />
       )}
 

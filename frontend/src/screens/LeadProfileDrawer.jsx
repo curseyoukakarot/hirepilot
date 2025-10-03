@@ -49,6 +49,8 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   const [userCredits, setUserCredits] = useState(0);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showMetadata, setShowMetadata] = useState(false);
+  const [uploadingResume, setUploadingResume] = useState(false);
+  const resumeInputRef = useRef(null);
 
   // TODO: Re-enable Playwright once stable
   const USE_PLAYWRIGHT_AUTOMATION = false;
@@ -1584,6 +1586,69 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                     <i className="fa-regular fa-paper-plane mr-2"></i>
                     Message
                   </button>
+                  {/* Resume upload/view - always visible for candidates */}
+                  {entityType === 'candidate' && (
+                    <div className="flex items-center gap-2">
+                      <input
+                        ref={resumeInputRef}
+                        type="file"
+                        accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file || !localLead?.id) return;
+                          setUploadingResume(true);
+                          try {
+                            const toBase64 = (f) => new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = reject; r.readAsDataURL(f); });
+                            const dataUrl = await toBase64(file);
+                            const { data: { session } } = await supabase.auth.getSession();
+                            const token = session?.access_token || '';
+                            const resp = await fetch(`${API_BASE_URL}/leads/candidates/${localLead.id}/resume`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                              credentials: 'include',
+                              body: JSON.stringify({ file: { name: file.name, data: String(dataUrl) } })
+                            });
+                            const js = await resp.json().catch(() => ({}));
+                            if (!resp.ok) throw new Error(js?.error || 'Upload failed');
+                            const updated = js?.candidate || {};
+                            // Update local state and bubble up
+                            const next = { ...(localLead || {}), ...(updated || {}), resume_url: (updated?.resume_url || localLead?.resume_url) };
+                            setLocalLead(next);
+                            setLocalCandidate(next);
+                            lastAppliedRef.current = next.updated_at || new Date().toISOString();
+                            if (typeof onLeadUpdated === 'function') onLeadUpdated(next);
+                          } catch (err) {
+                            alert((err && err.message) || 'Upload failed');
+                          } finally {
+                            setUploadingResume(false);
+                            if (e.target) e.target.value = '';
+                          }
+                        }}
+                      />
+                      <button
+                        className={`px-4 py-2 ${uploadingResume ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded-lg flex items-center whitespace-nowrap shrink-0`}
+                        onClick={(ev) => { ev.stopPropagation(); resumeInputRef.current && resumeInputRef.current.click(); }}
+                        disabled={uploadingResume}
+                        title="Upload resume file"
+                      >
+                        <i className="fa-regular fa-file-lines mr-2"></i>
+                        {uploadingResume ? 'Uploading…' : 'Resume'}
+                      </button>
+                      {localLead?.resume_url && (
+                        <a
+                          href={localLead.resume_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+                          onClick={(e) => e.stopPropagation()}
+                          title="View current resume"
+                        >
+                          View
+                        </a>
+                      )}
+                    </div>
+                  )}
                   <button
                     className="px-4 py-2 bg-green-600 text-white rounded-lg flex items-center whitespace-nowrap shrink-0"
                     onClick={handleConvertToClient}
