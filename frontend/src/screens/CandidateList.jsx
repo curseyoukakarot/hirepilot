@@ -835,6 +835,7 @@ export default function CandidateList() {
             title: selectedCandidate.title,
             company: selectedCandidate.company,
             linkedin_url: selectedCandidate.linkedin_url,
+            resume_url: selectedCandidate.resume_url,
             notes: selectedCandidate.cover_note || selectedCandidate.notes || '',
           }}
           onLeadUpdated={(updatedCandidate) => {
