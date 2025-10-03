@@ -25,13 +25,13 @@ export default function ActivityLogSection({ lead, onActivityAdded, entityType =
   // Fetch activities for the lead - memoized to prevent unnecessary API calls
   const fetchActivities = useCallback(async () => {
     // Use unified activities endpoint
-    const leadId = lead?.lead_id;
-    const candidateId = lead?.id; // when entityType === 'candidate'
+    const resolvedLeadId = entityType === 'lead' ? (lead?.id) : (lead?.lead_id);
+    const candidateId = entityType === 'candidate' ? (lead?.id) : null;
 
     let url = null;
-    if (leadId) {
-      url = `${API_BASE_URL}/activities?entity_type=lead&entity_id=${encodeURIComponent(leadId)}`;
-    } else if (entityType === "candidate" && candidateId) {
+    if (resolvedLeadId) {
+      url = `${API_BASE_URL}/activities?entity_type=lead&entity_id=${encodeURIComponent(resolvedLeadId)}`;
+    } else if (candidateId) {
       url = `${API_BASE_URL}/activities?entity_type=candidate&entity_id=${encodeURIComponent(candidateId)}`;
     } else {
       setActivities([]);
@@ -73,7 +73,7 @@ export default function ActivityLogSection({ lead, onActivityAdded, entityType =
     } finally {
       setLoading(false);
     }
-  }, [lead?.lead_id, lead?.id, entityType, getAuthHeaders]);
+  }, [entityType, lead?.id, lead?.lead_id, getAuthHeaders]);
 
   // Fetch activities when lead changes
   useEffect(() => {
@@ -89,6 +89,8 @@ export default function ActivityLogSection({ lead, onActivityAdded, entityType =
     if (onActivityAdded) {
       onActivityAdded(newActivity);
     }
+    // After logging, refetch from server to ensure persistence across reloads
+    fetchActivities();
   };
 
   const formatDate = (dateString) => {
