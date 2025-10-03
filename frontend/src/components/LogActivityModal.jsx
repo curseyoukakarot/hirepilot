@@ -76,7 +76,8 @@ export default function LogActivityModal({ lead, onClose, onActivityAdded, entit
         // Fallback: log as candidate activity when no linked lead exists
         const candidatePayload = {
           candidate_id: lead.id,
-          status: formData.activity_type,
+          activity_type: formData.activity_type,
+          tags,
           notes: formData.notes.trim() || null
         };
         response = await fetch(`${API_BASE_URL}/candidate-activities`, {

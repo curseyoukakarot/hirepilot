@@ -12,11 +12,13 @@ router.post('/', requireAuth, async (req: ApiRequest, res: Response) => {
     const userId = req.user?.id as string | undefined;
     if (!userId) { res.status(401).json({ success: false, message: 'Unauthorized' }); return; }
 
-    const { candidate_id, job_id, status, notes } = (req.body || {}) as {
+    const { candidate_id, job_id, status, notes, activity_type, tags } = (req.body || {}) as {
       candidate_id?: string;
       job_id?: string | null;
-      status?: string | null; // we map activity_type to status for candidate activities
+      status?: string | null;
       notes?: string | null;
+      activity_type?: string | null;
+      tags?: string[] | null;
     };
 
     if (!candidate_id) {
@@ -37,11 +39,15 @@ router.post('/', requireAuth, async (req: ApiRequest, res: Response) => {
     const insertRow: any = {
       candidate_id,
       job_id: job_id || null,
-      status: status || 'Note',
+      // Only persist status if it matches candidate_status enum; otherwise omit
       notes: notes || null,
       created_at: now,
       created_by: userId
     };
+
+    const allowedStatuses = new Set(['sourced','contacted','interviewed','offered','hired','rejected']);
+    const normalizedStatus = typeof status === 'string' && allowedStatuses.has(status) ? status : null;
+    if (normalizedStatus) insertRow.status = normalizedStatus;
 
     const { data: row, error } = await supabase
       .from('candidate_activities')
@@ -53,8 +59,8 @@ router.post('/', requireAuth, async (req: ApiRequest, res: Response) => {
     // Normalize to ActivityLogSection shape
     const activity = {
       id: `cand-${row.id}`,
-      activity_type: 'Candidate',
-      tags: row.status ? [row.status] : [],
+      activity_type: (activity_type || 'Candidate'),
+      tags: Array.isArray(tags) && tags.length ? tags : (row.status ? [row.status] : (activity_type ? [activity_type] : [])),
       notes: row.notes || null,
       activity_timestamp: row.created_at,
       created_at: row.created_at,
