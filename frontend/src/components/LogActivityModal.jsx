@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabaseClient';
 
 const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
 
-export default function LogActivityModal({ lead, onClose, onActivityAdded }) {
+export default function LogActivityModal({ lead, onClose, onActivityAdded, entityType = 'lead' }) {
   const [formData, setFormData] = useState({
     activity_type: 'Call',
     tags: '',
@@ -55,8 +55,16 @@ export default function LogActivityModal({ lead, onClose, onActivityAdded }) {
         .map(tag => tag.trim())
         .filter(tag => tag.length > 0);
 
+      // Determine correct lead id. If logging from a candidate drawer, the
+      // lead id is provided via lead.lead_id
+      const resolvedLeadId = entityType === 'candidate' ? (lead?.lead_id || null) : (lead?.id || null);
+
+      if (!resolvedLeadId) {
+        throw new Error('This candidate is not linked to a lead yet. Convert/link to a lead to log lead activity.');
+      }
+
       const activityData = {
-        lead_id: lead.id,
+        lead_id: resolvedLeadId,
         activity_type: formData.activity_type,
         tags: tags.length > 0 ? tags : [],
         notes: formData.notes.trim() || null,

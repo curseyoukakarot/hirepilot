@@ -299,6 +299,7 @@ export default function ActivityLogSection({ lead, onActivityAdded, entityType =
       {showModal && (
         <LogActivityModal
           lead={lead}
+          entityType={entityType}
           onClose={() => setShowModal(false)}
           onActivityAdded={handleActivityAdded}
         />
