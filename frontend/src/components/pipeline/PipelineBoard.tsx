@@ -155,6 +155,31 @@ export default function PipelineBoard({ jobId, pipelineIdOverride = null, refres
     } catch {}
   };
 
+  const handleDeleteCandidate = async (cand: CandidateItem, stageId: string) => {
+    const ok = confirm('Remove this candidate from this pipeline?');
+    if (!ok) return;
+    const prevStageList = Array.from(candidatesByStage[stageId] || []);
+    // Optimistic UI update
+    setCandidatesByStage({
+      ...candidatesByStage,
+      [stageId]: prevStageList.filter((it) => String(it.candidate_id) !== String(cand.candidate_id))
+    });
+    try {
+      await supabase
+        .from('candidate_jobs')
+        .delete()
+        .eq('job_id', jobId)
+        .eq('candidate_id', cand.candidate_id);
+    } catch (e) {
+      // Revert on error
+      setCandidatesByStage({
+        ...candidatesByStage,
+        [stageId]: prevStageList
+      });
+      alert('Failed to remove candidate. Please try again.');
+    }
+  };
+
   if (loading) return <div className="p-6 text-gray-500">Loading pipeline…</div>;
 
   return (
@@ -294,7 +319,24 @@ export default function PipelineBoard({ jobId, pipelineIdOverride = null, refres
                                     <CandidateCard
                                       candidate={c}
                                       onClick={(cand) => { setSelectedCandidate(cand); setSelectedStageTitle(stage.title); }}
-                                      rightAction={<i className="fa-solid fa-pencil" />}
+                                      rightAction={
+                                        <div className="flex items-center gap-3">
+                                          <button
+                                            className="text-gray-400 hover:text-gray-600"
+                                            title="Open details"
+                                            onClick={(e) => { e.stopPropagation(); setSelectedCandidate(c); setSelectedStageTitle(stage.title); }}
+                                          >
+                                            <i className="fa-solid fa-pencil" />
+                                          </button>
+                                          <button
+                                            className="text-gray-400 hover:text-red-600"
+                                            title="Remove from pipeline"
+                                            onClick={(e) => { e.stopPropagation(); handleDeleteCandidate(c, String(stage.id)); }}
+                                          >
+                                            <i className="fa-regular fa-trash-can" />
+                                          </button>
+                                        </div>
+                                      }
                                     />
                                   </div>
                                 )}
