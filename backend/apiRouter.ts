@@ -419,4 +419,8 @@ router.use('/lead-activities', requireAuth, leadActivitiesRouter);
 import activitiesRouter from './api/activities';
 router.use('/activities', requireAuth, activitiesRouter);
 
+// Candidate Activities (create-only) endpoint for candidates without linked leads
+import candidateActivitiesRouter from './api/candidateActivities';
+router.use('/candidate-activities', requireAuth, candidateActivitiesRouter);
+
 export default router;

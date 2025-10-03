@@ -59,25 +59,32 @@ export default function LogActivityModal({ lead, onClose, onActivityAdded, entit
       // lead id is provided via lead.lead_id
       const resolvedLeadId = entityType === 'candidate' ? (lead?.lead_id || null) : (lead?.id || null);
 
-      if (!resolvedLeadId) {
-        throw new Error('This candidate is not linked to a lead yet. Convert/link to a lead to log lead activity.');
-      }
-
-      const activityData = {
-        lead_id: resolvedLeadId,
-        activity_type: formData.activity_type,
-        tags: tags.length > 0 ? tags : [],
-        notes: formData.notes.trim() || null,
-        activity_timestamp: new Date(formData.activity_timestamp).toISOString()
-      };
-
       const headers = await getAuthHeaders();
-      const response = await fetch(`${API_BASE_URL}/lead-activities`, {
-        method: 'POST',
-        headers,
-        credentials: 'include',
-        body: JSON.stringify(activityData)
-      });
+      let response;
+      if (resolvedLeadId) {
+        const activityData = {
+          lead_id: resolvedLeadId,
+          activity_type: formData.activity_type,
+          tags: tags.length > 0 ? tags : [],
+          notes: formData.notes.trim() || null,
+          activity_timestamp: new Date(formData.activity_timestamp).toISOString()
+        };
+        response = await fetch(`${API_BASE_URL}/lead-activities`, {
+          method: 'POST', headers, credentials: 'include', body: JSON.stringify(activityData)
+        });
+      } else if (entityType === 'candidate' && lead?.id) {
+        // Fallback: log as candidate activity when no linked lead exists
+        const candidatePayload = {
+          candidate_id: lead.id,
+          status: formData.activity_type,
+          notes: formData.notes.trim() || null
+        };
+        response = await fetch(`${API_BASE_URL}/candidate-activities`, {
+          method: 'POST', headers, credentials: 'include', body: JSON.stringify(candidatePayload)
+        });
+      } else {
+        throw new Error('Unable to determine entity to log activity for.');
+      }
 
       if (!response.ok) {
         const errorData = await response.json();
