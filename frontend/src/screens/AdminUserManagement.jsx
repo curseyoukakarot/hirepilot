@@ -353,6 +353,7 @@ export default function AdminUserManagement() {
                 <option value="viewer">Viewer</option>
                 <option value="super_admin">Super Admin</option>
                 <option value="RecruitPro">RecruitPro</option>
+                <option value="free">Free</option>
               </select>
               <div className="flex gap-2 justify-end">
                 <button type="button" className="px-4 py-2 rounded bg-gray-200 text-gray-700" onClick={() => setShowInvite(false)}>Cancel</button>
@@ -378,6 +379,7 @@ export default function AdminUserManagement() {
                 <option value="viewer">Viewer</option>
                 <option value="super_admin">Super Admin</option>
                 <option value="RecruitPro">RecruitPro</option>
+                <option value="free">Free</option>
               </select>
               <div className="flex gap-2 justify-end">
                 <button type="button" className="px-4 py-2 rounded bg-gray-200 text-gray-700" onClick={() => setEditUser(null)}>Cancel</button>
