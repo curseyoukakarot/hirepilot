@@ -2811,6 +2811,36 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                   ))}
                 </select>
               </div>
+              {/* Preview and apply template */}
+              <div className="flex items-center justify-between mb-2">
+                <button
+                  type="button"
+                  className="text-sm text-blue-600 hover:text-blue-700"
+                  onClick={() => {
+                    const tpl = liTemplates.find(t => t.id === selectedLiTemplateId);
+                    const base = (tpl?.content || '').trim();
+                    const tokenData = {
+                      Candidate: {
+                        FirstName: (getDisplayName(localLead)||'').split(' ')[0] || (localLead?.first_name||'') || '',
+                        LastName: (getDisplayName(localLead)||'').split(' ').slice(1).join(' ') || (localLead?.last_name||'') || '',
+                        Company: localLead?.company || '',
+                        Job: localLead?.title || '',
+                        Email: localLead?.email || ''
+                      },
+                      first_name: (localLead?.first_name||'') || (getDisplayName(localLead)||'').split(' ')[0] || '',
+                      last_name: (localLead?.last_name||'') || (getDisplayName(localLead)||'').split(' ').slice(1).join(' ') || '',
+                      company: localLead?.company || '',
+                      title: localLead?.title || ''
+                    };
+                    const preview = replaceTokens(base, tokenData).slice(0,300);
+                    setLinkedInMessage(preview);
+                  }}
+                  disabled={!selectedLiTemplateId}
+                >
+                  Preview template →
+                </button>
+                <span className="text-xs text-gray-500">Tokens: {"{{first_name}}"}, {"{{last_name}}"}, {"{{company}}"}, {"{{title}}"}</span>
+              </div>
               <textarea
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                 placeholder="Add a personal message to your connection request..."
