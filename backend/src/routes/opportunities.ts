@@ -494,6 +494,27 @@ router.patch('/:id', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
+// DELETE /api/opportunities/:id — remove opportunity and unlink any job req associations
+router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    const allowed = await canViewOpportunities(userId);
+    if (!allowed) { res.status(403).json({ error: 'access_denied' }); return; }
+
+    const { id } = req.params;
+    if (!id) { res.status(400).json({ error: 'id_required' }); return; }
+
+    // Best-effort: delete req links first to avoid FK constraints; do NOT delete job reqs themselves
+    await supabase.from('opportunity_job_reqs').delete().eq('opportunity_id', id);
+    const { error } = await supabase.from('opportunities').delete().eq('id', id);
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    res.json({ success: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message || 'Internal server error' });
+  }
+});
+
 // GET /api/opportunities/stages
 router.get('/stages', requireAuth, async (req: Request, res: Response) => {
   try {

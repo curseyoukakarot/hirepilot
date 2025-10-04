@@ -824,7 +824,26 @@ export default function DealsPage() {
                         </div>
                       </td>
                       <td className="p-4 text-gray-500">{new Date(o.created_at).toLocaleDateString()}</td>
-                      <td className="p-4 text-right"><a className="text-blue-600 font-semibold" href={`/deals/opportunities/${o.id}`}>View</a></td>
+                      <td className="p-4 text-right space-x-3">
+                        <a className="text-blue-600 font-semibold" href={`/deals/opportunities/${o.id}`}>View</a>
+                        <button
+                          className="text-red-600"
+                          onClick={async ()=>{
+                            if (!window.confirm('Delete this opportunity? This will unlink any attached job reqs but will not delete them.')) return;
+                            try {
+                              const { data: { session } } = await supabase.auth.getSession();
+                              const token = session?.access_token;
+                              const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities/${o.id}`, { method: 'DELETE', headers: token ? { Authorization: `Bearer ${token}` } : {} });
+                              if (resp.ok) {
+                                // Remove from table immediately
+                                setOpps(prev => prev.filter(row => row.id !== o.id));
+                                // Also refresh pipeline board in background if currently showing pipeline
+                                if (oppView === 'pipeline') { await refetchBoard(); }
+                              }
+                            } catch {}
+                          }}
+                        >Delete</button>
+                      </td>
                     </tr>
                   ))
                 )}
