@@ -319,6 +319,18 @@ function InnerApp() {
   const isBlog = location.pathname.startsWith('/blog');
   // Whether the current authenticated user is a guest collaborator (computed below)
   const [isGuestUser, setIsGuestUser] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    // Detect mobile viewport (tailwind md breakpoint ~768px)
+    const mq = window.matchMedia('(max-width: 768px)');
+    const apply = () => setIsMobile(mq.matches);
+    try {
+      if (mq.addEventListener) mq.addEventListener('change', apply); else mq.addListener(apply);
+    } catch {}
+    apply();
+    return () => { try { if (mq.removeEventListener) mq.removeEventListener('change', apply); else mq.removeListener(apply); } catch {} };
+  }, []);
 
   // If partners routes are hit on the main domain, redirect to affiliates subdomain
   useEffect(() => {
@@ -437,6 +449,8 @@ function InnerApp() {
     return <div className="flex items-center justify-center h-screen text-lg">Loading...</div>;
   }
 
+  const isRexMobile = isMobile && location.pathname === '/rex-chat';
+
   return (
     <div className="min-h-screen flex flex-col">
       {paymentWarning && !isSuspended && (
@@ -448,7 +462,7 @@ function InnerApp() {
           }}>Update payment</button>
         </div>
       )}
-      {!isAuthPage && !isPartnerArea && !(location.pathname.startsWith('/accept-guest') || location.pathname === '/signout' || (isGuestUser && (location.pathname.startsWith('/job/') || location.pathname === '/settings'))) && (
+      {!isRexMobile && !isAuthPage && !isPartnerArea && !(location.pathname.startsWith('/accept-guest') || location.pathname === '/signout' || (isGuestUser && (location.pathname.startsWith('/job/') || location.pathname === '/settings'))) && (
         <div className="fixed top-0 left-0 right-0 z-50"><Navbar /></div>
       )}
       <Toaster
@@ -461,11 +475,15 @@ function InnerApp() {
           },
         }}
       />
-      <div className={`flex flex-1 ${!isAuthPage && !(location.pathname.startsWith('/accept-guest') || location.pathname === '/signout' || (isGuestUser && (location.pathname.startsWith('/job/') || location.pathname === '/settings'))) ? 'pt-[72px]' : ''}`}>
-        {!isAuthPage && !isPartnerArea && !(location.pathname.startsWith('/accept-guest') || location.pathname === '/signout' || (isGuestUser && (location.pathname.startsWith('/job/') || location.pathname === '/settings'))) && (
+      <div className={`flex flex-1 ${(!isRexMobile && !isAuthPage && !(location.pathname.startsWith('/accept-guest') || location.pathname === '/signout' || (isGuestUser && (location.pathname.startsWith('/job/') || location.pathname === '/settings')))) ? 'pt-[72px]' : ''}`}>
+        {!isRexMobile && !isAuthPage && !isPartnerArea && !(location.pathname.startsWith('/accept-guest') || location.pathname === '/signout' || (isGuestUser && (location.pathname.startsWith('/job/') || location.pathname === '/settings'))) && (
           <div id="app-sidebar" className="fixed left-0 top-[72px] bottom-0 w-64 transition-all duration-200"><Sidebar /></div>
         )}
-        <main id="app-main" className={`flex-1 transition-all duration-200 ${!isAuthPage && !isPartnerArea && !(location.pathname.startsWith('/accept-guest') || location.pathname === '/signout' || (isGuestUser && (location.pathname.startsWith('/job/') || location.pathname === '/settings'))) ? (location.pathname === '/rex-chat' ? 'ml-64 min-h-0 overflow-hidden' : 'ml-64 min-h-0 overflow-y-auto') : ''}`}>
+        <main id="app-main" className={
+          isRexMobile
+            ? 'fixed inset-0 m-0 p-0 min-h-0 overflow-hidden'
+            : `flex-1 transition-all duration-200 ${!isAuthPage && !isPartnerArea && !(location.pathname.startsWith('/accept-guest') || location.pathname === '/signout' || (isGuestUser && (location.pathname.startsWith('/job/') || location.pathname === '/settings'))) ? (location.pathname === '/rex-chat' ? 'ml-64 min-h-0 overflow-hidden' : 'ml-64 min-h-0 overflow-y-auto') : ''}`
+        }>
           {!isAuthPage && <OnboardingModals />}
           <Suspense fallback={
             <div className="flex items-center justify-center w-full h-[50vh]">
@@ -590,7 +608,7 @@ function InnerApp() {
         </main>
       </div>
       {/* REX widget mounted (Option A) */}
-      {!(rexFlags.producthunt && rexFlags.popup && isAuthPage) && (
+      {!(rexFlags.producthunt && rexFlags.popup && isAuthPage) && !isRexMobile && (
         <RexWidget
           mode={isAuthPage ? 'sales' : 'support'}
           config={{
