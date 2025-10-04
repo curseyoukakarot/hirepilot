@@ -54,6 +54,10 @@ function LeadManagement() {
   const [showSequencePicker, setShowSequencePicker] = useState(false);
   const [sequences, setSequences] = useState([]);
   const [selectedSequenceId, setSelectedSequenceId] = useState('');
+  const [sequenceProvider, setSequenceProvider] = useState('google');
+  const [sequenceStart, setSequenceStart] = useState(new Date());
+  const [sequenceTz, setSequenceTz] = useState('America/Chicago');
+  const [isEnrollingSequence, setIsEnrollingSequence] = useState(false);
   const [sequenceStart, setSequenceStart] = useState(new Date());
   const [sequenceTz, setSequenceTz] = useState('America/Chicago');
   const [bulkMessages, setBulkMessages] = useState({});
@@ -2242,12 +2246,13 @@ function LeadManagement() {
               </button>
             </div>
             <div className="flex justify-end gap-3">
-              <button className="px-4 py-2 border rounded-lg hover:bg-gray-50" onClick={() => setShowSequencePicker(false)}>Cancel</button>
+              <button className="px-4 py-2 border rounded-lg hover:bg-gray-50" onClick={() => setShowSequencePicker(false)} disabled={isEnrollingSequence}>Cancel</button>
               <button
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
-                disabled={!selectedSequenceId}
+                className={`px-4 py-2 rounded-lg text-white disabled:opacity-50 ${isEnrollingSequence ? 'bg-purple-400' : 'bg-purple-600 hover:bg-purple-700'}`}
+                disabled={!selectedSequenceId || isEnrollingSequence}
                 onClick={async ()=>{
                   try{
+                    setIsEnrollingSequence(true);
                     const { data: { session } } = await supabase.auth.getSession();
                     const token = session?.access_token;
                     const res = await fetch(`${API_BASE_URL}/sequences/${selectedSequenceId}/enroll`,{
@@ -2260,9 +2265,18 @@ function LeadManagement() {
                     setShowSequencePicker(false);
                     toast.success('Leads enrolled');
                   }catch(e){ toast.error(e.message||'Failed'); }
+                  finally{ setIsEnrollingSequence(false); }
                 }}
               >
-                Enroll
+                {isEnrollingSequence ? (
+                  <span className="inline-flex items-center gap-2">
+                    <svg className="animate-spin -ml-1 mr-1 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                    </svg>
+                    Enrolling…
+                  </span>
+                ) : 'Enroll'}
               </button>
             </div>
           </div>
