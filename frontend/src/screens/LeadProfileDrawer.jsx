@@ -2799,9 +2799,9 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                 </div>
               </div>
               {/* Template selector */}
-              <div className="mb-2">
+              <div className="mb-2 flex items-center gap-2">
                 <select
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={selectedLiTemplateId}
                   onChange={(e) => setSelectedLiTemplateId(e.target.value)}
                 >
@@ -2810,12 +2810,9 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                     <option key={t.id} value={t.id}>{t.name}</option>
                   ))}
                 </select>
-              </div>
-              {/* Preview and apply template */}
-              <div className="flex items-center justify-between mb-2">
                 <button
                   type="button"
-                  className="text-sm text-blue-600 hover:text-blue-700"
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                   onClick={() => {
                     const tpl = liTemplates.find(t => t.id === selectedLiTemplateId);
                     const base = (tpl?.content || '').trim();
@@ -2836,9 +2833,13 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                     setLinkedInMessage(preview);
                   }}
                   disabled={!selectedLiTemplateId}
+                  title="Preview how this template will personalize for this contact"
                 >
-                  Preview template →
+                  Preview
                 </button>
+              </div>
+              {/* Preview and apply template */}
+              <div className="flex items-center justify-between mb-2">
                 <span className="text-xs text-gray-500">Tokens: {"{{first_name}}"}, {"{{last_name}}"}, {"{{company}}"}, {"{{title}}"}</span>
               </div>
               <textarea
