@@ -58,8 +58,7 @@ function LeadManagement() {
   const [sequenceStart, setSequenceStart] = useState(new Date());
   const [sequenceTz, setSequenceTz] = useState('America/Chicago');
   const [isEnrollingSequence, setIsEnrollingSequence] = useState(false);
-  const [sequenceStart, setSequenceStart] = useState(new Date());
-  const [sequenceTz, setSequenceTz] = useState('America/Chicago');
+  // removed duplicate sequenceStart/sequenceTz declarations
   const [bulkMessages, setBulkMessages] = useState({});
   const [bulkIsSending, setBulkIsSending] = useState(false);
   const [bulkIsSavingTemplate, setBulkIsSavingTemplate] = useState(false);
@@ -114,8 +113,7 @@ function LeadManagement() {
   const [showAttachToCampaignModal, setShowAttachToCampaignModal] = useState(false);
   const [attachLeadIds, setAttachLeadIds] = useState([]);
 
-  // Provider selection for sequence enrollment
-  const [sequenceProvider, setSequenceProvider] = useState(null); // 'google' | 'outlook' | 'sendgrid'
+  // Provider selection for sequence enrollment (initialized above)
 
   // Load leads function with campaign filtering support
   const loadLeads = async (campaignId = selectedCampaign) => {
