@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabaseClient';
 export default function Navbar() {
   const [isGuest, setIsGuest] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [mobileOpen, setMobileOpen] = useState(false);
   useEffect(() => {
     (async () => {
       let guestFlag = (typeof window !== 'undefined' && sessionStorage.getItem('guest_mode') === '1');
@@ -26,12 +27,13 @@ export default function Navbar() {
     })();
   }, []);
   return (
-    <header className="bg-white border-b shadow-sm px-6 py-4 flex justify-between items-center">
+    <header className="bg-white border-b shadow-sm px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center">
       <NavLink to="/dashboard" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
         <img src="/logo.png" alt="HirePilot Logo" className="h-10 w-10" />
         <span className="text-2xl font-bold text-indigo-600">HirePilot</span>
       </NavLink>
-      <nav className="flex items-center space-x-6">
+      {/* Desktop nav */}
+      <nav className="hidden md:flex items-center space-x-6">
         {!isGuest && (
           <>
             <NavLink
@@ -92,6 +94,36 @@ export default function Navbar() {
           )}
         </NavLink>
       </nav>
+      {/* Mobile hamburger */}
+      <button className="md:hidden inline-flex items-center justify-center p-2 rounded hover:bg-gray-100" onClick={()=>setMobileOpen(v=>!v)} aria-label="Toggle menu">
+        <span className="block w-6 h-0.5 bg-gray-800 mb-1"></span>
+        <span className="block w-6 h-0.5 bg-gray-800 mb-1"></span>
+        <span className="block w-6 h-0.5 bg-gray-800"></span>
+      </button>
+      {/* Mobile drawer */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-40 md:hidden" onClick={()=>setMobileOpen(false)}>
+          <div className="absolute inset-0 bg-black bg-opacity-30"></div>
+          <div className="absolute right-0 top-0 h-full w-64 bg-white shadow-lg p-4" onClick={(e)=>e.stopPropagation()}>
+            <nav className="flex flex-col space-y-3">
+              {!isGuest && (
+                <>
+                  <NavLink to="/deals" onClick={()=>setMobileOpen(false)} className="text-gray-700">Deals</NavLink>
+                  <NavLink to="/campaigns" onClick={()=>setMobileOpen(false)} className="text-gray-700">Campaigns</NavLink>
+                  <NavLink to="/leads" onClick={()=>setMobileOpen(false)} className="text-gray-700">Leads</NavLink>
+                  <NavLink to="/candidates" onClick={()=>setMobileOpen(false)} className="text-gray-700">Candidates</NavLink>
+                </>
+              )}
+              <NavLink to="/jobs" onClick={()=>setMobileOpen(false)} className="text-gray-700">Jobs</NavLink>
+              <NavLink to="/dashboard" onClick={()=>setMobileOpen(false)} className="text-gray-700">Dashboard</NavLink>
+              <NavLink to="/settings" onClick={()=>setMobileOpen(false)} className="flex items-center gap-2 text-gray-700">
+                {avatarUrl ? (<img src={avatarUrl} alt="avatar" className="w-6 h-6 rounded-full object-cover" />) : (<div className="w-6 h-6 rounded-full bg-gray-200" />)}
+                <span>Settings</span>
+              </NavLink>
+            </nav>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

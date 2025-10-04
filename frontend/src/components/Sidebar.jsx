@@ -17,6 +17,7 @@ export default function Sidebar() {
   const [isPremium, setIsPremium] = useState(false);
   const [rexEnabled, setRexEnabled] = useState(false);
   const [isGuest, setIsGuest] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
     const fetchRole = async () => {
@@ -77,7 +78,12 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="h-full bg-gray-50 dark:bg-gray-800 flex flex-col border-r border-gray-200 dark:border-gray-700">
+    <aside className={`${collapsed ? 'w-16' : 'w-64'} transition-all duration-200 h-full bg-gray-50 dark:bg-gray-800 flex flex-col border-r border-gray-200 dark:border-gray-700`}> 
+      <div className="p-2 flex justify-end">
+        <button className="text-gray-500 hover:text-gray-700" title={collapsed? 'Expand' : 'Collapse'} onClick={()=>setCollapsed(v=>!v)}>
+          {collapsed ? '›' : '‹'}
+        </button>
+      </div>
       <nav className="flex-1 overflow-y-auto">
         <div className="p-4">
           <ul className="space-y-1">
@@ -89,13 +95,13 @@ export default function Sidebar() {
                 <NavLink
                   to={link.to}
                   className={({ isActive }) =>
-                    `flex items-center px-4 py-2 text-base rounded-lg font-medium transition-colors cursor-pointer ${
+                    `flex items-center px-4 py-2 ${collapsed ? 'justify-center' : ''} text-base rounded-lg font-medium transition-colors cursor-pointer ${
                       isActive ? 'bg-indigo-50 text-indigo-700 font-semibold dark:bg-gray-700 dark:text-indigo-300' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
                     }`
                   }
                 >
-                  <span className="mr-3 text-lg">{link.icon}</span>
-                  {link.label}
+                  <span className={`${collapsed ? '' : 'mr-3'} text-lg`}>{link.icon}</span>
+                  {!collapsed && link.label}
                 </NavLink>
               </li>
             ))}
@@ -139,20 +145,20 @@ export default function Sidebar() {
         </div>
 
         {/* LinkedIn Automation Section */}
-        <div className="px-6 mt-8">
-          <div className="text-xs text-gray-400 font-semibold uppercase mb-2 tracking-wider">LinkedIn Automation</div>
+            <div className="px-2 mt-8">
+              {!collapsed && <div className="text-xs text-gray-400 font-semibold uppercase mb-2 tracking-wider">LinkedIn Automation</div>}
           {/* Only show Bulk Cookie Refresh for super admins */}
           {isSuperAdmin && (
             <NavLink
               to="/phantom/bulk-refresh"
               className={({ isActive }) =>
-                `flex items-center px-4 py-2 text-base rounded-lg font-medium transition-colors cursor-pointer ${
+                `flex items-center px-4 py-2 ${collapsed ? 'justify-center' : ''} text-base rounded-lg font-medium transition-colors cursor-pointer ${
                   isActive ? 'bg-indigo-50 text-indigo-700 font-semibold dark:bg-gray-700 dark:text-indigo-300' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
                 }`
               }
             >
-              <span className="mr-3 text-lg"><FaCog /></span>
-              Bulk Cookie Refresh
+                  <span className={`${collapsed ? '' : 'mr-3'} text-lg"><FaCog /></span>
+                  {!collapsed && 'Bulk Cookie Refresh'}
             </NavLink>
           )}
         </div>
@@ -160,95 +166,95 @@ export default function Sidebar() {
         {/* Super Admin Sections */}
         {isSuperAdmin && (
           <>
-            <div className="px-6 mt-8">
-              <div className="text-xs text-gray-400 font-semibold uppercase mb-2 tracking-wider">Admin Controls</div>
+            <div className="px-2 mt-8">
+              {!collapsed && <div className="text-xs text-gray-400 font-semibold uppercase mb-2 tracking-wider">Admin Controls</div>}
               <NavLink
                 to="/super-admin"
                 className={({ isActive }) =>
-                  `flex items-center px-4 py-2 text-base rounded-lg font-medium transition-colors cursor-pointer ${
+                  `flex items-center px-4 py-2 ${collapsed ? 'justify-center' : ''} text-base rounded-lg font-medium transition-colors cursor-pointer ${
                     isActive ? 'bg-blue-100 text-blue-700 font-semibold dark:bg-gray-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
                   }`
                 }
               >
-                <span className="mr-3 text-lg"><FaShieldAlt /></span>
-                Super Admin
+                <span className={`${collapsed ? '' : 'mr-3'} text-lg`}><FaShieldAlt /></span>
+                {!collapsed && 'Super Admin'}
               </NavLink>
               {/* Removed Action Inbox and Sourcing Campaigns in favor of unified Agent Mode */}
               <NavLink
                 to="/admin/puppet-health"
                 className={({ isActive }) =>
-                  `flex items-center px-4 py-2 text-base rounded-lg font-medium transition-colors cursor-pointer ${
+                  `flex items-center px-4 py-2 ${collapsed ? 'justify-center' : ''} text-base rounded-lg font-medium transition-colors cursor-pointer ${
                     isActive ? 'bg-blue-100 text-blue-700 font-semibold dark:bg-gray-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
                   }`
                 }
               >
-                <span className="mr-3 text-lg"><FaRobot /></span>
-                Puppet Health
+                <span className={`${collapsed ? '' : 'mr-3'} text-lg`}><FaRobot /></span>
+                {!collapsed && 'Puppet Health'}
               </NavLink>
               <NavLink
                 to="/admin/proxy-management"
                 className={({ isActive }) =>
-                  `flex items-center px-4 py-2 text-base rounded-lg font-medium transition-colors cursor-pointer ${
+                  `flex items-center px-4 py-2 ${collapsed ? 'justify-center' : ''} text-base rounded-lg font-medium transition-colors cursor-pointer ${
                     isActive ? 'bg-blue-100 text-blue-700 font-semibold dark:bg-gray-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
                   }`
                 }
               >
-                <span className="mr-3 text-lg"><FaSlidersH /></span>
-                Proxy Management
+                <span className={`${collapsed ? '' : 'mr-3'} text-lg`}><FaSlidersH /></span>
+                {!collapsed && 'Proxy Management'}
               </NavLink>
               <NavLink
                 to="/settings"
                 className={({ isActive }) =>
-                  `flex items-center px-4 py-2 text-base rounded-lg font-medium transition-colors cursor-pointer ${
+                  `flex items-center px-4 py-2 ${collapsed ? 'justify-center' : ''} text-base rounded-lg font-medium transition-colors cursor-pointer ${
                     isActive ? 'bg-blue-100 text-blue-700 font-semibold dark:bg-gray-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
                   }`
                 }
               >
-                <span className="mr-3 text-lg"><FaCog /></span>
-                Settings
+                <span className={`${collapsed ? '' : 'mr-3'} text-lg`}><FaCog /></span>
+                {!collapsed && 'Settings'}
               </NavLink>
             </div>
-            <div className="px-6 mt-8">
-              <div className="text-xs font-semibold uppercase mb-2 tracking-wider text-blue-600 dark:text-blue-400">Phantom Tools</div>
+            <div className="px-2 mt-8">
+              {!collapsed && <div className="text-xs font-semibold uppercase mb-2 tracking-wider text-blue-600 dark:text-blue-400">Phantom Tools</div>}
               <NavLink to="/phantom-monitor" className={({ isActive }) =>
-                `flex items-center px-4 py-2 text-base rounded-lg font-medium transition-colors cursor-pointer ${
+                `flex items-center px-4 py-2 ${collapsed ? 'justify-center' : ''} text-base rounded-lg font-medium transition-colors cursor-pointer ${
                   isActive ? 'bg-blue-100 text-blue-700 font-semibold dark:bg-gray-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
                 }`
               }>
-                <span className="mr-3 text-lg"><FaRobot /></span>
-                Queue Monitor
+                <span className={`${collapsed ? '' : 'mr-3'} text-lg`}><FaRobot /></span>
+                {!collapsed && 'Queue Monitor'}
               </NavLink>
               <NavLink to="/phantom/lead-sync-failures" className={({ isActive }) =>
-                `flex items-center px-4 py-2 text-base rounded-lg font-medium transition-colors cursor-pointer ${
+                `flex items-center px-4 py-2 ${collapsed ? 'justify-center' : ''} text-base rounded-lg font-medium transition-colors cursor-pointer ${
                   isActive ? 'bg-blue-100 text-blue-700 font-semibold dark:bg-gray-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
                 }`
               }>
-                <span className="mr-3 text-lg"><FaExclamationTriangle /></span>
-                Lead Sync Failures
+                <span className={`${collapsed ? '' : 'mr-3'} text-lg`}><FaExclamationTriangle /></span>
+                {!collapsed && 'Lead Sync Failures'}
               </NavLink>
               <NavLink to="/phantom/cookie-refresh" className={({ isActive }) =>
-                `flex items-center px-4 py-2 text-base rounded-lg font-medium transition-colors cursor-pointer ${
+                `flex items-center px-4 py-2 ${collapsed ? 'justify-center' : ''} text-base rounded-lg font-medium transition-colors cursor-pointer ${
                   isActive ? 'bg-blue-100 text-blue-700 font-semibold dark:bg-gray-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
                 }`
               }>
-                <span className="mr-3 text-lg"><FaCookie /></span>
-                Cookie Refresher
+                <span className={`${collapsed ? '' : 'mr-3'} text-lg`}><FaCookie /></span>
+                {!collapsed && 'Cookie Refresher'}
               </NavLink>
               <NavLink to="/phantom/webhook-logs" className={({ isActive }) =>
-                `flex items-center px-4 py-2 text-base rounded-lg font-medium transition-colors cursor-pointer ${
+                `flex items-center px-4 py-2 ${collapsed ? 'justify-center' : ''} text-base rounded-lg font-medium transition-colors cursor-pointer ${
                   isActive ? 'bg-blue-100 text-blue-700 font-semibold dark:bg-gray-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
                 }`
               }>
-                <span className="mr-3 text-lg"><FaPlug /></span>
-                Webhook Logs
+                <span className={`${collapsed ? '' : 'mr-3'} text-lg`}><FaPlug /></span>
+                {!collapsed && 'Webhook Logs'}
               </NavLink>
               <NavLink to="/phantom/config" className={({ isActive }) =>
-                `flex items-center px-4 py-2 text-base rounded-lg font-medium transition-colors cursor-pointer ${
+                `flex items-center px-4 py-2 ${collapsed ? 'justify-center' : ''} text-base rounded-lg font-medium transition-colors cursor-pointer ${
                   isActive ? 'bg-blue-100 text-blue-700 font-semibold dark:bg-gray-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
                 }`
               }>
-                <span className="mr-3 text-lg"><FaSlidersH /></span>
-                Phantom Config
+                <span className={`${collapsed ? '' : 'mr-3'} text-lg`}><FaSlidersH /></span>
+                {!collapsed && 'Phantom Config'}
               </NavLink>
             </div>
           </>
@@ -258,7 +264,7 @@ export default function Sidebar() {
       <div className="p-4 border-t border-gray-200 dark:border-gray-700">
         <button
           onClick={handleSignOut}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-700 rounded-lg font-medium hover:bg-red-100 transition-colors"
+          className={`w-full flex items-center ${collapsed ? 'justify-center' : 'justify-center'} gap-2 px-4 py-2 bg-red-50 text-red-700 rounded-lg font-medium hover:bg-red-100 transition-colors`}
         >
           <FaSignOutAlt className="text-lg" /> Sign Out
         </button>
