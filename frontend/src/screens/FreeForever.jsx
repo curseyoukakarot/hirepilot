@@ -17,7 +17,7 @@ export default function FreeForever() {
             <a href="/pricing" className="inline-flex items-center text-sm text-blue-300 hover:text-white">
               <i className="fa-solid fa-tag mr-2" /> See all plans
             </a>
-            <a href="/signup?plan=free" className="hidden md:inline-flex items-center bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+            <a href="https://app.thehirepilot.com/signup?plan=free" className="hidden md:inline-flex items-center bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
               Get Started Free
             </a>
           </div>
@@ -214,7 +214,7 @@ export default function FreeForever() {
               <h2 className="text-4xl font-bold text-white mb-6">Free Forever. Click here to get started</h2>
               <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
                 <a
-                  href="/signup?plan=free"
+                  href="https://app.thehirepilot.com/signup?plan=free"
                   className="bg-white text-blue-700 border-2 border-blue-600 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-blue-50"
                 >
                   Use Free Forever →

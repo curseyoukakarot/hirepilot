@@ -208,7 +208,7 @@ export default function HirePilotFullATS() {
             <div className="bg-violet-600 rounded-lg p-6 my-8 text-center">
               <h3 className="text-xl font-semibold mb-2 text-white">✨ Ready to Try It?</h3>
               <p className="mb-4 text-violet-100">Start for Free Today. No credit card. Just results.</p>
-              <a href="/signup" className="inline-block bg-white text-violet-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors">Start for Free</a>
+              <a href="https://app.thehirepilot.com/signup" className="inline-block bg-white text-violet-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors">Start for Free</a>
             </div>
           </div>
         </article>

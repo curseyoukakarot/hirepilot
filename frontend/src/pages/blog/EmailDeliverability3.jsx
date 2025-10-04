@@ -210,7 +210,7 @@ export default function EmailDeliverability3() {
           <div id="inline-cta-2" className="bg-gray-800 border border-gray-700 rounded-lg p-6 my-8 text-center">
             <h3 className="text-xl font-semibold mb-2">Ready to Switch to SendGrid?</h3>
             <p className="mb-4">Chat with REX for step-by-step guidance on migrating from Gmail/Outlook to professional email.</p>
-            <a href="/login" className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors inline-block">Chat with REX</a>
+            <a href="https://app.thehirepilot.com/login" className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors inline-block">Chat with REX</a>
           </div>
 
           <div id="gmail-smtp-vs-ui">

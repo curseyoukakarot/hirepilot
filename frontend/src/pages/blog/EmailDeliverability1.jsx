@@ -108,7 +108,7 @@ export default function EmailDeliverability1() {
           <div id="inline-cta-1" className="bg-blue-600 rounded-lg p-6 my-8 text-center">
             <h3 className="text-xl font-semibold mb-2">Protect Your Email Reputation Today</h3>
             <p className="mb-4">Connect SendGrid to HirePilot and start sending emails the professional way.</p>
-            <a href="/login" className="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors inline-block">Setup SendGrid Integration</a>
+            <a href="https://app.thehirepilot.com/login" className="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors inline-block">Setup SendGrid Integration</a>
           </div>
 
           <div id="gmail-outlook-limits">
@@ -167,7 +167,7 @@ export default function EmailDeliverability1() {
           <div id="inline-cta-2" className="bg-gray-800 border border-gray-700 rounded-lg p-6 my-8 text-center">
             <h3 className="text-xl font-semibold mb-2" style={{color: '#ffffff !important', filter: 'brightness(10) contrast(10)', WebkitTextFillColor: '#ffffff !important', textShadow: '0 0 0 #ffffff !important'}}>Need Help with SendGrid Setup?</h3>
             <p className="mb-4" style={{color: '#ffffff !important', filter: 'brightness(10) contrast(10)', WebkitTextFillColor: '#ffffff !important', textShadow: '0 0 0 #ffffff !important'}}>Chat with REX, our AI assistant, for step-by-step guidance on email deliverability.</p>
-            <a href="/login" className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors inline-block">Chat with REX</a>
+            <a href="https://app.thehirepilot.com/login" className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors inline-block">Chat with REX</a>
           </div>
 
           <div id="action-plan">

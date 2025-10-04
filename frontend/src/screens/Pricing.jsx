@@ -100,7 +100,7 @@ export default function Pricing() {
                 <li className="flex items-center"><i className="fa-brands fa-slack text-blue-500 mr-3"></i><span>Slack/Gmail/Outlook connect</span></li>
                 <li className="flex items-center"><i className="fa-solid fa-ban text-red-500 mr-3"></i><span>No sequences / exports / Advanced Agent Mode</span></li>
               </ul>
-              <a href="/signup?plan=free" className="block w-full text-center bg-green-600 text-white py-4 rounded-xl font-semibold hover:bg-green-500 transition-colors">Get Started Free</a>
+              <a href="https://app.thehirepilot.com/signup?plan=free" className="block w-full text-center bg-green-600 text-white py-4 rounded-xl font-semibold hover:bg-green-500 transition-colors">Get Started Free</a>
               <div className="text-xs text-gray-400 mt-2 text-center">No credit card required</div>
             </div>
             {/* Starter Plan */}

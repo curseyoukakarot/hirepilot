@@ -236,7 +236,7 @@ export default function EmailDeliverability4() {
           <div id="inline-cta-2" className="bg-gray-800 border border-gray-700 rounded-lg p-6 my-8 text-center">
             <h3 className="text-xl font-semibold mb-2">Need Help Monitoring Your SendGrid Metrics?</h3>
             <p className="mb-4">Chat with REX for personalized guidance on interpreting deliverability data and optimizing performance.</p>
-            <a href="/login" className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors inline-block">Chat with REX</a>
+            <a href="https://app.thehirepilot.com/login" className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors inline-block">Chat with REX</a>
           </div>
 
           <div id="pro-tips">

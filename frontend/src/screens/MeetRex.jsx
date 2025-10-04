@@ -373,7 +373,7 @@ export default function MeetRex() {
             <div className="mb-6 flex justify-center">
               <img src="/REX-slack.gif" alt="REX Slack Preview" className="rounded-xl max-w-full" />
             </div>
-            <a href="/login" className="gradient-bg text-white px-8 py-4 rounded-lg font-semibold">
+            <a href="https://app.thehirepilot.com/login" className="gradient-bg text-white px-8 py-4 rounded-lg font-semibold">
               Ask REX a Question
             </a>
           </div>

@@ -35,7 +35,8 @@ export default function PublicNavbar() {
             ))}
           </nav>
           <div className="hidden md:flex items-center gap-4">
-            <a href="/login" className="text-gray-600 hover:text-gray-900">Sign in</a>
+            <a href="https://app.thehirepilot.com/login" className="text-sm text-gray-700 hover:text-gray-900">Log in</a>
+            <a href="https://app.thehirepilot.com/signup" className="inline-flex items-center bg-indigo-600 px-4 py-2 text-white rounded-lg">Sign up</a>
             <a href="/pricing" className="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 py-2.5 rounded-lg hover:shadow-lg transition-all duration-200">
               Start for Free
             </a>
@@ -70,7 +71,7 @@ export default function PublicNavbar() {
                 {l.label}
               </a>
             ))}
-            <a href="/login" className="text-lg text-gray-700 hover:text-blue-600" onClick={() => setOpen(false)}>Sign in</a>
+            <a href="https://app.thehirepilot.com/login" className="text-lg text-gray-700 hover:text-blue-600" onClick={() => setOpen(false)}>Sign in</a>
           </nav>
           <a href="/pricing" className="mt-auto bg-gradient-to-r from-blue-600 to-blue-500 text-white w-full text-center py-4 rounded-lg font-semibold" onClick={() => setOpen(false)}>
             Start for Free
