@@ -463,9 +463,9 @@ function InnerApp() {
       />
       <div className={`flex flex-1 ${!isAuthPage && !(location.pathname.startsWith('/accept-guest') || location.pathname === '/signout' || (isGuestUser && (location.pathname.startsWith('/job/') || location.pathname === '/settings'))) ? 'pt-[72px]' : ''}`}>
         {!isAuthPage && !isPartnerArea && !(location.pathname.startsWith('/accept-guest') || location.pathname === '/signout' || (isGuestUser && (location.pathname.startsWith('/job/') || location.pathname === '/settings'))) && (
-          <div className="fixed left-0 top-[72px] bottom-0 w-64"><Sidebar /></div>
+          <div id="app-sidebar" className="fixed left-0 top-[72px] bottom-0 w-64 transition-all duration-200"><Sidebar /></div>
         )}
-        <main className={`flex-1 ${!isAuthPage && !isPartnerArea && !(location.pathname.startsWith('/accept-guest') || location.pathname === '/signout' || (isGuestUser && (location.pathname.startsWith('/job/') || location.pathname === '/settings'))) ? (location.pathname === '/rex-chat' ? 'ml-64 min-h-0 overflow-hidden' : 'ml-64 min-h-0 overflow-y-auto') : ''}`}>
+        <main id="app-main" className={`flex-1 transition-all duration-200 ${!isAuthPage && !isPartnerArea && !(location.pathname.startsWith('/accept-guest') || location.pathname === '/signout' || (isGuestUser && (location.pathname.startsWith('/job/') || location.pathname === '/settings'))) ? (location.pathname === '/rex-chat' ? 'ml-64 min-h-0 overflow-hidden' : 'ml-64 min-h-0 overflow-y-auto') : ''}`}>
           {!isAuthPage && <OnboardingModals />}
           <Suspense fallback={
             <div className="flex items-center justify-center w-full h-[50vh]">

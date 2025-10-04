@@ -7,6 +7,28 @@ export default function Navbar() {
   const [isGuest, setIsGuest] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState('');
   const [mobileOpen, setMobileOpen] = useState(false);
+  // adjust main layout margin when sidebar collapsed/expanded
+  useEffect(() => {
+    const handler = (e) => {
+      const collapsed = e?.detail?.collapsed;
+      const main = document.getElementById('app-main');
+      const sidebar = document.getElementById('app-sidebar');
+      if (!main || !sidebar) return;
+      if (collapsed) {
+        main.classList.remove('ml-64');
+        main.classList.add('ml-16');
+        sidebar.classList.remove('w-64');
+        sidebar.classList.add('w-16');
+      } else {
+        main.classList.remove('ml-16');
+        main.classList.add('ml-64');
+        sidebar.classList.remove('w-16');
+        sidebar.classList.add('w-64');
+      }
+    };
+    window.addEventListener('sidebar:toggle', handler);
+    return () => window.removeEventListener('sidebar:toggle', handler);
+  }, []);
   useEffect(() => {
     (async () => {
       let guestFlag = (typeof window !== 'undefined' && sessionStorage.getItem('guest_mode') === '1');

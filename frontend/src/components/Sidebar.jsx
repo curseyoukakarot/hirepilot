@@ -20,6 +20,19 @@ export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
+    try { setCollapsed(localStorage.getItem('sidebar_collapsed') === '1'); } catch {}
+  }, []);
+
+  const toggleCollapsed = () => {
+    setCollapsed(v => {
+      const next = !v;
+      try { localStorage.setItem('sidebar_collapsed', next ? '1' : '0'); } catch {}
+      try { window.dispatchEvent(new CustomEvent('sidebar:toggle', { detail: { collapsed: next } })); } catch {}
+      return next;
+    });
+  };
+
+  useEffect(() => {
     const fetchRole = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       let role = null;
@@ -80,7 +93,7 @@ export default function Sidebar() {
   return (
     <aside className={`${collapsed ? 'w-16' : 'w-64'} transition-all duration-200 h-full bg-gray-50 dark:bg-gray-800 flex flex-col border-r border-gray-200 dark:border-gray-700`}> 
       <div className="p-2 flex justify-end">
-        <button className="text-gray-500 hover:text-gray-700" title={collapsed? 'Expand' : 'Collapse'} onClick={()=>setCollapsed(v=>!v)}>
+        <button className="text-gray-500 hover:text-gray-700" title={collapsed? 'Expand' : 'Collapse'} onClick={toggleCollapsed}>
           {collapsed ? '›' : '‹'}
         </button>
       </div>
@@ -157,8 +170,8 @@ export default function Sidebar() {
                 }`
               }
             >
-                  <span className={`${collapsed ? '' : 'mr-3'} text-lg"><FaCog /></span>
-                  {!collapsed && 'Bulk Cookie Refresh'}
+              <span className={`${collapsed ? '' : 'mr-3'} text-lg`}><FaCog /></span>
+              {!collapsed && 'Bulk Cookie Refresh'}
             </NavLink>
           )}
         </div>
