@@ -1,4 +1,3 @@
-import { apiAsUser } from '../server';
 import { enqueueLinkedinJob } from '../../../services/linkedin-remote/queue/enqueue';
 
 export const linkedinTools = {

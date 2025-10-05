@@ -20,8 +20,9 @@ export class DockerEngine implements OrchestratorEngine {
     await container.start();
     const data = await container.inspect();
 
-    const streamPort = Object.values((data.NetworkSettings.Ports || {})['8080/tcp'] || [])[0]?.HostPort;
-    const debugPort = Object.values((data.NetworkSettings.Ports || {})['9222/tcp'] || [])[0]?.HostPort;
+    const ports = (data as any)?.NetworkSettings?.Ports as any;
+    const streamPort = ports?.['8080/tcp']?.[0]?.HostPort as string;
+    const debugPort = ports?.['9222/tcp']?.[0]?.HostPort as string;
 
     const base = process.env.STREAM_PUBLIC_BASE_URL || 'http://localhost';
     const host = base.replace(/\/$/, '');
