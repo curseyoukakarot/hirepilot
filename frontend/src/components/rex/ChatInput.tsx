@@ -1,19 +1,41 @@
-import React, { FC, useState } from 'react'
+import React, { FC, useEffect, useRef, useState } from 'react'
 
 type Props = { onSend: (text: string) => void; disabled?: boolean }
 export const ChatInput: FC<Props> = ({ onSend, disabled }) => {
   const [v, setV] = useState('')
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+
+  // Auto-resize textarea to fit content
+  useEffect(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [v])
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      if (v.trim()) {
+        onSend(v.trim())
+        setV('')
+      }
+    }
+    // If Shift+Enter, allow default to insert a newline
+  }
+
   return (
     <div className="sticky bottom-0 border-t border-gray-700 p-4 bg-gray-800 z-10">
       <div className="flex items-center space-x-4">
         <div className="flex-1 relative">
-          <input
-            type="text"
+          <textarea
+            ref={textareaRef}
             value={v}
             onChange={(e)=>setV(e.target.value)}
-            onKeyDown={(e)=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); if(v.trim()) { onSend(v.trim()); setV('') } } }}
+            onKeyDown={handleKeyDown}
+            rows={1}
             placeholder="Ask REX anything..."
-            className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-green-400 focus:ring-1 focus:ring-green-400 transition-colors"
+            className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 pr-12 text-white placeholder-gray-400 focus:outline-none focus:border-green-400 focus:ring-1 focus:ring-green-400 transition-colors resize-none"
           />
           <button
             className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-green-400 transition-colors"
