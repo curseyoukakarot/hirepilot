@@ -101,60 +101,94 @@ export async function enrichWithSkrapp(
       apiKeyPrefix: skrappApiKey.substring(0, 8) + '...'
     });
 
-    // Prepare request body
-    const requestBody: SkrappFindByNameRequest = {
-      first_name,
-      last_name,
-      company: company || null,
-      domain: cleanDomain || null
-    };
-
-    async function requestOnce() {
-      return axios.post(
-        `${SKRAPP_API_URL}/find`,
-        requestBody,
-        {
-          headers: {
-            'X-Access-Key': skrappApiKey,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'User-Agent': 'HirePilot/1.0'
-          },
-          timeout: 10000
-        }
-      );
-    }
-
-    let response: any;
-    try {
-      response = await requestOnce();
-    } catch (e: any) {
-      if (e?.response?.status === 429 || e?.response?.status >= 500) {
-        console.warn('[Skrapp] First attempt failed, retrying once...', e?.response?.status);
-        await new Promise(r => setTimeout(r, 750));
-        response = await requestOnce();
-      } else {
-        throw e;
+    // Try multiple endpoint variants for compatibility across Skrapp API versions
+    const attempts: Array<{ url: string; body: any; label: string }> = [
+      {
+        url: `${SKRAPP_API_URL}/find`,
+        label: 'find(camelCase)',
+        body: { firstName: first_name, lastName: last_name, company: company || null, domain: cleanDomain || null }
+      },
+      {
+        url: `${SKRAPP_API_URL}/find-by-name`,
+        label: 'find-by-name(snake_case)',
+        body: { first_name, last_name, company, domain: cleanDomain }
+      },
+      {
+        url: `${SKRAPP_API_URL}/finders/name`,
+        label: 'finders/name(camelCase)',
+        body: { firstName: first_name, lastName: last_name, company: company || null, domain: cleanDomain || null }
       }
+    ];
+
+    let response: any = null;
+    let lastError: any = null;
+    for (const attempt of attempts) {
+      try {
+        console.log('[Skrapp] Attempting endpoint:', attempt.label, attempt.url);
+        response = await axios.post(
+          attempt.url,
+          attempt.body,
+          {
+            headers: {
+              'X-Access-Key': skrappApiKey,
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'User-Agent': 'HirePilot/1.0'
+            },
+            timeout: 10000
+          }
+        );
+        if (response?.status && response.status < 400) break;
+      } catch (e: any) {
+        lastError = e;
+        // Retry once for rate limit/server errors on the same attempt
+        if (e?.response?.status === 429 || e?.response?.status >= 500) {
+          await new Promise(r => setTimeout(r, 750));
+          try {
+            response = await axios.post(
+              attempt.url,
+              attempt.body,
+              {
+                headers: {
+                  'X-Access-Key': skrappApiKey,
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json',
+                  'User-Agent': 'HirePilot/1.0'
+                },
+                timeout: 10000
+              }
+            );
+            if (response?.status && response.status < 400) break;
+          } catch (e2: any) {
+            lastError = e2;
+          }
+        }
+      }
+    }
+    if (!response) {
+      if (lastError) throw lastError;
+      return null;
     }
 
     console.log('[Skrapp] API response:', {
       status: response.status,
-      emailStatus: response.data?.emailStatus,
-      email: response.data?.email ? 'found' : 'not_found'
+      emailStatus: response.data?.emailStatus || response.data?.status,
+      email: (response.data?.email || response.data?.data?.email) ? 'found' : 'not_found'
     });
 
     const body: SkrappFindResponse = response.data || {};
     // Check if email was found
-    if (!body?.email) {
+    const candidateEmail = (body as any)?.email || (response.data?.data?.email ?? null);
+    if (!candidateEmail) {
       console.log('[Skrapp] No email found in response');
       return null;
     }
 
-    const { email, emailStatus } = body as { email: string; emailStatus?: SkrappFindResponse['emailStatus'] };
+    const email: string = candidateEmail as string;
+    const emailStatus: any = (body as any)?.emailStatus || (body as any)?.status || (response.data?.data?.emailStatus);
 
-    // Only accept Valid
-    if (emailStatus !== 'Valid') {
+    // Only accept Valid (treat 'valid' lowercase as valid too)
+    if (String(emailStatus || '').toLowerCase() !== 'valid') {
       console.log('[Skrapp] Email status not valid:', { emailStatus });
       return null;
     }
