@@ -49,6 +49,7 @@ router.post('/start', async (req, res) => {
 
     res.json({ sessionId, streamUrl: result.streamUrl });
   } catch (e:any) {
+    console.error('[LI Session Start] Error:', e);
     res.status(500).json({ error: e.message });
   }
 });
