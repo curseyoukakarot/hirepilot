@@ -120,6 +120,8 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
         const preference = (integrations as any).enrichment_source || 'apollo';
         console.log('[Enrichment] Prepared enrichment data:', { fullName, domain, preference, hasHunterKey: !!(integrations as any).hunter_api_key, hasSkrappKey: !!(integrations as any).skrapp_api_key });
 
+        let emailFoundFrom: 'hunter' | 'skrapp' | null = null;
+
         if (preference === 'apollo') {
           // Skip premium providers entirely when preference is Apollo
           console.log('[Enrichment] Preference set to Apollo - skipping Hunter/Skrapp');
@@ -158,16 +160,8 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
                   .eq('id', leadId)
                   .eq('user_id', userId);
                 if (!updErr) {
-                  return {
-                    success: true,
-                    provider: 'skrapp',
-                    data: {
-                      email: skrappEmail,
-                      email_status: 'Valid',
-                      source: 'Skrapp',
-                      company: companyInfo || undefined
-                    }
-                  };
+                  emailFoundFrom = 'skrapp';
+                  enrichment_source = 'skrapp';
                 } else {
                   errors.push('DB update failed after Skrapp enrichment');
                 }
@@ -223,13 +217,8 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
                 // Continue to fallback even if DB update failed
               } else {
                 console.log('[Enrichment] Successfully enriched with Hunter.io');
-                return {
-                  success: true,
-                  provider: 'hunter',
-                  data: { email: hunterEmail, source: 'hunter.io', enrichment_data: enrichmentData },
-                  errors: errors.length > 0 ? errors : undefined,
-                  fallbacks_used: fallbacks_used.length > 0 ? fallbacks_used : undefined
-                };
+                emailFoundFrom = 'hunter';
+                enrichment_source = 'hunter';
               }
             } else {
               console.log('[Enrichment] Hunter.io returned no email results');
@@ -288,13 +277,8 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
                 // Continue to fallback even if DB update failed
               } else {
                 console.log('[Enrichment] Successfully enriched with Skrapp.io');
-                return {
-                  success: true,
-                  provider: 'skrapp',
-                  data: { email: skrappEmail, source: 'skrapp.io', enrichment_data: enrichmentData },
-                  errors: errors.length > 0 ? errors : undefined,
-                  fallbacks_used: fallbacks_used.length > 0 ? fallbacks_used : undefined
-                };
+                emailFoundFrom = 'skrapp';
+                enrichment_source = 'skrapp';
               }
             } else {
               console.log('[Enrichment] Skrapp.io returned no email results');
@@ -329,9 +313,11 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
       }
     }
 
-    // APOLLO ENRICHMENT: proceed
+    // APOLLO ENRICHMENT: proceed always for profile data; keep enrichment_source as the premium provider if email already found
     console.log('[Enrichment] Starting Apollo enrichment...');
-    enrichment_source = 'apollo';
+    if (!enrichment_source || enrichment_source === 'none') {
+      enrichment_source = 'apollo';
+    }
 
     // Get Apollo API key - prioritize user's personal key (no credits charged)
     let apolloApiKey: string | undefined;
