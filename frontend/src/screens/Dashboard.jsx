@@ -209,8 +209,8 @@ export default function Dashboard() {
             You are on the Free plan. Upgrade anytime from Billing to unlock premium features and higher limits.
           </div>
         )}
-        {/* Sourcing Snapshot Section */}
-        <section className="mb-6">
+        {/* Sourcing Snapshot Section - hidden on small screens */}
+        <section className="mb-6 hidden sm:block">
           <div className="bg-white rounded-2xl shadow-md p-6">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-semibold text-gray-900">Sourcing Snapshot</h2>
@@ -250,7 +250,7 @@ export default function Dashboard() {
           </div>
         </section>
         {/* Second Row */}
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Active Job Requisitions */}
           <section className="bg-white rounded-2xl shadow-md p-6">
             <div className="flex justify-between items-center mb-6">
