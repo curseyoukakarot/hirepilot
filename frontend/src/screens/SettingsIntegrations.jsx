@@ -1,6 +1,7 @@
 // SettingsIntegrations.jsx
 import React, { useState, useEffect } from 'react';
 import { FaCircle, FaGoogle, FaMicrosoft, FaRocket, FaGhost, FaEnvelope, FaCalendarDays, FaGear, FaLinkedin, FaPlug, FaFloppyDisk, FaPowerOff, FaShieldHalved, FaStripeS } from 'react-icons/fa6';
+import ConnectLinkedInModal from '../components/linkedin/ConnectLinkedInModal';
 import { supabase } from '../lib/supabaseClient';
 import { toast } from 'react-hot-toast';
 import { useLocation, useSearchParams } from 'react-router-dom';
@@ -94,6 +95,7 @@ export default function SettingsIntegrations() {
   const [enrichmentSaving, setEnrichmentSaving] = useState(false);
   const [enrichmentError, setEnrichmentError] = useState('');
   const [enrichmentSuccess, setEnrichmentSuccess] = useState('');
+  const [showLinkedinModal, setShowLinkedinModal] = useState(false);
   // Stripe state
   const [stripeKeys, setStripeKeys] = useState({ publishable: '', secret: '' });
   const [stripeLoading, setStripeLoading] = useState(false);
@@ -1200,6 +1202,24 @@ export default function SettingsIntegrations() {
         </div>
         {/* LinkedIn Option Cards - stacked vertically */}
         <div className="space-y-6">
+          {/* Remote Session Login */}
+          <div className="flex flex-col border rounded-lg p-6 hover:border-blue-500 transition-all w-full">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center space-x-3">
+                <input type="radio" name="connection-method" id="remote" className="w-4 h-4 text-blue-600" />
+                <label htmlFor="remote" className="font-medium text-gray-900">Connect via Remote Session</label>
+              </div>
+              <button
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                onClick={async () => {
+                  const { data: { user } } = await supabase.auth.getUser();
+                  if (!user) return;
+                  setShowLinkedinModal(true);
+                }}
+              >Launch</button>
+            </div>
+            <p className="text-gray-600">Open a streamed Chromium session in-app and log into LinkedIn. We securely store only encrypted session data.</p>
+          </div>
           {/* Paste LinkedIn Session Cookie */}
           <div className="flex flex-col border rounded-lg p-6 hover:border-blue-500 transition-all w-full">
             <div>
@@ -1383,6 +1403,14 @@ export default function SettingsIntegrations() {
             )}
           </div>
         </div>
+      )}
+      {/* LinkedIn Remote Session Modal */}
+      {showLinkedinModal && (
+        <ConnectLinkedInModal
+          open={showLinkedinModal}
+          onClose={() => setShowLinkedinModal(false)}
+          userId={currentUser?.id || ''}
+        />
       )}
       {/* Phantombuster Modal */}
       {showPhantombusterModal && (

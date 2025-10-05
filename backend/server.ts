@@ -136,6 +136,8 @@ import { salesSweepWorker } from './src/workers/sales.sweep.worker';
 import sendLiveChatFallbacksRouter from './cron/sendLiveChatFallbacks';
 import chatRoutes from './src/routes/chatRoutes';
 import { startFreeForeverWorker } from './jobs/freeForeverCadence';
+import sessionRouter from './services/linkedin-remote/api/sessionRouter';
+import { bootLinkedinWorker } from './services/linkedin-remote/queue/workers/linkedinWorker';
 
 declare module 'express-list-endpoints';
 
@@ -474,6 +476,14 @@ app.use('/api/public/apply', require('./api/public/apply').default);
 
 // Auth routes
 app.use('/api/auth', authRouter);
+
+// LinkedIn Remote Session routes
+app.use('/linkedin/session', sessionRouter);
+
+// boot worker (in its own process ideally)
+if (process.env.BOOT_LI_WORKER === 'true') {
+  bootLinkedinWorker();
+}
 
 // Log all endpoints before starting the server
 console.table(

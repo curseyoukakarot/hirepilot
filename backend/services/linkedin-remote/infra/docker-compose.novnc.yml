@@ -1,0 +1,13 @@
+version: '3.7'
+services:
+  li_novnc:
+    build:
+      context: ./novnc
+    ports:
+      - "8080:8080"
+      - "9222:9222"
+    environment:
+      - USER_DATA_DIR=/home/chrome/user-data-dir
+      - SCREEN_GEOMETRY=1366x768x24
+
+
