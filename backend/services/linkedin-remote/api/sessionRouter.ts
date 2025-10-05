@@ -19,9 +19,17 @@ router.post('/start', async (req, res) => {
     const userId = authUser(req);
     const runtime = (req.body?.streamMode ?? process.env.LINKEDIN_STREAM_MODE ?? 'novnc') as 'novnc'|'webrtc';
 
-    const { data, error } = await supabase.from('linkedin_sessions').insert({
-      user_id: userId, status: 'pending', login_method: 'streamed'
-    }).select('id').single();
+    // Legacy installs may have a unique/PK on user_id; use upsert to avoid duplicate key errors
+    const { data, error } = await supabase
+      .from('linkedin_sessions')
+      .upsert({
+        user_id: userId,
+        status: 'pending',
+        login_method: 'streamed',
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'user_id' })
+      .select('id')
+      .single();
     if (error) throw error;
     const sessionId = data.id as string;
 
