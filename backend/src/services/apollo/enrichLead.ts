@@ -119,11 +119,12 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
           console.log('[Enrichment] Preference set to Apollo - skipping Hunter/Skrapp');
         } else if (preference === 'skrapp') {
           // Skrapp-first path: Try Skrapp for email + company enrichment, then fallback to Apollo
-          if ((integrations as any).skrapp_api_key && domain) {
+          const skrappKey = (integrations as any).skrapp_api_key || process.env.SKRAPP_API_KEY || '';
+          if (skrappKey && domain) {
             try {
               console.log('[Enrichment] Preference skrapp: Trying Skrapp.io first...');
-              const skrappEmail = await enrichWithSkrapp((integrations as any).skrapp_api_key, fullName, domain);
-              const companyInfo = await enrichCompanyWithSkrapp((integrations as any).skrapp_api_key, domain).catch(() => null);
+              const skrappEmail = await enrichWithSkrapp(skrappKey, fullName, domain);
+              const companyInfo = await enrichCompanyWithSkrapp(skrappKey, domain).catch(() => null);
               if (skrappEmail) {
                 const enrichmentData = {
                   ...(record.enrichment_data || {}),
@@ -170,12 +171,15 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
             } catch (e: any) {
               console.warn('[Enrichment] Skrapp-first enrichment failed:', e?.message || e);
             }
+          } else {
+            console.log('[Enrichment] Preference skrapp but no Skrapp API key available (user or env). Skipping Skrapp.');
           }
-        } else if ((integrations as any).hunter_api_key && domain) {
+        } else if (((integrations as any).hunter_api_key || process.env.HUNTER_API_KEY) && domain) {
           // Legacy/default order when no explicit preference provided: Hunter -> Skrapp -> Apollo
           console.log('[Enrichment] Trying Hunter.io enrichment...');
           try {
-            const hunterEmail = await enrichWithHunter((integrations as any).hunter_api_key, fullName, domain);
+            const hunterKey = (integrations as any).hunter_api_key || process.env.HUNTER_API_KEY || '';
+            const hunterEmail = await enrichWithHunter(hunterKey, fullName, domain);
             if (hunterEmail) {
               console.log('[Enrichment] Hunter.io found email, updating lead...');
               // Update lead with Hunter.io email
@@ -237,10 +241,11 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
         }
 
         // Try Skrapp.io if Hunter.io failed and Skrapp API key is available (legacy/default path)
-        if (preference !== 'apollo' && (integrations as any).skrapp_api_key && domain) {
+        const skrappKeyDefault = (integrations as any).skrapp_api_key || process.env.SKRAPP_API_KEY || '';
+        if (preference !== 'apollo' && skrappKeyDefault && domain) {
           console.log('[Enrichment] Trying Skrapp.io enrichment...');
           try {
-            const skrappEmail = await enrichWithSkrapp((integrations as any).skrapp_api_key, fullName, domain);
+            const skrappEmail = await enrichWithSkrapp(skrappKeyDefault, fullName, domain);
             if (skrappEmail) {
               console.log('[Enrichment] Skrapp.io found email, updating lead...');
               // Update lead with Skrapp.io email
