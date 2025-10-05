@@ -123,7 +123,7 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
           if (skrappKey && domain) {
             try {
               console.log('[Enrichment] Preference skrapp: Trying Skrapp.io first...');
-              const skrappEmail = await enrichWithSkrapp(skrappKey, fullName, domain);
+              const skrappEmail = await enrichWithSkrapp(skrappKey, fullName, domain, company);
               const companyInfo = await enrichCompanyWithSkrapp(skrappKey, domain).catch(() => null);
               if (skrappEmail) {
                 const enrichmentData = {
@@ -245,7 +245,7 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
         if (preference !== 'apollo' && skrappKeyDefault && domain) {
           console.log('[Enrichment] Trying Skrapp.io enrichment...');
           try {
-            const skrappEmail = await enrichWithSkrapp(skrappKeyDefault, fullName, domain);
+        const skrappEmail = await enrichWithSkrapp(skrappKeyDefault, fullName, domain, company);
             if (skrappEmail) {
               console.log('[Enrichment] Skrapp.io found email, updating lead...');
               // Update lead with Skrapp.io email

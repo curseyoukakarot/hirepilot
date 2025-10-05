@@ -59,11 +59,12 @@ function parseFullName(fullName: string): { first_name: string; last_name: strin
 export async function enrichWithSkrapp(
   skrappApiKey: string, 
   fullName: string, 
-  domain: string
+  domain: string,
+  companyName?: string
 ): Promise<string | null> {
   try {
     // Validate inputs
-    if (!skrappApiKey || !fullName || !domain) {
+    if (!skrappApiKey || !fullName) {
       console.log('[Skrapp] Missing required parameters:', { 
         hasApiKey: !!skrappApiKey, 
         hasFullName: !!fullName, 
@@ -72,12 +73,14 @@ export async function enrichWithSkrapp(
       return null;
     }
 
-    // Clean domain (remove protocol, www, etc.)
-    const cleanDomain = domain
+    // Clean domain (only if it looks like a real domain)
+    const domainStr = String(domain || '').trim();
+    const looksLikeDomain = /\./.test(domainStr) && !/\s/.test(domainStr);
+    const cleanDomain = looksLikeDomain ? domainStr
       .replace(/^https?:\/\//, '')
       .replace(/^www\./, '')
       .split('/')[0]
-      .toLowerCase();
+      .toLowerCase() : '';
 
     // Parse full name into components
     const { first_name, last_name } = parseFullName(fullName);
@@ -88,10 +91,9 @@ export async function enrichWithSkrapp(
     }
 
     // Extract company name from domain (basic heuristic)
-    const company = cleanDomain
-      .split('.')[0]
-      .replace(/[-_]/g, ' ')
-      .toLowerCase();
+    const company = (companyName && companyName.trim())
+      ? companyName.trim()
+      : (cleanDomain ? cleanDomain.split('.')[0].replace(/[-_]/g, ' ') : '');
 
     console.log('[Skrapp] Starting email search:', { 
       first_name, 
