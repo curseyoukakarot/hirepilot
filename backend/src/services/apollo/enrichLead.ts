@@ -99,17 +99,23 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
         // Prepare data for enrichment services
         const fullName = `${firstName} ${lastName}`.trim();
         let domain = '';
-        
-        // Extract domain from company or try to derive it
-        if (company) {
-          // If company looks like a domain, use it directly
-          if (company.includes('.')) {
-            domain = company.toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
-          } else {
-            // Try common domain patterns
-            domain = `${company.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '')}.com`;
-          }
+
+        // Helper: robust domain derivation from existing enrichment data or heuristics
+        function deriveDomain(rec: any, fallbackCompany?: string): string {
+          const apolloOrg = rec?.enrichment_data?.apollo?.organization || {};
+          const fromApollo = String(apolloOrg.domain || apolloOrg.website_url || '')
+            .replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+          if (fromApollo) return fromApollo.toLowerCase();
+          const decodoSite = String(rec?.enrichment_data?.decodo?.company_website || rec?.enrichment_data?.decodo?.website || '')
+            .replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+          if (decodoSite) return decodoSite.toLowerCase();
+          const co = String(fallbackCompany || '').trim();
+          if (co.includes('.')) return co.toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+          if (co) return `${co.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '')}.com`;
+          return '';
         }
+
+        domain = deriveDomain(record, company);
 
         const preference = (integrations as any).enrichment_source || 'apollo';
         console.log('[Enrichment] Prepared enrichment data:', { fullName, domain, preference, hasHunterKey: !!(integrations as any).hunter_api_key, hasSkrappKey: !!(integrations as any).skrapp_api_key });
@@ -123,7 +129,7 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
           if (skrappKey && domain) {
             try {
               console.log('[Enrichment] Preference skrapp: Trying Skrapp.io first...');
-              const skrappEmail = await enrichWithSkrapp(skrappKey, fullName, domain, company);
+              const skrappEmail = await enrichWithSkrapp(skrappKey, fullName, domain, company || record?.enrichment_data?.apollo?.organization?.name);
               const companyInfo = await enrichCompanyWithSkrapp(skrappKey, domain).catch(() => null);
               if (skrappEmail) {
                 const enrichmentData = {
@@ -245,7 +251,7 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
         if (preference !== 'apollo' && skrappKeyDefault && domain) {
           console.log('[Enrichment] Trying Skrapp.io enrichment...');
           try {
-        const skrappEmail = await enrichWithSkrapp(skrappKeyDefault, fullName, domain, company);
+            const skrappEmail = await enrichWithSkrapp(skrappKeyDefault, fullName, domain, company || record?.enrichment_data?.apollo?.organization?.name);
             if (skrappEmail) {
               console.log('[Enrichment] Skrapp.io found email, updating lead...');
               // Update lead with Skrapp.io email
@@ -323,7 +329,7 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
       }
     }
 
-    // APOLLO FALLBACK: If Hunter.io and Skrapp.io didn't find email, try Apollo enrichment
+    // APOLLO ENRICHMENT: proceed
     console.log('[Enrichment] Starting Apollo enrichment...');
     enrichment_source = 'apollo';
 
@@ -572,6 +578,45 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
     }
 
     console.log('[Enrichment] Successfully enriched with Apollo');
+
+    // Post-Apollo: if no email yet and we now have a solid domain, try Skrapp one more time to get a Valid email
+    try {
+      const haveEmail = !!(updateData.email || record.email);
+      const apolloDomain = String(person?.organization?.domain || person?.organization?.website_url || '').replace(/^https?:\/\//,'').replace(/^www\./,'').split('/')[0];
+      const finalDomain = apolloDomain || domain;
+      const skrappKeyAfter = (await getUserIntegrations(userId)).skrapp_api_key || process.env.SKRAPP_API_KEY;
+      if (!haveEmail && skrappKeyAfter && finalDomain) {
+        console.log('[Enrichment] Post-Apollo: retrying Skrapp with Apollo domain:', finalDomain);
+        const postEmail = await enrichWithSkrapp(skrappKeyAfter, fullName, finalDomain, person?.organization?.name || company);
+        if (postEmail) {
+          const postData: any = {
+            email: postEmail,
+            enrichment_data: {
+              ...(updateData.enrichment_data || record.enrichment_data || {}),
+              skrapp: {
+                email: postEmail,
+                source: 'skrapp.io',
+                enriched_at: new Date().toISOString(),
+                domain: finalDomain,
+                full_name: fullName
+              }
+            },
+            updated_at: new Date().toISOString()
+          };
+          await supabase.from(tableName).update(postData).eq('id', leadId).eq('user_id', userId);
+          return {
+            success: true,
+            provider: 'skrapp',
+            data: { ...person, email: postEmail },
+            errors: errors.length ? errors : undefined,
+            fallbacks_used
+          };
+        }
+      }
+    } catch (e: any) {
+      console.warn('[Enrichment] Post-Apollo Skrapp retry failed:', e?.message || e);
+    }
+
     return {
       success: true,
       provider: 'apollo',
