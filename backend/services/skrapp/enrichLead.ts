@@ -104,21 +104,36 @@ export async function enrichWithSkrapp(
     });
 
     // Try multiple endpoint variants for compatibility across Skrapp API versions
-    const attempts: Array<{ url: string; body: any; label: string }> = [
+    const attempts: Array<{ url: string; body: any; label: string; method: 'post' | 'get' }> = [
       {
         url: `${SKRAPP_API_URL}/find`,
-        label: 'find(camelCase)',
+        label: 'find(camelCase POST)',
+        method: 'post',
         body: { firstName: first_name, lastName: last_name, company: company || null, domain: cleanDomain || null }
       },
       {
         url: `${SKRAPP_API_URL}/find-by-name`,
-        label: 'find-by-name(snake_case)',
+        label: 'find-by-name(snake_case POST)',
+        method: 'post',
         body: { first_name, last_name, company, domain: cleanDomain }
       },
       {
         url: `${SKRAPP_API_URL}/finders/name`,
-        label: 'finders/name(camelCase)',
+        label: 'finders/name(camelCase POST)',
+        method: 'post',
         body: { firstName: first_name, lastName: last_name, company: company || null, domain: cleanDomain || null }
+      },
+      {
+        url: `https://api.skrapp.io/v2/find`,
+        label: 'v2/find(camelCase GET)',
+        method: 'get',
+        body: { firstName: first_name, lastName: last_name, company: company || null, domain: cleanDomain || null }
+      },
+      {
+        url: `https://api.skrapp.io/v2/find-by-name`,
+        label: 'v2/find-by-name(snake_case GET)',
+        method: 'get',
+        body: { first_name, last_name, company, domain: cleanDomain }
       }
     ];
 
@@ -127,19 +142,34 @@ export async function enrichWithSkrapp(
     for (const attempt of attempts) {
       try {
         console.log('[Skrapp] Attempting endpoint:', attempt.label, attempt.url);
-        response = await axios.post(
-          attempt.url,
-          attempt.body,
-          {
-            headers: {
-              'X-Access-Key': skrappApiKey,
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-              'User-Agent': 'HirePilot/1.0'
-            },
-            timeout: 10000
-          }
-        );
+        if (attempt.method === 'get') {
+          response = await axios.get(
+            attempt.url,
+            {
+              headers: {
+                'X-Access-Key': skrappApiKey,
+                'Accept': 'application/json',
+                'User-Agent': 'HirePilot/1.0'
+              },
+              params: attempt.body,
+              timeout: 10000
+            }
+          );
+        } else {
+          response = await axios.post(
+            attempt.url,
+            attempt.body,
+            {
+              headers: {
+                'X-Access-Key': skrappApiKey,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'User-Agent': 'HirePilot/1.0'
+              },
+              timeout: 10000
+            }
+          );
+        }
         if (response?.status && response.status < 400) break;
       } catch (e: any) {
         lastError = e;
@@ -147,19 +177,34 @@ export async function enrichWithSkrapp(
         if (e?.response?.status === 429 || e?.response?.status >= 500) {
           await new Promise(r => setTimeout(r, 750));
           try {
-            response = await axios.post(
-              attempt.url,
-              attempt.body,
-              {
-                headers: {
-                  'X-Access-Key': skrappApiKey,
-                  'Content-Type': 'application/json',
-                  'Accept': 'application/json',
-                  'User-Agent': 'HirePilot/1.0'
-                },
-                timeout: 10000
-              }
-            );
+            if (attempt.method === 'get') {
+              response = await axios.get(
+                attempt.url,
+                {
+                  headers: {
+                    'X-Access-Key': skrappApiKey,
+                    'Accept': 'application/json',
+                    'User-Agent': 'HirePilot/1.0'
+                  },
+                  params: attempt.body,
+                  timeout: 10000
+                }
+              );
+            } else {
+              response = await axios.post(
+                attempt.url,
+                attempt.body,
+                {
+                  headers: {
+                    'X-Access-Key': skrappApiKey,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'User-Agent': 'HirePilot/1.0'
+                  },
+                  timeout: 10000
+                }
+              );
+            }
             if (response?.status && response.status < 400) break;
           } catch (e2: any) {
             lastError = e2;

@@ -283,7 +283,7 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
         const domain = lead.company ? lead.company.toLowerCase().replace(/[^a-z0-9.]/g, '') : '';
         
         const skrappKey = process.env.SKRAPP_API_KEY || '';
-        const skrappResult = await enrichWithSkrapp(skrappKey, fullName, domain);
+        const skrappResult = await enrichWithSkrapp(skrappKey, fullName, domain, lead.company);
         const skrappCompany = domain && skrappKey ? await enrichCompanyWithSkrapp(skrappKey, domain).catch(()=>null) : null;
         
         if (skrappResult) {
