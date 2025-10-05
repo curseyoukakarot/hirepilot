@@ -117,10 +117,13 @@ export default function Navbar() {
         </NavLink>
       </nav>
       {/* Mobile hamburger */}
-      <button className="md:hidden inline-flex items-center justify-center p-2 rounded hover:bg-gray-100" onClick={()=>setMobileOpen(v=>!v)} aria-label="Toggle menu">
-        <span className="block w-6 h-0.5 bg-gray-800 mb-1"></span>
-        <span className="block w-6 h-0.5 bg-gray-800 mb-1"></span>
-        <span className="block w-6 h-0.5 bg-gray-800"></span>
+      <button type="button" className="md:hidden inline-flex items-center justify-center p-2 rounded hover:bg-gray-100" onClick={()=>setMobileOpen(v=>!v)} aria-label="Toggle menu">
+        <span className="sr-only">Open menu</span>
+        <span className="flex flex-col justify-between w-6 h-4">
+          <span className="block w-full h-0.5 bg-gray-800"></span>
+          <span className="block w-full h-0.5 bg-gray-800"></span>
+          <span className="block w-full h-0.5 bg-gray-800"></span>
+        </span>
       </button>
       {/* Mobile drawer */}
       {mobileOpen && (
