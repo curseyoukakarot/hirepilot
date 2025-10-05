@@ -252,7 +252,7 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
         const { enrichWithHunter } = await import('../../services/hunter/enrichLead');
         
         const fullName = `${lead.first_name} ${lead.last_name}`.trim();
-        const domain = lead.company ? lead.company.toLowerCase().replace(/[^a-z0-9]/g, '') + '.com' : 'unknown.com';
+        const domain = lead.company ? lead.company.toLowerCase().replace(/[^a-z0-9.]/g, '') : '';
         
         const hunterResult = await enrichWithHunter(process.env.HUNTER_API_KEY || '', fullName, domain);
         
@@ -277,17 +277,19 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
     if (!enrichmentData.decodo?.email && !enrichmentData.hunter?.email) {
       try {
         console.log('[LeadEnrich] Step 3: Trying Skrapp.io email enrichment...');
-        const { enrichWithSkrapp } = await import('../../services/skrapp/enrichLead');
+        const { enrichWithSkrapp, enrichCompanyWithSkrapp } = await import('../../services/skrapp/enrichLead');
         
         const fullName = `${lead.first_name} ${lead.last_name}`.trim();
-        const domain = lead.company ? lead.company.toLowerCase().replace(/[^a-z0-9]/g, '') + '.com' : 'unknown.com';
+        const domain = lead.company ? lead.company.toLowerCase().replace(/[^a-z0-9.]/g, '') : '';
         
         const skrappResult = await enrichWithSkrapp(process.env.SKRAPP_API_KEY || '', fullName, domain);
+        const skrappCompany = domain ? await enrichCompanyWithSkrapp(process.env.SKRAPP_API_KEY || '', domain).catch(()=>null) : null;
         
         if (skrappResult) {
           enrichmentData.skrapp = {
             email: skrappResult,
-            enriched_at: new Date().toISOString()
+            enriched_at: new Date().toISOString(),
+            company: skrappCompany || undefined
           };
           if (enrichmentSource === 'none') enrichmentSource = 'skrapp';
           console.log('[LeadEnrich] ✅ Skrapp.io enrichment successful');

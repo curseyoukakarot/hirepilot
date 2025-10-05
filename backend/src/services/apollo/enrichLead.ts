@@ -2,7 +2,7 @@ import axios from 'axios';
 import { supabase } from '../../lib/supabase';
 import { getUserIntegrations } from '../../../utils/userIntegrationsHelper';
 import { enrichWithHunter } from '../../../services/hunter/enrichLead';
-import { enrichWithSkrapp } from '../../../services/skrapp/enrichLead';
+import { enrichWithSkrapp, enrichCompanyWithSkrapp } from '../../../services/skrapp/enrichLead';
 
 interface EnrichmentParams {
   leadId: string;
@@ -87,8 +87,8 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
       };
     }
 
-    // NEW: Prioritized enrichment flow - try Hunter.io and Skrapp.io first
-    // Only proceed if lead doesn't already have an email
+    // NEW: Prioritized enrichment flow with preference toggle
+    // Only proceed with premium providers if required data exists
     if (!record.email && firstName && lastName && company) {
       console.log('[Enrichment] Starting prioritized enrichment flow for lead:', { leadId, firstName, lastName, company });
       
@@ -111,13 +111,71 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
           }
         }
 
-        console.log('[Enrichment] Prepared enrichment data:', { fullName, domain, hasHunterKey: !!integrations.hunter_api_key, hasSkrappKey: !!integrations.skrapp_api_key });
+        const preference = (integrations as any).enrichment_source || 'apollo';
+        console.log('[Enrichment] Prepared enrichment data:', { fullName, domain, preference, hasHunterKey: !!(integrations as any).hunter_api_key, hasSkrappKey: !!(integrations as any).skrapp_api_key });
 
-        // Try Hunter.io first if API key is available
-        if (integrations.hunter_api_key && domain) {
+        if (preference === 'apollo') {
+          // Skip premium providers entirely when preference is Apollo
+          console.log('[Enrichment] Preference set to Apollo - skipping Hunter/Skrapp');
+        } else if (preference === 'skrapp') {
+          // Skrapp-first path: Try Skrapp for email + company enrichment, then fallback to Apollo
+          if ((integrations as any).skrapp_api_key && domain) {
+            try {
+              console.log('[Enrichment] Preference skrapp: Trying Skrapp.io first...');
+              const skrappEmail = await enrichWithSkrapp((integrations as any).skrapp_api_key, fullName, domain);
+              const companyInfo = await enrichCompanyWithSkrapp((integrations as any).skrapp_api_key, domain).catch(() => null);
+              if (skrappEmail) {
+                const enrichmentData = {
+                  ...(record.enrichment_data || {}),
+                  skrapp: {
+                    email: skrappEmail,
+                    source: 'skrapp.io',
+                    enriched_at: new Date().toISOString(),
+                    domain: domain,
+                    full_name: fullName,
+                    company: companyInfo || undefined
+                  }
+                };
+                const update: any = {
+                  email: skrappEmail,
+                  enrichment_data: enrichmentData,
+                  updated_at: new Date().toISOString()
+                };
+                if (entityType === 'lead') {
+                  update.enrichment_source = 'skrapp';
+                  update.enriched_at = new Date().toISOString();
+                }
+                const { error: updErr } = await supabase
+                  .from(tableName)
+                  .update(update)
+                  .eq('id', leadId)
+                  .eq('user_id', userId);
+                if (!updErr) {
+                  return {
+                    success: true,
+                    provider: 'skrapp',
+                    data: {
+                      email: skrappEmail,
+                      email_status: 'Valid',
+                      source: 'Skrapp',
+                      company: companyInfo || undefined
+                    }
+                  };
+                } else {
+                  errors.push('DB update failed after Skrapp enrichment');
+                }
+              } else {
+                console.log('[Enrichment] Skrapp returned no valid email');
+              }
+            } catch (e: any) {
+              console.warn('[Enrichment] Skrapp-first enrichment failed:', e?.message || e);
+            }
+          }
+        } else if ((integrations as any).hunter_api_key && domain) {
+          // Legacy/default order when no explicit preference provided: Hunter -> Skrapp -> Apollo
           console.log('[Enrichment] Trying Hunter.io enrichment...');
           try {
-            const hunterEmail = await enrichWithHunter(integrations.hunter_api_key, fullName, domain);
+            const hunterEmail = await enrichWithHunter((integrations as any).hunter_api_key, fullName, domain);
             if (hunterEmail) {
               console.log('[Enrichment] Hunter.io found email, updating lead...');
               // Update lead with Hunter.io email
@@ -178,11 +236,11 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
           errors.push('Hunter.io skipped: no valid domain found');
         }
 
-        // Try Skrapp.io if Hunter.io failed and Skrapp API key is available
-        if (integrations.skrapp_api_key && domain) {
+        // Try Skrapp.io if Hunter.io failed and Skrapp API key is available (legacy/default path)
+        if (preference !== 'apollo' && (integrations as any).skrapp_api_key && domain) {
           console.log('[Enrichment] Trying Skrapp.io enrichment...');
           try {
-            const skrappEmail = await enrichWithSkrapp(integrations.skrapp_api_key, fullName, domain);
+            const skrappEmail = await enrichWithSkrapp((integrations as any).skrapp_api_key, fullName, domain);
             if (skrappEmail) {
               console.log('[Enrichment] Skrapp.io found email, updating lead...');
               // Update lead with Skrapp.io email
@@ -242,8 +300,10 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
           errors.push('Skrapp.io skipped: no valid domain found');
         }
 
-        console.log('[Enrichment] Hunter.io and Skrapp.io did not find email, falling back to Apollo...');
-        fallbacks_used.push('premium_providers -> apollo');
+        if (preference !== 'apollo') {
+          console.log('[Enrichment] Premium providers did not find email, falling back to Apollo...');
+          fallbacks_used.push('premium_providers -> apollo');
+        }
       } catch (integrationsError: any) {
         console.warn('[Enrichment] Error fetching user integrations, falling back to Apollo:', integrationsError);
         errors.push(`Integration access error: ${integrationsError.message || 'Unknown error'}`);
@@ -259,7 +319,7 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
     }
 
     // APOLLO FALLBACK: If Hunter.io and Skrapp.io didn't find email, try Apollo enrichment
-    console.log('[Enrichment] Starting Apollo enrichment as fallback...');
+    console.log('[Enrichment] Starting Apollo enrichment...');
     enrichment_source = 'apollo';
 
     // Get Apollo API key - prioritize user's personal key (no credits charged)

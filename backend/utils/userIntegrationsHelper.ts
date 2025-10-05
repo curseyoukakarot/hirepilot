@@ -3,6 +3,7 @@ import { supabaseDb } from '../lib/supabase';
 export interface UserIntegrations {
   hunter_api_key?: string;
   skrapp_api_key?: string;
+  enrichment_source?: 'skrapp' | 'apollo';
 }
 
 /**
@@ -37,8 +38,8 @@ export async function getUserIntegrations(userId: string): Promise<UserIntegrati
 
     // User has valid role, proceed to fetch integrations
     const { data, error } = await supabaseDb
-      .from('user_integrations')
-      .select('hunter_api_key, skrapp_api_key')
+  .from('user_integrations')
+  .select('hunter_api_key, skrapp_api_key, enrichment_source')
       .eq('user_id', userId)
       .single();
 
@@ -60,6 +61,9 @@ export async function getUserIntegrations(userId: string): Promise<UserIntegrati
     if (data.skrapp_api_key) {
       integrations.skrapp_api_key = data.skrapp_api_key;
     }
+  if (data.enrichment_source) {
+    integrations.enrichment_source = data.enrichment_source as 'skrapp' | 'apollo';
+  }
 
     console.log(`Retrieved integrations for user ${userId} (role: ${role}):`, {
       hasHunterKey: !!integrations.hunter_api_key,
@@ -87,6 +91,7 @@ export async function saveUserIntegrations(userId: string, integrations: UserInt
         user_id: userId,
         hunter_api_key: integrations.hunter_api_key || null,
         skrapp_api_key: integrations.skrapp_api_key || null,
+        enrichment_source: integrations.enrichment_source || null,
         created_at: new Date().toISOString()
       }, {
         onConflict: 'user_id'

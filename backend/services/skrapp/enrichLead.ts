@@ -5,28 +5,18 @@ const SKRAPP_API_URL = 'https://api.skrapp.io/api/v2';
 interface SkrappFindByNameRequest {
   first_name: string;
   last_name: string;
-  company?: string;
-  domain: string;
+  company?: string | null;
+  domain?: string | null;
 }
 
-interface SkrappFindByNameResponse {
-  success: boolean;
-  data: {
-    email: string | null;
-    confidence_score: number;
-    first_name: string;
-    last_name: string;
-    company: string;
-    domain: string;
-    position?: string;
-    linkedin_url?: string;
-    sources: Array<{
-      type: string;
-      url: string;
-      last_seen: string;
-    }>;
-  };
-  message?: string;
+interface SkrappFindResponse {
+  email?: string | null;
+  emailStatus?: 'Valid' | 'Invalid' | 'Catch-All' | string;
+}
+
+interface SkrappCompanySearchResponse {
+  items?: Array<any>;
+  company?: any;
 }
 
 interface SkrappErrorResponse {
@@ -115,52 +105,57 @@ export async function enrichWithSkrapp(
     const requestBody: SkrappFindByNameRequest = {
       first_name,
       last_name,
-      company,
-      domain: cleanDomain
+      company: company || null,
+      domain: cleanDomain || null
     };
 
-    // Make request to Skrapp.io API
-    const response = await axios.post<SkrappFindByNameResponse>(
-      `${SKRAPP_API_URL}/find-by-name`, 
-      requestBody,
-      {
-        headers: {
-          'Authorization': `Bearer ${skrappApiKey}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'User-Agent': 'HirePilot/1.0'
-        },
-        timeout: 10000
+    async function requestOnce() {
+      return axios.post(
+        `${SKRAPP_API_URL}/find`,
+        requestBody,
+        {
+          headers: {
+            'X-Access-Key': skrappApiKey,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'User-Agent': 'HirePilot/1.0'
+          },
+          timeout: 10000
+        }
+      );
+    }
+
+    let response: any;
+    try {
+      response = await requestOnce();
+    } catch (e: any) {
+      if (e?.response?.status === 429 || e?.response?.status >= 500) {
+        console.warn('[Skrapp] First attempt failed, retrying once...', e?.response?.status);
+        await new Promise(r => setTimeout(r, 750));
+        response = await requestOnce();
+      } else {
+        throw e;
       }
-    );
+    }
 
     console.log('[Skrapp] API response:', {
       status: response.status,
-      success: response.data?.success,
-      confidence_score: response.data?.data?.confidence_score,
-      email: response.data?.data?.email ? 'found' : 'not_found'
+      emailStatus: response.data?.emailStatus,
+      email: response.data?.email ? 'found' : 'not_found'
     });
 
-    // Check if request was successful
-    if (!response.data?.success) {
-      console.log('[Skrapp] API request failed:', response.data?.message);
-      return null;
-    }
-
+    const body: SkrappFindResponse = response.data || {};
     // Check if email was found
-    if (!response.data?.data?.email) {
+    if (!body?.email) {
       console.log('[Skrapp] No email found in response');
       return null;
     }
 
-    const { email, confidence_score } = response.data.data;
+    const { email, emailStatus } = body as { email: string; emailStatus?: SkrappFindResponse['emailStatus'] };
 
-    // Validate confidence score (Skrapp.io uses 0-100 scale)
-    if (confidence_score < 75) {
-      console.log('[Skrapp] Email found but confidence too low:', { 
-        email: email.substring(0, 3) + '***', 
-        confidence_score 
-      });
+    // Only accept Valid
+    if (emailStatus !== 'Valid') {
+      console.log('[Skrapp] Email status not valid:', { emailStatus });
       return null;
     }
 
@@ -173,7 +168,7 @@ export async function enrichWithSkrapp(
 
     console.log('[Skrapp] Email enrichment successful:', { 
       email: email.substring(0, 3) + '***', 
-      confidence_score 
+      emailStatus 
     });
 
     return email;
@@ -220,3 +215,73 @@ export async function enrichWithSkrapp(
     return null;
   }
 } 
+
+/**
+ * Company enrichment via Skrapp company-search
+ * Returns normalized company object or null
+ */
+export async function enrichCompanyWithSkrapp(skrappApiKey: string, domain: string): Promise<{
+  name?: string;
+  domain?: string;
+  website?: string;
+  industry?: string;
+  type?: string;
+  headquarters?: string;
+  founded?: string | number;
+  size?: string;
+  revenue_range?: string;
+  linkedin_url?: string;
+  crunchbase_url?: string;
+  funding_rounds?: number;
+  last_funding_amount?: string;
+  logo_url?: string;
+} | null> {
+  try {
+    const cleanDomain = String(domain)
+      .replace(/^https?:\/\//, '')
+      .replace(/^www\./, '')
+      .split('/')[0]
+      .toLowerCase();
+
+    const url = `${SKRAPP_API_URL}/company-search?domain=${encodeURIComponent(cleanDomain)}`;
+    const resp = await axios.get<SkrappCompanySearchResponse>(url, {
+      headers: {
+        'X-Access-Key': skrappApiKey,
+        'Accept': 'application/json',
+        'User-Agent': 'HirePilot/1.0'
+      },
+      timeout: 10000
+    });
+
+    const result: any = resp.data?.company || (Array.isArray(resp.data?.items) ? resp.data.items[0] : null);
+    if (!result) return null;
+
+    const normalized = {
+      name: result.name || result.company_name || undefined,
+      domain: result.domain || cleanDomain || undefined,
+      website: result.website || result.site || undefined,
+      industry: result.industry || undefined,
+      type: result.type || undefined,
+      headquarters: result.headquarters || result.location || undefined,
+      founded: result.founded || result.founded_year || undefined,
+      size: result.company_size || result.size || undefined,
+      revenue_range: result.revenue_range || result.revenue || undefined,
+      linkedin_url: result.linkedin_url || result.linkedin || undefined,
+      crunchbase_url: result.crunchbase_url || undefined,
+      funding_rounds: result.funding_rounds || undefined,
+      last_funding_amount: result.last_funding_amount || undefined,
+      logo_url: result.logo_url || result.logo || undefined
+    };
+
+    return normalized;
+  } catch (error: any) {
+    if (error?.response?.status === 429 || error?.response?.status >= 500) {
+      try {
+        await new Promise(r => setTimeout(r, 750));
+        return await enrichCompanyWithSkrapp(skrappApiKey, domain);
+      } catch {}
+    }
+    console.warn('[Skrapp] Company search failed:', error?.message || error);
+    return null;
+  }
+}

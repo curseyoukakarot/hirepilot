@@ -6,20 +6,8 @@ interface HunterEmailFinderResponse {
   data: {
     email: string | null;
     score: number;
-    result: string;
-    sources: Array<{
-      domain: string;
-      uri: string;
-      extracted_on: string;
-      last_seen_on: string;
-      still_on_page: boolean;
-    }>;
-  };
-  meta: {
-    params: {
-      full_name: string;
-      domain: string;
-    };
+    result?: string;
+    verification?: { status?: string };
   };
 }
 
@@ -61,31 +49,42 @@ export async function enrichWithHunter(
       .split('/')[0]
       .toLowerCase();
 
-    // Clean full name (remove extra spaces, special characters)
-    const cleanFullName = fullName
+    // Split into first and last for Hunter recommended params
+    const nameClean = fullName
       .replace(/[^\w\s-']/g, '')
       .replace(/\s+/g, ' ')
       .trim();
+    const parts = nameClean.split(' ');
+    const firstName = parts[0] || '';
+    const lastName = parts.slice(1).join(' ');
 
-    console.log('[Hunter] Starting email search:', { 
-      fullName: cleanFullName, 
-      domain: cleanDomain,
-      apiKeyPrefix: hunterApiKey.substring(0, 8) + '...'
-    });
+    console.log('[Hunter] Starting email search:', { firstName, lastName, domain: cleanDomain, apiKeyPrefix: hunterApiKey.substring(0, 8) + '...' });
 
-    // Make request to Hunter.io API
-    const response = await axios.get<HunterEmailFinderResponse>(`${HUNTER_API_URL}/email-finder`, {
-      params: {
-        full_name: cleanFullName,
-        domain: cleanDomain,
-        api_key: hunterApiKey
-      },
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'HirePilot/1.0'
-      },
-      timeout: 10000
-    });
+    async function requestOnce() {
+      return axios.get<HunterEmailFinderResponse>(`${HUNTER_API_URL}/email-finder`, {
+        params: {
+          domain: cleanDomain,
+          first_name: firstName,
+          last_name: lastName,
+          api_key: hunterApiKey
+        },
+        headers: { 'Accept': 'application/json', 'User-Agent': 'HirePilot/1.0' },
+        timeout: 10000
+      });
+    }
+
+    let response: any;
+    try {
+      response = await requestOnce();
+    } catch (e: any) {
+      if (e?.response?.status === 429 || e?.response?.status >= 500) {
+        console.warn('[Hunter] First attempt failed, retrying once...', e?.response?.status);
+        await new Promise(r => setTimeout(r, 750));
+        response = await requestOnce();
+      } else {
+        throw e;
+      }
+    }
 
     console.log('[Hunter] API response:', {
       status: response.status,
@@ -100,27 +99,22 @@ export async function enrichWithHunter(
       return null;
     }
 
-    const { email, score, result } = response.data.data;
+    const { email, score } = response.data.data;
 
-    // Validate confidence score (Hunter.io uses 0-100 scale)
-    if (score < 70) {
-      console.log('[Hunter] Email found but confidence too low:', { 
-        email: email.substring(0, 3) + '***', 
-        score 
-      });
+    // Enforce valid verification status
+    const status = response.data?.data?.verification?.status || null;
+    if (status !== 'valid') {
+      console.log('[Hunter] Email found but verification not valid:', { status, score });
       return null;
     }
-
-    // Check result status
-    if (result !== 'webmail' && result !== 'email') {
-      console.log('[Hunter] Email found but result status not acceptable:', { result, score });
+    if (typeof score === 'number' && score < 70) {
+      console.log('[Hunter] Email valid but confidence too low:', { score });
       return null;
     }
 
     console.log('[Hunter] Email enrichment successful:', { 
       email: email.substring(0, 3) + '***', 
-      score,
-      result 
+      score
     });
 
     return email;

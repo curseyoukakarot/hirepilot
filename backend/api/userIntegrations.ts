@@ -89,9 +89,10 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
     }
 
     // Validate request body
-    const { hunter_api_key, skrapp_api_key } = req.body as {
+    const { hunter_api_key, skrapp_api_key, enrichment_source } = req.body as {
       hunter_api_key?: string;
       skrapp_api_key?: string;
+      enrichment_source?: 'skrapp' | 'apollo';
     };
 
     // Validate API keys format (basic validation)
@@ -104,6 +105,10 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
       res.status(400).json({ error: 'Invalid Skrapp.io API key format' });
       return;
     }
+    if (enrichment_source && !['skrapp','apollo'].includes(enrichment_source)) {
+      res.status(400).json({ error: 'Invalid enrichment_source. Must be "skrapp" or "apollo"' });
+      return;
+    }
 
     // Prepare integrations object
     const integrations: UserIntegrations = {};
@@ -112,6 +117,9 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
     }
     if (skrapp_api_key) {
       integrations.skrapp_api_key = skrapp_api_key.trim();
+    }
+    if (enrichment_source) {
+      integrations.enrichment_source = enrichment_source;
     }
 
     // Save integrations

@@ -87,7 +87,8 @@ export default function SettingsIntegrations() {
   // State for enrichment API keys
   const [enrichmentKeys, setEnrichmentKeys] = useState({
     hunter_api_key: '',
-    skrapp_api_key: ''
+    skrapp_api_key: '',
+    enrichment_source: 'apollo'
   });
   const [enrichmentLoading, setEnrichmentLoading] = useState(false);
   const [enrichmentSaving, setEnrichmentSaving] = useState(false);
@@ -772,7 +773,7 @@ export default function SettingsIntegrations() {
 
       const { data, error } = await supabase
         .from('user_integrations')
-        .select('hunter_api_key, skrapp_api_key')
+        .select('hunter_api_key, skrapp_api_key, enrichment_source')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -784,7 +785,8 @@ export default function SettingsIntegrations() {
       if (data) {
         setEnrichmentKeys({
           hunter_api_key: data.hunter_api_key || '',
-          skrapp_api_key: data.skrapp_api_key || ''
+          skrapp_api_key: data.skrapp_api_key || '',
+          enrichment_source: data.enrichment_source || 'apollo'
         });
       }
     } catch (err) {
@@ -817,7 +819,8 @@ export default function SettingsIntegrations() {
         },
         body: JSON.stringify({
           hunter_api_key: enrichmentKeys.hunter_api_key || null,
-          skrapp_api_key: enrichmentKeys.skrapp_api_key || null
+          skrapp_api_key: enrichmentKeys.skrapp_api_key || null,
+          enrichment_source: enrichmentKeys.enrichment_source || 'apollo'
         })
       });
 
@@ -834,6 +837,25 @@ export default function SettingsIntegrations() {
       setTimeout(() => setEnrichmentError(''), 5000);
     } finally {
       setEnrichmentSaving(false);
+    }
+  };
+
+  // Save enrichment preference only (On = skrapp, Off = apollo)
+  const saveEnrichmentPreference = async (nextSource) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      await fetch(`${BACKEND}/api/user-integrations`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({
+          enrichment_source: nextSource
+        })
+      });
+    } catch (e) {
+      // Non-blocking; UI already reflects toggle
     }
   };
 
@@ -1017,6 +1039,47 @@ export default function SettingsIntegrations() {
               </div>
             </div>
           ))}
+
+          {/* Email Enrichment toggle card (On = Skrapp primary, Off = Apollo) */}
+          {hasEnrichmentAccess && (
+            <div className="flex items-center justify-between p-4 border rounded-lg hover:shadow-sm transition-all">
+              <div className="flex items-center space-x-4">
+                <div className={`w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center`}>
+                  <FaPlug className="text-2xl text-blue-600" />
+                </div>
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <h3 className="font-medium">Email Enrichment</h3>
+                    <span
+                      className={`px-2 py-0.5 text-xs rounded-full ${
+                        enrichmentKeys.enrichment_source==='skrapp'
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-gray-100 text-gray-600'
+                      }`}
+                    >
+                      {enrichmentKeys.enrichment_source==='skrapp' ? 'On' : 'Off'}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-500">Use Skrapp as primary enrichment source</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-4">
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={enrichmentKeys.enrichment_source==='skrapp'}
+                    onChange={async (e)=>{
+                      const next = e.target.checked ? 'skrapp' : 'apollo';
+                      setEnrichmentKeys(prev=>({ ...prev, enrichment_source: next }));
+                      await saveEnrichmentPreference(next);
+                    }}
+                  />
+                  <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+                </label>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1040,12 +1103,12 @@ export default function SettingsIntegrations() {
           <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
             <div className="flex items-center space-x-2 mb-2">
               <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+                <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
               </svg>
               <h3 className="text-sm font-semibold text-blue-900">Enrichment Priority Order</h3>
             </div>
             <p className="text-sm text-blue-800">
-              <span className="font-semibold">1.</span> Hunter.io → <span className="font-semibold">2.</span> Skrapp.io → <span className="font-semibold">3.</span> Apollo (fallback)
+              <span className="font-semibold">Default:</span> Hunter.io → Skrapp.io → Apollo. Toggle is available in the Integrations list above.
             </p>
           </div>
 
