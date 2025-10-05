@@ -136,10 +136,10 @@ export default function REXChat() {
             setConversations(await listConversations())
             setMessages([])
           }} />
-          <div className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 flex flex-col min-h-0 overflow-y-auto" ref={scroller}>
             <ChatHeader />
             <div className="flex-1 min-h-0 flex flex-col">
-              <div className="flex-1 min-h-0 overflow-y-auto py-6 space-y-6 px-0 md:px-4" ref={scroller}>
+              <div className="flex-1 min-h-0 py-6 space-y-6 px-0 md:px-4 pb-28">
               {messages.map((m, idx) => (
                 <ChatMessage key={idx} role={m.role} content={m.content} streaming={idx === messages.length - 1 && streaming} userAvatarUrl={userAvatarUrl} />
               ))}
