@@ -128,7 +128,7 @@ export default function REXChat() {
   )
 
   return (
-    <div className="bg-gray-900 text-white h-full min-h-screen">
+    <div className="bg-gray-900 text-white h-screen">
       <div className="flex h-full min-h-0">
           <SidebarHistory items={historyItems as any} userAvatarUrl={userAvatarUrl} userName={userName} userPlan={(role && role !== 'free') ? role : (plan || 'Free Plan')} onNew={async () => {
             const conv = await createConversation('New chat')
@@ -136,10 +136,12 @@ export default function REXChat() {
             setConversations(await listConversations())
             setMessages([])
           }} />
-          <div className="flex-1 flex flex-col min-h-0 overflow-y-auto" ref={scroller}>
-            <ChatHeader />
+          <div className="flex-1 flex flex-col h-screen overflow-hidden">
+            <div className="sticky top-0 z-10">
+              <ChatHeader />
+            </div>
             <div className="flex-1 min-h-0 flex flex-col">
-              <div className="flex-1 min-h-0 py-6 space-y-6 px-0 md:px-4 pb-28">
+              <div className="flex-1 min-h-0 overflow-y-auto py-6 space-y-6 px-0 md:px-4 pb-28" ref={scroller}>
               {messages.map((m, idx) => (
                 <ChatMessage key={idx} role={m.role} content={m.content} streaming={idx === messages.length - 1 && streaming} userAvatarUrl={userAvatarUrl} />
               ))}
