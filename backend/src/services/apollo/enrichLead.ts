@@ -583,11 +583,18 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
     try {
       const haveEmail = !!(updateData.email || record.email);
       const apolloDomain = String(person?.organization?.domain || person?.organization?.website_url || '').replace(/^https?:\/\//,'').replace(/^www\./,'').split('/')[0];
-      const finalDomain = apolloDomain || domain;
+      const fallbackDomain = (() => {
+        const co = String(company || person?.organization?.name || '').trim();
+        if (co.includes('.')) return co.toLowerCase().replace(/^https?:\/\//,'').replace(/^www\./,'').split('/')[0];
+        if (co) return `${co.toLowerCase().replace(/\s+/g,'').replace(/[^a-z0-9]/g,'')}.com`;
+        return '';
+      })();
+      const finalDomain = apolloDomain || fallbackDomain;
       const skrappKeyAfter = (await getUserIntegrations(userId)).skrapp_api_key || process.env.SKRAPP_API_KEY;
       if (!haveEmail && skrappKeyAfter && finalDomain) {
+        const postFullName = `${firstName || ''} ${lastName || ''}`.trim();
         console.log('[Enrichment] Post-Apollo: retrying Skrapp with Apollo domain:', finalDomain);
-        const postEmail = await enrichWithSkrapp(skrappKeyAfter, fullName, finalDomain, person?.organization?.name || company);
+        const postEmail = await enrichWithSkrapp(skrappKeyAfter, postFullName, finalDomain, person?.organization?.name || company);
         if (postEmail) {
           const postData: any = {
             email: postEmail,
@@ -598,7 +605,7 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
                 source: 'skrapp.io',
                 enriched_at: new Date().toISOString(),
                 domain: finalDomain,
-                full_name: fullName
+                full_name: postFullName
               }
             },
             updated_at: new Date().toISOString()
