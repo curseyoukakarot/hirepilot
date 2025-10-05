@@ -31,7 +31,7 @@ router.post('/start', async (req, res) => {
     await supabase.from('container_instances').insert({
       session_id: sessionId,
       runtime,
-      engine: 'docker',
+      engine: runtime === 'webrtc' ? 'browserless' : 'docker',
       remote_debug_url: result.remoteDebugUrl,
       stream_url: result.streamUrl,
       state: 'starting'
