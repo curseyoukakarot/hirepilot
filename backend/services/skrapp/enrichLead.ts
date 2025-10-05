@@ -103,37 +103,19 @@ export async function enrichWithSkrapp(
       apiKeyPrefix: skrappApiKey.substring(0, 8) + '...'
     });
 
-    // Try multiple endpoint variants for compatibility across Skrapp API versions
+    // Try the documented Email Finder endpoint first (GET /api/v2/find), then a POST fallback
     const attempts: Array<{ url: string; body: any; label: string; method: 'post' | 'get' }> = [
       {
         url: `${SKRAPP_API_URL}/find`,
-        label: 'find(camelCase POST)',
-        method: 'post',
-        body: { firstName: first_name, lastName: last_name, company: company || null, domain: cleanDomain || null }
-      },
-      {
-        url: `${SKRAPP_API_URL}/find-by-name`,
-        label: 'find-by-name(snake_case POST)',
-        method: 'post',
-        body: { first_name, last_name, company, domain: cleanDomain }
-      },
-      {
-        url: `${SKRAPP_API_URL}/finders/name`,
-        label: 'finders/name(camelCase POST)',
-        method: 'post',
-        body: { firstName: first_name, lastName: last_name, company: company || null, domain: cleanDomain || null }
-      },
-      {
-        url: `https://api.skrapp.io/v2/find`,
-        label: 'v2/find(camelCase GET)',
+        label: 'find(GET)',
         method: 'get',
-        body: { firstName: first_name, lastName: last_name, company: company || null, domain: cleanDomain || null }
+        body: { firstName: first_name, lastName: last_name, fullName: `${first_name} ${last_name}`.trim(), company: company || undefined, domain: cleanDomain || undefined, includeCompanyData: true }
       },
       {
-        url: `https://api.skrapp.io/v2/find-by-name`,
-        label: 'v2/find-by-name(snake_case GET)',
-        method: 'get',
-        body: { first_name, last_name, company, domain: cleanDomain }
+        url: `${SKRAPP_API_URL}/find`,
+        label: 'find(POST fallback)',
+        method: 'post',
+        body: { firstName: first_name, lastName: last_name, company: company || null, domain: cleanDomain || null, includeCompanyData: true }
       }
     ];
 
@@ -219,7 +201,7 @@ export async function enrichWithSkrapp(
 
     console.log('[Skrapp] API response:', {
       status: response.status,
-      emailStatus: response.data?.emailStatus || response.data?.status,
+      emailStatus: response.data?.quality?.status || response.data?.emailStatus || response.data?.status,
       email: (response.data?.email || response.data?.data?.email) ? 'found' : 'not_found'
     });
 
@@ -232,10 +214,10 @@ export async function enrichWithSkrapp(
     }
 
     const email: string = candidateEmail as string;
-    const emailStatus: any = (body as any)?.emailStatus || (body as any)?.status || (response.data?.data?.emailStatus);
+    const emailStatus: any = response.data?.quality?.status || (body as any)?.emailStatus || (body as any)?.status || (response.data?.data?.emailStatus);
 
     // Only accept Valid (treat 'valid' lowercase as valid too)
-    if (String(emailStatus || '').toLowerCase() !== 'valid') {
+    if (!['valid','ok'].includes(String(emailStatus || '').toLowerCase())) {
       console.log('[Skrapp] Email status not valid:', { emailStatus });
       return null;
     }
