@@ -9,16 +9,49 @@ function getDocker(): Docker {
     const opts: any = { host: dockerHost };
     const tls = String(process.env.DOCKER_TLS_VERIFY || '').trim();
     if (tls === '1' || tls.toLowerCase() === 'true') {
-      const certDir = process.env.DOCKER_CERT_PATH || '';
-      const caPath = path.join(certDir, 'ca.pem');
-      const certPath = path.join(certDir, 'cert.pem');
-      const keyPath = path.join(certDir, 'key.pem');
-      if (!(fs.existsSync(caPath) && fs.existsSync(certPath) && fs.existsSync(keyPath))) {
-        throw new Error(`Docker TLS enabled but certs not found in ${certDir}. Expected ca.pem, cert.pem, key.pem`);
+      // Prefer env-provided PEMs to avoid filesystem reliance
+      const fromEnvMaybe = () => {
+        const caB64 = process.env.DOCKER_CA_PEM_B64 || '';
+        const certB64 = process.env.DOCKER_CERT_PEM_B64 || '';
+        const keyB64 = process.env.DOCKER_KEY_PEM_B64 || '';
+        const caText = process.env.DOCKER_CA_PEM || '';
+        const certText = process.env.DOCKER_CERT_PEM || '';
+        const keyText = process.env.DOCKER_KEY_PEM || '';
+        const dec = (b64: string, text: string) => {
+          if (text && /BEGIN [A-Z ]+/.test(text)) return Buffer.from(text, 'utf8');
+          if (b64) {
+            const buf = Buffer.from(b64, 'base64');
+            // If the decoded buffer already looks like text PEM, return as text; else return raw buffer (dockerode accepts raw)
+            const txt = buf.toString('utf8');
+            if (/BEGIN [A-Z ]+/.test(txt)) return Buffer.from(txt, 'utf8');
+            return buf;
+          }
+          return null;
+        };
+        const ca = dec(caB64, caText);
+        const cert = dec(certB64, certText);
+        const key = dec(keyB64, keyText);
+        if (ca && cert && key) return { ca, cert, key } as any;
+        return null;
+      };
+
+      const envPems = fromEnvMaybe();
+      if (envPems) {
+        opts.ca = envPems.ca;
+        opts.cert = envPems.cert;
+        opts.key = envPems.key;
+      } else {
+        const certDir = process.env.DOCKER_CERT_PATH || '';
+        const caPath = path.join(certDir, 'ca.pem');
+        const certPath = path.join(certDir, 'cert.pem');
+        const keyPath = path.join(certDir, 'key.pem');
+        if (!(fs.existsSync(caPath) && fs.existsSync(certPath) && fs.existsSync(keyPath))) {
+          throw new Error(`Docker TLS enabled but certs not found in env or ${certDir}. Expected ca.pem, cert.pem, key.pem`);
+        }
+        opts.ca = fs.readFileSync(caPath);
+        opts.cert = fs.readFileSync(certPath);
+        opts.key = fs.readFileSync(keyPath);
       }
-      opts.ca = fs.readFileSync(caPath);
-      opts.cert = fs.readFileSync(certPath);
-      opts.key = fs.readFileSync(keyPath);
     }
     return new Docker(opts);
   }
