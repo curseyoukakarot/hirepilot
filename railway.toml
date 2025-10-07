@@ -1,0 +1,19 @@
+[build]
+builder = "dockerfile"
+
+[deploy]
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+# Root-level config so Railway picks it up (the backend/railway.toml may be ignored)
+healthcheckPath = "/health"
+healthcheckTimeout = 10000
+healthcheckInterval = 10000
+healthcheckMaxRetries = 6
+
+[environments.production]
+startCommand = "npm start"
+
+[environments.production.variables]
+NODE_ENV = "production"
+
