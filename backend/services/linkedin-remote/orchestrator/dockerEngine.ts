@@ -17,20 +17,19 @@ function getDocker(): Docker {
         const caText = process.env.DOCKER_CA_PEM || '';
         const certText = process.env.DOCKER_CERT_PEM || '';
         const keyText = process.env.DOCKER_KEY_PEM || '';
-        const dec = (b64: string, text: string) => {
-          if (text && /BEGIN [A-Z ]+/.test(text)) return Buffer.from(text, 'utf8');
-          if (b64) {
-            const buf = Buffer.from(b64, 'base64');
-            // If the decoded buffer already looks like text PEM, return as text; else return raw buffer (dockerode accepts raw)
-            const txt = buf.toString('utf8');
-            if (/BEGIN [A-Z ]+/.test(txt)) return Buffer.from(txt, 'utf8');
-            return buf;
-          }
-          return null;
+        const toPem = (b64: string, text: string, kind: 'CERTIFICATE' | 'PRIVATE KEY') => {
+          if (text && /-----BEGIN [A-Z ]+-----/.test(text)) return Buffer.from(text, 'utf8');
+          if (!b64) return null;
+          const rawTxt = Buffer.from(b64, 'base64').toString('utf8');
+          if (/-----BEGIN [A-Z ]+-----/.test(rawTxt)) return Buffer.from(rawTxt, 'utf8');
+          // Wrap as PEM if it's raw/base64 body
+          const body = Buffer.from(b64, 'base64').toString('base64').replace(/(.{64})/g, '$1\n');
+          const pem = `-----BEGIN ${kind}-----\n${body}\n-----END ${kind}-----\n`;
+          return Buffer.from(pem, 'utf8');
         };
-        const ca = dec(caB64, caText);
-        const cert = dec(certB64, certText);
-        const key = dec(keyB64, keyText);
+        const ca = toPem(caB64, caText, 'CERTIFICATE');
+        const cert = toPem(certB64, certText, 'CERTIFICATE');
+        const key = toPem(keyB64, keyText, 'PRIVATE KEY');
         if (ca && cert && key) return { ca, cert, key } as any;
         return null;
       };
