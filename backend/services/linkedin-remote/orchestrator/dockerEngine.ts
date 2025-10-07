@@ -31,8 +31,7 @@ function getDocker(): Docker {
         const ca = toPem(caB64, caText, 'CERTIFICATE');
         const cert = toPem(certB64, certText, 'CERTIFICATE');
         const key = toPem(keyB64, keyText, 'PRIVATE KEY');
-        if (ca && cert && key) return { ca, cert, key } as any;
-        return null;
+        return { ca, cert, key } as any;
       };
 
       const envPems = fromEnvMaybe();
@@ -45,43 +44,41 @@ function getDocker(): Docker {
           console.log(`[TLS] ${label}: len=${buf.length} first80=${first80}`);
         } catch (e) { console.log(`[TLS] ${label}: preview failed`, e); }
       };
-      if (envPems) {
-        opts.ca = envPems.ca;
-        opts.cert = envPems.cert;
-        opts.key = envPems.key;
-        logPemPreview('env.ca', opts.ca);
-        logPemPreview('env.cert', opts.cert);
-        logPemPreview('env.key', opts.key);
-      } else {
+      if (envPems?.ca) { opts.ca = envPems.ca; logPemPreview('env.ca', envPems.ca); }
+      if (envPems?.cert) { opts.cert = envPems.cert; logPemPreview('env.cert', envPems.cert); }
+      if (envPems?.key) { opts.key = envPems.key; logPemPreview('env.key', envPems.key); }
+
+      // Optional: support PKCS#12 client bundle via env
+      const p12B64 = process.env.DOCKER_CLIENT_P12_B64 || '';
+      const p12Pass = process.env.DOCKER_CLIENT_P12_PASS || '';
+      if (p12B64) {
+        try {
+          (opts as any).pfx = Buffer.from(p12B64, 'base64');
+          if (p12Pass) (opts as any).passphrase = p12Pass;
+          delete opts.cert; delete opts.key; // avoid ambiguity
+          if (debugTls) console.log('[TLS] using PFX bundle, len=', (opts as any).pfx.length, 'pass=', p12Pass ? 'yes' : 'no');
+        } catch (e) {
+          console.log('[TLS] failed to load P12 bundle:', (e as any)?.message);
+        }
+      }
+
+      // If nothing from env, try file-based DOCKER_CERT_PATH
+      if (!opts.ca && !opts.cert && !opts.key && !(opts as any).pfx) {
         const certDir = process.env.DOCKER_CERT_PATH || '';
         const caPath = path.join(certDir, 'ca.pem');
         const certPath = path.join(certDir, 'cert.pem');
         const keyPath = path.join(certDir, 'key.pem');
-        if (!(fs.existsSync(caPath) && fs.existsSync(certPath) && fs.existsSync(keyPath))) {
-          throw new Error(`Docker TLS enabled but certs not found in env or ${certDir}. Expected ca.pem, cert.pem, key.pem`);
+        if (fs.existsSync(caPath)) {
+          opts.ca = fs.readFileSync(caPath); logPemPreview('file.ca', opts.ca);
         }
-        opts.ca = fs.readFileSync(caPath);
-        opts.cert = fs.readFileSync(certPath);
-        opts.key = fs.readFileSync(keyPath);
-        logPemPreview('file.ca', opts.ca);
-        logPemPreview('file.cert', opts.cert);
-        logPemPreview('file.key', opts.key);
+        if (fs.existsSync(certPath)) { opts.cert = fs.readFileSync(certPath); logPemPreview('file.cert', opts.cert); }
+        if (fs.existsSync(keyPath)) { opts.key = fs.readFileSync(keyPath); logPemPreview('file.key', opts.key); }
+        if (!opts.ca || (!((opts as any).pfx) && !(opts.cert && opts.key))) {
+          throw new Error(`Docker TLS enabled but certs not found in env or ${certDir}. Expected ca.pem, cert.pem, key.pem or DOCKER_CLIENT_P12_B64`);
+        }
       }
     }
-    // Optional: support PKCS#12 client bundle
-    const p12B64 = process.env.DOCKER_CLIENT_P12_B64 || '';
-    const p12Pass = process.env.DOCKER_CLIENT_P12_PASS || '';
-    if (p12B64) {
-      try {
-        (opts as any).pfx = Buffer.from(p12B64, 'base64');
-        if (p12Pass) (opts as any).passphrase = p12Pass;
-        // If pfx provided, drop separate cert/key to avoid ambiguity
-        delete opts.cert; delete opts.key;
-        if (debugTls) console.log('[TLS] using PFX bundle, len=', (opts as any).pfx.length, 'pass=', p12Pass ? 'yes' : 'no');
-      } catch (e) {
-        console.log('[TLS] failed to load P12 bundle:', (e as any)?.message);
-      }
-    }
+    // (PFX also supported above inside TLS branch)
 
     // Ensure strings and normalized formatting for docker-modem / Node TLS
     if (opts.ca && Buffer.isBuffer(opts.ca)) opts.ca = (opts.ca as Buffer).toString('utf8');
