@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';
 import { assignProxyForUser } from '../proxy/proxyService';
 import { startSession, stopSession } from '../orchestrator';
+import { debugDockerTls } from '../orchestrator/dockerEngine';
 import { harvestCookies } from '../cdp/harvest';
 
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -50,6 +51,19 @@ router.post('/start', async (req, res) => {
     res.json({ sessionId, streamUrl: result.streamUrl });
   } catch (e:any) {
     console.error('[LI Session Start] Error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Debug: TLS connectivity check (protected behind env flag)
+router.get('/debug/tls', async (_req, res) => {
+  if (String(process.env.DOCKER_TLS_DEBUG || '').toLowerCase() !== 'true' && String(process.env.DOCKER_TLS_DEBUG || '').toLowerCase() !== '1') {
+    return res.status(403).json({ error: 'disabled' });
+  }
+  try {
+    const info = await debugDockerTls();
+    res.json({ ok: true, info });
+  } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
 });

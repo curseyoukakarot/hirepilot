@@ -8,6 +8,7 @@ function getDocker(): Docker {
   if (dockerHost) {
     const opts: any = { host: dockerHost };
     const tls = String(process.env.DOCKER_TLS_VERIFY || '').trim();
+    const debugTls = (() => { const v = String(process.env.DOCKER_TLS_DEBUG || '').toLowerCase(); return v === '1' || v === 'true'; })();
     if (tls === '1' || tls.toLowerCase() === 'true') {
       // Prefer env-provided PEMs to avoid filesystem reliance
       const fromEnvMaybe = () => {
@@ -35,10 +36,22 @@ function getDocker(): Docker {
       };
 
       const envPems = fromEnvMaybe();
+      const logPemPreview = (label: string, buf?: Buffer) => {
+        if (!debugTls) return;
+        try {
+          if (!buf) { console.log(`[TLS] ${label}: missing`); return; }
+          const txt = buf.toString('utf8');
+          const first80 = txt.slice(0, 80).replace(/\n/g, '\\n');
+          console.log(`[TLS] ${label}: len=${buf.length} first80=${first80}`);
+        } catch (e) { console.log(`[TLS] ${label}: preview failed`, e); }
+      };
       if (envPems) {
         opts.ca = envPems.ca;
         opts.cert = envPems.cert;
         opts.key = envPems.key;
+        logPemPreview('env.ca', opts.ca);
+        logPemPreview('env.cert', opts.cert);
+        logPemPreview('env.key', opts.key);
       } else {
         const certDir = process.env.DOCKER_CERT_PATH || '';
         const caPath = path.join(certDir, 'ca.pem');
@@ -50,7 +63,14 @@ function getDocker(): Docker {
         opts.ca = fs.readFileSync(caPath);
         opts.cert = fs.readFileSync(certPath);
         opts.key = fs.readFileSync(keyPath);
+        logPemPreview('file.ca', opts.ca);
+        logPemPreview('file.cert', opts.cert);
+        logPemPreview('file.key', opts.key);
       }
+    }
+    if (debugTls) {
+      const redacted = { ...opts, ca: opts.ca ? `<buf:${opts.ca.length}>` : undefined, cert: opts.cert ? `<buf:${opts.cert.length}>` : undefined, key: opts.key ? `<buf:${opts.key.length}>` : undefined };
+      console.log('[TLS] dockerode opts preview:', redacted);
     }
     return new Docker(opts);
   }
@@ -94,6 +114,17 @@ export class DockerEngine implements OrchestratorEngine {
     try { await c.stop({ t: 5 }); } catch {}
     try { await c.remove({ force: true }); } catch {}
   }
+}
+
+// Minimal TLS debug helper for an HTTP route
+export async function debugDockerTls(): Promise<any> {
+  const docker = getDocker();
+  return await new Promise((resolve, reject) => {
+    docker.version((err: any, info: any) => {
+      if (err) return reject(err);
+      resolve(info);
+    });
+  });
 }
 
 
