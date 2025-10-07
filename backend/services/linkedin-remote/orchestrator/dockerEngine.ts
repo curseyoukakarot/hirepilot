@@ -68,8 +68,12 @@ function getDocker(): Docker {
         logPemPreview('file.key', opts.key);
       }
     }
+    // Ensure strings for docker-modem
+    if (opts.ca && Buffer.isBuffer(opts.ca)) opts.ca = (opts.ca as Buffer).toString('utf8');
+    if (opts.cert && Buffer.isBuffer(opts.cert)) opts.cert = (opts.cert as Buffer).toString('utf8');
+    if (opts.key && Buffer.isBuffer(opts.key)) opts.key = (opts.key as Buffer).toString('utf8');
     if (debugTls) {
-      const redacted = { ...opts, ca: opts.ca ? `<buf:${opts.ca.length}>` : undefined, cert: opts.cert ? `<buf:${opts.cert.length}>` : undefined, key: opts.key ? `<buf:${opts.key.length}>` : undefined };
+      const redacted = { ...opts, ca: typeof opts.ca === 'string' ? `<str:${(opts.ca as string).length}>` : undefined, cert: typeof opts.cert === 'string' ? `<str:${(opts.cert as string).length}>` : undefined, key: typeof opts.key === 'string' ? `<str:${(opts.key as string).length}>` : undefined };
       console.log('[TLS] dockerode opts preview:', redacted);
     }
     return new Docker(opts);
