@@ -68,6 +68,21 @@ function getDocker(): Docker {
         logPemPreview('file.key', opts.key);
       }
     }
+    // Optional: support PKCS#12 client bundle
+    const p12B64 = process.env.DOCKER_CLIENT_P12_B64 || '';
+    const p12Pass = process.env.DOCKER_CLIENT_P12_PASS || '';
+    if (p12B64) {
+      try {
+        (opts as any).pfx = Buffer.from(p12B64, 'base64');
+        if (p12Pass) (opts as any).passphrase = p12Pass;
+        // If pfx provided, drop separate cert/key to avoid ambiguity
+        delete opts.cert; delete opts.key;
+        if (debugTls) console.log('[TLS] using PFX bundle, len=', (opts as any).pfx.length, 'pass=', p12Pass ? 'yes' : 'no');
+      } catch (e) {
+        console.log('[TLS] failed to load P12 bundle:', (e as any)?.message);
+      }
+    }
+
     // Ensure strings and normalized formatting for docker-modem / Node TLS
     if (opts.ca && Buffer.isBuffer(opts.ca)) opts.ca = (opts.ca as Buffer).toString('utf8');
     if (opts.cert && Buffer.isBuffer(opts.cert)) opts.cert = (opts.cert as Buffer).toString('utf8');
