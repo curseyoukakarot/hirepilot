@@ -6,10 +6,33 @@ import path from 'node:path';
 function getDocker(): Docker {
   const dockerHost = process.env.DOCKER_HOST;
   if (dockerHost) {
-    const opts: any = { host: dockerHost };
     const tls = String(process.env.DOCKER_TLS_VERIFY || '').trim();
+    const tlsEnabled = (tls === '1' || tls.toLowerCase() === 'true');
+    // Normalize DOCKER_HOST into discrete protocol/host/port for dockerode/docker-modem
+    let normalizedUrl = dockerHost;
+    if (/^tcp:\/\//i.test(normalizedUrl)) {
+      normalizedUrl = normalizedUrl.replace(/^tcp:\/\//i, tlsEnabled ? 'https://' : 'http://');
+    }
+    // If no scheme provided, assume https when TLS enabled, else http
+    if (!/^https?:\/\//i.test(normalizedUrl)) {
+      normalizedUrl = (tlsEnabled ? 'https://' : 'http://') + normalizedUrl;
+    }
+    let url: URL;
+    try { url = new URL(normalizedUrl); } catch {
+      // Fallback: assume host:port
+      const [h, p] = normalizedUrl.split(':');
+      url = new URL(`${tlsEnabled ? 'https' : 'http'}://${h}:${p || (tlsEnabled ? '2376' : '2375')}`);
+    }
+    const opts: any = {
+      protocol: url.protocol.replace(':', ''),
+      host: url.hostname,
+      port: url.port ? Number(url.port) : (tlsEnabled ? 2376 : 2375)
+    };
     const debugTls = (() => { const v = String(process.env.DOCKER_TLS_DEBUG || '').toLowerCase(); return v === '1' || v === 'true'; })();
-    if (tls === '1' || tls.toLowerCase() === 'true') {
+    if (debugTls) {
+      console.log('[TLS] normalized DOCKER_HOST ->', { protocol: opts.protocol, host: opts.host, port: opts.port });
+    }
+    if (tlsEnabled) {
       // Prefer env-provided PEMs to avoid filesystem reliance
       const fromEnvMaybe = () => {
         const caB64 = process.env.DOCKER_CA_PEM_B64 || '';
