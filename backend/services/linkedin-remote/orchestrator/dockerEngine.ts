@@ -83,8 +83,25 @@ function getDocker(): Docker {
     // Force modern TLS
     (opts as any).minVersion = 'TLSv1.2';
     if (debugTls) {
-      const redacted = { ...opts, ca: typeof opts.ca === 'string' ? `<str:${(opts.ca as string).length}>` : undefined, cert: typeof opts.cert === 'string' ? `<str:${(opts.cert as string).length}>` : undefined, key: typeof opts.key === 'string' ? `<str:${(opts.key as string).length}>` : undefined };
+      const caPreview = Array.isArray(opts.ca)
+        ? `<arr:${(opts.ca as string[]).length}>`
+        : typeof opts.ca === 'string'
+          ? `<str:${(opts.ca as string).length}>`
+          : undefined;
+      const redacted = { ...opts, ca: caPreview, cert: typeof opts.cert === 'string' ? `<str:${(opts.cert as string).length}>` : undefined, key: typeof opts.key === 'string' ? `<str:${(opts.key as string).length}>` : undefined };
       console.log('[TLS] dockerode opts preview:', redacted);
+      // Validate PEM shapes
+      const validate = (label: string, s: string) => {
+        const hasBegin = /-----BEGIN [A-Z ]+-----/.test(s);
+        const hasEnd = /-----END [A-Z ]+-----/.test(s);
+        const body = s.replace(/-----BEGIN [A-Z ]+-----/g, '').replace(/-----END [A-Z ]+-----/g, '').replace(/\s+/g, '');
+        let ok = false;
+        try { Buffer.from(body, 'base64'); ok = body.length > 0; } catch {}
+        console.log(`[TLS] validate ${label}: begin=${hasBegin} end=${hasEnd} bodyLen=${body.length} ok=${ok}`);
+      };
+      if (Array.isArray(opts.ca)) (opts.ca as string[]).forEach((c, i) => validate(`ca[${i}]`, c));
+      if (typeof opts.cert === 'string') validate('cert', opts.cert as string);
+      if (typeof opts.key === 'string') validate('key', opts.key as string);
     }
     return new Docker(opts);
   }
