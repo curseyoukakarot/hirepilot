@@ -7,6 +7,10 @@ restartPolicyMaxRetries = 3
 
 [environments.production]
 startCommand = "npm start"
+healthcheckPath = "/health"
+healthcheckTimeout = 10000
+healthcheckInterval = 10000
+healthcheckMaxRetries = 6
 
 [environments.production.variables]
 NODE_ENV = "production"

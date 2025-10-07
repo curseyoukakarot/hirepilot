@@ -79,8 +79,8 @@ RUN echo "=== POST-BUILD: Directory structure ===" && pwd && ls -la
 RUN echo "=== POST-BUILD: Dist directory ===" && ls -la dist/ || echo "No dist directory found"
 RUN echo "=== POST-BUILD: Looking for server files ===" && find . -name "*server*" -type f || echo "No server files found"
 
-# Expose port for Railway
-EXPOSE 3000
+# Expose app port (server binds to $PORT or 8080)
+EXPOSE 8080
 
 # Start command (we're already in /app/backend)
 CMD ["npm", "start"]
