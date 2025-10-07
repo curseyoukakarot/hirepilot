@@ -1,10 +1,33 @@
 import Docker from 'dockerode';
 import { OrchestratorEngine, StartOpts, StartResult } from './engine';
+import fs from 'node:fs';
+import path from 'node:path';
 
-const docker = new Docker({ socketPath: process.env.DOCKER_HOST ? undefined : '/var/run/docker.sock', host: process.env.DOCKER_HOST });
+function getDocker(): Docker {
+  const dockerHost = process.env.DOCKER_HOST;
+  if (dockerHost) {
+    const opts: any = { host: dockerHost };
+    const tls = String(process.env.DOCKER_TLS_VERIFY || '').trim();
+    if (tls === '1' || tls.toLowerCase() === 'true') {
+      const certDir = process.env.DOCKER_CERT_PATH || '';
+      const caPath = path.join(certDir, 'ca.pem');
+      const certPath = path.join(certDir, 'cert.pem');
+      const keyPath = path.join(certDir, 'key.pem');
+      if (!(fs.existsSync(caPath) && fs.existsSync(certPath) && fs.existsSync(keyPath))) {
+        throw new Error(`Docker TLS enabled but certs not found in ${certDir}. Expected ca.pem, cert.pem, key.pem`);
+      }
+      opts.ca = fs.readFileSync(caPath);
+      opts.cert = fs.readFileSync(certPath);
+      opts.key = fs.readFileSync(keyPath);
+    }
+    return new Docker(opts);
+  }
+  return new Docker({ socketPath: '/var/run/docker.sock' });
+}
 
 export class DockerEngine implements OrchestratorEngine {
   async start(opts: StartOpts): Promise<StartResult> {
+    const docker = getDocker();
     const image = process.env.NOVNC_IMAGE || 'hirepilot/li-novnc:latest';
     const container = await docker.createContainer({
       Image: image,
@@ -34,6 +57,7 @@ export class DockerEngine implements OrchestratorEngine {
   }
 
   async stop(containerId: string): Promise<void> {
+    const docker = getDocker();
     const c = docker.getContainer(containerId);
     try { await c.stop({ t: 5 }); } catch {}
     try { await c.remove({ force: true }); } catch {}
