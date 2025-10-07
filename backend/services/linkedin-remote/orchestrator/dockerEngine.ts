@@ -2,6 +2,7 @@ import Docker from 'dockerode';
 import { OrchestratorEngine, StartOpts, StartResult } from './engine';
 import fs from 'node:fs';
 import path from 'node:path';
+import WebSocket from 'ws';
 
 function getDocker(): Docker {
   const dockerHost = process.env.DOCKER_HOST;
@@ -167,6 +168,23 @@ export class DockerEngine implements OrchestratorEngine {
 
     const base = process.env.STREAM_PUBLIC_BASE_URL || 'http://localhost';
     const host = base.replace(/\/$/, '');
+    // Best-effort: open LinkedIn login automatically via CDP
+    try {
+      const wsUrl = `ws://localhost:${debugPort}/devtools/browser`;
+      const ws = new WebSocket(wsUrl);
+      await new Promise((res, rej) => { ws.once('open', res); ws.once('error', rej); setTimeout(()=>rej(new Error('CDP open timeout')), 5000); });
+      const cdpSend = (id: number, method: string, params: any = {}) => new Promise<any>((resolve, reject) => {
+        const onMsg = (raw: WebSocket.RawData) => {
+          try { const msg = JSON.parse(raw.toString()); if (msg.id === id) { ws.off('message', onMsg); resolve(msg.result); } } catch {}
+        };
+        ws.on('message', onMsg);
+        ws.send(JSON.stringify({ id, method, params }));
+        setTimeout(() => { ws.off('message', onMsg); reject(new Error('CDP rpc timeout')); }, 5000);
+      });
+      await cdpSend(1, 'Target.createTarget', { url: 'https://www.linkedin.com/login' });
+      ws.close();
+    } catch { /* non-fatal */ }
+
     return {
       containerId: container.id,
       streamUrl: `${host}:${streamPort}/vnc.html?autoconnect=1&resize=scale`,
