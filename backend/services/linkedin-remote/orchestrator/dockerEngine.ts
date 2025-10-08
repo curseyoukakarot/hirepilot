@@ -219,6 +219,23 @@ export class DockerEngine implements OrchestratorEngine {
     }
 
     const isBrowserless = /browserless\/chrome/i.test(requestedImage);
+
+    // Optional: force published host port(s) into a specific range to ease firewall rules
+    // e.g., LI_PUBLISH_PORT_RANGE="32000-32999"
+    const range = String(process.env.LI_PUBLISH_PORT_RANGE || '').trim();
+    const pickPortInRange = (): number | undefined => {
+      if (!/^\d{2,5}-\d{2,5}$/.test(range)) return undefined;
+      const [minS, maxS] = range.split('-');
+      const min = parseInt(minS, 10);
+      const max = parseInt(maxS, 10);
+      if (Number.isNaN(min) || Number.isNaN(max) || min >= max) return undefined;
+      // Simple deterministic pick based on session hash to spread
+      const baseHash = Array.from(opts.sessionId).reduce((a, c) => (a * 33 + c.charCodeAt(0)) >>> 0, 5381);
+      const candidate = min + (baseHash % (max - min));
+      return candidate;
+    };
+    const preferredPort = pickPortInRange();
+    const preferredDebug = preferredPort ? Math.min(preferredPort + 1, 65535) : undefined;
     const containerConfig: any = {
       Image: requestedImage,
       Env: [
@@ -229,15 +246,36 @@ export class DockerEngine implements OrchestratorEngine {
       ExposedPorts: isBrowserless ? { '3000/tcp': {} } : { '8080/tcp': {}, '9222/tcp': {} },
       HostConfig: {
         PortBindings: isBrowserless
-          ? { '3000/tcp': [{ HostPort: '' }] }
-          : { '8080/tcp': [{ HostPort: '' }], '9222/tcp': [{ HostPort: '' }] }
+          ? { '3000/tcp': [{ HostPort: preferredPort ? String(preferredPort) : '' }] }
+          : {
+              '8080/tcp': [{ HostPort: preferredPort ? String(preferredPort) : '' }],
+              '9222/tcp': [{ HostPort: preferredDebug ? String(preferredDebug) : '' }]
+            }
       },
       Labels: { 'hp.sessionId': opts.sessionId }
     };
     // Do not override CMD for browserless/chrome; it manages Chrome internally.
 
-    let container = await docker.createContainer(containerConfig);
-    await container.start();
+    let container;
+    try {
+      container = await docker.createContainer(containerConfig);
+      await container.start();
+    } catch (e: any) {
+      // If preferred port is taken, fall back to dynamic assignment once
+      if (preferredPort && /address already in use|port is already allocated/i.test(String(e?.message || ''))) {
+        const fallbackCfg = { ...containerConfig };
+        if (isBrowserless) {
+          fallbackCfg.HostConfig.PortBindings['3000/tcp'][0].HostPort = '';
+        } else {
+          fallbackCfg.HostConfig.PortBindings['8080/tcp'][0].HostPort = '';
+          fallbackCfg.HostConfig.PortBindings['9222/tcp'][0].HostPort = '';
+        }
+        container = await docker.createContainer(fallbackCfg);
+        await container.start();
+      } else {
+        throw e;
+      }
+    }
     const data = await container.inspect();
 
     const ports = (data as any)?.NetworkSettings?.Ports as any;
