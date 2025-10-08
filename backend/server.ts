@@ -137,6 +137,7 @@ import sendLiveChatFallbacksRouter from './cron/sendLiveChatFallbacks';
 import chatRoutes from './src/routes/chatRoutes';
 import { startFreeForeverWorker } from './jobs/freeForeverCadence';
 import sessionRouter from './services/linkedin-remote/api/sessionRouter';
+import streamProxyRouter from './services/linkedin-remote/stream/proxy';
 import { bootLinkedinWorker } from './services/linkedin-remote/queue/workers/linkedinWorker';
 
 declare module 'express-list-endpoints';
@@ -479,6 +480,9 @@ app.use('/api/auth', authRouter);
 
 // LinkedIn Remote Session routes
 app.use('/linkedin/session', sessionRouter);
+// Public streaming reverse-proxy (HTTPS → remote noVNC on dynamic port)
+// Set STREAM_PROXY_TARGET_HOST to your VM IP/host (no scheme)
+app.use('/stream', streamProxyRouter);
 
 // Minimal raw TLS test endpoint to isolate dockerode
 app.get('/debug/tls-test', (_req, res) => {

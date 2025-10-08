@@ -73,6 +73,7 @@
         "express-validator": "^7.2.1",
         "ghost-cursor": "1.4.1",
         "googleapis": "^148.0.0",
+        "http-proxy-middleware": "2.0.9",
         "https-proxy-agent": "^5.0.1",
         "ioredis": "^5.6.1",
         "jsonwebtoken": "^9.0.2",

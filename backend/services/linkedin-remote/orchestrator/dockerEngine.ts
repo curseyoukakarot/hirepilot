@@ -257,7 +257,7 @@ export class DockerEngine implements OrchestratorEngine {
         return u.hostname || '';
       } catch { return ''; }
     })();
-    const publicBase = (process.env.STREAM_PUBLIC_BASE_URL || process.env.DOCKER_PUBLIC_BASE_URL || (parsedDockerHost ? `http://${parsedDockerHost}` : 'http://localhost')).replace(/\/$/, '');
+    const publicBaseRaw = (process.env.STREAM_PUBLIC_BASE_URL || process.env.DOCKER_PUBLIC_BASE_URL || '').replace(/\/$/, '');
     // Best-effort: open LinkedIn login automatically via CDP
     try {
       const wsUrl = `ws://localhost:${debugPort}/devtools/browser`;
@@ -275,9 +275,29 @@ export class DockerEngine implements OrchestratorEngine {
       ws.close();
     } catch { /* non-fatal */ }
 
+    const streamUrl = (() => {
+      if (process.env.STREAM_PUBLIC_BASE_URL) {
+        // If we expose via backend reverse-proxy, prefer /stream/:port path over raw host:port
+        try {
+          const u = new URL(process.env.STREAM_PUBLIC_BASE_URL);
+          const base = `${u.origin.replace(/\/$/, '')}`;
+          return `${base}/stream/${streamPort}/vnc.html?autoconnect=1&resize=scale`;
+        } catch {
+          // Not a full URL; fallback to raw
+        }
+      }
+      if (process.env.DOCKER_PUBLIC_BASE_URL) {
+        return `${publicBaseRaw}:${streamPort}/vnc.html?autoconnect=1&resize=scale`;
+      }
+      if (parsedDockerHost) {
+        return `http://${parsedDockerHost}:${streamPort}/vnc.html?autoconnect=1&resize=scale`;
+      }
+      return `http://localhost:${streamPort}/vnc.html?autoconnect=1&resize=scale`;
+    })();
+
     return {
       containerId: container.id,
-      streamUrl: isBrowserless ? `${publicBase}:${streamPort}` : `${publicBase}:${streamPort}/vnc.html?autoconnect=1&resize=scale`,
+      streamUrl: isBrowserless ? `${publicBaseRaw}:${streamPort}` : streamUrl,
       remoteDebugUrl: `ws://localhost:${debugPort}/devtools/browser`
     };
   }
