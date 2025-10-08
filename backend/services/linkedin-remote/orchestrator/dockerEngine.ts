@@ -244,8 +244,20 @@ export class DockerEngine implements OrchestratorEngine {
     const streamPort = isBrowserless ? ports?.['3000/tcp']?.[0]?.HostPort as string : ports?.['8080/tcp']?.[0]?.HostPort as string;
     const debugPort = isBrowserless ? streamPort : ports?.['9222/tcp']?.[0]?.HostPort as string;
 
-    const base = process.env.STREAM_PUBLIC_BASE_URL || 'http://localhost';
-    const host = base.replace(/\/$/, '');
+    // Choose the public base used by the frontend iframe to reach the container
+    // Priority:
+    // 1) STREAM_PUBLIC_BASE_URL (explicit app domain/path if reverse-proxied)
+    // 2) DOCKER_PUBLIC_BASE_URL (public base of the remote Docker host, e.g. http://<VM_IP>)
+    // 3) Derived from DOCKER_HOST (fall back to http://<host-from-DOCKER_HOST>)
+    const dockerHostEnv = process.env.DOCKER_HOST || '';
+    const parsedDockerHost = (() => {
+      try {
+        const norm = dockerHostEnv.startsWith('tcp://') ? dockerHostEnv.replace(/^tcp:\/\//i, 'https://') : dockerHostEnv;
+        const u = new URL(norm);
+        return u.hostname || '';
+      } catch { return ''; }
+    })();
+    const publicBase = (process.env.STREAM_PUBLIC_BASE_URL || process.env.DOCKER_PUBLIC_BASE_URL || (parsedDockerHost ? `http://${parsedDockerHost}` : 'http://localhost')).replace(/\/$/, '');
     // Best-effort: open LinkedIn login automatically via CDP
     try {
       const wsUrl = `ws://localhost:${debugPort}/devtools/browser`;
@@ -265,7 +277,7 @@ export class DockerEngine implements OrchestratorEngine {
 
     return {
       containerId: container.id,
-      streamUrl: isBrowserless ? `${host}:${streamPort}` : `${host}:${streamPort}/vnc.html?autoconnect=1&resize=scale`,
+      streamUrl: isBrowserless ? `${publicBase}:${streamPort}` : `${publicBase}:${streamPort}/vnc.html?autoconnect=1&resize=scale`,
       remoteDebugUrl: `ws://localhost:${debugPort}/devtools/browser`
     };
   }
