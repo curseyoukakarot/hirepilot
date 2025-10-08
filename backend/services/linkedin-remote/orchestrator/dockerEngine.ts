@@ -147,7 +147,10 @@ function getDocker(): Docker {
         try { Buffer.from(body, 'base64'); ok = body.length > 0; } catch {}
         console.log(`[TLS] validate ${label}: begin=${hasBegin} end=${hasEnd} bodyLen=${body.length} ok=${ok}`);
       };
-      if (Array.isArray(opts.ca)) (opts.ca as string[]).forEach((c, i) => validate(`ca[${i}]`, c));
+      if (Array.isArray(opts.ca)) (opts.ca as any[]).forEach((c, i) => {
+        const s = typeof c === 'string' ? (c as string) : Buffer.isBuffer(c) ? (c as Buffer).toString('utf8') : String(c);
+        validate(`ca[${i}]`, s);
+      });
       if (typeof opts.cert === 'string') validate('cert', opts.cert as string);
       if (typeof opts.key === 'string') validate('key', opts.key as string);
     }
