@@ -75,11 +75,12 @@ function getDocker(): Docker {
 
       // Optional: support PKCS#12 client bundle via env
       const p12B64 = process.env.DOCKER_CLIENT_P12_B64 || '';
-      const p12Pass = process.env.DOCKER_CLIENT_P12_PASS || '';
+      const p12Pass = process.env.DOCKER_CLIENT_P12_PASS ?? '';
       if (p12B64) {
         try {
           (opts as any).pfx = Buffer.from(p12B64, 'base64');
-          if (p12Pass) (opts as any).passphrase = p12Pass;
+          // Always set passphrase property; empty string is valid for PKCS#12 with no password
+          (opts as any).passphrase = p12Pass;
           delete opts.cert; delete opts.key; // avoid ambiguity
           if (debugTls) console.log('[TLS] using PFX bundle, len=', (opts as any).pfx.length, 'pass=', p12Pass ? 'yes' : 'no');
         } catch (e) {
