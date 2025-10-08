@@ -234,7 +234,7 @@ export class DockerEngine implements OrchestratorEngine {
       },
       Labels: { 'hp.sessionId': opts.sessionId }
     };
-    if (isBrowserless) containerConfig.Cmd = ['--no-sandbox', '--disable-dev-shm-usage'];
+    // Do not override CMD for browserless/chrome; it manages Chrome internally.
 
     let container = await docker.createContainer(containerConfig);
     await container.start();
