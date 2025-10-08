@@ -26,14 +26,36 @@ router.post('/', requireAuth, async (req: ApiRequest, res: Response) => {
       return;
     }
 
-    // Verify ownership
+    // Verify access (owner or same-team/member rules similar to GET /api/activities)
     const { data: cand, error: candErr } = await supabase
       .from('candidates')
       .select('id, user_id')
       .eq('id', candidate_id)
       .single();
     if (candErr || !cand) { res.status(404).json({ success: false, message: 'Candidate not found' }); return; }
-    if (cand.user_id !== userId) { res.status(403).json({ success: false, message: 'Access denied' }); return; }
+
+    if (cand.user_id !== userId) {
+      // Fetch current user's team/role
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('team_id, role')
+        .eq('id', userId)
+        .single();
+      if (userError) { res.status(500).json({ success: false, message: 'Failed to fetch user data' }); return; }
+
+      const isAdmin = ['admin', 'team_admin', 'super_admin'].includes(userData.role);
+      const sameTeamAsOwner = await supabase
+        .from('users')
+        .select('team_id')
+        .eq('id', cand.user_id)
+        .eq('team_id', userData.team_id)
+        .single()
+        .then(({ data }) => !!data);
+
+      const canAccess = (userData.team_id && isAdmin) || (userData.team_id && sameTeamAsOwner);
+
+      if (!canAccess) { res.status(403).json({ success: false, message: 'Access denied' }); return; }
+    }
 
     const now = new Date().toISOString();
     const insertRow: any = {
