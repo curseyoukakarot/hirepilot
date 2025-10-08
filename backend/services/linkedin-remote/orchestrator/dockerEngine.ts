@@ -128,6 +128,7 @@ function getDocker(): Docker {
     const insecure = String(process.env.DOCKER_TLS_INSECURE || '').toLowerCase();
     if (insecure === '1' || insecure === 'true') {
       (opts as any).rejectUnauthorized = false;
+      (opts as any).checkServerIdentity = () => undefined;
     }
 
     if (debugTls) {
@@ -138,6 +139,14 @@ function getDocker(): Docker {
           : undefined;
       const redacted = { ...opts, ca: caPreview, cert: typeof opts.cert === 'string' ? `<str:${(opts.cert as string).length}>` : undefined, key: typeof opts.key === 'string' ? `<str:${(opts.key as string).length}>` : undefined };
       console.log('[TLS] dockerode opts preview:', redacted);
+      // Log CA fingerprint(s) to compare with VM
+      try {
+        const crypto = require('node:crypto');
+        const toSha256 = (b: Buffer) => (crypto as any).createHash('sha256').update(b).digest('hex');
+        if (Array.isArray(opts.ca)) {
+          (opts.ca as Buffer[]).forEach((b: Buffer, i: number) => console.log(`[TLS] ca[${i}] sha256=${toSha256(b)}`));
+        }
+      } catch {}
       // Validate PEM shapes
       const validate = (label: string, s: string) => {
         const hasBegin = /-----BEGIN [A-Z ]+-----/.test(s);
