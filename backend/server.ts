@@ -480,6 +480,38 @@ app.use('/api/auth', authRouter);
 // LinkedIn Remote Session routes
 app.use('/linkedin/session', sessionRouter);
 
+// Minimal raw TLS test endpoint to isolate dockerode
+app.get('/debug/tls-test', (_req, res) => {
+  try {
+    const tls = require('tls');
+    const ca = Buffer.from(process.env.DOCKER_CA_PEM_B64 || '', 'base64');
+    const cert = Buffer.from(process.env.DOCKER_CERT_PEM_B64 || '', 'base64');
+    const key = Buffer.from(process.env.DOCKER_KEY_PEM_B64 || '', 'base64');
+    console.log('[TLS TEST] env lens:', { caLen: ca.length, certLen: cert.length, keyLen: key.length });
+    const socket = tls.connect({
+      host: '64.181.209.62',
+      port: 2376,
+      ca,
+      cert,
+      key,
+      servername: '64.181.209.62',
+      minVersion: 'TLSv1.2',
+      rejectUnauthorized: true
+    }, () => {
+      console.log('[TLS TEST] Connected successfully!');
+      res.send('Connected OK');
+      socket.end();
+    });
+    socket.on('error', (err: any) => {
+      console.error('[TLS TEST] Error:', err);
+      res.status(500).send(err?.message || String(err));
+    });
+  } catch (e: any) {
+    console.error('[TLS TEST] Handler error:', e);
+    res.status(500).send(e?.message || 'handler failed');
+  }
+});
+
 // boot worker (in its own process ideally)
 if (process.env.BOOT_LI_WORKER === 'true') {
   bootLinkedinWorker();

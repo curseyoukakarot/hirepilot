@@ -9,6 +9,11 @@ function getDocker(): Docker {
   if (dockerHost) {
     const tls = String(process.env.DOCKER_TLS_VERIFY || '').trim();
     const tlsEnabled = (tls === '1' || tls.toLowerCase() === 'true');
+    // Debug env presence for key
+    try {
+      // eslint-disable-next-line no-console
+      console.log('[DEBUG ENV] DOCKER_KEY_PEM_B64 exists:', !!process.env.DOCKER_KEY_PEM_B64, 'length:', process.env.DOCKER_KEY_PEM_B64?.length);
+    } catch {}
     // Normalize DOCKER_HOST into discrete protocol/host/port for dockerode/docker-modem
     let normalizedUrl = dockerHost;
     if (/^tcp:\/\//i.test(normalizedUrl)) {
@@ -85,6 +90,36 @@ function getDocker(): Docker {
           if (debugTls) console.log('[TLS] using PFX bundle, len=', (opts as any).pfx.length, 'pass=', p12Pass ? 'yes' : 'no');
         } catch (e) {
           console.log('[TLS] failed to load P12 bundle:', (e as any)?.message);
+        }
+      }
+
+      // Optional: write env certs to files and read from disk (control path)
+      const writeFilesFlag = String(process.env.DOCKER_TLS_USE_CERT_PATH || '').toLowerCase();
+      if (writeFilesFlag === '1' || writeFilesFlag === 'true') {
+        try {
+          const certDir = '/app/docker-certs';
+          fs.mkdirSync(certDir, { recursive: true });
+          const caB64 = process.env.DOCKER_CA_PEM_B64 || '';
+          const certB64 = process.env.DOCKER_CERT_PEM_B64 || '';
+          const keyB64 = process.env.DOCKER_KEY_PEM_B64 || '';
+          if (caB64) fs.writeFileSync(`${certDir}/ca.pem`, Buffer.from(caB64, 'base64'));
+          if (certB64) fs.writeFileSync(`${certDir}/cert.pem`, Buffer.from(certB64, 'base64'));
+          if (keyB64) fs.writeFileSync(`${certDir}/key.pem`, Buffer.from(keyB64, 'base64'));
+          try {
+            const keyHead = fs.existsSync(`${certDir}/key.pem`) ? fs.readFileSync(`${certDir}/key.pem`, 'utf8').slice(0, 80) : 'missing';
+            console.log('[TLS FILES] Wrote files; key head:', keyHead.replace(/\n/g, '\\n'));
+          } catch {}
+          // Prefer file-based for this control path
+          const caPath = `${certDir}/ca.pem`;
+          const certPath = `${certDir}/cert.pem`;
+          const keyPath = `${certDir}/key.pem`;
+          if (fs.existsSync(caPath)) opts.ca = fs.readFileSync(caPath);
+          if (fs.existsSync(certPath)) opts.cert = fs.readFileSync(certPath);
+          if (fs.existsSync(keyPath)) opts.key = fs.readFileSync(keyPath);
+          // Remove PFX if set to avoid ambiguity
+          delete (opts as any).pfx; delete (opts as any).passphrase;
+        } catch (e) {
+          console.log('[TLS FILES] Failed to write/read cert files:', (e as any)?.message);
         }
       }
 
