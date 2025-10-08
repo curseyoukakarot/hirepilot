@@ -292,7 +292,7 @@ export class DockerEngine implements OrchestratorEngine {
 
     return {
       containerId: container.id,
-      streamUrl: isBrowserless ? `${publicBaseRaw}:${streamPort}` : streamUrl,
+      streamUrl,
       remoteDebugUrl: process.env.STREAM_PUBLIC_BASE_URL
         ? (() => {
             try {
