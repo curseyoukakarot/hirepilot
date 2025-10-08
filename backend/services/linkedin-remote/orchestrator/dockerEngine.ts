@@ -276,29 +276,34 @@ export class DockerEngine implements OrchestratorEngine {
     } catch { /* non-fatal */ }
 
     const streamUrl = (() => {
+      // Always use backend reverse-proxy path so iframe stays on api domain
       if (process.env.STREAM_PUBLIC_BASE_URL) {
-        // If we expose via backend reverse-proxy, prefer /stream/:port path over raw host:port
         try {
           const u = new URL(process.env.STREAM_PUBLIC_BASE_URL);
           const base = `${u.origin.replace(/\/$/, '')}`;
-          return `${base}/stream/${streamPort}/vnc.html?autoconnect=1&resize=scale`;
-        } catch {
-          // Not a full URL; fallback to raw
-        }
+          return `${base}/stream/${streamPort}`; // router will map bare to vnc.html
+        } catch {}
       }
-      if (process.env.DOCKER_PUBLIC_BASE_URL) {
-        return `${publicBaseRaw}:${streamPort}/vnc.html?autoconnect=1&resize=scale`;
-      }
-      if (parsedDockerHost) {
-        return `http://${parsedDockerHost}:${streamPort}/vnc.html?autoconnect=1&resize=scale`;
-      }
+      // Fallbacks (direct host:port)
+      if (process.env.DOCKER_PUBLIC_BASE_URL) return `${publicBaseRaw}:${streamPort}/vnc.html?autoconnect=1&resize=scale`;
+      if (parsedDockerHost) return `http://${parsedDockerHost}:${streamPort}/vnc.html?autoconnect=1&resize=scale`;
       return `http://localhost:${streamPort}/vnc.html?autoconnect=1&resize=scale`;
     })();
 
     return {
       containerId: container.id,
       streamUrl: isBrowserless ? `${publicBaseRaw}:${streamPort}` : streamUrl,
-      remoteDebugUrl: `ws://localhost:${debugPort}/devtools/browser`
+      remoteDebugUrl: process.env.STREAM_PUBLIC_BASE_URL
+        ? (() => {
+            try {
+              const u = new URL(process.env.STREAM_PUBLIC_BASE_URL!);
+              const base = `${u.origin.replace(/\/$/, '')}`;
+              return `${base}/stream/cdp/${debugPort}/devtools/browser`;
+            } catch {
+              return `ws://localhost:${debugPort}/devtools/browser`;
+            }
+          })()
+        : `ws://localhost:${debugPort}/devtools/browser`
     };
   }
 

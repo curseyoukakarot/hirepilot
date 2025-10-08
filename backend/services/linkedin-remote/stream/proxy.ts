@@ -55,6 +55,32 @@ router.use(
   })
 );
 
+// CDP websocket reverse-proxy: /stream/cdp/:port/* → http://<HOST>:<port>/*
+router.use(
+  '/cdp/:port',
+  createProxyMiddleware({
+    target: 'http://placeholder',
+    changeOrigin: true,
+    ws: true,
+    secure: false,
+    router: (req) => {
+      const port = (req.params as any)?.port;
+      const host = targetHost || '127.0.0.1';
+      return `http://${host}:${port}`;
+    },
+    pathRewrite: (_path, req) => {
+      const port = (req.params as any)?.port;
+      return req.originalUrl.replace(new RegExp(`^/stream/cdp/${port}`), '') || '/';
+    },
+    onProxyReq: (proxyReq, req) => {
+      const port = (req.params as any)?.port;
+      if (targetHost) proxyReq.setHeader('host', `${targetHost}:${port}`);
+    },
+    selfHandleResponse: false,
+    logLevel: process.env.NODE_ENV === 'production' ? 'warn' : 'info',
+  })
+);
+
 export default router;
 
 
