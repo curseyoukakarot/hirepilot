@@ -27,7 +27,8 @@ function getDocker(): Docker {
     const opts: any = {
       protocol: url.protocol.replace(':', ''),
       host: url.hostname,
-      port: url.port ? Number(url.port) : (tlsEnabled ? 2376 : 2375)
+      port: url.port ? Number(url.port) : (tlsEnabled ? 2376 : 2375),
+      servername: url.hostname
     };
     const debugTls = (() => { const v = String(process.env.DOCKER_TLS_DEBUG || '').toLowerCase(); return v === '1' || v === 'true'; })();
     if (debugTls) {
@@ -118,6 +119,17 @@ function getDocker(): Docker {
     if (typeof opts.key === 'string') opts.key = (opts.key as string).trim() + (/(\n)$/.test(opts.key as string) ? '' : '\n');
     // Force modern TLS
     (opts as any).minVersion = 'TLSv1.2';
+    // Convert CA strings to Buffers for Node TLS
+    if (Array.isArray(opts.ca)) {
+      opts.ca = (opts.ca as string[]).map((c) => Buffer.from(c, 'utf8'));
+    }
+
+    // Optional insecure toggle for debugging
+    const insecure = String(process.env.DOCKER_TLS_INSECURE || '').toLowerCase();
+    if (insecure === '1' || insecure === 'true') {
+      (opts as any).rejectUnauthorized = false;
+    }
+
     if (debugTls) {
       const caPreview = Array.isArray(opts.ca)
         ? `<arr:${(opts.ca as string[]).length}>`
