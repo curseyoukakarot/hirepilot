@@ -320,6 +320,7 @@ function InnerApp() {
   // Whether the current authenticated user is a guest collaborator (computed below)
   const [isGuestUser, setIsGuestUser] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     // Detect mobile viewport (tailwind md breakpoint ~768px)
@@ -330,6 +331,17 @@ function InnerApp() {
     } catch {}
     apply();
     return () => { try { if (mq.removeEventListener) mq.removeEventListener('change', apply); else mq.removeListener(apply); } catch {} };
+  }, []);
+
+  // Initialize sidebar collapsed state from localStorage and keep it in sync via events
+  useEffect(() => {
+    try { setSidebarCollapsed(localStorage.getItem('sidebar_collapsed') === '1'); } catch {}
+    const handler = (e) => {
+      const collapsed = e?.detail?.collapsed;
+      if (typeof collapsed === 'boolean') setSidebarCollapsed(collapsed);
+    };
+    window.addEventListener('sidebar:toggle', handler);
+    return () => window.removeEventListener('sidebar:toggle', handler);
   }, []);
 
   // If partners routes are hit on the main domain, redirect to affiliates subdomain
@@ -477,12 +489,12 @@ function InnerApp() {
       />
       <div className={`flex flex-1 ${(!isRexMobile && !isAuthPage && !(location.pathname.startsWith('/accept-guest') || location.pathname === '/signout' || (isGuestUser && (location.pathname.startsWith('/job/') || location.pathname === '/settings')))) ? 'pt-[72px]' : ''}`}>
         {!isRexMobile && !isAuthPage && !isPartnerArea && !(location.pathname.startsWith('/accept-guest') || location.pathname === '/signout' || (isGuestUser && (location.pathname.startsWith('/job/') || location.pathname === '/settings'))) && (
-          <div id="app-sidebar" className="fixed left-0 top-[72px] bottom-0 w-64 transition-all duration-200"><Sidebar /></div>
+          <div id="app-sidebar" className={`fixed left-0 top-[72px] bottom-0 ${sidebarCollapsed ? 'w-16' : 'w-64'} transition-all duration-200`}><Sidebar /></div>
         )}
         <main id="app-main" className={
           isRexMobile
             ? 'fixed inset-0 m-0 p-0 min-h-0 overflow-hidden'
-            : `flex-1 transition-all duration-200 ${!isAuthPage && !isPartnerArea && !(location.pathname.startsWith('/accept-guest') || location.pathname === '/signout' || (isGuestUser && (location.pathname.startsWith('/job/') || location.pathname === '/settings'))) ? (location.pathname === '/rex-chat' ? 'ml-64 min-h-0 overflow-hidden' : 'ml-64 min-h-0 overflow-y-auto') : ''}`
+            : `flex-1 transition-all duration-200 ${!isAuthPage && !isPartnerArea && !(location.pathname.startsWith('/accept-guest') || location.pathname === '/signout' || (isGuestUser && (location.pathname.startsWith('/job/') || location.pathname === '/settings'))) ? (location.pathname === '/rex-chat' ? `${sidebarCollapsed ? 'ml-16' : 'ml-64'} min-h-0 overflow-hidden` : `${sidebarCollapsed ? 'ml-16' : 'ml-64'} min-h-0 overflow-y-auto`) : ''}`
         }>
           {!isAuthPage && <OnboardingModals />}
           <Suspense fallback={
