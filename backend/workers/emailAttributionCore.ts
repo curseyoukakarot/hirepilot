@@ -48,9 +48,9 @@ export async function attributeEvent(ev: EmailEventRow): Promise<boolean> {
 
     // Step 1: Extract from metadata.raw (primary source)
     if (metadata?.raw) {
-      user_id = user_id || metadata.raw.user_id || null;
-      campaign_id = campaign_id || metadata.raw.campaign_id || null;
-      lead_id = lead_id || metadata.raw.lead_id || null;
+      user_id = user_id || metadata.raw.user_id || metadata.raw.hp_user_id || null;
+      campaign_id = campaign_id || metadata.raw.campaign_id || metadata.raw.hp_campaign_id || null;
+      lead_id = lead_id || metadata.raw.lead_id || metadata.raw.hp_lead_id || null;
       
       // Also extract email if not already present
       email = email || metadata.raw.email || null;
@@ -76,6 +76,20 @@ export async function attributeEvent(ev: EmailEventRow): Promise<boolean> {
 
     // Step 3: Update if we found anything
     if (user_id || campaign_id || lead_id) {
+      // Validate campaign_id exists before updating to avoid FK constraint errors
+      if (campaign_id) {
+        const { data: campaignExists } = await supabaseAdmin
+          .from('campaigns')
+          .select('id')
+          .eq('id', campaign_id)
+          .maybeSingle();
+        
+        if (!campaignExists) {
+          log.warn('Campaign not found, setting to null', { campaign_id, sg_event_id: ev.sg_event_id });
+          campaign_id = null;
+        }
+      }
+
       const { error: updErr } = await supabaseAdmin
         .from('email_events')
         .update({ user_id, campaign_id, lead_id })
