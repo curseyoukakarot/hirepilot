@@ -19,19 +19,15 @@ router.post("/tickets/create", async (req, res) => {
   }
 
   try {
+    const insertData: any = {
+      user_id,
+      issue_kind,
+      summary
+    };
+
     const { data, error } = await supabaseAdmin
       .from("support_tickets")
-      .insert({
-        user_id,
-        issue_kind,
-        summary,
-        signals: signals || {},
-        repro_steps: repro_steps || null,
-        attempted_fixes: attempted_fixes || [],
-        customer_impact: customer_impact || null,
-        status: "open",
-        priority: "p2"
-      })
+      .insert(insertData)
       .select("id")
       .single();
 
