@@ -12,7 +12,7 @@ router.post("/lookup-user", async (req, res) => {
     if (email) {
       const { data, error } = await supabaseAdmin
         .from("users")
-        .select("id, first_name, last_name, email, plan")
+        .select("id, email, plan")
         .eq("email", email)
         .maybeSingle();
       if (error) throw error;
@@ -29,7 +29,7 @@ router.post("/lookup-user", async (req, res) => {
       if (data?.user_id) {
         const { data: user, error: uerr } = await supabaseAdmin
           .from("users")
-          .select("id, first_name, last_name, email, plan")
+          .select("id, email, plan")
           .eq("id", data.user_id)
           .maybeSingle();
         if (uerr) throw uerr;
@@ -41,7 +41,7 @@ router.post("/lookup-user", async (req, res) => {
 
     return res.json({
       user_id: userRow.id,
-      name: [userRow.first_name, userRow.last_name].filter(Boolean).join(" ") || userRow.email,
+      name: null,
       email: userRow.email,
       plan: userRow.plan,
       status: null
