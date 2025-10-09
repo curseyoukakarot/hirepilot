@@ -46,40 +46,19 @@ export async function attributeEvent(ev: EmailEventRow): Promise<boolean> {
     let campaign_id: string | null = ev.campaign_id;
     let lead_id: string | null = ev.lead_id;
 
-    // Step 1: try message identifiers
-    // Note: messages table doesn't have sg_message_id, but may have message_id column
-    let msg: any = null;
-    
-    if (message_id) {
-      // Try to find by our custom message_id first
-      const { data: msgById, error: e1 } = await supabaseAdmin
-        .from('messages')
-        .select('user_id,campaign_id,lead_id')
-        .eq('id', message_id)
-        .maybeSingle();
-      if (e1) throw e1;
-      msg = msgById;
-    }
-    
-    // If not found and we have sg_message_id, try to find by any message_id column that might exist
-    if (!msg && sg_message_id) {
-      const { data: msgBySg, error: e2 } = await supabaseAdmin
-        .from('messages')
-        .select('user_id,campaign_id,lead_id')
-        .eq('message_id', sg_message_id)
-        .maybeSingle();
-      if (!e2) msg = msgBySg; // Ignore error if column doesn't exist
+    // Step 1: Extract from metadata.raw (primary source)
+    if (metadata?.raw) {
+      user_id = user_id || metadata.raw.user_id || null;
+      campaign_id = campaign_id || metadata.raw.campaign_id || null;
+      lead_id = lead_id || metadata.raw.lead_id || null;
+      
+      // Also extract email if not already present
+      email = email || metadata.raw.email || null;
     }
 
-    if (msg) {
-      user_id = user_id || msg.user_id || null;
-      campaign_id = campaign_id || msg.campaign_id || null;
-      lead_id = lead_id || msg.lead_id || null;
-    }
-
-    // Step 2: fallback by recipient email (most recent send)
+    // Step 2: Fallback - match by recipient email if still missing data
     if ((!user_id || !campaign_id) && email) {
-      const { data: msg2, error: e2 } = await supabaseAdmin
+      const { data: msg, error: e1 } = await supabaseAdmin
         .from('messages')
         .select('user_id,campaign_id,lead_id')
         .eq('to_email', email)
@@ -87,11 +66,11 @@ export async function attributeEvent(ev: EmailEventRow): Promise<boolean> {
         .limit(1)
         .maybeSingle();
 
-      if (e2) throw e2;
-      if (msg2) {
-        user_id = user_id || msg2.user_id || null;
-        campaign_id = campaign_id || msg2.campaign_id || null;
-        lead_id = lead_id || msg2.lead_id || null;
+      if (e1) throw e1;
+      if (msg) {
+        user_id = user_id || msg.user_id || null;
+        campaign_id = campaign_id || msg.campaign_id || null;
+        lead_id = lead_id || msg.lead_id || null;
       }
     }
 
