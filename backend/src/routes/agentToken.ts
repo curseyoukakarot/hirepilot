@@ -19,7 +19,7 @@ router.post("/agent-token", async (_req, res) => {
         scope: "support_tools"
       },
       SERVICE_SECRET,
-      { expiresIn: "15m" }
+      { expiresIn: "24h" }
     );
 
     res.json({ token });
