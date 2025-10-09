@@ -11,6 +11,7 @@
         "worker:campaign": "ts-node workers/campaignQueueWorker.ts",
         "worker:attribution": "ts-node workers/emailAttributionWorker.ts",
         "worker:backfill": "ts-node workers/emailAttributionBackfill.ts",
+        "worker:attribution-standalone": "ts-node workers/standalone/emailAttributionStandalone.ts",
         "test:puppet": "ts-node scripts/testPuppetSystem.ts",
         "test:linkedin": "ts-node scripts/testLinkedInConnection.ts",
         "test:proxy": "ts-node scripts/testProxyIntegration.ts",
