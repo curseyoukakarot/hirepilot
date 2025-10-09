@@ -139,6 +139,9 @@ import { startFreeForeverWorker } from './jobs/freeForeverCadence';
 import sessionRouter from './services/linkedin-remote/api/sessionRouter';
 import streamProxyRouter from './services/linkedin-remote/stream/proxy';
 import { bootLinkedinWorker } from './services/linkedin-remote/queue/workers/linkedinWorker';
+// MCP Support Agent routes
+import agentTokenRoute from './src/routes/agentToken';
+import supportTools from './src/routes/support';
 
 declare module 'express-list-endpoints';
 
@@ -248,8 +251,10 @@ app.use(bodyParser.urlencoded({ limit: '25mb', extended: true }));
 
 // Debug middleware
 app.use((req, res, next) => {
+  const headers = { ...req.headers } as any;
+  if (headers.authorization) headers.authorization = '[redacted]';
   console.log(`${req.method} ${req.path}`, {
-    headers: req.headers,
+    headers,
     query: req.query,
     body: req.body
   });
@@ -393,6 +398,10 @@ app.post('/api/rex/tools/linkedin_connect', linkedinConnectHandler);
 // Attaching requireAuth here would unintentionally protect ALL '/api/*' routes,
 // including public OAuth callbacks like '/api/auth/outlook/callback'.
 app.use('/api', rexConversationsRouter);
+// Public: issue short-lived JWT for Agent Builder setup
+app.use('/api', agentTokenRoute);
+// Protected: MCP tool endpoints (token verified inside support router)
+app.use('/agent-tools/support', supportTools);
 // Cron-safe fallback email endpoint
 app.use('/api/cron', sendLiveChatFallbacksRouter);
 app.post('/api/integrations/slack/enabled', slackToggle);
