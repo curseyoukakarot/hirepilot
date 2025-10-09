@@ -255,27 +255,27 @@ export default function Analytics() {
       {/* Main Content */}
       <main className="px-6 py-8 mx-auto max-w-7xl">
         {/* Metrics Cards */}
-        <div className="grid grid-cols-5 gap-4 mb-8">
-          <div className="p-4 bg-white rounded-lg shadow-sm">
-            <h3 className="text-sm font-medium text-gray-500">Leads Messaged</h3>
-            <p className="mt-2 text-2xl font-semibold text-gray-900">{loading ? <span className="animate-pulse">...</span> : selectedMetrics.sent}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-8">
+          <div className="p-3 sm:p-4 bg-white rounded-lg shadow-sm">
+            <h3 className="text-xs sm:text-sm font-medium text-gray-500">Leads Messaged</h3>
+            <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900">{loading ? <span className="animate-pulse">...</span> : selectedMetrics.sent}</p>
           </div>
-          <div className="p-4 bg-white rounded-lg shadow-sm">
-            <h3 className="text-sm font-medium text-gray-500">Open Rate</h3>
-            <p className="mt-2 text-2xl font-semibold text-gray-900">{loading ? <span className="animate-pulse">...</span> : `${selectedMetrics.open_rate?.toFixed(1) || 0}%`}</p>
+          <div className="p-3 sm:p-4 bg-white rounded-lg shadow-sm">
+            <h3 className="text-xs sm:text-sm font-medium text-gray-500">Open Rate</h3>
+            <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900">{loading ? <span className="animate-pulse">...</span> : `${selectedMetrics.open_rate?.toFixed(1) || 0}%`}</p>
           </div>
-          <div className="p-4 bg-white rounded-lg shadow-sm">
-            <h3 className="text-sm font-medium text-gray-500">Reply Rate</h3>
-            <p className="mt-2 text-2xl font-semibold text-gray-900">{loading ? <span className="animate-pulse">...</span> : `${selectedMetrics.reply_rate?.toFixed(1) || 0}%`}</p>
+          <div className="p-3 sm:p-4 bg-white rounded-lg shadow-sm">
+            <h3 className="text-xs sm:text-sm font-medium text-gray-500">Reply Rate</h3>
+            <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900">{loading ? <span className="animate-pulse">...</span> : `${selectedMetrics.reply_rate?.toFixed(1) || 0}%`}</p>
           </div>
-          <div className="p-4 bg-white rounded-lg shadow-sm">
-            <h3 className="text-sm font-medium text-gray-500">Conversion Rate</h3>
-            <p className="mt-2 text-2xl font-semibold text-gray-900">{loading ? <span className="animate-pulse">...</span> : `${selectedMetrics.conversion_rate?.toFixed(1) || 0}%`}</p>
+          <div className="p-3 sm:p-4 bg-white rounded-lg shadow-sm">
+            <h3 className="text-xs sm:text-sm font-medium text-gray-500">Conversion Rate</h3>
+            <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900">{loading ? <span className="animate-pulse">...</span> : `${selectedMetrics.conversion_rate?.toFixed(1) || 0}%`}</p>
           </div>
-          <div className="p-4 bg-white rounded-lg shadow-sm">
-            <h3 className="text-sm font-medium text-gray-500">Converted Candidates</h3>
-            <p className="mt-2 text-2xl font-semibold text-gray-900">{loading ? <span className="animate-pulse">...</span> : total.converted_candidates}</p>
-            <div className="text-xs text-green-500">{loading ? <span className="animate-pulse">...</span> : `${conversionRate.toFixed(1)}% Conversion Rate`}</div>
+          <div className="p-3 sm:p-4 bg-white rounded-lg shadow-sm">
+            <h3 className="text-xs sm:text-sm font-medium text-gray-500">Converted Candidates</h3>
+            <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900">{loading ? <span className="animate-pulse">...</span> : total.converted_candidates}</p>
+            <div className="text-[10px] sm:text-xs text-green-500">{loading ? <span className="animate-pulse">...</span> : `${conversionRate.toFixed(1)}% Conversion Rate`}</div>
           </div>
         </div>
 
