@@ -428,6 +428,12 @@ app.use('/api', rexConversationsRouter);
 app.use('/api', agentTokenRoute);
 // Protected: MCP tool endpoints (token verified inside support router)
 // MCP SSE endpoint for Agent Builder (mount BEFORE token-protected router)
+// Ensure raw body is available to MCP messages endpoint so SDK can parse JSON-RPC itself
+try {
+  app.use('/agent-tools/support/mcp/messages', bodyParser.raw({ type: '*/*', limit: '5mb' }));
+} catch (e) {
+  console.warn('[MCP] Failed to attach raw body parser for messages:', e?.message || e);
+}
 try {
   const { createSupportMcpRouter } = require('./src/support/mcp.server');
   // GET /agent-tools/support/mcp → SSE stream

@@ -127,7 +127,8 @@ export function createSupportMcpRouter(): Router {
   // Per-connection GET handler: create transport with live response stream
   supportMcpRouter.get('/', (req, res) => {
     try {
-      const transport = new SSEServerTransport('/messages', res as any);
+      // Emit absolute messages path so clients do not mis-resolve the endpoint
+      const transport = new SSEServerTransport('/agent-tools/support/mcp/messages', res as any);
       // @ts-ignore - sessionId provided by transport implementation
       const sessionId: string = (transport as any).sessionId || Math.random().toString(36).slice(2);
       sseTransports.set(sessionId, transport);
@@ -135,6 +136,15 @@ export function createSupportMcpRouter(): Router {
       res.on('close', () => {
         sseTransports.delete(sessionId);
       });
+
+      // Basic keepalive pings to prevent idle disconnects
+      try {
+        (res as any).write(': ping\n\n');
+      } catch {}
+      const keepalive = setInterval(() => {
+        try { (res as any).write(': keepalive\n\n'); } catch {}
+      }, 15000);
+      res.on('close', () => clearInterval(keepalive));
 
       server.connect(transport);
     } catch (err) {
@@ -146,10 +156,11 @@ export function createSupportMcpRouter(): Router {
   // POST handler for bidirectional messages from client
   supportMcpRouter.post('/messages', async (req, res) => {
     try {
-      const sessionId = (req.query.sessionId as string) || (req.headers['x-mcp-session'] as string) || '';
+      const sessionId = (req.query.sessionId as string) || (req.headers['x-mcp-session'] as string) || (typeof (req as any).body === 'string' ? '' : (req as any).body?.sessionId) || '';
+      console.log('[MCP POST] url=', req.url, 'ct=', req.headers['content-type'], 'len=', req.headers['content-length'], 'session=', sessionId || 'missing');
       const transport = sessionId ? sseTransports.get(sessionId) : undefined;
       if (!transport) {
-        res.status(400).send('No session found');
+        res.status(400).json({ error: 'No session found', code: 'missing_session', hint: 'Include ?sessionId= from SSE endpoint or x-mcp-session header' });
         return;
       }
       // Some SDK versions expose a handlePostMessage helper
@@ -164,10 +175,10 @@ export function createSupportMcpRouter(): Router {
           return (transport as any).router(req, res);
         } catch {}
       }
-      res.status(501).send('handlePostMessage not supported');
+      res.status(501).json({ error: 'handlePostMessage not supported' });
     } catch (err) {
       console.error('[MCP SSE] post message error:', err);
-      res.status(500).send('message handling failed');
+      res.status(500).json({ error: 'message handling failed', detail: (err as any)?.message || String(err) });
     }
   });
 
