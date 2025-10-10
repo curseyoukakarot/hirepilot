@@ -1,4 +1,4 @@
-import express, { Router } from 'express';
+import { Router } from 'express';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { supabaseAdmin } from '../lib/supabaseAdmin';
@@ -144,7 +144,7 @@ export function createSupportMcpRouter(): Router {
   });
 
   // POST handler for bidirectional messages from client
-  supportMcpRouter.post('/messages', express.raw({ type: '*/*', limit: '5mb' }), async (req, res) => {
+  supportMcpRouter.post('/messages', async (req, res) => {
     try {
       const sessionId = (req.query.sessionId as string) || (req.headers['x-mcp-session'] as string) || '';
       const transport = sessionId ? sseTransports.get(sessionId) : undefined;

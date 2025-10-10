@@ -269,6 +269,7 @@ app.post('/api/slack/events', bodyParser.raw({ type: 'application/json' }), (req
 app.get('/api/slack-events/ping', (_req, res) => res.json({ ok: true }));
 
 // Parse JSON bodies for all other routes (increase limit for bulk operations)
+// IMPORTANT: JSON parser must not swallow raw bodies needed by some transports; safe for our routes
 app.use(express.json({ limit: '25mb' }));
 
 // Parse URL-encoded bodies (increase limit for bulk operations)
