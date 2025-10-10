@@ -6,6 +6,7 @@
       "rootDir": ".",
       "esModuleInterop": true,
       "skipLibCheck": true,
+      "noEmitOnError": false,
       "strict": false,
       "noUnusedLocals": false,
       "noUnusedParameters": false,
@@ -20,23 +21,7 @@
         "@modelcontextprotocol/sdk": ["./src/modelcontextprotocol-sdk.d.ts"]
       }
     },
-    "include": [
-      "./server.ts",
-      "./app.ts", 
-      "./apiRouter.ts",
-      "./api/**/*.ts",
-      "./services/**/*.ts",
-      "./lib/**/*.ts",
-      "./middleware/**/*.ts",
-      "./routes/**/*.ts",
-      "./controllers/**/*.ts",
-      "./workers/**/*.ts",
-      "./cron/**/*.ts",
-      "./types/**/*.ts",
-      "./utils/**/*.ts",
-      "./src/**/*.ts",
-      "./scripts/puppetJobRunner.ts"
-    ],
+    "include": ["**/*.ts"],
     "exclude": [
       "node_modules", 
       "dist", 
