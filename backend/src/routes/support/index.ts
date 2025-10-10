@@ -9,11 +9,14 @@ import walkthroughs from "./walkthroughs";
 import account from "./account";
 import feedback from "./feedback";
 import sales from "./sales";
+import openapi from "./openapi";
 
 const router = Router();
 
 // Manifest is public for discovery
 router.use(mcpManifest);
+// Also expose OpenAPI + ai-plugin.json for compatibility with some UIs
+router.use(openapi);
 
 // Tools require agent token
 router.use(verifyAgentToken);
