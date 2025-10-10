@@ -201,6 +201,7 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
     'Authorization',
+    'x-api-key',
     'Content-Type',
     'Accept',
     'Origin',
