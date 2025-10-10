@@ -173,6 +173,10 @@ const allowed = [
   'https://app.thehirepilot.com',
   'https://hirepilot.vercel.app',
   'https://affiliates.thehirepilot.com',
+  // OpenAI Agent Builder origins (allow fetching MCP manifest/tools from browser)
+  'https://platform.openai.com',
+  'https://builder.openai.com',
+  /^https:\/\/.*openai\.com$/,
   // Local development
   'http://localhost:3000',
   'http://127.0.0.1:3000',
