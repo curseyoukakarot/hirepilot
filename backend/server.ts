@@ -142,7 +142,7 @@ import { bootLinkedinWorker } from './services/linkedin-remote/queue/workers/lin
 // MCP Support Agent routes
 import agentTokenRoute from './src/routes/agentToken';
 import supportTools from './src/routes/support';
-import { createSupportMcpRouter } from './src/support/mcp.server';
+// Defer MCP SSE server initialization to runtime with a safe try/catch
 
 declare module 'express-list-endpoints';
 
@@ -408,7 +408,13 @@ app.use('/api', rexConversationsRouter);
 app.use('/api', agentTokenRoute);
 // Protected: MCP tool endpoints (token verified inside support router)
 // MCP SSE endpoint for Agent Builder (mount BEFORE token-protected router)
-app.use('/agent-tools/support/mcp', createSupportMcpRouter());
+try {
+  const { createSupportMcpRouter } = require('./src/support/mcp.server');
+  app.use('/agent-tools/support/mcp', createSupportMcpRouter());
+  console.log('[MCP] Support MCP SSE endpoint mounted');
+} catch (e) {
+  console.warn('[MCP] Failed to mount Support MCP SSE endpoint:', e?.message || e);
+}
 // Protected (by verifyAgentToken inside): MCP tool endpoints
 app.use('/agent-tools/support', supportTools);
 // Cron-safe fallback email endpoint
