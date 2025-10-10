@@ -148,10 +148,17 @@ export function createSupportMcpRouter(): Router {
     try {
       const sessionId = (req.query.sessionId as string) || (req.headers['x-mcp-session'] as string) || (typeof (req as any).body === 'string' ? '' : (req as any).body?.sessionId) || '';
       console.log('[MCP POST] url=', req.url, 'ct=', req.headers['content-type'], 'len=', req.headers['content-length'], 'session=', sessionId || 'missing');
-      const transport = sessionId ? sseTransports.get(sessionId) : undefined;
+      let transport = sessionId ? sseTransports.get(sessionId) : undefined;
       if (!transport) {
-        res.status(400).json({ error: 'No session found', code: 'missing_session', hint: 'Include ?sessionId= from SSE endpoint or x-mcp-session header' });
-        return;
+        // Fallback: use the most recent/only transport if available
+        const iter = sseTransports.values();
+        const first = iter.next().value as SSEServerTransport | undefined;
+        if (first) {
+          transport = first;
+        } else {
+          res.status(400).json({ error: 'No session found', code: 'missing_session', hint: 'Include ?sessionId= from SSE endpoint or x-mcp-session header' });
+          return;
+        }
       }
       // Some SDK versions expose a handlePostMessage helper
       if (typeof (transport as any).handlePostMessage === 'function') {
