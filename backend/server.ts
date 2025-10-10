@@ -142,6 +142,7 @@ import { bootLinkedinWorker } from './services/linkedin-remote/queue/workers/lin
 // MCP Support Agent routes
 import agentTokenRoute from './src/routes/agentToken';
 import supportTools from './src/routes/support';
+import { createSupportMcpRouter } from './src/support/mcp.server';
 
 declare module 'express-list-endpoints';
 
@@ -407,6 +408,8 @@ app.use('/api', rexConversationsRouter);
 app.use('/api', agentTokenRoute);
 // Protected: MCP tool endpoints (token verified inside support router)
 app.use('/agent-tools/support', supportTools);
+// MCP SSE endpoint for Agent Builder (alternative transport)
+app.use('/agent-tools/support', createSupportMcpRouter());
 // Cron-safe fallback email endpoint
 app.use('/api/cron', sendLiveChatFallbacksRouter);
 app.post('/api/integrations/slack/enabled', slackToggle);
