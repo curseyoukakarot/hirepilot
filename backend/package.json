@@ -33,7 +33,7 @@
         "test:notifications": "ts-node scripts/testNotificationsAPI.ts",
         "build": "tsc --incremental",
         "build:fast": "tsc --incremental --skipLibCheck --noEmit false",
-        "build:production": "tsc --skipLibCheck --incremental false --sourceMap false --declaration false",
+        "build:production": "tsc -p ../tsconfig.json",
         "build:ultra-fast": "tsc --skipLibCheck --noImplicitAny false --noEmitOnError false --sourceMap false --declaration false --incremental false",
         "build:clean": "rm -rf dist .tsbuildinfo && tsc --incremental",
         "start": "node dist/server.js",

@@ -46,41 +46,30 @@ WORKDIR /app
 # Copy everything to see what's available
 COPY . .
 RUN echo "=== DEBUG: All files in project root ===" && ls -la
-RUN echo "=== DEBUG: Looking for backend directory ===" && ls -la backend/ || echo "Backend directory not found"
-
-# If backend exists, move into it; otherwise use current directory
-RUN if [ -d "backend" ]; then \
-      echo "Backend directory found, moving files..." && \
-      cp -r backend/* . && \
-      rm -rf backend frontend hirepilot-cookie public api services shared src supabase tools; \
-    else \
-      echo "No backend directory - assuming files are already in root"; \
-    fi
-
-RUN echo "=== DEBUG: Final file structure ===" && ls -la
-RUN echo "=== DEBUG: Check for package.json ===" && ls -la package.json || echo "No package.json found"
+RUN echo "=== DEBUG: Confirm backend directory ===" && ls -la backend/ && ls -la backend/server.ts
+RUN echo "=== DEBUG: Show root tsconfig ===" && cat tsconfig.json
+RUN echo "=== DEBUG: Show backend package.json ===" && cat backend/package.json
 
 # Install dependencies
-RUN npm ci --production
+RUN npm ci --production --prefix backend
 
 # Install Chromium browser explicitly during build
 RUN npx playwright install chromium
 
 # Show files before build
-RUN echo "=== PRE-BUILD: Files before TypeScript build ===" && ls -la
-RUN echo "=== PRE-BUILD: Check for TypeScript files ===" && ls -la *.ts || echo "No TS files found"
-RUN echo "=== PRE-BUILD: Check server.ts specifically ===" && ls -la server.ts || echo "No server.ts found"
+RUN echo "=== PRE-BUILD: Files before TypeScript build ===" && ls -la backend
+RUN echo "=== PRE-BUILD: Check server.ts specifically ===" && ls -la backend/server.ts
 
 # Build the TypeScript application
-RUN npm run build:production
+RUN npm run build:production --prefix backend
 
 # Debug: Show what got built
 RUN echo "=== POST-BUILD: Directory structure ===" && pwd && ls -la
-RUN echo "=== POST-BUILD: Dist directory ===" && ls -la dist/ || echo "No dist directory found"
-RUN echo "=== POST-BUILD: Looking for server files ===" && find . -name "*server*" -type f || echo "No server files found"
+RUN echo "=== POST-BUILD: Dist directory ===" && ls -la backend/dist/ || echo "No dist directory found"
+RUN echo "=== POST-BUILD: Looking for server files ===" && find backend -name "server.js" -type f || echo "No server files found"
 
 # Expose app port (server binds to $PORT or 8080)
 EXPOSE 8080
 
 # Start command (we're already in /app/backend)
-CMD ["npm", "start"]
+CMD ["npm", "start", "--prefix", "backend"]
