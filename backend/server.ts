@@ -429,6 +429,8 @@ app.use('/api', agentTokenRoute);
 // MCP SSE endpoint for Agent Builder (mount BEFORE token-protected router)
 try {
   const { createSupportMcpRouter } = require('./src/support/mcp.server');
+  // GET /agent-tools/support/mcp → SSE stream
+  // POST /agent-tools/support/mcp/messages → bidirectional messages
   app.use('/agent-tools/support/mcp', createSupportMcpRouter());
   console.log('[MCP] Support MCP SSE endpoint mounted');
 } catch (e) {

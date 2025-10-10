@@ -104,9 +104,49 @@ export function createSupportMcpRouter(): Router {
     }
   });
 
-  // Create transport and attach to provided router at root
-  const transport = new SSEServerTransport('/', supportMcpRouter as any);
-  server.connect(transport);
+  // Maintain active SSE transports by session
+  const sseTransports = new Map<string, SSEServerTransport>();
+
+  // Per-connection GET handler: create transport with live response stream
+  supportMcpRouter.get('/', (req, res) => {
+    try {
+      const transport = new SSEServerTransport('/messages', res as any);
+      // @ts-ignore - sessionId provided by transport implementation
+      const sessionId: string = (transport as any).sessionId || Math.random().toString(36).slice(2);
+      sseTransports.set(sessionId, transport);
+
+      res.on('close', () => {
+        sseTransports.delete(sessionId);
+      });
+
+      server.connect(transport);
+    } catch (err) {
+      console.error('[MCP SSE] setup error:', err);
+      try { res.status(500).send('SSE setup failed'); } catch {}
+    }
+  });
+
+  // POST handler for bidirectional messages from client
+  supportMcpRouter.post('/messages', async (req, res) => {
+    try {
+      const sessionId = (req.query.sessionId as string) || (req.headers['x-mcp-session'] as string) || '';
+      const transport = sessionId ? sseTransports.get(sessionId) : undefined;
+      if (!transport) {
+        res.status(400).send('No session found');
+        return;
+      }
+      // Some SDK versions expose a handlePostMessage helper
+      if (typeof (transport as any).handlePostMessage === 'function') {
+        await (transport as any).handlePostMessage(req, res, req.body);
+        return;
+      }
+      // Fallback: let transport router/process handle this if available
+      res.status(501).send('handlePostMessage not supported');
+    } catch (err) {
+      console.error('[MCP SSE] post message error:', err);
+      res.status(500).send('message handling failed');
+    }
+  });
 
   return supportMcpRouter;
 }
