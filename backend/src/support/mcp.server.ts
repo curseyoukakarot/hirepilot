@@ -18,6 +18,11 @@ export function createSupportMcpRouter(): Router {
           properties: { email: { type: 'string' }, session_token: { type: 'string' } },
           additionalProperties: false
         },
+        input_schema: {
+          type: 'object',
+          properties: { email: { type: 'string' }, session_token: { type: 'string' } },
+          additionalProperties: false
+        },
         handler: async (args: any) => {
           const { email, session_token } = args || {};
           let user: any = null;
@@ -62,17 +67,24 @@ export function createSupportMcpRouter(): Router {
       fetch_plan: {
         description: 'Return plan info',
         parameters: { type: 'object', properties: { user_id: { type: 'string' } }, required: ['user_id'] },
+        input_schema: { type: 'object', properties: { user_id: { type: 'string' } }, required: ['user_id'] },
         handler: async () =>
           ({ content: [{ type: 'text', text: JSON.stringify({ plan: 'pro', seats: 5, credits: 12000, renews_on: '2026-01-01' }) }] } as any)
       },
       check_service_health: {
         description: 'Service health',
         parameters: { type: 'object', properties: { service: { type: 'string' } }, required: ['service'] },
+        input_schema: { type: 'object', properties: { service: { type: 'string' } }, required: ['service'] },
         handler: async () => ({ content: [{ type: 'text', text: JSON.stringify({ status: 'ok' }) }] } as any)
       },
       notify_email_thread: {
         description: 'Send support email',
         parameters: {
+          type: 'object',
+          properties: { to: { type: 'string' }, subject: { type: 'string' }, body: { type: 'string' } },
+          required: ['to', 'subject', 'body']
+        },
+        input_schema: {
           type: 'object',
           properties: { to: { type: 'string' }, subject: { type: 'string' }, body: { type: 'string' } },
           required: ['to', 'subject', 'body']
@@ -86,6 +98,11 @@ export function createSupportMcpRouter(): Router {
       create_ticket: {
         description: 'Create support ticket',
         parameters: {
+          type: 'object',
+          properties: { user_id: { type: 'string' }, issue_kind: { type: 'string' }, summary: { type: 'string' } },
+          required: ['user_id', 'issue_kind', 'summary']
+        },
+        input_schema: {
           type: 'object',
           properties: { user_id: { type: 'string' }, issue_kind: { type: 'string' }, summary: { type: 'string' } },
           required: ['user_id', 'issue_kind', 'summary']
