@@ -407,9 +407,10 @@ app.use('/api', rexConversationsRouter);
 // Public: issue short-lived JWT for Agent Builder setup
 app.use('/api', agentTokenRoute);
 // Protected: MCP tool endpoints (token verified inside support router)
+// MCP SSE endpoint for Agent Builder (mount BEFORE token-protected router)
+app.use('/agent-tools/support/mcp', createSupportMcpRouter());
+// Protected (by verifyAgentToken inside): MCP tool endpoints
 app.use('/agent-tools/support', supportTools);
-// MCP SSE endpoint for Agent Builder (alternative transport)
-app.use('/agent-tools/support', createSupportMcpRouter());
 // Cron-safe fallback email endpoint
 app.use('/api/cron', sendLiveChatFallbacksRouter);
 app.post('/api/integrations/slack/enabled', slackToggle);
