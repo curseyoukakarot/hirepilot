@@ -167,6 +167,25 @@ const PORT = process.env.PORT || 8080;
 // Health check route (before CORS)
 app.get('/health', (_, res) => res.json({ ok: true }));
 
+// Expose root-level ai-plugin.json for OpenAI Actions (duplicate of support plugin)
+app.get('/.well-known/ai-plugin.json', (_req, res) => {
+  res.json({
+    schema_version: "v1",
+    name_for_human: "HirePilot Support Tools",
+    name_for_model: "hirepilot_support_tools",
+    description_for_human: "Support tools for user lookup, tickets, health checks, and more.",
+    description_for_model: "Expose support-related tools including lookup_user, create_ticket, notify_email_thread, and diagnostics checks.",
+    auth: { type: "none" },
+    api: {
+      type: "openapi",
+      url: `${process.env.BACKEND_URL || ''}/agent-tools/support/openapi.json`
+    },
+    logo_url: `${process.env.BACKEND_URL || ''}/favicon.ico`,
+    contact_email: "support@thehirepilot.com",
+    legal_info_url: "https://thehirepilot.com/legal"
+  });
+});
+
 // Configure CORS before routes
 const allowed = [
   'https://thehirepilot.com',
