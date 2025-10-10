@@ -3,7 +3,11 @@
   "private": true,
   "scripts": {
     "build:production": "tsc -p tsconfig.json",
-    "start": "node dist/server.js || node dist/backend/server.js"
+    "start": "node -r ts-node/register server.ts"
+  },
+  "dependencies": {
+    "ts-node": "^10.9.1",
+    "typescript": "^5.3.3"
   }
 }
 
