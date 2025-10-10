@@ -1,0 +1,10 @@
+{
+  "name": "hirepilot-root",
+  "private": true,
+  "scripts": {
+    "build:production": "tsc -p tsconfig.json",
+    "start": "node dist/server.js || node dist/backend/server.js"
+  }
+}
+
+
