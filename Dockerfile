@@ -46,30 +46,29 @@ WORKDIR /app
 # Copy everything to see what's available
 COPY . .
 RUN echo "=== DEBUG: All files in project root ===" && ls -la
-RUN echo "=== DEBUG: Confirm backend directory ===" && ls -la backend/ && ls -la backend/server.ts
 RUN echo "=== DEBUG: Show root tsconfig ===" && cat tsconfig.json
-RUN echo "=== DEBUG: Show backend package.json ===" && cat backend/package.json
+RUN echo "=== DEBUG: Show backend package.json (if present) ===" && (cat backend/package.json || true)
 
 # Install dependencies
-RUN npm ci --production --prefix backend
+RUN if [ -f "backend/package.json" ]; then npm ci --production --prefix backend; else npm ci --production; fi
 
 # Install Chromium browser explicitly during build
 RUN npx playwright install chromium
 
 # Show files before build
-RUN echo "=== PRE-BUILD: Files before TypeScript build ===" && ls -la backend
-RUN echo "=== PRE-BUILD: Check server.ts specifically ===" && ls -la backend/server.ts
+RUN echo "=== PRE-BUILD: Files before TypeScript build (root) ===" && ls -la
+RUN echo "=== PRE-BUILD: Check server.ts at backend or root ===" && (ls -la backend/server.ts || ls -la server.ts)
 
 # Build the TypeScript application
-RUN npm run build:production --prefix backend
+RUN if [ -f "backend/package.json" ]; then npm run build:production --prefix backend; else npm run build:production; fi
 
 # Debug: Show what got built
 RUN echo "=== POST-BUILD: Directory structure ===" && pwd && ls -la
-RUN echo "=== POST-BUILD: Dist directory ===" && ls -la backend/dist/ || echo "No dist directory found"
-RUN echo "=== POST-BUILD: Looking for server files ===" && find backend -name "server.js" -type f || echo "No server files found"
+RUN echo "=== POST-BUILD: Dist directory (root or backend) ===" && (ls -la dist/ || ls -la backend/dist/ || true)
+RUN echo "=== POST-BUILD: Looking for server files ===" && (find . -name "server.js" -type f || true)
 
 # Expose app port (server binds to $PORT or 8080)
 EXPOSE 8080
 
 # Start command (we're already in /app/backend)
-CMD ["npm", "start", "--prefix", "backend"]
+CMD ["/bin/sh", "-lc", "if [ -f backend/package.json ]; then npm start --prefix backend; else npm start; fi"]

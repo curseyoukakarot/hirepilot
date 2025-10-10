@@ -3,7 +3,7 @@
     "target": "ES2020",
     "module": "CommonJS",
     "outDir": "dist",
-    "rootDir": "./backend",
+    "rootDir": ".",
     "esModuleInterop": true,
     "skipLibCheck": true,
     "noEmitOnError": false,
@@ -13,7 +13,7 @@
     "declaration": false,
     "sourceMap": false
   },
-  "include": ["backend/**/*.ts"],
+  "include": ["**/*.ts"],
   "exclude": [
     "node_modules",
     "dist",
