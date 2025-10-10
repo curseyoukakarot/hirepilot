@@ -137,15 +137,7 @@ export function createSupportMcpRouter(): Router {
         sseTransports.delete(sessionId);
       });
 
-      // Basic keepalive pings to prevent idle disconnects
-      try {
-        (res as any).write(': ping\n\n');
-      } catch {}
-      const keepalive = setInterval(() => {
-        try { (res as any).write(': keepalive\n\n'); } catch {}
-      }, 15000);
-      res.on('close', () => clearInterval(keepalive));
-
+      // Start the SSE transport (this writes headers); do not write to res before connect()
       server.connect(transport);
     } catch (err) {
       console.error('[MCP SSE] setup error:', err);
