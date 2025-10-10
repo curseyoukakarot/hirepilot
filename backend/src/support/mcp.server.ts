@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import express, { Router } from 'express';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { supabaseAdmin } from '../lib/supabaseAdmin';
@@ -144,7 +144,7 @@ export function createSupportMcpRouter(): Router {
   });
 
   // POST handler for bidirectional messages from client
-  supportMcpRouter.post('/messages', async (req, res) => {
+  supportMcpRouter.post('/messages', express.raw({ type: '*/*', limit: '5mb' }), async (req, res) => {
     try {
       const sessionId = (req.query.sessionId as string) || (req.headers['x-mcp-session'] as string) || '';
       const transport = sessionId ? sseTransports.get(sessionId) : undefined;
@@ -154,10 +154,16 @@ export function createSupportMcpRouter(): Router {
       }
       // Some SDK versions expose a handlePostMessage helper
       if (typeof (transport as any).handlePostMessage === 'function') {
-        await (transport as any).handlePostMessage(req, res, req.body);
+        await (transport as any).handlePostMessage(req, res);
         return;
       }
       // Fallback: let transport router/process handle this if available
+      if ((transport as any).router) {
+        try {
+          // Delegate to internal router; mount a one-off handler if needed
+          return (transport as any).router(req, res);
+        } catch {}
+      }
       res.status(501).send('handlePostMessage not supported');
     } catch (err) {
       console.error('[MCP SSE] post message error:', err);
