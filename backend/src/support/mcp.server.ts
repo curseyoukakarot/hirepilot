@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import bodyParser from 'body-parser';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { supabaseAdmin } from '../lib/supabaseAdmin';
@@ -123,6 +124,27 @@ export function createSupportMcpRouter(): Router {
 
   // Maintain active SSE transports by session
   const sseTransports = new Map<string, SSEServerTransport>();
+
+  // HTTP transport (stateless) fallback for clients that POST JSON-RPC to the base path
+  // Tries to use the SDK's HTTP transport if available in the installed version
+  supportMcpRouter.post('/', bodyParser.raw({ type: '*/*', limit: '5mb' }), (req, res) => {
+    try {
+      // Dynamically load to avoid import errors if not present in this SDK version
+      // Prefer StreamableHTTPServerTransport, fallback to HTTPServerTransport
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const httpMod = require('@modelcontextprotocol/sdk/server/http.js');
+      const HTTPTransport = httpMod.StreamableHTTPServerTransport || httpMod.HTTPServerTransport;
+      if (!HTTPTransport) {
+        res.status(501).json({ error: 'HTTP transport not available in current SDK version' });
+        return;
+      }
+      const httpTransport = new HTTPTransport(req, res);
+      server.connect(httpTransport);
+    } catch (err) {
+      console.error('[MCP HTTP] error:', err);
+      res.status(500).json({ error: 'HTTP transport failed', detail: (err as any)?.message || String(err) });
+    }
+  });
 
   // Per-connection GET handler: create transport with live response stream
   supportMcpRouter.get('/', (req, res) => {
