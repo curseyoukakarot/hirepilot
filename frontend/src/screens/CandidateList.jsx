@@ -50,6 +50,22 @@ export default function CandidateList() {
   const [selectedPipelineId, setSelectedPipelineId] = useState('');
   const [candidateToAdd, setCandidateToAdd] = useState(null);
   const [showResumeWizard, setShowResumeWizard] = useState(false);
+  // Super Search state
+  const [superOpen, setSuperOpen] = useState(false);
+  const [ssQ, setSsQ] = useState('');
+  const [ssSkills, setSsSkills] = useState('');
+  const [ssTech, setSsTech] = useState('');
+  const [ssTitles, setSsTitles] = useState('');
+  const [ssCompanies, setSsCompanies] = useState('');
+  const [ssLocation, setSsLocation] = useState('');
+  const [ssFunding, setSsFunding] = useState('');
+  const [ssRevMin, setSsRevMin] = useState('');
+  const [ssRevMax, setSsRevMax] = useState('');
+  const [ssResults, setSsResults] = useState([]);
+  const [ssCount, setSsCount] = useState(0);
+  const [ssLoading, setSsLoading] = useState(false);
+  const [ssLimit, setSsLimit] = useState(25);
+  const [ssOffset, setSsOffset] = useState(0);
   const [addingToPipeline, setAddingToPipeline] = useState(false);
   const [showMetadata, setShowMetadata] = useState(false);
   const [metadataContext, setMetadataContext] = useState(null);
@@ -506,6 +522,88 @@ export default function CandidateList() {
               <option value="hired">Hired</option>
               <option value="rejected">Rejected</option>
             </select>
+          </div>
+        </div>
+      </div>
+
+      {/* --- Super Search --- */}
+      <div className="max-w-7xl mx-auto px-4 mb-8">
+        <div className="bg-white rounded-xl shadow-sm border p-4">
+          <div className="flex items-center justify-between">
+            <div className="text-lg font-semibold flex items-center"><FaSearch className="mr-2 text-gray-500"/>Candidate Super Search</div>
+            <button className="text-sm text-blue-600" onClick={()=>setSuperOpen(o=>!o)}>{superOpen ? 'Hide Advanced Filters' : 'Show Advanced Filters'}</button>
+          </div>
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+            <input className="border rounded px-3 py-2" placeholder="Search keywords" value={ssQ} onChange={e=>setSsQ(e.target.value)} />
+            <input className="border rounded px-3 py-2" placeholder="Location" value={ssLocation} onChange={e=>setSsLocation(e.target.value)} />
+            <div className="flex items-center gap-2">
+              <button className={`px-4 py-2 rounded ${ssLoading?'bg-gray-200 text-gray-500':'bg-blue-600 text-white'}`} onClick={async ()=>{
+                setSsLoading(true);
+                try {
+                  const { data: { session } } = await supabase.auth.getSession();
+                  const token = session?.access_token;
+                  const filters = {
+                    q: ssQ || undefined,
+                    skills: ssSkills ? ssSkills.split(',').map(s=>s.trim()).filter(Boolean) : undefined,
+                    tech: ssTech ? ssTech.split(',').map(s=>s.trim()).filter(Boolean) : undefined,
+                    titles: ssTitles ? ssTitles.split(',').map(s=>s.trim()).filter(Boolean) : undefined,
+                    companies: ssCompanies ? ssCompanies.split(',').map(s=>s.trim()).filter(Boolean) : undefined,
+                    location: ssLocation || undefined,
+                    fundingStage: ssFunding ? ssFunding.split(',').map(s=>s.trim()).filter(Boolean) : undefined,
+                    revenueMin: ssRevMin ? Number(ssRevMin) : undefined,
+                    revenueMax: ssRevMax ? Number(ssRevMax) : undefined,
+                    limit: ssLimit,
+                    offset: ssOffset
+                  };
+                  const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/search/candidates`, { method:'POST', headers: { 'Content-Type':'application/json', ...(token?{ Authorization: `Bearer ${token}` }:{}) }, body: JSON.stringify(filters) });
+                  const js = await resp.json();
+                  setSsResults(js?.rows || []);
+                  setSsCount(js?.count || 0);
+                } catch(e) {
+                  console.error('super search', e);
+                } finally {
+                  setSsLoading(false);
+                }
+              }}>{ssLoading?'Searching…':'Search'}</button>
+              <button className="px-3 py-2 rounded bg-gray-100" onClick={()=>{ setSsOffset(o=>Math.max(0, o-ssLimit)); }}>Prev</button>
+              <button className="px-3 py-2 rounded bg-gray-100" onClick={()=>{ setSsOffset(o=>o+ssLimit); }}>Next</button>
+            </div>
+          </div>
+          {superOpen && (
+            <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+              <input className="border rounded px-3 py-2" placeholder="Skills (comma)" value={ssSkills} onChange={e=>setSsSkills(e.target.value)} />
+              <input className="border rounded px-3 py-2" placeholder="Tech (comma)" value={ssTech} onChange={e=>setSsTech(e.target.value)} />
+              <input className="border rounded px-3 py-2" placeholder="Titles (comma)" value={ssTitles} onChange={e=>setSsTitles(e.target.value)} />
+              <input className="border rounded px-3 py-2" placeholder="Companies (comma)" value={ssCompanies} onChange={e=>setSsCompanies(e.target.value)} />
+              <input className="border rounded px-3 py-2" placeholder="Funding stage (comma)" value={ssFunding} onChange={e=>setSsFunding(e.target.value)} />
+              <div className="grid grid-cols-2 gap-2">
+                <input className="border rounded px-3 py-2" placeholder="Revenue min" value={ssRevMin} onChange={e=>setSsRevMin(e.target.value)} />
+                <input className="border rounded px-3 py-2" placeholder="Revenue max" value={ssRevMax} onChange={e=>setSsRevMax(e.target.value)} />
+              </div>
+            </div>
+          )}
+          <div className="mt-4">
+            {!!ssResults.length && (
+              <div>
+                <div className="text-sm text-gray-500 mb-2">{ssCount} result(s)</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {ssResults.map(r => (
+                    <div key={r.id} className="border rounded-lg p-3 bg-gray-50">
+                      <div className="font-medium text-gray-900">{(r.first_name||'') + ' ' + (r.last_name||'')}</div>
+                      <div className="text-sm text-gray-600">{r.title || '—'}</div>
+                      <div className="text-sm text-gray-500">{r.email || '—'}</div>
+                      <div className="mt-2 flex gap-2">
+                        <button className="px-3 py-1.5 bg-white border rounded text-sm" onClick={()=>{
+                          setSelectedCandidate(r);
+                          setShowDrawer(true);
+                        }}>Open</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {!ssResults.length && ssLoading && (<div className="text-sm text-gray-500">Searching…</div>)}
           </div>
         </div>
       </div>

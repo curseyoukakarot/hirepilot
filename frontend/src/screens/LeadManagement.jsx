@@ -1194,6 +1194,40 @@ function LeadManagement() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showBulkMessageModal]);
 
+  // Leads Super Search state
+  const [lsOpen, setLsOpen] = useState(false);
+  const [lsQ, setLsQ] = useState('');
+  const [lsSources, setLsSources] = useState('');
+  const [lsTags, setLsTags] = useState('');
+  const [lsTitle, setLsTitle] = useState('');
+  const [lsCompany, setLsCompany] = useState('');
+  const [lsLimit, setLsLimit] = useState(25);
+  const [lsOffset, setLsOffset] = useState(0);
+  const [lsLoading, setLsLoading] = useState(false);
+  const [lsRows, setLsRows] = useState([]);
+  const [lsCount, setLsCount] = useState(0);
+
+  const handleLsSearch = async () => {
+    setLsLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const payload = {
+        q: lsQ || undefined,
+        sources: lsSources ? lsSources.split(',').map(s=>s.trim()).filter(Boolean) : undefined,
+        tags: lsTags ? lsTags.split(',').map(s=>s.trim()).filter(Boolean) : undefined,
+        title: lsTitle || undefined,
+        company: lsCompany || undefined,
+        limit: lsLimit,
+        offset: lsOffset
+      };
+      const resp = await fetch(`${API_BASE_URL}/search/leads`, { method:'POST', headers: { 'Content-Type':'application/json', ...(token?{ Authorization: `Bearer ${token}` }:{}) }, body: JSON.stringify(payload) });
+      const js = await resp.json();
+      setLsRows(js?.rows || []);
+      setLsCount(js?.count || 0);
+    } finally { setLsLoading(false); }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <ToastContainer
@@ -1292,6 +1326,66 @@ function LeadManagement() {
               </select>
             </div>
           </div>
+        </div>
+
+        {/* Leads Super Search */}
+        <div className="bg-white rounded-lg shadow-sm border p-4 mb-4">
+          <div className="flex items-center justify-between">
+            <div className="text-lg font-semibold">Leads Super Search</div>
+            <button className="text-sm text-purple-600" onClick={()=>setLsOpen(o=>!o)}>{lsOpen?'Hide Filters':'Show Filters'}</button>
+          </div>
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+            <input className="border rounded px-3 py-2" placeholder="Search keywords" value={lsQ} onChange={e=>setLsQ(e.target.value)} />
+            <input className="border rounded px-3 py-2" placeholder="Title" value={lsTitle} onChange={e=>setLsTitle(e.target.value)} />
+            <input className="border rounded px-3 py-2" placeholder="Company" value={lsCompany} onChange={e=>setLsCompany(e.target.value)} />
+          </div>
+          {lsOpen && (
+            <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+              <input className="border rounded px-3 py-2" placeholder="Sources (comma)" value={lsSources} onChange={e=>setLsSources(e.target.value)} />
+              <input className="border rounded px-3 py-2" placeholder="Tags (comma)" value={lsTags} onChange={e=>setLsTags(e.target.value)} />
+              <div className="flex items-center gap-2">
+                <button className={`px-4 py-2 rounded ${lsLoading?'bg-gray-200 text-gray-500':'bg-purple-600 text-white'}`} onClick={async()=>{
+                  setLsLoading(true);
+                  try{
+                    const { data: { session } } = await supabase.auth.getSession();
+                    const token = session?.access_token;
+                    const payload = {
+                      q: lsQ || undefined,
+                      sources: lsSources ? lsSources.split(',').map(s=>s.trim()).filter(Boolean) : undefined,
+                      tags: lsTags ? lsTags.split(',').map(s=>s.trim()).filter(Boolean) : undefined,
+                      title: lsTitle || undefined,
+                      company: lsCompany || undefined,
+                      limit: lsLimit,
+                      offset: lsOffset
+                    };
+                    const resp = await fetch(`${API_BASE_URL}/search/leads`, { method:'POST', headers: { 'Content-Type':'application/json', ...(token?{ Authorization: `Bearer ${token}` }:{}) }, body: JSON.stringify(payload) });
+                    const js = await resp.json();
+                    setLsRows(js?.rows || []);
+                    setLsCount(js?.count || 0);
+                  } finally { setLsLoading(false); }
+                }}>{lsLoading?'Searching…':'Search'}</button>
+                <button className="px-3 py-2 rounded bg-gray-100" onClick={()=>setLsOffset(o=>Math.max(0,o-lsLimit))}>Prev</button>
+                <button className="px-3 py-2 rounded bg-gray-100" onClick={()=>setLsOffset(o=>o+lsLimit)}>Next</button>
+              </div>
+            </div>
+          )}
+          {!!lsRows.length && (
+            <div className="mt-4">
+              <div className="text-sm text-gray-500 mb-2">{lsCount} result(s)</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {lsRows.map(r => (
+                  <div key={r.id} className="border rounded-lg p-3 bg-gray-50">
+                    <div className="font-medium text-gray-900">{r.name || `${r.first_name||''} ${r.last_name||''}`.trim()}</div>
+                    <div className="text-sm text-gray-600">{r.title || '—'} {r.company ? `@ ${r.company}` : ''}</div>
+                    <div className="text-sm text-gray-500">{r.email || '—'}</div>
+                    <div className="mt-2 flex gap-2">
+                      <button className="px-3 py-1.5 bg-white border rounded text-sm" onClick={()=>{ setSelectedLead(r); setShowDrawer(true); }}>Open</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Quick Actions */}
