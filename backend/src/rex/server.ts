@@ -1220,6 +1220,106 @@ server.registerCapabilities({
         return await updateCandidateNotes({ candidateId, note, author });
       }
     },
+    // ===== Zapier parity tools =====
+    move_opportunity_stage: {
+      parameters: {
+        userId: { type:'string' },
+        opportunityId: { type:'string' },
+        stageId: { type:'string' }
+      },
+      handler: async ({ userId, opportunityId, stageId }) => {
+        // Restrict to owner updates to avoid cross-tenant writes
+        const { error } = await supabase
+          .from('opportunities')
+          .update({ stage: stageId, updated_at: new Date().toISOString() })
+          .eq('id', opportunityId)
+          .eq('owner_id', userId);
+        if (error) throw new Error(error.message);
+        return { ok: true };
+      }
+    },
+    update_deal: {
+      parameters: {
+        userId: { type:'string' },
+        dealId: { type:'string' },
+        patch: { type:'object' }
+      },
+      handler: async ({ userId, dealId, patch }) => {
+        // Allow only a safe subset of columns to be updated
+        const allowed = ['title','value','billing_type','status','stage','client_id'];
+        const safePatch: Record<string, any> = {};
+        Object.keys(patch || {}).forEach(k => { if (allowed.includes(k)) safePatch[k] = patch[k]; });
+        safePatch.updated_at = new Date().toISOString();
+        const { data, error } = await supabase
+          .from('opportunities')
+          .update(safePatch)
+          .eq('id', dealId)
+          .eq('owner_id', userId)
+          .select('id')
+          .maybeSingle();
+        if (error) throw new Error(error.message);
+        return { ok: true, id: data?.id };
+      }
+    },
+    add_or_update_note: {
+      parameters: {
+        userId: { type:'string' },
+        entityType: { type:'string' }, // 'lead' | 'candidate' | 'decision_maker' | 'opportunity'
+        entityId: { type:'string' },
+        noteId: { type:'string', optional: true },
+        body: { type:'string' },
+        title: { type:'string', optional: true }
+      },
+      handler: async ({ userId, entityType, entityId, noteId, body, title }) => {
+        const tableMap: Record<string, { table: string; col: string }> = {
+          lead: { table: 'lead_notes', col: 'lead_id' },
+          candidate: { table: 'candidate_notes', col: 'candidate_id' },
+          decision_maker: { table: 'contact_notes', col: 'contact_id' },
+          opportunity: { table: 'opportunity_notes', col: 'opportunity_id' }
+        };
+        const map = tableMap[String(entityType)];
+        if (!map) throw new Error('unsupported_entity');
+        if (noteId) {
+          const { data, error } = await supabase
+            .from(map.table)
+            .update({ note_text: body, title: title || null, updated_at: new Date().toISOString() })
+            .eq('id', noteId)
+            .select('id')
+            .maybeSingle();
+          if (error) throw new Error(error.message);
+          return { ok: true, id: data?.id, updated: true };
+        } else {
+          const insertRow: any = { [map.col]: entityId, note_text: body };
+          if (title) insertRow.title = title;
+          const { data, error } = await supabase
+            .from(map.table)
+            .insert(insertRow)
+            .select('id')
+            .maybeSingle();
+          if (error) throw new Error(error.message);
+          return { ok: true, id: data?.id, created: true };
+        }
+      }
+    },
+    send_invoice: {
+      parameters: {
+        userId: { type:'string' },
+        clientId: { type:'string' },
+        amount: { type:'number' },
+        currency: { type:'string', optional: true },
+        memo: { type:'string', optional: true }
+      },
+      handler: async ({ userId, clientId, amount, currency, memo }) => {
+        // Minimal insert; Stripe flow handled elsewhere
+        const { data, error } = await supabase
+          .from('invoices')
+          .insert({ client_id: clientId, amount, status: 'unbilled', notes: memo || null, created_at: new Date().toISOString() })
+          .select('id')
+          .maybeSingle();
+        if (error) throw new Error(error.message);
+        return { ok: true, invoiceId: data?.id };
+      }
+    },
     trigger_zapier: {
       parameters: { userId:{type:'string'}, webhookName:{type:'string'}, payload:{type:'object'} },
       handler: async ({ userId, webhookName, payload }) => {

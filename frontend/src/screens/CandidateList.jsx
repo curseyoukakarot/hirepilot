@@ -15,6 +15,7 @@ import MetadataModal from '../components/MetadataModal';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { downloadCSV } from '../utils/csvExport';
+import ResumeWizard from '../components/ResumeWizard';
 
 // Helper function to safely parse enrichment title - fixes temporal dead zone issues
 const parseEnrichmentTitle = (enrichmentData) => {
@@ -48,6 +49,7 @@ export default function CandidateList() {
   const [pipelineSearch, setPipelineSearch] = useState('');
   const [selectedPipelineId, setSelectedPipelineId] = useState('');
   const [candidateToAdd, setCandidateToAdd] = useState(null);
+  const [showResumeWizard, setShowResumeWizard] = useState(false);
   const [addingToPipeline, setAddingToPipeline] = useState(false);
   const [showMetadata, setShowMetadata] = useState(false);
   const [metadataContext, setMetadataContext] = useState(null);
@@ -463,6 +465,12 @@ export default function CandidateList() {
           >
             <FaPlus className="mr-2" /> Add Candidate
           </button>
+          <button
+            onClick={() => setShowResumeWizard(true)}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg text-sm flex items-center shadow transition-all duration-150"
+          >
+            <FaFileAlt className="mr-2" /> Resume Wizard
+          </button>
         </div>
       </div>
 
@@ -501,6 +509,10 @@ export default function CandidateList() {
           </div>
         </div>
       </div>
+
+      {showResumeWizard && (
+        <ResumeWizard open={showResumeWizard} onClose={() => setShowResumeWizard(false)} />
+      )}
 
       {/* --- Table --- */}
       <div className="max-w-7xl mx-auto px-4">

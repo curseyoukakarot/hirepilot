@@ -2,6 +2,8 @@ import express, { Request, Response } from 'express';
 import { requireAuth } from '../../middleware/authMiddleware';
 import { ApiRequest } from '../../types/api';
 import { supabase } from '../lib/supabase';
+import { basicParseFromText, type ParsedResume } from '../services/resumeParser';
+import { ingestCandidateFromParsed } from '../services/candidateIngest';
 
 const router = express.Router();
 
@@ -313,4 +315,43 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
 });
 
 export default router;
+
+// ===== Resume Wizard Endpoints =====
+// POST /api/candidates/parse { text?: string, file?: { name, data(base64) } }
+router.post('/parse', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { text, file } = (req.body || {}) as { text?: string; file?: { name?: string; data?: string } };
+    let plainText = text || '';
+    // For v1: if file data provided, assume it's already extracted as text upstream in FE (to keep BE simple)
+    if (!plainText && file?.data) {
+      const b64 = String(file.data).split(',').pop() || '';
+      // Naively treat as UTF-8 text file if provided; PDFs/DOCX should be extracted on FE or future worker
+      plainText = Buffer.from(b64, 'base64').toString('utf8');
+    }
+    if (!plainText) return res.status(400).json({ error: 'No resume text' });
+
+    const parsed: ParsedResume = basicParseFromText(plainText);
+    res.json({ parsed });
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message || 'parse_failed' });
+  }
+});
+
+// POST /api/candidates/ingest { parsed: ParsedResume, fileUrl? }
+router.post('/ingest', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const { parsed, fileUrl } = (req.body || {}) as { parsed?: ParsedResume; fileUrl?: string };
+    if (!parsed) return res.status(400).json({ error: 'Missing parsed resume' });
+    const { data: me } = await supabase.from('users').select('team_id').eq('id', userId).maybeSingle();
+    const result = await ingestCandidateFromParsed({ userId, orgId: (me as any)?.team_id || null, filePublicUrl: fileUrl || null, parsed });
+    res.json({ ok: true, candidateId: result.candidateId });
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message || 'ingest_failed' });
+  }
+});
 
