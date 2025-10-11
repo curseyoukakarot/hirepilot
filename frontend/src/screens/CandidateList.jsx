@@ -39,7 +39,7 @@ export default function CandidateList() {
   const [loading, setLoading] = useState(true);
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [showDrawer, setShowDrawer] = useState(false);
-  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [selectedIds, setSelectedIds] = new Set());
   const [showActionsMenu, setShowActionsMenu] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editedCandidate, setEditedCandidate] = useState(null);
@@ -50,6 +50,7 @@ export default function CandidateList() {
   const [selectedPipelineId, setSelectedPipelineId] = useState('');
   const [candidateToAdd, setCandidateToAdd] = useState(null);
   const [showResumeWizard, setShowResumeWizard] = useState(false);
+  const resumeWizardEnabled = (import.meta.env.VITE_FEATURE_RESUME_WIZARD ?? 'true').toString().toLowerCase() === 'true';
   // Super Search state
   const [superOpen, setSuperOpen] = useState(false);
   const [ssQ, setSsQ] = useState('');
@@ -481,12 +482,14 @@ export default function CandidateList() {
           >
             <FaPlus className="mr-2" /> Add Candidate
           </button>
-          <button
-            onClick={() => setShowResumeWizard(true)}
-            className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg text-sm flex items-center shadow transition-all duration-150"
-          >
-            <FaFileAlt className="mr-2" /> Resume Wizard
-          </button>
+          {resumeWizardEnabled && (
+            <button
+              onClick={() => setShowResumeWizard(true)}
+              className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg text-sm flex items-center shadow transition-all duration-150"
+            >
+              <FaFileAlt className="mr-2" /> Resume Wizard
+            </button>
+          )}
         </div>
       </div>
 

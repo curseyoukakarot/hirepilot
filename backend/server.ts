@@ -943,6 +943,19 @@ app.listen(Number(PORT), '0.0.0.0', () => {
 
   // Start message scheduler
   messageScheduler.start();
+
+  // Refresh candidate_search_mv every 10 minutes
+  try {
+    const refreshMv = async () => {
+      try {
+        await supabase.rpc('refresh_candidate_search_mv');
+        console.log('[Search] candidate_search_mv refreshed');
+      } catch (e) {
+        console.warn('[Search] candidate_search_mv refresh failed', (e as any)?.message || e);
+      }
+    };
+    setInterval(refreshMv, 10 * 60 * 1000);
+  } catch {}
 });
 
 // 404 handler must be last
