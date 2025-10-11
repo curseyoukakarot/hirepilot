@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import { z } from 'zod';
 import { verifyZapier } from '../middleware/verifyZapier';
 import { supabase } from '../lib/supabase';
+import { logger } from '../lib/logger';
 
 const router = express.Router();
 
@@ -25,6 +26,7 @@ router.post('/actions/moveOpportunityStage', verifyZapier, async (req: Request, 
   if (!(await ensureIdempotent(idempotency_key))) { res.json({ deduped: true }); return; }
   const { error } = await supabase.from('opportunities').update({ stage: stageId, updated_at: new Date().toISOString() as any }).eq('id', opportunityId);
   if (error) { res.status(500).json({ error: error.message }); return; }
+  logger.info({ route: '/api/zapier/actions/moveOpportunityStage', action: 'update', ok: true, opportunityId });
   res.json({ ok: true });
 });
 
@@ -37,6 +39,7 @@ router.post('/actions/updateDeal', verifyZapier, async (req: Request, res: Respo
   if (!(await ensureIdempotent(idempotency_key))) { res.json({ deduped: true }); return; }
   const { data, error } = await supabase.from('opportunities').update({ ...patch, updated_at: new Date().toISOString() as any }).eq('id', dealId).select('id').maybeSingle();
   if (error) { res.status(500).json({ error: error.message }); return; }
+  logger.info({ route: '/api/zapier/actions/updateDeal', action: 'update', ok: true, id: data?.id });
   res.json({ ok: true, id: data?.id });
 });
 
@@ -68,11 +71,13 @@ router.post('/actions/addOrUpdateNote', verifyZapier, async (req: Request, res: 
   if (noteId) {
     const { data, error } = await supabase.from(table).update({ note_text: body, title: title || null, updated_at: new Date().toISOString() }).eq('id', noteId).select('id').maybeSingle();
     if (error) { res.status(500).json({ error: error.message }); return; }
+    logger.info({ route: '/api/zapier/actions/addOrUpdateNote', action: 'update', ok: true, id: data?.id });
     res.json({ ok: true, id: data?.id, updated: true });
   } else {
     const col = entityType === 'lead' ? 'lead_id' : (entityType === 'candidate' ? 'candidate_id' : (entityType === 'opportunity' ? 'opportunity_id' : 'contact_id'));
     const { data, error } = await supabase.from(table).insert({ [col]: entityId, note_text: body, title: title || null }).select('id').maybeSingle();
     if (error) { res.status(500).json({ error: error.message }); return; }
+    logger.info({ route: '/api/zapier/actions/addOrUpdateNote', action: 'create', ok: true, id: data?.id });
     res.json({ ok: true, id: data?.id, created: true });
   }
 });
@@ -92,6 +97,7 @@ router.post('/actions/sendInvoice', verifyZapier, async (req: Request, res: Resp
     .select('id')
     .single();
   if (error) { res.status(500).json({ error: error.message }); return; }
+  logger.info({ route: '/api/zapier/actions/sendInvoice', action: 'create', ok: true, id: data.id });
   res.json({ ok: true, invoiceId: data.id });
 });
 

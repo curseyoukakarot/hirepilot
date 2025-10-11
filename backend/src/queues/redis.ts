@@ -12,3 +12,4 @@ export const emailQueue = new Queue('emailQueue', { connection });
 export const campaignQueue = new Queue('campaignQueue', { connection });
 export const sniperQueue = new Queue('sniper:capture', { connection });
 export const sniperOpenerQueue = new Queue('sniper:opener', { connection });
+export const candidateEnrichQueue = new Queue('candidate:enrich', { connection });

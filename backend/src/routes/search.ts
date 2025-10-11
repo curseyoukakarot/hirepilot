@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import { z } from 'zod';
 import { requireAuth } from '../../middleware/authMiddleware';
 import { supabase } from '../lib/supabase';
+import { logger } from '../lib/logger';
 
 const router = express.Router();
 
@@ -161,8 +162,10 @@ router.post('/candidates', requireAuth, async (req: Request, res: Response) => {
       .range(offset, offset + limit - 1);
     if (error) { res.status(500).json({ error: error.message }); return; }
 
+    logger.info({ route: '/api/search/candidates', orgId: (userData as any)?.team_id || null, action: 'search', ok: true, count: count || 0 });
     res.json({ rows: rows || [], count: count || 0 });
   } catch (e: any) {
+    logger.error({ route: '/api/search/candidates', action: 'error', ok: false, error: e?.message });
     res.status(500).json({ error: e?.message || 'Internal error' });
   }
 });
@@ -227,8 +230,10 @@ router.post('/leads', requireAuth, async (req: Request, res: Response) => {
     const { data: rows, error } = await base.order('created_at', { ascending: false }).range(offset, offset + limit - 1);
     if (error) { res.status(500).json({ error: error.message }); return; }
 
+    logger.info({ route: '/api/search/leads', orgId: (userData as any)?.team_id || null, action: 'search', ok: true, count: count || 0 });
     res.json({ rows: rows || [], count: count || 0 });
   } catch (e: any) {
+    logger.error({ route: '/api/search/leads', action: 'error', ok: false, error: e?.message });
     res.status(500).json({ error: e?.message || 'Internal error' });
   }
 });

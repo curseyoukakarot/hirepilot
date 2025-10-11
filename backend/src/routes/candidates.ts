@@ -2,6 +2,8 @@ import express, { Request, Response } from 'express';
 import { requireAuth } from '../../middleware/authMiddleware';
 import { ApiRequest } from '../../types/api';
 import { supabase } from '../lib/supabase';
+import { candidateEnrichQueue } from '../queues/redis';
+import { logger } from '../lib/logger';
 import { basicParseFromText, type ParsedResume } from '../services/resumeParser';
 import { ingestCandidateFromParsed } from '../services/candidateIngest';
 
@@ -227,13 +229,21 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
   try {
     const userId = req.user?.id;
     const { id } = req.params;
+    const { mode } = (req.body || {}) as { mode?: 'sync' | 'async' };
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
     if (!id) return res.status(400).json({ error: 'Missing candidate id' });
 
     const own = await ensureCandidateOwnership(id, userId);
     if (!own.ok) return res.status(404).json({ error: own.error });
 
-    // Get candidate data for enrichment
+    // If async requested: enqueue job and return quickly
+    if (mode === 'async') {
+      await candidateEnrichQueue.add('enrich', { candidateId: id, userId: userId! }, { removeOnComplete: true });
+      logger.info({ route: '/api/candidates/:id/enrich', orgId: undefined, action: 'enqueue', ok: true, candidateId: id, userId });
+      return res.json({ queued: true });
+    }
+
+    // Get candidate data for enrichment (sync)
     const { data: candidate, error: candidateError } = await supabase
       .from('candidates')
       .select('*')
@@ -303,13 +313,14 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
       }
     }
 
+    logger.info({ route: '/api/candidates/:id/enrich', orgId: undefined, action: 'sync_update', ok: true, candidateId: id, userId });
     return res.json({ 
       email: data.email, 
       enrichment_source: enrichmentSource,
       updated_at: data.updated_at
     });
   } catch (e: any) {
-    console.error('Re-enrich candidate error:', e);
+    logger.error({ route: '/api/candidates/:id/enrich', action: 'error', ok: false, error: e?.message });
     return res.status(500).json({ error: e.message ?? 'Server error' });
   }
 });
@@ -352,6 +363,47 @@ router.post('/ingest', requireAuth, async (req: ApiRequest, res: Response) => {
     res.json({ ok: true, candidateId: result.candidateId });
   } catch (e: any) {
     res.status(500).json({ error: e?.message || 'ingest_failed' });
+  }
+});
+
+// GET /api/candidates/:id - fetch candidate with structured joins
+router.get('/:id', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user?.id as string | undefined;
+    const id = String(req.params.id || '');
+    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    if (!id) { res.status(400).json({ error: 'Missing candidate id' }); return; }
+
+    const own = await ensureCandidateOwnership(id, userId);
+    if (!own.ok) { res.status(404).json({ error: own.error }); return; }
+
+    const { data: cand, error: cErr } = await supabase
+      .from('candidates')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (cErr || !cand) { res.status(404).json({ error: 'Candidate not found' }); return; }
+
+    const [{ data: contact }, { data: exp }, { data: edu }, { data: skills }, { data: tech }] = await Promise.all([
+      supabase.from('candidate_contact').select('*').eq('candidate_id', id).maybeSingle(),
+      supabase.from('candidate_experience').select('*').eq('candidate_id', id).order('start_date', { ascending: false }),
+      supabase.from('candidate_education').select('*').eq('candidate_id', id).order('end_year', { ascending: false }),
+      supabase.from('candidate_skill').select('*').eq('candidate_id', id),
+      supabase.from('candidate_tech_stack').select('*').eq('candidate_id', id)
+    ]);
+
+    const out = {
+      ...cand,
+      contact: contact || null,
+      experiences: exp || [],
+      education: edu || [],
+      skills: (skills || []).map((s: any) => s.skill),
+      tech: (tech || []).map((t: any) => t.tech)
+    };
+
+    res.json(out);
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message || 'internal_error' });
   }
 });
 

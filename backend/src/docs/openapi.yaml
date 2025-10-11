@@ -1,0 +1,100 @@
+openapi: 3.0.3
+info:
+  title: HirePilot API
+  version: 1.0.0
+paths:
+  /api/search/candidates:
+    post:
+      summary: Candidate super search
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                q: { type: string }
+                skills: { type: array, items: { type: string } }
+                tech: { type: array, items: { type: string } }
+                titles: { type: array, items: { type: string } }
+                companies: { type: array, items: { type: string } }
+                fundingStage: { type: array, items: { type: string } }
+                revenueMin: { type: number }
+                revenueMax: { type: number }
+                location: { type: string }
+                limit: { type: number }
+                offset: { type: number }
+      responses:
+        '200': { description: OK }
+  /api/search/leads:
+    post:
+      summary: Leads search
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                q: { type: string }
+                sources: { type: array, items: { type: string } }
+                tags: { type: array, items: { type: string } }
+                title: { type: string }
+                company: { type: string }
+                limit: { type: number }
+                offset: { type: number }
+      responses:
+        '200': { description: OK }
+  /api/deals/activity:
+    get:
+      summary: List activities by entity
+      parameters:
+        - in: query
+          name: entityType
+          schema: { type: string, enum: [client, decision_maker, opportunity] }
+        - in: query
+          name: entityId
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: OK }
+    post:
+      summary: Create an activity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                links:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      entityType: { type: string, enum: [client, decision_maker, opportunity] }
+                      entityId: { type: string, format: uuid }
+                type: { type: string, enum: [call, email, meeting, note, task, update] }
+                title: { type: string }
+                body: { type: string }
+                occurredAt: { type: string, format: date-time }
+      responses:
+        '200': { description: OK }
+  /api/candidates/{id}/enrich:
+    post:
+      summary: Enrich a candidate (sync or async)
+      parameters:
+        - in: path
+          name: id
+          schema: { type: string, format: uuid }
+          required: true
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mode: { type: string, enum: [sync, async] }
+      responses:
+        '200': { description: OK }
+

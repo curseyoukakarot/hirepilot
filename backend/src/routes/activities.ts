@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import { z } from 'zod';
 import { requireAuth } from '../../middleware/authMiddleware';
 import { supabase } from '../lib/supabase';
+import { logger } from '../lib/logger';
 
 const router = express.Router();
 
@@ -49,8 +50,10 @@ router.post('/activity', requireAuth, async (req: Request, res: Response) => {
     const { error: lerr } = await supabase.from('activity_link').insert(linkRows);
     if (lerr) { res.status(500).json({ error: lerr.message || 'Failed to link activity' }); return; }
 
+    logger.info({ route: '/api/deals/activity', orgId, action: 'create', ok: true, id: act.id });
     res.json({ ok: true, activity: act });
   } catch (e: any) {
+    logger.error({ route: '/api/deals/activity', action: 'error', ok: false, error: e?.message });
     res.status(500).json({ error: e?.message || 'Internal error' });
   }
 });
@@ -94,8 +97,10 @@ router.get('/activity', requireAuth, async (req: Request, res: Response) => {
     const { data: activities, error } = await q;
     if (error) { res.status(500).json({ error: error.message }); return; }
 
+    logger.info({ route: '/api/deals/activity', orgId: myTeamId || null, action: 'list', ok: true, count: (activities || []).length });
     res.json({ rows: activities || [], count: (activities || []).length });
   } catch (e: any) {
+    logger.error({ route: '/api/deals/activity', action: 'error', ok: false, error: e?.message });
     res.status(500).json({ error: e?.message || 'Internal error' });
   }
 });

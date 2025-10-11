@@ -14,7 +14,7 @@ export function verifyZapier(req: Request, res: Response, next: NextFunction) {
     const now = Math.floor(Date.now() / 1000);
     if (Math.abs(now - Number(timestamp)) > 300) { res.status(401).json({ error: 'stale request' }); return; }
 
-    const rawBody = JSON.stringify(req.body || {});
+    const rawBody = typeof (req as any).rawBody === 'string' ? (req as any).rawBody : JSON.stringify(req.body || {});
     const base = `${timestamp}.${rawBody}`;
     const expected = crypto.createHmac('sha256', secret).update(base).digest('hex');
 
