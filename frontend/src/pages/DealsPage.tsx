@@ -22,6 +22,9 @@ export default function DealsPage() {
   const [contacts, setContacts] = useState<any[]>([]);
   const [contactsLoading, setContactsLoading] = useState(false);
   const [expandedClientId, setExpandedClientId] = useState<string | null>(null);
+  const [expandedContactId, setExpandedContactId] = useState<string | null>(null);
+  const [clientActivities, setClientActivities] = useState<Record<string, any[]>>({});
+  const [contactActivities, setContactActivities] = useState<Record<string, any[]>>({});
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
   const [clientDraft, setClientDraft] = useState<any>({});
   const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set());
@@ -646,8 +649,58 @@ export default function DealsPage() {
                             <button className="px-2 py-1 text-xs bg-gray-100 rounded" onClick={()=>{ setEditingContactId(dm.id); setContactDraft({}); }}>Edit</button>
                           )}
                         </td>
-                        <td className="p-4"><button title="Delete" onClick={()=>confirmDelete('contact', dm.id)} className="text-red-500 hover:text-red-600">🗑️</button></td>
+                        <td className="p-4 text-right w-10">
+                          <button className="text-blue-600 text-sm mr-2" onClick={async ()=>{
+                            // Quick-Log Activity inline for decision maker
+                            const body = window.prompt('Log activity (note):');
+                            if (!body) return;
+                            try{
+                              const { data: { session } } = await supabase.auth.getSession();
+                              const token = session?.access_token;
+                              await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/deals/activity`, {
+                                method:'POST',
+                                headers: { 'Content-Type':'application/json', ...(token?{ Authorization: `Bearer ${token}` }:{}) },
+                                body: JSON.stringify({ links:[{ entityType:'decision_maker', entityId: dm.id }], type:'note', body })
+                              });
+                              // Reload activity for this contact
+                              const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/deals/activity?entityType=decision_maker&entityId=${dm.id}`, { headers: token?{ Authorization: `Bearer ${token}` }:{} });
+                              const js = await res.json();
+                              setContactActivities(prev => ({ ...prev, [dm.id]: js.rows || [] }));
+                            } catch {}
+                          }}>Log</button>
+                          <button className="text-gray-600 text-sm" onClick={async ()=>{
+                            setExpandedContactId(prev => prev === dm.id ? null : dm.id);
+                            if (expandedContactId !== dm.id) {
+                              try{
+                                const { data: { session } } = await supabase.auth.getSession();
+                                const token = session?.access_token;
+                                const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/deals/activity?entityType=decision_maker&entityId=${dm.id}`, { headers: token?{ Authorization: `Bearer ${token}` }:{} });
+                                const js = await res.json();
+                                setContactActivities(prev => ({ ...prev, [dm.id]: js.rows || [] }));
+                              } catch {}
+                            }
+                          }}>{expandedContactId===dm.id?'Hide':'Activity'}</button>
+                        </td>
                       </tr>
+                      {expandedContactId===dm.id && (
+                        <tr>
+                          <td colSpan={8} className="p-0">
+                            <div className="bg-gray-50 border-t p-3 text-sm">
+                              <div className="font-semibold mb-2">Recent Activity</div>
+                              <div className="space-y-2">
+                                {(contactActivities[dm.id]||[]).map((a:any)=> (
+                                  <div key={a.id} className="bg-white border rounded p-2">
+                                    <div className="text-gray-900 capitalize">{a.type}</div>
+                                    <div className="text-gray-700">{a.body || a.title || ''}</div>
+                                    <div className="text-xs text-gray-400">{a.occurred_at ? new Date(a.occurred_at).toLocaleString() : ''}</div>
+                                  </div>
+                                ))}
+                                {!(contactActivities[dm.id]||[]).length && <div className="text-gray-500">No activity yet</div>}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
                     );
                   })}
                 </tbody>
@@ -656,82 +709,104 @@ export default function DealsPage() {
           )}
         </div>
       ) : (
-        <div className="bg-white border rounded-xl overflow-hidden">
-        {clientsLoading ? (
-          <div className="p-6 text-gray-500 text-sm">Loading…</div>
-        ) : (
+        <div className="bg-white border rounded-xl">
+          <div className="p-4 flex items-center justify-between">
+            <div className="text-sm text-gray-600">{clients.length} clients</div>
+            <div className="flex items-center gap-2">
+              <button className="text-sm text-blue-600" onClick={async ()=>{
+                const sel = clients[0];
+                if (!sel) return;
+                const body = window.prompt(`Log activity for ${sel.name || sel.domain || sel.id} (note):`);
+                if (!body) return;
+                try{
+                  const { data: { session } } = await supabase.auth.getSession();
+                  const token = session?.access_token;
+                  await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/deals/activity`, {
+                    method:'POST', headers: { 'Content-Type':'application/json', ...(token?{ Authorization: `Bearer ${token}` }:{}) },
+                    body: JSON.stringify({ links:[{ entityType:'client', entityId: sel.id }], type:'note', body })
+                  });
+                  const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/deals/activity?entityType=client&entityId=${sel.id}`, { headers: token?{ Authorization: `Bearer ${token}` }:{} });
+                  const js = await res.json();
+                  setClientActivities(prev => ({ ...prev, [sel.id]: js.rows || [] }));
+                } catch{}
+              }}>Quick Log</button>
+            </div>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="p-4 text-left">Company</th>
-                  <th className="p-4 text-left">Logo</th>
-                  <th className="p-4 text-left">Status</th>
+                  <th className="p-4 text-left">Client</th>
+                  <th className="p-4 text-left">Domain</th>
                   <th className="p-4 text-left">Industry</th>
+                  <th className="p-4 text-left">Owner</th>
                   <th className="p-4 text-left">Revenue</th>
-                  <th className="p-4 text-left">Location</th>
-                  <th className="p-4 text-left">Decision Makers</th>
-                  <th className="p-4 text-left">Created</th>
                   <th className="p-4 text-left w-10"></th>
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {filteredClients.length === 0 ? (
-                  <tr><td colSpan={8} className="p-6 text-gray-500">No clients yet</td></tr>
-                ) : filteredClients.map((c: any) => (
-                  <React.Fragment key={c.id}>
-                    <tr
-                      className="hover:bg-gray-50 cursor-pointer"
-                      onClick={(e)=>{
-                        // Do not toggle when interacting with inputs/controls or while editing this client
-                        if (editingClientId === c.id) return;
-                        const target = e.target as HTMLElement;
-                        if (target.closest('input, textarea, select, button, a, [data-no-row-toggle]')) return;
-                        setExpandedClientId(prev => prev===c.id? null : c.id);
-                      }}
-                    >
-                      <td className="p-4 font-medium text-gray-900">{c.name || c.domain || '—'}</td>
-                      <td className="p-4">
-                        {(() => { const u = getClientLogo(c); return u ? <img src={u} alt="logo" className="w-6 h-6 rounded" /> : <div className="w-6 h-6 rounded bg-gray-200" />; })()}
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-2">
-                          <span className={`px-2 py-0.5 text-xs rounded-full ${String(c.stage).toLowerCase()==='active' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{String(c.stage).toLowerCase()==='active' ? 'Active' : 'Prospect'}</span>
-                          <select
-                            className="border rounded px-1 py-0.5 text-xs text-gray-700"
-                            value={String(c.stage || 'prospect')}
-                            onChange={(e)=>updateClientStage(c.id, e.target.value === 'active' ? 'active' : 'prospect')}
-                            disabled={savingStageId===c.id}
-                          >
-                            <option value="prospect">Prospect</option>
-                            <option value="active">Active</option>
-                          </select>
+                {clients.length === 0 ? (
+                  <tr><td colSpan={6} className="p-6 text-gray-500">No clients yet</td></tr>
+                ) : clients.filter((c:any)=> !clientsSearch || (c.name||'').toLowerCase().includes(clientsSearch.toLowerCase())).map((c: any) => (
+                  <tr key={c.id} className="hover:bg-gray-50">
+                    <td className="p-4 font-medium text-gray-900">{c.name || '—'}</td>
+                    <td className="p-4">{c.domain || '—'}</td>
+                    <td className="p-4">{c.industry || '—'}</td>
+                    <td className="p-4">{c.owner_id?.slice(0,8)}</td>
+                    <td className="p-4">{c.revenue ? Number(c.revenue).toLocaleString('en-US',{ style:'currency',currency:'USD'}) : '—'}</td>
+                    <td className="p-4 text-right w-10">
+                      <button className="text-blue-600 text-sm mr-2" onClick={async ()=>{
+                        const body = window.prompt('Log activity (note):');
+                        if (!body) return;
+                        try{
+                          const { data: { session } } = await supabase.auth.getSession();
+                          const token = session?.access_token;
+                          await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/deals/activity`, {
+                            method:'POST', headers: { 'Content-Type':'application/json', ...(token?{ Authorization: `Bearer ${token}` }:{}) },
+                            body: JSON.stringify({ links:[{ entityType:'client', entityId: c.id }], type:'note', body })
+                          });
+                          const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/deals/activity?entityType=client&entityId=${c.id}`, { headers: token?{ Authorization: `Bearer ${token}` }:{} });
+                          const js = await res.json();
+                          setClientActivities(prev => ({ ...prev, [c.id]: js.rows || [] }));
+                        } catch{}
+                      }}>Log</button>
+                      <button className="text-gray-600 text-sm" onClick={async ()=>{
+                        setExpandedClientId(prev => prev === c.id ? null : c.id);
+                        if (expandedClientId !== c.id) {
+                          try{
+                            const { data: { session } } = await supabase.auth.getSession();
+                            const token = session?.access_token;
+                            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/deals/activity?entityType=client&entityId=${c.id}`, { headers: token?{ Authorization: `Bearer ${token}` }:{} });
+                            const js = await res.json();
+                            setClientActivities(prev => ({ ...prev, [c.id]: js.rows || [] }));
+                          } catch {}
+                        }
+                      }}>{expandedClientId===c.id?'Hide':'Activity'}</button>
+                    </td>
+                  </tr>
+                  {expandedClientId && (
+                    <tr>
+                      <td colSpan={6} className="p-0">
+                        <div className="bg-gray-50 border-t p-3 text-sm">
+                          <div className="font-semibold mb-2">Recent Activity</div>
+                          <div className="space-y-2">
+                            {(clientActivities[expandedClientId]||[]).map((a:any)=> (
+                              <div key={a.id} className="bg-white border rounded p-2">
+                                <div className="text-gray-900 capitalize">{a.type}</div>
+                                <div className="text-gray-700">{a.body || a.title || ''}</div>
+                                <div className="text-xs text-gray-400">{a.occurred_at ? new Date(a.occurred_at).toLocaleString() : ''}</div>
+                              </div>
+                            ))}
+                            {!(clientActivities[expandedClientId]||[]).length && <div className="text-gray-500">No activity yet</div>}
+                          </div>
                         </div>
                       </td>
-                      <td className="p-4">{c.industry || '—'}</td>
-                      <td className="p-4">{c.revenue != null ? Number(c.revenue).toLocaleString('en-US',{style:'currency',currency:'USD'}) : '—'}</td>
-                      <td className="p-4">{c.location || '—'}</td>
-                      <td className="p-4">{c.contact_count != null ? c.contact_count : '—'}</td>
-                      <td className="p-4 text-gray-500">{c.created_at ? new Date(c.created_at).toLocaleDateString() : '—'}</td>
-                      <td className="p-4"><button title="Delete" onClick={()=>confirmDelete('client', c.id)} className="text-red-500 hover:text-red-600">🗑️</button></td>
                     </tr>
-                    {expandedClientId === c.id && (
-                      <tr>
-                        <td colSpan={8} className="p-5 bg-gray-50">
-                          <ClientRowEditor
-                            client={c}
-                            onSave={async ()=>{ const { data: { session } } = await supabase.auth.getSession(); const token = session?.access_token; const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }); const js = resp.ok ? await resp.json() : []; setClients(js||[]); setExpandedClientId(null); }}
-                            onCancel={()=> setExpandedClientId(null)}
-                          />
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
+                  )}
                 ))}
               </tbody>
             </table>
           </div>
-        )}
         </div>
       )}
     </div>
@@ -838,7 +913,7 @@ export default function DealsPage() {
                                 // Remove from table immediately
                                 setOpps(prev => prev.filter(row => row.id !== o.id));
                                 // Also refresh pipeline board in background if currently showing pipeline
-                                if (oppView === 'pipeline') { await refetchBoard(); }
+                                if (oppView === 'pipeline' as any) { await refetchBoard(); }
                               }
                             } catch {}
                           }}
