@@ -9,6 +9,7 @@ export default function OpportunityDetail() {
   const [notes, setNotes] = useState('');
   const [activity, setActivity] = useState<any[]>([]);
   const [newActivity, setNewActivity] = useState('');
+  const [newActType, setNewActType] = useState<'call'|'email'|'meeting'|'note'|'task'|'update'>('note');
   const [collabs, setCollabs] = useState<any[]>([]);
   const [newCollab, setNewCollab] = useState('');
   const [newReqId, setNewReqId] = useState('');
@@ -24,10 +25,11 @@ export default function OpportunityDetail() {
       const js = resp.ok ? await resp.json() : null;
       setOpp(js);
       setNotes(js?.notes || '');
-      // load activity
+      // load activity via unified deals activity
       try {
-        const actRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities/${id}/activity`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-        setActivity(actRes.ok ? await actRes.json() : []);
+        const actRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/deals/activity?entityType=opportunity&entityId=${id}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        const js = actRes.ok ? await actRes.json() : { rows: [] };
+        setActivity(js.rows || []);
       } catch {}
       try {
         const cRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities/${id}/collaborators`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
@@ -60,14 +62,23 @@ export default function OpportunityDetail() {
     if (!newActivity.trim()) return;
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
-    const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities/${id}/activity`, {
+    const payload = {
+      links: [{ entityType: 'opportunity', entityId: String(id) }],
+      type: newActType,
+      title: undefined,
+      body: newActivity.trim(),
+      occurredAt: new Date().toISOString()
+    };
+    const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/deals/activity`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: JSON.stringify({ message: newActivity.trim() })
+      body: JSON.stringify(payload)
     });
     if (resp.ok) {
-      const row = await resp.json();
-      setActivity([row, ...activity]);
+      // refresh
+      const actRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/deals/activity?entityType=opportunity&entityId=${id}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const js = actRes.ok ? await actRes.json() : { rows: [] };
+      setActivity(js.rows || []);
       setNewActivity('');
     }
   };
@@ -166,13 +177,20 @@ export default function OpportunityDetail() {
             <h3 className="text-lg font-semibold mb-3">Activity Log</h3>
             <div className="space-y-3 mb-3">
               {activity.map((a:any)=> (
-                <div key={a.id} className="bg-gray-50 rounded p-2 text-sm text-gray-800">{a.message}<div className="text-xs text-gray-400">{a.created_at ? new Date(a.created_at).toLocaleString() : ''}</div></div>
+                <div key={a.id} className="bg-gray-50 rounded p-2 text-sm text-gray-800">
+                  <div className="font-medium text-gray-900 capitalize">{a.type || 'note'}</div>
+                  <div>{a.body || a.title || ''}</div>
+                  <div className="text-xs text-gray-400">{a.occurred_at ? new Date(a.occurred_at).toLocaleString() : ''}</div>
+                </div>
               ))}
               {activity.length===0 && <div className="text-sm text-gray-500">No activity yet</div>}
             </div>
-            <div className="flex gap-2">
-              <input className="flex-1 border rounded px-3 py-2 text-sm" placeholder="Add internal note…" value={newActivity} onChange={e=>setNewActivity(e.target.value)} />
-              <button className="px-3 py-2 bg-gray-900 text-white rounded" onClick={addActivity}>Add</button>
+            <div className="flex gap-2 items-center">
+              <select className="border rounded px-2 py-2 text-sm" value={newActType} onChange={e=>setNewActType(e.target.value as any)}>
+                {['call','email','meeting','note','task','update'].map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <input className="flex-1 border rounded px-3 py-2 text-sm" placeholder="Add activity details…" value={newActivity} onChange={e=>setNewActivity(e.target.value)} />
+              <button className="px-3 py-2 bg-gray-900 text-white rounded" onClick={addActivity}>Log</button>
             </div>
           </div>
         </div>
