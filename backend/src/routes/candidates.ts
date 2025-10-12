@@ -354,7 +354,8 @@ router.post('/upload', requireAuth, upload.single('file'), async (req: ApiReques
     if (!file) return res.status(400).json({ error: 'Missing file' });
 
     // Ensure bucket exists (retryable)
-    await ensureUploadsBucket();
+    const okBucket = await ensureUploadsBucket();
+    if (!okBucket) return res.status(500).json({ error: 'uploads_bucket_unavailable' });
 
     const safeName = String(file.originalname || 'file').replace(/[^a-zA-Z0-9_.-]/g, '_');
     const path = `resumes/${userId}/${Date.now()}_${safeName}`;
@@ -371,7 +372,7 @@ router.post('/upload', requireAuth, upload.single('file'), async (req: ApiReques
     }
     if (error) return res.status(400).json({ error: error.message || 'upload_failed' });
     const { data: pub } = (supabase as any).storage.from('uploads').getPublicUrl(uploaded.path);
-    return res.json({ publicUrl: pub?.publicUrl || null, path: uploaded.path });
+    return res.json({ publicUrl: pub?.publicUrl || null, path: uploaded.path, bucket: 'uploads' });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'upload_failed' });
   }
