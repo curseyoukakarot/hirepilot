@@ -1051,18 +1051,15 @@ export default function DealsPage() {
           ) : renderAccessDenied())}
         </>
       )}
+      {logModal && (
+        <DealLogActivityModal entityType={logModal.type} entityId={logModal.id} onClose={()=>setLogModal(null)} onSaved={()=>{
+          // force-refresh client activities when modal saves
+          setClients(prev=>[...prev]);
+          setExpandedClientId(prev=>prev); // keep open
+        }} />
+      )}
     </div>
   );
-
-  // Modal root
-  {/* Rendered at component root to avoid table nesting issues */}
-  {logModal && (
-    <DealLogActivityModal entityType={logModal.type} entityId={logModal.id} onClose={()=>setLogModal(null)} onSaved={()=>{
-      // force-refresh client activities when modal saves
-      setClients(prev=>[...prev]);
-      setExpandedClientId(prev=>prev); // keep open
-    }} />
-  )}
 }
 
 
