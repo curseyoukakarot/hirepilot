@@ -19,20 +19,13 @@ export default function ClientActivities({ clientId, refreshToken }: Props) {
         setError('');
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
-        // Fetch contacts and filter by client
-        const r = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/contacts`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-        const contacts = r.ok ? await r.json() : [];
-        const leads = (contacts || []).filter((c: any) => c.client_id === clientId).slice(0, 5);
-        // Fetch activities for each lead
-        const acts: any[] = [];
-        for (const dm of leads) {
-          const aRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/activities?entity_type=lead&entity_id=${dm.id}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-          if (aRes.ok) {
-            const js = await aRes.json();
-            (js.activities || []).forEach((row: any) => acts.push({ ...row, _lead: dm }));
-          }
-        }
-        acts.sort((a, b) => new Date(b.activity_timestamp || b.occurred_at || b.created_at).getTime() - new Date(a.activity_timestamp || a.occurred_at || a.created_at).getTime());
+        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/deals/activity?entityType=client&entityId=${clientId}`, {
+          headers: token ? { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-store' } : { 'Cache-Control': 'no-store' },
+          cache: 'no-store'
+        });
+        if (!res.ok) throw new Error('failed');
+        const js = await res.json();
+        const acts = (js.rows || []).slice().sort((a: any, b: any) => new Date(b.occurred_at || b.activity_timestamp || b.created_at).getTime() - new Date(a.occurred_at || a.activity_timestamp || a.created_at).getTime());
         if (!cancelled) setRows(acts);
       } catch (e) {
         if (!cancelled) setError('Failed to load activity');
@@ -48,16 +41,13 @@ export default function ClientActivities({ clientId, refreshToken }: Props) {
   return (
     <div className="space-y-2">
       {rows.map((a: any) => (
-        <div key={`${a.id}-${a._lead?.id || ''}`} className="bg-white border rounded p-2 text-sm">
+        <div key={a.id} className="bg-white border rounded p-2 text-sm">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="capitalize text-gray-900">{a.activity_type || a.type}</div>
-              {a._lead?.name && <span className="text-xs text-gray-500">• {a._lead.name}</span>}
-            </div>
-            <div className="text-xs text-gray-400">{a.activity_timestamp || a.occurred_at ? new Date(a.activity_timestamp || a.occurred_at).toLocaleString() : ''}</div>
+            <div className="capitalize text-gray-900">{a.type || a.activity_type}</div>
+            <div className="text-xs text-gray-400">{a.occurred_at || a.activity_timestamp ? new Date(a.occurred_at || a.activity_timestamp).toLocaleString() : ''}</div>
           </div>
-          {(a.title || a.notes || a.body) && (
-            <div className="text-gray-700">{a.title || a.notes || a.body}</div>
+          {(a.title || a.body || a.notes) && (
+            <div className="text-gray-700">{a.title || a.body || a.notes}</div>
           )}
         </div>
       ))}
