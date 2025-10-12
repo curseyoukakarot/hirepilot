@@ -338,10 +338,13 @@ router.post('/upload', requireAuth, upload.single('file'), async (req: ApiReques
     const file = (req as any).file as Express.Multer.File | undefined;
     if (!file) return res.status(400).json({ error: 'Missing file' });
 
-    // Ensure bucket exists (best effort)
-    try { await (supabase as any).storage.getBucket('uploads'); } catch {
-      try { await (supabase as any).storage.createBucket('uploads', { public: true, fileSizeLimit: 8388608 }); } catch {}
-    }
+    // Ensure bucket exists (best effort, supabase-js returns { data, error } not throw)
+    try {
+      const { data: bucket } = await (supabase as any).storage.getBucket('uploads');
+      if (!bucket) {
+        await (supabase as any).storage.createBucket('uploads', { public: true, fileSizeLimit: 8388608 });
+      }
+    } catch {}
 
     const safeName = String(file.originalname || 'file').replace(/[^a-zA-Z0-9_.-]/g, '_');
     const path = `resumes/${userId}/${Date.now()}_${safeName}`;
