@@ -168,23 +168,7 @@ export default function CandidateList() {
 
   const clearSelection = () => setSelectedIds(new Set());
 
-  const bulkEnrich = async () => {
-    try {
-      const ids = Array.from(selectedIds);
-      if (ids.length === 0) return;
-      const headers = await getAuthHeader();
-      let enriched = 0; let failed = 0;
-      for (const id of ids) {
-        const resp = await fetch(`${BACKEND_URL}/api/leads/${id}/enrich`, { method: 'POST', headers, credentials: 'include' });
-        if (resp.ok) enriched++; else failed++;
-      }
-      alert(`Enrichment complete. Success: ${enriched}${failed?`, Failed: ${failed}`:''}`);
-      refreshCandidates();
-      clearSelection();
-    } catch (e) {
-      alert(e.message || 'Bulk enrich failed');
-    }
-  };
+  // bulkEnrich declared once; ensure no duplicate definitions
 
   const bulkEnrich = async () => {
     try {
