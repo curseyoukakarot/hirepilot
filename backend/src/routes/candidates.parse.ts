@@ -13,7 +13,7 @@ parseRouter.post('/api/candidates/parse', requireAuth, upload.single('file'), as
     const file = (req as any).file as Express.Multer.File | undefined;
     if (!file) { res.status(400).json({ error: 'file missing' }); return; }
     const text = await extractTextFromBuffer(file.buffer, file.mimetype || 'application/octet-stream');
-    const parsed = await parseResumeAI(text);
+    const { parsed, raw } = await parseResumeAI(text);
     // Normalize empty/undefined to 'Unknown' for UI compatibility
     const withDefaults = {
       name: parsed.name ?? 'Unknown',
@@ -28,7 +28,7 @@ parseRouter.post('/api/candidates/parse', requireAuth, upload.single('file'), as
       experience: parsed.experience || [],
       education: parsed.education || [],
     };
-    res.json({ ok: true, parsed: withDefaults });
+    res.json({ ok: true, parsed: withDefaults, _debug: process.env.NODE_ENV !== 'production' ? { raw } : undefined });
   } catch (e: any) {
     res.status(500).json({ error: 'parse_failed', detail: String(e?.message || e) });
   }

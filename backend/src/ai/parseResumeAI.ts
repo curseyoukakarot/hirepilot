@@ -8,7 +8,7 @@ skills (technical), soft_skills (communication/leadership/etc), tech (frameworks
 experience (company, title, dates, description), education (school, degree, field, years).
 Normalize dates if possible. If a field is unknown, omit it.`;
 
-export async function parseResumeAI(plainText: string): Promise<ParsedResume> {
+export async function parseResumeAI(plainText: string): Promise<{ parsed: ParsedResume; raw: string }> {
   const resp = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
     temperature: 0,
@@ -25,7 +25,7 @@ export async function parseResumeAI(plainText: string): Promise<ParsedResume> {
   const parsed = ParsedResumeSchema.parse(json);
   // Coerce nulls to undefined for simple fields
   const fix = (s: any) => (s == null ? undefined : s);
-  return {
+  const out: ParsedResume = {
     name: fix(parsed.name),
     title: fix(parsed.title),
     email: fix(parsed.email),
@@ -38,6 +38,7 @@ export async function parseResumeAI(plainText: string): Promise<ParsedResume> {
     experience: parsed.experience || [],
     education: parsed.education || [],
   } as any;
+  return { parsed: out, raw };
 }
 
 
