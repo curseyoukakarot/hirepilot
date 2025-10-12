@@ -25,9 +25,9 @@ export default function DealLogActivityModal({ entityType, entityId, onClose, on
       // Mirror existing leads activity API to avoid CORS nuances on new route
       let url = '';
       let payload: any = {};
-      if (entityType === 'client') {
-        // For client, log against its primary decision maker lead if present; otherwise, create a client note via lead activities isn't possible.
-        // Expect caller to pass decision_maker id when available; fallback to note-only not supported here.
+  if (entityType === 'client') {
+        url = `${import.meta.env.VITE_BACKEND_URL}/api/deals/activity`;
+        payload = { links: [{ entityType: 'client', entityId }], type, title: title || undefined, body: body || undefined, occurredAt: new Date(occurredAt).toISOString() };
       }
       if (entityType === 'decision_maker') {
         url = `${import.meta.env.VITE_BACKEND_URL}/api/lead-activities`;
