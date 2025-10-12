@@ -483,9 +483,13 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       }
       
       const enriched = await response.json();
-      
-      // Update candidate with enriched email
-      const updated = { ...currentLocal, email: enriched.email };
+      // Merge enriched fields if provided
+      const updated = { 
+        ...currentLocal,
+        email: enriched?.email ?? currentLocal.email,
+        phone: enriched?.phone ?? currentLocal.phone,
+        linkedin_url: enriched?.linkedin || currentLocal.linkedin_url,
+      };
       setLocalCandidate(updated);
       onLeadUpdated?.(updated);
       

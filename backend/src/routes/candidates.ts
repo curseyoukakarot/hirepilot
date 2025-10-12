@@ -418,6 +418,30 @@ router.post('/ingest', requireAuth, async (req: ApiRequest, res: Response) => {
   }
 });
 
+// POST /api/candidates/:id/enrich – mirrors lead enrichment but for candidate id
+router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user?.id as string | undefined;
+    const id = String(req.params.id || '');
+    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    if (!id) { res.status(400).json({ error: 'Missing candidate id' }); return; }
+
+    const own = await ensureCandidateOwnership(id, userId);
+    if (!own.ok) { res.status(404).json({ error: own.error }); return; }
+
+    // Reuse existing enrichment providers (lead flow) via a light wrapper
+    try {
+      const { enrichCandidateProfile } = await import('../services/enrichmentProviders');
+      const enriched = await enrichCandidateProfile({ candidateId: id, userId });
+      res.json(enriched || { ok: true });
+    } catch {
+      res.json({ ok: false });
+    }
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message || 'enrich_failed' });
+  }
+});
+
 // GET /api/candidates/:id - fetch candidate with structured joins
 router.get('/:id', requireAuth, async (req: ApiRequest, res: Response) => {
   try {
