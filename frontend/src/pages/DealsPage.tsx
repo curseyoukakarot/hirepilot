@@ -615,6 +615,7 @@ export default function DealsPage() {
                   ) : contacts.map((dm: any) => {
                     const client = clients.find((c: any) => c.id === dm.client_id);
                     return (
+                      <>
                       <tr key={dm.id} className="hover:bg-gray-50">
                         <td className="p-4 w-8"><input type="checkbox" checked={selectedContactIds.has(dm.id)} onChange={(e)=>{
                           const next = new Set(selectedContactIds);
@@ -701,6 +702,7 @@ export default function DealsPage() {
                           </td>
                         </tr>
                       )}
+                      </>
                     );
                   })}
                 </tbody>
