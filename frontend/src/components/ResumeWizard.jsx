@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
 function CandidatePreviewCard({ data, onChange }) {
@@ -54,6 +54,15 @@ export default function ResumeWizard({ open, onClose }) {
   const [items, setItems] = useState([]); // [{ file, status, parsed, ingesting, fileUrl, candidateId }]
   const [busy, setBusy] = useState(false);
   const inputRef = useRef(null);
+
+  // NOP build bump + runtime visibility of backend url used for uploads/parse/ingest
+  useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.info('ResumeWizard build', {
+      date: '2025-10-12T04:50Z',
+      backend: import.meta.env.VITE_BACKEND_URL
+    });
+  }, []);
 
   const canProceed = useMemo(() => {
     if (step === 1) return files.length > 0;
