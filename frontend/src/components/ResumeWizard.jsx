@@ -53,6 +53,7 @@ export default function ResumeWizard({ open, onClose }) {
   const [files, setFiles] = useState([]);
   const [items, setItems] = useState([]); // [{ file, status, parsed, ingesting, fileUrl, candidateId }]
   const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState('');
   const inputRef = useRef(null);
 
   // NOP build bump + runtime visibility of backend url used for uploads/parse/ingest
@@ -73,9 +74,18 @@ export default function ResumeWizard({ open, onClose }) {
 
   if (!open) return null;
 
+  const MAX_BULK = Number(import.meta.env.VITE_BULK_PARSE_LIMIT || 6);
+
   const onPick = (e) => {
     const fl = Array.from(e.target.files || []);
-    if (fl.length) setFiles(fl);
+    if (!fl.length) return;
+    if (fl.length > MAX_BULK) {
+      setFiles(fl.slice(0, MAX_BULK));
+      setNotice(`You selected ${fl.length} files. Limiting to ${MAX_BULK}.`);
+    } else {
+      setFiles(fl);
+      setNotice('');
+    }
   };
 
   const uploadToStorage = async (file, userId) => {
@@ -184,6 +194,8 @@ export default function ResumeWizard({ open, onClose }) {
               {!!files.length && (
                 <div className="mt-4 text-sm text-gray-700">{files.length} file(s) selected</div>
               )}
+              <div className="mt-2 text-xs text-gray-500">Max {MAX_BULK} files per bulk parse.</div>
+              {notice && <div className="mt-2 text-xs text-amber-600">{notice}</div>}
             </div>
             <div className="mt-6 flex justify-end">
               <button disabled={!canProceed || busy} onClick={() => { setStep(2); parseAll(); }} className={`px-5 py-2 rounded ${canProceed && !busy ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}`}>{busy ? 'Parsing…' : 'Start Parsing'}</button>
