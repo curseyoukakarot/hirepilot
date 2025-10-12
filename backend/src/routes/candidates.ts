@@ -379,8 +379,9 @@ router.post('/upload', requireAuth, upload.single('file'), async (req: ApiReques
     return res.status(500).json({ error: e?.message || 'upload_failed' });
   }
 });
-// POST /api/candidates/parse { text?: string, file?: { name, data(base64) } }
-router.post('/parse', requireAuth, async (req: ApiRequest, res: Response) => {
+// LEGACY parse endpoint kept for compatibility; new AI parser mounted in candidates.parse.ts
+// POST /api/candidates/parse-legacy { text?: string, file?: { name, data(base64) } }
+router.post('/parse-legacy', requireAuth, async (req: ApiRequest, res: Response) => {
   try {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });

@@ -114,14 +114,12 @@ export default function ResumeWizard({ open, onClose }) {
         // Upload file first to storage (public URL for linking in drawer)
         let fileUrl = null;
         try { if (userId) fileUrl = await uploadToStorage(file, userId); } catch {}
-        const text = await file.text();
+        const form = new FormData();
+        form.append('file', file, file.name);
         const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/candidates/parse`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({ text })
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          body: form
         });
         const json = await resp.json();
         out.push({ file, status: 'parsed', parsed: json.parsed, fileUrl });
