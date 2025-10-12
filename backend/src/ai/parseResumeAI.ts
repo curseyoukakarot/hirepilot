@@ -15,13 +15,13 @@ export async function parseResumeAI(plainText: string): Promise<ParsedResume> {
     response_format: { type: 'json_object' },
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user', content: `SCHEMA (TypeScript zod): ${ParsedResumeSchema.toString()}` },
-      { role: 'user', content: `RESUME:\n${plainText}` },
+      { role: 'user', content: 'SCHEMA:\n' + JSON.stringify(ParsedResumeSchema.shape, null, 2) },
+      { role: 'user', content: 'Return only JSON for this resume text:\n' + plainText.slice(0, 120000) },
     ],
   });
 
   const raw = resp.choices[0]?.message?.content ?? '{}';
-  const json = JSON.parse(raw);
+  const json = JSON.parse(raw || '{}');
   return ParsedResumeSchema.parse(json);
 }
 

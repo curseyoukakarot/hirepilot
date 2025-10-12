@@ -14,7 +14,21 @@ parseRouter.post('/api/candidates/parse', requireAuth, upload.single('file'), as
     if (!file) { res.status(400).json({ error: 'file missing' }); return; }
     const text = await extractTextFromBuffer(file.buffer, file.mimetype || 'application/octet-stream');
     const parsed = await parseResumeAI(text);
-    res.json({ ok: true, parsed });
+    // Normalize empty/undefined to 'Unknown' for UI compatibility
+    const withDefaults = {
+      name: parsed.name ?? 'Unknown',
+      title: parsed.title ?? 'Unknown',
+      email: parsed.email ?? 'Unknown',
+      phone: parsed.phone ?? 'Unknown',
+      linkedin: parsed.linkedin ?? 'Unknown',
+      summary: parsed.summary ?? 'Unknown',
+      skills: parsed.skills || [],
+      soft_skills: parsed.soft_skills || [],
+      tech: parsed.tech || [],
+      experience: parsed.experience || [],
+      education: parsed.education || [],
+    };
+    res.json({ ok: true, parsed: withDefaults });
   } catch (e: any) {
     res.status(500).json({ error: 'parse_failed', detail: String(e?.message || e) });
   }
