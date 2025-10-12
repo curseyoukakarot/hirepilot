@@ -750,6 +750,7 @@ export default function DealsPage() {
                 {clients.length === 0 ? (
                   <tr><td colSpan={6} className="p-6 text-gray-500">No clients yet</td></tr>
                 ) : clients.filter((c:any)=> !clientsSearch || (c.name||'').toLowerCase().includes(clientsSearch.toLowerCase())).map((c: any) => (
+                  <>
                   <tr key={c.id} className="hover:bg-gray-50">
                     <td className="p-4 font-medium text-gray-900">{c.name || '—'}</td>
                     <td className="p-4">{c.domain || '—'}</td>
@@ -786,25 +787,26 @@ export default function DealsPage() {
                       }}>{expandedClientId===c.id?'Hide':'Activity'}</button>
                     </td>
                   </tr>
-                  {expandedClientId && (
+                  {expandedClientId===c.id && (
                     <tr>
                       <td colSpan={6} className="p-0">
                         <div className="bg-gray-50 border-t p-3 text-sm">
                           <div className="font-semibold mb-2">Recent Activity</div>
                           <div className="space-y-2">
-                            {(clientActivities[expandedClientId]||[]).map((a:any)=> (
+                            {(clientActivities[c.id]||[]).map((a:any)=> (
                               <div key={a.id} className="bg-white border rounded p-2">
                                 <div className="text-gray-900 capitalize">{a.type}</div>
                                 <div className="text-gray-700">{a.body || a.title || ''}</div>
                                 <div className="text-xs text-gray-400">{a.occurred_at ? new Date(a.occurred_at).toLocaleString() : ''}</div>
                               </div>
                             ))}
-                            {!(clientActivities[expandedClientId]||[]).length && <div className="text-gray-500">No activity yet</div>}
+                            {!(clientActivities[c.id]||[]).length && <div className="text-gray-500">No activity yet</div>}
                           </div>
                         </div>
                       </td>
                     </tr>
                   )}
+                  </>
                 ))}
               </tbody>
             </table>
