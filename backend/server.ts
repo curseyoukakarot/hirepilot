@@ -222,6 +222,9 @@ app.use(cors({
         ? allowedOrigin === origin 
         : allowedOrigin.test(origin)
     );
+    if (!isAllowed && process.env.CORS_ALLOW_ANY_HTTPS === 'true' && /^https:\/\//.test(origin)) {
+      return cb(null, true);
+    }
     cb(null, isAllowed);
   },
   credentials: true,
