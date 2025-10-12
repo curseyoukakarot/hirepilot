@@ -22,16 +22,29 @@ export default function DealLogActivityModal({ entityType, entityId, onClose, on
       setSaving(true);
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
-      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/deals/activity`, {
+      // Mirror existing leads activity API to avoid CORS nuances on new route
+      let url = '';
+      let payload: any = {};
+      if (entityType === 'client') {
+        // For client, log against its primary decision maker lead if present; otherwise, create a client note via lead activities isn't possible.
+        // Expect caller to pass decision_maker id when available; fallback to note-only not supported here.
+      }
+      if (entityType === 'decision_maker') {
+        url = `${import.meta.env.VITE_BACKEND_URL}/api/lead-activities`;
+        payload = { lead_id: entityId, activity_type: type === 'note' ? 'Note' : type[0].toUpperCase()+type.slice(1), tags: [], notes: body || title || null, activity_timestamp: new Date(occurredAt).toISOString() };
+      } else if (entityType === 'opportunity') {
+        // keep using deals route for opportunities
+        url = `${import.meta.env.VITE_BACKEND_URL}/api/deals/activity`;
+        payload = { links: [{ entityType, entityId }], type, title: title || undefined, body: body || undefined, occurredAt: new Date(occurredAt).toISOString() };
+      } else {
+        // default to deals route
+        url = `${import.meta.env.VITE_BACKEND_URL}/api/deals/activity`;
+        payload = { links: [{ entityType, entityId }], type, title: title || undefined, body: body || undefined, occurredAt: new Date(occurredAt).toISOString() };
+      }
+      const resp = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type':'application/json', 'Cache-Control': 'no-store', ...(token?{ Authorization: `Bearer ${token}` }:{}) },
-        body: JSON.stringify({
-          links: [{ entityType, entityId }],
-          type,
-          title: title || undefined,
-          body: body || undefined,
-          occurredAt: new Date(occurredAt).toISOString()
-        })
+        body: JSON.stringify(payload)
       });
       if (!resp.ok) {
         const text = await resp.text().catch(()=> '');

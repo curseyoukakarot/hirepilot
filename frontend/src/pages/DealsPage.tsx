@@ -7,6 +7,7 @@ import CreateInvoiceModal from '../components/deals/CreateInvoiceModal';
 import { PieChart, Pie, Cell } from 'recharts';
 import DealLogActivityModal from '../components/deals/DealLogActivityModal';
 import DealsActivityList from '../components/deals/DealsActivityList';
+import ClientActivities from '../components/deals/ClientActivities';
 
 type ViewTab = 'clients' | 'opportunities' | 'billing' | 'revenue';
 type ClientsSubView = 'companies' | 'decisionMakers';
@@ -736,7 +737,7 @@ export default function DealsPage() {
                               <div className="text-sm font-semibold text-gray-700">Engagement</div>
                               <button className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm" onClick={()=> setLogModal({ type:'client', id: c.id })}>Log Activity</button>
                             </div>
-                            <DealsActivityList key={`client-acts-${c.id}`} entityType="client" entityId={c.id} refreshToken={Date.now()} />
+                            <ClientActivities clientId={c.id} />
                           </div>
                         </td>
                       </tr>
