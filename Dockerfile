@@ -50,7 +50,7 @@ RUN echo "=== DEBUG: Show root tsconfig ===" && cat tsconfig.json
 RUN echo "=== DEBUG: Show backend package.json (if present) ===" && (cat backend/package.json || true)
 
 # Install dependencies
-RUN if [ -f "backend/package.json" ]; then npm ci --production --prefix backend; else npm ci --production; fi
+RUN if [ -f "backend/package.json" ]; then npm install --omit=dev --prefix backend; else npm install --omit=dev; fi
 RUN npm install --production ts-node typescript || true
 
 # Install Chromium browser explicitly during build
