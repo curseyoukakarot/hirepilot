@@ -99,8 +99,6 @@ export default function ResumeWizard({ open, onClose }) {
       const { data: sessionRes } = await supabase.auth.getSession();
       const userId = sessionRes?.session?.user?.id;
       const token = sessionRes?.session?.access_token;
-      // Best-effort ensure bucket exists (ignore errors)
-      try { await supabase.storage.getBucket('uploads'); } catch {}
       const out = [];
       for (const file of files) {
         // Upload file first to storage (public URL for linking in drawer)
