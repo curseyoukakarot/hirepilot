@@ -6,6 +6,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } fro
 import CreateInvoiceModal from '../components/deals/CreateInvoiceModal';
 import { PieChart, Pie, Cell } from 'recharts';
 import DealLogActivityModal from '../components/deals/DealLogActivityModal';
+import DealsActivityList from '../components/deals/DealsActivityList';
 
 type ViewTab = 'clients' | 'opportunities' | 'billing' | 'revenue';
 type ClientsSubView = 'companies' | 'decisionMakers';
@@ -648,7 +649,12 @@ export default function DealsPage() {
                             <button className="px-2 py-1 text-xs bg-gray-100 rounded" onClick={()=>{ setEditingContactId(dm.id); setContactDraft({}); }}>Edit</button>
                           )}
                         </td>
-                        <td className="p-4"><button title="Delete" onClick={()=>confirmDelete('contact', dm.id)} className="text-red-500 hover:text-red-600">🗑️</button></td>
+                        <td className="p-4">
+                          <div className="flex items-center gap-2">
+                            <button className="px-2 py-1 text-xs bg-gray-100 rounded" onClick={()=> setLogModal({ type:'decision_maker', id: dm.id })}>Log</button>
+                            <button title="Delete" onClick={()=>confirmDelete('contact', dm.id)} className="text-red-500 hover:text-red-600">🗑️</button>
+                          </div>
+                        </td>
                       </tr>
                     );
                   })}
@@ -730,7 +736,7 @@ export default function DealsPage() {
                               <div className="text-sm font-semibold text-gray-700">Engagement</div>
                               <button className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm" onClick={()=> setLogModal({ type:'client', id: c.id })}>Log Activity</button>
                             </div>
-                            <div className="text-sm text-gray-500">Recent activity will appear here.</div>
+                            <DealsActivityList entityType="client" entityId={c.id} />
                           </div>
                         </td>
                       </tr>
