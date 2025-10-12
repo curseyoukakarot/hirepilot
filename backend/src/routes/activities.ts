@@ -5,6 +5,19 @@ import { supabase } from '../lib/supabase';
 import { logger } from '../lib/logger';
 
 const router = express.Router();
+// Local CORS shim for this router to avoid environment misconfig while stabilizing
+router.use((req, res, next) => {
+  const origin = String(req.headers.origin || '');
+  if (origin) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Vary', 'Origin');
+  }
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Headers', 'Authorization, Content-Type, Accept, Origin, X-Requested-With');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  if (req.method === 'OPTIONS') { res.status(204).end(); return; }
+  next();
+});
 
 const createActivitySchema = z.object({
   links: z.array(z.object({
