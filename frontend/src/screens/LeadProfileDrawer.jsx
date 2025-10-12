@@ -1168,10 +1168,12 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       if (!session) throw new Error('Not authenticated');
       const accessToken = session.access_token;
       
-      // For candidates, use lead_id for the enrich API call
-      const leadId = entityType === 'candidate' ? localLead.lead_id : localLead.id;
-      
-      const response = await fetch(`${API_BASE_URL}/leads/${leadId}/enrich`, {
+      // Use candidate enrich when viewing a candidate; otherwise leads enrich
+      const response = await fetch(
+        entityType === 'candidate'
+          ? `${API_BASE_URL}/candidates/${localLead.id}/enrich`
+          : `${API_BASE_URL}/leads/${localLead.id}/enrich`,
+      {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
