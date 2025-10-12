@@ -331,6 +331,21 @@ export default router;
 // ===== Resume Wizard Endpoints =====
 // POST /api/candidates/upload (multipart/form-data) -> { publicUrl }
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
+
+async function ensureUploadsBucket() {
+  // Try to fetch bucket; if missing, create, then verify once more
+  try {
+    const { data: bucket } = await (supabase as any).storage.getBucket('uploads');
+    if (bucket) return true;
+  } catch {}
+  try {
+    await (supabase as any).storage.createBucket('uploads', { public: true, fileSizeLimit: 8388608 });
+  } catch {}
+  try {
+    const { data: bucket2 } = await (supabase as any).storage.getBucket('uploads');
+    return !!bucket2;
+  } catch { return false; }
+}
 router.post('/upload', requireAuth, upload.single('file'), async (req: ApiRequest, res: Response) => {
   try {
     const userId = req.user?.id;
@@ -338,19 +353,22 @@ router.post('/upload', requireAuth, upload.single('file'), async (req: ApiReques
     const file = (req as any).file as Express.Multer.File | undefined;
     if (!file) return res.status(400).json({ error: 'Missing file' });
 
-    // Ensure bucket exists (best effort, supabase-js returns { data, error } not throw)
-    try {
-      const { data: bucket } = await (supabase as any).storage.getBucket('uploads');
-      if (!bucket) {
-        await (supabase as any).storage.createBucket('uploads', { public: true, fileSizeLimit: 8388608 });
-      }
-    } catch {}
+    // Ensure bucket exists (retryable)
+    await ensureUploadsBucket();
 
     const safeName = String(file.originalname || 'file').replace(/[^a-zA-Z0-9_.-]/g, '_');
     const path = `resumes/${userId}/${Date.now()}_${safeName}`;
-    const { data: uploaded, error } = await (supabase as any).storage
+    let { data: uploaded, error } = await (supabase as any).storage
       .from('uploads')
       .upload(path, file.buffer, { upsert: false, contentType: file.mimetype || 'application/octet-stream' });
+    if (error && /Bucket not found/i.test(String(error.message || ''))) {
+      // Retry once after forcing bucket creation
+      await ensureUploadsBucket();
+      const retry = await (supabase as any).storage
+        .from('uploads')
+        .upload(path, file.buffer, { upsert: false, contentType: file.mimetype || 'application/octet-stream' });
+      uploaded = retry.data; error = retry.error;
+    }
     if (error) return res.status(400).json({ error: error.message || 'upload_failed' });
     const { data: pub } = (supabase as any).storage.from('uploads').getPublicUrl(uploaded.path);
     return res.json({ publicUrl: pub?.publicUrl || null, path: uploaded.path });
