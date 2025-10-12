@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import { z } from 'zod';
-import { requireAuth } from '../../middleware/authMiddleware';
+import { requireAuthUnified as requireAuth } from '../../middleware/requireAuthUnified';
 import { supabase } from '../lib/supabase';
 import { logger } from '../lib/logger';
 
