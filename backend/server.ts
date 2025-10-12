@@ -233,6 +233,7 @@ const corsOptions: any = {
     'Authorization',
     'x-api-key',
     'Content-Type',
+    'Cache-Control',
     'Accept',
     'Origin',
     'X-Requested-With',
