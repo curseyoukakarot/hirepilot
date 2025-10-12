@@ -67,7 +67,6 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
         .from('candidates')
         .select('*')
         .eq('id', leadId)
-        .eq('user_id', userId)
         .maybeSingle();
       if (candidate) {
         entityType = 'candidate';
@@ -92,7 +91,6 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
           .from('candidates')
           .select('*')
           .eq('lead_id', leadId)
-          .eq('user_id', userId)
           .maybeSingle();
         if (candidateByLead) {
           entityType = 'candidate';
@@ -410,7 +408,6 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
         .from('candidates')
         .update(candidateUpdate)
         .eq('id', targetId)
-        .eq('user_id', userId)
         .select('*')
         .maybeSingle();
       if (updateError) {
