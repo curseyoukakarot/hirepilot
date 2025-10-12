@@ -10,6 +10,7 @@ import {
   FaTimes,
   FaFileAlt,
 } from 'react-icons/fa';
+import { AiOutlineThunderbolt } from 'react-icons/ai';
 import LeadProfileDrawer from './LeadProfileDrawer';
 import MetadataModal from '../components/MetadataModal';
 import { useNavigate } from 'react-router-dom';
@@ -166,6 +167,42 @@ export default function CandidateList() {
   };
 
   const clearSelection = () => setSelectedIds(new Set());
+
+  const bulkEnrich = async () => {
+    try {
+      const ids = Array.from(selectedIds);
+      if (ids.length === 0) return;
+      const headers = await getAuthHeader();
+      let enriched = 0; let failed = 0;
+      for (const id of ids) {
+        const resp = await fetch(`${BACKEND_URL}/api/leads/${id}/enrich`, { method: 'POST', headers, credentials: 'include' });
+        if (resp.ok) enriched++; else failed++;
+      }
+      alert(`Enrichment complete. Success: ${enriched}${failed?`, Failed: ${failed}`:''}`);
+      refreshCandidates();
+      clearSelection();
+    } catch (e) {
+      alert(e.message || 'Bulk enrich failed');
+    }
+  };
+
+  const bulkEnrich = async () => {
+    try {
+      const ids = Array.from(selectedIds);
+      if (ids.length === 0) return;
+      const headers = await getAuthHeader();
+      let enriched = 0; let failed = 0;
+      for (const id of ids) {
+        const resp = await fetch(`${BACKEND_URL}/api/leads/${id}/enrich`, { method: 'POST', headers, credentials: 'include' });
+        if (resp.ok) enriched++; else failed++;
+      }
+      alert(`Enrichment complete. Success: ${enriched}${failed?`, Failed: ${failed}`:''}`);
+      refreshCandidates();
+      clearSelection();
+    } catch (e) {
+      alert(e.message || 'Bulk enrich failed');
+    }
+  };
 
   const bulkChangeStatus = async (status) => {
     try {
@@ -469,7 +506,16 @@ export default function CandidateList() {
             Manage and track your candidates in one place.
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 items-center">
+          {selectedIds.size > 0 && (
+            <button
+              onClick={bulkEnrich}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm flex items-center shadow transition-all duration-150"
+              title={`Enrich ${selectedIds.size} selected`}
+            >
+              <AiOutlineThunderbolt className="mr-2" /> Enrich Selected
+            </button>
+          )}
           <button
             onClick={handleExportCandidates}
             className="bg-white hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg text-sm flex items-center shadow border transition-all duration-150"
