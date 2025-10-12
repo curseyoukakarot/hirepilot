@@ -30,8 +30,8 @@ export default function DealLogActivityModal({ entityType, entityId, onClose, on
         payload = { links: [{ entityType: 'client', entityId }], type, title: title || undefined, body: body || undefined, occurredAt: new Date(occurredAt).toISOString() };
       }
       if (entityType === 'decision_maker') {
-        url = `${import.meta.env.VITE_BACKEND_URL}/api/lead-activities`;
-        payload = { lead_id: entityId, activity_type: type === 'note' ? 'Note' : type[0].toUpperCase()+type.slice(1), tags: [], notes: body || title || null, activity_timestamp: new Date(occurredAt).toISOString() };
+        url = `${import.meta.env.VITE_BACKEND_URL}/api/deals/activity`;
+        payload = { links: [{ entityType: 'decision_maker', entityId }], type, title: title || undefined, body: body || undefined, occurredAt: new Date(occurredAt).toISOString() };
       } else if (entityType === 'opportunity') {
         // keep using deals route for opportunities
         url = `${import.meta.env.VITE_BACKEND_URL}/api/deals/activity`;
