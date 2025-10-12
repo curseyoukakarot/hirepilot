@@ -70,12 +70,18 @@ export default function ResumeWizard({ open, onClose }) {
   };
 
   const uploadToStorage = async (file, userId) => {
-    const safeName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
-    const path = `resumes/${userId}/${Date.now()}_${safeName}`;
-    const { data: uploaded, error } = await supabase.storage.from('uploads').upload(path, file, { upsert: false });
-    if (error) throw error;
-    const { data: pub } = supabase.storage.from('uploads').getPublicUrl(uploaded.path);
-    return pub?.publicUrl || null;
+    const form = new FormData();
+    form.append('file', file, file.name);
+    const { data: sessionRes } = await supabase.auth.getSession();
+    const token = sessionRes?.session?.access_token;
+    const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/candidates/upload`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: form
+    });
+    if (!resp.ok) throw new Error('upload_failed');
+    const js = await resp.json();
+    return js.publicUrl || null;
   };
 
   const parseAll = async () => {
@@ -83,6 +89,7 @@ export default function ResumeWizard({ open, onClose }) {
     try {
       const { data: sessionRes } = await supabase.auth.getSession();
       const userId = sessionRes?.session?.user?.id;
+      const token = sessionRes?.session?.access_token;
       // Best-effort ensure bucket exists (ignore errors)
       try { await supabase.storage.getBucket('uploads'); } catch {}
       const out = [];
@@ -91,7 +98,14 @@ export default function ResumeWizard({ open, onClose }) {
         let fileUrl = null;
         try { if (userId) fileUrl = await uploadToStorage(file, userId); } catch {}
         const text = await file.text();
-        const resp = await fetch('/api/candidates/parse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
+        const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/candidates/parse`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ text })
+        });
         const json = await resp.json();
         out.push({ file, status: 'parsed', parsed: json.parsed, fileUrl });
       }
@@ -111,10 +125,19 @@ export default function ResumeWizard({ open, onClose }) {
   const ingestAll = async () => {
     setBusy(true);
     try {
+      const { data: sessionRes } = await supabase.auth.getSession();
+      const token = sessionRes?.session?.access_token;
       for (let i = 0; i < items.length; i++) {
         const it = items[i];
         updateItem(i, { ingesting: true });
-        const resp = await fetch('/api/candidates/ingest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ parsed: it.parsed, fileUrl: it.fileUrl }) });
+        const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/candidates/ingest`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ parsed: it.parsed, fileUrl: it.fileUrl })
+        });
         const json = await resp.json();
         updateItem(i, { ingesting: false, candidateId: json.candidateId, status: 'ingested' });
       }
