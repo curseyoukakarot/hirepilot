@@ -290,13 +290,33 @@ app.use(bodyParser.urlencoded({ limit: '25mb', extended: true }));
 app.use((req, res, next) => {
   const headers = { ...req.headers } as any;
   if (headers.authorization) headers.authorization = '[redacted]';
-  console.log(`${req.method} ${req.path}`, {
-    headers,
-    query: req.query,
-    body: req.body
-  });
+  if (process.env.LOG_REQUESTS === 'true') {
+    console.log(`${req.method} ${req.path}`, {
+      headers,
+      query: req.query,
+      body: req.body
+    });
+  }
   if (req.path.startsWith('/api')) incrementApiCalls();
   next();
+});
+
+// Global error handler to ensure JSON + CORS headers on errors
+app.use((err: any, req: expressNs.Request, res: expressNs.Response, _next: expressNs.NextFunction) => {
+  try {
+    const origin = String(req.headers.origin || '');
+    if (origin) {
+      res.header('Access-Control-Allow-Origin', origin);
+      res.header('Vary', 'Origin');
+    }
+    res.header('Access-Control-Allow-Credentials', 'true');
+  } catch {}
+  const status = err?.status || err?.statusCode || 500;
+  const message = err?.message || 'Internal Server Error';
+  if (process.env.LOG_REQUESTS === 'true') {
+    console.error('GlobalError', { status, message, stack: err?.stack });
+  }
+  res.status(status).json({ error: message });
 });
 
 // Initialize Supabase client
