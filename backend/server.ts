@@ -207,6 +207,10 @@ const allowed = [
   'http://127.0.0.1:5173',
   // Explicitly allow pipeline API cache-busted requests from marketing domain too
   /^https:\/\/.*thehirepilot\.com$/,
+  // Vercel preview and production frontends
+  /^https:\/\/.*vercel\.app$/,
+  // Optional explicit override from env
+  ...(process.env.FRONTEND_ORIGIN ? [process.env.FRONTEND_ORIGIN] : []),
   'chrome-extension://hocopaaojddfommlkiegnflimmmppbnk',  // HirePilot Chrome Extension
   /^chrome-extension:\/\/.*$/  // Allow any Chrome extension for development
 ];
