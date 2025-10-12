@@ -736,7 +736,7 @@ export default function DealsPage() {
                               <div className="text-sm font-semibold text-gray-700">Engagement</div>
                               <button className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm" onClick={()=> setLogModal({ type:'client', id: c.id })}>Log Activity</button>
                             </div>
-                            <DealsActivityList entityType="client" entityId={c.id} />
+                            <DealsActivityList key={`client-acts-${c.id}`} entityType="client" entityId={c.id} refreshToken={Date.now()} />
                           </div>
                         </td>
                       </tr>
@@ -1056,7 +1056,10 @@ export default function DealsPage() {
   // Modal root
   {/* Rendered at component root to avoid table nesting issues */}
   {logModal && (
-    <DealLogActivityModal entityType={logModal.type} entityId={logModal.id} onClose={()=>setLogModal(null)} onSaved={()=>{ /* no-op for now */ }} />
+    <DealLogActivityModal entityType={logModal.type} entityId={logModal.id} onClose={()=>setLogModal(null)} onSaved={()=>{
+      // force-refresh client activities when modal saves
+      setClients(prev=>[...prev]);
+    }} />
   )}
 }
 

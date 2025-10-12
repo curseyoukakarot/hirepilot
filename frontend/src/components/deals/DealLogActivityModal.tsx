@@ -24,7 +24,7 @@ export default function DealLogActivityModal({ entityType, entityId, onClose, on
       const token = session?.access_token;
       const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/deals/activity`, {
         method: 'POST',
-        headers: { 'Content-Type':'application/json', ...(token?{ Authorization: `Bearer ${token}` }:{}) },
+        headers: { 'Content-Type':'application/json', 'Cache-Control': 'no-store', ...(token?{ Authorization: `Bearer ${token}` }:{}) },
         body: JSON.stringify({
           links: [{ entityType, entityId }],
           type,
@@ -33,12 +33,15 @@ export default function DealLogActivityModal({ entityType, entityId, onClose, on
           occurredAt: new Date(occurredAt).toISOString()
         })
       });
-      if (!resp.ok) throw new Error('Failed to save');
+      if (!resp.ok) {
+        const text = await resp.text().catch(()=> '');
+        throw new Error(text || `Failed to save (${resp.status})`);
+      }
       onSaved && onSaved();
       onClose();
     } catch (e) {
       // Minimal inline alert; unify later with toast system
-      alert('Failed to save activity');
+      alert(String(e instanceof Error ? e.message : e));
     } finally { setSaving(false); }
   };
 

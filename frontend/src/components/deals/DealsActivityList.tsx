@@ -4,9 +4,10 @@ import { supabase } from '../../lib/supabaseClient';
 interface DealsActivityListProps {
   entityType: 'client' | 'decision_maker' | 'opportunity';
   entityId: string;
+  refreshToken?: number;
 }
 
-export default function DealsActivityList({ entityType, entityId }: DealsActivityListProps) {
+export default function DealsActivityList({ entityType, entityId, refreshToken }: DealsActivityListProps) {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
@@ -19,8 +20,9 @@ export default function DealsActivityList({ entityType, entityId }: DealsActivit
         setError('');
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
-        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/deals/activity?entityType=${entityType}&entityId=${entityId}`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/deals/activity?entityType=${entityType}&entityId=${entityId}&_=${Date.now()}`, {
+          headers: token ? { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-store' } : { 'Cache-Control': 'no-store' },
+          cache: 'no-store'
         });
         if (!res.ok) throw new Error('failed');
         const js = await res.json();
@@ -32,7 +34,7 @@ export default function DealsActivityList({ entityType, entityId }: DealsActivit
       }
     })();
     return () => { cancelled = true; };
-  }, [entityType, entityId]);
+  }, [entityType, entityId, refreshToken]);
 
   if (loading) return <div className="text-sm text-gray-500">Loading activity…</div>;
   if (error) return <div className="text-sm text-red-500">{error}</div>;
