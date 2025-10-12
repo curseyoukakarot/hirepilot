@@ -5,6 +5,7 @@ import AddOpportunityModal from '../components/deals/AddOpportunityModal';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import CreateInvoiceModal from '../components/deals/CreateInvoiceModal';
 import { PieChart, Pie, Cell } from 'recharts';
+import DealLogActivityModal from '../components/deals/DealLogActivityModal';
 
 type ViewTab = 'clients' | 'opportunities' | 'billing' | 'revenue';
 type ClientsSubView = 'companies' | 'decisionMakers';
@@ -56,6 +57,7 @@ export default function DealsPage() {
   const [addStage, setAddStage] = useState('Pipeline');
   const [form, setForm] = useState<{ title: string; client_id: string; value: string; billing_type: string }>({ title: '', client_id: '', value: '', billing_type: '' });
   const [showAddModal, setShowAddModal] = useState(false);
+  const [logModal, setLogModal] = useState<{ type: 'client'|'decision_maker'|'opportunity'; id: string } | null>(null);
   // Removed modal caret refs
 
   useEffect(() => {
@@ -723,6 +725,13 @@ export default function DealsPage() {
                             onSave={async ()=>{ const { data: { session } } = await supabase.auth.getSession(); const token = session?.access_token; const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }); const js = resp.ok ? await resp.json() : []; setClients(js||[]); setExpandedClientId(null); }}
                             onCancel={()=> setExpandedClientId(null)}
                           />
+                          <div className="mt-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="text-sm font-semibold text-gray-700">Engagement</div>
+                              <button className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm" onClick={()=> setLogModal({ type:'client', id: c.id })}>Log Activity</button>
+                            </div>
+                            <div className="text-sm text-gray-500">Recent activity will appear here.</div>
+                          </div>
                         </td>
                       </tr>
                     )}
@@ -1037,6 +1046,12 @@ export default function DealsPage() {
       )}
     </div>
   );
+
+  // Modal root
+  {/* Rendered at component root to avoid table nesting issues */}
+  {logModal && (
+    <DealLogActivityModal entityType={logModal.type} entityId={logModal.id} onClose={()=>setLogModal(null)} onSaved={()=>{ /* no-op for now */ }} />
+  )}
 }
 
 
