@@ -22,7 +22,22 @@ export async function parseResumeAI(plainText: string): Promise<ParsedResume> {
 
   const raw = resp.choices[0]?.message?.content ?? '{}';
   const json = JSON.parse(raw || '{}');
-  return ParsedResumeSchema.parse(json);
+  const parsed = ParsedResumeSchema.parse(json);
+  // Coerce nulls to undefined for simple fields
+  const fix = (s: any) => (s == null ? undefined : s);
+  return {
+    name: fix(parsed.name),
+    title: fix(parsed.title),
+    email: fix(parsed.email),
+    phone: fix(parsed.phone),
+    linkedin: fix(parsed.linkedin),
+    summary: fix(parsed.summary),
+    skills: parsed.skills || [],
+    soft_skills: parsed.soft_skills || [],
+    tech: parsed.tech || [],
+    experience: parsed.experience || [],
+    education: parsed.education || [],
+  } as any;
 }
 
 

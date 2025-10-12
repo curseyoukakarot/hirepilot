@@ -1,34 +1,39 @@
 import { z } from 'zod';
 
+// helpers to accept nulls from LLM output and coerce to undefined/empty
+const StrOptNull = z.string().nullable().optional();
+const YearOptNull = z.union([z.number().int(), z.string().regex(/^\d{4}$/).transform(s=>Number(s))]).optional().or(z.null()).transform(v => (v === null ? undefined : (typeof v === 'string' ? Number(v) : v)));
+const ArrStrCoerce = z.preprocess((v) => Array.isArray(v) ? v : (v == null ? [] : [String(v)]), z.array(z.string()));
+
 export const ParsedExperience = z.object({
-  company: z.string().optional(),
-  title: z.string().optional(),
-  start_date: z.string().optional(),
-  end_date: z.string().optional(),
-  location: z.string().optional(),
-  description: z.string().optional(),
+  company: StrOptNull,
+  title: StrOptNull,
+  start_date: StrOptNull,
+  end_date: StrOptNull,
+  location: StrOptNull,
+  description: StrOptNull,
 });
 
 export const ParsedEducation = z.object({
-  school: z.string().optional(),
-  degree: z.string().optional(),
-  field: z.string().optional(),
-  start_year: z.number().int().optional(),
-  end_year: z.number().int().optional(),
+  school: StrOptNull,
+  degree: StrOptNull,
+  field: StrOptNull,
+  start_year: YearOptNull,
+  end_year: YearOptNull,
 });
 
 export const ParsedResumeSchema = z.object({
-  name: z.string().optional(),
-  title: z.string().optional(),
-  email: z.string().optional(),
-  phone: z.string().optional(),
-  linkedin: z.string().optional(),
-  summary: z.string().optional(),
-  skills: z.array(z.string()).default([]),
-  soft_skills: z.array(z.string()).default([]),
-  tech: z.array(z.string()).default([]),
-  experience: z.array(ParsedExperience).default([]),
-  education: z.array(ParsedEducation).default([]),
+  name: StrOptNull,
+  title: StrOptNull,
+  email: StrOptNull,
+  phone: StrOptNull,
+  linkedin: StrOptNull,
+  summary: StrOptNull,
+  skills: ArrStrCoerce.default([]),
+  soft_skills: ArrStrCoerce.default([]),
+  tech: ArrStrCoerce.default([]),
+  experience: z.preprocess((v)=> Array.isArray(v)? v : [], z.array(ParsedExperience)).default([]),
+  education: z.preprocess((v)=> Array.isArray(v)? v : [], z.array(ParsedEducation)).default([]),
 });
 
 export type ParsedResume = z.infer<typeof ParsedResumeSchema>;
