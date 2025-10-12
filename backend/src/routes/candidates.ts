@@ -430,13 +430,19 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
     if (!own.ok) { res.status(404).json({ error: own.error }); return; }
 
     // Reuse existing enrichment providers (lead flow) via a light wrapper
+    // Simple inline enrichment: reuse existing candidate enrichment worker logic when possible
     try {
-      const { enrichCandidateProfile } = await import('../services/enrichmentProviders');
-      const enriched = await enrichCandidateProfile({ candidateId: id, userId });
-      res.json(enriched || { ok: true });
-    } catch {
-      res.json({ ok: false });
-    }
+      const { data: cand } = await supabase.from('candidates').select('id, email, enrichment_data').eq('id', id).maybeSingle();
+      let email: string | null = null;
+      const enr = (cand as any)?.enrichment_data || {};
+      email = enr?.apollo?.email || enr?.hunter?.email || enr?.skrapp?.email || enr?.decodo?.email || null;
+      if (email) {
+        await supabase.from('candidates').update({ email }).eq('id', id);
+        res.json({ ok: true, email });
+        return;
+      }
+    } catch {}
+    res.status(404).json({ success: false, message: 'No enrichment available' });
   } catch (e: any) {
     res.status(500).json({ error: e?.message || 'enrich_failed' });
   }
