@@ -71,13 +71,15 @@ router.post('/activity', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/deals/activity?entityType=opportunity&entityId=...
+// GET /api/deals/activity?entityType=opportunity&entityId=...&includeLinked=true
 router.get('/activity', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id as string | undefined;
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
     const entityType = String(req.query.entityType || '');
     const entityId = String(req.query.entityId || '');
+    const includeLinked = String(req.query.includeLinked || req.query.includeDecisionMakers || 'false');
+    const includeLinkedBool = includeLinked === 'true' || includeLinked === '1';
     if (!['client','decision_maker','opportunity'].includes(entityType) || !entityId) {
       res.status(400).json({ error: 'invalid_query' }); return;
     }
@@ -86,12 +88,29 @@ router.get('/activity', requireAuth, async (req: Request, res: Response) => {
     const { data: me } = await supabase.from('users').select('team_id, role').eq('id', userId).maybeSingle();
     const myTeamId = (me as any)?.team_id || null;
 
-    // Basic fetch: all activities linked to entity
+    // Collect activity ids linked to the requested entity (and optionally linked decision makers)
+    let entityTypesToInclude: string[] = [entityType];
+    let entityIdsToInclude: string[] = [entityId];
+
+    if (entityType === 'client' && includeLinkedBool) {
+      try {
+        const { data: dms } = await supabase
+          .from('contacts')
+          .select('id')
+          .eq('client_id', entityId);
+        const dmIds = (dms || []).map((r: any) => r.id);
+        if (dmIds.length) {
+          entityTypesToInclude = ['client','decision_maker'];
+          entityIdsToInclude = [entityId, ...dmIds];
+        }
+      } catch {}
+    }
+
     const { data: links, error: linkErr } = await supabase
       .from('activity_link')
       .select('activity_id')
-      .eq('entity_type', entityType)
-      .eq('entity_id', entityId);
+      .in('entity_type', entityTypesToInclude)
+      .in('entity_id', entityIdsToInclude);
     if (linkErr) { res.status(500).json({ error: linkErr.message }); return; }
     const ids = (links || []).map((r: any) => r.activity_id);
     if (!ids.length) { res.json({ rows: [], count: 0 }); return; }

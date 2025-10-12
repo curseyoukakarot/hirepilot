@@ -19,7 +19,7 @@ export default function ClientActivities({ clientId, refreshToken }: Props) {
         setError('');
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
-        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/deals/activity?entityType=client&entityId=${clientId}`, {
+        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/deals/activity?entityType=client&entityId=${clientId}&includeLinked=true`, {
           headers: token ? { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-store' } : { 'Cache-Control': 'no-store' },
           cache: 'no-store'
         });
