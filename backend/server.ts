@@ -214,7 +214,7 @@ const allowed = [
   'chrome-extension://hocopaaojddfommlkiegnflimmmppbnk',  // HirePilot Chrome Extension
   /^chrome-extension:\/\/.*$/  // Allow any Chrome extension for development
 ];
-app.use(cors({
+const corsOptions: any = {
   origin: (origin, cb) => {
     if (!origin) return cb(null, true);
     const isAllowed = allowed.some(allowedOrigin => 
@@ -243,10 +243,11 @@ app.use(cors({
     'Access-Control-Allow-Methods'
   ],
   exposedHeaders: ['Content-Type', 'Authorization']
-}));
+};
+app.use(cors(corsOptions));
 
-// Pre-flight for all routes
-app.options('*', cors());
+// Pre-flight for all routes (use same options)
+app.options('*', cors(corsOptions));
 
 // Parse cookies
 app.use(cookieParser());
