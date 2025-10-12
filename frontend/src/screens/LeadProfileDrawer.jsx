@@ -1168,11 +1168,10 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       if (!session) throw new Error('Not authenticated');
       const accessToken = session.access_token;
       
-      // Use candidate enrich when viewing a candidate; otherwise leads enrich
+      // Always use unified leads enrich endpoint; it accepts either a lead id
+      // or a candidate id and falls back internally to candidate lookup.
       const response = await fetch(
-        entityType === 'candidate'
-          ? `${API_BASE_URL}/candidates/${localLead.id}/enrich`
-          : `${API_BASE_URL}/leads/${localLead.id}/enrich`,
+        `${API_BASE_URL}/leads/${localLead.id}/enrich`,
       {
         method: 'POST',
         headers: {
