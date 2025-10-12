@@ -39,7 +39,7 @@ export default function CandidateList() {
   const [loading, setLoading] = useState(true);
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [showDrawer, setShowDrawer] = useState(false);
-  const [selectedIds, setSelectedIds] = new Set());
+  const [selectedIds, setSelectedIds] = useState(new Set());
   const [showActionsMenu, setShowActionsMenu] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editedCandidate, setEditedCandidate] = useState(null);
