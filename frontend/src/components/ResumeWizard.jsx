@@ -53,6 +53,9 @@ export default function ResumeWizard({ open, onClose }) {
   const [files, setFiles] = useState([]);
   const [items, setItems] = useState([]); // [{ file, status, parsed, ingesting, fileUrl, candidateId }]
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [progressMsg, setProgressMsg] = useState('');
+  const [progressLog, setProgressLog] = useState([]);
   const [notice, setNotice] = useState('');
   const inputRef = useRef(null);
 
@@ -109,23 +112,47 @@ export default function ResumeWizard({ open, onClose }) {
       const { data: sessionRes } = await supabase.auth.getSession();
       const userId = sessionRes?.session?.user?.id;
       const token = sessionRes?.session?.access_token;
+      setProgress(0);
+      setProgressMsg('Initializing parser…');
+      setProgressLog([]);
       const out = [];
+      const total = Math.max(1, files.length * 4); // upload, send, parse, prepare
+      let done = 0;
+      const bump = (msg) => {
+        done += 1;
+        const pct = Math.min(100, Math.round((done / total) * 100));
+        setProgress(pct);
+        setProgressMsg(msg);
+        setProgressLog(prev => [...prev, msg]);
+      };
+
       for (const file of files) {
         // Upload file first to storage (public URL for linking in drawer)
         let fileUrl = null;
-        try { if (userId) fileUrl = await uploadToStorage(file, userId); } catch {}
+        try {
+          setProgressMsg(`Uploading ${file.name}…`);
+          if (userId) fileUrl = await uploadToStorage(file, userId);
+          bump(`Uploaded ${file.name}`);
+        } catch {
+          bump(`Skipped upload for ${file.name}`);
+        }
         const form = new FormData();
         form.append('file', file, file.name);
+        setProgressMsg(`Sending ${file.name} to AI parser…`);
         const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/candidates/parse`, {
           method: 'POST',
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
           body: form
         });
+        bump(`AI response received for ${file.name}`);
         const json = await resp.json();
         out.push({ file, status: 'parsed', parsed: json.parsed, fileUrl });
+        bump(`Prepared preview for ${file.name}`);
       }
       setItems(out);
       setStep(3);
+      setProgress(100);
+      setProgressMsg('Parsing complete. Preparing preview…');
     } catch (e) {
       console.error('parseAll error', e);
     } finally {
@@ -197,6 +224,24 @@ export default function ResumeWizard({ open, onClose }) {
             </div>
             <div className="mt-6 flex justify-end">
               <button disabled={!canProceed || busy} onClick={() => { setStep(2); parseAll(); }} className={`px-5 py-2 rounded ${canProceed && !busy ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}`}>{busy ? 'Parsing…' : 'Start Parsing'}</button>
+            </div>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="py-6">
+            <div className="text-lg font-medium mb-2">Parsing resumes…</div>
+            <div className="w-full bg-gray-200 rounded h-3 overflow-hidden">
+              <div className="h-3 bg-blue-600 transition-all" style={{ width: `${progress}%` }} />
+            </div>
+            <div className="mt-3 text-sm text-gray-700 min-h-[1.5rem]">{progressMsg}</div>
+            <div className="mt-3 text-xs text-gray-500">
+              <div>Details</div>
+              <ul className="mt-1 space-y-1 max-h-32 overflow-auto">
+                {progressLog.slice(-8).map((m, i) => (
+                  <li key={i}>• {m}</li>
+                ))}
+              </ul>
             </div>
           </div>
         )}
