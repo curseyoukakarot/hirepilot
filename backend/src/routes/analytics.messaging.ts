@@ -264,7 +264,7 @@ analyticsRouter.get('/api/analytics/time-series', requireAuth as any, async (req
       const sent = Number(r.sent)||0; const opens = Number(r.opens)||0; const replies = Number(r.replies)||0;
       const openRate = sent>0 ? Math.round((opens/sent)*1000)/10 : 0;
       const replyRate = sent>0 ? Math.round((replies/sent)*1000)/10 : 0;
-      return { period: new Date(r.day).toISOString().slice(0,10), openRate, replyRate, conversionRate: 0 };
+      return { period: new Date(r.day).toISOString().slice(0,10), rawPeriod: new Date(r.day).toISOString().slice(0,10), sent, opens, replies, conversions: 0, openRate, replyRate, conversionRate: 0, interestedRate: 0, growth: 0 };
     });
     res.json({ ok: true, data: out });
   } catch (e: any) {
