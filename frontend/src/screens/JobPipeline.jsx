@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import PipelineBoard from '../components/pipeline/PipelineBoard';
 import CreatePipelineModal from '../components/CreatePipelineModal';
+import SubmitCandidateModal from '../components/pipeline/SubmitCandidateModal';
 import { supabase } from '../lib/supabaseClient';
 import toast from 'react-hot-toast';
 
@@ -19,6 +20,7 @@ export default function JobPipeline({ embedded = false, jobId: jobIdProp = null 
   const [newPipelineName, setNewPipelineName] = useState('');
   const [newPipelineDepartment, setNewPipelineDepartment] = useState('');
   const [showCreatePipelineModal, setShowCreatePipelineModal] = useState(false);
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [selectedJobTitle, setSelectedJobTitle] = useState('');
   const defaultStages = [
     { name: 'Sourced', color: 'bg-blue-100 text-blue-800' },
@@ -207,6 +209,15 @@ export default function JobPipeline({ embedded = false, jobId: jobIdProp = null 
                 >
                   <span className="font-medium">+ New Stage</span>
                 </button>
+                <button
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 whitespace-nowrap min-w-[170px]"
+                  onClick={() => {
+                    if (!selectedJob) { toast.error('Please select a job first'); return; }
+                    setShowSubmitModal(true);
+                  }}
+                >
+                  <span className="font-medium">+ Submit Candidate</span>
+                </button>
                 </div>
             </div>
           </header>
@@ -222,6 +233,15 @@ export default function JobPipeline({ embedded = false, jobId: jobIdProp = null 
           jobTitle={selectedJobTitle}
           onClose={() => setShowCreatePipelineModal(false)}
           onPipelineCreated={handlePipelineCreated}
+        />
+      )}
+
+      {/* Submit Candidate Modal */}
+      {showSubmitModal && (
+        <SubmitCandidateModal
+          open={showSubmitModal}
+          jobId={selectedJob}
+          onClose={() => setShowSubmitModal(false)}
         />
       )}
     </div>

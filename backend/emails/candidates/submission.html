@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>New Candidate Submitted</title>
+  <style>
+    body { font-family: Inter, -apple-system, Segoe UI, Roboto, Arial, sans-serif; color:#111827; }
+    .container { max-width: 640px; margin: 0 auto; background: #ffffff; }
+    .header { padding: 20px 24px; border-bottom: 1px solid #e5e7eb; }
+    .title { margin: 0; font-size: 20px; }
+    .body { padding: 20px 24px; }
+    .table { width: 100%; border-collapse: collapse; }
+    .row td { padding: 6px 0; vertical-align: top; }
+    .label { width: 180px; font-weight: 600; color:#111827; }
+    .sectionTitle { margin: 14px 0 6px; font-weight: 600; }
+    .muted { color:#6b7280; font-size: 12px; }
+    a.btn { background:#2563eb; color:#fff; padding:8px 12px; display:inline-block; border-radius:6px; text-decoration:none; }
+  </style>
+  <!-- Preheader -->
+  <span class="muted" style="display:none;visibility:hidden;opacity:0;height:0;width:0;overflow:hidden">New candidate submitted for {{jobTitle}}</span>
+  <!-- Hidden pixel -->
+  <img src="https://api.thehirepilot.com/pixel.gif?type=submission" width="1" height="1" alt="" style="display:none"/>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1 class="title">New Candidate Submitted</h1>
+    </div>
+    <div class="body">
+      <p>Hi {{ownerName}},</p>
+      <p>See the attached candidate for your review! If thumbs up I’d like to submit the candidate to the hiring manager.</p>
+      <table class="table">
+        <tbody>
+          <tr class="row"><td class="label">Name</td><td>{{candidateName}}</td></tr>
+          <tr class="row"><td class="label">Position</td><td>{{jobTitle}}</td></tr>
+          <tr class="row"><td class="label">Email</td><td><a href="mailto:{{email}}">{{email}}</a></td></tr>
+          <tr class="row"><td class="label">Profile Link</td><td><a href="{{linkedin}}">{{linkedin}}</a></td></tr>
+          <tr class="row"><td class="label">Years of Experience</td><td>{{years}}</td></tr>
+        </tbody>
+      </table>
+
+      <div class="sectionTitle">Notable Impact</div>
+      <div style="white-space:pre-wrap">{{impact}}</div>
+      <div class="sectionTitle">Motivation</div>
+      <div style="white-space:pre-wrap">{{motivation}}</div>
+      <div class="sectionTitle">Additional things to note</div>
+      <div style="white-space:pre-wrap">{{accolades}}</div>
+      <div class="sectionTitle">Resume</div>
+      <div>
+        {{#if resume}}
+          <a class="btn" href="{{resume}}">View Resume</a>
+        {{/if}}
+      </div>
+
+      <p style="margin-top:20px">Regards,<br>{{collaboratorName}}</p>
+      <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0"/>
+      <div class="muted">Sent by HirePilot • Candidate Submission</div>
+    </div>
+  </div>
+</body>
+</html>
+
+

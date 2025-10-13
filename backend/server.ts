@@ -80,6 +80,7 @@ import dealAccessRouter from './src/routes/dealAccess';
 import contactsRouter from './src/routes/contacts';
 import clientsRouterModule from './src/routes/clients';
 import opportunitiesRouter from './src/routes/opportunities';
+import submitCandidateRouter from './src/routes/submitCandidate';
 import searchRouter from './src/routes/search';
 import activitiesRouter from './src/routes/activities';
 import zapierActionsRouter from './src/routes/zapierActions';
@@ -427,6 +428,7 @@ app.use('/api/collaborators', requireAuthFlag, collaboratorsRouter);
     app.post('/api/clients/convert-lead', requireAuthFlag, convertLeadToClient);
   } catch {}
   app.use('/api/opportunities', opportunitiesRouter);
+  app.use('/api', submitCandidateRouter);
   app.use('/api/opportunity-pipeline', opportunityPipelineRouter);
   app.use('/api/invoices', invoicesRouter);
   app.use('/api/revenue', revenueRouter);
