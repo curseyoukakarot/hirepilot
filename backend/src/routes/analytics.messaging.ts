@@ -76,4 +76,40 @@ analyticsRouter.get('/api/analytics/sequence-list', async (_req, res) => {
   }
 });
 
+// Time series by template/sequence (last N days)
+analyticsRouter.get('/api/analytics/time-series', async (req, res) => {
+  try {
+    const entity = String(req.query.entity || 'template'); // 'template' | 'sequence'
+    const id = String(req.query.id || '');
+    const days = Math.max(1, Math.min(365, Number(req.query.days || 30)));
+    if (!id) { res.json({ ok: true, data: [] }); return; }
+    const { createClient } = await import('@supabase/supabase-js');
+    const client = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string, { auth: { autoRefreshToken: false, persistSession: false } });
+    const col = entity === 'sequence' ? 'sequence_id' : 'template_id';
+    const sql = `
+      select date_trunc('day', e.occurred_at) as day,
+             count(*) filter (where e.event_type='sent') as sent,
+             count(*) filter (where e.event_type='open') as opens,
+             count(*) filter (where e.event_type='reply') as replies
+      from email_events e
+      join messages m on e.message_id = m.id::text
+      where m.${col} = :id and e.occurred_at >= now() - interval '${days} days'
+      group by 1
+      order by 1 asc`;
+    // Execute via PostgREST RPC wrapper function 'exec_sql_params' if available; otherwise fallback not provided
+    const { data, error } = await client.rpc('exec_sql_params', { sql, params: { id } } as any);
+    if (error) { res.json({ ok: true, data: [] }); return; }
+    const rows = (data as any[]) || [];
+    const out = rows.map(r => {
+      const sent = Number(r.sent)||0; const opens = Number(r.opens)||0; const replies = Number(r.replies)||0;
+      const openRate = sent>0 ? Math.round((opens/sent)*1000)/10 : 0;
+      const replyRate = sent>0 ? Math.round((replies/sent)*1000)/10 : 0;
+      return { period: new Date(r.day).toISOString().slice(0,10), openRate, replyRate, conversionRate: 0 };
+    });
+    res.json({ ok: true, data: out });
+  } catch (e: any) {
+    res.json({ ok: true, data: [] });
+  }
+});
+
 

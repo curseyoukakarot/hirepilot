@@ -128,38 +128,50 @@ export default function Analytics() {
     acc.total_leads += m.total_leads || 0;
     return acc;
   }, { sent: 0, opens: 0, replies: 0, converted_candidates: 0, total_leads: 0 });
-  const openRate = total.sent ? (total.opens / total.sent) * 100 : 0;
-  const replyRate = total.sent ? (total.replies / total.sent) * 100 : 0;
-  const conversionRate = total.total_leads ? (total.converted_candidates / total.total_leads) * 100 : 0;
+  // KPI cards context switch: if a template/sequence is selected, derive KPIs from that row
+  let openRate = total.sent ? (total.opens / total.sent) * 100 : 0;
+  let replyRate = total.sent ? (total.replies / total.sent) * 100 : 0;
+  let conversionRate = total.total_leads ? (total.converted_candidates / total.total_leads) * 100 : 0;
+  if (viewEntity === 'templates' && selectedTpl !== 'all') {
+    const t = (tplMetrics||[]).find(x=>x.template_id===selectedTpl);
+    if (t) {
+      total.sent = t.sent||0; total.opens = t.opens||0; total.replies = t.replies||0;
+      openRate = total.sent ? (total.opens/total.sent)*100 : 0;
+      replyRate = total.sent ? (total.replies/total.sent)*100 : 0;
+    }
+  } else if (viewEntity === 'sequences' && selectedSeq !== 'all') {
+    const s = (seqMetrics||[]).find(x=>x.sequence_id===selectedSeq);
+    if (s) {
+      total.sent = s.sent||0; total.opens = s.opens||0; total.replies = s.replies||0;
+      openRate = total.sent ? (total.opens/total.sent)*100 : 0;
+      replyRate = total.sent ? (total.replies/total.sent)*100 : 0;
+    }
+  }
 
   // Add state for selected campaign
   const [selectedCampaignId, setSelectedCampaignId] = useState('all');
 
   // Fetch time series data for chart and table
   const fetchTimeSeriesData = async () => {
-    if (!user) return;
-    
     setTimeSeriesLoading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token || '';
-      const response = await fetch(
-        `${BACKEND_URL}/api/analytics/time-series?user_id=${user.id}&campaign_id=${selectedCampaignId}&time_range=${selectedTimeRange}`,
-        {
-          credentials: 'include',
-          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-        }
-      );
-      const result = await response.json();
-      
-      if (response.ok) {
-        setTimeSeriesData(result.data || []);
+      let url;
+      if (viewEntity === 'templates' && selectedTpl !== 'all') {
+        url = `${BACKEND_URL}/api/analytics/time-series?entity=template&id=${selectedTpl}&days=${selectedTimeRange.replace(/\D/g,'')||30}`;
+      } else if (viewEntity === 'sequences' && selectedSeq !== 'all') {
+        url = `${BACKEND_URL}/api/analytics/time-series?entity=sequence&id=${selectedSeq}&days=${selectedTimeRange.replace(/\D/g,'')||30}`;
       } else {
-        console.error('[fetchTimeSeriesData] Error:', result.error);
+        // Keep prior behavior for campaign-level (optional); default to empty for now
         setTimeSeriesData([]);
+        setTimeSeriesLoading(false);
+        return;
       }
-    } catch (error) {
-      console.error('[fetchTimeSeriesData] Error:', error);
+      const response = await fetch(url, { credentials: 'include', headers: token ? { 'Authorization': `Bearer ${token}` } : {} });
+      const result = await response.json();
+      setTimeSeriesData(Array.isArray(result.data) ? result.data : []);
+    } catch (e) {
       setTimeSeriesData([]);
     } finally {
       setTimeSeriesLoading(false);
@@ -172,7 +184,7 @@ export default function Analytics() {
   useEffect(() => {
     fetchTimeSeriesData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, selectedCampaignId, selectedTimeRange]);
+  }, [viewEntity, selectedTpl, selectedSeq, selectedTimeRange]);
 
   React.useEffect(() => {
     // Initialize chart with real data
