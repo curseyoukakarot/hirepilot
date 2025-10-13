@@ -170,7 +170,7 @@ export default function Analytics() {
         const { data: { user } } = await supabase.auth.getUser();
         const cid = selectedCampaignId || 'all';
         const rangeKey = selectedTimeRange;
-        const resp = await fetch(`${BACKEND_URL}/analytics/time-series?user_id=${user?.id||''}&campaign_id=${cid}&time_range=${rangeKey}`, { credentials: 'include' });
+        const resp = await fetch(`${BACKEND_URL}/api/analytics/time-series?user_id=${user?.id||''}&campaign_id=${cid}&time_range=${rangeKey}`, { credentials: 'include', headers: token ? { 'Authorization': `Bearer ${token}` } : {} });
         const j = await resp.json();
         setTimeSeriesData(Array.isArray(j.data) ? j.data.map(x=>({ period:x.period, openRate:x.openRate, replyRate:x.replyRate, conversionRate:x.conversionRate })) : []);
       }
