@@ -18,6 +18,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { downloadCSV } from '../utils/csvExport';
 import ResumeWizard from '../components/ResumeWizard';
+import CsvImportCandidatesModal from '../components/candidates/CsvImportCandidatesModal';
 
 // Helper function to safely parse enrichment title - fixes temporal dead zone issues
 const parseEnrichmentTitle = (enrichmentData) => {
@@ -193,24 +194,21 @@ export default function CandidateList() {
     }
   };
 
-  const onPickCsv = (e) => {
-    const f = (e.target.files || [])[0];
-    if (f) setCsvFile(f);
-  };
-
-  const handleImportCsv = async () => {
+  const handleImportCsvMapped = async (mappedRows) => {
     try {
-      if (!csvFile) { alert('Choose a CSV file first.'); return; }
       setImporting(true);
       const headers = await getAuthHeader();
-      const form = new FormData();
-      form.append('file', csvFile, csvFile.name);
-      const resp = await fetch(`${BACKEND_URL}/api/candidates/import/csv`, { method: 'POST', headers, body: form, credentials: 'include' });
+      const resp = await fetch(`${BACKEND_URL}/api/candidates/import/csv`, {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', ...headers },
+        credentials: 'include',
+        body: JSON.stringify({ rows: mappedRows })
+      });
       const json = await resp.json();
       if (!resp.ok) throw new Error(json?.error || 'Import failed');
       setImportSummary(json);
-      setCsvFile(null);
       await refreshCandidates();
+      setShowImportDialog(false);
     } catch (e) {
       alert(e.message || 'Import failed');
     } finally {
@@ -558,23 +556,13 @@ export default function CandidateList() {
           )}
         </div>
       </div>
-      {/* --- Import CSV Dialog --- */}
+      {/* --- Import CSV Dialog (mapping modal) --- */}
       {showImportDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/30" onClick={()=>setShowImportDialog(false)} />
-          <div className="relative bg-white w-full max-w-lg rounded-xl shadow-xl p-6">
-            <div className="text-lg font-semibold mb-3">Import Candidates (CSV)</div>
-            <div className="text-sm text-gray-600 mb-3">Columns: full_name, email, title, phone, company, linkedin_url (optional)</div>
-            <input type="file" accept=".csv,text/csv" onChange={onPickCsv} />
-            <div className="mt-4 flex justify-end gap-2">
-              <button className="px-4 py-2 rounded bg-gray-100" onClick={()=>setShowImportDialog(false)}>Cancel</button>
-              <button className={`px-4 py-2 rounded ${importing?'bg-gray-200 text-gray-500':'bg-blue-600 text-white'}`} onClick={handleImportCsv} disabled={importing}>{importing?'Importing…':'Import'}</button>
-            </div>
-            {importSummary && (
-              <div className="mt-4 text-sm text-gray-700">Imported {importSummary.createdCount} candidate(s).</div>
-            )}
-          </div>
-        </div>
+        <CsvImportCandidatesModal
+          open={showImportDialog}
+          onClose={()=>setShowImportDialog(false)}
+          onSubmit={handleImportCsvMapped}
+        />
       )}
 
       {/* --- Filters --- */}

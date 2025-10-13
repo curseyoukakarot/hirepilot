@@ -8,16 +8,20 @@ export const candidatesCsvRouter = Router();
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
-// POST /api/candidates/import/csv (multipart/form-data with file)
+// POST /api/candidates/import/csv (multipart/form-data with file OR JSON { rows: [...] })
 candidatesCsvRouter.post('/api/candidates/import/csv', requireAuth, upload.single('file'), async (req, res) => {
   try {
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    let rows: any[] = [];
     const file = (req as any).file as Express.Multer.File | undefined;
-    if (!file) { res.status(400).json({ error: 'file missing' }); return; }
-
-    const text = file.buffer.toString('utf8');
-    const rows: any[] = parseCsv(text, { columns: true, skip_empty_lines: true });
+    if (req.is('application/json') && Array.isArray((req as any).body?.rows)) {
+      rows = (req as any).body.rows as any[];
+    } else {
+      if (!file) { res.status(400).json({ error: 'file missing' }); return; }
+      const text = file.buffer.toString('utf8');
+      rows = parseCsv(text, { columns: true, skip_empty_lines: true });
+    }
 
     let createdCount = 0;
     const createdIds: string[] = [];
@@ -34,7 +38,7 @@ candidatesCsvRouter.post('/api/candidates/import/csv', requireAuth, upload.singl
           title: (r.title || null),
           company: (r.company || null),
           linkedin_url: (r.linkedin_url || null),
-          enrichment_data: {},
+          enrichment_data: r.enrichment_data || {},
           status: 'sourced'
         })
         .select('id')
