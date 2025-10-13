@@ -74,6 +74,7 @@ import creditsRouter from './routes/credits';
 import candidatesRouter from './src/routes/candidates';
 import { parseRouter as candidatesParseRouter } from './src/routes/candidates.parse';
 import { analyticsRouter } from './src/routes/analytics.messaging';
+import { candidatesCsvRouter } from './src/routes/candidates.import.csv';
 import clientsRouter from './src/routes/clients';
 import dealAccessRouter from './src/routes/dealAccess';
 import contactsRouter from './src/routes/contacts';
@@ -434,6 +435,7 @@ app.use('/api/collaborators', requireAuthFlag, collaboratorsRouter);
   app.use('/api/zapier', zapierActionsRouter);
   app.use(candidatesParseRouter);
   app.use(analyticsRouter);
+  app.use(candidatesCsvRouter);
 app.use('/api/storage', storageRouter);
 app.use('/api/stripe', stripeIntegrationRouter);
   // Stripe webhook already mounted above; ensure it updates invoice status if needed in future.
@@ -988,6 +990,21 @@ app.listen(Number(PORT), '0.0.0.0', () => {
       }
     };
     setInterval(refreshMv, 10 * 60 * 1000);
+    // Messaging analytics MV refreshers (every 10 minutes)
+    const refreshAllAnalytics = async () => {
+      try {
+        const { createClient } = await import('@supabase/supabase-js');
+        const admin = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string, { auth: { autoRefreshToken: false, persistSession: false } });
+        // Use SQL function wrapper or direct rpc if available; fallback to non-concurrent refresh
+        await admin.rpc('exec_sql', { sql: 'refresh materialized view message_event_rollup' } as any).catch(()=>{});
+        await admin.rpc('exec_sql', { sql: 'refresh materialized view template_performance_mv' } as any).catch(()=>{});
+        await admin.rpc('exec_sql', { sql: 'refresh materialized view sequence_performance_mv' } as any).catch(()=>{});
+        console.log('[Analytics] materialized views refreshed');
+      } catch (e) {
+        console.warn('[Analytics] refresh failed', (e as any)?.message || e);
+      }
+    };
+    setInterval(refreshAllAnalytics, 10 * 60 * 1000);
   } catch {}
 });
 

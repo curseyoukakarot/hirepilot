@@ -32,6 +32,11 @@ export default function Analytics() {
   const [timeSeriesData, setTimeSeriesData] = useState([]);
   const [timeSeriesLoading, setTimeSeriesLoading] = useState(true);
   const [selectedTimeRange, setSelectedTimeRange] = useState('30d');
+  // Messaging analytics
+  const [viewEntity, setViewEntity] = useState('templates'); // 'templates' | 'sequences'
+  const [tplMetrics, setTplMetrics] = useState([]);
+  const [seqMetrics, setSeqMetrics] = useState([]);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
   useEffect(() => {
     const fetchUserAndCampaigns = async () => {
@@ -238,6 +243,31 @@ export default function Analytics() {
     };
   }, [timeSeriesData, timeSeriesLoading]);
 
+  // Fetch messaging analytics (templates/sequences)
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      setAnalyticsLoading(true);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
+        if (viewEntity === 'templates') {
+          const r = await fetch(`${BACKEND_URL}/api/analytics/templates`, { headers, credentials: 'include' });
+          const j = await r.json();
+          setTplMetrics(Array.isArray(j.data) ? j.data : []);
+        } else {
+          const r = await fetch(`${BACKEND_URL}/api/analytics/sequences`, { headers, credentials: 'include' });
+          const j = await r.json();
+          setSeqMetrics(Array.isArray(j.data) ? j.data : []);
+        }
+      } catch (e) {
+        if (viewEntity === 'templates') setTplMetrics([]); else setSeqMetrics([]);
+      } finally {
+        setAnalyticsLoading(false);
+      }
+    };
+    fetchAnalytics();
+  }, [viewEntity]);
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -322,6 +352,51 @@ export default function Analytics() {
                   Table
                 </button>
               </div>
+
+        {/* Messaging Analytics */}
+        <div className="mb-6 flex items-center gap-4">
+          <label className="text-sm font-medium text-gray-700">Messaging Analytics:</label>
+          <select className="px-3 py-2 border border-gray-300 rounded-lg" value={viewEntity} onChange={e=>setViewEntity(e.target.value)}>
+            <option value="templates">By Template</option>
+            <option value="sequences">By Sequence</option>
+          </select>
+        </div>
+
+        {viewEntity === 'templates' ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {(tplMetrics||[]).map((t)=> (
+              <div key={t.template_id} className="rounded-2xl border p-4 bg-white">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="font-semibold text-sm">{t.template_name || `Template ${t.template_id}`}</div>
+                  <div className="text-xs text-gray-500">Sent {t.sent}</div>
+                </div>
+                <div className="flex gap-3 text-sm">
+                  <div className="flex-1"><div className="text-gray-500 text-xs">Open</div><div className="font-semibold">{t.open_rate}%</div></div>
+                  <div className="flex-1"><div className="text-gray-500 text-xs">Reply</div><div className="font-semibold">{t.reply_rate}%</div></div>
+                  <div className="flex-1"><div className="text-gray-500 text-xs">Bounce</div><div className="font-semibold">{t.bounce_rate}%</div></div>
+                </div>
+              </div>
+            ))}
+            {analyticsLoading && <div className="text-sm text-gray-500">Loading…</div>}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {(seqMetrics||[]).map((s)=> (
+              <div key={s.sequence_id} className="rounded-2xl border p-4 bg-white">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="font-semibold text-sm">{s.sequence_name || `Sequence ${s.sequence_id}`}</div>
+                  <div className="text-xs text-gray-500">Sent {s.sent}</div>
+                </div>
+                <div className="flex gap-3 text-sm">
+                  <div className="flex-1"><div className="text-gray-500 text-xs">Open</div><div className="font-semibold">{s.open_rate}%</div></div>
+                  <div className="flex-1"><div className="text-gray-500 text-xs">Reply</div><div className="font-semibold">{s.reply_rate}%</div></div>
+                  <div className="flex-1"><div className="text-gray-500 text-xs">Bounce</div><div className="font-semibold">{s.bounce_rate}%</div></div>
+                </div>
+              </div>
+            ))}
+            {analyticsLoading && <div className="text-sm text-gray-500">Loading…</div>}
+          </div>
+        )}
             </div>
           </div>
           
