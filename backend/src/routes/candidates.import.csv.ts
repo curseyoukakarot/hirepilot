@@ -24,13 +24,19 @@ candidatesCsvRouter.post('/api/candidates/import/csv', requireAuth, upload.singl
     }
 
     let createdCount = 0;
+    let updatedCount = 0;
+    let skippedCount = 0;
     const createdIds: string[] = [];
+    const errors: any[] = [];
 
     for (const r of rows) {
       // Insert candidate
-      const { data: ins, error: insErr } = await supabase
-        .from('candidates')
-        .insert({
+      // Normalize enrichment_data
+      let enrichment: any = r.enrichment_data || {};
+      if (typeof enrichment === 'string') {
+        try { enrichment = JSON.parse(enrichment); } catch { enrichment = {}; }
+      }
+      const baseCandidate = {
           user_id: userId,
           first_name: (r.first_name || (r.full_name || '').split(' ')[0] || '').trim() || null,
           last_name: (r.last_name || ((r.full_name || '').split(' ').slice(1).join(' ')) || '').trim() || null,
@@ -38,16 +44,58 @@ candidatesCsvRouter.post('/api/candidates/import/csv', requireAuth, upload.singl
           title: (r.title || null),
           company: (r.company || null),
           linkedin_url: (r.linkedin_url || null),
-          enrichment_data: r.enrichment_data || {},
+          enrichment_data: enrichment,
           status: 'sourced'
-        })
-        .select('id')
-        .maybeSingle();
+      } as any;
 
-      if (insErr) continue;
-      createdCount += 1;
-      const cid = (ins as any)?.id;
-      if (cid) createdIds.push(cid);
+      let cid: string | undefined;
+      try {
+        const { data: ins, error: insErr } = await supabase
+          .from('candidates')
+          .insert(baseCandidate)
+          .select('id')
+          .maybeSingle();
+        if (insErr) throw insErr;
+        createdCount += 1;
+        cid = (ins as any)?.id;
+        if (cid) createdIds.push(cid);
+      } catch (e: any) {
+        // If duplicate due to email existing, update existing row
+        if (String(e?.message || '').toLowerCase().includes('duplicate') || String(e?.details || '').toLowerCase().includes('already exists')) {
+          if (baseCandidate.email) {
+            const { data: existing } = await supabase
+              .from('candidates')
+              .select('id')
+              .eq('user_id', userId)
+              .eq('email', baseCandidate.email)
+              .maybeSingle();
+            if (existing?.id) {
+              cid = existing.id;
+              const { error: updErr } = await supabase
+                .from('candidates')
+                .update({
+                  first_name: baseCandidate.first_name,
+                  last_name: baseCandidate.last_name,
+                  title: baseCandidate.title,
+                  company: baseCandidate.company,
+                  linkedin_url: baseCandidate.linkedin_url,
+                  enrichment_data: baseCandidate.enrichment_data,
+                })
+                .eq('id', cid);
+              if (!updErr) updatedCount += 1; else errors.push({ email: baseCandidate.email, error: updErr.message });
+            } else {
+              skippedCount += 1;
+              errors.push({ email: baseCandidate.email, error: 'duplicate_email_no_id' });
+            }
+          } else {
+            skippedCount += 1;
+            errors.push({ error: 'duplicate_without_email' });
+          }
+        } else {
+          skippedCount += 1;
+          errors.push({ email: baseCandidate.email, error: e?.message || 'insert_failed' });
+        }
+      }
 
       // Upsert contact details
       if (cid) {
@@ -57,7 +105,7 @@ candidatesCsvRouter.post('/api/candidates/import/csv', requireAuth, upload.singl
       }
     }
 
-    res.json({ ok: true, createdCount, candidateIds: createdIds });
+    res.json({ ok: true, createdCount, updatedCount, skippedCount, candidateIds: createdIds, errors: errors.slice(0, 10) });
   } catch (e: any) {
     res.status(500).json({ error: e?.message || 'csv_import_failed' });
   }
