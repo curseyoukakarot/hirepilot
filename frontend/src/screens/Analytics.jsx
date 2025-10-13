@@ -184,6 +184,37 @@ export default function Analytics() {
   // Filter metrics for selected campaign
   const selectedMetrics = metrics.find(m => m.campaignId === selectedCampaignId) || { sent: 0, opens: 0, open_rate: 0, replies: 0, reply_rate: 0, conversions: 0, conversion_rate: 0 };
 
+  // Derive KPIs depending on view (campaign vs template/sequence)
+  const kpi = (() => {
+    if (viewEntity === 'templates' && selectedTpl !== 'all') {
+      const t = (tplMetrics||[]).find(x => x.template_id === selectedTpl);
+      return {
+        sent: t?.sent || 0,
+        openRate: t?.open_rate || 0,
+        replyRate: t?.reply_rate || 0,
+        conversionRate: 0,
+        converted: 0
+      };
+    }
+    if (viewEntity === 'sequences' && selectedSeq !== 'all') {
+      const s = (seqMetrics||[]).find(x => x.sequence_id === selectedSeq);
+      return {
+        sent: s?.sent || 0,
+        openRate: s?.open_rate || 0,
+        replyRate: s?.reply_rate || 0,
+        conversionRate: 0,
+        converted: 0
+      };
+    }
+    return {
+      sent: selectedMetrics.sent || 0,
+      openRate: selectedMetrics.open_rate || 0,
+      replyRate: selectedMetrics.reply_rate || 0,
+      conversionRate: selectedMetrics.conversion_rate || 0,
+      converted: total.converted_candidates || 0
+    };
+  })();
+
   useEffect(() => {
     fetchTimeSeriesData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -315,24 +346,24 @@ export default function Analytics() {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-8">
           <div className="p-3 sm:p-4 bg-white rounded-lg shadow-sm">
             <h3 className="text-xs sm:text-sm font-medium text-gray-500">Leads Messaged</h3>
-            <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900">{loading ? <span className="animate-pulse">...</span> : selectedMetrics.sent}</p>
+            <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900">{kpi.sent}</p>
           </div>
           <div className="p-3 sm:p-4 bg-white rounded-lg shadow-sm">
             <h3 className="text-xs sm:text-sm font-medium text-gray-500">Open Rate</h3>
-            <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900">{loading ? <span className="animate-pulse">...</span> : `${selectedMetrics.open_rate?.toFixed(1) || 0}%`}</p>
+            <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900">{`${Number(kpi.openRate||0).toFixed(1)}%`}</p>
           </div>
           <div className="p-3 sm:p-4 bg-white rounded-lg shadow-sm">
             <h3 className="text-xs sm:text-sm font-medium text-gray-500">Reply Rate</h3>
-            <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900">{loading ? <span className="animate-pulse">...</span> : `${selectedMetrics.reply_rate?.toFixed(1) || 0}%`}</p>
+            <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900">{`${Number(kpi.replyRate||0).toFixed(1)}%`}</p>
           </div>
           <div className="p-3 sm:p-4 bg-white rounded-lg shadow-sm">
             <h3 className="text-xs sm:text-sm font-medium text-gray-500">Conversion Rate</h3>
-            <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900">{loading ? <span className="animate-pulse">...</span> : `${selectedMetrics.conversion_rate?.toFixed(1) || 0}%`}</p>
+            <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900">{`${Number(kpi.conversionRate||0).toFixed(1)}%`}</p>
           </div>
           <div className="p-3 sm:p-4 bg-white rounded-lg shadow-sm">
             <h3 className="text-xs sm:text-sm font-medium text-gray-500">Converted Candidates</h3>
-            <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900">{loading ? <span className="animate-pulse">...</span> : total.converted_candidates}</p>
-            <div className="text-[10px] sm:text-xs text-green-500">{loading ? <span className="animate-pulse">...</span> : `${conversionRate.toFixed(1)}% Conversion Rate`}</div>
+            <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900">{kpi.converted}</p>
+            <div className="text-[10px] sm:text-xs text-green-500">{`${Number(kpi.conversionRate||0).toFixed(1)}% Conversion Rate`}</div>
           </div>
         </div>
 
