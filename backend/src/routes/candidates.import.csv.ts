@@ -2,7 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { parse as parseCsv } from 'csv-parse/sync';
 import { requireAuthUnified as requireAuth } from '../../middleware/requireAuthUnified';
-import { supabase } from '../lib/supabase';
+import { supabaseAdmin } from '../lib/supabaseAdmin';
 
 export const candidatesCsvRouter = Router();
 
@@ -50,7 +50,7 @@ candidatesCsvRouter.post('/api/candidates/import/csv', requireAuth, upload.singl
 
       let cid: string | undefined;
       try {
-        const { data: ins, error: insErr } = await supabase
+        const { data: ins, error: insErr } = await supabaseAdmin
           .from('candidates')
           .insert(baseCandidate)
           .select('id')
@@ -63,7 +63,7 @@ candidatesCsvRouter.post('/api/candidates/import/csv', requireAuth, upload.singl
         // If duplicate due to email existing, update existing row
         if (String(e?.message || '').toLowerCase().includes('duplicate') || String(e?.details || '').toLowerCase().includes('already exists')) {
           if (baseCandidate.email) {
-            const { data: existing } = await supabase
+            const { data: existing } = await supabaseAdmin
               .from('candidates')
               .select('id')
               .eq('user_id', userId)
@@ -71,7 +71,7 @@ candidatesCsvRouter.post('/api/candidates/import/csv', requireAuth, upload.singl
               .maybeSingle();
             if (existing?.id) {
               cid = existing.id;
-              const { error: updErr } = await supabase
+              const { error: updErr } = await supabaseAdmin
                 .from('candidates')
                 .update({
                   first_name: baseCandidate.first_name,
@@ -99,7 +99,7 @@ candidatesCsvRouter.post('/api/candidates/import/csv', requireAuth, upload.singl
 
       // Upsert contact details
       if (cid) {
-        await supabase
+        await supabaseAdmin
           .from('candidate_contact')
           .upsert({ candidate_id: cid, email: r.email || null, phone: r.phone || null, linkedin_url: r.linkedin_url || null }, { onConflict: 'candidate_id' });
       }
