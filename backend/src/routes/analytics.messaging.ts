@@ -18,7 +18,8 @@ analyticsRouter.get('/api/analytics/templates', requireAuth as any, async (req: 
     let nameMap: Record<string,string> = {};
     let allowed: string[] = [];
     if (ids.length) {
-      let q = client.from('email_templates').select('id, name').in('id', ids).eq('owner_user_id', req.user.id);
+      // email_templates use user_id (not owner_user_id)
+      let q = client.from('email_templates').select('id, name').in('id', ids).eq('user_id', req.user.id);
       const { data: tplRows } = await q;
       (tplRows||[]).forEach((t:any)=>{ nameMap[t.id] = t.name; });
       // Restrict to templates owned by the authenticated user only
@@ -68,7 +69,8 @@ analyticsRouter.get('/api/analytics/template-list', requireAuth as any, async (r
     const { createClient } = await import('@supabase/supabase-js');
     const client = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string, { auth: { autoRefreshToken: false, persistSession: false } });
     const userId = (req.query.user_id as string) || '';
-    let q = client.from('email_templates').select('id, name').order('updated_at', { ascending: false }).limit(500).eq('owner_user_id', req.user.id);
+    // email_templates use user_id (not owner_user_id)
+    let q = client.from('email_templates').select('id, name').order('updated_at', { ascending: false }).limit(500).eq('user_id', req.user.id);
     const { data, error } = await q;
     if (error) { res.status(500).json({ error: error.message }); return; }
     res.json({ ok: true, data: data || [] });
@@ -106,10 +108,16 @@ analyticsRouter.get('/api/analytics/time-series', requireAuth as any, async (req
       idList = [id];
     } else {
       // build allowed list by owner
-      const tbl = entity === 'sequence' ? 'message_sequences' : 'email_templates';
-      let q = client.from(tbl).select('id').eq('owner_user_id', userId);
-      const { data: ids } = await q;
-      idList = (ids||[]).map((x:any)=>x.id);
+      if (entity === 'sequence') {
+        let q = client.from('message_sequences').select('id').eq('owner_user_id', userId);
+        const { data: ids } = await q;
+        idList = (ids||[]).map((x:any)=>x.id);
+      } else {
+        // email_templates use user_id
+        let q = client.from('email_templates').select('id').eq('user_id', userId);
+        const { data: ids } = await q;
+        idList = (ids||[]).map((x:any)=>x.id);
+      }
     }
     if (idList.length === 0) { res.json({ ok: true, data: [] }); return; }
     const inList = idList.map(x=>`'${x}'`).join(',');
