@@ -10,7 +10,7 @@ import {
   FaTimes,
   FaFileAlt,
 } from 'react-icons/fa';
-import { AiOutlineThunderbolt } from 'react-icons/ai';
+import { HiSparkles } from 'react-icons/hi';
 import LeadProfileDrawer from './LeadProfileDrawer';
 import MetadataModal from '../components/MetadataModal';
 import { useNavigate } from 'react-router-dom';
@@ -494,10 +494,10 @@ export default function CandidateList() {
           {selectedIds.size > 0 && (
             <button
               onClick={bulkEnrich}
-              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm flex items-center shadow transition-all duration-150"
+              className="border border-purple-300 text-purple-700 hover:bg-purple-50 px-4 py-2 rounded-lg text-sm flex items-center shadow-sm transition-all duration-150"
               title={`Enrich ${selectedIds.size} selected`}
             >
-              <AiOutlineThunderbolt className="mr-2" /> Enrich Selected
+              <HiSparkles className="mr-2" /> Enrich
             </button>
           )}
           <button

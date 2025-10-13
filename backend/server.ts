@@ -73,6 +73,7 @@ import billingRouter from './routes/billing';
 import creditsRouter from './routes/credits';
 import candidatesRouter from './src/routes/candidates';
 import { parseRouter as candidatesParseRouter } from './src/routes/candidates.parse';
+import { analyticsRouter } from './src/routes/analytics.messaging';
 import clientsRouter from './src/routes/clients';
 import dealAccessRouter from './src/routes/dealAccess';
 import contactsRouter from './src/routes/contacts';
@@ -432,6 +433,7 @@ app.use('/api/collaborators', requireAuthFlag, collaboratorsRouter);
   app.use('/api/deals', activitiesRouter);
   app.use('/api/zapier', zapierActionsRouter);
   app.use(candidatesParseRouter);
+  app.use(analyticsRouter);
 app.use('/api/storage', storageRouter);
 app.use('/api/stripe', stripeIntegrationRouter);
   // Stripe webhook already mounted above; ensure it updates invoice status if needed in future.
