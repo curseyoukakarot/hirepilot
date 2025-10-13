@@ -157,17 +157,9 @@ export default function Analytics() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token || '';
-      let url;
-      if (viewEntity === 'templates' && selectedTpl !== 'all') {
-        url = `${BACKEND_URL}/api/analytics/time-series?entity=template&id=${selectedTpl}&days=${selectedTimeRange.replace(/\D/g,'')||30}`;
-      } else if (viewEntity === 'sequences' && selectedSeq !== 'all') {
-        url = `${BACKEND_URL}/api/analytics/time-series?entity=sequence&id=${selectedSeq}&days=${selectedTimeRange.replace(/\D/g,'')||30}`;
-      } else {
-        // Keep prior behavior for campaign-level (optional); default to empty for now
-        setTimeSeriesData([]);
-        setTimeSeriesLoading(false);
-        return;
-      }
+      const entity = viewEntity === 'templates' ? 'template' : 'sequence';
+      const id = viewEntity === 'templates' ? (selectedTpl || 'all') : (selectedSeq || 'all');
+      const url = `${BACKEND_URL}/api/analytics/time-series?entity=${entity}&id=${id}&days=${selectedTimeRange.replace(/\D/g,'')||30}`;
       const response = await fetch(url, { credentials: 'include', headers: token ? { 'Authorization': `Bearer ${token}` } : {} });
       const result = await response.json();
       setTimeSeriesData(Array.isArray(result.data) ? result.data : []);
@@ -267,17 +259,17 @@ export default function Analytics() {
         const { data: { session } } = await supabase.auth.getSession();
         const headers = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
         if (viewEntity === 'templates') {
-          const r = await fetch(`${BACKEND_URL}/api/analytics/templates?user_id=${user?.id||''}`, { headers, credentials: 'include' });
+          const r = await fetch(`${BACKEND_URL}/api/analytics/templates`, { headers, credentials: 'include' });
           const j = await r.json();
           setTplMetrics(Array.isArray(j.data) ? j.data : []);
           // populate list
-          const lst = await fetch(`${BACKEND_URL}/api/analytics/template-list?user_id=${user?.id||''}`, { headers, credentials: 'include' }).then(r=>r.json()).catch(()=>({data:[]}));
+          const lst = await fetch(`${BACKEND_URL}/api/analytics/template-list`, { headers, credentials: 'include' }).then(r=>r.json()).catch(()=>({data:[]}));
           setTplList(Array.isArray(lst.data)?lst.data:[]);
         } else {
-          const r = await fetch(`${BACKEND_URL}/api/analytics/sequences?user_id=${user?.id||''}`, { headers, credentials: 'include' });
+          const r = await fetch(`${BACKEND_URL}/api/analytics/sequences`, { headers, credentials: 'include' });
           const j = await r.json();
           setSeqMetrics(Array.isArray(j.data) ? j.data : []);
-          const lst = await fetch(`${BACKEND_URL}/api/analytics/sequence-list?user_id=${user?.id||''}`, { headers, credentials: 'include' }).then(r=>r.json()).catch(()=>({data:[]}));
+          const lst = await fetch(`${BACKEND_URL}/api/analytics/sequence-list`, { headers, credentials: 'include' }).then(r=>r.json()).catch(()=>({data:[]}));
           setSeqList(Array.isArray(lst.data)?lst.data:[]);
         }
       } catch (e) {

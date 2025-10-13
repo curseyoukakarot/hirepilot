@@ -1,9 +1,10 @@
 import { Router } from 'express';
+import { requireAuthUnified as requireAuth } from '../../middleware/requireAuthUnified';
 export const analyticsRouter = Router();
 
 const pct = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 1000) / 10 : 0);
 
-analyticsRouter.get('/api/analytics/templates', async (req, res) => {
+analyticsRouter.get('/api/analytics/templates', requireAuth as any, async (req: any, res) => {
   try {
     const { createClient } = await import('@supabase/supabase-js');
     const client = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string, { auth: { autoRefreshToken: false, persistSession: false } });
@@ -15,13 +16,13 @@ analyticsRouter.get('/api/analytics/templates', async (req, res) => {
     const ids = (rows||[]).map((r:any)=>r.template_id).filter(Boolean);
     const userId = (req.query.user_id as string) || '';
     let nameMap: Record<string,string> = {};
-    let allowed = ids;
+    let allowed: string[] = [];
     if (ids.length) {
-      let q = client.from('email_templates').select('id, name').in('id', ids);
-      if (userId) q = q.eq('owner_user_id', userId);
+      let q = client.from('email_templates').select('id, name').in('id', ids).eq('owner_user_id', req.user.id);
       const { data: tplRows } = await q;
       (tplRows||[]).forEach((t:any)=>{ nameMap[t.id] = t.name; });
-      if (userId) allowed = (tplRows||[]).map((t:any)=>t.id);
+      // Restrict to templates owned by the authenticated user only
+      allowed = (tplRows||[]).map((t:any)=>t.id);
     }
     res.json({ ok: true, data: rows.filter((r:any)=> allowed.includes(r.template_id)).map(r => {
       const sent = Number(r.sent)||0, opens = Number(r.opens)||0, replies = Number(r.replies)||0, bounces = Number(r.bounces)||0;
@@ -32,7 +33,7 @@ analyticsRouter.get('/api/analytics/templates', async (req, res) => {
   }
 });
 
-analyticsRouter.get('/api/analytics/sequences', async (req, res) => {
+analyticsRouter.get('/api/analytics/sequences', requireAuth as any, async (req: any, res) => {
   try {
     const { createClient } = await import('@supabase/supabase-js');
     const client = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string, { auth: { autoRefreshToken: false, persistSession: false } });
@@ -44,13 +45,13 @@ analyticsRouter.get('/api/analytics/sequences', async (req, res) => {
     const ids = (rows||[]).map((r:any)=>r.sequence_id).filter(Boolean);
     const userId = (req.query.user_id as string) || '';
     let nameMap: Record<string,string> = {};
-    let allowed = ids;
+    let allowed: string[] = [];
     if (ids.length) {
-      let q = client.from('message_sequences').select('id, name').in('id', ids);
-      if (userId) q = q.eq('owner_user_id', userId);
+      let q = client.from('message_sequences').select('id, name').in('id', ids).eq('owner_user_id', req.user.id);
       const { data: seqRows } = await q;
       (seqRows||[]).forEach((t:any)=>{ nameMap[t.id] = t.name; });
-      if (userId) allowed = (seqRows||[]).map((t:any)=>t.id);
+      // Restrict to sequences owned by the authenticated user only
+      allowed = (seqRows||[]).map((t:any)=>t.id);
     }
     res.json({ ok: true, data: rows.filter((r:any)=> allowed.includes(r.sequence_id)).map(r => {
       const sent = Number(r.sent)||0, opens = Number(r.opens)||0, replies = Number(r.replies)||0, bounces = Number(r.bounces)||0;
@@ -62,13 +63,12 @@ analyticsRouter.get('/api/analytics/sequences', async (req, res) => {
 });
 
 // Lists for dropdowns (names)
-analyticsRouter.get('/api/analytics/template-list', async (req, res) => {
+analyticsRouter.get('/api/analytics/template-list', requireAuth as any, async (req: any, res) => {
   try {
     const { createClient } = await import('@supabase/supabase-js');
     const client = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string, { auth: { autoRefreshToken: false, persistSession: false } });
     const userId = (req.query.user_id as string) || '';
-    let q = client.from('email_templates').select('id, name').order('updated_at', { ascending: false }).limit(500);
-    if (userId) q = q.eq('owner_user_id', userId);
+    let q = client.from('email_templates').select('id, name').order('updated_at', { ascending: false }).limit(500).eq('owner_user_id', req.user.id);
     const { data, error } = await q;
     if (error) { res.status(500).json({ error: error.message }); return; }
     res.json({ ok: true, data: data || [] });
@@ -77,13 +77,12 @@ analyticsRouter.get('/api/analytics/template-list', async (req, res) => {
   }
 });
 
-analyticsRouter.get('/api/analytics/sequence-list', async (req, res) => {
+analyticsRouter.get('/api/analytics/sequence-list', requireAuth as any, async (req: any, res) => {
   try {
     const { createClient } = await import('@supabase/supabase-js');
     const client = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string, { auth: { autoRefreshToken: false, persistSession: false } });
     const userId = (req.query.user_id as string) || '';
-    let q = client.from('message_sequences').select('id, name').order('updated_at', { ascending: false }).limit(500);
-    if (userId) q = q.eq('owner_user_id', userId);
+    let q = client.from('message_sequences').select('id, name').order('updated_at', { ascending: false }).limit(500).eq('owner_user_id', req.user.id);
     const { data, error } = await q;
     if (error) { res.status(500).json({ error: error.message }); return; }
     res.json({ ok: true, data: data || [] });
@@ -93,12 +92,12 @@ analyticsRouter.get('/api/analytics/sequence-list', async (req, res) => {
 });
 
 // Time series by template/sequence (last N days)
-analyticsRouter.get('/api/analytics/time-series', async (req, res) => {
+analyticsRouter.get('/api/analytics/time-series', requireAuth as any, async (req: any, res) => {
   try {
     const entity = String(req.query.entity || 'template'); // 'template' | 'sequence'
     const id = String(req.query.id || '');
     const days = Math.max(1, Math.min(365, Number(req.query.days || 30)));
-    const userId = (req.query.user_id as string) || '';
+    const userId = req.user.id as string;
     const { createClient } = await import('@supabase/supabase-js');
     const client = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string, { auth: { autoRefreshToken: false, persistSession: false } });
     const col = entity === 'sequence' ? 'sequence_id' : 'template_id';
@@ -108,8 +107,7 @@ analyticsRouter.get('/api/analytics/time-series', async (req, res) => {
     } else {
       // build allowed list by owner
       const tbl = entity === 'sequence' ? 'message_sequences' : 'email_templates';
-      let q = client.from(tbl).select('id');
-      if (userId) q = q.eq('owner_user_id', userId);
+      let q = client.from(tbl).select('id').eq('owner_user_id', userId);
       const { data: ids } = await q;
       idList = (ids||[]).map((x:any)=>x.id);
     }
