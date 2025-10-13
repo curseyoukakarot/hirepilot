@@ -38,6 +38,8 @@ export default function Analytics() {
   const [seqMetrics, setSeqMetrics] = useState([]);
   const [selectedTpl, setSelectedTpl] = useState('all');
   const [selectedSeq, setSelectedSeq] = useState('all');
+  const [tplList, setTplList] = useState([]);
+  const [seqList, setSeqList] = useState([]);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
   useEffect(() => {
@@ -256,10 +258,15 @@ export default function Analytics() {
           const r = await fetch(`${BACKEND_URL}/api/analytics/templates`, { headers, credentials: 'include' });
           const j = await r.json();
           setTplMetrics(Array.isArray(j.data) ? j.data : []);
+          // populate list
+          const lst = await fetch(`${BACKEND_URL}/api/analytics/template-list`, { headers, credentials: 'include' }).then(r=>r.json()).catch(()=>({data:[]}));
+          setTplList(Array.isArray(lst.data)?lst.data:[]);
         } else {
           const r = await fetch(`${BACKEND_URL}/api/analytics/sequences`, { headers, credentials: 'include' });
           const j = await r.json();
           setSeqMetrics(Array.isArray(j.data) ? j.data : []);
+          const lst = await fetch(`${BACKEND_URL}/api/analytics/sequence-list`, { headers, credentials: 'include' }).then(r=>r.json()).catch(()=>({data:[]}));
+          setSeqList(Array.isArray(lst.data)?lst.data:[]);
         }
       } catch (e) {
         if (viewEntity === 'templates') setTplMetrics([]); else setSeqMetrics([]);
@@ -370,8 +377,8 @@ export default function Analytics() {
               <span className="text-sm text-gray-500">Template:</span>
               <select className="px-3 py-2 border border-gray-300 rounded-lg" value={selectedTpl} onChange={e=>setSelectedTpl(e.target.value)}>
                 <option value="all">All</option>
-                {(tplMetrics||[]).map(t=> (
-                  <option key={t.template_id} value={t.template_id}>{t.template_name || t.template_id}</option>
+                {(tplList||tplMetrics||[]).map((t)=> (
+                  <option key={t.id || t.template_id} value={t.id || t.template_id}>{t.name || t.template_name || t.template_id}</option>
                 ))}
               </select>
             </>
@@ -381,8 +388,8 @@ export default function Analytics() {
               <span className="text-sm text-gray-500">Sequence:</span>
               <select className="px-3 py-2 border border-gray-300 rounded-lg" value={selectedSeq} onChange={e=>setSelectedSeq(e.target.value)}>
                 <option value="all">All</option>
-                {(seqMetrics||[]).map(s=> (
-                  <option key={s.sequence_id} value={s.sequence_id}>{s.sequence_name || s.sequence_id}</option>
+                {(seqList||seqMetrics||[]).map((s)=> (
+                  <option key={s.id || s.sequence_id} value={s.id || s.sequence_id}>{s.name || s.sequence_name || s.sequence_id}</option>
                 ))}
               </select>
             </>

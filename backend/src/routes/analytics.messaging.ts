@@ -51,4 +51,29 @@ analyticsRouter.get('/api/analytics/sequences', async (_req, res) => {
   }
 });
 
+// Lists for dropdowns (names)
+analyticsRouter.get('/api/analytics/template-list', async (_req, res) => {
+  try {
+    const { createClient } = await import('@supabase/supabase-js');
+    const client = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string, { auth: { autoRefreshToken: false, persistSession: false } });
+    const { data, error } = await client.from('email_templates').select('id, name').order('updated_at', { ascending: false }).limit(500);
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    res.json({ ok: true, data: data || [] });
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message || 'failed' });
+  }
+});
+
+analyticsRouter.get('/api/analytics/sequence-list', async (_req, res) => {
+  try {
+    const { createClient } = await import('@supabase/supabase-js');
+    const client = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string, { auth: { autoRefreshToken: false, persistSession: false } });
+    const { data, error } = await client.from('message_sequences').select('id, name').order('updated_at', { ascending: false }).limit(500);
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    res.json({ ok: true, data: data || [] });
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message || 'failed' });
+  }
+});
+
 
