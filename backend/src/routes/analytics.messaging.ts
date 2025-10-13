@@ -7,7 +7,10 @@ analyticsRouter.get('/api/analytics/templates', async (_req, res) => {
   try {
     const { createClient } = await import('@supabase/supabase-js');
     const client = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string, { auth: { autoRefreshToken: false, persistSession: false } });
-    const { data: rows, error } = await client.from('template_performance_mv').select('template_id, sent, opens, replies, bounces');
+    const { data: rows, error } = await client
+      .from('template_performance_mv')
+      .select('template_id, sent, opens, replies, bounces')
+      .not('template_id', 'is', null);
     if (error) { res.status(500).json({ error: error.message }); return; }
     const ids = (rows||[]).map((r:any)=>r.template_id).filter(Boolean);
     let nameMap: Record<string,string> = {};
@@ -28,7 +31,10 @@ analyticsRouter.get('/api/analytics/sequences', async (_req, res) => {
   try {
     const { createClient } = await import('@supabase/supabase-js');
     const client = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string, { auth: { autoRefreshToken: false, persistSession: false } });
-    const { data: rows, error } = await client.from('sequence_performance_mv').select('sequence_id, sent, opens, replies, bounces');
+    const { data: rows, error } = await client
+      .from('sequence_performance_mv')
+      .select('sequence_id, sent, opens, replies, bounces')
+      .not('sequence_id', 'is', null);
     if (error) { res.status(500).json({ error: error.message }); return; }
     const ids = (rows||[]).map((r:any)=>r.sequence_id).filter(Boolean);
     let nameMap: Record<string,string> = {};
