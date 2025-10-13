@@ -36,6 +36,8 @@ export default function Analytics() {
   const [viewEntity, setViewEntity] = useState('templates'); // 'templates' | 'sequences'
   const [tplMetrics, setTplMetrics] = useState([]);
   const [seqMetrics, setSeqMetrics] = useState([]);
+  const [selectedTpl, setSelectedTpl] = useState('all');
+  const [selectedSeq, setSelectedSeq] = useState('all');
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
   useEffect(() => {
@@ -266,6 +268,9 @@ export default function Analytics() {
       }
     };
     fetchAnalytics();
+    // reset any selection when switching view
+    setSelectedTpl('all');
+    setSelectedSeq('all');
   }, [viewEntity]);
 
   return (
@@ -360,11 +365,33 @@ export default function Analytics() {
             <option value="templates">By Template</option>
             <option value="sequences">By Sequence</option>
           </select>
+          {viewEntity === 'templates' && (
+            <>
+              <span className="text-sm text-gray-500">Template:</span>
+              <select className="px-3 py-2 border border-gray-300 rounded-lg" value={selectedTpl} onChange={e=>setSelectedTpl(e.target.value)}>
+                <option value="all">All</option>
+                {(tplMetrics||[]).map(t=> (
+                  <option key={t.template_id} value={t.template_id}>{t.template_name || t.template_id}</option>
+                ))}
+              </select>
+            </>
+          )}
+          {viewEntity === 'sequences' && (
+            <>
+              <span className="text-sm text-gray-500">Sequence:</span>
+              <select className="px-3 py-2 border border-gray-300 rounded-lg" value={selectedSeq} onChange={e=>setSelectedSeq(e.target.value)}>
+                <option value="all">All</option>
+                {(seqMetrics||[]).map(s=> (
+                  <option key={s.sequence_id} value={s.sequence_id}>{s.sequence_name || s.sequence_id}</option>
+                ))}
+              </select>
+            </>
+          )}
         </div>
 
         {viewEntity === 'templates' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {(tplMetrics||[]).map((t)=> (
+            {(tplMetrics||[]).filter(t => selectedTpl==='all' || t.template_id===selectedTpl).map((t)=> (
               <div key={t.template_id} className="rounded-2xl border p-4 bg-white">
                 <div className="flex items-center justify-between mb-2">
                   <div className="font-semibold text-sm">{t.template_name || `Template ${t.template_id}`}</div>
@@ -381,7 +408,7 @@ export default function Analytics() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {(seqMetrics||[]).map((s)=> (
+            {(seqMetrics||[]).filter(s => selectedSeq==='all' || s.sequence_id===selectedSeq).map((s)=> (
               <div key={s.sequence_id} className="rounded-2xl border p-4 bg-white">
                 <div className="flex items-center justify-between mb-2">
                   <div className="font-semibold text-sm">{s.sequence_name || `Sequence ${s.sequence_id}`}</div>
