@@ -267,17 +267,17 @@ export default function Analytics() {
         const { data: { session } } = await supabase.auth.getSession();
         const headers = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
         if (viewEntity === 'templates') {
-          const r = await fetch(`${BACKEND_URL}/api/analytics/templates`, { headers, credentials: 'include' });
+          const r = await fetch(`${BACKEND_URL}/api/analytics/templates?user_id=${user?.id||''}`, { headers, credentials: 'include' });
           const j = await r.json();
           setTplMetrics(Array.isArray(j.data) ? j.data : []);
           // populate list
-          const lst = await fetch(`${BACKEND_URL}/api/analytics/template-list`, { headers, credentials: 'include' }).then(r=>r.json()).catch(()=>({data:[]}));
+          const lst = await fetch(`${BACKEND_URL}/api/analytics/template-list?user_id=${user?.id||''}`, { headers, credentials: 'include' }).then(r=>r.json()).catch(()=>({data:[]}));
           setTplList(Array.isArray(lst.data)?lst.data:[]);
         } else {
-          const r = await fetch(`${BACKEND_URL}/api/analytics/sequences`, { headers, credentials: 'include' });
+          const r = await fetch(`${BACKEND_URL}/api/analytics/sequences?user_id=${user?.id||''}`, { headers, credentials: 'include' });
           const j = await r.json();
           setSeqMetrics(Array.isArray(j.data) ? j.data : []);
-          const lst = await fetch(`${BACKEND_URL}/api/analytics/sequence-list`, { headers, credentials: 'include' }).then(r=>r.json()).catch(()=>({data:[]}));
+          const lst = await fetch(`${BACKEND_URL}/api/analytics/sequence-list?user_id=${user?.id||''}`, { headers, credentials: 'include' }).then(r=>r.json()).catch(()=>({data:[]}));
           setSeqList(Array.isArray(lst.data)?lst.data:[]);
         }
       } catch (e) {

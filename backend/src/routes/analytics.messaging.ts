@@ -3,7 +3,7 @@ export const analyticsRouter = Router();
 
 const pct = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 1000) / 10 : 0);
 
-analyticsRouter.get('/api/analytics/templates', async (_req, res) => {
+analyticsRouter.get('/api/analytics/templates', async (req, res) => {
   try {
     const { createClient } = await import('@supabase/supabase-js');
     const client = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string, { auth: { autoRefreshToken: false, persistSession: false } });
@@ -13,12 +13,17 @@ analyticsRouter.get('/api/analytics/templates', async (_req, res) => {
       .not('template_id', 'is', null);
     if (error) { res.status(500).json({ error: error.message }); return; }
     const ids = (rows||[]).map((r:any)=>r.template_id).filter(Boolean);
+    const userId = (req.query.user_id as string) || '';
     let nameMap: Record<string,string> = {};
+    let allowed = ids;
     if (ids.length) {
-      const { data: tplRows } = await client.from('email_templates').select('id, name').in('id', ids);
+      let q = client.from('email_templates').select('id, name').in('id', ids);
+      if (userId) q = q.eq('owner_user_id', userId);
+      const { data: tplRows } = await q;
       (tplRows||[]).forEach((t:any)=>{ nameMap[t.id] = t.name; });
+      if (userId) allowed = (tplRows||[]).map((t:any)=>t.id);
     }
-    res.json({ ok: true, data: rows.map(r => {
+    res.json({ ok: true, data: rows.filter((r:any)=> allowed.includes(r.template_id)).map(r => {
       const sent = Number(r.sent)||0, opens = Number(r.opens)||0, replies = Number(r.replies)||0, bounces = Number(r.bounces)||0;
       return { template_id: r.template_id, template_name: nameMap[r.template_id] || r.template_id, sent, opens, open_rate: pct(opens, sent), replies, reply_rate: pct(replies, sent), bounces, bounce_rate: pct(bounces, sent) };
     })});
@@ -27,7 +32,7 @@ analyticsRouter.get('/api/analytics/templates', async (_req, res) => {
   }
 });
 
-analyticsRouter.get('/api/analytics/sequences', async (_req, res) => {
+analyticsRouter.get('/api/analytics/sequences', async (req, res) => {
   try {
     const { createClient } = await import('@supabase/supabase-js');
     const client = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string, { auth: { autoRefreshToken: false, persistSession: false } });
@@ -37,12 +42,17 @@ analyticsRouter.get('/api/analytics/sequences', async (_req, res) => {
       .not('sequence_id', 'is', null);
     if (error) { res.status(500).json({ error: error.message }); return; }
     const ids = (rows||[]).map((r:any)=>r.sequence_id).filter(Boolean);
+    const userId = (req.query.user_id as string) || '';
     let nameMap: Record<string,string> = {};
+    let allowed = ids;
     if (ids.length) {
-      const { data: seqRows } = await client.from('message_sequences').select('id, name').in('id', ids);
+      let q = client.from('message_sequences').select('id, name').in('id', ids);
+      if (userId) q = q.eq('owner_user_id', userId);
+      const { data: seqRows } = await q;
       (seqRows||[]).forEach((t:any)=>{ nameMap[t.id] = t.name; });
+      if (userId) allowed = (seqRows||[]).map((t:any)=>t.id);
     }
-    res.json({ ok: true, data: rows.map(r => {
+    res.json({ ok: true, data: rows.filter((r:any)=> allowed.includes(r.sequence_id)).map(r => {
       const sent = Number(r.sent)||0, opens = Number(r.opens)||0, replies = Number(r.replies)||0, bounces = Number(r.bounces)||0;
       return { sequence_id: r.sequence_id, sequence_name: nameMap[r.sequence_id] || r.sequence_id, sent, opens, open_rate: pct(opens, sent), replies, reply_rate: pct(replies, sent), bounces, bounce_rate: pct(bounces, sent) };
     })});
@@ -52,11 +62,14 @@ analyticsRouter.get('/api/analytics/sequences', async (_req, res) => {
 });
 
 // Lists for dropdowns (names)
-analyticsRouter.get('/api/analytics/template-list', async (_req, res) => {
+analyticsRouter.get('/api/analytics/template-list', async (req, res) => {
   try {
     const { createClient } = await import('@supabase/supabase-js');
     const client = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string, { auth: { autoRefreshToken: false, persistSession: false } });
-    const { data, error } = await client.from('email_templates').select('id, name').order('updated_at', { ascending: false }).limit(500);
+    const userId = (req.query.user_id as string) || '';
+    let q = client.from('email_templates').select('id, name').order('updated_at', { ascending: false }).limit(500);
+    if (userId) q = q.eq('owner_user_id', userId);
+    const { data, error } = await q;
     if (error) { res.status(500).json({ error: error.message }); return; }
     res.json({ ok: true, data: data || [] });
   } catch (e: any) {
@@ -64,11 +77,14 @@ analyticsRouter.get('/api/analytics/template-list', async (_req, res) => {
   }
 });
 
-analyticsRouter.get('/api/analytics/sequence-list', async (_req, res) => {
+analyticsRouter.get('/api/analytics/sequence-list', async (req, res) => {
   try {
     const { createClient } = await import('@supabase/supabase-js');
     const client = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string, { auth: { autoRefreshToken: false, persistSession: false } });
-    const { data, error } = await client.from('message_sequences').select('id, name').order('updated_at', { ascending: false }).limit(500);
+    const userId = (req.query.user_id as string) || '';
+    let q = client.from('message_sequences').select('id, name').order('updated_at', { ascending: false }).limit(500);
+    if (userId) q = q.eq('owner_user_id', userId);
+    const { data, error } = await q;
     if (error) { res.status(500).json({ error: error.message }); return; }
     res.json({ ok: true, data: data || [] });
   } catch (e: any) {
@@ -82,10 +98,23 @@ analyticsRouter.get('/api/analytics/time-series', async (req, res) => {
     const entity = String(req.query.entity || 'template'); // 'template' | 'sequence'
     const id = String(req.query.id || '');
     const days = Math.max(1, Math.min(365, Number(req.query.days || 30)));
-    if (!id) { res.json({ ok: true, data: [] }); return; }
+    const userId = (req.query.user_id as string) || '';
     const { createClient } = await import('@supabase/supabase-js');
     const client = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string, { auth: { autoRefreshToken: false, persistSession: false } });
     const col = entity === 'sequence' ? 'sequence_id' : 'template_id';
+    let idList: string[] = [];
+    if (id && id !== 'all') {
+      idList = [id];
+    } else {
+      // build allowed list by owner
+      const tbl = entity === 'sequence' ? 'message_sequences' : 'email_templates';
+      let q = client.from(tbl).select('id');
+      if (userId) q = q.eq('owner_user_id', userId);
+      const { data: ids } = await q;
+      idList = (ids||[]).map((x:any)=>x.id);
+    }
+    if (idList.length === 0) { res.json({ ok: true, data: [] }); return; }
+    const inList = idList.map(x=>`'${x}'`).join(',');
     const sql = `
       select date_trunc('day', e.occurred_at) as day,
              count(*) filter (where e.event_type='sent') as sent,
@@ -93,11 +122,10 @@ analyticsRouter.get('/api/analytics/time-series', async (req, res) => {
              count(*) filter (where e.event_type='reply') as replies
       from email_events e
       join messages m on e.message_id = m.id::text
-      where m.${col} = :id and e.occurred_at >= now() - interval '${days} days'
+      where m.${col} in (${inList}) and e.occurred_at >= now() - interval '${days} days'
       group by 1
       order by 1 asc`;
-    // Execute via PostgREST RPC wrapper function 'exec_sql_params' if available; otherwise fallback not provided
-    const { data, error } = await client.rpc('exec_sql_params', { sql, params: { id } } as any);
+    const { data, error } = await client.rpc('exec_sql', { sql } as any);
     if (error) { res.json({ ok: true, data: [] }); return; }
     const rows = (data as any[]) || [];
     const out = rows.map(r => {
