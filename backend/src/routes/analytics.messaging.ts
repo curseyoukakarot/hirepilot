@@ -8,10 +8,20 @@ analyticsRouter.get('/api/analytics/templates', requireAuth as any, async (req: 
   try {
     const { createClient } = await import('@supabase/supabase-js');
     const client = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string, { auth: { autoRefreshToken: false, persistSession: false } });
-    const { data: rows, error } = await client
-      .from('template_performance_mv')
-      .select('template_id, sent, opens, replies, bounces')
-      .not('template_id', 'is', null);
+    // Compute live to avoid MV staleness and bad joins
+    const userId = req.user.id as string;
+    const sql = `
+      select m.template_id,
+             count(*) filter (where e.event_type='sent')   as sent,
+             count(*) filter (where e.event_type='open')   as opens,
+             count(*) filter (where e.event_type='reply')  as replies,
+             count(*) filter (where e.event_type='bounce') as bounces
+      from email_events e
+      left join messages m
+        on (e.message_id = m.message_id or e.sg_message_id = m.sg_message_id or e.message_id = m.id::text)
+      where e.user_id = '${userId}' and m.template_id is not null
+      group by m.template_id`;
+    const { data: rows, error } = await client.rpc('exec_sql', { sql } as any);
     if (error) { res.status(500).json({ error: error.message }); return; }
     const ids = (rows||[]).map((r:any)=>r.template_id).filter(Boolean);
     const userId = (req.query.user_id as string) || '';
@@ -38,10 +48,19 @@ analyticsRouter.get('/api/analytics/sequences', requireAuth as any, async (req: 
   try {
     const { createClient } = await import('@supabase/supabase-js');
     const client = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string, { auth: { autoRefreshToken: false, persistSession: false } });
-    const { data: rows, error } = await client
-      .from('sequence_performance_mv')
-      .select('sequence_id, sent, opens, replies, bounces')
-      .not('sequence_id', 'is', null);
+    const userId = req.user.id as string;
+    const sql = `
+      select m.sequence_id,
+             count(*) filter (where e.event_type='sent')   as sent,
+             count(*) filter (where e.event_type='open')   as opens,
+             count(*) filter (where e.event_type='reply')  as replies,
+             count(*) filter (where e.event_type='bounce') as bounces
+      from email_events e
+      left join messages m
+        on (e.message_id = m.message_id or e.sg_message_id = m.sg_message_id or e.message_id = m.id::text)
+      where e.user_id = '${userId}' and m.sequence_id is not null
+      group by m.sequence_id`;
+    const { data: rows, error } = await client.rpc('exec_sql', { sql } as any);
     if (error) { res.status(500).json({ error: error.message }); return; }
     const ids = (rows||[]).map((r:any)=>r.sequence_id).filter(Boolean);
     const userId = (req.query.user_id as string) || '';
@@ -127,7 +146,7 @@ analyticsRouter.get('/api/analytics/time-series', requireAuth as any, async (req
              count(*) filter (where e.event_type='open') as opens,
              count(*) filter (where e.event_type='reply') as replies
       from email_events e
-      join messages m on e.message_id = m.id::text
+      left join messages m on (e.message_id = m.message_id or e.sg_message_id = m.sg_message_id or e.message_id = m.id::text)
       where m.${col} in (${inList}) and e.occurred_at >= now() - interval '${days} days'
       group by 1
       order by 1 asc`;

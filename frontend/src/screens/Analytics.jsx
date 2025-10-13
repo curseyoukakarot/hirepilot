@@ -157,12 +157,23 @@ export default function Analytics() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token || '';
-      const entity = viewEntity === 'templates' ? 'template' : 'sequence';
-      const id = viewEntity === 'templates' ? (selectedTpl || 'all') : (selectedSeq || 'all');
-      const url = `${BACKEND_URL}/api/analytics/time-series?entity=${entity}&id=${id}&days=${selectedTimeRange.replace(/\D/g,'')||30}`;
-      const response = await fetch(url, { credentials: 'include', headers: token ? { 'Authorization': `Bearer ${token}` } : {} });
-      const result = await response.json();
-      setTimeSeriesData(Array.isArray(result.data) ? result.data : []);
+      // If a specific Template or Sequence is selected, use messaging time-series
+      if ((viewEntity === 'templates' && selectedTpl !== 'all') || (viewEntity === 'sequences' && selectedSeq !== 'all')) {
+        const entity = viewEntity === 'templates' ? 'template' : 'sequence';
+        const id = viewEntity === 'templates' ? selectedTpl : selectedSeq;
+        const url = `${BACKEND_URL}/api/analytics/time-series?entity=${entity}&id=${id}&days=${selectedTimeRange.replace(/\D/g,'')||30}`;
+        const response = await fetch(url, { credentials: 'include', headers: token ? { 'Authorization': `Bearer ${token}` } : {} });
+        const result = await response.json();
+        setTimeSeriesData(Array.isArray(result.data) ? result.data : []);
+      } else {
+        // Otherwise show campaign-scoped chart at the selected time range
+        const { data: { user } } = await supabase.auth.getUser();
+        const cid = selectedCampaignId || 'all';
+        const rangeKey = selectedTimeRange;
+        const resp = await fetch(`${BACKEND_URL}/analytics/time-series?user_id=${user?.id||''}&campaign_id=${cid}&time_range=${rangeKey}`, { credentials: 'include' });
+        const j = await resp.json();
+        setTimeSeriesData(Array.isArray(j.data) ? j.data.map(x=>({ period:x.period, openRate:x.openRate, replyRate:x.replyRate, conversionRate:x.conversionRate })) : []);
+      }
     } catch (e) {
       setTimeSeriesData([]);
     } finally {
@@ -176,7 +187,7 @@ export default function Analytics() {
   useEffect(() => {
     fetchTimeSeriesData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewEntity, selectedTpl, selectedSeq, selectedTimeRange]);
+  }, [viewEntity, selectedTpl, selectedSeq, selectedTimeRange, selectedCampaignId]);
 
   React.useEffect(() => {
     // Initialize chart with real data
