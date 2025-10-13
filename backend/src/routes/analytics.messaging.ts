@@ -21,8 +21,45 @@ analyticsRouter.get('/api/analytics/templates', requireAuth as any, async (req: 
         on (e.message_id = m.message_id or e.sg_message_id = m.sg_message_id or e.message_id = m.id::text)
       where e.user_id = '${userId}' and m.template_id is not null
       group by m.template_id`;
-    const { data: rows, error } = await client.rpc('exec_sql', { sql } as any);
-    if (error) { res.status(500).json({ error: error.message }); return; }
+    let rows: any[] = [];
+    try {
+      const { data, error } = await client.rpc('exec_sql', { sql } as any);
+      if (error) throw error;
+      rows = data as any[];
+    } catch (_err) {
+      // Fallback without exec_sql: join in Node
+      const { data: msgs } = await client
+        .from('messages')
+        .select('id, message_id, sg_message_id, template_id')
+        .eq('user_id', userId)
+        .not('template_id', 'is', null)
+        .limit(100000);
+      const idByMsg: Record<string,string> = {};
+      (msgs||[]).forEach((m:any)=>{
+        const tid = m.template_id; if (!tid) return;
+        if (m.id) idByMsg[String(m.id)] = tid;
+        if (m.message_id) idByMsg[String(m.message_id)] = tid;
+        if (m.sg_message_id) idByMsg[String(m.sg_message_id)] = tid;
+      });
+      const start = new Date(Date.now() - 365*24*60*60*1000).toISOString();
+      const { data: events } = await client
+        .from('email_events')
+        .select('event_type, message_id')
+        .eq('user_id', userId)
+        .gte('event_timestamp', start)
+        .limit(100000);
+      const agg: Record<string, {sent:number;opens:number;replies:number;bounces:number}> = {};
+      (events||[]).forEach((e:any)=>{
+        const tid = idByMsg[String(e.message_id)];
+        if (!tid) return;
+        if (!agg[tid]) agg[tid] = { sent:0, opens:0, replies:0, bounces:0 };
+        if (e.event_type==='sent') agg[tid].sent++;
+        else if (e.event_type==='open') agg[tid].opens++;
+        else if (e.event_type==='reply') agg[tid].replies++;
+        else if (e.event_type==='bounce') agg[tid].bounces++;
+      });
+      rows = Object.entries(agg).map(([template_id, v])=>({ template_id, ...v }));
+    }
     const ids = (rows||[]).map((r:any)=>r.template_id).filter(Boolean);
     const userIdQuery = (req.query.user_id as string) || '';
     let nameMap: Record<string,string> = {};
@@ -60,8 +97,44 @@ analyticsRouter.get('/api/analytics/sequences', requireAuth as any, async (req: 
         on (e.message_id = m.message_id or e.sg_message_id = m.sg_message_id or e.message_id = m.id::text)
       where e.user_id = '${userId}' and m.sequence_id is not null
       group by m.sequence_id`;
-    const { data: rows, error } = await client.rpc('exec_sql', { sql } as any);
-    if (error) { res.status(500).json({ error: error.message }); return; }
+    let rows: any[] = [];
+    try {
+      const { data, error } = await client.rpc('exec_sql', { sql } as any);
+      if (error) throw error;
+      rows = data as any[];
+    } catch (_err) {
+      const { data: msgs } = await client
+        .from('messages')
+        .select('id, message_id, sg_message_id, sequence_id')
+        .eq('user_id', userId)
+        .not('sequence_id', 'is', null)
+        .limit(100000);
+      const idByMsg: Record<string,string> = {};
+      (msgs||[]).forEach((m:any)=>{
+        const sid = m.sequence_id; if (!sid) return;
+        if (m.id) idByMsg[String(m.id)] = sid;
+        if (m.message_id) idByMsg[String(m.message_id)] = sid;
+        if (m.sg_message_id) idByMsg[String(m.sg_message_id)] = sid;
+      });
+      const start = new Date(Date.now() - 365*24*60*60*1000).toISOString();
+      const { data: events } = await client
+        .from('email_events')
+        .select('event_type, message_id')
+        .eq('user_id', userId)
+        .gte('event_timestamp', start)
+        .limit(100000);
+      const agg: Record<string, {sent:number;opens:number;replies:number;bounces:number}> = {};
+      (events||[]).forEach((e:any)=>{
+        const sid = idByMsg[String(e.message_id)];
+        if (!sid) return;
+        if (!agg[sid]) agg[sid] = { sent:0, opens:0, replies:0, bounces:0 };
+        if (e.event_type==='sent') agg[sid].sent++;
+        else if (e.event_type==='open') agg[sid].opens++;
+        else if (e.event_type==='reply') agg[sid].replies++;
+        else if (e.event_type==='bounce') agg[sid].bounces++;
+      });
+      rows = Object.entries(agg).map(([sequence_id, v])=>({ sequence_id, ...v }));
+    }
     const ids = (rows||[]).map((r:any)=>r.sequence_id).filter(Boolean);
     const userIdQuery = (req.query.user_id as string) || '';
     let nameMap: Record<string,string> = {};
@@ -150,9 +223,43 @@ analyticsRouter.get('/api/analytics/time-series', requireAuth as any, async (req
       where m.${col} in (${inList}) and e.occurred_at >= now() - interval '${days} days'
       group by 1
       order by 1 asc`;
-    const { data, error } = await client.rpc('exec_sql', { sql } as any);
-    if (error) { res.json({ ok: true, data: [] }); return; }
-    const rows = (data as any[]) || [];
+    let rows: any[] = [];
+    try {
+      const { data, error } = await client.rpc('exec_sql', { sql } as any);
+      if (error) throw error;
+      rows = (data as any[]) || [];
+    } catch (_err) {
+      // Fallback: compute in Node
+      const startDate = new Date(Date.now() - days*24*60*60*1000);
+      const { data: msgs } = await client
+        .from('messages')
+        .select('id, message_id, sg_message_id')
+        .eq('user_id', userId)
+        .in(col, idList)
+        .limit(100000);
+      const msgIdSet = new Set<string>();
+      (msgs||[]).forEach((m:any)=>{
+        if (m.id) msgIdSet.add(String(m.id));
+        if (m.message_id) msgIdSet.add(String(m.message_id));
+        if (m.sg_message_id) msgIdSet.add(String(m.sg_message_id));
+      });
+      const { data: events } = await client
+        .from('email_events')
+        .select('event_type, message_id, event_timestamp')
+        .eq('user_id', userId)
+        .gte('event_timestamp', startDate.toISOString())
+        .limit(200000);
+      const byDay: Record<string,{sent:number;opens:number;replies:number}> = {};
+      (events||[]).forEach((e:any)=>{
+        if (!msgIdSet.has(String(e.message_id))) return;
+        const day = new Date(e.event_timestamp).toISOString().slice(0,10);
+        if (!byDay[day]) byDay[day] = { sent:0, opens:0, replies:0 };
+        if (e.event_type==='sent') byDay[day].sent++;
+        else if (e.event_type==='open') byDay[day].opens++;
+        else if (e.event_type==='reply') byDay[day].replies++;
+      });
+      rows = Object.entries(byDay).map(([day,v])=>({ day, ...v })).sort((a,b)=>a.day.localeCompare(b.day));
+    }
     const out = rows.map(r => {
       const sent = Number(r.sent)||0; const opens = Number(r.opens)||0; const replies = Number(r.replies)||0;
       const openRate = sent>0 ? Math.round((opens/sent)*1000)/10 : 0;
