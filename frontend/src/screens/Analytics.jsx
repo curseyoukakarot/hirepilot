@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { Chart } from 'chart.js/auto';
 import { supabase } from '../lib/supabaseClient';
 import { usePlan } from '../context/PlanContext';
@@ -184,8 +184,26 @@ export default function Analytics() {
   // Filter metrics for selected campaign
   const selectedMetrics = metrics.find(m => m.campaignId === selectedCampaignId) || { sent: 0, opens: 0, open_rate: 0, replies: 0, reply_rate: 0, conversions: 0, conversion_rate: 0 };
 
+  // Aggregate series totals for template/sequence view (preferred source)
+  const seriesTotals = useMemo(() => {
+    const isMsgView = (viewEntity === 'templates' && selectedTpl !== 'all') || (viewEntity === 'sequences' && selectedSeq !== 'all');
+    if (!isMsgView) return null;
+    let sent = 0, opens = 0, replies = 0, conversions = 0;
+    (timeSeriesData||[]).forEach(pt => {
+      sent += Number(pt.sent || 0);
+      opens += Number(pt.opens || 0);
+      replies += Number(pt.replies || 0);
+      conversions += Number(pt.conversions || 0);
+    });
+    const openRate = sent > 0 ? (opens / sent) * 100 : 0;
+    const replyRate = sent > 0 ? (replies / sent) * 100 : 0;
+    const conversionRate = sent > 0 ? (conversions / sent) * 100 : 0;
+    return { sent, openRate, replyRate, conversionRate, converted: conversions };
+  }, [viewEntity, selectedTpl, selectedSeq, timeSeriesData]);
+
   // Derive KPIs depending on view (campaign vs template/sequence)
   const kpi = (() => {
+    if (seriesTotals) return seriesTotals;
     if (viewEntity === 'templates' && selectedTpl !== 'all') {
       const t = (tplMetrics||[]).find(x => x.template_id === selectedTpl);
       return {
