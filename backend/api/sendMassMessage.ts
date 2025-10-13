@@ -123,6 +123,7 @@ async function sendViaSendGrid(lead: any, content: string, userId: string, templ
       user_id: userId,
       lead_id: lead.id,
       campaign_id: lead.campaign_id, // Include campaign attribution
+      template_id: templateId || null,
       to_email: lead.email,
       recipient: lead.email,
       from_address: data.default_sender,
@@ -239,6 +240,7 @@ async function sendViaGoogle(lead: any, content: string, userId: string, templat
       user_id: userId,
       lead_id: lead.id,
       campaign_id: lead.campaign_id, // Include campaign attribution
+      template_id: templateId || null,
       to_email: lead.email,
       recipient: lead.email,
       from_address: 'you@gmail.com', // Could get actual from user profile
@@ -342,6 +344,7 @@ async function sendViaOutlook(lead: any, content: string, userId: string, templa
       user_id: userId,
       lead_id: lead.id,
       campaign_id: lead.campaign_id, // Include campaign attribution
+      template_id: templateId || null,
       to_email: lead.email,
       recipient: lead.email,
       from_address: 'you@outlook.com', // Could get actual from user profile
