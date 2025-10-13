@@ -67,8 +67,8 @@ export default function CsvImportCandidatesModal({ open, onClose, onSubmit }) {
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl p-6 relative">
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl p-6 mt-10 mb-10 relative max-h-[85vh] overflow-y-auto">
         <h2 className="text-2xl font-bold mb-2 text-center">Import Candidates from CSV</h2>
         <p className="mb-4 text-gray-600 text-center">Map your CSV columns to the required fields below. This ensures your candidates are imported correctly.</p>
         <div className="mb-4">
@@ -108,7 +108,7 @@ export default function CsvImportCandidatesModal({ open, onClose, onSubmit }) {
             </table>
           </div>
         </div>
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end gap-2 sticky bottom-0 bg-white pt-3">
           <button className="px-4 py-2 rounded bg-gray-100" onClick={onClose}>Cancel</button>
           <button className="px-6 py-2 rounded bg-blue-600 text-white" onClick={apply}>Import Candidates</button>
         </div>

@@ -141,8 +141,8 @@ export default function CsvImportButton({ onImportComplete }) {
 
   // Modal component
   const MappingModal = () => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl p-8 relative animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black bg-opacity-40 overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl p-8 mt-10 mb-10 relative animate-fade-in max-h-[85vh] overflow-y-auto">
         <h2 className="text-2xl font-bold mb-4 text-center">Import Leads from CSV</h2>
         <p className="mb-6 text-gray-600 text-center">Map your CSV columns to the required fields below. This ensures your leads are imported correctly.</p>
         <div className="space-y-4 mb-6">
@@ -185,7 +185,7 @@ export default function CsvImportButton({ onImportComplete }) {
             </table>
           </div>
         </div>
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end gap-2 sticky bottom-0 bg-white pt-3">
           <button 
             className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold" 
             onClick={() => setShowMappingModal(false)}
