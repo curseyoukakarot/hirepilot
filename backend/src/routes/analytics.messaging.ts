@@ -24,7 +24,7 @@ analyticsRouter.get('/api/analytics/templates', requireAuth as any, async (req: 
     const { data: rows, error } = await client.rpc('exec_sql', { sql } as any);
     if (error) { res.status(500).json({ error: error.message }); return; }
     const ids = (rows||[]).map((r:any)=>r.template_id).filter(Boolean);
-    const userId = (req.query.user_id as string) || '';
+    const userIdQuery = (req.query.user_id as string) || '';
     let nameMap: Record<string,string> = {};
     let allowed: string[] = [];
     if (ids.length) {
@@ -63,7 +63,7 @@ analyticsRouter.get('/api/analytics/sequences', requireAuth as any, async (req: 
     const { data: rows, error } = await client.rpc('exec_sql', { sql } as any);
     if (error) { res.status(500).json({ error: error.message }); return; }
     const ids = (rows||[]).map((r:any)=>r.sequence_id).filter(Boolean);
-    const userId = (req.query.user_id as string) || '';
+    const userIdQuery = (req.query.user_id as string) || '';
     let nameMap: Record<string,string> = {};
     let allowed: string[] = [];
     if (ids.length) {
@@ -87,7 +87,7 @@ analyticsRouter.get('/api/analytics/template-list', requireAuth as any, async (r
   try {
     const { createClient } = await import('@supabase/supabase-js');
     const client = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string, { auth: { autoRefreshToken: false, persistSession: false } });
-    const userId = (req.query.user_id as string) || '';
+    const userIdQuery = (req.query.user_id as string) || '';
     // email_templates use user_id (not owner_user_id)
     let q = client.from('email_templates').select('id, name').order('updated_at', { ascending: false }).limit(500).eq('user_id', req.user.id);
     const { data, error } = await q;
@@ -102,7 +102,7 @@ analyticsRouter.get('/api/analytics/sequence-list', requireAuth as any, async (r
   try {
     const { createClient } = await import('@supabase/supabase-js');
     const client = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string, { auth: { autoRefreshToken: false, persistSession: false } });
-    const userId = (req.query.user_id as string) || '';
+    const userIdQuery = (req.query.user_id as string) || '';
     let q = client.from('message_sequences').select('id, name').order('updated_at', { ascending: false }).limit(500).eq('owner_user_id', req.user.id);
     const { data, error } = await q;
     if (error) { res.status(500).json({ error: error.message }); return; }
