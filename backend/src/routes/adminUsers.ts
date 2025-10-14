@@ -365,6 +365,32 @@ router.post('/users/:id/cancel-subscription', requireAuth, requireSuperAdmin, as
   }
 });
 
+// POST /api/admin/users/force-free — idempotently force plan=free, role=free, credits=50; delete subscriptions
+router.post('/users/force-free', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
+  const { user_ids } = req.body as { user_ids: string[] };
+  if (!Array.isArray(user_ids) || user_ids.length === 0) return res.status(400).json({ error: 'user_ids[] required' });
+  try {
+    // Upsert users to free
+    const upserts = user_ids.map((id) => ({ id, plan: 'free', role: 'free' }));
+    await supabaseDb.from('users').upsert(upserts as any, { onConflict: 'id' });
+
+    // Seed credits to 50 (idempotent)
+    for (const id of user_ids) {
+      await supabaseDb
+        .from('user_credits')
+        .upsert({ user_id: id, total_credits: 50, used_credits: 0, remaining_credits: 50, last_updated: new Date().toISOString() } as any, { onConflict: 'user_id' });
+    }
+
+    // Delete lingering subscriptions
+    try { await supabaseDb.from('subscriptions').delete().in('user_id', user_ids); } catch {}
+
+    return res.json({ success: true });
+  } catch (e: any) {
+    console.error('[admin] users/force-free error', e);
+    return res.status(500).json({ error: e?.message || 'force_free_failed' });
+  }
+});
+
 // GET /api/admin/latest-users - List the most recently created users
 router.get('/latest-users', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
   try {
