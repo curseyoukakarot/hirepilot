@@ -97,6 +97,10 @@ export async function sendCandidateSubmissionEmail(payload: CandidateSubmission)
   try { html = fs.readFileSync(tplPath, 'utf-8'); } catch { html = DEFAULT_HTML; }
   if (!html) html = DEFAULT_HTML;
 
+  // Resolve logo from frontend public path if available
+  const appBase = process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.APP_WEB_URL || 'https://thehirepilot.com';
+  const logoUrl = `${appBase.replace(/\/$/, '')}/logo-light.png`;
+
   const compiled = renderTemplate(html, {
     ownerName: payload.ownerName || '',
     jobTitle: payload.jobTitle,
@@ -108,7 +112,8 @@ export async function sendCandidateSubmissionEmail(payload: CandidateSubmission)
     motivation: payload.motivation || '',
     accolades: payload.accolades || '',
     resume: payload.resume || '',
-    collaboratorName: payload.collaboratorName || 'Collaborator'
+    collaboratorName: payload.collaboratorName || 'Collaborator',
+    logo: logoUrl
   });
 
   await sgMail.send({

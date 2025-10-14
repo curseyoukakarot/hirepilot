@@ -139,6 +139,8 @@ router.post('/submitCandidate', requireAuth as any, async (req: Request, res: Re
     try {
       const { sendCandidateSubmissionEmail } = await import('../lib/notifications/email');
       const ownerEmailRes = await db.from('user_settings').select('email, slack_webhook_url').eq('user_id', ownerId).maybeSingle();
+      // Resolve owner's display name
+      const ownerUserRes = await db.from('users').select('first_name,last_name,email').eq('id', ownerId).maybeSingle();
       const submitterRes = await db.from('users').select('first_name,last_name,email').eq('id', userId).maybeSingle();
       const ownerEmail = (ownerEmailRes.data as any)?.email || (await (async () => {
         const admin = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string, { auth: { autoRefreshToken: false, persistSession: false } });
@@ -151,7 +153,7 @@ router.post('/submitCandidate', requireAuth as any, async (req: Request, res: Re
       if (ownerEmail) {
         await sendCandidateSubmissionEmail({
           ownerEmail,
-          ownerName: null,
+          ownerName: `${(ownerUserRes.data as any)?.first_name || ''} ${(ownerUserRes.data as any)?.last_name || ''}`.trim() || (ownerUserRes.data as any)?.email || '',
           jobTitle: (job as any).title,
           candidateName: name,
           email: candidateRow.email,
