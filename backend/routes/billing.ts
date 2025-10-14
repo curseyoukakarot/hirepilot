@@ -79,6 +79,24 @@ router.get('/overview', async (req, res) => {
       return;
     }
 
+    // Also read the user's plan to normalize free accounts
+    let userPlan: string | null = null;
+    try {
+      const { data: planRow } = await supabase
+        .from('users')
+        .select('plan')
+        .eq('id', user.id)
+        .maybeSingle();
+      userPlan = (planRow as any)?.plan || null;
+    } catch {}
+
+    // If plan is free or subscription is canceled/expired, treat as no subscription
+    const planIsFree = String(userPlan || '').toLowerCase() === 'free';
+    const inactiveStatuses = new Set(['canceled','incomplete_expired','paused','unpaid']);
+    if (subscription && (planIsFree || inactiveStatuses.has(String(subscription.status || '').toLowerCase()))) {
+      subscription = null;
+    }
+
     // Get user's credits
     const { data: creditsRow, error: creditsError } = await supabase
       .from('user_credits')
