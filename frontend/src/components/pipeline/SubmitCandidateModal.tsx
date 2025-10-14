@@ -157,7 +157,7 @@ export default function SubmitCandidateModal({ open, jobId, onClose }: SubmitCan
             <input name="title" placeholder="Senior Backend Engineer" value={form.title} onChange={onChange} className="px-3 py-2 border rounded-lg" />
             <input name="salary" placeholder="$120,000 or $100/hr" value={form.salary} onChange={onChange} className="px-3 py-2 border rounded-lg" />
             <input name="location" placeholder="San Francisco, CA" value={form.location} onChange={onChange} className="px-3 py-2 border rounded-lg" />
-            <input name="experience" placeholder="8" value={form.experience} onChange={onChange} className="px-3 py-2 border rounded-lg" />
+            <input name="experience" placeholder="Years of Experience" value={form.experience} onChange={onChange} className="px-3 py-2 border rounded-lg" />
           </div>
 
           <div className="mt-4 space-y-3">
