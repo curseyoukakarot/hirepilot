@@ -328,6 +328,43 @@ router.delete('/users/:id', requireAuth, requireSuperAdmin, async (req: Request,
   res.json({ success: true });
 });
 
+// PATCH /api/admin/users/:id/plan – set plan and optional credit fields
+router.patch('/users/:id/plan', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
+  const userId = req.params.id;
+  const { plan, remaining_credits, monthly_credits } = req.body || {};
+  if (!plan) return res.status(400).json({ error: 'plan required' });
+  try {
+    const updates: any = { plan, plan_updated_at: new Date().toISOString() };
+    if (typeof remaining_credits === 'number') updates.remaining_credits = remaining_credits;
+    if (typeof monthly_credits === 'number') updates.monthly_credits = monthly_credits;
+    const { data, error } = await supabase
+      .from('users')
+      .update(updates)
+      .eq('id', userId)
+      .select('*')
+      .maybeSingle();
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ success: true, user: data });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'Failed to set plan' });
+  }
+});
+
+// POST /api/admin/users/:id/cancel-subscription – clear local subscription link
+router.post('/users/:id/cancel-subscription', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
+  const userId = req.params.id;
+  try {
+    const { error } = await supabase
+      .from('subscriptions')
+      .update({ status: 'canceled', plan_tier: null, stripe_subscription_id: null, current_period_end: null, seat_count: null, included_seats: null })
+      .eq('user_id', userId);
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ success: true });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'Failed to cancel subscription' });
+  }
+});
+
 // GET /api/admin/latest-users - List the most recently created users
 router.get('/latest-users', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
   try {
