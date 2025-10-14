@@ -51,9 +51,19 @@ router.post('/submitCandidate', requireAuth as any, async (req: Request, res: Re
       if (!error && existing) candidateRow = existing;
     }
 
-    // If not existing, create a new candidate owned by job owner
+    // If not existing, create or reuse by email (global unique)
     if (!candidateRow) {
-      const safeEmail = (email && String(email).trim()) || `unknown+sub_${userId.slice(0,8)}+${Date.now()}@noemail.hirepilot`;
+      const providedEmail = typeof email === 'string' && email.trim().length ? String(email).trim() : undefined;
+      if (providedEmail) {
+        const { data: existingByEmail } = await db.from('candidates').select('*').eq('email', providedEmail).maybeSingle();
+        if (existingByEmail) {
+          candidateRow = existingByEmail;
+        }
+      }
+    }
+
+    if (!candidateRow) {
+      const safeEmail = (typeof email === 'string' && email.trim().length ? String(email).trim() : undefined) || `unknown+sub_${userId.slice(0,8)}+${Date.now()}@noemail.hirepilot`;
       const firstNameGuess = (String(candidateIdOrName || '').trim().split(' ')[0] || '').slice(0, 60);
       const lastNameGuess = (String(candidateIdOrName || '').trim().split(' ').slice(1).join(' ') || '').slice(0, 60);
       const insertPayload: any = {
@@ -75,8 +85,21 @@ router.post('/submitCandidate', requireAuth as any, async (req: Request, res: Re
         .insert(insertPayload)
         .select('*')
         .maybeSingle();
-      if (cErr || !created) return res.status(500).json({ error: 'Failed to create candidate' });
-      candidateRow = created;
+      if (cErr || !created) {
+        // Handle duplicate email globally: use existing row
+        if ((cErr as any)?.code === '23505' && insertPayload.email) {
+          const { data: existing } = await db.from('candidates').select('*').eq('email', insertPayload.email).maybeSingle();
+          if (existing) {
+            candidateRow = existing;
+          } else {
+            return res.status(500).json({ error: 'Failed to create candidate' });
+          }
+        } else {
+          return res.status(500).json({ error: 'Failed to create candidate' });
+        }
+      } else {
+        candidateRow = created;
+      }
     }
 
     // Ensure association to job via candidate_jobs
@@ -98,15 +121,19 @@ router.post('/submitCandidate', requireAuth as any, async (req: Request, res: Re
       .eq('job_id', jobId)
       .maybeSingle();
     if (!linkExisting?.id) {
-      await db
-        .from('candidate_jobs')
-        .insert({ candidate_id: candidateRow.id, job_id: jobId, stage_id: stageId });
+      const insertJob = { candidate_id: candidateRow.id, job_id: jobId, stage_id: stageId } as any;
+      const { error: linkErr } = await db.from('candidate_jobs').insert(insertJob);
+      if (linkErr && (linkErr as any).code !== '23505') {
+        // If not unique violation, return error
+        return res.status(500).json({ error: 'Failed to link candidate to job' });
+      }
     }
 
     // Notify owner via email + Slack
     try {
       const { sendCandidateSubmissionEmail } = await import('../lib/notifications/email');
       const ownerEmailRes = await db.from('user_settings').select('email, slack_webhook_url').eq('user_id', ownerId).maybeSingle();
+      const submitterRes = await db.from('users').select('first_name,last_name,email').eq('id', userId).maybeSingle();
       const ownerEmail = (ownerEmailRes.data as any)?.email || (await (async () => {
         const admin = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string, { auth: { autoRefreshToken: false, persistSession: false } });
         const { data } = await admin.from('users').select('email').eq('id', ownerId).maybeSingle();
@@ -128,7 +155,7 @@ router.post('/submitCandidate', requireAuth as any, async (req: Request, res: Re
           motivation: motivation || '',
           accolades: accolades || '',
           resume: candidateRow.resume_url || resume || '',
-          collaboratorName: (req as any).user?.email || 'Collaborator'
+          collaboratorName: `${(submitterRes.data as any)?.first_name || ''} ${(submitterRes.data as any)?.last_name || ''}`.trim() || (submitterRes.data as any)?.email || 'Collaborator'
         });
       }
 
@@ -136,7 +163,7 @@ router.post('/submitCandidate', requireAuth as any, async (req: Request, res: Re
       const slackUrl = (ownerEmailRes.data as any)?.slack_webhook_url || process.env.SLACK_WEBHOOK_URL;
       if (slackUrl) {
         const { sendSlackCandidateNotification } = await import('../lib/notifications/slack');
-        await sendSlackCandidateNotification({ name, jobTitle: (job as any).title, resume: candidateRow.resume_url || resume || '', motivation }, slackUrl);
+        await sendSlackCandidateNotification({ name: `${name} (submitted by ${(submitterRes.data as any)?.email || 'collaborator'})`, jobTitle: (job as any).title, resume: candidateRow.resume_url || resume || '', motivation }, slackUrl);
       }
     } catch (e) {
       console.warn('[submitCandidate] notify failed', (e as any)?.message || e);
