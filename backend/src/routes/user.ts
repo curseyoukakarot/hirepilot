@@ -32,7 +32,7 @@ router.get('/plan', requireAuthPlan, async (req: ApiRequest, res: Response) => {
         // Insert minimal columns to avoid schema mismatches across environments
         await supabase
           .from('users')
-          .upsert({ id: userId, email } as any, { onConflict: 'id' });
+          .upsert({ id: userId, email, role: 'free', plan: 'free' } as any, { onConflict: 'id' });
         // Seed credits row (idempotent)
         try {
           await supabase
