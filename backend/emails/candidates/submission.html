@@ -5,44 +5,73 @@
   <meta name="viewport" content="width=device-width">
   <title>New Candidate Submitted</title>
 </head>
-<body style="margin:0; padding:0; background-color:#f9fafb;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f9fafb; padding: 40px;">
+<body style="margin:0; padding:0; background-color:#0f172a;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #0f172a; padding: 40px; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
     <tr>
       <td align="center">
-        <table width="100%" style="max-width:600px; background-color:#ffffff; border-radius:10px; padding:32px; box-shadow:0 5px 15px rgba(0,0,0,0.05);">
+        <table width="100%" style="max-width: 600px; background-color: #1e293b; border-radius: 12px; padding: 32px; color: #f8fafc;">
+          <tr>
+            <td align="center" style="padding-bottom: 20px;">
+              <img src="https://thehirepilot.com/logo-light.png" alt="HirePilot Logo" width="120" />
+            </td>
+          </tr>
           <tr>
             <td>
-              <h2 style="margin:0 0 16px; color:#111827;">Hi {{ownerName}},</h2>
-              <p style="margin:0 0 24px; color:#374151;">See the attached candidate for your review. If thumbs up, I'd like to submit them to the hiring manager:</p>
+              <h1 style="font-size: 20px; margin-bottom: 24px;">🚀 New Candidate Submitted</h1>
+              <p style="font-size: 16px; line-height: 1.6; margin-bottom: 24px;">
+                Hi <strong>{{ownerName}}</strong>,
+                <br /><br />
+                See the attached candidate for your review! If thumbs up I'd like to submit the candidate to the hiring manager:
+              </p>
 
-              <table cellpadding="8" cellspacing="0" style="width:100%; color:#111827;">
-                <tr><td style="font-weight:600;">Name:</td><td>{{candidateName}}</td></tr>
-                <tr><td style="font-weight:600;">Position:</td><td>{{jobTitle}}</td></tr>
-                <tr><td style="font-weight:600;">Email:</td><td><a href="mailto:{{email}}" style="color:#3b82f6;">{{email}}</a></td></tr>
-                <tr><td style="font-weight:600;">Profile Link:</td><td><a href="{{linkedin}}" style="color:#3b82f6;">View LinkedIn</a></td></tr>
-                <tr><td style="font-weight:600;">Years of Experience:</td><td>{{years}}</td></tr>
+              <table cellpadding="10" cellspacing="0" style="width: 100%; border-collapse: separate; border-spacing: 0 10px;">
+                <tr style="background-color: #334155; border-radius: 8px;">
+                  <td style="width: 35%; font-weight: bold;">Name:</td>
+                  <td>{{candidateName}}</td>
+                </tr>
+                <tr style="background-color: #334155;">
+                  <td style="font-weight: bold;">Position:</td>
+                  <td>{{jobTitle}}</td>
+                </tr>
+                <tr style="background-color: #334155;">
+                  <td style="font-weight: bold;">Email:</td>
+                  <td><a href="mailto:{{email}}" style="color: #3b82f6;">{{email}}</a></td>
+                </tr>
+                <tr style="background-color: #334155;">
+                  <td style="font-weight: bold;">Profile Link:</td>
+                  <td><a href="{{linkedin}}" style="color: #3b82f6;">{{linkedin}}</a></td>
+                </tr>
+                <tr style="background-color: #334155;">
+                  <td style="font-weight: bold;">Years of Experience:</td>
+                  <td>{{years}}</td>
+                </tr>
               </table>
 
-              <hr style="margin:24px 0; border:none; border-top:1px solid #e5e7eb;" />
+              <div style="margin-top: 32px;">
+                <h3 style="margin-bottom: 8px; font-size: 16px;">📈 Notable Impact</h3>
+                <p style="background-color: #334155; padding: 16px; border-radius: 8px; white-space: pre-wrap;">{{impact}}</p>
 
-              <p style="margin:0 0 8px; font-weight:600;">Notable Impact:</p>
-              <p style="margin:0 0 24px; white-space:pre-wrap;">{{impact}}</p>
+                <h3 style="margin: 24px 0 8px; font-size: 16px;">💡 Motivation</h3>
+                <p style="background-color: #334155; padding: 16px; border-radius: 8px; white-space: pre-wrap;">{{motivation}}</p>
 
-              <p style="margin:0 0 8px; font-weight:600;">Motivation:</p>
-              <p style="margin:0 0 24px; white-space:pre-wrap;">{{motivation}}</p>
+                <h3 style="margin: 24px 0 8px; font-size: 16px;">🏆 Additional Accolades</h3>
+                <p style="background-color: #334155; padding: 16px; border-radius: 8px; white-space: pre-wrap;">{{accolades}}</p>
 
-              <p style="margin:0 0 8px; font-weight:600;">Additional Accolades:</p>
-              <p style="margin:0 0 24px; white-space:pre-wrap;">{{accolades}}</p>
+                <h3 style="margin: 24px 0 8px; font-size: 16px;">📎 Resume</h3>
+                <p>{{resume}} ? <a href="{{resume}}" style="color: #3b82f6;">View Resume</a> : '-' </p>
+              </div>
 
-              <p style="margin:0 0 8px; font-weight:600;">Resume:</p>
-              <p>{{resume}} ? <a href="{{resume}}" style="color:#3b82f6;">View Resume</a> : '-' </p>
-
-              <p style="margin:32px 0 0; color:#6b7280;">Regards,<br />{{collaboratorName}}</p>
+              <p style="margin-top: 40px; font-size: 14px; color: #94a3b8;">
+                Regards,<br />
+                {{collaboratorName}}
+              </p>
             </td>
           </tr>
         </table>
 
-        <p style="margin-top:16px; font-size:12px; color:#9ca3af;">Sent via <strong>HirePilot</strong></p>
+        <p style="margin-top: 16px; font-size: 12px; color: #64748b;">
+          Sent via <strong>HirePilot</strong>
+        </p>
       </td>
     </tr>
   </table>
