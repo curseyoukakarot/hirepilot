@@ -64,8 +64,12 @@ router.post('/submitCandidate', requireAuth as any, async (req: Request, res: Re
 
     if (!candidateRow) {
       const safeEmail = (typeof email === 'string' && email.trim().length ? String(email).trim() : undefined) || `unknown+sub_${userId.slice(0,8)}+${Date.now()}@noemail.hirepilot`;
-      const firstNameGuess = (String(candidateIdOrName || '').trim().split(' ')[0] || '').slice(0, 60);
-      const lastNameGuess = (String(candidateIdOrName || '').trim().split(' ').slice(1).join(' ') || '').slice(0, 60);
+      const firstNameGuess = (typeof (req.body?.first_name) === 'string' && req.body.first_name.trim())
+        ? String(req.body.first_name).trim().slice(0, 60)
+        : (String(candidateIdOrName || '').trim().split(' ')[0] || '').slice(0, 60);
+      const lastNameGuess = (typeof (req.body?.last_name) === 'string' && req.body.last_name.trim())
+        ? String(req.body.last_name).trim().slice(0, 60)
+        : (String(candidateIdOrName || '').trim().split(' ').slice(1).join(' ') || '').slice(0, 60);
       const insertPayload: any = {
         user_id: ownerId,
         first_name: firstNameGuess || null,
@@ -140,7 +144,7 @@ router.post('/submitCandidate', requireAuth as any, async (req: Request, res: Re
         return (data as any)?.email || null;
       })());
 
-      const name = `${candidateRow.first_name || ''} ${candidateRow.last_name || ''}`.trim() || candidateRow.email;
+      const name = `${candidateRow.first_name || req.body?.first_name || ''} ${candidateRow.last_name || req.body?.last_name || ''}`.trim() || candidateRow.email;
       const years = (experience ? `${experience}` : '').trim();
       if (ownerEmail) {
         await sendCandidateSubmissionEmail({

@@ -4,6 +4,8 @@ import toast from 'react-hot-toast';
 
 export interface SubmitCandidatePayload {
   candidateIdOrName: string;
+  first_name?: string;
+  last_name?: string;
   email: string;
   phone: string;
   linkedin: string;
@@ -30,6 +32,8 @@ export default function SubmitCandidateModal({ open, jobId, onClose }: SubmitCan
   const [loadingId, setLoadingId] = useState(false);
   const [form, setForm] = useState<SubmitCandidatePayload>({
     candidateIdOrName: '',
+    first_name: '',
+    last_name: '',
     email: '',
     phone: '',
     linkedin: '',
@@ -145,6 +149,8 @@ export default function SubmitCandidateModal({ open, jobId, onClose }: SubmitCan
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <input name="first_name" placeholder="First name" value={form.first_name || ''} onChange={onChange} className="px-3 py-2 border rounded-lg" />
+            <input name="last_name" placeholder="Last name" value={form.last_name || ''} onChange={onChange} className="px-3 py-2 border rounded-lg" />
             <input name="email" placeholder="candidate@email.com" value={form.email} onChange={onChange} className="px-3 py-2 border rounded-lg" />
             <input name="phone" placeholder="(555) 123-4567" value={form.phone} onChange={onChange} className="px-3 py-2 border rounded-lg" />
             <input name="linkedin" placeholder="https://linkedin.com/in/username" value={form.linkedin} onChange={onChange} className="px-3 py-2 border rounded-lg" />
