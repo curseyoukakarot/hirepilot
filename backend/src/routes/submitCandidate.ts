@@ -78,7 +78,6 @@ router.post('/submitCandidate', requireAuth as any, async (req: Request, res: Re
         phone: phone || null,
         title: title || null,
         linkedin_url: linkedin || null,
-        location: location || null,
         resume_url: resume || null,
         status: 'sourced',
         enrichment_data: {},
@@ -96,10 +95,12 @@ router.post('/submitCandidate', requireAuth as any, async (req: Request, res: Re
           if (existing) {
             candidateRow = existing;
           } else {
-            return res.status(500).json({ error: 'Failed to create candidate' });
+            console.error('[submitCandidate] insert duplicate but select missing', cErr);
+            return res.status(500).json({ error: 'Failed to create candidate', details: (cErr as any)?.message || String(cErr) });
           }
         } else {
-          return res.status(500).json({ error: 'Failed to create candidate' });
+          console.error('[submitCandidate] insert error', cErr);
+          return res.status(500).json({ error: 'Failed to create candidate', details: (cErr as any)?.message || String(cErr) });
         }
       } else {
         candidateRow = created;
@@ -128,8 +129,9 @@ router.post('/submitCandidate', requireAuth as any, async (req: Request, res: Re
       const insertJob = { candidate_id: candidateRow.id, job_id: jobId, stage_id: stageId } as any;
       const { error: linkErr } = await db.from('candidate_jobs').insert(insertJob);
       if (linkErr && (linkErr as any).code !== '23505') {
+        console.error('[submitCandidate] link error', linkErr);
         // If not unique violation, return error
-        return res.status(500).json({ error: 'Failed to link candidate to job' });
+        return res.status(500).json({ error: 'Failed to link candidate to job', details: (linkErr as any)?.message || String(linkErr) });
       }
     }
 
