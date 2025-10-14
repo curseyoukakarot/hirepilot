@@ -1,5 +1,4 @@
 import { Router, Request, Response } from 'express';
-import { supabaseDb } from '../lib/supabase';
 import { requireAuth } from '../../middleware/authMiddleware';
 import { createClient } from '@supabase/supabase-js';
 
@@ -11,6 +10,8 @@ router.post('/submitCandidate', requireAuth as any, async (req: Request, res: Re
   try {
     const userId = (req as any).user?.id as string;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    // Create a local admin client to avoid undefined imports in some runtimes
+    const db = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string, { auth: { autoRefreshToken: false, persistSession: false } });
 
     const {
       jobId,
@@ -31,7 +32,7 @@ router.post('/submitCandidate', requireAuth as any, async (req: Request, res: Re
     if (!jobId) return res.status(400).json({ error: 'Missing jobId' });
 
     // Load job + owner
-    const { data: job, error: jobErr } = await supabaseDb
+    const { data: job, error: jobErr } = await db
       .from('job_requisitions')
       .select('id, title, user_id')
       .eq('id', jobId)
@@ -42,7 +43,7 @@ router.post('/submitCandidate', requireAuth as any, async (req: Request, res: Re
     // Resolve candidate info (existing by ID or provided fields)
     let candidateRow: any | null = null;
     if (isUuid(candidateIdOrName)) {
-      const { data: existing, error } = await supabaseDb
+      const { data: existing, error } = await db
         .from('candidates')
         .select('*')
         .eq('id', candidateIdOrName)
@@ -69,7 +70,7 @@ router.post('/submitCandidate', requireAuth as any, async (req: Request, res: Re
         enrichment_data: {},
         notes: [impact, motivation, accolades].filter(Boolean).join('\n\n') || null
       };
-      const { data: created, error: cErr } = await supabaseDb
+      const { data: created, error: cErr } = await db
         .from('candidates')
         .insert(insertPayload)
         .select('*')
@@ -82,22 +83,22 @@ router.post('/submitCandidate', requireAuth as any, async (req: Request, res: Re
     // Pick stage: first stage for job's pipeline if exists
     let stageId: string | null = null;
     try {
-      const { data: p } = await supabaseDb.from('pipelines').select('id').eq('job_id', jobId).maybeSingle();
+      const { data: p } = await db.from('pipelines').select('id').eq('job_id', jobId).maybeSingle();
       if (p?.id) {
-        const { data: s } = await supabaseDb.from('pipeline_stages').select('id').eq('pipeline_id', p.id).order('position', { ascending: true }).limit(1).maybeSingle();
+        const { data: s } = await db.from('pipeline_stages').select('id').eq('pipeline_id', p.id).order('position', { ascending: true }).limit(1).maybeSingle();
         stageId = (s as any)?.id || null;
       }
     } catch {}
 
     // Upsert candidate_jobs
-    const { data: linkExisting } = await supabaseDb
+    const { data: linkExisting } = await db
       .from('candidate_jobs')
       .select('id')
       .eq('candidate_id', candidateRow.id)
       .eq('job_id', jobId)
       .maybeSingle();
     if (!linkExisting?.id) {
-      await supabaseDb
+      await db
         .from('candidate_jobs')
         .insert({ candidate_id: candidateRow.id, job_id: jobId, stage_id: stageId });
     }
@@ -105,7 +106,7 @@ router.post('/submitCandidate', requireAuth as any, async (req: Request, res: Re
     // Notify owner via email + Slack
     try {
       const { sendCandidateSubmissionEmail } = await import('../lib/notifications/email');
-      const ownerEmailRes = await supabaseDb.from('user_settings').select('email, slack_webhook_url').eq('user_id', ownerId).maybeSingle();
+      const ownerEmailRes = await db.from('user_settings').select('email, slack_webhook_url').eq('user_id', ownerId).maybeSingle();
       const ownerEmail = (ownerEmailRes.data as any)?.email || (await (async () => {
         const admin = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string, { auth: { autoRefreshToken: false, persistSession: false } });
         const { data } = await admin.from('users').select('email').eq('id', ownerId).maybeSingle();
