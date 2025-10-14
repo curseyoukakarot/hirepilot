@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import toast from 'react-hot-toast';
 
@@ -54,7 +54,7 @@ export default function SubmitCandidateModal({ open, jobId, onClose }: SubmitCan
     }
   }, [open]);
 
-  const BACKEND_URL = useMemo(() => (import.meta as any).env?.VITE_BACKEND_URL as string, []);
+  const BACKEND_URL = (import.meta as any).env?.VITE_BACKEND_URL || '';
 
   async function tryAutofillById(id: string) {
     try {
