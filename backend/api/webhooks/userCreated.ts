@@ -65,11 +65,17 @@ export default async function userCreatedWebhook(req: Request, res: Response) {
       });
       await notifySlack(`🚀 Paid signup (${desiredPlan}) for ${email}`);
     } else {
-      // Free default: seed 50 credits
+      // Free default: seed 50 credits and ensure no leftover subscription rows
       try {
         await supabaseDb
           .from('user_credits')
           .upsert({ user_id, total_credits: 50, used_credits: 0, remaining_credits: 50, last_updated: new Date().toISOString() } as any, { onConflict: 'user_id' });
+      } catch {}
+      try {
+        await supabaseDb
+          .from('subscriptions')
+          .delete()
+          .eq('user_id', user_id);
       } catch {}
       try { await notifySlack(`🆕 New free signup: ${email}`); } catch {}
     }
