@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 
 // Local components (same file for now; can be split later into /components/*)
@@ -18,6 +18,7 @@ function SectionTitle({ children, right }: any) {
 
 export default function OpportunityDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [opp, setOpp] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [notes, setNotes] = useState('');
@@ -142,7 +143,9 @@ export default function OpportunityDetail() {
       <header id="header" className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <i className="fas fa-arrow-left text-gray-500 cursor-pointer hover:text-gray-700" />
+            <button aria-label="Back" className="text-gray-500 hover:text-gray-700" onClick={()=>navigate('/deals?tab=opportunities')}>
+              <i className="fas fa-arrow-left" />
+            </button>
             <h1 className="text-2xl font-semibold text-gray-900">Opportunity Details</h1>
           </div>
           <div className="flex items-center space-x-3">
@@ -219,14 +222,22 @@ export default function OpportunityDetail() {
               </div>
               <div className="space-y-3">
                 {(opp.req_ids||[]).length===0 && <div className="text-sm text-gray-500">No linked REQs</div>}
-                {(opp.req_ids||[]).map((rid:string)=> (
-                  <div key={rid} className="flex items-center justify-between p-4 border border-gray-200 rounded-xl">
-                    <div>
-                      <span className="font-medium text-gray-900">{rid}</span>
-                      <p className="text-gray-600">Linked REQ</p>
+                {(opp.req_ids||[]).map((rid:string)=> {
+                  const match = (availableReqs || []).find((r:any)=> String(r.id)===String(rid));
+                  const title = match?.title || rid;
+                  return (
+                    <div key={rid} className="flex items-center justify-between p-4 border border-gray-200 rounded-xl">
+                      <div>
+                        <span className="font-medium text-gray-900">{title}</span>
+                        {match?.title ? (
+                          <p className="text-gray-600 text-sm">{rid}</p>
+                        ) : (
+                          <p className="text-gray-600">Linked REQ</p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </section>
 
