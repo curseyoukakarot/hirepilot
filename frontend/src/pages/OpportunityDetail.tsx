@@ -33,12 +33,14 @@ export default function OpportunityDetail() {
   const [submitOpen, setSubmitOpen] = useState<{ open: boolean; data: any|null }>({ open: false, data: null });
   const [signature, setSignature] = useState('');
   const [detailOpen, setDetailOpen] = useState<any|null>(null);
+  const [me, setMe] = useState<any>(null);
 
   useEffect(() => {
     const run = async () => {
       setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
+      setMe(session?.user || null);
       const resp = await fetch(`${(import.meta as any).env.VITE_BACKEND_URL}/api/opportunities/${id}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       const js = resp.ok ? await resp.json() : null;
       setOpp(js);
@@ -137,6 +139,15 @@ export default function OpportunityDetail() {
   if (loading) return <div className="p-6">Loading…</div>;
   if (!opp) return <div className="p-6">Not found</div>;
 
+  const ownerDisplayName = (
+    opp?.owner?.name ||
+    opp?.owner?.email ||
+    ((me?.id && opp?.owner_id && me.id === opp.owner_id)
+      ? (me.user_metadata?.full_name || [me.user_metadata?.first_name, me.user_metadata?.last_name].filter(Boolean).join(' ') || me.email)
+      : '')
+  );
+  const ownerAvatar = opp?.owner?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(ownerDisplayName || 'User')}&background=random`;
+
   return (
     <div id="opportunity-detail-page" className="min-h-screen bg-gray-50 font-inter">
       {/* Header */}
@@ -189,8 +200,8 @@ export default function OpportunityDetail() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Owner</label>
                     <div className="flex items-center space-x-2">
-                      <img src={opp.owner?.avatar_url || 'https://ui-avatars.com/api/?name=Owner&background=random'} className="w-8 h-8 rounded-full"/>
-                      <span className="text-gray-900 font-medium">{opp.owner?.name || opp.owner?.email || '—'}</span>
+                      <img src={ownerAvatar} className="w-8 h-8 rounded-full"/>
+                      <span className="text-gray-900 font-medium">{ownerDisplayName || '—'}</span>
                     </div>
                   </div>
                 </div>
@@ -299,9 +310,9 @@ export default function OpportunityDetail() {
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Assigned Team</h3>
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <img src={opp.owner?.avatar_url || 'https://ui-avatars.com/api/?name=Owner&background=random'} className="w-8 h-8 rounded-full"/>
-                    <span className="text-gray-900 font-medium">{opp.owner?.name || opp.owner?.email || '—'}</span>
+                <div className="flex items-center space-x-2">
+                    <img src={ownerAvatar} className="w-8 h-8 rounded-full"/>
+                    <span className="text-gray-900 font-medium">{ownerDisplayName || '—'}</span>
                     <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">Owner</span>
                   </div>
                 </div>
