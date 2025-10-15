@@ -17,6 +17,7 @@ export default function OpportunityDetail() {
   const [availableUsers, setAvailableUsers] = useState<any[]>([]);
   const [submitOpen, setSubmitOpen] = useState<{ open: boolean; data: any|null }>({ open: false, data: null });
   const [signature, setSignature] = useState('');
+  const [detailOpen, setDetailOpen] = useState<any|null>(null);
 
   useEffect(() => {
     const run = async () => {
@@ -187,6 +188,7 @@ export default function OpportunityDetail() {
                   {c.resume_url && <div className="text-sm text-blue-600 truncate"><a href={c.resume_url} target="_blank" rel="noreferrer">Resume</a></div>}
                   <div className="mt-2 text-xs text-gray-500 line-clamp-3">{c.cover_note || ''}</div>
                   <div className="mt-3 flex gap-2">
+                    <button className="px-3 py-1.5 text-sm border rounded" onClick={()=>setDetailOpen({ type:'application', ...c })}>View Details</button>
                     <button className="px-3 py-1.5 text-sm border rounded" onClick={()=>setSubmitOpen({ open:true, data: { type:'application', ...c } })}>Submit to Client</button>
                   </div>
                 </div>
@@ -199,6 +201,7 @@ export default function OpportunityDetail() {
                   {c.resume_url && <div className="text-sm text-blue-600 truncate"><a href={c.resume_url} target="_blank" rel="noreferrer">Resume</a></div>}
                   <div className="mt-2 text-xs text-gray-500 line-clamp-3">{c.notable_impact || ''}</div>
                   <div className="mt-3 flex gap-2">
+                    <button className="px-3 py-1.5 text-sm border rounded" onClick={()=>setDetailOpen({ type:'submission', ...c })}>View Details</button>
                     <button className="px-3 py-1.5 text-sm border rounded" onClick={()=>setSubmitOpen({ open:true, data: { type:'submission', ...c } })}>Submit to Client</button>
                   </div>
                 </div>
@@ -264,7 +267,15 @@ export default function OpportunityDetail() {
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 overflow-y-auto">
           <div className="bg-white rounded-xl w-full max-w-2xl p-6 mt-10 mb-10">
             <div className="flex items-center justify-between mb-3"><h3 className="text-lg font-semibold">Submit to Client</h3><button className="text-gray-500" onClick={()=>setSubmitOpen({ open:false, data:null })}>✕</button></div>
-            <SubmitForm data={submitOpen.data} opportunityId={String(id)} signature={signature} setSignature={setSignature} onClose={()=>setSubmitOpen({ open:false, data:null })} />
+            <SubmitForm data={submitOpen.data} clientId={opp.client?.id || opp.client_id} opportunityId={String(id)} signature={signature} setSignature={setSignature} onClose={()=>setSubmitOpen({ open:false, data:null })} />
+          </div>
+        </div>
+      )}
+      {detailOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 overflow-y-auto">
+          <div className="bg-white rounded-xl w-full max-w-2xl p-6 mt-10 mb-10">
+            <div className="flex items-center justify-between mb-3"><h3 className="text-lg font-semibold">Candidate Details</h3><button className="text-gray-500" onClick={()=>setDetailOpen(null)}>✕</button></div>
+            <pre className="text-sm whitespace-pre-wrap">{JSON.stringify(detailOpen, null, 2)}</pre>
           </div>
         </div>
       )}
@@ -272,10 +283,26 @@ export default function OpportunityDetail() {
   );
 }
 
-function SubmitForm({ data, opportunityId, signature, setSignature, onClose }: any) {
+function SubmitForm({ data, opportunityId, clientId, signature, setSignature, onClose }: any) {
   const [to, setTo] = useState('');
   const [subject, setSubject] = useState('Candidate for your review');
   const [body, setBody] = useState('');
+  useEffect(() => {
+    // Prefill with primary contact from client
+    const run = async () => {
+      if (!clientId) return;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients/contacts/all`, { headers: token?{ Authorization:`Bearer ${token}` }:{} });
+        const list = resp.ok ? await resp.json() : [];
+        const contacts = (list||[]).filter((c:any)=>String(c.client_id||'')===String(clientId));
+        const primary = contacts.find((c:any)=>c.email) || contacts[0];
+        if (primary?.email) setTo(primary.email);
+      } catch {}
+    };
+    run();
+  }, [clientId]);
   useEffect(() => {
     if (!data) return;
     const name = data.type==='submission' ? [data.first_name, data.last_name].filter(Boolean).join(' ') : (data.full_name || '');

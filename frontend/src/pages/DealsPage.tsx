@@ -569,6 +569,20 @@ export default function DealsPage() {
     } catch {}
   };
 
+  function AttachToClientDropdown({ currentClientId, clients, onAttach }: any) {
+    const [open, setOpen] = React.useState(false);
+    const [val, setVal] = React.useState<string>(currentClientId || '');
+    return (
+      <div className="flex items-center gap-2" data-no-row-toggle>
+        <select className="border rounded px-2 py-1 text-sm" value={val} onChange={e=>setVal(e.target.value)}>
+          <option value="">Select client…</option>
+          {clients.map((c:any)=> (<option key={c.id} value={c.id}>{c.name}</option>))}
+        </select>
+        <button className="text-sm text-blue-600" onClick={()=> val && onAttach(val)}>Attach</button>
+      </div>
+    );
+  }
+
   const ClientsSection = () => (
     <div className="w-full">
       <div className="flex items-center justify-between mb-4">
@@ -605,6 +619,7 @@ export default function DealsPage() {
                     <th className="p-4 text-left">Title</th>
                     <th className="p-4 text-left">Email</th>
                     <th className="p-4 text-left">Client</th>
+                    <th className="p-4 text-left">Attach to Client</th>
                     <th className="p-4 text-left">Owner</th>
                     <th className="p-4 text-left">Created</th>
                     <th className="p-4 text-left w-10"></th>
@@ -638,6 +653,17 @@ export default function DealsPage() {
                           ) : (dm.email || '—')}
                         </td>
                         <td className="p-4">{client?.name || '—'}</td>
+                        <td className="p-4">
+                          <AttachToClientDropdown currentClientId={dm.client_id} onAttach={async (clientId:string)=>{
+                            const { data: { session } } = await supabase.auth.getSession();
+                            const token = session?.access_token;
+                            await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients/contacts`, { method:'POST', headers: { 'Content-Type':'application/json', ...(token?{ Authorization:`Bearer ${token}` }:{}) }, body: JSON.stringify({ client_id: clientId, name: dm.name, title: dm.title, email: dm.email, phone: dm.phone, owner_id: dm.owner_id }) });
+                            // refresh contacts list
+                            const r = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients/contacts/all`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+                            const js = r.ok ? await r.json() : [];
+                            setContacts(js || []);
+                          }} clients={clients} />
+                        </td>
                         <td className="p-4">{dm.owner_id ? dm.owner_id.slice(0,6) : '—'}</td>
                         <td className="p-4 text-gray-500 flex items-center gap-2">
                           <span>{dm.created_at ? new Date(dm.created_at).toLocaleDateString() : '—'}</span>
