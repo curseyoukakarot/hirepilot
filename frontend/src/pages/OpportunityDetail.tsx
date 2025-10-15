@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { toast } from 'react-hot-toast';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 
@@ -326,7 +327,13 @@ function SubmitForm({ data, opportunityId, clientId, signature, setSignature, on
       headers: { 'Content-Type':'application/json', ...(token?{ Authorization:`Bearer ${token}` }:{}) },
       body: JSON.stringify({ to, subject, html, text: body, provider })
     });
-    if (resp.ok) onClose();
+    if (resp.ok) {
+      toast.success('Submitted to client');
+      onClose();
+    } else {
+      const js = await resp.json().catch(()=>({}));
+      toast.error(js?.error || 'Failed to send');
+    }
   };
   return (
     <div>
