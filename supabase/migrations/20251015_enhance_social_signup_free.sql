@@ -42,7 +42,6 @@ BEGIN
   )
   WHERE id = NEW.id
     AND (raw_app_meta_data->>'role' IS NULL OR raw_app_meta_data->>'role' = '');
-
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

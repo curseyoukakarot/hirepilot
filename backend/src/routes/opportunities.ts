@@ -141,11 +141,49 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
     ] as any);
     const owner_name = ownerRow ? [ownerRow.first_name, ownerRow.last_name].filter(Boolean).join(' ') || ownerRow.email : null;
     // Attach candidate cards from applications and submissions
-    const [{ data: apps }, { data: subs }] = await Promise.all([
+    const reqIds = (links || []).map((l: any) => l.req_id);
+    const [{ data: apps }, { data: subs }, { data: legacy }] = await Promise.all([
       supabase.from('candidate_applications').select('*').eq('opportunity_id', id).order('created_at', { ascending: false }),
-      supabase.from('candidate_submissions').select('*').eq('opportunity_id', id).order('created_at', { ascending: false })
+      supabase.from('candidate_submissions').select('*').eq('opportunity_id', id).order('created_at', { ascending: false }),
+      (reqIds.length
+        ? supabase
+            .from('candidates')
+            .select('id,first_name,last_name,email,linkedin_url,resume_url,notes,job_id,created_at,source')
+            .in('job_id', reqIds)
+            .eq('source', 'public_application')
+        : Promise.resolve({ data: [] as any })) as any
     ] as any);
-    res.json({ ...opp, req_ids: (links||[]).map((l:any)=>l.req_id), client: clientRow, owner: { id: ownerRow?.id, name: owner_name, email: ownerRow?.email }, applications: apps || [], submissions: subs || [] });
+
+    // Map legacy candidates into application-like objects so UI can render them
+    const legacyApps = (legacy || []).map((c: any) => ({
+      id: `legacy_${c.id}`,
+      full_name: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email,
+      email: c.email,
+      linkedin_url: c.linkedin_url,
+      resume_url: c.resume_url,
+      cover_note: c.notes,
+      created_at: c.created_at,
+      _legacy: true
+    }));
+
+    // Merge, preferring explicit candidate_applications if duplicates by email+resume
+    const merged: any[] = [];
+    const seen = new Set<string>();
+    for (const row of ([...(apps || []), ...legacyApps] as any[])) {
+      const key = `${String(row.email || '').toLowerCase()}|${String(row.resume_url || '')}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(row);
+    }
+
+    res.json({
+      ...opp,
+      req_ids: reqIds,
+      client: clientRow,
+      owner: { id: ownerRow?.id, name: owner_name, email: ownerRow?.email },
+      applications: merged,
+      submissions: subs || []
+    });
   } catch (e: any) {
     res.status(500).json({ error: e.message || 'Internal server error' });
   }
