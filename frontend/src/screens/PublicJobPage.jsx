@@ -8,11 +8,23 @@ export default function PublicJobPage() {
   const [job, setJob] = React.useState(null);
   const [applying, setApplying] = React.useState(false);
   const [form, setForm] = React.useState({
+    // legacy
     name: '',
+    cover_note: '',
+    // new candidate-style fields
+    first_name: '',
+    last_name: '',
     email: '',
+    phone: '',
     linkedin: '',
-    resume_url: '',
-    cover_note: ''
+    title: '',
+    location: '',
+    expected_compensation: '',
+    years_experience: '',
+    notable_impact: '',
+    motivation: '',
+    additional_notes: '',
+    resume_url: ''
   });
 
   const backend = (import.meta.env.VITE_BACKEND_URL || '').replace(/\/$/, '');
@@ -57,7 +69,7 @@ export default function PublicJobPage() {
       return;
     }
 
-    if (!form.name || !form.email) {
+    if (!((form.first_name || form.last_name || form.name) && form.email)) {
       toast.error('Please fill in your name and email');
       return;
     }
@@ -69,7 +81,13 @@ export default function PublicJobPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           share_id: shareId, 
-          ...form 
+          // Legacy + new fields
+          name: (form.name || `${form.first_name} ${form.last_name}`.trim()).trim(),
+          email: form.email,
+          linkedin: form.linkedin,
+          resume_url: form.resume_url,
+          cover_note: form.cover_note || form.notable_impact || form.motivation || form.additional_notes || '',
+          form_json: form
         }),
       });
 
@@ -77,7 +95,7 @@ export default function PublicJobPage() {
       
       if (resp.ok) {
         toast.success('✅ Application submitted successfully!');
-        setForm({ name: '', email: '', linkedin: '', resume_url: '', cover_note: '' });
+        setForm({ name:'', cover_note:'', first_name:'', last_name:'', email:'', phone:'', linkedin:'', title:'', location:'', expected_compensation:'', years_experience:'', notable_impact:'', motivation:'', additional_notes:'', resume_url:'' });
       } else {
         toast.error(`❌ ${result.error || 'Failed to submit application'}`);
       }
@@ -219,24 +237,42 @@ export default function PublicJobPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">LinkedIn Profile</label>
-                    <input
-                      type="url"
-                      value={form.linkedin}
-                      onChange={(e) => setForm({ ...form, linkedin: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      placeholder="https://linkedin.com/in/yourprofile"
-                    />
+                    <input type="url" value={form.linkedin} onChange={(e)=>setForm({ ...form, linkedin: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="https://linkedin.com/in/yourprofile" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Resume URL</label>
-                    <input
-                      type="url"
-                      value={form.resume_url}
-                      onChange={(e) => setForm({ ...form, resume_url: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      placeholder="https://drive.google.com/your-resume.pdf"
-                    />
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Current or Target Title</label>
+                    <input type="text" value={form.title} onChange={(e)=>setForm({ ...form, title: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="Senior Backend Engineer" />
                   </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Expected Compensation</label>
+                    <input type="text" value={form.expected_compensation} onChange={(e)=>setForm({ ...form, expected_compensation: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="$120,000 or $100/hr" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
+                    <input type="text" value={form.location} onChange={(e)=>setForm({ ...form, location: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="San Francisco, CA" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Years of Experience</label>
+                  <input type="text" value={form.years_experience} onChange={(e)=>setForm({ ...form, years_experience: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="e.g., 7" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">What’s your biggest contribution in past roles?</label>
+                  <textarea value={form.notable_impact} onChange={(e)=>setForm({ ...form, notable_impact: e.target.value })} rows={4} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="Share a tangible impact you made…" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">What’s motivating you to pursue this role?</label>
+                  <textarea value={form.motivation} onChange={(e)=>setForm({ ...form, motivation: e.target.value })} rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="Tell us what’s driving your interest…" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Awards, publications, recognitions, or other noteworthy wins</label>
+                  <textarea value={form.additional_notes} onChange={(e)=>setForm({ ...form, additional_notes: e.target.value })} rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="Share anything you’re proud of…" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Resume URL</label>
+                  <input type="url" value={form.resume_url} onChange={(e)=>setForm({ ...form, resume_url: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="https://drive.google.com/your-resume.pdf" />
                 </div>
 
                 <div>
