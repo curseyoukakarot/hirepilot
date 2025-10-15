@@ -202,6 +202,87 @@ router.patch('/:id/notes', requireAuth, async (req: Request, res: Response) => {
   } catch (e:any) { res.status(500).json({ error: e.message || 'Internal server error' }); }
 });
 
+// POST /api/opportunities/:id/backfill-submissions — scan recent sent emails and persist recruiter submissions
+router.post('/:id/backfill-submissions', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    const { id } = req.params;
+    const days = Number(req.body?.days || 45);
+    const sinceIso = new Date(Date.now() - days*24*60*60*1000).toISOString();
+
+    // Fetch recent messages; filter in Node for our template
+    const { data: msgs, error: msgErr } = await supabase
+      .from('messages')
+      .select('id,subject,content,recipient,to_email,sent_at')
+      .eq('user_id', userId)
+      .gte('sent_at', sinceIso)
+      .order('sent_at', { ascending: false })
+      .limit(1000);
+    if (msgErr) { res.status(500).json({ error: msgErr.message }); return; }
+
+    const parseSubmission = (html: string) => {
+      const txt = String(html || '')
+        .replace(/<br\s*\/??>/gi, '\n')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ');
+      const get = (label: string) => {
+        const re = new RegExp(label.replace(/[-/\\^$*+?.()|[\]{}]/g, r=>r)+"\s*:\\s*([\\s\\S]*?)\\n(?:[A-Z].*?:|$)", 'i');
+        const m = txt.match(re);
+        return (m?.[1] || '').trim();
+      };
+      const byLine = (label: string) => {
+        const re = new RegExp(label+"\\s*:\\s*(.*)", 'i');
+        const m = txt.match(re); return (m?.[1] || '').trim();
+      };
+      const name = get('Name') || byLine('Name');
+      const [first_name, ...rest] = name.split(/\s+/);
+      const last_name = rest.join(' ');
+      const email = (get('Email') || byLine('Email')).split(/\s/)[0];
+      const linkedin_url = (get('Profile Link') || byLine('Profile Link'));
+      const title = get('Position') || byLine('Position');
+      const years_experience = (get('Years of Experience') || byLine('Years of Experience'));
+      const notable_impact = get('Notable Impact') || byLine('Notable Impact');
+      const motivation = get('Motivation') || byLine('Motivation');
+      const additional_notes = get('Additional things to note') || get('Additional Accolades') || '';
+      const resumeBlock = get('Resume') || byLine('Resume');
+      const resume_urlMatch = resumeBlock.match(/https?:[^\s]+/i);
+      const resume_url = resume_urlMatch?.[0] || '';
+      return { first_name, last_name, email, linkedin_url, title, years_experience, resume_url, notable_impact, motivation, additional_notes, form_json: { raw: txt.slice(0, 4000) } };
+    };
+
+    let created = 0; let scanned = 0; const errors: any[] = [];
+    for (const m of (msgs || [])) {
+      const content = String((m as any).content || '');
+      const subject = String((m as any).subject || '');
+      if (!content) continue;
+      // Heuristics: subject includes our default OR content has key labels
+      const looksLike = /Candidate for your review/i.test(subject) || /Name:\s|Profile\s+Link:\s|Resume:/i.test(content);
+      if (!looksLike) continue;
+      scanned++;
+      const s = parseSubmission(content);
+      if (!s.email && !s.resume_url && !s.linkedin_url) continue; // too sparse
+      try {
+        // de-dupe by email+resume per opportunity
+        const { data: exists } = await supabase
+          .from('candidate_submissions')
+          .select('id')
+          .eq('opportunity_id', id)
+          .eq('email', s.email || null)
+          .maybeSingle();
+        if (!exists) {
+          const insert = { opportunity_id: id, collaborator_user_id: userId, ...s } as any;
+          const { error: insErr } = await supabaseAdmin.from('candidate_submissions').insert(insert);
+          if (!insErr) created++;
+        }
+      } catch (e:any) { errors.push(e?.message || 'insert_failed'); }
+      if (created >= 50) break; // safety cap
+    }
+
+    res.json({ ok: true, scanned, created, errors: errors.slice(0, 5) });
+  } catch (e:any) { res.status(500).json({ error: e.message || 'Internal server error' }); }
+});
+
 // Activity log (simple)
 router.get('/:id/activity', requireAuth, async (req: Request, res: Response) => {
   try {

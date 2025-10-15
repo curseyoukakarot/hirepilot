@@ -180,7 +180,24 @@ export default function OpportunityDetail() {
           {/* Candidate Cards (Applications + Submissions) */}
           <div className="bg-white rounded-xl shadow-sm border p-6">
             <h3 className="text-lg font-semibold mb-3">Candidates</h3>
-            <div className="grid md:grid-cols-2 gap-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-sm text-gray-600">Applications + Submissions</div>
+          <button className="px-3 py-1.5 text-sm border rounded" onClick={async ()=>{
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            const resp = await fetch(`${(window as any).VITE_BACKEND_URL || (import.meta as any).env?.VITE_BACKEND_URL}/api/opportunities/${id}/backfill-submissions`, { method:'POST', headers: { 'Content-Type':'application/json', ...(token?{ Authorization:`Bearer ${token}` }:{}) } });
+            if (resp.ok) {
+              const js = await resp.json();
+              try { (await import('react-hot-toast')).toast.success(`Backfill created ${js.created||0}`); } catch {}
+              // refresh opportunity
+              const r = await fetch(`${(window as any).VITE_BACKEND_URL || (import.meta as any).env?.VITE_BACKEND_URL}/api/opportunities/${id}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+              const j = r.ok ? await r.json() : null; setOpp(j);
+            } else {
+              try { (await import('react-hot-toast')).toast.error('Backfill failed'); } catch {}
+            }
+          }}>Backfill recent submissions</button>
+        </div>
+        <div className="grid md:grid-cols-2 gap-4">
               {(opp?.applications||[]).map((c:any) => (
                 <div key={`app-${c.id}`} className="border rounded-lg p-3">
                   <div className="font-semibold text-gray-900">{c.full_name || c.email}</div>
