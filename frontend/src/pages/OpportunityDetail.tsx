@@ -3,6 +3,19 @@ import { toast } from 'react-hot-toast';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 
+// Local components (same file for now; can be split later into /components/*)
+function Card({ children, className = '' }: any) {
+  return <div className={`bg-white rounded-xl shadow-sm border p-6 ${className}`}>{children}</div>;
+}
+function SectionTitle({ children, right }: any) {
+  return (
+    <div className="flex items-center justify-between mb-3">
+      <h3 className="text-lg font-semibold">{children}</h3>
+      {right}
+    </div>
+  );
+}
+
 export default function OpportunityDetail() {
   const { id } = useParams();
   const [opp, setOpp] = useState<any>(null);
@@ -125,7 +138,7 @@ export default function OpportunityDetail() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <div className="bg-white rounded-xl shadow-sm border p-6 mb-6">
+      <Card className="mb-6">
         <div className="flex items-start justify-between mb-4">
           <div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">{opp.title}</h2>
@@ -153,32 +166,31 @@ export default function OpportunityDetail() {
           <div className="bg-gray-50 rounded-lg p-3"><div className="text-xs text-gray-500">Created</div><div className="text-sm font-semibold">{opp.created_at ? new Date(opp.created_at).toLocaleDateString() : '—'}</div></div>
           <div className="bg-gray-50 rounded-lg p-3"><div className="text-xs text-gray-500">Billing</div><div className="text-sm font-semibold">{opp.billing_type || '—'}</div></div>
         </div>
-      </div>
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2 space-y-6">
-          <div className="bg-white rounded-xl shadow-sm border p-6">
-            <div className="flex items-center justify-between mb-3"><h3 className="text-lg font-semibold">Description</h3></div>
+          <Card>
+            <SectionTitle>Description</SectionTitle>
             <textarea className="w-full p-3 border rounded-lg resize-none" rows={4} value={notes} onChange={e=>setNotes(e.target.value)} />
             <div className="mt-3 text-right"><button className="px-3 py-1.5 bg-gray-900 text-white rounded" onClick={saveNotes}>Save</button></div>
-          </div>
+          </Card>
 
-          <div className="bg-white rounded-xl shadow-sm border p-6">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-semibold">Linked Job Reqs</h3>
-              <div className="flex items-center gap-2">
+          <Card>
+            <SectionTitle right={<div className="flex items-center gap-2">
                 <select className="border rounded px-2 py-1 text-sm" value={newReqId} onChange={e=>setNewReqId(e.target.value)}>
                   <option value="">Select job req…</option>
                   {availableReqs.map((r:any)=> (<option key={r.id} value={r.id}>{r.title}</option>))}
                 </select>
                 <button className="text-sm text-blue-600" onClick={attachReq}>Attach REQ</button>
-              </div>
-            </div>
+              </div>}>
+              Linked Job Reqs
+            </SectionTitle>
             <div className="text-sm text-gray-600">{(opp.req_ids||[]).length ? (opp.req_ids||[]).join(', ') : 'No linked REQs'}</div>
-          </div>
+          </Card>
 
           {/* Candidate Cards (Applications + Submissions) */}
-          <div className="bg-white rounded-xl shadow-sm border p-6">
+          <Card>
             <h3 className="text-lg font-semibold mb-3">Candidates</h3>
         <div className="flex items-center justify-between mb-3">
           <div className="text-sm text-gray-600">Applications + Submissions</div>
@@ -228,9 +240,9 @@ export default function OpportunityDetail() {
             {(!((opp?.applications||[]).length || (opp?.submissions||[]).length)) && (
               <div className="text-sm text-gray-500">No candidates yet</div>
             )}
-          </div>
+          </Card>
 
-          <div className="bg-white rounded-xl shadow-sm border p-6">
+          <Card>
             <h3 className="text-lg font-semibold mb-3">Activity Log</h3>
             <div className="space-y-3 mb-3">
               {activity.map((a:any)=> (
@@ -249,11 +261,11 @@ export default function OpportunityDetail() {
               <input className="flex-1 border rounded px-3 py-2 text-sm" placeholder="Add activity details…" value={newActivity} onChange={e=>setNewActivity(e.target.value)} />
               <button className="px-3 py-2 bg-gray-900 text-white rounded" onClick={addActivity}>Log</button>
             </div>
-          </div>
+          </Card>
         </div>
 
         <div className="space-y-6">
-          <div className="bg-white rounded-xl shadow-sm border p-6">
+          <Card>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-semibold">Assigned Team</h3>
               <div className="flex items-center gap-2">
@@ -269,15 +281,15 @@ export default function OpportunityDetail() {
               {collabs.map((c:any)=> (<div key={c.id} className="text-gray-800">{c.email} <span className="text-gray-400">({c.role||'collaborator'})</span></div>))}
               {collabs.length===0 && <div className="text-gray-500">No collaborators yet</div>}
             </div>
-          </div>
-          <div className="bg-white rounded-xl shadow-sm border p-6">
+          </Card>
+          <Card>
             <h3 className="text-lg font-semibold mb-3">Internal Notes</h3>
             <div className="text-sm text-gray-600">Add comments & tag teammates (TBD).</div>
-          </div>
-          <div className="bg-white rounded-xl shadow-sm border p-6">
+          </Card>
+          <Card>
             <h3 className="text-lg font-semibold mb-3">REX Insights</h3>
             <div className="text-sm text-gray-600">Guidance coming from REX.</div>
-          </div>
+          </Card>
         </div>
       </div>
       {/* Submit to Client Modal */}
