@@ -324,17 +324,7 @@ export class DockerEngine implements OrchestratorEngine {
     return {
       containerId: container.id,
       streamUrl,
-      remoteDebugUrl: process.env.STREAM_PUBLIC_BASE_URL
-        ? (() => {
-            try {
-              const u = new URL(process.env.STREAM_PUBLIC_BASE_URL!);
-              const base = `${u.origin.replace(/\/$/, '')}`;
-              return `${base}/stream/cdp/${debugPort}/devtools/browser`;
-            } catch {
-              return `ws://localhost:${debugPort}/devtools/browser`;
-            }
-          })()
-        : `ws://localhost:${debugPort}/devtools/browser`
+      remoteDebugUrl: `ws://localhost:${process.env.CDP_PORT || '59222'}/devtools/browser`
     };
   }
 

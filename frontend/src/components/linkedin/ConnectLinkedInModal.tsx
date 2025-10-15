@@ -48,7 +48,9 @@ export default function ConnectLinkedInModal({ open, onClose, userId }: Props) {
             <iframe
               src={streamUrl}
               className="w-full h-[540px]"
-              sandbox="allow-scripts allow-forms allow-same-origin"
+              // allow='clipboard-write' makes login copy/paste less painful
+              sandbox="allow-scripts allow-forms allow-same-origin allow-pointer-lock allow-popups allow-popups-to-escape-sandbox"
+              allow="clipboard-write"
             />
           ) : (
             <div className="h-[540px] flex items-center justify-center text-gray-500">Starting remote session…</div>
