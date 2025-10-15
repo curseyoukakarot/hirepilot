@@ -35,6 +35,20 @@ export default async function userCreatedWebhook(req: Request, res: Response) {
       .from('users')
       .upsert({ id: user_id, email, role: desiredPlan === 'free' || !desiredPlan ? 'free' : (meta.role || 'member'), plan: desiredPlan || 'free' } as any, { onConflict: 'id' });
 
+    // Sync auth app_metadata.role to 'free' for new signups to prevent missing role on social signups
+    try {
+      const existingAppMeta = (req.body?.record?.raw_app_meta_data || req.body?.record?.raw_user_meta_data || {}) as any;
+      const { error: metadataError } = await supabaseDb.auth.admin.updateUserById(
+        user_id,
+        { app_metadata: { ...existingAppMeta, role: 'free' } } as any
+      );
+      if (metadataError) {
+        console.error('Failed to update auth metadata:', metadataError);
+      }
+    } catch (e) {
+      console.error('Auth metadata sync error:', e);
+    }
+
     if (desiredPlan && desiredPlan !== 'free') {
       // Paid path only when plan metadata is explicitly present
       let customerId: string | null = null;
