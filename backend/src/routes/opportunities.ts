@@ -240,11 +240,12 @@ router.post('/:id/submit-to-client', requireAuth, async (req: Request, res: Resp
     const userId = (req as any).user?.id as string | undefined;
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
     const { id } = req.params;
-    const { to, subject, html, text } = req.body || {};
+    const { to, subject, html, text, provider } = req.body || {};
     if (!to) { res.status(400).json({ error: 'missing_to' }); return; }
     // send via provider service
-    const { sendFromUser } = await import('../services/providerEmail');
-    await sendFromUser(userId, { to, subject: subject || 'Candidate Submission', html: html || text, text });
+    const { sendFromUser } = await import('../../services/providerEmail');
+    const sent = await sendFromUser(userId, { to, subject: subject || 'Candidate Submission', html: html || text, text, provider });
+    if (!sent.ok) { res.status(400).json({ error: sent.reason || 'send_failed' }); return; }
     // log activity
     try { await supabase.from('opportunity_activity').insert({ opportunity_id: id, user_id: userId, message: 'Submitted candidate to client', created_at: new Date().toISOString() }); } catch {}
     res.json({ ok: true });

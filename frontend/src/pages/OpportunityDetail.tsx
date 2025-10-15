@@ -24,26 +24,26 @@ export default function OpportunityDetail() {
       setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
-      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities/${id}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const resp = await fetch(`${(import.meta as any).env.VITE_BACKEND_URL}/api/opportunities/${id}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       const js = resp.ok ? await resp.json() : null;
       setOpp(js);
       setNotes(js?.notes || '');
       // load activity via unified deals activity
       try {
-        const actRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/deals/activity?entityType=opportunity&entityId=${id}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        const actRes = await fetch(`${(import.meta as any).env.VITE_BACKEND_URL}/api/deals/activity?entityType=opportunity&entityId=${id}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
         const js = actRes.ok ? await actRes.json() : { rows: [] };
         setActivity(js.rows || []);
       } catch {}
       try {
-        const cRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities/${id}/collaborators`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        const cRes = await fetch(`${(import.meta as any).env.VITE_BACKEND_URL}/api/opportunities/${id}/collaborators`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
         setCollabs(cRes.ok ? await cRes.json() : []);
       } catch {}
       try {
-        const rRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities/${id}/available-reqs`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        const rRes = await fetch(`${(import.meta as any).env.VITE_BACKEND_URL}/api/opportunities/${id}/available-reqs`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
         setAvailableReqs(rRes.ok ? await rRes.json() : []);
       } catch {}
       try {
-        const uRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities/${id}/available-users`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        const uRes = await fetch(`${(import.meta as any).env.VITE_BACKEND_URL}/api/opportunities/${id}/available-users`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
         setAvailableUsers(uRes.ok ? await uRes.json() : []);
       } catch {}
       setLoading(false);
@@ -54,7 +54,7 @@ export default function OpportunityDetail() {
   const saveNotes = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
-    await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities/${id}/notes`, {
+    await fetch(`${(import.meta as any).env.VITE_BACKEND_URL}/api/opportunities/${id}/notes`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({ notes })
@@ -72,14 +72,14 @@ export default function OpportunityDetail() {
       body: newActivity.trim(),
       occurredAt: new Date().toISOString()
     };
-    const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/deals/activity`, {
+    const resp = await fetch(`${(window as any).VITE_BACKEND_URL || (import.meta as any).env?.VITE_BACKEND_URL}/api/deals/activity`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify(payload)
     });
     if (resp.ok) {
       // refresh
-      const actRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/deals/activity?entityType=opportunity&entityId=${id}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const actRes = await fetch(`${(window as any).VITE_BACKEND_URL || (import.meta as any).env?.VITE_BACKEND_URL}/api/deals/activity?entityType=opportunity&entityId=${id}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       const js = actRes.ok ? await actRes.json() : { rows: [] };
       setActivity(js.rows || []);
       setNewActivity('');
@@ -90,7 +90,7 @@ export default function OpportunityDetail() {
     if (!newCollab.trim()) return;
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
-    const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities/${id}/collaborators`, {
+    const resp = await fetch(`${(window as any).VITE_BACKEND_URL || (import.meta as any).env?.VITE_BACKEND_URL}/api/opportunities/${id}/collaborators`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({ email: newCollab.trim() })
@@ -108,7 +108,7 @@ export default function OpportunityDetail() {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
     const reqIds = Array.from(new Set([...(opp?.req_ids || []), idStr]));
-    const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities/${id}`, {
+    const resp = await fetch(`${(window as any).VITE_BACKEND_URL || (import.meta as any).env?.VITE_BACKEND_URL}/api/opportunities/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({ req_ids: reqIds })
@@ -139,7 +139,7 @@ export default function OpportunityDetail() {
               const newStage = e.target.value;
               const { data: { session } } = await supabase.auth.getSession();
               const token = session?.access_token;
-              await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities/${id}`, { method:'PATCH', headers: { 'Content-Type':'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ stage: newStage }) });
+              await fetch(`${(import.meta as any).env.VITE_BACKEND_URL}/api/opportunities/${id}`, { method:'PATCH', headers: { 'Content-Type':'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ stage: newStage }) });
               setOpp((o:any)=>({ ...o, stage: newStage }));
             }}>
               {['Pipeline','Best Case','Commit','Close Won','Closed Lost'].map(s=> <option key={s} value={s}>{s}</option>)}
@@ -287,6 +287,7 @@ function SubmitForm({ data, opportunityId, clientId, signature, setSignature, on
   const [to, setTo] = useState('');
   const [subject, setSubject] = useState('Candidate for your review');
   const [body, setBody] = useState('');
+  const [provider, setProvider] = useState<'google'|'outlook'|'sendgrid'>('google');
   useEffect(() => {
     // Prefill with primary contact from client
     const run = async () => {
@@ -294,7 +295,7 @@ function SubmitForm({ data, opportunityId, clientId, signature, setSignature, on
       try {
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
-        const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients/contacts/all`, { headers: token?{ Authorization:`Bearer ${token}` }:{} });
+    const resp = await fetch(`${(window as any).VITE_BACKEND_URL || (import.meta as any).env?.VITE_BACKEND_URL}/api/clients/contacts/all`, { headers: token?{ Authorization:`Bearer ${token}` }:{} });
         const list = resp.ok ? await resp.json() : [];
         const contacts = (list||[]).filter((c:any)=>String(c.client_id||'')===String(clientId));
         const primary = contacts.find((c:any)=>c.email) || contacts[0];
@@ -320,15 +321,27 @@ function SubmitForm({ data, opportunityId, clientId, signature, setSignature, on
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
     const html = body.replace(/\n/g,'<br/>');
-    const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities/${opportunityId}/submit-to-client`, {
+    const resp = await fetch(`${(window as any).VITE_BACKEND_URL || (import.meta as any).env?.VITE_BACKEND_URL}/api/opportunities/${opportunityId}/submit-to-client`, {
       method: 'POST',
       headers: { 'Content-Type':'application/json', ...(token?{ Authorization:`Bearer ${token}` }:{}) },
-      body: JSON.stringify({ to, subject, html, text: body })
+      body: JSON.stringify({ to, subject, html, text: body, provider })
     });
     if (resp.ok) onClose();
   };
   return (
     <div>
+      <div className="mb-3">
+        <label className="text-xs text-gray-500 block mb-2">Send with</label>
+        <div className="flex gap-3">
+          {(['google','outlook','sendgrid'] as const).map((p)=> (
+            <button key={p} className={`px-3 py-2 border rounded ${provider===p? 'ring-2 ring-green-500 border-green-500' : ''}`} onClick={()=>setProvider(p)}>
+              {p==='google' && <span>G Google</span>}
+              {p==='outlook' && <span>▦ Outlook</span>}
+              {p==='sendgrid' && <span>✉️ SendGrid</span>}
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
         <div>
           <label className="text-xs text-gray-500 block mb-1">Hiring Manager Email</label>

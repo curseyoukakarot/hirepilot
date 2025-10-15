@@ -153,3 +153,24 @@ export async function sendViaProvider(
 }
 
 
+// Convenience helper: send from a user to an arbitrary recipient with provider preference and fallback
+export async function sendFromUser(
+  userId: string,
+  opts: { to: string; subject?: string; html?: string; text?: string; provider?: 'sendgrid'|'google'|'gmail'|'outlook' }
+): Promise<{ ok: boolean; used?: string; reason?: string }> {
+  const htmlBody = (opts.html || (opts.text ? opts.text.replace(/\n/g, '<br/>') : '') || '').trim();
+  if (!htmlBody) return { ok: false, reason: 'empty_body' };
+  const pseudoLead = { id: null, email: opts.to, campaign_id: null } as any;
+  const order: Array<'sendgrid'|'google'|'gmail'|'outlook'> = opts.provider
+    ? ([opts.provider] as any)
+    : ['google', 'outlook', 'sendgrid'];
+  for (const p of order) {
+    try {
+      const ok = await sendViaProvider(p, pseudoLead, htmlBody, userId, opts.subject || 'Message');
+      if (ok) return { ok: true, used: p };
+    } catch {}
+  }
+  return { ok: false, reason: 'no_connected_provider' };
+}
+
+
