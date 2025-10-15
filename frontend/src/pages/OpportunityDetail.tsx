@@ -15,6 +15,8 @@ export default function OpportunityDetail() {
   const [newReqId, setNewReqId] = useState('');
   const [availableReqs, setAvailableReqs] = useState<any[]>([]);
   const [availableUsers, setAvailableUsers] = useState<any[]>([]);
+  const [submitOpen, setSubmitOpen] = useState<{ open: boolean; data: any|null }>({ open: false, data: null });
+  const [signature, setSignature] = useState('');
 
   useEffect(() => {
     const run = async () => {
@@ -173,6 +175,40 @@ export default function OpportunityDetail() {
             <div className="text-sm text-gray-600">{(opp.req_ids||[]).length ? (opp.req_ids||[]).join(', ') : 'No linked REQs'}</div>
           </div>
 
+          {/* Candidate Cards (Applications + Submissions) */}
+          <div className="bg-white rounded-xl shadow-sm border p-6">
+            <h3 className="text-lg font-semibold mb-3">Candidates</h3>
+            <div className="grid md:grid-cols-2 gap-4">
+              {(opp?.applications||[]).map((c:any) => (
+                <div key={`app-${c.id}`} className="border rounded-lg p-3">
+                  <div className="font-semibold text-gray-900">{c.full_name || c.email}</div>
+                  <div className="text-sm text-gray-600">{c.email}</div>
+                  {c.linkedin_url && <div className="text-sm text-blue-600 truncate"><a href={c.linkedin_url} target="_blank" rel="noreferrer">LinkedIn</a></div>}
+                  {c.resume_url && <div className="text-sm text-blue-600 truncate"><a href={c.resume_url} target="_blank" rel="noreferrer">Resume</a></div>}
+                  <div className="mt-2 text-xs text-gray-500 line-clamp-3">{c.cover_note || ''}</div>
+                  <div className="mt-3 flex gap-2">
+                    <button className="px-3 py-1.5 text-sm border rounded" onClick={()=>setSubmitOpen({ open:true, data: { type:'application', ...c } })}>Submit to Client</button>
+                  </div>
+                </div>
+              ))}
+              {(opp?.submissions||[]).map((c:any) => (
+                <div key={`sub-${c.id}`} className="border rounded-lg p-3">
+                  <div className="font-semibold text-gray-900">{[c.first_name,c.last_name].filter(Boolean).join(' ') || c.email}</div>
+                  <div className="text-sm text-gray-600">{c.email}</div>
+                  {c.linkedin_url && <div className="text-sm text-blue-600 truncate"><a href={c.linkedin_url} target="_blank" rel="noreferrer">LinkedIn</a></div>}
+                  {c.resume_url && <div className="text-sm text-blue-600 truncate"><a href={c.resume_url} target="_blank" rel="noreferrer">Resume</a></div>}
+                  <div className="mt-2 text-xs text-gray-500 line-clamp-3">{c.notable_impact || ''}</div>
+                  <div className="mt-3 flex gap-2">
+                    <button className="px-3 py-1.5 text-sm border rounded" onClick={()=>setSubmitOpen({ open:true, data: { type:'submission', ...c } })}>Submit to Client</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {(!((opp?.applications||[]).length || (opp?.submissions||[]).length)) && (
+              <div className="text-sm text-gray-500">No candidates yet</div>
+            )}
+          </div>
+
           <div className="bg-white rounded-xl shadow-sm border p-6">
             <h3 className="text-lg font-semibold mb-3">Activity Log</h3>
             <div className="space-y-3 mb-3">
@@ -223,6 +259,64 @@ export default function OpportunityDetail() {
           </div>
         </div>
       </div>
+      {/* Submit to Client Modal */}
+      {submitOpen.open && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 overflow-y-auto">
+          <div className="bg-white rounded-xl w-full max-w-2xl p-6 mt-10 mb-10">
+            <div className="flex items-center justify-between mb-3"><h3 className="text-lg font-semibold">Submit to Client</h3><button className="text-gray-500" onClick={()=>setSubmitOpen({ open:false, data:null })}>✕</button></div>
+            <SubmitForm data={submitOpen.data} opportunityId={String(id)} signature={signature} setSignature={setSignature} onClose={()=>setSubmitOpen({ open:false, data:null })} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SubmitForm({ data, opportunityId, signature, setSignature, onClose }: any) {
+  const [to, setTo] = useState('');
+  const [subject, setSubject] = useState('Candidate for your review');
+  const [body, setBody] = useState('');
+  useEffect(() => {
+    if (!data) return;
+    const name = data.type==='submission' ? [data.first_name, data.last_name].filter(Boolean).join(' ') : (data.full_name || '');
+    const email = data.email || '';
+    const location = data.location || '';
+    const profile = data.linkedin_url || '';
+    const years = data.years_experience || '';
+    const resume = data.resume_url || '';
+    const impact = data.notable_impact || data.cover_note || '';
+    const motivation = data.motivation || '';
+    const defaultText = `Hi Mark,\n\nSee the attached candidate for your review! If thumbs up we'd like to schedule a phone or a zoom screen with you:\n\nName: ${name}\nPosition: ${data.title || ''}\nLocation: ${location}\nEmail: ${email}\nProfile Link: ${profile}\nYears of Experience: ${years}\n\nNotable Impact:\n${impact}\n\nMotivation:\n${motivation}\n\nAdditional things to note:\n${data.additional_notes || ''}\n\nResume:\n${resume}\n\nWhat day/time works best for you to speak with him this coming week?\n\n${signature || ''}`;
+    setBody(defaultText);
+  }, [data, signature]);
+  const send = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    const html = body.replace(/\n/g,'<br/>');
+    const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities/${opportunityId}/submit-to-client`, {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', ...(token?{ Authorization:`Bearer ${token}` }:{}) },
+      body: JSON.stringify({ to, subject, html, text: body })
+    });
+    if (resp.ok) onClose();
+  };
+  return (
+    <div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">Hiring Manager Email</label>
+          <input className="w-full border rounded px-2 py-2" value={to} onChange={e=>setTo(e.target.value)} placeholder="manager@company.com" />
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">Subject</label>
+          <input className="w-full border rounded px-2 py-2" value={subject} onChange={e=>setSubject(e.target.value)} />
+        </div>
+      </div>
+      <label className="text-xs text-gray-500 block mb-1">Email Body</label>
+      <textarea className="w-full border rounded px-3 py-2" rows={12} value={body} onChange={e=>setBody(e.target.value)} />
+      <label className="text-xs text-gray-500 block mt-3 mb-1">Email Signature</label>
+      <textarea className="w-full border rounded px-3 py-2" rows={4} value={signature} onChange={e=>setSignature(e.target.value)} placeholder="Your email signature…" />
+      <div className="mt-3 text-right"><button className="px-3 py-2 bg-indigo-600 text-white rounded" onClick={send}>Submit to Client</button></div>
     </div>
   );
 }

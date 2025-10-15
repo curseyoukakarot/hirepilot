@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { requireAuth } from '../../middleware/authMiddleware';
 import { supabase } from '../lib/supabase';
+import { supabaseAdmin } from '../lib/supabaseAdmin';
 
 const router = express.Router();
 
@@ -139,7 +140,12 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
       opp.owner_id ? supabase.from('users').select('id,first_name,last_name,email').eq('id', opp.owner_id).maybeSingle() : Promise.resolve({ data: null })
     ] as any);
     const owner_name = ownerRow ? [ownerRow.first_name, ownerRow.last_name].filter(Boolean).join(' ') || ownerRow.email : null;
-    res.json({ ...opp, req_ids: (links||[]).map((l:any)=>l.req_id), client: clientRow, owner: { id: ownerRow?.id, name: owner_name, email: ownerRow?.email } });
+    // Attach candidate cards from applications and submissions
+    const [{ data: apps }, { data: subs }] = await Promise.all([
+      supabase.from('candidate_applications').select('*').eq('opportunity_id', id).order('created_at', { ascending: false }),
+      supabase.from('candidate_submissions').select('*').eq('opportunity_id', id).order('created_at', { ascending: false })
+    ] as any);
+    res.json({ ...opp, req_ids: (links||[]).map((l:any)=>l.req_id), client: clientRow, owner: { id: ownerRow?.id, name: owner_name, email: ownerRow?.email }, applications: apps || [], submissions: subs || [] });
   } catch (e: any) {
     res.status(500).json({ error: e.message || 'Internal server error' });
   }
@@ -177,6 +183,71 @@ router.post('/:id/activity', requireAuth, async (req: Request, res: Response) =>
     const { data, error } = await supabase.from('opportunity_activity').insert({ opportunity_id: id, user_id: userId, message, created_at: new Date().toISOString() }).select('*').single();
     if (error) { res.status(500).json({ error: error.message }); return; }
     res.status(201).json(data);
+  } catch (e:any) { res.status(500).json({ error: e.message || 'Internal server error' }); }
+});
+
+// POST /api/opportunities/:id/application — save public application
+router.post('/:id/application', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    const { id } = req.params;
+    const { full_name, email, linkedin_url, resume_url, cover_note, form_json } = req.body || {};
+    const { data, error } = await supabaseAdmin
+      .from('candidate_applications')
+      .insert({ opportunity_id: id, full_name, email, linkedin_url, resume_url, cover_note, form_json: form_json || {} })
+      .select('*')
+      .single();
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    res.status(201).json(data);
+  } catch (e:any) { res.status(500).json({ error: e.message || 'Internal server error' }); }
+});
+
+// POST /api/opportunities/:id/submission — save collaborator submission
+router.post('/:id/submission', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    const { id } = req.params;
+    const payload = req.body || {};
+    const insert = {
+      opportunity_id: id,
+      collaborator_user_id: userId,
+      first_name: payload.first_name || null,
+      last_name: payload.last_name || null,
+      email: payload.email || null,
+      phone: payload.phone || null,
+      linkedin_url: payload.linkedin_url || null,
+      title: payload.title || null,
+      location: payload.location || null,
+      years_experience: payload.years_experience || null,
+      expected_compensation: payload.expected_compensation || null,
+      resume_url: payload.resume_url || null,
+      notable_impact: payload.notable_impact || null,
+      motivation: payload.motivation || null,
+      additional_notes: payload.additional_notes || null,
+      form_json: payload.form_json || {}
+    } as any;
+    const { data, error } = await supabaseAdmin.from('candidate_submissions').insert(insert).select('*').single();
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    res.status(201).json(data);
+  } catch (e:any) { res.status(500).json({ error: e.message || 'Internal server error' }); }
+});
+
+// POST /api/opportunities/:id/submit-to-client — one-click email
+router.post('/:id/submit-to-client', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    const { id } = req.params;
+    const { to, subject, html, text } = req.body || {};
+    if (!to) { res.status(400).json({ error: 'missing_to' }); return; }
+    // send via provider service
+    const { sendFromUser } = await import('../services/providerEmail');
+    await sendFromUser(userId, { to, subject: subject || 'Candidate Submission', html: html || text, text });
+    // log activity
+    try { await supabase.from('opportunity_activity').insert({ opportunity_id: id, user_id: userId, message: 'Submitted candidate to client', created_at: new Date().toISOString() }); } catch {}
+    res.json({ ok: true });
   } catch (e:any) { res.status(500).json({ error: e.message || 'Internal server error' }); }
 });
 
