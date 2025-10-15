@@ -248,8 +248,8 @@ export class DockerEngine implements OrchestratorEngine {
         PortBindings: isBrowserless
           ? { '3000/tcp': [{ HostPort: preferredPort ? String(preferredPort) : '' }] }
           : {
-              '8080/tcp': [{ HostPort: preferredPort ? String(preferredPort) : '' }],
-              '9222/tcp': [{ HostPort: preferredDebug ? String(preferredDebug) : '' }]
+              '8080/tcp': [{ HostPort: process.env.NOVNC_PORT || '58080' }],
+              '9222/tcp': [{ HostPort: process.env.CDP_PORT || '59222' }]
             }
       },
       Labels: { 'hp.sessionId': opts.sessionId }
@@ -314,15 +314,8 @@ export class DockerEngine implements OrchestratorEngine {
     } catch { /* non-fatal */ }
 
     const streamUrl = (() => {
-      // Always use backend reverse-proxy path so iframe stays on api domain
-      if (process.env.STREAM_PUBLIC_BASE_URL) {
-        try {
-          const u = new URL(process.env.STREAM_PUBLIC_BASE_URL);
-          const base = `${u.origin.replace(/\/$/, '')}`;
-          return `${base}/stream/${streamPort}`; // router will map bare to vnc.html
-        } catch {}
-      }
-      // Fallbacks (direct host:port)
+      const base = String(process.env.STREAM_PUBLIC_BASE_URL || '').replace(/\/$/, '');
+      if (base) return `${base}/vnc.html?autoconnect=1&resize=scale`;
       if (process.env.DOCKER_PUBLIC_BASE_URL) return `${publicBaseRaw}:${streamPort}/vnc.html?autoconnect=1&resize=scale`;
       if (parsedDockerHost) return `http://${parsedDockerHost}:${streamPort}/vnc.html?autoconnect=1&resize=scale`;
       return `http://localhost:${streamPort}/vnc.html?autoconnect=1&resize=scale`;
