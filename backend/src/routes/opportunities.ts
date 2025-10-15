@@ -278,12 +278,38 @@ router.post('/:id/submit-to-client', requireAuth, async (req: Request, res: Resp
     const userId = (req as any).user?.id as string | undefined;
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
     const { id } = req.params;
-    const { to, subject, html, text, provider } = req.body || {};
+    const { to, subject, html, text, provider, submission } = req.body || {};
     if (!to) { res.status(400).json({ error: 'missing_to' }); return; }
     // send via provider service
     const { sendFromUser } = await import('../../services/providerEmail');
     const sent = await sendFromUser(userId, { to, subject: subject || 'Candidate Submission', html: html || text, text, provider });
     if (!sent.ok) { res.status(400).json({ error: sent.reason || 'send_failed' }); return; }
+    // Persist submission if payload present
+    try {
+      if (submission && typeof submission === 'object') {
+        const insert = {
+          opportunity_id: id,
+          collaborator_user_id: userId,
+          first_name: submission.first_name || null,
+          last_name: submission.last_name || null,
+          email: submission.email || null,
+          phone: submission.phone || null,
+          linkedin_url: submission.linkedin_url || null,
+          title: submission.title || null,
+          location: submission.location || null,
+          years_experience: submission.years_experience || null,
+          expected_compensation: submission.expected_compensation || null,
+          resume_url: submission.resume_url || null,
+          notable_impact: submission.notable_impact || null,
+          motivation: submission.motivation || null,
+          additional_notes: submission.additional_notes || null,
+          form_json: submission.form_json || submission
+        } as any;
+        await supabaseAdmin.from('candidate_submissions').insert(insert);
+      }
+    } catch (e) {
+      console.warn('persist submission failed', (e as any)?.message || e);
+    }
     // log activity
     try { await supabase.from('opportunity_activity').insert({ opportunity_id: id, user_id: userId, message: 'Submitted candidate to client', created_at: new Date().toISOString() }); } catch {}
     res.json({ ok: true });

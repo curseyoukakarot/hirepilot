@@ -322,10 +322,43 @@ function SubmitForm({ data, opportunityId, clientId, signature, setSignature, on
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
     const html = body.replace(/\n/g,'<br/>');
+    // Normalize submission payload so backend can persist a row
+    const submission: any = {};
+    if (data) {
+      if (data.type === 'submission') {
+        submission.first_name = data.first_name || '';
+        submission.last_name = data.last_name || '';
+        submission.email = data.email || '';
+        submission.phone = data.phone || '';
+        submission.linkedin_url = data.linkedin_url || '';
+        submission.title = data.title || '';
+        submission.location = data.location || '';
+        submission.years_experience = data.years_experience || '';
+        submission.expected_compensation = data.expected_compensation || '';
+        submission.resume_url = data.resume_url || '';
+        submission.notable_impact = data.notable_impact || '';
+        submission.motivation = data.motivation || '';
+        submission.additional_notes = data.additional_notes || '';
+      } else if (data.type === 'application') {
+        // Map public application shape to submission-like
+        const name = String(data.full_name || '').trim();
+        const [fn, ...ln] = name.split(' ');
+        submission.first_name = data.first_name || fn || '';
+        submission.last_name = data.last_name || ln.join(' ') || '';
+        submission.email = data.email || '';
+        submission.linkedin_url = data.linkedin_url || '';
+        submission.title = data.title || '';
+        submission.location = data.location || '';
+        submission.years_experience = data.years_experience || '';
+        submission.resume_url = data.resume_url || '';
+        submission.notable_impact = data.cover_note || '';
+      }
+      submission.form_json = data;
+    }
     const resp = await fetch(`${(window as any).VITE_BACKEND_URL || (import.meta as any).env?.VITE_BACKEND_URL}/api/opportunities/${opportunityId}/submit-to-client`, {
       method: 'POST',
       headers: { 'Content-Type':'application/json', ...(token?{ Authorization:`Bearer ${token}` }:{}) },
-      body: JSON.stringify({ to, subject, html, text: body, provider })
+      body: JSON.stringify({ to, subject, html, text: body, provider, submission })
     });
     if (resp.ok) {
       toast.success('Submitted to client');
