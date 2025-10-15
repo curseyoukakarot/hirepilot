@@ -47,7 +47,9 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     if (!allowed) { res.status(403).json({ error: 'access_denied' }); return; }
 
     const { role, team_id } = await getRoleTeam(userId);
-    const isSuper = ['super_admin','superadmin'].includes(role.toLowerCase());
+  const isSuper = ['super_admin','superadmin'].includes(role.toLowerCase());
+  // Even if super admin, default to user's scoped view unless explicitly overridden with ?all=true
+  const forceAll = String((req.query as any)?.all || 'false').toLowerCase() === 'true';
     const isTeamAdmin = role.toLowerCase() === 'team_admin';
 
     let base = supabase
@@ -582,9 +584,10 @@ router.get('/:id/available-reqs', requireAuth, async (req: Request, res: Respons
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
     const { role, team_id } = await getRoleTeam(userId);
     const isSuper = ['super_admin','superadmin'].includes(role.toLowerCase());
+    const forceAll = String((req.query as any)?.all || 'false').toLowerCase() === 'true';
     const isTeamAdmin = role.toLowerCase() === 'team_admin';
-    let base = supabase.from('job_requisitions').select('id,title,user_id');
-    if (!isSuper) {
+  let base = supabase.from('job_requisitions').select('id,title,user_id');
+  if (!(isSuper && forceAll)) {
       if (isTeamAdmin && team_id) {
         const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', team_id);
         const ids = (teamUsers || []).map((u: any) => u.id);
