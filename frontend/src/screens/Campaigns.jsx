@@ -84,8 +84,16 @@ function Campaigns() {
       setCampaigns(campaigns.map(c =>
         c.id === campaignId ? { ...c, status: 'active' } : c
       ));
+      toast({
+        title: 'Campaign Activated',
+        description: 'Status changed from draft to active.',
+      });
     } catch (error) {
-      alert('Error launching campaign: ' + error.message);
+      toast({
+        title: 'Error',
+        description: 'Failed to activate campaign: ' + (error?.message || 'unknown error'),
+        variant: 'destructive'
+      });
     }
   };
 
@@ -205,7 +213,7 @@ function Campaigns() {
                       <button
                         onClick={e => { e.stopPropagation(); handleLaunchCampaign(campaign.id); }}
                         className="p-2 rounded hover:bg-blue-50 text-blue-600"
-                        title="Launch Campaign"
+                        title="Activate (set status to active)"
                       >
                         <FaRocket />
                       </button>
