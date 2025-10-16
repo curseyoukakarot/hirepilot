@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { FaUserPlus, FaEdit, FaTrash, FaCoins, FaKey, FaCog, FaEye, FaUserSecret } from 'react-icons/fa';
+import { FaUserPlus, FaEdit, FaTrash, FaCoins, FaKey, FaCog, FaEye, FaUserSecret, FaEnvelope } from 'react-icons/fa';
 import { supabase } from '../lib/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import UserDetailDrawer from '../components/UserDetailDrawer';
@@ -22,6 +22,7 @@ export default function AdminUserManagement() {
   const [newPassword, setNewPassword] = useState('');
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [backfillLoading, setBackfillLoading] = useState(false);
+  const [welcomeLoading, setWelcomeLoading] = useState(false);
   const [featureUser, setFeatureUser] = useState(null);
   const [features, setFeatures] = useState({ rex_enabled: false, zapier_enabled: false });
   const [featuresLoading, setFeaturesLoading] = useState(false);
@@ -197,6 +198,50 @@ export default function AdminUserManagement() {
     setBackfillLoading(false);
   };
 
+  // Backfill Free Welcome Emails (server computes recipients)
+  const handleBackfillWelcome = async () => {
+    if (!window.confirm('Send Free Forever welcome email to all eligible users who have not received it yet?')) return;
+    setWelcomeLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const res = await fetch(`${BACKEND_URL}/api/admin/send-free-welcome`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ mode: 'backfill' })
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || 'Failed to backfill welcome emails');
+      const sent = (json.results || []).filter((r) => r.sent).length;
+      const failed = (json.results || []).length - sent;
+      setSuccess(`Welcome emails sent: ${sent}${failed ? `, failed: ${failed}` : ''}`);
+    } catch (err) {
+      setError(err.message || 'Failed to backfill welcome emails');
+    }
+    setWelcomeLoading(false);
+  };
+
+  // Send welcome for a single user
+  const handleSendWelcomeSingle = async (user) => {
+    setError('');
+    setSuccess('');
+    try {
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const res = await fetch(`${BACKEND_URL}/api/admin/send-free-welcome`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ recipients: [{ id: user.id, email: user.email, first_name: user.firstName || 'there' }] })
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || 'Failed to send welcome email');
+      const ok = Array.isArray(json.results) && json.results[0]?.sent;
+      setSuccess(ok ? `Welcome email sent to ${user.email}` : `Failed to send to ${user.email}`);
+    } catch (err) {
+      setError(err.message || 'Failed to send welcome email');
+    }
+  };
+
   // Impersonate user
   const handleImpersonate = async (userId, userEmail) => {
     if (!confirm(`Are you sure you want to impersonate ${userEmail}?`)) {
@@ -259,6 +304,13 @@ export default function AdminUserManagement() {
         <h1 className="text-2xl font-bold">User Management</h1>
         <div className="flex gap-2">
           <button
+            className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 disabled:opacity-50"
+            onClick={handleBackfillWelcome}
+            disabled={welcomeLoading}
+          >
+            <FaEnvelope /> {welcomeLoading ? 'Sending…' : 'Backfill Free Welcome Emails'}
+          </button>
+          <button
             className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50"
             onClick={handleBackfillCredits}
             disabled={backfillLoading}
@@ -320,6 +372,7 @@ export default function AdminUserManagement() {
                   <button className="p-2 bg-yellow-100 hover:bg-yellow-200 rounded" onClick={() => { setEditUser(user); setEditForm({ firstName: user.firstName, lastName: user.lastName, role: user.role }); }}><FaEdit /></button>
                   <button className="p-2 bg-blue-100 hover:bg-blue-200 rounded" onClick={() => { setCreditUser(user); setCreditAmount(1000); }}><FaCoins /></button>
                   <button className="p-2 bg-purple-100 hover:bg-purple-200 rounded" onClick={() => { setPasswordUser(user); setNewPassword(''); }}><FaKey /></button>
+                  <button className="p-2 bg-purple-100 hover:bg-purple-200 rounded" title="Send Welcome Email" onClick={() => handleSendWelcomeSingle(user)}><FaEnvelope /></button>
                   <button className="p-2 bg-gray-100 hover:bg-gray-200 rounded" onClick={async () => {
                     const token = (await supabase.auth.getSession()).data.session?.access_token;
                     const res = await fetch(`${BACKEND_URL}/api/admin/users/${user.id}/features`, { headers: { 'Authorization': `Bearer ${token}` }});

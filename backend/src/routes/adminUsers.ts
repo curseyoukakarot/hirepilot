@@ -29,16 +29,39 @@ router.post('/send-free-welcome', async (req, res) => {
     const isSuper = role === 'super_admin' || roles.has('super_admin');
     if (!isSuper) return res.status(403).json({ error: 'forbidden' });
 
-    const recipients = Array.isArray(req.body?.recipients) ? req.body.recipients : [];
-    if (!recipients.length) return res.status(400).json({ error: 'no_recipients' });
+    const mode = String(req.body?.mode || '').toLowerCase();
+    let recipients = Array.isArray(req.body?.recipients) ? req.body.recipients : [];
+
+    // Backfill mode: compute recipients server-side
+    if ((!recipients || recipients.length === 0) && mode === 'backfill') {
+      const { data: usersToEmail, error: qErr } = await supabaseDb
+        .from('users')
+        .select('id,email,first_name,last_name,role,plan,free_welcome_sent_at')
+        .is('free_welcome_sent_at', null)
+        .or('role.eq.free,plan.eq.free');
+      if (qErr) return res.status(500).json({ error: qErr.message });
+      recipients = (usersToEmail || [])
+        .filter((u: any) => !!u.email)
+        .map((u: any) => ({ id: u.id, email: u.email, first_name: u.first_name || 'there' }));
+    }
+
+    if (!recipients || recipients.length === 0) return res.status(400).json({ error: 'no_recipients' });
 
     const results: any[] = [];
     for (const r of recipients) {
-      const email = String(r?.email || '').trim();
-      const first_name = String(r?.first_name || 'there');
+      const email = String((r as any)?.email || '').trim();
+      const first_name = String((r as any)?.first_name || 'there');
       if (!email) continue;
       try {
         await sendEmail(email, '🎉 Your Free HirePilot Account is Live!', 'welcome.html', { first_name });
+        // Mark as sent if we can resolve the user
+        const userId = (r as any)?.id;
+        if (userId) {
+          await supabaseDb.from('users').update({ free_welcome_sent_at: new Date().toISOString() }).eq('id', userId);
+        } else {
+          // Fallback: update by email if unique
+          await supabaseDb.from('users').update({ free_welcome_sent_at: new Date().toISOString() }).eq('email', email);
+        }
         results.push({ email, sent: true });
       } catch (e: any) {
         results.push({ email, sent: false, error: e?.message || 'send_failed' });
