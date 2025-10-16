@@ -7,8 +7,48 @@ import { sendTeamInviteEmail } from '../../services/emailService';
 import { randomUUID } from 'crypto';
 import { ApiRequest } from '../../types/api';
 import { CreditService } from '../../services/creditService';
+import { sendEmail } from '../../lib/sendEmail';
+// reuse the same instance name to avoid conflict
+const supabaseClient = dbClient;
 
 const router = express.Router();
+
+// POST /api/admin/send-free-welcome
+// Body: { recipients: [{ email: string, first_name: string }] }
+router.post('/send-free-welcome', async (req, res) => {
+  try {
+    const auth = String(req.headers.authorization || '');
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+    if (!token) return res.status(401).json({ error: 'missing_auth' });
+
+    // Validate JWT via Supabase and enforce super_admin
+    const { data: { user }, error } = await supabaseClient.auth.getUser(token as any);
+    if (error || !user) return res.status(401).json({ error: 'invalid_token' });
+    const role = (user.user_metadata as any)?.role || (user.app_metadata as any)?.role;
+    const roles = new Set([].concat(((user.app_metadata as any)?.allowed_roles || [])));
+    const isSuper = role === 'super_admin' || roles.has('super_admin');
+    if (!isSuper) return res.status(403).json({ error: 'forbidden' });
+
+    const recipients = Array.isArray(req.body?.recipients) ? req.body.recipients : [];
+    if (!recipients.length) return res.status(400).json({ error: 'no_recipients' });
+
+    const results: any[] = [];
+    for (const r of recipients) {
+      const email = String(r?.email || '').trim();
+      const first_name = String(r?.first_name || 'there');
+      if (!email) continue;
+      try {
+        await sendEmail(email, '🎉 Your Free HirePilot Account is Live!', 'welcome.html', { first_name });
+        results.push({ email, sent: true });
+      } catch (e: any) {
+        results.push({ email, sent: false, error: e?.message || 'send_failed' });
+      }
+    }
+    return res.json({ ok: true, results });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'server_error' });
+  }
+});
 
 const supabase = supabaseDb; // Use service role client for admin operations
 
