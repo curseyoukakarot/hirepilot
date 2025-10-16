@@ -42,7 +42,8 @@
         "backfill-activate-campaigns": "ts-node scripts/backfillActivateCampaigns.ts",
         "_postinstall_note": "Playwright browsers installed via Dockerfile",
         "test": "jest",
-        "test:free-cadence": "ts-node scripts/testFreeForeverCadence.ts"
+        "test:free-cadence": "ts-node scripts/testFreeForeverCadence.ts",
+        "send:free-welcome": "ts-node scripts/sendFreeWelcome.ts"
     },
     "puppeteer": {
         "skipDownload": true
