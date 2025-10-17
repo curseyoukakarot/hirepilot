@@ -1,6 +1,40 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 
 export default function REXConsole() {
+  const location = useLocation();
+  const personaId = new URLSearchParams(location.search).get('persona');
+  const [persona, setPersona] = useState(null);
+  const [loadingPersona, setLoadingPersona] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadPersona() {
+      if (!personaId) return;
+      try {
+        setLoadingPersona(true);
+        const resp = await fetch(`/api/personas/${personaId}`);
+        if (!resp.ok) throw new Error('Failed to load persona');
+        const data = await resp.json();
+        if (!cancelled) setPersona(data);
+      } catch {
+        if (!cancelled) setPersona(null);
+      } finally {
+        if (!cancelled) setLoadingPersona(false);
+      }
+    }
+    loadPersona();
+    return () => { cancelled = true; };
+  }, [personaId]);
+
+  const personaContext = persona ? {
+    name: persona.name,
+    titles: persona.titles,
+    include: persona.include_keywords,
+    exclude: persona.exclude_keywords,
+    locations: persona.locations,
+    channels: persona.channels
+  } : null; // TODO: Send this context to REX on first chat message
   useEffect(() => {
     // Chat functionality (wired to DOM nodes by ID as provided)
     const chatInput = document.getElementById('chat-input');
@@ -112,6 +146,52 @@ export default function REXConsole() {
           </button>
         </div>
       </header>
+
+      {/* Persona Context Banner (top of chat) */}
+      <div className="px-6 pt-4">
+        <div className="max-w-4xl mx-auto">
+          {loadingPersona && (
+            <div className="rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-sm text-gray-300">Loading persona…</div>
+          )}
+          {!loadingPersona && persona && (
+            <div className="rounded-lg border border-blue-700 bg-blue-900/40 px-4 py-3 flex items-center justify-between">
+              <div>
+                <div className="text-blue-200 text-sm font-medium">Persona Active: {persona.name}</div>
+                <div className="text-blue-300 text-xs mt-0.5">
+                  {(persona.titles || []).slice(0,3).join(', ') || '—'}
+                  {(persona.locations || []).length ? ` • ${(persona.locations || []).slice(0,3).join(', ')}` : ''}
+                </div>
+              </div>
+              <div className="hidden md:flex items-center gap-2">
+                <span className="bg-blue-800 text-blue-200 px-2 py-0.5 rounded text-xs font-medium">Persona</span>
+              </div>
+            </div>
+          )}
+          {!loadingPersona && !persona && (
+            <div className="rounded-lg border border-gray-700 bg-gray-800 px-4 py-3 text-sm text-gray-300">No persona loaded. Select a persona from the Personas tab.</div>
+          )}
+        </div>
+      </div>
+
+      {/* Quick Actions (below persona banner, above messages) */}
+      <div className="px-6 pt-3">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex items-center space-x-3">
+            <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2">
+              <i className="fa-solid fa-play" />
+              <span>Run Now – Source Leads</span>
+            </button>
+            <button className="bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2">
+              <i className="fa-solid fa-user-edit" />
+              <span>Modify Persona</span>
+            </button>
+            <button className="bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2">
+              <i className="fa-solid fa-calendar-plus" />
+              <span>Schedule Automation</span>
+            </button>
+          </div>
+        </div>
+      </div>
 
       <div id="chat-area" className="flex-1 overflow-y-auto px-6 py-6">
         <div className="max-w-4xl mx-auto space-y-6">
