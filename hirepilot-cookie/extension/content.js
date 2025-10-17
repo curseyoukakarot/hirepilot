@@ -23,6 +23,7 @@ async function hpConnectAndSendDOM(message) {
     return el.closest('button, a, [role="menuitem"], [role="button"]') || el;
   };
   const isVisible = (el) => !!(el && el.offsetParent !== null);
+  const textOf = (el) => (el && (el.textContent || '').trim()) || '';
 
   // Prefer searching within top card area to avoid sidebar "More profiles" buttons
   const topCard = document.querySelector('.pv-top-card, .profile-topcard, [data-view-name="profile"], section.pv-top-card, .pv-top-card-v2-ctas') || document;
@@ -44,10 +45,6 @@ async function hpConnectAndSendDOM(message) {
   try {
     // Ensure top-card is present before attempting
     await waitForVisible('.pv-top-card, .profile-topcard, [data-view-name="profile"], section.pv-top-card, .pv-top-card-v2-ctas');
-
-    // Detect already connected/pending
-    const connected = Array.from(document.querySelectorAll('span,button')).some(n=>/pending|message sent|connected/i.test(n.textContent||''));
-    if (connected) return { skipped: true, reason: 'Already pending/connected' };
 
     let target = null;
     // Retry attempts to locate Connect
@@ -83,7 +80,52 @@ async function hpConnectAndSendDOM(message) {
       if (!target) await wait(700);
     }
 
-    if (!target) return { error: 'Connect button not found (no More menu)' };
+    if (!target) {
+      // No direct Connect found. Determine if it's truly pending/connected or just hidden.
+      const scope = topCard || document;
+
+      // Pending detection: explicit labels/buttons
+      const pendingEl = Array.from(scope.querySelectorAll('button,[role="button"],a,span')).find((el) => /\b(pending|invited|withdraw|requested)\b/i.test(textOf(el)));
+
+      // 1st-degree badge detection
+      const degreeEl = Array.from(scope.querySelectorAll('span,div,[aria-label]')).find((el) => /\b1st\b/i.test(textOf(el)) || /\b1st\b/i.test(el.getAttribute('aria-label') || ''));
+
+      // Message CTA without any Connect available strongly implies already connected
+      const messageEl = (findClickableByText(scope, 'button,[role="button"],a,span', /^message$/i) || findClickableByText(scope, 'button,[role="button"],a,span', /^(message|open message)$/i));
+
+      // Any evidence of a Connect action anywhere in top card or menus?
+      const hasAnyConnect = !!(
+        findClickableByText(scope, 'button,[role="button"],a,span', /\bconnect\b/i) ||
+        scope.querySelector('button[aria-label*="Connect" i], a[aria-label*="Connect" i]')
+      );
+
+      try {
+        console.log('[HirePilot Extension] Connect not found; evaluating status', {
+          hasAnyConnect: !!hasAnyConnect,
+          pendingDetected: !!pendingEl,
+          firstDegreeBadge: !!degreeEl,
+          messageCta: !!messageEl
+        });
+      } catch {}
+
+      if (pendingEl) {
+        try { console.log('[HirePilot Extension] Skip: Pending detected via element:', textOf(pendingEl).slice(0, 120)); } catch {}
+        return { skipped: true, reason: 'Pending invitation' };
+      }
+      if (degreeEl) {
+        try { console.log('[HirePilot Extension] Skip: Already connected (1st-degree badge visible)'); } catch {}
+        return { skipped: true, reason: 'Already connected (1st)' };
+      }
+      if (messageEl && !hasAnyConnect) {
+        try { console.log('[HirePilot Extension] Skip: Message CTA present and no Connect action available'); } catch {}
+        return { skipped: true, reason: 'Already connected (Message only, no Connect)' };
+      }
+
+      return { error: 'Connect button not found (no More menu)' };
+    }
+    try {
+      console.log('[HirePilot Extension] Clicking Connect target:', (target.getAttribute('aria-label') || textOf(target) || '').slice(0, 120));
+    } catch {}
     dispatchClick(target);
     await wait(800);
 

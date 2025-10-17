@@ -24,8 +24,8 @@ export default async function handler(req: Request, res: Response) {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // Count sent LinkedIn requests today
-    const { count, error } = await supabase
+    // Count sent LinkedIn requests today from legacy queue table
+    const { count: queueCount, error } = await supabase
       .from('linkedin_outreach_queue')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
@@ -38,11 +38,25 @@ export default async function handler(req: Request, res: Response) {
       return res.status(500).json({ error: 'Failed to fetch daily count' });
     }
 
-    const dailyLimit = 10;
-    const remainingRequests = Math.max(0, dailyLimit - (count || 0));
+    // Also include real-time stats recorded by the extension (via record-connect)
+    let statsCount = 0;
+    try {
+      const { data: statsRow } = await supabase
+        .from('linkedin_invite_stats')
+        .select('count')
+        .eq('user_id', userId)
+        .eq('stat_date', today.toISOString().slice(0,10))
+        .maybeSingle();
+      statsCount = Number((statsRow as any)?.count || 0);
+    } catch {}
+
+    const totalCount = Number(queueCount || 0) + Number(statsCount || 0);
+
+    const dailyLimit = 20; // unified UI/automation limit
+    const remainingRequests = Math.max(0, dailyLimit - totalCount);
 
     res.status(200).json({
-      count: count || 0,
+      count: totalCount,
       limit: dailyLimit,
       remaining: remainingRequests,
       canSendMore: remainingRequests > 0

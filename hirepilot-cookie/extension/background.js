@@ -512,42 +512,65 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const tab = tabs[0];
       if (!tab?.url?.includes('linkedin.com')) return sendResponse({ error: 'Not on LinkedIn tab' });
       try {
-        // Prefer executing in page context to avoid missing content script
-        const [{ result }] = await chrome.scripting.executeScript({
-          target: { tabId: tab.id },
-          func: connectAndSendInjected,
-          args: [msg.message],
-          world: 'MAIN'
-        });
-        // On success, record credit usage in backend
-        if (result && result.ok) {
-          try {
-            const apiBase = await getApiBase();
-            const { hp_jwt } = await chrome.storage.local.get('hp_jwt');
-            if (hp_jwt && apiBase) {
-              await fetch(`${apiBase.replace(/\/api$/, '')}/api/linkedin/record-connect`, {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${hp_jwt}` }
-              });
-            }
-          } catch (e) {
-            console.warn('[HirePilot Background] record-connect failed:', e);
-          }
-        }
-        sendResponse(result || { error: 'No result from injected connect' });
-      } catch (e) {
-        // As a fallback, try messaging the content script
+        // Check daily limit before attempting to send
         try {
-          chrome.tabs.sendMessage(tab.id, msg, (response) => {
-            if (chrome.runtime.lastError) {
-              sendResponse({ error: chrome.runtime.lastError.message || 'Failed to message content script' });
-            } else {
-              sendResponse(response);
+          const apiBase = await getApiBase();
+          const { hp_jwt } = await chrome.storage.local.get('hp_jwt');
+          if (hp_jwt && apiBase) {
+            const resp = await fetch(`${apiBase}/linkedin/daily-count`, { headers: { Authorization: `Bearer ${hp_jwt}` } });
+            if (resp.ok) {
+              const data = await resp.json();
+              if (typeof data?.count === 'number' && typeof data?.limit === 'number' && data.count >= data.limit) {
+                return sendResponse({ error: 'Daily LinkedIn request limit reached (20/20). Please try again tomorrow.' });
+              }
             }
-          });
-        } catch (err) {
-          sendResponse({ error: err?.message || 'Failed to auto-connect' });
+          }
+        } catch {}
+
+        // Ensure content script is present and responsive
+        try { await chrome.scripting.executeScript({ target: { tabId: tab.id, allFrames: true }, files: ['content.js'] }); } catch {}
+
+        // Small delay to allow evaluation, then ping
+        const pingResp = await new Promise((resolve) => {
+          setTimeout(() => {
+            try {
+              chrome.tabs.sendMessage(tab.id, { action: 'ping' }, (resp) => {
+                if (chrome.runtime.lastError) return resolve({ error: chrome.runtime.lastError.message });
+                resolve(resp || {});
+              });
+            } catch {
+              resolve({ error: 'ping failed' });
+            }
+          }, 200);
+        });
+        if (pingResp && pingResp.error) {
+          try { await chrome.scripting.executeScript({ target: { tabId: tab.id, allFrames: true }, files: ['content.js'] }); } catch {}
         }
+
+        // Relay to content script connect handler
+        chrome.tabs.sendMessage(tab.id, { action: 'connectAndSend', message: msg.message }, async (response) => {
+          if (chrome.runtime.lastError) return sendResponse({ error: chrome.runtime.lastError.message || 'Failed to message content script' });
+
+          // On success, record credit usage in backend
+          if (response && response.ok) {
+            try {
+              const apiBase = await getApiBase();
+              const { hp_jwt } = await chrome.storage.local.get('hp_jwt');
+              if (hp_jwt && apiBase) {
+                const recordUrl = `${apiBase.replace(/\/api$/, '')}/api/linkedin/record-connect`;
+                await fetch(recordUrl, {
+                  method: 'POST',
+                  headers: { Authorization: `Bearer ${hp_jwt}` }
+                });
+              }
+            } catch (e) {
+              console.warn('[HirePilot Background] record-connect failed:', e);
+            }
+          }
+          sendResponse(response || { error: 'No response from content script' });
+        });
+      } catch (e) {
+        sendResponse({ error: e?.message || 'Failed to auto-connect' });
       }
     });
     return true;
