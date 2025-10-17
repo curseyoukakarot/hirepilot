@@ -4,9 +4,11 @@ type Props = {
   open: boolean;
   onClose: () => void;
   defaultPersonaId?: string;
+  defaultActionTool?: string;
+  defaultToolPayload?: Record<string, any>;
 };
 
-export default function CreateScheduleModal({ open, onClose, defaultPersonaId }: Props) {
+export default function CreateScheduleModal({ open, onClose, defaultPersonaId, defaultActionTool, defaultToolPayload }: Props) {
   const personas = useMemo(() => ([
     { id: 'p-recruiter', name: 'Recruiter Pro' },
     { id: 'p-sourcer', name: 'Sourcing Specialist' },
@@ -18,7 +20,7 @@ export default function CreateScheduleModal({ open, onClose, defaultPersonaId }:
   ]), []);
 
   const [step, setStep] = useState<number>(1);
-  const [actionType, setActionType] = useState<'source_persona' | 'launch_campaign'>('source_persona');
+  const [actionType, setActionType] = useState<'source_persona' | 'launch_campaign'>(() => defaultActionTool ? 'source_persona' : 'source_persona');
   const [personaId, setPersonaId] = useState<string>(defaultPersonaId || 'p-recruiter');
   const [campaignId, setCampaignId] = useState<string>('camp-1');
   const [timingMode, setTimingMode] = useState<'one_time' | 'recurring'>('one_time');
@@ -145,12 +147,16 @@ export default function CreateScheduleModal({ open, onClose, defaultPersonaId }:
                   try {
                     const body: any = {
                       name: actionType === 'source_persona' ? `Source – ${personas.find(p=>p.id===personaId)?.name}` : `Schedule – ${campaigns.find(c=>c.id===campaignId)?.name}`,
-                      action_type: actionType === 'source_persona' ? 'source_via_persona' : 'launch_campaign',
-                      persona_id: actionType === 'source_persona' ? personaId : undefined,
-                      campaign_id: actionType !== 'source_persona' ? campaignId : undefined,
-                      payload: { batch_size: 100 },
                       schedule_kind: timingMode === 'recurring' ? 'recurring' : 'one_time',
                     };
+                    if (defaultActionTool) {
+                      body.payload = { action_tool: defaultActionTool, tool_payload: defaultToolPayload || { persona_id: defaultPersonaId, batch_size: 50 } };
+                    } else {
+                      body.action_type = actionType === 'source_persona' ? 'source_via_persona' : 'launch_campaign';
+                      body.persona_id = actionType === 'source_persona' ? personaId : undefined;
+                      body.campaign_id = actionType !== 'source_persona' ? campaignId : undefined;
+                      body.payload = { batch_size: 100 };
+                    }
                     if (timingMode === 'recurring') body.cron_expr = '0 9 * * 1,3';
                     else body.run_at = new Date().toISOString();
                     const resp = await fetch('/api/schedules', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body) });

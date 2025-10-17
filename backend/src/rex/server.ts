@@ -134,6 +134,13 @@ server.registerCapabilities({
         return data || [];
       }
     },
+    sourcing_run_persona: {
+      parameters: { userId:{type:'string'}, persona_id:{type:'string'}, batch_size:{type:'number', optional:true}, campaign_id:{type:'string', optional:true}, auto_send:{type:'boolean', optional:true}, credit_mode:{type:'string', optional:true} },
+      handler: async (args:any) => {
+        const { sourcingRunPersonaTool } = await import('../mcp/sourcing.run_persona');
+        return JSON.parse((await sourcingRunPersonaTool.handler(args)).content[0].text);
+      }
+    },
     add_numbers: {
       parameters: { a: { type: 'number' }, b: { type: 'number' } },
       handler: async ({ a, b }: { a: number; b: number }) => a + b

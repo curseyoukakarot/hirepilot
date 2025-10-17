@@ -9,16 +9,18 @@ export const schedulerTools = [
     parameters: z.object({
       userId: z.string(),
       name: z.string(),
-      action_type: z.enum(['source_via_persona','launch_campaign','send_sequence']),
+      action_type: z.enum(['source_via_persona','launch_campaign','send_sequence']).optional(),
       persona_id: z.string().optional(),
       campaign_id: z.string().optional(),
-      payload: z.record(z.any()).optional(),
       schedule_kind: z.enum(['one_time','recurring']),
       cron_expr: z.string().optional(),
-      run_at: z.string().optional()
+      run_at: z.string().optional(),
+      action_tool: z.enum(['sourcing.run_persona']).optional(),
+      tool_payload: z.record(z.any()).optional()
     }),
     handler: async (args: any) => {
-      const job = await scheduleFromPayload(args.userId, args);
+      const payload = args.action_tool ? { action_tool: args.action_tool, tool_payload: args.tool_payload || {} } : (args.payload || {});
+      const job = await scheduleFromPayload(args.userId, { ...args, payload });
       return { content: [{ type: 'text', text: JSON.stringify(job) }] } as any;
     }
   },

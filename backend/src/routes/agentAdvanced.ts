@@ -53,6 +53,14 @@ router.get('/api/personas', async (req, res) => {
   res.json(data);
 });
 
+router.get('/api/personas/:id', async (req, res) => {
+  const userId = requireUser(req, res); if (!userId) return;
+  const id = req.params.id;
+  const { data, error } = await supabaseAdmin.from('personas').select('*').eq('id', id).eq('user_id', userId).single();
+  if (error) return res.status(404).json({ error: error.message });
+  res.json(data);
+});
+
 router.patch('/api/personas/:id', async (req, res) => {
   const userId = requireUser(req, res); if (!userId) return;
   const id = req.params.id;
@@ -74,13 +82,15 @@ router.delete('/api/personas/:id', async (req, res) => {
 // Schedules
 const scheduleSchema = z.object({
   name: z.string().min(1),
-  action_type: z.enum(['source_via_persona','launch_campaign','send_sequence']),
+  action_type: z.enum(['source_via_persona','launch_campaign','send_sequence']).optional(),
   persona_id: z.string().uuid().optional().nullable(),
   campaign_id: z.string().uuid().optional().nullable(),
   payload: z.record(z.any()).optional(),
   schedule_kind: z.enum(['one_time','recurring']),
   cron_expr: z.string().optional().nullable(),
-  run_at: z.string().datetime().optional().nullable()
+  run_at: z.string().datetime().optional().nullable(),
+  action_tool: z.enum(['sourcing.run_persona']).optional(),
+  tool_payload: z.record(z.any()).optional()
 });
 
 router.post('/api/schedules', async (req, res) => {
@@ -88,7 +98,8 @@ router.post('/api/schedules', async (req, res) => {
   const parsed = scheduleSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
-    const job = await scheduleFromPayload(userId, parsed.data);
+    const payload = parsed.data.action_tool ? { action_tool: parsed.data.action_tool, tool_payload: parsed.data.tool_payload || {} } : (parsed.data.payload || {});
+    const job = await scheduleFromPayload(userId, { ...parsed.data, payload } as any);
     res.json(job);
   } catch (e: any) {
     res.status(400).json({ error: e?.message || 'failed to create schedule' });
@@ -133,6 +144,22 @@ router.post('/api/schedules/:id/run', async (req, res) => {
   const next = computeNextRun(job as any);
   await markRun(id, { ranAt: new Date(), nextRunAt: next ? new Date(next) : null, runResult: result });
   res.json({ ok: true, result, next_run_at: next });
+});
+
+// Proxy: run persona now
+router.post('/api/agent/run-persona', async (req, res) => {
+  const userId = requireUser(req, res); if (!userId) return;
+  const schema = z.object({ persona_id: z.string(), batch_size: z.number().int().positive().max(500).optional(), campaign_id: z.string().optional(), auto_send: z.boolean().optional(), credit_mode: z.enum(['base','enhanced']).optional() });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const { sourcingRunPersonaTool } = await import('../mcp/sourcing.run_persona');
+    const toolResp = await sourcingRunPersonaTool.handler({ userId, ...parsed.data });
+    const summary = JSON.parse(toolResp.content?.[0]?.text || '{}');
+    res.json(summary);
+  } catch (e: any) {
+    res.status(400).json({ error: e?.message || 'run failed' });
+  }
 });
 
 export default router;
