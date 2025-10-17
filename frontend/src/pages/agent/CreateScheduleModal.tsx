@@ -139,7 +139,28 @@ export default function CreateScheduleModal({ open, onClose, defaultPersonaId }:
             <div className="text-amber-400 text-xs">Note: UI-only. Credits may apply when running in production.</div>
             <div className="flex justify-between">
               <button className="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white" onClick={()=>setStep(3)}>Back</button>
-              <button className="px-4 py-2 rounded bg-green-600 hover:bg-green-700 text-white" onClick={onClose}>Save</button>
+              <button
+                className="px-4 py-2 rounded bg-green-600 hover:bg-green-700 text-white"
+                onClick={async () => {
+                  try {
+                    const body: any = {
+                      name: actionType === 'source_persona' ? `Source – ${personas.find(p=>p.id===personaId)?.name}` : `Schedule – ${campaigns.find(c=>c.id===campaignId)?.name}`,
+                      action_type: actionType === 'source_persona' ? 'source_via_persona' : 'launch_campaign',
+                      persona_id: actionType === 'source_persona' ? personaId : undefined,
+                      campaign_id: actionType !== 'source_persona' ? campaignId : undefined,
+                      payload: { batch_size: 100 },
+                      schedule_kind: timingMode === 'recurring' ? 'recurring' : 'one_time',
+                    };
+                    if (timingMode === 'recurring') body.cron_expr = '0 9 * * 1,3';
+                    else body.run_at = new Date().toISOString();
+                    const resp = await fetch('/api/schedules', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body) });
+                    if (resp.ok) {
+                      onClose();
+                      window.location.href = '/agent/advanced/schedules';
+                    }
+                  } catch {}
+                }}
+              >Save</button>
             </div>
           </div>
         )}

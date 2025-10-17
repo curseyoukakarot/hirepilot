@@ -43,7 +43,8 @@
         "_postinstall_note": "Playwright browsers installed via Dockerfile",
         "test": "jest",
         "test:free-cadence": "ts-node scripts/testFreeForeverCadence.ts",
-        "send:free-welcome": "ts-node scripts/sendFreeWelcome.ts"
+        "send:free-welcome": "ts-node scripts/sendFreeWelcome.ts",
+        "worker:scheduler": "ts-node src/workers/schedulerRunner.ts"
     },
     "puppeteer": {
         "skipDownload": true
@@ -88,6 +89,7 @@
         "multer": "2.0.2",
         "nanoid": "5.1.6",
         "node-cron": "4.2.1",
+        "cron-parser": "4.9.0",
         "node-fetch": "2.6.11",
         "nodemailer": "^6.10.1",
         "openai": "^4.96.0",

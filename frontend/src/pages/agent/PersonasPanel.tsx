@@ -59,7 +59,7 @@ export default function PersonasPanel(props: {
               <i className="fa-solid fa-comments mr-2" />
               Use in Chat
             </a>
-            <button className="flex items-center justify-center px-3 py-2 bg-secondary/20 text-secondary rounded-lg text-sm font-medium hover:bg-secondary/30 transition-colors" onClick={() => props.onUseInScheduler && props.onUseInScheduler({ id:'p-recruiter', name:'Recruiter Pro', role:'Recruiter' })}>
+            <button className="flex items-center justify-center px-3 py-2 bg-secondary/20 text-secondary rounded-lg text-sm font-medium hover:bg-secondary/30 transition-colors" onClick={() => props.onUseInScheduler && props.onUseInScheduler({ id:'p-recruiter', name:'Recruiter Pro', role:'Recruiter', description:'', location:'', leadStats:'' })}>
               <i className="fa-solid fa-clock mr-2" />
               Use in Scheduler
             </button>
@@ -107,7 +107,7 @@ export default function PersonasPanel(props: {
               <i className="fa-solid fa-comments mr-2" />
               Use in Chat
             </a>
-            <button className="flex items-center justify-center px-3 py-2 bg-secondary/20 text-secondary rounded-lg text-sm font-medium hover:bg-secondary/30 transition-colors" onClick={() => props.onUseInScheduler && props.onUseInScheduler({ id:'p-sourcer', name:'Sourcing Specialist', role:'Sourcer' })}>
+            <button className="flex items-center justify-center px-3 py-2 bg-secondary/20 text-secondary rounded-lg text-sm font-medium hover:bg-secondary/30 transition-colors" onClick={() => props.onUseInScheduler && props.onUseInScheduler({ id:'p-sourcer', name:'Sourcing Specialist', role:'Sourcer', description:'', location:'', leadStats:'' })}>
               <i className="fa-solid fa-clock mr-2" />
               Use in Scheduler
             </button>

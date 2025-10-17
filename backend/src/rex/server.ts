@@ -117,6 +117,23 @@ server.registerCapabilities({
     // ===== rex_widget_support toolset (safe, read-only) =====
     ...Object.fromEntries(Object.entries(widgetTools).map(([k,v]) => [k, { parameters:{}, handler: v.handler } ])),
     ...linkedinTools,
+    // === Scheduler (MCP) tools ===
+    scheduler_create_job: {
+      parameters: { userId:{type:'string'}, name:{type:'string'}, action_type:{type:'string'}, persona_id:{type:'string', optional:true}, campaign_id:{type:'string', optional:true}, payload:{type:'object', optional:true}, schedule_kind:{type:'string'}, cron_expr:{type:'string', optional:true}, run_at:{type:'string', optional:true} },
+      handler: async (args:any) => {
+        const { scheduleFromPayload } = await import('../lib/scheduler');
+        const job = await scheduleFromPayload(args.userId, args);
+        return job;
+      }
+    },
+    scheduler_list_jobs: {
+      parameters: { userId:{type:'string'} },
+      handler: async ({ userId }) => {
+        const { supabaseAdmin } = await import('../lib/supabaseAdmin');
+        const { data } = await supabaseAdmin.from('schedules').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+        return data || [];
+      }
+    },
     add_numbers: {
       parameters: { a: { type: 'number' }, b: { type: 'number' } },
       handler: async ({ a, b }: { a: number; b: number }) => a + b

@@ -137,6 +137,7 @@ import salesOpsRouter from './src/routes/sales/ops.routes';
 import salesTestRouter from './src/routes/sales/test.routes';
 import salesActionInboxRouter from './src/routes/sales/action_inbox.routes';
 import salesThreadRouter from './src/routes/sales/thread.routes';
+import agentAdvancedRouter from './src/routes/agentAdvanced';
 import { salesInboundWorker } from './src/workers/sales.inbound.worker';
 import { salesSendWorker } from './src/workers/sales.send.worker';
 import { salesSweepWorker } from './src/workers/sales.sweep.worker';
@@ -446,6 +447,8 @@ app.use('/api/stripe', stripeIntegrationRouter);
   app.use('/api/cron', cronProcessorRouter);
   app.use('/api/admin', adminUsersRouter);
   app.use('/api/admin', adminRouter);
+// Advanced Agent Mode (Personas & Schedules)
+app.use('/', agentAdvancedRouter);
   // LinkedIn session routes (encrypted storage)
   registerLinkedInSessionRoutes(app);
   // Sniper routes
