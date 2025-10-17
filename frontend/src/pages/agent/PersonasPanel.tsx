@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { listPersonas, createPersona } from '../../lib/api/personas';
+import PersonaForm from './personas/PersonaForm';
 
 type Persona = {
   id: string;
@@ -18,6 +19,8 @@ export default function PersonasPanel(props: {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [editPersona, setEditPersona] = useState<any | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -41,9 +44,7 @@ export default function PersonasPanel(props: {
           <div className="w-16 h-16 bg-slate-700 rounded-lg flex items-center justify-center mb-4"><i className="fa-solid fa-plus text-slate-400 text-xl" /></div>
           <h3 className="font-semibold text-white mb-2">No personas yet</h3>
           <p className="text-sm text-slate-400 mb-4">Create your first persona to define target profiles</p>
-          <button disabled={creating} className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors" onClick={async ()=>{
-            try { setCreating(true); const created = await createPersona({ name:'New Persona', titles:[], include_keywords:[], exclude_keywords:[], locations:[], channels:['email'] }); setItems([created, ...items]); } finally { setCreating(false); }
-          }}>+ Create Persona</button>
+          <button disabled={creating} className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors" onClick={()=>setShowForm(true)}>+ Create Persona</button>
         </div>
       )}
       {!loading && items.length > 0 && (
@@ -62,10 +63,25 @@ export default function PersonasPanel(props: {
                   <button className="flex items-center justify-center px-3 py-2 bg-primary/20 text-primary rounded-lg text-sm font-medium hover:bg-primary/30 transition-colors" onClick={()=>navigate(`/agent/advanced/console?persona=${p.id}`)}><i className="fa-solid fa-comments mr-2" />Use in Chat</button>
                   <button className="flex items-center justify-center px-3 py-2 bg-secondary/20 text-secondary rounded-lg text-sm font-medium hover:bg-secondary/30 transition-colors" onClick={()=>props.onUseInScheduler && props.onUseInScheduler(p)}><i className="fa-solid fa-clock mr-2" />Use in Scheduler</button>
                 </div>
+                <div className="flex">
+                  <button className="flex-1 px-3 py-2 border border-slate-600 rounded-lg text-sm hover:bg-slate-700 text-slate-300" onClick={()=>{ setEditPersona(p); setShowForm(true); }}>Edit</button>
+                </div>
               </div>
             </div>
           ))}
         </div>
+      )}
+      {showForm && (
+        <PersonaForm
+          open={showForm}
+          initial={editPersona}
+          onClose={async (saved)=>{
+            setShowForm(false); setEditPersona(null);
+            if (saved) {
+              try { const data = await listPersonas(); setItems(data||[]); } catch {}
+            }
+          }}
+        />
       )}
     </div>
   );
