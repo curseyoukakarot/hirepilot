@@ -1,4 +1,5 @@
 import React from 'react';
+import { listSchedules, updateSchedule, deleteSchedule } from '../../lib/api/schedules';
 
 type Schedule = {
   id: string;
@@ -17,14 +18,16 @@ export default function SchedulesPanel(props: {
   onDelete?: (id: string) => void;
 }) {
   const [items, setItems] = React.useState<Schedule[]>(props.schedules || []);
+  const [loading, setLoading] = React.useState(true);
   React.useEffect(() => { (async () => {
     try {
-      const resp = await fetch('/api/schedules');
-      if (resp.ok) {
-        const data = await resp.json();
-        setItems((data || []).map((d: any) => ({ id: d.id, name: d.name, type: d.schedule_kind === 'recurring' ? 'Recurring' : 'One-Time', nextRun: d.next_run_at || '-', linkType: d.persona_id ? 'Persona' : (d.campaign_id ? 'Campaign' : undefined), linkName: d.persona_id || d.campaign_id })));
-      }
-    } catch {}
+      const data = await listSchedules();
+      setItems((data || []).map((d: any) => ({ id: d.id, name: d.name, type: d.schedule_kind === 'recurring' ? 'Recurring' : 'One-Time', nextRun: d.next_run_at || '-', linkType: d.persona_id ? 'Persona' : (d.campaign_id ? 'Campaign' : undefined), linkName: d.persona_id || d.campaign_id })));
+    } catch {
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
   })(); }, []);
 
   return (
@@ -40,7 +43,8 @@ export default function SchedulesPanel(props: {
         </button>
       </div>
 
-      {items.length === 0 && (
+      {loading && (<div className="text-slate-400">Loading schedules…</div>)}
+      {!loading && items.length === 0 && (
         <div className="text-center py-16 border border-dashed border-slate-700 rounded-xl bg-slate-900">
           <h3 className="text-white text-lg mb-1">No automations yet</h3>
           <p className="text-slate-400 mb-3">Create a Schedule to automate sourcing, messaging, or campaigns</p>
@@ -48,7 +52,7 @@ export default function SchedulesPanel(props: {
         </div>
       )}
 
-      {items.length > 0 && (
+      {!loading && items.length > 0 && (
       <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
         <div className="p-6 border-b border-slate-700">
           <h3 className="font-semibold text-white">Active Jobs</h3>
@@ -68,13 +72,15 @@ export default function SchedulesPanel(props: {
               <div className="flex items-center space-x-4">
                 <span className="text-sm text-slate-400">Next: {s.nextRun}</span>
                 <div className="flex items-center space-x-2">
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" className="sr-only peer" defaultChecked />
-                    <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                  </label>
-                  <button className="text-slate-400 hover:text-slate-300">
-                    <i className="fa-solid fa-ellipsis-h" />
-                  </button>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" className="sr-only peer" defaultChecked onChange={async (e)=>{
+                        try { await updateSchedule(s.id, { status: e.target.checked ? 'active' : 'paused' }); } catch {}
+                      }} />
+                      <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                    </label>
+                    <button className="text-slate-400 hover:text-slate-300" onClick={async ()=>{ try { await deleteSchedule(s.id); setItems(items.filter(i=>i.id!==s.id)); } catch {} }}>
+                      <i className="fa-solid fa-trash" />
+                    </button>
                 </div>
               </div>
             </div>
