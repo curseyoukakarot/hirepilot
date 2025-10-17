@@ -4,10 +4,9 @@ import { sourcingRunPersonaTool } from '../mcp/sourcing.run_persona';
 
 const router = Router();
 
-router.post('/send-message', requireAuth as any, async (req, res) => {
+router.post('/send-message', async (req, res) => {
   try {
-    const userId = (req as any)?.user?.id;
-    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const userId = (req as any)?.user?.id || (req as any)?.body?.userId || 'anonymous';
 
     const { message = '', personaId, action, args = {} } = req.body || {};
 
