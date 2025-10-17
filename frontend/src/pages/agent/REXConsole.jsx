@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 
 export default function REXConsole() {
@@ -35,6 +35,13 @@ export default function REXConsole() {
     locations: persona.locations,
     channels: persona.channels
   } : null; // TODO: Send this context to REX on first chat message
+
+  // Calm mode system prompt (persona-aware)
+  const systemPrompt = `You are REX, an AI Recruiting Agent inside HirePilot. Your mode is Calm Professional Assistant. \n\nGuidelines: Be concise, neutral. Ask briefly before acting. Use persona criteria for sourcing, outreach, and automations. Offer two clear next steps. Use acknowledgments like \'Understood\', \'Noted\', \'Certainly\'. Avoid slang. \n\nPersona Awareness: ${persona ? `Using persona '${persona.name}'.` : 'No persona active.'}`;
+
+  // Keep latest persona available inside event handlers
+  const personaRef = useRef(persona);
+  useEffect(() => { personaRef.current = persona; }, [persona]);
   useEffect(() => {
     // Chat functionality (wired to DOM nodes by ID as provided)
     const chatInput = document.getElementById('chat-input');
@@ -79,6 +86,37 @@ export default function REXConsole() {
       scrollToBottom();
     }
 
+    function addREXResponseWithActions(cfg) {
+      const { message, actions } = cfg || {};
+      const wrapper = document.createElement('div');
+      wrapper.className = 'flex items-start space-x-3';
+      wrapper.innerHTML = `
+        <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">R</div>
+        <div class="flex-1">
+          <div class="bg-gray-800 rounded-2xl p-4 max-w-2xl border border-gray-700">
+            <p class="text-gray-200 leading-relaxed">${message}</p>
+            ${Array.isArray(actions) && actions.length ? `<div class=\"mt-3 flex flex-wrap gap-2\">${actions.map(a => `<button data-action-value=\"${a.value}\" class=\"bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors\">${a.label}</button>`).join('')}</div>` : ''}
+          </div>
+          <span class="text-xs text-gray-500 mt-1 block">Just now</span>
+        </div>
+      `;
+      const container = chatArea.querySelector('.max-w-4xl');
+      container.appendChild(wrapper);
+      // Bind buttons to simulate user selection
+      wrapper.querySelectorAll('button[data-action-value]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const val = btn.getAttribute('data-action-value') || '';
+          addUserMessage(val);
+          showTypingIndicator();
+          setTimeout(() => {
+            hideTypingIndicator();
+            addREXResponse('Noted. I will prepare the next step.');
+          }, 900);
+        });
+      });
+      scrollToBottom();
+    }
+
     function showTypingIndicator() {
       if (typingIndicator) typingIndicator.style.display = 'flex';
       scrollToBottom();
@@ -89,6 +127,57 @@ export default function REXConsole() {
     function scrollToBottom() {
       if (chatArea) chatArea.scrollTop = chatArea.scrollHeight;
     }
+    function respondCalmIntent(input) {
+      const text = input.toLowerCase();
+      const activePersona = personaRef.current;
+      // Slash commands
+      if (text.startsWith('/source')) {
+        addREXResponseWithActions({
+          message: activePersona ? `Would you like me to start sourcing using your ${activePersona.name} persona?` : 'Would you like me to start sourcing using your active persona?',
+          actions: [ { label:'Run Now', value:'run_now' }, { label:'Adjust Persona', value:'adjust_persona' } ]
+        });
+        return true;
+      }
+      if (text.startsWith('/schedule')) {
+        addREXResponseWithActions({
+          message: 'I can schedule this. Daily or weekly?',
+          actions: [ { label:'Daily', value:'schedule_daily' }, { label:'Weekly', value:'schedule_weekly' } ]
+        });
+        return true;
+      }
+      if (text.startsWith('/refine')) {
+        addREXResponseWithActions({
+          message: 'What would you like to modify in your persona?',
+          actions: [ { label:'Titles', value:'refine_titles' }, { label:'Locations', value:'refine_locations' }, { label:'Filters', value:'refine_filters' } ]
+        });
+        return true;
+      }
+
+      // General calm intelligence
+      if (/(find|source|sourcing|prospect)/.test(text)) {
+        addREXResponseWithActions({
+          message: activePersona ? `I'm using your ${activePersona.name} persona. Would you like to start sourcing now or adjust criteria?` : 'I can start sourcing. Would you like to begin now or adjust criteria first?',
+          actions: [ { label:'Start Now', value:'start_now' }, { label:'Adjust Persona', value:'adjust_persona' } ]
+        });
+        return true;
+      }
+      if (/(outreach|sequence|email)/.test(text)) {
+        addREXResponseWithActions({
+          message: 'Would you like a fresh email sequence or modify an existing one?',
+          actions: [ { label:'New Sequence', value:'new_sequence' }, { label:'Modify Existing', value:'modify_existing' } ]
+        });
+        return true;
+      }
+      if (/schedule/.test(text)) {
+        addREXResponseWithActions({
+          message: 'Should I set it for a specific date or make it recurring?',
+          actions: [ { label:'One-Time', value:'one_time' }, { label:'Recurring', value:'recurring' } ]
+        });
+        return true;
+      }
+      return false;
+    }
+
     function sendMessage() {
       const message = (chatInput && (chatInput).value) ? (chatInput).value.trim() : '';
       if (!message) return;
@@ -97,8 +186,11 @@ export default function REXConsole() {
       showTypingIndicator();
       setTimeout(() => {
         hideTypingIndicator();
-        addREXResponse("I'll help you with that right away. Let me analyze your request and provide the best solution.");
-      }, 2000);
+        if (!respondCalmIntent(message)) {
+          // Default calm acknowledgment
+          addREXResponse('Understood. How would you like to proceed?');
+        }
+      }, 500);
       try { sendMessageToRex(message); } catch {}
     }
 
