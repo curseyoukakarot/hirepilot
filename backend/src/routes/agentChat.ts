@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requireAuth } from '../middleware/authMiddleware';
+import { requireAuth } from '../../middleware/authMiddleware';
 import { sourcingRunPersonaTool } from '../mcp/sourcing.run_persona';
 
 const router = Router();
