@@ -9,6 +9,7 @@ import SalesAgentSettingsCard from './SalesAgentSettingsCard';
 import PersonasPanel from './PersonasPanel';
 import SchedulesPanel from './SchedulesPanel';
 import CreateScheduleModal from './CreateScheduleModal';
+import REXConsole from './REXConsole';
 
 export default function AgentModeCenter() {
   const { isFree, role } = usePlan() as any;
@@ -72,10 +73,10 @@ export default function AgentModeCenter() {
         <button onClick={() => navigate('/agent/advanced/console')} className={tabStyle(tab === 'console')}>
           💬 REX Console
         </button>
-        <button onClick={() => navigate('/agent/advanced/campaigns')} className={tabStyle(tab === 'campaigns')}>
+        <button onClick={() => navigate('/super-admin/sourcing')} className={tabStyle(tab === 'campaigns')}>
           📦 Campaigns
         </button>
-        <button onClick={() => navigate('/agent/advanced/inbox')} className={tabStyle(tab === 'inbox')}>
+        <button onClick={() => navigate('/super-admin/inbox')} className={tabStyle(tab === 'inbox')}>
           📨 Action Inbox
         </button>
         <button onClick={() => navigate('/agent/advanced/personas')} className={tabStyle(tab === 'personas')}>
@@ -89,10 +90,7 @@ export default function AgentModeCenter() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 rounded-xl border border-slate-700 bg-slate-800/50 p-4">
           {tab === 'console' && (
-            <div>
-              <h2 className="text-xl font-semibold text-white mb-1">REX Console (Coming Soon)</h2>
-              <p className="text-slate-400">Chat with REX using personas and context. This placeholder will become the full console.</p>
-            </div>
+            <REXConsole />
           )}
           {tab === 'campaigns' && (
             <CampaignsPanel />
