@@ -15,7 +15,7 @@ async function setCookieFromToken(accessToken: string | null | undefined): Promi
   if (!accessToken) return;
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const backend: string = ((import.meta as any)?.env?.VITE_BACKEND_URL) || '';
+    const backend: string = ((import.meta as any)?.env?.VITE_BACKEND_URL) || (typeof window !== 'undefined' ? 'https://api.thehirepilot.com' : '');
     if (!backend) return;
     // Optional CSRF
     let headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -40,7 +40,7 @@ async function setCookieFromToken(accessToken: string | null | undefined): Promi
 async function clearCookie(): Promise<void> {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const backend: string = ((import.meta as any)?.env?.VITE_BACKEND_URL) || '';
+    const backend: string = ((import.meta as any)?.env?.VITE_BACKEND_URL) || (typeof window !== 'undefined' ? 'https://api.thehirepilot.com' : '');
     if (!backend) return;
     // Optional CSRF
     let headers: Record<string, string> = {};
