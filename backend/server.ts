@@ -452,6 +452,24 @@ app.use('/api/stripe', stripeIntegrationRouter);
 app.use('/', agentAdvancedRouter);
 // REX Chat unified endpoint
 app.use('/api/agent', agentChatRouter);
+// Fallback direct handler to avoid proxy 405 issues in some environments
+app.post('/api/agent/send-message', async (req, res) => {
+  try {
+    const text = String((req as any)?.body?.message || '').toLowerCase();
+    if (text.startsWith('/source') || /(find|source|sourcing|prospect)/.test(text)) {
+      return res.json({ message: 'Would you like me to start sourcing using your active persona?', actions: [ { label: 'Run Now', value: 'run_now' }, { label: 'Schedule', value: 'schedule' } ] });
+    }
+    if (text.startsWith('/schedule') || /schedule/.test(text)) {
+      return res.json({ message: 'I can schedule this. Daily or weekly?', actions: [ { label: 'Daily', value: 'schedule_daily' }, { label: 'Weekly', value: 'schedule_weekly' } ] });
+    }
+    if (text.startsWith('/refine') || /persona|title|location|keyword/.test(text)) {
+      return res.json({ message: 'What would you like to modify in your persona?', actions: [ { label: 'Titles', value: 'refine_titles' }, { label: 'Locations', value: 'refine_locations' }, { label: 'Filters', value: 'refine_filters' } ] });
+    }
+    return res.json({ message: 'Understood. How would you like to proceed?' });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'chat failed' });
+  }
+});
   // LinkedIn session routes (encrypted storage)
   registerLinkedInSessionRoutes(app);
   // Sniper routes
