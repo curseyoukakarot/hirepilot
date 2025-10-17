@@ -1,18 +1,34 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { usePlan } from '../../context/PlanContext';
 import { Outlet } from 'react-router-dom';
 import CampaignsPanel from './CampaignsPanel';
 import SniperTargetsPanel from './SniperTargetsPanel';
 import ActionInboxPanel from './ActionInboxPanel';
 import SalesAgentSettingsCard from './SalesAgentSettingsCard';
+import PersonasPanel from './PersonasPanel';
+import SchedulesPanel from './SchedulesPanel';
+import CreateScheduleModal from './CreateScheduleModal';
 
 export default function AgentModeCenter() {
   const { isFree, role } = usePlan() as any;
-  const [tab, setTab] = useState<'campaigns' | 'sniper' | 'inbox'>(() => {
-    const params = new URLSearchParams(window.location.search);
-    const t = (params.get('tab') || '').toLowerCase();
-    return (['campaigns','sniper','inbox'] as const).includes(t as any) ? (t as any) : 'campaigns';
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [tab, setTab] = useState<'console' | 'personas' | 'schedules'>(() => {
+    const path = location.pathname;
+    if (path.startsWith('/agent/advanced/personas')) return 'personas';
+    if (path.startsWith('/agent/advanced/schedules')) return 'schedules';
+    return 'console';
   });
+  const [showCreateSchedule, setShowCreateSchedule] = useState(false);
+  const [modalPersonaId, setModalPersonaId] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    const path = location.pathname;
+    if (path.startsWith('/agent/advanced/personas')) setTab('personas');
+    else if (path.startsWith('/agent/advanced/schedules')) setTab('schedules');
+    else setTab('console');
+  }, [location.pathname]);
 
   const tabStyle = (active: boolean) =>
     `px-4 py-2 rounded-full font-medium transition-colors text-sm ${
@@ -49,22 +65,48 @@ export default function AgentModeCenter() {
       <div className="h-2" />
 
       <div className="flex space-x-3 mb-6">
-        <button onClick={() => setTab('campaigns')} className={tabStyle(tab === 'campaigns')}>
-          📦 Campaigns
+        <button onClick={() => navigate('/agent/advanced/console')} className={tabStyle(tab === 'console')}>
+          💬 REX Console
         </button>
-        <button onClick={() => setTab('sniper')} className={tabStyle(tab === 'sniper')}>
-          🎯 Sniper Targets
+        <button onClick={() => navigate('/agent/advanced/personas')} className={tabStyle(tab === 'personas')}>
+          🧠 Personas
         </button>
-        <button onClick={() => setTab('inbox')} className={tabStyle(tab === 'inbox')}>
-          📨 Action Inbox
+        <button onClick={() => navigate('/agent/advanced/schedules')} className={tabStyle(tab === 'schedules')}>
+          ⏱️ Schedules
         </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 rounded-xl border border-slate-700 bg-slate-800/50 p-4">
-          {tab === 'campaigns' && <CampaignsPanel />}
-          {tab === 'sniper' && <SniperTargetsPanel />}
-          {tab === 'inbox' && <ActionInboxPanel />}
+          {tab === 'console' && (
+            <div>
+              <h2 className="text-xl font-semibold text-white mb-1">REX Console (Coming Soon)</h2>
+              <p className="text-slate-400">Chat with REX using personas and context. This placeholder will become the full console.</p>
+            </div>
+          )}
+          {tab === 'personas' && (
+            <PersonasPanel
+              onUseInScheduler={(persona) => {
+                setModalPersonaId(persona.id);
+                setShowCreateSchedule(true);
+              }}
+              onCreatePersona={() => {
+                // Placeholder: In V1 we can reuse the schedule modal to collect persona basics later
+                alert('Create Persona (UI only placeholder)');
+              }}
+            />
+          )}
+          {tab === 'schedules' && (
+            <SchedulesPanel
+              onCreate={() => {
+                setModalPersonaId(undefined);
+                setShowCreateSchedule(true);
+              }}
+              onEdit={() => { /* placeholder */ }}
+              onPause={() => { /* placeholder */ }}
+              onDelete={() => { /* placeholder */ }}
+            />
+          )}
         </div>
         <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
           <SalesAgentSettingsCard />
@@ -73,6 +115,13 @@ export default function AgentModeCenter() {
 
       {/* Nested drawers mount here */}
       <Outlet />
+      {showCreateSchedule && (
+        <CreateScheduleModal
+          open={showCreateSchedule}
+          onClose={() => setShowCreateSchedule(false)}
+          defaultPersonaId={modalPersonaId}
+        />
+      )}
     </div>
   );
 }

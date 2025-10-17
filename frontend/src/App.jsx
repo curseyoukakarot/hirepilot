@@ -536,6 +536,10 @@ function InnerApp() {
                 <Route path="campaign/:id" element={<CampaignDetailDrawer />} />
                 <Route path="campaign/:id/replies" element={<RepliesDrawer />} />
                 <Route path="inbox" element={<ActionInboxDrawer />} />
+                {/* Advanced Agent Mode routes */}
+                <Route path="advanced/console" element={<div className="p-4"></div>} />
+                <Route path="advanced/personas" element={<div className="p-4"></div>} />
+                <Route path="advanced/schedules" element={<div className="p-4"></div>} />
               </Route>
               <Route path="/leads" element={<LeadManagement />} />
               <Route path="/leads/profile" element={<LeadProfileDrawer />} />
