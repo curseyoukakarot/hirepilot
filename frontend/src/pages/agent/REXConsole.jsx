@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useRexAgent } from '../../hooks/useRexAgent';
 
 export default function REXConsole() {
   const location = useLocation();
@@ -42,6 +43,7 @@ export default function REXConsole() {
   // Keep latest persona available inside event handlers
   const personaRef = useRef(persona);
   useEffect(() => { personaRef.current = persona; }, [persona]);
+  const { sendMessageToRex, triggerAction } = useRexAgent(persona || undefined);
   useEffect(() => {
     // Chat functionality (wired to DOM nodes by ID as provided)
     const chatInput = document.getElementById('chat-input');
@@ -178,20 +180,20 @@ export default function REXConsole() {
       return false;
     }
 
-    function sendMessage() {
+    async function sendMessage() {
       const message = (chatInput && (chatInput).value) ? (chatInput).value.trim() : '';
       if (!message) return;
       addUserMessage(message);
       (chatInput).value = '';
       showTypingIndicator();
-      setTimeout(() => {
+      try {
+        const res = await sendMessageToRex(message);
         hideTypingIndicator();
-        if (!respondCalmIntent(message)) {
-          // Default calm acknowledgment
-          addREXResponse('Understood. How would you like to proceed?');
-        }
-      }, 500);
-      try { sendMessageToRex(message); } catch {}
+        addREXResponseWithActions({ message: res.message, actions: res.actions });
+      } catch {
+        hideTypingIndicator();
+        if (!respondCalmIntent(message)) addREXResponse('Understood. How would you like to proceed?');
+      }
     }
 
     if (sendButton) sendButton.addEventListener('click', sendMessage);
