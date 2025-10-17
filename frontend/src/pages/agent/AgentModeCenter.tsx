@@ -14,8 +14,10 @@ export default function AgentModeCenter() {
   const { isFree, role } = usePlan() as any;
   const navigate = useNavigate();
   const location = useLocation();
-  const [tab, setTab] = useState<'console' | 'personas' | 'schedules'>(() => {
+  const [tab, setTab] = useState<'console' | 'personas' | 'schedules' | 'campaigns' | 'inbox'>(() => {
     const path = location.pathname;
+    if (path.startsWith('/agent/advanced/campaigns')) return 'campaigns';
+    if (path.startsWith('/agent/advanced/inbox')) return 'inbox';
     if (path.startsWith('/agent/advanced/personas')) return 'personas';
     if (path.startsWith('/agent/advanced/schedules')) return 'schedules';
     return 'console';
@@ -25,6 +27,8 @@ export default function AgentModeCenter() {
 
   useEffect(() => {
     const path = location.pathname;
+    if (path.startsWith('/agent/advanced/campaigns')) setTab('campaigns');
+    else if (path.startsWith('/agent/advanced/inbox')) setTab('inbox');
     if (path.startsWith('/agent/advanced/personas')) setTab('personas');
     else if (path.startsWith('/agent/advanced/schedules')) setTab('schedules');
     else setTab('console');
@@ -68,6 +72,12 @@ export default function AgentModeCenter() {
         <button onClick={() => navigate('/agent/advanced/console')} className={tabStyle(tab === 'console')}>
           💬 REX Console
         </button>
+        <button onClick={() => navigate('/agent/advanced/campaigns')} className={tabStyle(tab === 'campaigns')}>
+          📦 Campaigns
+        </button>
+        <button onClick={() => navigate('/agent/advanced/inbox')} className={tabStyle(tab === 'inbox')}>
+          📨 Action Inbox
+        </button>
         <button onClick={() => navigate('/agent/advanced/personas')} className={tabStyle(tab === 'personas')}>
           🧠 Personas
         </button>
@@ -83,6 +93,12 @@ export default function AgentModeCenter() {
               <h2 className="text-xl font-semibold text-white mb-1">REX Console (Coming Soon)</h2>
               <p className="text-slate-400">Chat with REX using personas and context. This placeholder will become the full console.</p>
             </div>
+          )}
+          {tab === 'campaigns' && (
+            <CampaignsPanel />
+          )}
+          {tab === 'inbox' && (
+            <ActionInboxPanel />
           )}
           {tab === 'personas' && (
             <PersonasPanel
