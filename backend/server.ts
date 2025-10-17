@@ -289,6 +289,19 @@ app.get('/api/slack-events/ping', (_req, res) => res.json({ ok: true }));
 // Parse JSON bodies for all other routes (increase limit for bulk operations)
 // IMPORTANT: JSON parser must not swallow raw bodies needed by some transports; safe for our routes
 app.use(express.json({ limit: '25mb' }));
+// Lightweight request log for production debugging of 405/edge issues
+app.use((req, _res, next) => {
+  try {
+    if (process.env.LOG_REQUESTS === 'true') {
+      console.log('[req]', req.method, req.path, 'ua=', req.headers['user-agent']);
+    }
+  } catch {}
+  next();
+});
+// Preflight safety for agent APIs
+app.options('/api/agent/*', (_req, res) => res.sendStatus(204));
+// Probe endpoint to verify reachability
+app.get('/api/agent/__ping', (_req, res) => res.json({ ok: true, ts: Date.now() }));
 
 // Parse URL-encoded bodies (increase limit for bulk operations)
 app.use(bodyParser.urlencoded({ limit: '25mb', extended: true }));
