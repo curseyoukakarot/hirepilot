@@ -61,22 +61,25 @@ router.post('/send-message', async (req, res) => {
       return res.json({ message: 'What would you like to modify in your persona?', actions: [ { label: 'Titles', value: 'refine_titles' }, { label: 'Locations', value: 'refine_locations' }, { label: 'Filters', value: 'refine_filters' } ] });
     }
 
-    // 4) Default: call OpenAI for a calm assistant reply
+    // 4) Default: delegate to rexChat (tools + OpenAI) for full capability
     try {
-      const messages = [
-        { role: 'system' as const, content: CALM_REX_SYSTEM_PROMPT },
-        { role: 'user' as const, content: String(message || '').slice(0, 4000) }
-      ];
-      const completion = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        temperature: 0.2,
-        max_tokens: 300,
-        messages
-      });
-      const aiText = completion.choices?.[0]?.message?.content || 'Understood. How would you like to proceed?';
-      return res.json({ message: aiText });
+      const { default: rexChat } = await import('../api/rexChat');
+      const fakeReq: any = {
+        method: 'POST',
+        headers: req.headers,
+        body: {
+          userId,
+          messages: [ { role: 'user', content: String(message || '') } ]
+        }
+      };
+      const fakeRes: any = {
+        status: (code: number) => ({ json: (obj: any) => res.status(code).json({ message: obj?.reply?.content || obj?.message || 'Understood. How would you like to proceed?' }) }),
+        json: (obj: any) => res.json({ message: obj?.reply?.content || obj?.message || 'Understood. How would you like to proceed?' }),
+        set: () => {}
+      };
+      return rexChat(fakeReq, fakeRes);
     } catch (e: any) {
-      console.error('openai_error', e?.message || e);
+      console.error('agentChat -> rexChat error', e?.message || e);
       return res.json({ message: 'Understood. How would you like to proceed?' });
     }
   } catch (e: any) {
