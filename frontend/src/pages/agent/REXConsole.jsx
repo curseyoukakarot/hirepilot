@@ -147,14 +147,14 @@ export default function REXConsole() {
                 <p className="text-gray-200 leading-relaxed mb-4">
                   Perfect! I'll help you create a comprehensive sourcing campaign for senior React/Node.js engineers in San Francisco. Here's what I recommend:
                 </p>
-                <div className="bg-black rounded-lg p-4 mb-4 border border-gray-700">
+                <div className="bg-black rounded-lg p-4 mb-4 border border-gray-700 overflow-hidden">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-gray-400 text-sm font-mono">Campaign Strategy</span>
                     <button className="text-gray-400 hover:text-gray-300 transition-colors">
                       <i className="fa-solid fa-copy" />
                     </button>
                   </div>
-                  <pre className="text-green-400 text-sm font-mono leading-relaxed">Target Profile:
+                  <pre className="text-green-400 text-sm font-mono leading-relaxed whitespace-pre-wrap break-words">Target Profile:
 • 5+ years React experience
 • 3+ years Node.js/Express
 • Located in SF Bay Area
@@ -213,7 +213,7 @@ Sourcing Channels:
         </div>
       </div>
 
-      <div id="input-bar" className="border-t border-gray-700 bg-gray-800 px-6 py-4">
+      <div id="input-bar" className="sticky bottom-0 z-20 border-t border-gray-700 bg-gray-800 px-6 py-4">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center space-x-3 bg-gray-700 border border-gray-600 rounded-xl p-3 focus-within:border-blue-500 transition-colors">
             <button className="text-gray-400 hover:text-gray-300 transition-colors">
