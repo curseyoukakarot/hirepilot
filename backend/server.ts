@@ -138,6 +138,7 @@ import salesTestRouter from './src/routes/sales/test.routes';
 import salesActionInboxRouter from './src/routes/sales/action_inbox.routes';
 import salesThreadRouter from './src/routes/sales/thread.routes';
 import agentAdvancedRouter from './src/routes/agentAdvanced';
+import agentChatRouter from './src/routes/agentChat';
 import { salesInboundWorker } from './src/workers/sales.inbound.worker';
 import { salesSendWorker } from './src/workers/sales.send.worker';
 import { salesSweepWorker } from './src/workers/sales.sweep.worker';
@@ -449,6 +450,8 @@ app.use('/api/stripe', stripeIntegrationRouter);
   app.use('/api/admin', adminRouter);
 // Advanced Agent Mode (Personas & Schedules)
 app.use('/', agentAdvancedRouter);
+// REX Chat unified endpoint
+app.use('/api/agent', agentChatRouter);
   // LinkedIn session routes (encrypted storage)
   registerLinkedInSessionRoutes(app);
   // Sniper routes
