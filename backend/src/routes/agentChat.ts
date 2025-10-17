@@ -1,8 +1,13 @@
 import { Router } from 'express';
 import { requireAuth } from '../../middleware/authMiddleware';
 import { sourcingRunPersonaTool } from '../mcp/sourcing.run_persona';
+import OpenAI from 'openai';
 
 const router = Router();
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
+
+const CALM_REX_SYSTEM_PROMPT =
+  'You are REX, an AI Recruiting Agent inside HirePilot. Mode: Calm Professional Assistant. Be concise and neutral. Use personas to guide sourcing. When asked to source, schedule, or edit personas, offer 2 clear options, not more. Avoid exclamation marks. Never assume user intent; confirm next step.';
 
 router.post('/send-message', async (req, res) => {
   try {
@@ -56,7 +61,24 @@ router.post('/send-message', async (req, res) => {
       return res.json({ message: 'What would you like to modify in your persona?', actions: [ { label: 'Titles', value: 'refine_titles' }, { label: 'Locations', value: 'refine_locations' }, { label: 'Filters', value: 'refine_filters' } ] });
     }
 
-    return res.json({ message: 'Understood. How would you like to proceed?' });
+    // 4) Default: call OpenAI for a calm assistant reply
+    try {
+      const messages = [
+        { role: 'system' as const, content: CALM_REX_SYSTEM_PROMPT },
+        { role: 'user' as const, content: String(message || '').slice(0, 4000) }
+      ];
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        temperature: 0.2,
+        max_tokens: 300,
+        messages
+      });
+      const aiText = completion.choices?.[0]?.message?.content || 'Understood. How would you like to proceed?';
+      return res.json({ message: aiText });
+    } catch (e: any) {
+      console.error('openai_error', e?.message || e);
+      return res.json({ message: 'Understood. How would you like to proceed?' });
+    }
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'chat failed' });
   }

@@ -485,7 +485,18 @@ app.post('/api/agent/send-message', async (req, res) => {
     if (text.startsWith('/refine') || /persona|title|location|keyword/.test(text)) {
       return res.json({ message: 'What would you like to modify in your persona?', actions: [ { label: 'Titles', value: 'refine_titles' }, { label: 'Locations', value: 'refine_locations' }, { label: 'Filters', value: 'refine_filters' } ] });
     }
-    return res.json({ message: 'Understood. How would you like to proceed?' });
+    try {
+      const { default: rexChat } = await import('./src/api/rexChat');
+      const fakeReq: any = { method:'POST', headers:req.headers, body: { userId: (req as any)?.user?.id || 'anonymous', messages: [ { role:'user', content: String((req as any)?.body?.message || '') } ] } };
+      const fakeRes: any = {
+        status: (code: number) => ({ json: (obj: any) => res.status(code).json({ message: obj?.reply?.content || obj?.message || 'Understood. How would you like to proceed?' }) }),
+        json: (obj: any) => res.json({ message: obj?.reply?.content || obj?.message || 'Understood. How would you like to proceed?' }),
+        set: () => {}
+      };
+      return rexChat(fakeReq, fakeRes);
+    } catch {
+      return res.json({ message: 'Understood. How would you like to proceed?' });
+    }
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'chat failed' });
   }
