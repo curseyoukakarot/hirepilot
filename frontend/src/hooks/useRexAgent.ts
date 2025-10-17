@@ -20,6 +20,8 @@ function detectSlash(message: string): string | null {
 }
 
 export function useRexAgent(persona?: Persona) {
+  const API_BASE = (typeof window !== 'undefined' && (window as any).__HP_API_BASE__) || (import.meta as any)?.env?.VITE_API_BASE_URL || '';
+  const apiUrl = (path: string) => `${API_BASE}${path}`;
   const sendMessageToRex = async (message: string): Promise<RexReply> => {
     try {
       // 1) Slash commands shortcut (front-end only hint)
@@ -42,10 +44,11 @@ export function useRexAgent(persona?: Persona) {
       // 2) Call backend chat endpoint (persona-aware)
       const body: any = { message };
       if (persona?.id) body.personaId = persona.id;
-      const resp = await fetch('/api/agent/send-message', {
+      const resp = await fetch(apiUrl('/api/agent/send-message'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
+        body: JSON.stringify(body),
+        credentials: 'include'
       });
       if (!resp.ok) throw new Error(await resp.text());
       const data = await resp.json();
@@ -57,10 +60,11 @@ export function useRexAgent(persona?: Persona) {
 
   const triggerAction = async (value: string, args?: any): Promise<RexReply> => {
     try {
-      const resp = await fetch('/api/agent/send-message', {
+      const resp = await fetch(apiUrl('/api/agent/send-message'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: value, personaId: persona?.id, args: args || {} })
+        body: JSON.stringify({ action: value, personaId: persona?.id, args: args || {} }),
+        credentials: 'include'
       });
       if (!resp.ok) throw new Error(await resp.text());
       const data = await resp.json();
