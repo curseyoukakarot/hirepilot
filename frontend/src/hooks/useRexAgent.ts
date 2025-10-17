@@ -20,7 +20,9 @@ function detectSlash(message: string): string | null {
 }
 
 export function useRexAgent(persona?: Persona) {
-  const API_BASE = (typeof window !== 'undefined' && (window as any).__HP_API_BASE__) || (import.meta as any)?.env?.VITE_API_BASE_URL || '';
+  const host = typeof window !== 'undefined' ? window.location.hostname : '';
+  const defaultBase = host === 'app.thehirepilot.com' ? 'https://api.thehirepilot.com' : '';
+  const API_BASE = (typeof window !== 'undefined' && (window as any).__HP_API_BASE__) || (import.meta as any)?.env?.VITE_API_BASE_URL || defaultBase;
   const apiUrl = (path: string) => `${API_BASE}${path}`;
   const sendMessageToRex = async (message: string): Promise<RexReply> => {
     try {
