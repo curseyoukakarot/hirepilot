@@ -463,12 +463,12 @@ app.use('/api/stripe', stripeIntegrationRouter);
   app.use('/api/admin', adminRouter);
 // Advanced Agent Mode (Personas & Schedules)
 app.use('/', agentAdvancedRouter);
-// REX Chat unified endpoint
+// REX Chat unified endpoint (uses unified auth inside router)
 app.use('/api/agent', agentChatRouter);
-// Fallback direct handler to avoid proxy 405 issues in some environments
-app.post('/api/agent/send-message', async (req, res) => {
+// Fallback direct handler retained for edge cases; require auth to avoid anonymous uuid issues
+app.post('/api/agent/send-message', requireAuthFlag, async (req: any, res) => {
   try {
-    const text = String((req as any)?.body?.message || '').toLowerCase();
+    const text = String(req?.body?.message || '').toLowerCase();
     const isGreeting = /^(hi|hello|hey|yo|gm|good\smorning|good\safternoon|good\sevening)\b/.test(text) || /\bhello\s*rex\b/.test(text);
     if (isGreeting) {
       return res.json({

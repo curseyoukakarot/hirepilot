@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requireAuth } from '../../middleware/authMiddleware';
+import requireAuthUnified from '../../middleware/requireAuthUnified';
 import { sourcingRunPersonaTool } from '../mcp/sourcing.run_persona';
 import OpenAI from 'openai';
 
@@ -9,9 +9,10 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
 const CALM_REX_SYSTEM_PROMPT =
   'You are REX, an AI Recruiting Agent inside HirePilot. Mode: Calm Professional Assistant. Be concise and neutral. Use personas to guide sourcing. When asked to source, schedule, or edit personas, offer 2 clear options, not more. Avoid exclamation marks. Never assume user intent; confirm next step.';
 
-router.post('/send-message', async (req, res) => {
+router.post('/send-message', requireAuthUnified as any, async (req, res) => {
   try {
-    const userId = (req as any)?.user?.id || (req as any)?.body?.userId || 'anonymous';
+    const userId = (req as any)?.user?.id;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
 
     const { message = '', personaId, action, args = {} } = req.body || {};
 
