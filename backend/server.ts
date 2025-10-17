@@ -456,6 +456,13 @@ app.use('/api/agent', agentChatRouter);
 app.post('/api/agent/send-message', async (req, res) => {
   try {
     const text = String((req as any)?.body?.message || '').toLowerCase();
+    const isGreeting = /^(hi|hello|hey|yo|gm|good\smorning|good\safternoon|good\sevening)\b/.test(text) || /\bhello\s*rex\b/.test(text);
+    if (isGreeting) {
+      return res.json({
+        message: "Hello — I'm REX. How can I help today? I can source leads, schedule automations, or refine a persona.",
+        actions: [ { label: 'Run Now', value: 'run_now' }, { label: 'Schedule', value: 'schedule' }, { label: 'Modify Persona', value: 'refine' } ]
+      });
+    }
     if (text.startsWith('/source') || /(find|source|sourcing|prospect)/.test(text)) {
       return res.json({ message: 'Would you like me to start sourcing using your active persona?', actions: [ { label: 'Run Now', value: 'run_now' }, { label: 'Schedule', value: 'schedule' } ] });
     }

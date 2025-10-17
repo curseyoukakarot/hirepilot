@@ -32,6 +32,17 @@ router.post('/send-message', async (req, res) => {
     }
 
     const text: string = String(message || '').toLowerCase();
+    const isGreeting = /^(hi|hello|hey|yo|gm|good\smorning|good\safternoon|good\sevening)\b/.test(text) || /\bhello\s*rex\b/.test(text);
+    if (isGreeting) {
+      return res.json({
+        message: 'Hello — I\'m REX. How can I help today? I can source leads, schedule automations, or refine a persona.',
+        actions: [
+          { label: 'Run Now', value: 'run_now' },
+          { label: 'Schedule', value: 'schedule' },
+          { label: 'Modify Persona', value: 'refine' }
+        ]
+      });
+    }
     if (text.startsWith('/source') || /(find|source|sourcing|prospect)/.test(text)) {
       return res.json({
         message: personaId ? `Would you like me to start sourcing using your active persona?` : 'Would you like me to start sourcing using your active persona?',
