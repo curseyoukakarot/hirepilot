@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import requireAuthUnified from '../../middleware/requireAuthUnified';
 import { sourcingRunPersonaTool } from '../mcp/sourcing.run_persona';
+import { supabaseAdmin } from '../lib/supabaseAdmin';
+import { buildSourcingQuery } from '../lib/personaMapper';
 import OpenAI from 'openai';
 
 const router = Router();
@@ -20,11 +22,72 @@ router.post('/send-message', requireAuthUnified as any, async (req, res) => {
     if (action) {
       if (action === 'run_now') {
         try {
-          const toolResp = await sourcingRunPersonaTool.handler({ userId, persona_id: personaId, batch_size: Number(args.batch_size || 50) });
-          const summary = JSON.parse(toolResp?.content?.[0]?.text || '{}');
+          // Load persona to construct search
+          const { data: persona, error: pErr } = await supabaseAdmin
+            .from('personas')
+            .select('*')
+            .eq('id', personaId)
+            .eq('user_id', userId)
+            .single();
+          if (pErr || !persona) throw new Error('Persona not found');
+
+          // Ensure campaign
+          const { data: campRow, error: cErr } = await supabaseAdmin
+            .from('sourcing_campaigns')
+            .insert({ title: `Persona • ${persona.name}`, created_by: userId, audience_tag: 'rex' })
+            .select('id')
+            .single();
+          if (cErr) throw new Error(cErr.message);
+          const effectiveCampaignId = (campRow as any).id as string;
+
+          // Build Apollo search params
+          const targeting = buildSourcingQuery({
+            name: persona.name,
+            titles: persona.titles || [],
+            include_keywords: persona.include_keywords || [],
+            exclude_keywords: persona.exclude_keywords || [],
+            locations: persona.locations || [],
+            channels: persona.channels || []
+          } as any);
+
+          const BACKEND_INTERNAL = process.env.BACKEND_INTERNAL_URL || process.env.BACKEND_URL || `http://127.0.0.1:${process.env.PORT || 8080}`;
+          // 1) Search Apollo (returns leads array; does NOT import)
+          const searchBody: any = {
+            jobTitle: (targeting.title_query || [])[0] || '',
+            keywords: (targeting.keyword_includes || []).join(' '),
+            location: (targeting.locations || [])[0] || undefined,
+            booleanSearch: (targeting.title_query || []).some(t => /AND|OR|NOT|\(|\)/i.test(t))
+          };
+
+          const headers: any = { 'Content-Type': 'application/json' };
+          if (req.headers.cookie) headers['Cookie'] = String(req.headers.cookie);
+          if (req.headers.authorization) headers['Authorization'] = String(req.headers.authorization);
+
+          const resp = await fetch(`${BACKEND_INTERNAL}/api/leads/apollo/search`, { method: 'POST', headers, body: JSON.stringify(searchBody) });
+          if (!resp.ok) {
+            const errText = await resp.text().catch(()=> '');
+            throw new Error(errText || `apollo search failed (${resp.status})`);
+          }
+          const searchData = await resp.json().catch(()=>({}));
+          const leads = Array.isArray(searchData?.leads) ? searchData.leads : [];
+
+          // 2) Import into campaign with credit handling + counters
+          const importBody = {
+            campaignId: effectiveCampaignId,
+            leads,
+            source: 'apollo',
+            searchCriteria: searchBody
+          };
+          const importResp = await fetch(`${BACKEND_INTERNAL}/api/leads/import`, { method: 'POST', headers, body: JSON.stringify(importBody) });
+          if (!importResp.ok) {
+            const errText = await importResp.text().catch(()=> '');
+            throw new Error(errText || `import failed (${importResp.status})`);
+          }
+          const importData = await importResp.json().catch(()=>({ imported: leads.length }));
+          const added = Number(importData?.imported || (leads?.length || 0));
           return res.json({
-            message: `Added ${summary.added_count || 0} new leads (${summary.skipped_duplicates || 0} duplicates skipped).`,
-            actions: [ { label: 'Start Outreach', value: 'start_outreach' }, { label: 'Add More Filters', value: 'refine' } ]
+            message: `Added ${added} new leads (Apollo).`,
+            actions: [ { label: 'Start Outreach', value: 'start_outreach' }, { label: 'Add More Filters', value: 'refine' } ],
           });
         } catch (e: any) {
           return res.status(400).json({ message: e?.message || 'Run failed' });
