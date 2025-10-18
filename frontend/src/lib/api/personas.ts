@@ -1,16 +1,30 @@
+import { supabase } from '../supabaseClient';
+
 const API_BASE = (typeof window !== 'undefined' && (window as any).__HP_API_BASE__) || (import.meta as any)?.env?.VITE_API_BASE_URL || (typeof window !== 'undefined' && window.location.hostname === 'app.thehirepilot.com' ? 'https://api.thehirepilot.com' : '');
 const apiUrl = (p: string) => `${API_BASE}${p}`;
 
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
+}
+
 export async function listPersonas() {
-  const r = await fetch(apiUrl('/api/personas'), { credentials: 'include' });
+  const headers = await getAuthHeaders();
+  const r = await fetch(apiUrl('/api/personas'), { credentials: 'include', headers });
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
 
 export async function createPersona(body: any) {
+  const headers = { 'Content-Type': 'application/json', ...(await getAuthHeaders()) } as Record<string, string>;
   const r = await fetch(apiUrl('/api/personas'), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     credentials: 'include',
     body: JSON.stringify(body)
   });
@@ -19,9 +33,10 @@ export async function createPersona(body: any) {
 }
 
 export async function updatePersona(id: string, body: any) {
+  const headers = { 'Content-Type': 'application/json', ...(await getAuthHeaders()) } as Record<string, string>;
   const r = await fetch(apiUrl(`/api/personas/${id}`), {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     credentials: 'include',
     body: JSON.stringify(body)
   });
@@ -30,7 +45,8 @@ export async function updatePersona(id: string, body: any) {
 }
 
 export async function deletePersona(id: string) {
-  const r = await fetch(apiUrl(`/api/personas/${id}`), { method: 'DELETE', credentials: 'include' });
+  const headers = await getAuthHeaders();
+  const r = await fetch(apiUrl(`/api/personas/${id}`), { method: 'DELETE', credentials: 'include', headers });
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
