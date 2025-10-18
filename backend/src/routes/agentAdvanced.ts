@@ -24,7 +24,7 @@ const personaSchema = z.object({
   exclude_keywords: z.array(z.string()).optional(),
   locations: z.array(z.string()).optional(),
   channels: z.array(z.string()).optional(),
-  goal_total_leads: z.number().int().nonnegative().optional()
+  goal_total_leads: z.number().int().nonnegative().optional().nullable()
 });
 
 router.post('/api/personas', async (req, res) => {
