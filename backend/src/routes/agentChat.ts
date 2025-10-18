@@ -88,6 +88,59 @@ router.post('/send-message', requireAuthUnified as any, async (req, res) => {
           }
           const addData = await addResp.json().catch(()=>({ inserted: mapped.length }));
           const added = Number(addData?.inserted || (mapped?.length || 0));
+
+          // 3) Mirror to classic campaigns/leads so it appears on /campaigns and /leads
+          try {
+            // Create a classic campaign row
+            const classicTitle = `Persona • ${persona.name}`;
+            const createClassic = await fetch(`${BACKEND_INTERNAL}/api/saveCampaign`, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ user_id: userId, campaignName: classicTitle, status: 'draft' })
+            });
+            let classicCampaignId: string | undefined;
+            if (createClassic.ok) {
+              const classic = await createClassic.json().catch(()=>null);
+              classicCampaignId = classic?.campaign?.id;
+            }
+            // Fallback: direct insert if route unavailable
+            if (!classicCampaignId) {
+              const { data: classicRow, error: classicErr } = await supabaseAdmin
+                .from('campaigns')
+                .insert({ user_id: userId, title: classicTitle, status: 'draft' })
+                .select('id')
+                .single();
+              if (!classicErr && classicRow) classicCampaignId = (classicRow as any).id;
+            }
+
+            if (classicCampaignId) {
+              const leadsForClassic = (leads || []).map((l: any) => ({
+                first_name: l.firstName || '',
+                last_name: l.lastName || '',
+                name: [l.firstName, l.lastName].filter(Boolean).join(' ').trim(),
+                email: l.email || '',
+                title: l.title || '',
+                company: l.company || '',
+                linkedin_url: l.linkedinUrl || null,
+                city: l.city || null,
+                state: l.state || null,
+                country: l.country || null
+              }));
+
+              const importClassic = await fetch(`${BACKEND_INTERNAL}/api/leads/import`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ campaignId: classicCampaignId, leads: leadsForClassic, source: 'apollo', searchCriteria: searchBody })
+              });
+              if (!importClassic.ok) {
+                // Non-fatal; continue
+                const errText = await importClassic.text().catch(()=> '');
+                console.warn('classic import failed', errText);
+              }
+            }
+          } catch (mirrorErr) {
+            console.warn('Mirror to classic campaigns/leads failed (non-fatal):', (mirrorErr as any)?.message || mirrorErr);
+          }
           return res.json({
             message: `Added ${added} new leads (Apollo).`,
             actions: [ { label: 'Start Outreach', value: 'start_outreach' }, { label: 'Add More Filters', value: 'refine' } ],
