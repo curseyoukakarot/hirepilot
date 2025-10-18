@@ -54,13 +54,13 @@ export default function CreateScheduleModal({ open, onClose, defaultPersonaId, d
           <div className="space-y-4">
             <label className="block text-sm text-slate-300">Select Action Type</label>
             <div className="grid grid-cols-2 gap-3">
-              <button className={`p-4 rounded-lg border ${actionType==='source_persona'?'border-primary text-primary bg-primary/10':'border-slate-700 text-slate-300 bg-slate-800'}`} onClick={()=>setActionType('source_persona')}>
-                <div className="font-medium mb-1">Source Leads via Persona</div>
-                <div className="text-xs text-slate-400">Automate sourcing using saved persona filters</div>
+              <button className={`p-4 rounded-lg border transition-colors ${actionType==='source_persona' ? 'border-blue-400 bg-blue-500/10 text-blue-100' : 'border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700/80'}`} onClick={()=>setActionType('source_persona')}>
+                <div className="font-semibold mb-1">Source Leads via Persona</div>
+                <div className="text-xs ${actionType==='source_persona' ? 'text-blue-300' : 'text-slate-400'}`}>Automate sourcing using saved persona filters</div>
               </button>
-              <button className={`p-4 rounded-lg border ${actionType==='launch_campaign'?'border-primary text-primary bg-primary/10':'border-slate-700 text-slate-300 bg-slate-800'}`} onClick={()=>setActionType('launch_campaign')}>
-                <div className="font-medium mb-1">Launch Campaign / Send Sequence</div>
-                <div className="text-xs text-slate-400">Start sending a campaign at a scheduled time</div>
+              <button className={`p-4 rounded-lg border transition-colors ${actionType==='launch_campaign' ? 'border-violet-400 bg-violet-500/10 text-violet-100' : 'border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700/80'}`} onClick={()=>setActionType('launch_campaign')}>
+                <div className="font-semibold mb-1">Launch Campaign / Send Sequence</div>
+                <div className={`text-xs ${actionType==='launch_campaign' ? 'text-violet-300' : 'text-slate-400'}`}>Start sending a campaign at a scheduled time</div>
               </button>
             </div>
             <div className="flex justify-end">
