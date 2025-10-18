@@ -7,6 +7,7 @@ export default function REXConsole() {
   const personaId = new URLSearchParams(location.search).get('persona');
   const [persona, setPersona] = useState(null);
   const [loadingPersona, setLoadingPersona] = useState(false);
+  const [seeded, setSeeded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,6 +45,64 @@ export default function REXConsole() {
   const personaRef = useRef(persona);
   useEffect(() => { personaRef.current = persona; }, [persona]);
   const { sendMessageToRex, triggerAction } = useRexAgent(persona || undefined);
+
+  // When a persona is loaded via URL, seed an initial assistant message and update the banner pill
+  useEffect(() => {
+    if (!persona || seeded) return;
+    try {
+      const chatArea = document.getElementById('chat-area');
+      const container = chatArea?.querySelector('.max-w-4xl');
+      if (!container) return;
+      // remove default welcome message if present
+      const welcome = document.getElementById('welcome-message');
+      if (welcome && welcome.parentNode) welcome.parentNode.removeChild(welcome);
+      const wrapper = document.createElement('div');
+      wrapper.className = 'flex items-start space-x-3';
+      wrapper.innerHTML = `
+        <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">R</div>
+        <div class="flex-1">
+          <div class="bg-gray-800 rounded-2xl p-4 max-w-2xl border border-gray-700">
+            <p class="text-gray-200 leading-relaxed">I'm using your <strong>${persona?.name || ''}</strong> persona. Would you like to start sourcing now or adjust criteria?</p>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <button data-action-value="run_now" class="bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors">Start Now</button>
+              <button data-action-value="adjust_persona" class="bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors">Adjust Persona</button>
+              <button data-action-value="schedule" class="bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors">Schedule</button>
+            </div>
+          </div>
+          <span class="text-xs text-gray-500 mt-1 block">Just now</span>
+        </div>
+      `;
+      container.appendChild(wrapper);
+      wrapper.querySelectorAll('button[data-action-value]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const val = btn.getAttribute('data-action-value') || '';
+          // Reuse existing helpers
+          const chatInput = document.getElementById('chat-input');
+          const typingIndicator = document.getElementById('typing-indicator');
+          const addUserMessageDiv = (message) => {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'flex items-start space-x-3 justify-end';
+            messageDiv.innerHTML = `<div class=\"flex-1 flex justify-end\"><div class=\"bg-blue-600 text-white rounded-2xl p-4 max-w-2xl\"><p class=\"leading-relaxed\">${val}</p></div></div><div class=\"w-8 h-8 bg-gray-600 rounded-full overflow-hidden\"><img src=\"https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg\" alt=\"User\" class=\"w-full h-full object-cover\"></div>`;
+            const c = document.getElementById('chat-area').querySelector('.max-w-4xl');
+            c.appendChild(messageDiv);
+          };
+          addUserMessageDiv(val);
+          if (typingIndicator) typingIndicator.style.display = 'flex';
+          try {
+            const res = await triggerAction(val);
+            if (typingIndicator) typingIndicator.style.display = 'none';
+            const follow = document.createElement('div');
+            follow.className = 'flex items-start space-x-3';
+            follow.innerHTML = `<div class=\"w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-semibold\">R</div><div class=\"flex-1\"><div class=\"bg-gray-800 rounded-2xl p-4 max-w-2xl border border-gray-700\"><p class=\"text-gray-200 leading-relaxed\">${res.message || ''}</p></div><span class=\"text-xs text-gray-500 mt-1 block\">Just now</span></div>`;
+            container.appendChild(follow);
+          } catch {
+            if (typingIndicator) typingIndicator.style.display = 'none';
+          }
+        });
+      });
+      setSeeded(true);
+    } catch {}
+  }, [persona, seeded, triggerAction]);
   useEffect(() => {
     // Chat functionality (wired to DOM nodes by ID as provided)
     const chatInput = document.getElementById('chat-input');
@@ -232,11 +291,20 @@ export default function REXConsole() {
       <header id="console-header" className="border-b border-gray-700 bg-gray-800 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <h1 className="text-xl font-semibold text-white">REX Console</h1>
-          <div id="persona-badge" className="bg-blue-900/50 border border-blue-700 px-3 py-1 rounded-full flex items-center space-x-2">
-            <div className="w-2 h-2 bg-blue-400 rounded-full" />
-            <span className="text-sm font-medium text-blue-300">Persona Active: Senior Software Engineer</span>
-            <span className="bg-blue-800 text-blue-200 px-2 py-0.5 rounded text-xs font-medium">Tech Recruiter</span>
-          </div>
+          {persona ? (
+            <div id="persona-badge" className="bg-blue-900/50 border border-blue-700 px-3 py-1 rounded-full flex items-center space-x-2">
+              <div className="w-2 h-2 bg-blue-400 rounded-full" />
+              <span className="text-sm font-medium text-blue-300">Persona Active: {persona.name}</span>
+              {Array.isArray(persona.titles) && persona.titles[0] && (
+                <span className="bg-blue-800 text-blue-200 px-2 py-0.5 rounded text-xs font-medium">{persona.titles[0]}</span>
+              )}
+            </div>
+          ) : (
+            <div id="persona-badge" className="bg-blue-900/50 border border-blue-700 px-3 py-1 rounded-full flex items-center space-x-2">
+              <div className="w-2 h-2 bg-blue-400 rounded-full" />
+              <span className="text-sm font-medium text-blue-300">No persona loaded. Select a persona from the Personas tab.</span>
+            </div>
+          )}
         </div>
         <div className="flex items-center space-x-2">
           <button className="text-gray-400 hover:text-gray-300 transition-colors">
