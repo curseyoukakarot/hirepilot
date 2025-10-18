@@ -68,6 +68,7 @@ router.post('/send-message', requireAuthUnified as any, async (req, res) => {
       const fakeReq: any = {
         method: 'POST',
         headers: req.headers,
+        path: '/api/agent/send-message',
         body: {
           userId,
           messages: [ { role: 'user', content: String(message || '') } ]

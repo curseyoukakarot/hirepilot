@@ -6,11 +6,12 @@ import fetch from 'node-fetch';
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export default async function rexChat(req: Request, res: Response) {
-  if (req.method !== 'POST') {
+  if ((req as any)?.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { userId, messages, campaign_id, conversationId } = req.body as {
+  const safeBody = (req as any)?.body || {};
+  const { userId, messages, campaign_id, conversationId } = safeBody as {
     userId?: string;
     messages?: { role: 'user' | 'assistant'; content: string }[];
     campaign_id?: string;
@@ -176,7 +177,9 @@ export default async function rexChat(req: Request, res: Response) {
     ];
 
     // Lightweight endpoint: weekly check-in hook (called by cron)
-    if (req.path.endsWith('/rex/checkin') && req.method === 'POST') {
+    const reqPath = String((req as any)?.path || (req as any)?.url || '');
+    const reqMethod = String((req as any)?.method || 'POST');
+    if (reqPath.endsWith('/rex/checkin') && reqMethod === 'POST') {
       try {
         const { data: settings } = await supabase
           .from('user_settings')
