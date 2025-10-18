@@ -86,6 +86,19 @@ export default function PersonasPanel(props: {
               </div>
             </div>
           ))}
+          {/* Ghost CTA Card */}
+          <button
+            onClick={()=>setShowForm(true)}
+            className="rounded-xl border-2 border-dashed border-slate-600 hover:border-blue-400 hover:bg-slate-800/40 transition-colors p-6 flex items-center justify-center text-center"
+          >
+            <div>
+              <div className="w-12 h-12 mx-auto mb-3 rounded-lg bg-slate-700 flex items-center justify-center text-slate-300">
+                <i className="fa-solid fa-plus" />
+              </div>
+              <div className="text-white font-medium">Create Persona</div>
+              <div className="text-slate-400 text-sm">Add another target profile</div>
+            </div>
+          </button>
         </div>
       )}
       {showForm && (
