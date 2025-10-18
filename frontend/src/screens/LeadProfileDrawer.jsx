@@ -21,6 +21,8 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   const [localLead, setLocalLead] = useState(lead);
   const [localCandidate, setLocalCandidate] = useState(lead);
   const lastAppliedRef = useRef(null);
+  // refresh daily LI count when drawer opens
+  useEffect(() => { if (isOpen) { fetchDailyLinkedInCount(); } }, [isOpen]);
   
   // Force remount on entity change to clear stale closures
   const instanceKey = useMemo(
@@ -303,6 +305,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
         },
+        credentials: 'include'
       });
 
       if (response.ok) {
