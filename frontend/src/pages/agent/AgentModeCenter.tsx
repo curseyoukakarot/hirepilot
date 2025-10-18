@@ -73,10 +73,10 @@ export default function AgentModeCenter() {
         <button onClick={() => navigate('/agent/advanced/console')} className={tabStyle(tab === 'console')}>
           💬 REX Console
         </button>
-        <button onClick={() => navigate('/super-admin/sourcing')} className={tabStyle(tab === 'campaigns')}>
+        <button onClick={() => { window.location.href = 'https://app.thehirepilot.com/agent?tab=campaigns'; }} className={tabStyle(tab === 'campaigns')}>
           📦 Campaigns
         </button>
-        <button onClick={() => navigate('/super-admin/inbox')} className={tabStyle(tab === 'inbox')}>
+        <button onClick={() => { window.location.href = 'https://app.thehirepilot.com/agent?tab=inbox'; }} className={tabStyle(tab === 'inbox')}>
           📨 Action Inbox
         </button>
         <button onClick={() => navigate('/agent/advanced/personas')} className={tabStyle(tab === 'personas')}>
