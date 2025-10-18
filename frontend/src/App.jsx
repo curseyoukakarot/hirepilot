@@ -494,8 +494,8 @@ function InnerApp() {
         <main id="app-main" className={
           isRexMobile
             ? 'fixed inset-0 m-0 p-0 min-h-0 overflow-hidden'
-            : `flex-1 transition-all duration-200 ${!isAuthPage && !isPartnerArea && !(location.pathname.startsWith('/accept-guest') || location.pathname === '/signout' || (isGuestUser && (location.pathname.startsWith('/job/') || location.pathname === '/settings'))) ? (location.pathname === '/rex-chat' ? `${sidebarCollapsed ? 'ml-16' : 'ml-64'} min-h-0 overflow-hidden` : `${sidebarCollapsed ? 'ml-16' : 'ml-64'} min-h-0 overflow-y-auto`) : ''}`
-        }>
+            : `flex-1 transition-all duration-200 ${!isAuthPage && !isPartnerArea && !(location.pathname.startsWith('/accept-guest') || location.pathname === '/signout' || (isGuestUser && (location.pathname.startsWith('/job/') || location.pathname === '/settings'))) ? (location.pathname === '/rex-chat' ? `${sidebarCollapsed ? 'ml-16' : 'ml-64'} min-h-0 overflow-hidden` : `${sidebarCollapsed ? 'ml-16' : 'ml-64'} min-h-0 overflow-y-auto overflow-x-auto`) : ''}`
+        } style={location.pathname.startsWith('/agent') ? { WebkitOverflowScrolling: 'touch' } : undefined}>
           {!isAuthPage && <OnboardingModals />}
           <Suspense fallback={
             <div className="flex items-center justify-center w-full h-[50vh]">

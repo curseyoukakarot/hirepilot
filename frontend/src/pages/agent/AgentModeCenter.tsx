@@ -61,7 +61,7 @@ export default function AgentModeCenter() {
   }
 
   return (
-    <div className="p-6 w-full min-h-screen bg-gray-900">
+    <div className="p-6 w-full min-h-screen bg-gray-900 overflow-x-auto overscroll-x-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
       <div className="flex items-start justify-between mb-2">
         <div>
           <h1 className="text-3xl font-bold text-white">Agent Mode Center</h1>
@@ -90,8 +90,8 @@ export default function AgentModeCenter() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 min-w-[900px]">
+        <div className="lg:col-span-2 rounded-xl border border-slate-700 bg-slate-800/50 p-4 overflow-x-visible">
           {tab === 'console' && (
             <REXConsole />
           )}
