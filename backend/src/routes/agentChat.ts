@@ -71,20 +71,23 @@ router.post('/send-message', requireAuthUnified as any, async (req, res) => {
           const searchData = await resp.json().catch(()=>({}));
           const leads = Array.isArray(searchData?.leads) ? searchData.leads : [];
 
-          // 2) Import into campaign with credit handling + counters
-          const importBody = {
-            campaignId: effectiveCampaignId,
-            leads,
-            source: 'apollo',
-            searchCriteria: searchBody
-          };
-          const importResp = await fetch(`${BACKEND_INTERNAL}/api/leads/import`, { method: 'POST', headers, body: JSON.stringify(importBody) });
-          if (!importResp.ok) {
-            const errText = await importResp.text().catch(()=> '');
-            throw new Error(errText || `import failed (${importResp.status})`);
+          // 2) Import into SOURCING campaign (correct FK: sourcing_campaigns -> sourcing_leads)
+          const mapped = leads.map((l: any) => ({
+            name: [l.firstName, l.lastName].filter(Boolean).join(' ').trim() || undefined,
+            title: l.title || undefined,
+            company: l.company || undefined,
+            linkedin_url: l.linkedinUrl || undefined,
+            email: l.email || undefined,
+            domain: undefined
+          }));
+          const addBody = { leads: mapped };
+          const addResp = await fetch(`${BACKEND_INTERNAL}/api/sourcing/campaigns/${effectiveCampaignId}/leads`, { method: 'POST', headers, body: JSON.stringify(addBody) });
+          if (!addResp.ok) {
+            const errText = await addResp.text().catch(()=> '');
+            throw new Error(errText || `sourcing add failed (${addResp.status})`);
           }
-          const importData = await importResp.json().catch(()=>({ imported: leads.length }));
-          const added = Number(importData?.imported || (leads?.length || 0));
+          const addData = await addResp.json().catch(()=>({ inserted: mapped.length }));
+          const added = Number(addData?.inserted || (mapped?.length || 0));
           return res.json({
             message: `Added ${added} new leads (Apollo).`,
             actions: [ { label: 'Start Outreach', value: 'start_outreach' }, { label: 'Add More Filters', value: 'refine' } ],
