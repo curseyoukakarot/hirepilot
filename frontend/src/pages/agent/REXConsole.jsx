@@ -106,14 +106,18 @@ export default function REXConsole() {
       container.appendChild(wrapper);
       // Bind buttons to simulate user selection
       wrapper.querySelectorAll('button[data-action-value]').forEach(btn => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', async () => {
           const val = btn.getAttribute('data-action-value') || '';
           addUserMessage(val);
           showTypingIndicator();
-          setTimeout(() => {
+          try {
+            const res = await triggerAction(val);
             hideTypingIndicator();
-            addREXResponse('Noted. I will prepare the next step.');
-          }, 900);
+            addREXResponseWithActions({ message: res.message, actions: res.actions });
+          } catch (e) {
+            hideTypingIndicator();
+            addREXResponse('Understood. How would you like to proceed?');
+          }
         });
       });
       scrollToBottom();
@@ -358,6 +362,7 @@ Sourcing Channels:
                   <div className="w-2 h-2 bg-gray-400 rounded-full typing-indicator" style={{ animationDelay: '0.2s' }} />
                   <div className="w-2 h-2 bg-gray-400 rounded-full typing-indicator" style={{ animationDelay: '0.4s' }} />
                 </div>
+                <div className="text-xs text-gray-400 mt-2">REX is thinking…</div>
               </div>
             </div>
           </div>
