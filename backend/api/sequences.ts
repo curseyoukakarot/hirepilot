@@ -373,7 +373,9 @@ router.post('/sequences/:id/enroll', requireAuth, async (req: ApiRequest, res) =
                 title: sLead.title || null,
                 company: sLead.company || null,
                 linkedin_url: sLead.linkedin_url || null,
-                campaign_id: sLead.campaign_id || null,
+                // Important: leads.campaign_id references classic campaigns, not sourcing_campaigns
+                // Avoid FK violation by leaving null (we can attach later when a classic campaign is chosen)
+                campaign_id: null,
                 source: 'sourcing_campaign'
               };
               const { data: created, error: createErr } = await supabaseDb
@@ -415,26 +417,11 @@ router.post('/sequences/:id/enroll', requireAuth, async (req: ApiRequest, res) =
         enrollmentId = ins.id;
       } else {
         enrollmentId = existing.id;
-        // If lead existed but had no campaign_id, try to populate from sourcing_leads
+        // If lead existed but had no campaign_id, previously attempted to copy from sourcing_leads.campaign_id
+        // That value points to sourcing_campaigns and violates the leads.campaign_id FK to campaigns.
+        // Skip this backfill to avoid FK errors; classic campaign association can be added explicitly elsewhere.
         try {
-          const { data: leadRow } = await supabaseDb
-            .from('leads')
-            .select('campaign_id')
-            .eq('id', enrollmentId ? (existing as any).lead_id || resolvedLeadId : resolvedLeadId as string)
-            .maybeSingle();
-          if (leadRow && !leadRow.campaign_id) {
-            const { data: src } = await supabaseDb
-              .from('sourcing_leads')
-              .select('campaign_id')
-              .eq('id', leadId)
-              .maybeSingle();
-            if (src?.campaign_id) {
-              await supabaseDb
-                .from('leads')
-                .update({ campaign_id: src.campaign_id })
-                .eq('id', (existing as any).lead_id || resolvedLeadId);
-            }
-          }
+          // no-op backfill
         } catch {}
         // Update provider if specified
         if (provider) {
