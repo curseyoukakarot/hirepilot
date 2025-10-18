@@ -26,14 +26,16 @@ router.post('/', makeRateLimiter({ keyPrefix: 'rl:session:set', windowSec: 60, m
     }
 
     const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production';
+    const baseDomain = process.env.COOKIE_BASE_DOMAIN || '.thehirepilot.com';
     const cookieOpts = {
       httpOnly: true,
       secure: isProd,
-      sameSite: 'strict' as const,
+      sameSite: 'none' as const, // allow cross-site requests from app → api
       path: '/',
+      domain: isProd ? baseDomain : undefined,
       // Optional: align cookie lifetime with token expiry if desired
       // maxAge: 60 * 60 * 24,
-    };
+    } as const;
 
     res.cookie('hp_session', access_token, cookieOpts);
     res.status(200).json({ ok: true });
@@ -45,7 +47,9 @@ router.post('/', makeRateLimiter({ keyPrefix: 'rl:session:set', windowSec: 60, m
 // DELETE /api/auth/session -> clear cookie
 router.delete('/', makeRateLimiter({ keyPrefix: 'rl:session:del', windowSec: 60, max: 20 }), async (_req, res) => {
   try {
-    res.clearCookie('hp_session', { path: '/' });
+    const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production';
+    const baseDomain = process.env.COOKIE_BASE_DOMAIN || '.thehirepilot.com';
+    res.clearCookie('hp_session', { path: '/', domain: isProd ? baseDomain : undefined });
     res.status(200).json({ ok: true });
   } catch {
     res.status(500).json({ error: 'Failed to clear session' });
