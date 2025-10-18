@@ -93,7 +93,7 @@ export async function addLeads(campaignId: string, leads: any[], options?: { sou
     console.warn('[sourcing.addLeads] non-fatal activation error:', e);
   }
 
-  // Optional: deduct credits if these leads originated from Apollo via REX or campaign wizard
+  // Optional: deduct credits if these leads originated from Apollo or LinkedIn via REX or campaign wizard
   try {
     if (options?.source === 'apollo' && options?.userId) {
       const { CreditService } = await import('../../services/creditService');
@@ -103,7 +103,7 @@ export async function addLeads(campaignId: string, leads: any[], options?: { sou
         options.userId,
         payload.length * 1,
         'api_usage',
-        `Apollo import: ${payload.length} leads added to sourcing campaign ${campaignId} (1 credit/lead)`
+        `${String(options.source).toUpperCase()} import: ${payload.length} leads added to sourcing campaign ${campaignId} (1 credit/lead)`
       );
     }
   } catch (e) {
