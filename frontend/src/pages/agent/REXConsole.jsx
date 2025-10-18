@@ -347,10 +347,13 @@ export default function REXConsole() {
         </div>
       </div>
 
-      {/* Quick Actions (below persona banner, above messages) */}
-      <div className="px-6 pt-3">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center space-x-3 whitespace-nowrap">
+      {/* Scroll wrapper for actions + chat + input (mobile pan) */}
+      <div id="rex-scroll" className="overflow-x-auto overscroll-x-contain scroll-smooth" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <div className="min-w-[900px]">
+          {/* Quick Actions (below persona banner, above messages) */}
+          <div className="px-6 pt-3">
+            <div className="max-w-4xl mx-auto">
+              <div className="flex items-center space-x-3 whitespace-nowrap">
             <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2">
               <i className="fa-solid fa-play" />
               <span>Run Now – Source Leads</span>
@@ -363,13 +366,13 @@ export default function REXConsole() {
               <i className="fa-solid fa-calendar-plus" />
               <span>Schedule Automation</span>
             </button>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* Mobile horizontal pan wrapper around chat + wide content */}
-      <div className="flex-1 px-6 py-6 overflow-x-auto overscroll-x-contain scroll-smooth" style={{ WebkitOverflowScrolling: 'touch' }}>
-        <div id="chat-area" className="max-w-4xl mx-auto space-y-6">
+          {/* Chat area */}
+          <div className="flex-1 px-6 py-6">
+            <div id="chat-area" className="max-w-4xl mx-auto space-y-6">
           <div id="welcome-message" className="flex items-start space-x-3">
             <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">R</div>
             <div className="flex-1">
@@ -438,12 +441,13 @@ Sourcing Channels:
               </div>
             </div>
           </div>
-        </div>
-      </div>
+            </div>
+          </div>
 
-      <div id="quick-actions" className="border-t border-gray-700 bg-gray-800 px-6 py-3">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center space-x-3 whitespace-nowrap overflow-x-auto overscroll-x-contain scroll-smooth" style={{ WebkitOverflowScrolling: 'touch' }}>
+          {/* Bottom quick actions bar */}
+          <div id="quick-actions" className="border-t border-gray-700 bg-gray-800 px-6 py-3">
+            <div className="max-w-4xl mx-auto">
+              <div className="flex items-center space-x-3 whitespace-nowrap overflow-x-auto overscroll-x-contain scroll-smooth" style={{ WebkitOverflowScrolling: 'touch' }}>
             <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2">
               <i className="fa-solid fa-play" />
               <span>Run Campaign</span>
@@ -460,12 +464,13 @@ Sourcing Channels:
               <i className="fa-solid fa-chart-line" />
               <span>Analytics</span>
             </button>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      <div id="input-bar" className="sticky bottom-0 z-20 border-t border-gray-700 bg-gray-800 px-6 py-4">
-        <div className="max-w-4xl mx-auto">
+          {/* Input bar */}
+          <div id="input-bar" className="sticky bottom-0 z-20 border-t border-gray-700 bg-gray-800 px-6 py-4">
+            <div className="max-w-4xl mx-auto">
           <div className="flex items-center space-x-3 bg-gray-700 border border-gray-600 rounded-xl p-3 focus-within:border-blue-500 transition-colors">
             <button className="text-gray-400 hover:text-gray-300 transition-colors">
               <i className="fa-solid fa-paperclip" />
@@ -483,6 +488,8 @@ Sourcing Channels:
           <div className="flex items-center justify-between mt-2">
             <span className="text-xs text-gray-500">Press Enter to send, Shift+Enter for new line</span>
             <span className="text-xs text-gray-500">Powered by REX AI</span>
+          </div>
+            </div>
           </div>
         </div>
       </div>
