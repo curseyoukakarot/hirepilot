@@ -1,4 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { listPersonas } from '../../lib/api/personas';
+import { supabase } from '../../lib/supabaseClient';
 
 type Props = {
   open: boolean;
@@ -9,11 +11,18 @@ type Props = {
 };
 
 export default function CreateScheduleModal({ open, onClose, defaultPersonaId, defaultActionTool, defaultToolPayload }: Props) {
-  const personas = useMemo(() => ([
-    { id: 'p-recruiter', name: 'Recruiter Pro' },
-    { id: 'p-sourcer', name: 'Sourcing Specialist' },
-    { id: 'p-sales', name: 'Sales SDR' }
-  ]), []);
+  const [personas, setPersonas] = useState<any[]>([]);
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      try {
+        const data = await listPersonas();
+        setPersonas(Array.isArray(data) ? data : []);
+      } catch {
+        setPersonas([]);
+      }
+    })();
+  }, [open]);
   const campaigns = useMemo(() => ([
     { id: 'camp-1', name: 'AE NYC • Fall' },
     { id: 'camp-2', name: 'React Devs • Q4' }
@@ -21,7 +30,12 @@ export default function CreateScheduleModal({ open, onClose, defaultPersonaId, d
 
   const [step, setStep] = useState<number>(1);
   const [actionType, setActionType] = useState<'source_persona' | 'launch_campaign'>(() => defaultActionTool ? 'source_persona' : 'source_persona');
-  const [personaId, setPersonaId] = useState<string>(defaultPersonaId || 'p-recruiter');
+  const [personaId, setPersonaId] = useState<string>(defaultPersonaId || '');
+  useEffect(() => {
+    if (!defaultPersonaId && personas.length > 0 && !personaId) {
+      setPersonaId(personas[0].id);
+    }
+  }, [personas, defaultPersonaId, personaId]);
   const [campaignId, setCampaignId] = useState<string>('camp-1');
   const [timingMode, setTimingMode] = useState<'one_time' | 'recurring'>('one_time');
   const [oneTimeDate, setOneTimeDate] = useState<string>('');
@@ -75,6 +89,7 @@ export default function CreateScheduleModal({ open, onClose, defaultPersonaId, d
               <div>
                 <label className="block text-sm text-slate-300 mb-1">Persona</label>
                 <select value={personaId} onChange={(e)=>setPersonaId(e.target.value)} className="w-full bg-slate-800 text-white rounded px-3 py-2">
+                  {personas.length === 0 && (<option value="" disabled>No personas available</option>)}
                   {personas.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </div>
@@ -159,7 +174,11 @@ export default function CreateScheduleModal({ open, onClose, defaultPersonaId, d
                     }
                     if (timingMode === 'recurring') body.cron_expr = '0 9 * * 1,3';
                     else body.run_at = new Date().toISOString();
-                    const resp = await fetch('/api/schedules', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body) });
+                    const API_BASE = (typeof window !== 'undefined' && (window as any).__HP_API_BASE__) || (import.meta as any)?.env?.VITE_API_BASE_URL || (typeof window !== 'undefined' && window.location.hostname === 'app.thehirepilot.com' ? 'https://api.thehirepilot.com' : '');
+                    const apiUrl = (p: string) => `${API_BASE}${p}`;
+                    const { data: { session } } = await supabase.auth.getSession();
+                    const token = session?.access_token;
+                    const resp = await fetch(apiUrl('/api/schedules'), { method:'POST', headers:{ 'Content-Type':'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, credentials:'include', body: JSON.stringify(body) });
                     if (resp.ok) {
                       onClose();
                       window.location.href = '/agent/advanced/schedules';
