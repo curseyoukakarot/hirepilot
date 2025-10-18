@@ -350,7 +350,7 @@ export default function REXConsole() {
       {/* Quick Actions (below persona banner, above messages) */}
       <div className="px-6 pt-3">
         <div className="max-w-4xl mx-auto">
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-3 whitespace-nowrap">
             <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2">
               <i className="fa-solid fa-play" />
               <span>Run Now – Source Leads</span>
@@ -367,8 +367,9 @@ export default function REXConsole() {
         </div>
       </div>
 
-      <div id="chat-area" className="flex-1 overflow-y-auto px-6 py-6">
-        <div className="max-w-4xl mx-auto space-y-6">
+      {/* Mobile horizontal pan wrapper around chat + wide content */}
+      <div className="flex-1 px-6 py-6 overflow-x-auto overscroll-x-contain scroll-smooth" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <div id="chat-area" className="max-w-4xl mx-auto space-y-6">
           <div id="welcome-message" className="flex items-start space-x-3">
             <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">R</div>
             <div className="flex-1">
@@ -442,7 +443,7 @@ Sourcing Channels:
 
       <div id="quick-actions" className="border-t border-gray-700 bg-gray-800 px-6 py-3">
         <div className="max-w-4xl mx-auto">
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-3 whitespace-nowrap overflow-x-auto overscroll-x-contain scroll-smooth" style={{ WebkitOverflowScrolling: 'touch' }}>
             <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2">
               <i className="fa-solid fa-play" />
               <span>Run Campaign</span>
