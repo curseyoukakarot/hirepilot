@@ -273,7 +273,7 @@ export default function ActionInbox() {
               {stats.unread > 0 ? `${stats.unread} unread notifications` : 'All caught up!'}
             </p>
             </div>
-          
+          </div>
           <div className="flex items-center space-x-4">
             {stats.unread > 0 && (
               <button
