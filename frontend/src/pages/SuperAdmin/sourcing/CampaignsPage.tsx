@@ -120,12 +120,23 @@ export default function CampaignsPage() {
     <div className="p-6 bg-gray-900 min-h-screen">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => { window.location.href = '/agent/advanced/console'; }}
+            className="inline-flex items-center px-3 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white"
+            title="Back to Agent Mode"
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Back
+          </button>
+          <div>
           <h1 className="text-2xl text-white font-bold">Sourcing Campaigns</h1>
           <p className="text-gray-400 mt-1">
             Manage AI-powered sourcing campaigns and track performance
           </p>
-        </div>
+          </div>
         <div className="flex items-center space-x-3">
           {/* Agent Mode quick toggle */}
           <AgentModeSwitch />
