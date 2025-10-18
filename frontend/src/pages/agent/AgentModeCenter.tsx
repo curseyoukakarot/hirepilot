@@ -15,25 +15,28 @@ export default function AgentModeCenter() {
   const { isFree, role } = usePlan() as any;
   const navigate = useNavigate();
   const location = useLocation();
-  const [tab, setTab] = useState<'console' | 'personas' | 'schedules' | 'campaigns' | 'inbox'>(() => {
-    const path = location.pathname;
+  const deriveTabFromLocation = (): 'console' | 'personas' | 'schedules' | 'campaigns' | 'inbox' => {
+    const path = location.pathname || '';
+    const search = new URLSearchParams(location.search || '');
+    const qTab = (search.get('tab') || '').toLowerCase();
+    if (qTab === 'campaigns') return 'campaigns';
+    if (qTab === 'inbox') return 'inbox';
+    if (qTab === 'personas') return 'personas';
+    if (qTab === 'schedules') return 'schedules';
     if (path.startsWith('/agent/advanced/campaigns')) return 'campaigns';
     if (path.startsWith('/agent/advanced/inbox')) return 'inbox';
     if (path.startsWith('/agent/advanced/personas')) return 'personas';
     if (path.startsWith('/agent/advanced/schedules')) return 'schedules';
     return 'console';
-  });
+  };
+
+  const [tab, setTab] = useState<'console' | 'personas' | 'schedules' | 'campaigns' | 'inbox'>(() => deriveTabFromLocation());
   const [showCreateSchedule, setShowCreateSchedule] = useState(false);
   const [modalPersonaId, setModalPersonaId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    const path = location.pathname;
-    if (path.startsWith('/agent/advanced/campaigns')) setTab('campaigns');
-    else if (path.startsWith('/agent/advanced/inbox')) setTab('inbox');
-    if (path.startsWith('/agent/advanced/personas')) setTab('personas');
-    else if (path.startsWith('/agent/advanced/schedules')) setTab('schedules');
-    else setTab('console');
-  }, [location.pathname]);
+    setTab(deriveTabFromLocation());
+  }, [location.pathname, location.search]);
 
   const tabStyle = (active: boolean) =>
     `px-4 py-2 rounded-full font-medium transition-colors text-sm ${
@@ -73,10 +76,10 @@ export default function AgentModeCenter() {
         <button onClick={() => navigate('/agent/advanced/console')} className={tabStyle(tab === 'console')}>
           💬 REX Console
         </button>
-        <button onClick={() => { window.location.href = 'https://app.thehirepilot.com/agent?tab=campaigns'; }} className={tabStyle(tab === 'campaigns')}>
+        <button onClick={() => navigate('/agent/advanced/campaigns')} className={tabStyle(tab === 'campaigns')}>
           📦 Campaigns
         </button>
-        <button onClick={() => { window.location.href = 'https://app.thehirepilot.com/agent?tab=inbox'; }} className={tabStyle(tab === 'inbox')}>
+        <button onClick={() => navigate('/agent/advanced/inbox')} className={tabStyle(tab === 'inbox')}>
           📨 Action Inbox
         </button>
         <button onClick={() => navigate('/agent/advanced/personas')} className={tabStyle(tab === 'personas')}>
