@@ -56,7 +56,20 @@ export default function PersonasPanel(props: {
                 <button className="text-slate-500 hover:text-slate-300"><i className="fa-solid fa-ellipsis-h" /></button>
               </div>
               <h3 className="font-semibold text-white mb-3">{p.name}</h3>
-              <div className="flex flex-wrap gap-1 mb-3">{(p.titles||[]).slice(0,3).map((t:string)=>(<span key={t} className="px-2 py-1 bg-blue-500/20 text-blue-300 rounded-full text-xs">{t}</span>))}</div>
+              <div className="flex flex-wrap gap-1 mb-3">
+                {(p.titles||[]).slice(0,3).map((t:string, idx:number)=>{
+                  const palette = [
+                    { bg: 'bg-blue-500/20', text: 'text-blue-300' },
+                    { bg: 'bg-emerald-500/20', text: 'text-emerald-300' },
+                    { bg: 'bg-violet-500/20', text: 'text-violet-300' },
+                    { bg: 'bg-amber-500/20', text: 'text-amber-300' }
+                  ];
+                  const c = palette[idx % palette.length];
+                  return (
+                    <span key={t} className={`px-2 py-1 ${c.bg} ${c.text} rounded-full text-xs`}>{t}</span>
+                  );
+                })}
+              </div>
               <div className="flex items-center text-sm text-slate-400 mb-4"><i className="fa-solid fa-location-dot w-4 mr-2" /><span>{(p.locations||[]).slice(0,3).join(', ')||'Any'}</span></div>
               <div className="border-t border-slate-700 pt-4">
                 <div className="grid grid-cols-2 gap-2 mb-3">
