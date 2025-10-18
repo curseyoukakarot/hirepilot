@@ -290,9 +290,9 @@ export async function sourceLeads({
       // 3) Deduct credits and log
       try {
         const { CreditService } = await import('../services/creditService');
-        // 2 credits per lead for Apollo house account sourcing
-        const totalCost = normalizedLeads.length * 2;
-        await CreditService.deductCredits(userId, totalCost, 'api_usage', `REX sourcing (Apollo): ${normalizedLeads.length} leads → ${totalCost} credits (2 per lead)`);
+        // 1 credit per lead for Apollo house account sourcing (updated policy)
+        const totalCost = normalizedLeads.length * 1;
+        await CreditService.deductCredits(userId, totalCost, 'api_usage', `REX sourcing (Apollo): ${normalizedLeads.length} leads → ${totalCost} credits (1 per lead)`);
       } catch (creditErr) {
         console.error('[sourceLeads] credit deduction failed (non-fatal):', creditErr);
       }

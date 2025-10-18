@@ -48,14 +48,14 @@ router.post('/rex/conversations', requireAuth as any, async (req, res) => {
       .single();
     if (error) { res.status(400).json({ error: error.message }); return; }
 
-    // prune non-archived by updated_at after top 15, excluding pinned
+    // prune non-archived by updated_at after top 5, excluding pinned
     const { data: toPrune } = await supabase
       .from('rex_conversations')
       .select('id, pinned')
       .eq('user_id', userId)
       .eq('archived', false)
       .order('updated_at', { ascending: false })
-      .range(15, 999);
+      .range(5, 999);
 
     const deletable = (toPrune || []).filter(c => !c.pinned).map(c => c.id);
     if (deletable.length) {
@@ -89,7 +89,7 @@ router.get('/rex/conversations', requireAuth as any, async (req, res) => {
       .eq('pinned', false)
       .eq('archived', false)
       .order('updated_at', { ascending: false })
-      .limit(15);
+      .limit(5);
 
     res.json({ conversations: [ ...(pinned || []), ...(recent || []) ] as RexConversation[] });
   } catch (e: any) {
@@ -101,11 +101,21 @@ router.get('/rex/conversations', requireAuth as any, async (req, res) => {
 router.get('/rex/conversations/:id/messages', requireAuth as any, async (req, res) => {
   try {
     const supabase = supabaseForRequest(req);
+    const userId = (req as any).user?.id as string;
     const { id } = req.params as { id: string };
+    // Ensure the conversation belongs to the authenticated user
+    const { data: conv } = await supabase
+      .from('rex_conversations')
+      .select('id,user_id')
+      .eq('id', id)
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (!conv) { res.status(404).json({ error: 'Conversation not found' }); return; }
     const { data, error } = await supabase
       .from('rex_messages')
       .select('*')
       .eq('conversation_id', id)
+      .eq('user_id', userId)
       .order('created_at', { ascending: true });
     if (error) { res.status(400).json({ error: error.message }); return; }
     res.json({ messages: (data || []) as RexMessage[] });
@@ -121,6 +131,15 @@ router.post('/rex/conversations/:id/messages', requireAuth as any, async (req, r
     const supabase = supabaseForRequest(req);
     const { id } = req.params as { id: string };
     const { role, content } = req.body as { role: RexMessage['role']; content: any };
+
+    // Guard: Only allow writing to your own conversation
+    const { data: conv } = await supabase
+      .from('rex_conversations')
+      .select('id,user_id')
+      .eq('id', id)
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (!conv) { res.status(404).json({ error: 'Conversation not found' }); return; }
 
     const { data, error } = await supabase
       .from('rex_messages')

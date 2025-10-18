@@ -80,7 +80,7 @@ router.post('/send-message', requireAuthUnified as any, async (req, res) => {
             email: l.email || undefined,
             domain: undefined
           }));
-          const addBody = { leads: mapped };
+          const addBody = { leads: mapped, source: 'apollo' };
           const addResp = await fetch(`${BACKEND_INTERNAL}/api/sourcing/campaigns/${effectiveCampaignId}/leads`, { method: 'POST', headers, body: JSON.stringify(addBody) });
           if (!addResp.ok) {
             const errText = await addResp.text().catch(()=> '');
@@ -142,7 +142,7 @@ router.post('/send-message', requireAuthUnified as any, async (req, res) => {
             console.warn('Mirror to classic campaigns/leads failed (non-fatal):', (mirrorErr as any)?.message || mirrorErr);
           }
           return res.json({
-            message: `Added ${added} new leads (Apollo).`,
+            message: `Added ${added} new leads (Apollo). Charged ${added} credits (1/lead).`,
             actions: [ { label: 'Start Outreach', value: 'start_outreach' }, { label: 'Add More Filters', value: 'refine' } ],
           });
         } catch (e: any) {

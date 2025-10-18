@@ -107,11 +107,11 @@ export function useRexWidget(options?: UseRexWidgetOptions) {
     };
   }, []);
 
-  // persist per scope+id, keep last 15
+  // persist per scope+id, keep last 5
   useEffect(() => {
     try {
       const key = storageKeyForThread(scopeRef.current, null);
-      localStorage.setItem(key, JSON.stringify(messages.slice(-15)));
+      localStorage.setItem(key, JSON.stringify(messages.slice(-5)));
     } catch {}
   }, [messages]);
 

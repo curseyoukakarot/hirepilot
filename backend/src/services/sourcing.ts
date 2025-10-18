@@ -97,13 +97,13 @@ export async function addLeads(campaignId: string, leads: any[], options?: { sou
   try {
     if (options?.source === 'apollo' && options?.userId) {
       const { CreditService } = await import('../../services/creditService');
-      // Charge 2 credits per lead for Apollo-sourced leads
-      await CreditService.useCreditsEffective(options.userId, payload.length * 2);
+      // Charge 1 credit per lead for Apollo-sourced leads
+      await CreditService.useCreditsEffective(options.userId, payload.length * 1);
       await CreditService.logCreditUsage(
         options.userId,
-        payload.length * 2,
+        payload.length * 1,
         'api_usage',
-        `Apollo import: ${payload.length} leads added to sourcing campaign ${campaignId} (2 credits/lead)`
+        `Apollo import: ${payload.length} leads added to sourcing campaign ${campaignId} (1 credit/lead)`
       );
     }
   } catch (e) {

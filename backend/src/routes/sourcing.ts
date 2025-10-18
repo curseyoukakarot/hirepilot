@@ -78,10 +78,11 @@ router.post('/campaigns/:id/leads', requireAuth, async (req: ApiRequest, res: Re
         linkedin_url: z.string().url().optional(),
         email: z.string().email().optional(),
         domain: z.string().optional()
-      })).min(1)
+      })).min(1),
+      source: z.enum(['apollo','linkedin']).optional()
     }).parse(req.body);
     
-    const result = await addLeads(id, body.leads);
+    const result = await addLeads(id, body.leads, { source: body.source, userId: req.user?.id });
     return res.json(result);
   } catch (error: any) {
     console.error('Error adding leads:', error);
