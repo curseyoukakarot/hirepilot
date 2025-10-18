@@ -24,6 +24,16 @@ export function useRexAgent(persona?: Persona) {
   const defaultBase = host === 'app.thehirepilot.com' ? 'https://api.thehirepilot.com' : '';
   const API_BASE = (typeof window !== 'undefined' && (window as any).__HP_API_BASE__) || (import.meta as any)?.env?.VITE_API_BASE_URL || defaultBase;
   const apiUrl = (path: string) => `${API_BASE}${path}`;
+  const getAuthHeaders = async (): Promise<Record<string,string>> => {
+    try {
+      const { supabase } = await import('../lib/supabaseClient');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      return token ? { Authorization: `Bearer ${token}` } : {};
+    } catch {
+      return {};
+    }
+  };
   const sendMessageToRex = async (message: string): Promise<RexReply> => {
     try {
       // 1) Slash commands shortcut (front-end only hint)
@@ -46,9 +56,10 @@ export function useRexAgent(persona?: Persona) {
       // 2) Call backend chat endpoint (persona-aware)
       const body: any = { message };
       if (persona?.id) body.personaId = persona.id;
+      const headers = await getAuthHeaders();
       const resp = await fetch(apiUrl('/api/agent/send-message'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify(body),
         credentials: 'include'
       });
@@ -62,9 +73,10 @@ export function useRexAgent(persona?: Persona) {
 
   const triggerAction = async (value: string, args?: any): Promise<RexReply> => {
     try {
+      const headers = await getAuthHeaders();
       const resp = await fetch(apiUrl('/api/agent/send-message'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify({ action: value, personaId: persona?.id, args: args || {} }),
         credentials: 'include'
       });
