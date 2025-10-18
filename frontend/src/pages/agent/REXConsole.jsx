@@ -357,12 +357,7 @@ Sourcing Channels:
             <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">R</div>
             <div className="flex-1">
               <div className="bg-gray-800 rounded-2xl p-4 max-w-xs border border-gray-700">
-                <div className="flex space-x-1">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full typing-indicator" />
-                  <div className="w-2 h-2 bg-gray-400 rounded-full typing-indicator" style={{ animationDelay: '0.2s' }} />
-                  <div className="w-2 h-2 bg-gray-400 rounded-full typing-indicator" style={{ animationDelay: '0.4s' }} />
-                </div>
-                <div className="text-xs text-gray-400 mt-2">REX is thinking…</div>
+                <div className="w-2 h-4 bg-gray-300 rounded-sm" style={{ animation: 'rex-blink 1s steps(1,end) infinite' }} />
               </div>
             </div>
           </div>
@@ -414,6 +409,9 @@ Sourcing Channels:
           </div>
         </div>
       </div>
+      <style>{`
+        @keyframes rex-blink { 0%,49% { opacity: 1 } 50%,100% { opacity: 0 } }
+      `}</style>
     </div>
   );
 }
