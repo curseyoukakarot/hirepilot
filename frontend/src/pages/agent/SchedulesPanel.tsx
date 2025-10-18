@@ -76,7 +76,7 @@ export default function SchedulesPanel(props: {
                       <input type="checkbox" className="sr-only peer" defaultChecked onChange={async (e)=>{
                         try { await updateSchedule(s.id, { status: e.target.checked ? 'active' : 'paused' }); } catch {}
                       }} />
-                      <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                      <div className="w-11 h-6 rounded-full bg-gray-500/40 peer-checked:bg-green-500 transition-colors peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
                     </label>
                     <button className="text-slate-400 hover:text-slate-300" onClick={async ()=>{ try { await deleteSchedule(s.id); setItems(items.filter(i=>i.id!==s.id)); } catch {} }}>
                       <i className="fa-solid fa-trash" />
