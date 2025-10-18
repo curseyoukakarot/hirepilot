@@ -538,6 +538,8 @@ function InnerApp() {
                 <Route path="inbox" element={<ActionInboxDrawer />} />
                 {/* Advanced Agent Mode routes */}
                 <Route path="advanced/console" element={<div className="p-0" />} />
+                <Route path="advanced/campaigns" element={<div className="p-0" />} />
+                <Route path="advanced/inbox" element={<div className="p-0" />} />
                 <Route path="advanced/personas" element={<div className="p-0" />} />
                 <Route path="advanced/schedules" element={<div className="p-0" />} />
               </Route>
