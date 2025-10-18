@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { buildSourcingQuery } from '../lib/personaMapper';
-import { dedupeLeadsForUser } from '../lib/dedupe';
+import { searchAndEnrichPeople } from '../../utils/apolloApi';
+import { addLeads } from '../services/sourcing';
 
 export const sourcingRunPersonaTool = {
   name: 'sourcing.run_persona',
@@ -42,7 +43,7 @@ export const sourcingRunPersonaTool = {
       goal_total_leads: persona.goal_total_leads || 0
     } as any);
 
-    // 3) Run real Apollo search via existing pipeline and import into campaign
+    // 3) Ensure sourcing campaign
     let effectiveCampaignId = campaignId;
     if (!effectiveCampaignId) {
       // Create a lightweight campaign shell for persona run
@@ -54,28 +55,40 @@ export const sourcingRunPersonaTool = {
       if (cErr) throw new Error(cErr.message);
       effectiveCampaignId = (campRow as any).id;
     }
-
-    // Use the server's internal route to leverage auth + utilities
-    const BACKEND_INTERNAL = process.env.BACKEND_INTERNAL_URL || process.env.BACKEND_URL || 'http://127.0.0.1:8080';
-    const searchPayload = {
-      campaignId: effectiveCampaignId,
-      limit: batchSize,
-      searchParams: {
-        person_titles: (targeting.title_query || []).join(' OR ') || undefined,
-        q_keywords: (targeting.keyword_includes || []).join(' '),
-        exclude_keywords: (targeting.keyword_excludes || []).join(' '),
-        locations: targeting.locations || []
-      }
-    } as any;
-    try {
-      await fetch(`${BACKEND_INTERNAL}/api/leads/apollo/search`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
-        body: JSON.stringify(searchPayload)
-      });
-    } catch (err: any) {
-      console.error('sourcing.run_persona -> apollo/search failed', err?.message || err);
+    // 4) Resolve Apollo API key
+    let apiKey: string | undefined = process.env.SUPER_ADMIN_APOLLO_API_KEY || undefined;
+    if (!apiKey) {
+      const { data: settings } = await supabaseAdmin
+        .from('user_settings')
+        .select('apollo_api_key')
+        .eq('user_id', userId)
+        .maybeSingle();
+      apiKey = (settings as any)?.apollo_api_key || undefined;
     }
+    if (!apiKey) {
+      throw new Error('Apollo not configured for this workspace');
+    }
+
+    // 5) Search + enrich via Apollo
+    const { leads: apolloLeads } = await searchAndEnrichPeople({
+      api_key: apiKey,
+      person_titles: (targeting.title_query || []).length ? [ (targeting.title_query || []).join(' OR ') ] : undefined,
+      person_locations: (targeting.locations || []).length ? [ (targeting.locations || [])[0] ] : undefined,
+      q_keywords: (targeting.keyword_includes || []).join(' ') || undefined,
+      page: 1,
+      per_page: Math.min(Math.max(batchSize || 25, 1), 100)
+    } as any);
+
+    const mappedLeads = (apolloLeads || []).map((l: any) => ({
+      name: [l.firstName, l.lastName].filter(Boolean).join(' ').trim() || undefined,
+      title: l.title || undefined,
+      company: l.company || undefined,
+      linkedin_url: l.linkedinUrl || undefined,
+      email: l.email || undefined
+    }));
+
+    // 6) Insert into sourcing_leads and handle credits
+    const addResult = await addLeads(effectiveCampaignId!, mappedLeads, { source: 'apollo', userId });
 
     // 6) Optionally auto-send (V1: just log stub)
     let sendStatus: string | undefined;
@@ -84,7 +97,7 @@ export const sourcingRunPersonaTool = {
     }
 
     const summary = {
-      added_count: batchSize, // approximate; UI displays summary
+      added_count: Number((addResult as any)?.inserted || mappedLeads.length),
       skipped_duplicates: 0,
       campaign_id: effectiveCampaignId,
       auto_send: autoSend,
