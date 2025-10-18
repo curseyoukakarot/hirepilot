@@ -171,6 +171,17 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
 
     console.log(`[LeadEnrich] Starting enrichment for lead: ${lead.first_name} ${lead.last_name}`);
 
+    // Require user to have at least 1 credit before running enrichment providers
+    try {
+      const hasCredits = await CreditService.hasSufficientCredits(userId, 1);
+      if (!hasCredits) {
+        return res.status(402).json({ success: false, message: 'Insufficient credits for enrichment', required: 1 });
+      }
+    } catch (e) {
+      // Non-fatal: if credit service is unavailable, allow attempt but still try to deduct on success
+      console.warn('[LeadEnrich] Credit pre-check failed (continuing):', (e as any)?.message || e);
+    }
+
     let enrichmentData: any = {};
     let enrichmentSource = 'none';
     let errorMessages: string[] = [];
@@ -421,6 +432,20 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
     }
 
     console.log(`[LeadEnrich] Enrichment completed. Source: ${enrichmentSource}`);
+
+    // Deduct 1 credit only if we obtained any enrichment (source != none)
+    if (enrichmentSource !== 'none') {
+      try {
+        await CreditService.deductCredits(
+          userId as string,
+          1,
+          'api_usage',
+          `Profile enrichment: ${lead.first_name || ''} ${lead.last_name || ''}`.trim()
+        );
+      } catch (creditErr) {
+        console.error('[LeadEnrich] Credit deduction failed (non-fatal):', creditErr);
+      }
+    }
 
     // Return updated lead with enrichment status
     return res.status(200).json({
