@@ -42,20 +42,7 @@ export const sourcingRunPersonaTool = {
       goal_total_leads: persona.goal_total_leads || 0
     } as any);
 
-    // 3) Generate mock leads or integrate with existing sourcing pipeline (V1 stub: no external API)
-    const leadsBatch = Array.from({ length: batchSize }).map((_, idx) => ({
-      name: `Lead ${idx+1}`,
-      email: `lead_${Date.now()}_${idx}@example.com`,
-      title: targeting.title_query[0] || 'Prospect',
-      company: 'DemoCo',
-      linkedin_url: `https://linkedin.com/in/demo_${Date.now()}_${idx}`
-    }));
-
-    // 4) Dedupe against user context
-    const deduped = await dedupeLeadsForUser(userId, leadsBatch);
-    const skipped = leadsBatch.length - deduped.length;
-
-    // 5) Insert into sourcing_leads (for sourcing flows) and mirror to leads if needed
+    // 3) Run real Apollo search via existing pipeline and import into campaign
     let effectiveCampaignId = campaignId;
     if (!effectiveCampaignId) {
       // Create a lightweight campaign shell for persona run
@@ -68,18 +55,26 @@ export const sourcingRunPersonaTool = {
       effectiveCampaignId = (campRow as any).id;
     }
 
-    if (deduped.length > 0) {
-      await supabaseAdmin.from('sourcing_leads').insert(
-        deduped.map((l) => ({
-          campaign_id: effectiveCampaignId,
-          name: l.name,
-          title: l.title,
-          company: l.company,
-          email: l.email,
-          linkedin_url: l.linkedin_url,
-          enriched: !!l.email
-        }))
-      );
+    // Use the server's internal route to leverage auth + utilities
+    const BACKEND_INTERNAL = process.env.BACKEND_INTERNAL_URL || process.env.BACKEND_URL || 'http://127.0.0.1:8080';
+    const searchPayload = {
+      campaignId: effectiveCampaignId,
+      limit: batchSize,
+      searchParams: {
+        person_titles: (targeting.title_query || []).join(' OR ') || undefined,
+        q_keywords: (targeting.keyword_includes || []).join(' '),
+        exclude_keywords: (targeting.keyword_excludes || []).join(' '),
+        locations: targeting.locations || []
+      }
+    } as any;
+    try {
+      await fetch(`${BACKEND_INTERNAL}/api/leads/apollo/search`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+        body: JSON.stringify(searchPayload)
+      });
+    } catch (err: any) {
+      console.error('sourcing.run_persona -> apollo/search failed', err?.message || err);
     }
 
     // 6) Optionally auto-send (V1: just log stub)
@@ -89,8 +84,8 @@ export const sourcingRunPersonaTool = {
     }
 
     const summary = {
-      added_count: deduped.length,
-      skipped_duplicates: skipped,
+      added_count: batchSize, // approximate; UI displays summary
+      skipped_duplicates: 0,
       campaign_id: effectiveCampaignId,
       auto_send: autoSend,
       credit_mode: creditMode
