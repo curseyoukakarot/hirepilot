@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { createClient } from '@supabase/supabase-js';
-import { csrfGuard } from '../../middleware/csrfGuard';
 import { makeRateLimiter } from '../../middleware/rateLimit';
 
 const router = Router();
@@ -11,7 +10,8 @@ const supabase = createClient(
 );
 
 // POST /api/auth/session -> set HttpOnly cookie from provided access token
-router.post('/', makeRateLimiter({ keyPrefix: 'rl:session:set', windowSec: 60, max: 20 }), csrfGuard, async (req, res) => {
+// CSRF disabled for this specific endpoint to simplify cross-subdomain session sync
+router.post('/', makeRateLimiter({ keyPrefix: 'rl:session:set', windowSec: 60, max: 20 }), async (req, res) => {
   try {
     const { access_token } = req.body as { access_token?: string };
     if (!access_token) {
@@ -43,7 +43,7 @@ router.post('/', makeRateLimiter({ keyPrefix: 'rl:session:set', windowSec: 60, m
 });
 
 // DELETE /api/auth/session -> clear cookie
-router.delete('/', makeRateLimiter({ keyPrefix: 'rl:session:del', windowSec: 60, max: 20 }), csrfGuard, async (_req, res) => {
+router.delete('/', makeRateLimiter({ keyPrefix: 'rl:session:del', windowSec: 60, max: 20 }), async (_req, res) => {
   try {
     res.clearCookie('hp_session', { path: '/' });
     res.status(200).json({ ok: true });
