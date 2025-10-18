@@ -60,8 +60,12 @@ export default function PersonasPanel(props: {
               <div className="flex items-center text-sm text-slate-400 mb-4"><i className="fa-solid fa-location-dot w-4 mr-2" /><span>{(p.locations||[]).slice(0,3).join(', ')||'Any'}</span></div>
               <div className="border-t border-slate-700 pt-4">
                 <div className="grid grid-cols-2 gap-2 mb-3">
-                  <button className="flex items-center justify-center px-3 py-2 bg-primary/20 text-primary rounded-lg text-sm font-medium hover:bg-primary/30 transition-colors" onClick={()=>navigate(`/agent/advanced/console?persona=${p.id}`)}><i className="fa-solid fa-comments mr-2" />Use in Chat</button>
-                  <button className="flex items-center justify-center px-3 py-2 bg-secondary/20 text-secondary rounded-lg text-sm font-medium hover:bg-secondary/30 transition-colors" onClick={()=>props.onUseInScheduler && props.onUseInScheduler(p)}><i className="fa-solid fa-clock mr-2" />Use in Scheduler</button>
+                  <button className="flex items-center justify-center px-3 py-2 bg-blue-500/15 text-blue-200 rounded-lg text-sm font-semibold hover:bg-blue-500/25 hover:text-blue-100 transition-colors" onClick={()=>navigate(`/agent/advanced/console?persona=${p.id}`)}>
+                    <i className="fa-solid fa-comments mr-2" />Use in Chat
+                  </button>
+                  <button className="flex items-center justify-center px-3 py-2 bg-violet-500/15 text-violet-200 rounded-lg text-sm font-semibold hover:bg-violet-500/25 hover:text-violet-100 transition-colors" onClick={()=>props.onUseInScheduler && props.onUseInScheduler(p)}>
+                    <i className="fa-solid fa-clock mr-2" />Use in Scheduler
+                  </button>
                 </div>
                 <div className="flex">
                   <button className="flex-1 px-3 py-2 border border-slate-600 rounded-lg text-sm hover:bg-slate-700 text-slate-300" onClick={()=>{ setEditPersona(p); setShowForm(true); }}>Edit</button>
