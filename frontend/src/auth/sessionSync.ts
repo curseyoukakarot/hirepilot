@@ -5,7 +5,14 @@ function isEnabled(): boolean {
     // Only enable when explicitly set to 'true'
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const flag = (import.meta as any)?.env?.VITE_ENABLE_SESSION_COOKIE_AUTH;
-    return String(flag || 'false').toLowerCase() === 'true';
+    const enabledByEnv = String(flag || 'false').toLowerCase() === 'true';
+    if (enabledByEnv) return true;
+    // Auto-enable in production app domain so Console can auth API
+    if (typeof window !== 'undefined') {
+      const host = window.location.hostname;
+      if (host === 'app.thehirepilot.com') return true;
+    }
+    return false;
   } catch {
     return false;
   }
