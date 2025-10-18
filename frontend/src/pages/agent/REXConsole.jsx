@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useRexAgent } from '../../hooks/useRexAgent';
+import { supabase } from '../../lib/supabaseClient';
 
 export default function REXConsole() {
   const location = useLocation();
@@ -15,7 +16,14 @@ export default function REXConsole() {
       if (!personaId) return;
       try {
         setLoadingPersona(true);
-        const resp = await fetch(`/api/personas/${personaId}`);
+        const API_BASE = (typeof window !== 'undefined' && (window as any).__HP_API_BASE__) || (import.meta as any)?.env?.VITE_API_BASE_URL || (typeof window !== 'undefined' && window.location.hostname === 'app.thehirepilot.com' ? 'https://api.thehirepilot.com' : '');
+        const apiUrl = (p) => `${API_BASE}${p}`;
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        const resp = await fetch(apiUrl(`/api/personas/${personaId}`), {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          credentials: 'include'
+        });
         if (!resp.ok) throw new Error('Failed to load persona');
         const data = await resp.json();
         if (!cancelled) setPersona(data);
