@@ -137,6 +137,7 @@ export default function CampaignsPage() {
             Manage AI-powered sourcing campaigns and track performance
           </p>
           </div>
+        </div>
         <div className="flex items-center space-x-3">
           {/* Agent Mode quick toggle */}
           <AgentModeSwitch />
