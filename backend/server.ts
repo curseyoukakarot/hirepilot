@@ -461,8 +461,8 @@ app.use('/api/stripe', stripeIntegrationRouter);
   app.use('/api/cron', cronProcessorRouter);
   app.use('/api/admin', adminUsersRouter);
   app.use('/api/admin', adminRouter);
-// Advanced Agent Mode (Personas & Schedules)
-app.use('/', agentAdvancedRouter);
+// Advanced Agent Mode (Personas & Schedules) — requires auth to populate req.user
+app.use('/', requireAuthFlag, agentAdvancedRouter);
 // REX Chat unified endpoint (uses unified auth inside router)
 app.use('/api/agent', agentChatRouter);
 // Fallback direct handler retained for edge cases; require auth to avoid anonymous uuid issues
