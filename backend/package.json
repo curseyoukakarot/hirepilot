@@ -44,7 +44,8 @@
         "test": "jest",
         "test:free-cadence": "ts-node scripts/testFreeForeverCadence.ts",
         "send:free-welcome": "ts-node scripts/sendFreeWelcome.ts",
-        "worker:scheduler": "ts-node src/workers/schedulerRunner.ts"
+        "worker:scheduler": "ts-node src/workers/schedulerRunner.ts",
+        "worker:campaign-stats": "ts-node src/workers/campaignStatsWorker.ts"
     },
     "puppeteer": {
         "skipDownload": true

@@ -19,45 +19,29 @@ export async function updateCampaignStatus(campaignId: string, status: string) {
 }
 
 export async function getCampaignStats(campaignId: string) {
-  // Total leads from sourcing_leads for the campaign
+  // Compute metrics purely from sourcing_leads signals for sourcing campaigns
   const { data: leads, error } = await supabase
     .from('sourcing_leads')
-    .select('reply_status')
+    .select('outreach_stage, reply_status')
     .eq('campaign_id', campaignId);
   if (error) throw error;
 
-  // Emails sent from messages table (authoritative)
-  const { count: sentCount } = await supabase
-    .from('messages')
-    .select('id', { count: 'exact', head: true })
-    .eq('campaign_id', campaignId)
-    .eq('status', 'sent');
-
-  // Replies and positives from email_events
-  const { count: repliesCount } = await supabase
-    .from('email_events')
-    .select('id', { count: 'exact', head: true })
-    .eq('campaign_id', campaignId)
-    .eq('event_type', 'reply');
-
-  // Placeholder for sentiment; keep zero unless reply classification exists elsewhere
-  const positive_replies = 0;
-  const neutral_replies = 0;
-  const negative_replies = 0;
+  const total = leads?.length || 0;
+  const emailsSent = (leads || []).filter((l: any) => ['sent','scheduled','replied','bounced','unsubscribed'].includes(String(l.outreach_stage || '').toLowerCase())).length;
+  const replied = (leads || []).filter((l: any) => String(l.reply_status || '').toLowerCase() === 'replied').length;
 
   return {
-    total: leads?.length || 0,
-    queued: 0,
-    // Map aggregate into step1 for UI aggregate calc
-    step1_sent: Number(sentCount || 0),
+    total,
+    queued: Math.max(total - emailsSent, 0),
+    step1_sent: emailsSent,
     step2_sent: 0,
     step3_sent: 0,
-    replied: Number(repliesCount || 0),
+    replied,
     bounced: 0,
     unsubscribed: 0,
-    positive_replies,
-    neutral_replies,
-    negative_replies
+    positive_replies: 0,
+    neutral_replies: 0,
+    negative_replies: 0
   };
 }
 
