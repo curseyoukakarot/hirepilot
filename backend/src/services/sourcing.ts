@@ -4,6 +4,7 @@ dayjs.extend(businessDays as any);
 
 import { supabase } from '../lib/supabase';
 import { sendEmail } from './sendgrid';
+import { updateLeadOutreachStage } from './sourcingUtils';
 import { buildThreeStepSequence } from './sequenceBuilder';
 import { emailQueue } from '../queues/redis';
 
@@ -170,6 +171,7 @@ async function sendStepEmail(campaignId: string, lead: any, step: any, delayMs: 
       personalize(step.body, lead),
       headers
     );
+    try { await updateLeadOutreachStage(lead.id, 'sent'); } catch {}
   } else {
     await emailQueue.add('send', {
       to: lead.email,
@@ -182,6 +184,7 @@ async function sendStepEmail(campaignId: string, lead: any, step: any, delayMs: 
       backoff: { type: 'exponential', delay: 5000 },
       removeOnComplete: 1000
     });
+    try { await updateLeadOutreachStage(lead.id, 'scheduled'); } catch {}
   }
 }
 
