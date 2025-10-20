@@ -499,9 +499,11 @@ export default function SettingsIntegrations() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user');
+      const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/sendgrid/get-senders`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        credentials: 'include',
         body: JSON.stringify({ user_id: user.id })
       });
       const data = await res.json();
@@ -535,9 +537,11 @@ export default function SettingsIntegrations() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user');
+      const { data: { session } } = await supabase.auth.getSession();
       await fetch(`${BACKEND}/api/sendgrid/update-sender`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        credentials: 'include',
         body: JSON.stringify({
           user_id: user.id,
           default_sender: changeSenderSelected
