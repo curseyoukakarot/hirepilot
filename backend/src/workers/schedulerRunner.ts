@@ -5,23 +5,34 @@ import { executeAction } from '../lib/actions';
 const INTERVAL_MS = Number(process.env.CRON_INTERVAL_MS || 60000);
 
 async function lockJob(id: string): Promise<boolean> {
-  // Best-effort advisory lock using Postgres: pg_try_advisory_lock with hash of id
-  const hash = [...id].reduce((a, c) => a + c.charCodeAt(0), 0);
-  const { data, error } = await supabaseAdmin.rpc('exec_sql', { sql: `select pg_try_advisory_lock(${hash}) as ok` } as any);
-  if (error) return false;
-  const ok = Array.isArray(data) ? (data[0] as any)?.ok : (data as any)?.ok;
-  return !!ok;
+  // Single-replica friendly: allow bypass when RPC isn't available
+  if (process.env.DISABLE_SCHED_LOCK === '1') return true;
+  try {
+    const hash = [...id].reduce((a, c) => a + c.charCodeAt(0), 0);
+    const { data, error } = await supabaseAdmin.rpc('exec_sql', { sql: `select pg_try_advisory_lock(${hash}) as ok` } as any);
+    if (error) return true; // fail-open when RPC not installed
+    const ok = Array.isArray(data) ? (data[0] as any)?.ok : (data as any)?.ok;
+    return !!ok;
+  } catch {
+    return true;
+  }
 }
 
 async function unlockJob(id: string) {
-  const hash = [...id].reduce((a, c) => a + c.charCodeAt(0), 0);
-  await supabaseAdmin.rpc('exec_sql', { sql: `select pg_advisory_unlock(${hash})` } as any).catch(()=>{});
+  if (process.env.DISABLE_SCHED_LOCK === '1') return;
+  try {
+    const hash = [...id].reduce((a, c) => a + c.charCodeAt(0), 0);
+    await supabaseAdmin.rpc('exec_sql', { sql: `select pg_advisory_unlock(${hash})` } as any).catch(()=>{});
+  } catch {}
 }
 
 async function tick() {
   const now = new Date();
   try {
     const due = await getDueJobs(now);
+    if (due.length) {
+      console.log(JSON.stringify({ event: 'due_jobs', count: due.length, at: now.toISOString() }));
+    }
     for (const job of due) {
       const locked = await lockJob(job.id);
       if (!locked) continue;

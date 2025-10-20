@@ -7,7 +7,7 @@ export async function getDueJobs(now: Date = new Date()): Promise<ScheduleRow[]>
     .from('schedules')
     .select('*')
     .eq('status', 'active')
-    .lte('next_run_at', now.toISOString());
+    .or(`next_run_at.lte.${now.toISOString()},and(next_run_at.is.null,run_at.lte.${now.toISOString()})`);
   if (error) throw new Error(error.message);
   return (data || []) as unknown as ScheduleRow[];
 }
@@ -23,7 +23,7 @@ export function computeNextRun(job: ScheduleRow): string | null {
 export async function markRun(jobId: string, opts: { ranAt: Date; nextRunAt: Date | null; runResult: any }) {
   const { error } = await supabaseAdmin
     .from('schedules')
-    .update({ last_run_at: opts.ranAt.toISOString(), next_run_at: opts.nextRunAt, updated_at: new Date().toISOString() })
+    .update({ last_run_at: opts.ranAt.toISOString(), next_run_at: opts.nextRunAt, status: opts.nextRunAt ? 'active' : 'completed', updated_at: new Date().toISOString() })
     .eq('id', jobId);
   if (error) throw new Error(error.message);
 }
