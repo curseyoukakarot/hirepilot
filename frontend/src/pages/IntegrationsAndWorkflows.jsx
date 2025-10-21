@@ -25,9 +25,9 @@ export default function IntegrationsAndWorkflows() {
   ];
 
   const integrations = [
-    { name: "Apollo", icon: "/icons/apollo.svg", desc: "Source and enrich B2B leads instantly." },
+    { name: "Apollo", icon: "/apollo-logo-v2.png", desc: "Source and enrich B2B leads instantly." },
     { name: "LinkedIn Sales Navigator", icon: "/linkedin-sn.png", desc: "Find top talent and decision-makers." },
-    { name: "Chrome Extension", icon: "/icons/chrome.svg", desc: "Save any LinkedIn profile into HirePilot." },
+    { name: "Chrome Extension", icon: "/chrome.png", desc: "Save any LinkedIn profile into HirePilot." },
     { name: "Slack", icon: "/icons/slack.svg", desc: "Real-time notifications and team collaboration." },
     { name: "SendGrid", icon: "/icons/sendgrid.svg", desc: "Deliver, track, and analyze outbound sequences." },
     { name: "Zapier", icon: "/icons/zapier.svg", desc: "Connect HirePilot with 5,000+ apps effortlessly." },
@@ -35,7 +35,7 @@ export default function IntegrationsAndWorkflows() {
     { name: "Stripe", icon: "/stripe.png", desc: "Automate billing and client payments securely." },
     { name: "DocuSign", icon: "/docusign.png", desc: "Send and sign placement agreements instantly." },
     { name: "Google Calendar", icon: "/icons/google-calendar.svg", desc: "Schedule interviews seamlessly." },
-    { name: "Notion", icon: "/icons/notion.svg", desc: "Create shared client workspaces and trackers." },
+    { name: "Notion", icon: "/notion.png", desc: "Create shared client workspaces and trackers." },
     { name: "Monday.com", icon: "/monday.png", desc: "Visualize hiring pipelines and task boards." },
     { name: "Clay", icon: "/clay.png", desc: "Score, segment, and prioritize leads." },
     { name: "Hunter", icon: "/hunter.png", desc: "Find verified professional emails." },
