@@ -10,6 +10,7 @@ export default function REXConsole() {
   const [persona, setPersona] = useState(null);
   const [loadingPersona, setLoadingPersona] = useState(false);
   const [seeded, setSeeded] = useState(false);
+  const lastPersonaIdRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -36,6 +37,34 @@ export default function REXConsole() {
     }
     loadPersona();
     return () => { cancelled = true; };
+  }, [personaId]);
+
+  // When personaId changes (user loaded a different persona), clear chat and prepare to seed
+  useEffect(() => {
+    if (!personaId) return;
+    if (lastPersonaIdRef.current === personaId) return;
+    lastPersonaIdRef.current = personaId;
+    try {
+      const area = document.getElementById('chat-area');
+      if (!area) return;
+      // Clear all existing chat messages
+      area.innerHTML = '';
+      // Rebuild a hidden typing indicator so subsequent flows work
+      const wrapper = document.createElement('div');
+      wrapper.id = 'typing-indicator';
+      wrapper.className = 'flex items-start space-x-3';
+      wrapper.style.display = 'none';
+      wrapper.innerHTML = `
+        <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">R</div>
+        <div class="flex-1">
+          <div class="bg-gray-800 rounded-2xl p-4 max-w-xs border border-gray-700">
+            <div class="w-2 h-4 bg-gray-300 rounded-sm" style="animation: rex-blink 1s steps(1,end) infinite" />
+          </div>
+        </div>
+      `;
+      area.appendChild(wrapper);
+      setSeeded(false);
+    } catch {}
   }, [personaId]);
 
   const personaContext = persona ? {
