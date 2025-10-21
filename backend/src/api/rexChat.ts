@@ -163,6 +163,7 @@ export default async function rexChat(req: Request, res: Response) {
       // Bulk campaign email helpers
       // Preferred auto tool: uses template when available, falls back to draft
       { type:'function', function:{ name:'send_campaign_email_auto', parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'}, template_name:{type:'string', optional:true}, subject:{type:'string', optional:true}, html:{type:'string', optional:true}, scheduled_for:{type:'string', optional:true}, channel:{type:'string', optional:true} }, required:['userId','campaign_id'] } } },
+      { type:'function', function:{ name:'set_preferred_email_provider', parameters:{ type:'object', properties:{ userId:{type:'string'}, provider:{type:'string', enum:['sendgrid','google','outlook'] } }, required:['userId','provider'] } } },
       // Sequence enrollment by name
       { type:'function', function:{ name:'enroll_campaign_in_sequence_by_name', parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'}, sequence_name:{type:'string'}, start_time_local:{type:'string'}, timezone:{type:'string'}, provider:{type:'string'} }, required:['userId','campaign_id','sequence_name'] } } },
       // Create a sequence from a template + delays then enroll
@@ -402,12 +403,24 @@ CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` :
       }
     }
 
-    // After a successful lead sourcing request without explicit outreach intent, gently append a nudge
+    // After tools: normalize messaging for common actions and add nudges
     try {
       const lastUser = messages[messages.length - 1];
       const text = String(lastUser?.content || '').toLowerCase();
       const wantsOutreach = /(reach out|email|send|outreach|contact)/.test(text);
       const mentionsNewCampaign = /create\s+(a\s+)?new\s+campaign|\bnew\s+campaign\b/.test(text);
+      // If tool queued emails, reply deterministically (avoid model hallucinations like "draft mode")
+      if (lastToolResult && typeof lastToolResult.queued === 'number') {
+        const mode = String(lastToolResult.mode || 'draft');
+        const count = Number(lastToolResult.queued || 0);
+        const when = lastToolResult.scheduled_for ? ` Scheduled for ${lastToolResult.scheduled_for}.` : '';
+        const textResp = `Queued ${count} emails via ${mode === 'template' ? 'template' : 'custom draft'} using SendGrid.${when} They will be sent automatically; no manual action in SendGrid is required.`;
+        assistantMessage = { role: 'assistant', content: textResp } as any;
+      }
+      // If the queue/worker reported missing provider
+      if (lastToolResult && lastToolResult.error === 'NO_EMAIL_PROVIDER') {
+        assistantMessage = { role: 'assistant', content: 'You need to connect an email service first (SendGrid, Google, or Outlook). Go to Settings → Integrations to connect.' } as any;
+      }
       // Use the actual tool result we just executed
       if (lastToolResult && (lastToolResult.campaign_id || lastToolResult.std_campaign_id)) {
         const viewText = `\n\nView in Agent Mode: /agent-mode?campaign=${lastToolResult.campaign_id || ''}` +

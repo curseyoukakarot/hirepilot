@@ -196,7 +196,8 @@ export async function sendSingleMessageToCampaign(params: { campaignId: string; 
       to: l.email,
       subject: personalizeMessage(finalSubject, l),
       html: personalizeMessage(finalHtml, l),
-      headers: await buildSenderHeaders(campaignId, headers)
+      headers: await buildSenderHeaders(campaignId, headers),
+      userId: params.userId
     }, {
       delay: 0,
       attempts: 5,

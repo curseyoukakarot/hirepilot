@@ -165,19 +165,41 @@ async function sendStepEmail(campaignId: string, lead: any, step: any, delayMs: 
   };
   
   if (delayMs === 0) {
+    // Resolve created_by to use per-user SendGrid credentials
+    let sendUserId: string | undefined = undefined;
+    try {
+      const { data: camp } = await supabase
+        .from('sourcing_campaigns')
+        .select('created_by')
+        .eq('id', campaignId)
+        .maybeSingle();
+      sendUserId = (camp as any)?.created_by || undefined;
+    } catch {}
     await sendEmail(
       lead.email,
       personalize(step.subject, lead),
       personalize(step.body, lead),
-      headers
+      headers,
+      { userId: sendUserId }
     );
     try { await updateLeadOutreachStage(lead.id, 'sent'); } catch {}
   } else {
+    // Ensure we also include userId for queued emails
+    let payloadUserId: string | undefined = undefined;
+    try {
+      const { data: camp } = await supabase
+        .from('sourcing_campaigns')
+        .select('created_by')
+        .eq('id', campaignId)
+        .maybeSingle();
+      payloadUserId = (camp as any)?.created_by || undefined;
+    } catch {}
     await emailQueue.add('send', {
       to: lead.email,
       subject: personalize(step.subject, lead),
       html: personalize(step.body, lead),
-      headers
+      headers,
+      userId: payloadUserId
     }, {
       delay: delayMs,
       attempts: 5,

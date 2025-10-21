@@ -215,6 +215,17 @@ server.registerCapabilities({
         return { queued: result.scheduled, mode: 'draft' };
       }
     },
+    set_preferred_email_provider: {
+      parameters: { userId:{type:'string'}, provider:{ type:'string' } },
+      handler: async ({ userId, provider }) => {
+        const allowed = ['sendgrid','google','outlook'];
+        if (!allowed.includes(String(provider))) throw new Error('Invalid provider');
+        await supabase
+          .from('user_settings')
+          .upsert({ user_id: userId, preferred_email_provider: provider }, { onConflict: 'user_id' });
+        return { ok: true, provider };
+      }
+    },
     // Convenience: queue collection from a LinkedIn post and return queued status immediately
     sniper_collect_post: {
       parameters: {
