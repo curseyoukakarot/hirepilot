@@ -226,6 +226,70 @@ server.registerCapabilities({
         return { ok: true, provider };
       }
     },
+    send_email_to_lead: {
+      parameters: {
+        userId: { type:'string' },
+        lead_id: { type:'string' },
+        subject: { type:'string', optional: true },
+        html: { type:'string', optional: true },
+        provider: { type:'string', optional: true }
+      },
+      handler: async ({ userId, lead_id, subject, html, provider }) => {
+        // Load lead
+        const { data: leadRow, error } = await supabase
+          .from('leads')
+          .select('id,email,campaign_id')
+          .eq('id', lead_id)
+          .maybeSingle();
+        if (error) throw new Error(error.message);
+        if (!leadRow || !leadRow.email) throw new Error('Lead not found or missing email');
+
+        // Resolve provider preference if not explicitly given
+        let preferred: any = provider || null;
+        if (!preferred) {
+          try {
+            const { data: pref } = await supabase
+              .from('user_settings')
+              .select('preferred_email_provider')
+              .eq('user_id', userId)
+              .maybeSingle();
+            if (pref?.preferred_email_provider) preferred = pref.preferred_email_provider;
+          } catch {}
+        }
+        if (!preferred) {
+          // Auto-detect availability: SendGrid → Google → Outlook
+          const { data: sg } = await supabase
+            .from('user_sendgrid_keys')
+            .select('api_key')
+            .eq('user_id', userId)
+            .maybeSingle();
+          if (sg?.api_key) preferred = 'sendgrid';
+        }
+        if (!preferred) {
+          const { data: g } = await supabase
+            .from('integrations')
+            .select('status')
+            .eq('user_id', userId)
+            .eq('provider', 'google')
+            .maybeSingle();
+          if (g && ['on','enabled','connected','true'].includes(String(g.status).toLowerCase())) preferred = 'google';
+        }
+        if (!preferred) {
+          const { data: o } = await supabase
+            .from('integrations')
+            .select('status')
+            .eq('user_id', userId)
+            .eq('provider', 'outlook')
+            .maybeSingle();
+          if (o && ['on','enabled','connected','true'].includes(String(o.status).toLowerCase())) preferred = 'outlook';
+        }
+        if (!preferred) return { ok:false, error:'NO_EMAIL_PROVIDER' };
+
+        const { sendViaProvider } = await import('../../services/providerEmail');
+        const ok = await sendViaProvider(preferred, { id: leadRow.id, email: leadRow.email, campaign_id: leadRow.campaign_id }, html || '', userId, subject || 'Message');
+        return ok ? { ok: true, used: preferred, lead_email: leadRow.email } : { ok:false, error:'send_failed' };
+      }
+    },
     // Convenience: queue collection from a LinkedIn post and return queued status immediately
     sniper_collect_post: {
       parameters: {

@@ -164,6 +164,7 @@ export default async function rexChat(req: Request, res: Response) {
       // Preferred auto tool: uses template when available, falls back to draft
       { type:'function', function:{ name:'send_campaign_email_auto', parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'}, template_name:{type:'string', optional:true}, subject:{type:'string', optional:true}, html:{type:'string', optional:true}, scheduled_for:{type:'string', optional:true}, channel:{type:'string', optional:true} }, required:['userId','campaign_id'] } } },
       { type:'function', function:{ name:'set_preferred_email_provider', parameters:{ type:'object', properties:{ userId:{type:'string'}, provider:{type:'string', enum:['sendgrid','google','outlook'] } }, required:['userId','provider'] } } },
+      { type:'function', function:{ name:'send_email_to_lead', parameters:{ type:'object', properties:{ userId:{type:'string'}, lead_id:{type:'string'}, subject:{type:'string', optional:true}, html:{type:'string', optional:true}, provider:{type:'string', optional:true} }, required:['userId','lead_id'] } } },
       // Sequence enrollment by name
       { type:'function', function:{ name:'enroll_campaign_in_sequence_by_name', parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'}, sequence_name:{type:'string'}, start_time_local:{type:'string'}, timezone:{type:'string'}, provider:{type:'string'} }, required:['userId','campaign_id','sequence_name'] } } },
       // Create a sequence from a template + delays then enroll
