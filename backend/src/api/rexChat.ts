@@ -226,6 +226,7 @@ When the user asks to email the newly sourced campaign using a named template, d
 Prefer using these bulk tools instead of single-lead tools when the intent is to email a whole campaign.
 If the user asks to send using a sequence template by name (e.g., "send with sequence XYZ every 2 business days"), resolve the sequence by name and call 'enroll_campaign_in_sequence_by_name' with { userId, campaign_id: '<latest or given>', sequence_name: 'XYZ', start_time_local: '<now or provided>', timezone: 'America/Chicago' }. The business-day spacing comes from the sequence steps; do not hardcode delays.
 If the user says "send using template <NAME>" but does not provide timing for steps, ask a single follow-up question to collect step timing (e.g., "When should step 1, 2, and 3 send? (e.g., 0,2,4 business days)"), then call 'create_sequence_from_template_and_enroll' with delays_business_days like [0,2,4].
+If the user explicitly says "send from my <provider> account" where <provider> is sendgrid/google/outlook, call 'set_preferred_email_provider' with that provider before sending.
 CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` : ''}`
     } as any;
 
