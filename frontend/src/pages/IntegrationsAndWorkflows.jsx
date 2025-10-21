@@ -1,7 +1,7 @@
 // src/pages/IntegrationsAndWorkflows.jsx
 import React, { useMemo, useState } from "react";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
-import { FaStripeS } from "react-icons/fa6";
+import { FaStripeS, FaLinkedin } from "react-icons/fa6";
 
 /**
  * Integrations & Workflows — HirePilot
@@ -27,21 +27,21 @@ export default function IntegrationsAndWorkflows() {
 
   const integrations = [
     { name: "Apollo", icon: "/apollo-logo-v2.png", desc: "Source and enrich B2B leads instantly." },
-    { name: "LinkedIn Sales Navigator", icon: "/linkedin-sn.png", desc: "Find top talent and decision-makers." },
+    { name: "LinkedIn Sales Navigator", reactIcon: <FaLinkedin className="w-12 h-12 mx-auto mb-4 text-[#0A66C2]" />, desc: "Find top talent and decision-makers." },
     { name: "Chrome Extension", icon: "/chrome.png", desc: "Save any LinkedIn profile into HirePilot." },
-    { name: "Slack", icon: "/icons/slack.svg", desc: "Real-time notifications and team collaboration." },
-    { name: "SendGrid", icon: "/icons/sendgrid.svg", desc: "Deliver, track, and analyze outbound sequences." },
+    { name: "Slack", icon: "/slack-integration.png", desc: "Real-time notifications and team collaboration." },
+    { name: "SendGrid", icon: "/sendgrid.png", desc: "Deliver, track, and analyze outbound sequences." },
     { name: "Zapier", icon: "/zapier-icon.png", desc: "Connect HirePilot with 5,000+ apps effortlessly." },
-    { name: "Make.com", icon: "/icons/make.svg", desc: "Advanced workflow orchestration for recruiters." },
+    { name: "Make.com", icon: "/make-logo-v1.png", desc: "Advanced workflow orchestration for recruiters." },
     { name: "Stripe", reactIcon: <FaStripeS className="w-12 h-12 mx-auto mb-4 text-indigo-500" />, desc: "Automate billing and client payments securely." },
     { name: "DocuSign", icon: "/docusign.png", desc: "Send and sign placement agreements instantly." },
-    { name: "Google Calendar", icon: "/icons/google-calendar.svg", desc: "Schedule interviews seamlessly." },
-    { name: "Notion", icon: "/notion.png", desc: "Create shared client workspaces and trackers." },
+    { name: "Google Calendar", icon: "/google.png", desc: "Schedule interviews seamlessly." },
+    { name: "Notion", icon: "/Notion.png", desc: "Create shared client workspaces and trackers." },
     { name: "Monday.com", icon: "/monday.png", desc: "Visualize hiring pipelines and task boards." },
     { name: "Clay", icon: "/clay.png", desc: "Score, segment, and prioritize leads." },
     { name: "Hunter", icon: "/hunter.png", desc: "Find verified professional emails." },
     { name: "Skrapp", icon: "/skrapp.png", desc: "Enrich lead emails & company data." },
-    { name: "Decodo", icon: "/icons/proxy.svg", desc: "Reliable proxy layer for LinkedIn scraping." },
+    { name: "Decodo", icon: "/decodo.png", desc: "Reliable proxy layer for LinkedIn scraping." },
   ];
 
   // ---------- 25 Workflow Recipes ----------
