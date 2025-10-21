@@ -2,6 +2,8 @@
 import React, { useMemo, useState } from "react";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { FaStripeS, FaLinkedin } from "react-icons/fa6";
+import PublicNavbar from "../components/PublicNavbar";
+import PublicFooter from "../components/PublicFooter";
 
 /**
  * Integrations & Workflows — HirePilot
@@ -29,7 +31,9 @@ export default function IntegrationsAndWorkflows() {
     { name: "Apollo", icon: "/apollo-logo-v2.png", desc: "Source and enrich B2B leads instantly." },
     { name: "LinkedIn Sales Navigator", reactIcon: <FaLinkedin className="w-12 h-12 mx-auto mb-4 text-[#0A66C2]" />, desc: "Find top talent and decision-makers." },
     { name: "Chrome Extension", icon: "/chrome.png", desc: "Save any LinkedIn profile into HirePilot." },
-    { name: "Slack", icon: "/slack-integration.png", desc: "Real-time notifications and team collaboration." },
+    { name: "Slack", reactIcon: (
+      <i className="fa-brands fa-slack text-white text-[28px] md:text-[32px] mx-auto mb-4 opacity-95" aria-label="Slack" />
+    ), desc: "Real-time notifications and team collaboration." },
     { name: "SendGrid", icon: "/sendgrid.png", desc: "Deliver, track, and analyze outbound sequences." },
     { name: "Zapier", icon: "/zapier-icon.png", desc: "Connect HirePilot with 5,000+ apps effortlessly." },
     { name: "Make.com", icon: "/make-logo-v1.png", desc: "Advanced workflow orchestration for recruiters." },
@@ -322,6 +326,7 @@ export default function IntegrationsAndWorkflows() {
 
   return (
     <div className="text-white bg-slate-950">
+      <PublicNavbar />
       {/* HERO */}
       <section className="relative py-24 bg-gradient-to-br from-indigo-700 via-slate-900 to-purple-700 text-center overflow-hidden">
         <BackgroundBeams />
@@ -516,6 +521,7 @@ export default function IntegrationsAndWorkflows() {
           Get Started Free
         </a>
       </section>
+      <PublicFooter />
     </div>
   );
 }
