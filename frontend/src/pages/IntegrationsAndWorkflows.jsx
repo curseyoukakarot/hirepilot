@@ -1,6 +1,7 @@
 // src/pages/IntegrationsAndWorkflows.jsx
 import React, { useMemo, useState } from "react";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
+import { FaStripeS } from "react-icons/fa6";
 
 /**
  * Integrations & Workflows — HirePilot
@@ -30,9 +31,9 @@ export default function IntegrationsAndWorkflows() {
     { name: "Chrome Extension", icon: "/chrome.png", desc: "Save any LinkedIn profile into HirePilot." },
     { name: "Slack", icon: "/icons/slack.svg", desc: "Real-time notifications and team collaboration." },
     { name: "SendGrid", icon: "/icons/sendgrid.svg", desc: "Deliver, track, and analyze outbound sequences." },
-    { name: "Zapier", icon: "/icons/zapier.svg", desc: "Connect HirePilot with 5,000+ apps effortlessly." },
+    { name: "Zapier", icon: "/zapier-icon.png", desc: "Connect HirePilot with 5,000+ apps effortlessly." },
     { name: "Make.com", icon: "/icons/make.svg", desc: "Advanced workflow orchestration for recruiters." },
-    { name: "Stripe", icon: "/stripe.png", desc: "Automate billing and client payments securely." },
+    { name: "Stripe", reactIcon: <FaStripeS className="w-12 h-12 mx-auto mb-4 text-indigo-500" />, desc: "Automate billing and client payments securely." },
     { name: "DocuSign", icon: "/docusign.png", desc: "Send and sign placement agreements instantly." },
     { name: "Google Calendar", icon: "/icons/google-calendar.svg", desc: "Schedule interviews seamlessly." },
     { name: "Notion", icon: "/notion.png", desc: "Create shared client workspaces and trackers." },
@@ -354,7 +355,11 @@ export default function IntegrationsAndWorkflows() {
               whileHover={{ scale: 1.04 }}
               className="bg-slate-800 rounded-2xl p-6 hover:bg-slate-700 transition-all shadow-lg"
             >
-              <img src={tool.icon} alt={tool.name} className="w-12 h-12 mx-auto mb-4" />
+              {tool.reactIcon ? (
+                tool.reactIcon
+              ) : (
+                <img src={tool.icon} alt={tool.name} className="w-12 h-12 mx-auto mb-4" />
+              )}
               <h3 className="font-semibold text-lg mb-1">{tool.name}</h3>
               <p className="text-slate-400 text-sm">{tool.desc}</p>
             </motion.div>
