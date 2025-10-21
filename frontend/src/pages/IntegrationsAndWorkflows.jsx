@@ -324,6 +324,17 @@ export default function IntegrationsAndWorkflows() {
     </div>
   );
 
+  // Consistent icon renderer for integrations grid
+  const IconCell = ({ icon, reactIcon, alt }) => (
+    <div className="w-10 h-10 mx-auto mb-4 flex items-center justify-center">
+      {reactIcon ? (
+        reactIcon
+      ) : (
+        <img src={icon} alt={alt || ''} className="w-10 h-10 object-contain" />
+      )}
+    </div>
+  );
+
   return (
     <div className="text-white bg-slate-950">
       <PublicNavbar />
@@ -336,10 +347,10 @@ export default function IntegrationsAndWorkflows() {
             Integrate HirePilot with your favorite tools to run recruiting on autopilot.
           </p>
           <div className="flex justify-center gap-4">
-            <a href="#workflows" className="px-6 py-3 rounded-xl bg-white text-indigo-700 font-semibold shadow-lg hover:scale-105 transition">
+            <a href="#workflows" onClick={(e)=>{ e.preventDefault(); const el=document.getElementById('workflows'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }} className="px-6 py-3 rounded-xl bg-white text-indigo-700 font-semibold shadow-lg hover:scale-105 transition">
               Explore Workflows
             </a>
-            <a href="/docs/api" className="px-6 py-3 rounded-xl bg-slate-800 font-semibold hover:bg-slate-700 transition">
+            <a href="/apidoc" className="px-6 py-3 rounded-xl bg-slate-800 font-semibold hover:bg-slate-700 transition">
               View API Docs
             </a>
           </div>
@@ -360,11 +371,7 @@ export default function IntegrationsAndWorkflows() {
               whileHover={{ scale: 1.04 }}
               className="bg-slate-800 rounded-2xl p-6 hover:bg-slate-700 transition-all shadow-lg"
             >
-              {tool.reactIcon ? (
-                tool.reactIcon
-              ) : (
-                <img src={tool.icon} alt={tool.name} className="w-12 h-12 mx-auto mb-4" />
-              )}
+              <IconCell icon={tool.icon} reactIcon={tool.reactIcon} alt={tool.name} />
               <h3 className="font-semibold text-lg mb-1">{tool.name}</h3>
               <p className="text-slate-400 text-sm">{tool.desc}</p>
             </motion.div>
