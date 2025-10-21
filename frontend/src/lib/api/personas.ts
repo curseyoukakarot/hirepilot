@@ -1,6 +1,6 @@
 import { supabase } from '../supabaseClient';
 
-const API_BASE = (typeof window !== 'undefined' && (window as any).__HP_API_BASE__) || (import.meta as any)?.env?.VITE_API_BASE_URL || (typeof window !== 'undefined' && window.location.hostname === 'app.thehirepilot.com' ? 'https://api.thehirepilot.com' : '');
+const API_BASE = (typeof window !== 'undefined' && (window as any).__HP_API_BASE__) || (typeof window !== 'undefined' && window.location.hostname === 'app.thehirepilot.com' ? 'https://api.thehirepilot.com' : '');
 const apiUrl = (p: string) => `${API_BASE}${p}`;
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
@@ -28,7 +28,10 @@ export async function createPersona(body: any) {
     credentials: 'include',
     body: JSON.stringify(body)
   });
-  if (!r.ok) throw new Error(await r.text());
+  if (!r.ok) {
+    const t = await r.text().catch(()=> '');
+    throw new Error(t || `HTTP ${r.status}`);
+  }
   return r.json();
 }
 
@@ -40,7 +43,10 @@ export async function updatePersona(id: string, body: any) {
     credentials: 'include',
     body: JSON.stringify(body)
   });
-  if (!r.ok) throw new Error(await r.text());
+  if (!r.ok) {
+    const t = await r.text().catch(()=> '');
+    throw new Error(t || `HTTP ${r.status}`);
+  }
   return r.json();
 }
 
