@@ -22,7 +22,7 @@ function detectSlash(message: string): string | null {
 export function useRexAgent(persona?: Persona) {
   const host = typeof window !== 'undefined' ? window.location.hostname : '';
   const defaultBase = host === 'app.thehirepilot.com' ? 'https://api.thehirepilot.com' : '';
-  const API_BASE = (typeof window !== 'undefined' && (window as any).__HP_API_BASE__) || (import.meta as any)?.env?.VITE_API_BASE_URL || defaultBase;
+  const API_BASE = (typeof window !== 'undefined' && (window as any).__HP_API_BASE__) || defaultBase;
   const apiUrl = (path: string) => `${API_BASE}${path}`;
   const getAuthHeaders = async (): Promise<Record<string,string>> => {
     try {
@@ -34,7 +34,7 @@ export function useRexAgent(persona?: Persona) {
       return {};
     }
   };
-  const sendMessageToRex = async (message: string): Promise<RexReply> => {
+  const sendMessageToRex = async (message: string, personaIdOverride?: string): Promise<RexReply> => {
     try {
       // 1) Slash commands shortcut (front-end only hint)
       const slash = detectSlash(message);
@@ -55,7 +55,8 @@ export function useRexAgent(persona?: Persona) {
 
       // 2) Call backend chat endpoint (persona-aware)
       const body: any = { message };
-      if (persona?.id) body.personaId = persona.id;
+      const effectivePersonaId = personaIdOverride || persona?.id;
+      if (effectivePersonaId) body.personaId = effectivePersonaId;
       const headers = await getAuthHeaders();
       const resp = await fetch(apiUrl('/api/agent/send-message'), {
         method: 'POST',
@@ -71,13 +72,13 @@ export function useRexAgent(persona?: Persona) {
     }
   };
 
-  const triggerAction = async (value: string, args?: any): Promise<RexReply> => {
+  const triggerAction = async (value: string, args?: any, personaIdOverride?: string): Promise<RexReply> => {
     try {
       const headers = await getAuthHeaders();
       const resp = await fetch(apiUrl('/api/agent/send-message'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...headers },
-        body: JSON.stringify({ action: value, personaId: persona?.id, args: args || {} }),
+        body: JSON.stringify({ action: value, personaId: personaIdOverride || persona?.id, args: args || {} }),
         credentials: 'include'
       });
       if (!resp.ok) throw new Error(await resp.text());

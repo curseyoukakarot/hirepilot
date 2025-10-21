@@ -59,7 +59,8 @@ export default function REXConsole() {
     if (!persona || seeded) return;
     try {
       const chatArea = document.getElementById('chat-area');
-      const container = chatArea?.querySelector('.max-w-4xl');
+      // Robustly select chat container across desktop/mobile layouts
+      const container = (chatArea?.querySelector('.max-w-4xl')) || (chatArea?.querySelector('.max-w-none')) || chatArea;
       if (!container) return;
       // remove default welcome message if present
       const welcome = document.getElementById('welcome-message');
@@ -97,7 +98,7 @@ export default function REXConsole() {
           addUserMessageDiv(val);
           if (typingIndicator) typingIndicator.style.display = 'flex';
           try {
-            const res = await triggerAction(val);
+            const res = await triggerAction(val, undefined, persona?.id || personaId);
             if (typingIndicator) typingIndicator.style.display = 'none';
             const follow = document.createElement('div');
             follow.className = 'flex items-start space-x-3';
@@ -184,7 +185,7 @@ export default function REXConsole() {
           addUserMessage(val);
           showTypingIndicator();
           try {
-            const res = await triggerAction(val);
+            const res = await triggerAction(val, undefined, persona?.id || personaId);
             hideTypingIndicator();
             addREXResponseWithActions({ message: res.message, actions: res.actions });
           } catch (e) {
@@ -264,7 +265,7 @@ export default function REXConsole() {
       (chatInput).value = '';
       showTypingIndicator();
       try {
-        const res = await sendMessageToRex(message);
+            const res = await sendMessageToRex(message, persona?.id || personaId);
         hideTypingIndicator();
         addREXResponseWithActions({ message: res.message, actions: res.actions });
       } catch {
