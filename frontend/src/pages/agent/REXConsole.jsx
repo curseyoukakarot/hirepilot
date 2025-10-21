@@ -118,6 +118,12 @@ export default function REXConsole() {
     const chatArea = document.getElementById('chat-area');
     const typingIndicator = document.getElementById('typing-indicator');
 
+    const getChatContainer = () => {
+      const area = document.getElementById('chat-area');
+      if (!area) return null;
+      return area.querySelector('.max-w-4xl') || area.querySelector('.max-w-none') || area;
+    };
+
     function addUserMessage(message) {
       const messageDiv = document.createElement('div');
       messageDiv.className = 'flex items-start space-x-3 justify-end';
@@ -131,8 +137,8 @@ export default function REXConsole() {
             <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" alt="User" class="w-full h-full object-cover">
         </div>
       `;
-      const container = chatArea.querySelector('.max-w-4xl');
-      container.appendChild(messageDiv);
+      const container = getChatContainer();
+      if (container) container.appendChild(messageDiv);
       scrollToBottom();
     }
 
@@ -150,8 +156,8 @@ export default function REXConsole() {
             <span class="text-xs text-gray-500 mt-1 block">Just now</span>
         </div>
       `;
-      const container = chatArea.querySelector('.max-w-4xl');
-      container.appendChild(messageDiv);
+      const container = getChatContainer();
+      if (container) container.appendChild(messageDiv);
       scrollToBottom();
     }
 
@@ -169,8 +175,8 @@ export default function REXConsole() {
           <span class="text-xs text-gray-500 mt-1 block">Just now</span>
         </div>
       `;
-      const container = chatArea.querySelector('.max-w-4xl');
-      container.appendChild(wrapper);
+      const container = getChatContainer();
+      if (container) container.appendChild(wrapper);
       // Bind buttons to simulate user selection
       wrapper.querySelectorAll('button[data-action-value]').forEach(btn => {
         btn.addEventListener('click', async () => {
