@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useRexAgent } from '../../hooks/useRexAgent';
 import { supabase } from '../../lib/supabaseClient';
 
 export default function REXConsole() {
   const location = useLocation();
+  const navigate = useNavigate();
   const personaId = new URLSearchParams(location.search).get('persona');
   const [persona, setPersona] = useState(null);
   const [loadingPersona, setLoadingPersona] = useState(false);
@@ -95,10 +96,18 @@ export default function REXConsole() {
             const c = document.getElementById('chat-area').querySelector('.max-w-4xl');
             c.appendChild(messageDiv);
           };
-          addUserMessageDiv(val);
+          if (val === 'adjust_persona') {
+            navigate('/agent/advanced?tab=personas');
+            return;
+          }
+          if (val === 'schedule') {
+            navigate('/agent/advanced?tab=schedules');
+            return;
+          }
+          addUserMessageDiv('Run Now');
           if (typingIndicator) typingIndicator.style.display = 'flex';
           try {
-            const res = await triggerAction(val, undefined, persona?.id || personaId);
+            const res = await triggerAction('run_now', undefined, persona?.id || personaId);
             if (typingIndicator) typingIndicator.style.display = 'none';
             const follow = document.createElement('div');
             follow.className = 'flex items-start space-x-3';
@@ -282,16 +291,31 @@ export default function REXConsole() {
       }
     });
     document.querySelectorAll('#quick-actions button').forEach((button) => {
-      button.addEventListener('click', () => {
-        const action = (button.textContent || '').trim();
-        addUserMessage(`/${action.toLowerCase().replace(' ', '')}`);
-        setTimeout(() => {
-          showTypingIndicator();
-          setTimeout(() => {
-            hideTypingIndicator();
-            addREXResponse(`Executing ${action}... I'll set this up for you right away.`);
-          }, 1500);
-        }, 500);
+      button.addEventListener('click', async () => {
+        const id = (button && button.id) ? button.id : '';
+        if (id === 'qa2-modify-persona') {
+          navigate('/agent/advanced?tab=personas');
+          return;
+        }
+        if (id === 'qa2-schedule') {
+          navigate('/agent/advanced?tab=schedules');
+          return;
+        }
+        if (id === 'qa2-analytics') {
+          navigate('/agent/advanced?tab=campaigns');
+          return;
+        }
+
+        // Run Campaign -> run_now sourcing immediately
+        showTypingIndicator();
+        try {
+          const res = await triggerAction('run_now', undefined, persona?.id || personaId);
+          hideTypingIndicator();
+          addREXResponseWithActions({ message: res.message, actions: res.actions });
+        } catch (e) {
+          hideTypingIndicator();
+          addREXResponse('Run failed. Please try again.');
+        }
       });
     });
 
@@ -361,15 +385,15 @@ export default function REXConsole() {
           <div className="px-6 pt-3">
             <div className="max-w-none md:max-w-4xl mx-auto">
               <div className="flex items-center space-x-3 whitespace-nowrap">
-            <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2">
+            <button id="qa-run-now" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2">
               <i className="fa-solid fa-play" />
               <span>Run Now – Source Leads</span>
             </button>
-            <button className="bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2">
+            <button id="qa-modify-persona" className="bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2">
               <i className="fa-solid fa-user-edit" />
               <span>Modify Persona</span>
             </button>
-            <button className="bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2">
+            <button id="qa-schedule" className="bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2">
               <i className="fa-solid fa-calendar-plus" />
               <span>Schedule Automation</span>
             </button>
@@ -455,19 +479,19 @@ Sourcing Channels:
           <div id="quick-actions" className="border-t border-gray-700 bg-gray-800 px-6 py-3">
             <div className="max-w-none md:max-w-4xl mx-auto">
               <div className="flex items-center space-x-3 whitespace-nowrap overflow-x-auto overscroll-x-contain scroll-smooth" style={{ WebkitOverflowScrolling: 'touch' }}>
-            <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2">
+            <button id="qa2-run-campaign" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2">
               <i className="fa-solid fa-play" />
               <span>Run Campaign</span>
             </button>
-            <button className="bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2">
+            <button id="qa2-modify-persona" className="bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2">
               <i className="fa-solid fa-user-edit" />
               <span>Modify Persona</span>
             </button>
-            <button className="bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2">
+            <button id="qa2-schedule" className="bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2">
               <i className="fa-solid fa-calendar-plus" />
               <span>Schedule Automation</span>
             </button>
-            <button className="bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2">
+            <button id="qa2-analytics" className="bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2">
               <i className="fa-solid fa-chart-line" />
               <span>Analytics</span>
             </button>
