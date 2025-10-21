@@ -149,6 +149,61 @@ router.post('/send-message', requireAuthUnified as any, async (req, res) => {
           return res.status(400).json({ message: e?.message || 'Run failed' });
         }
       }
+      if (action === 'start_outreach') {
+        try {
+          // 1) Resolve the most recent classic campaign for this user (mirror created during run_now)
+          const { data: latestCamp } = await supabaseAdmin
+            .from('campaigns')
+            .select('id,title,created_at')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          const classicId = (latestCamp as any)?.id as string | undefined;
+          if (!classicId) throw new Error('No campaign found to send outreach. Run sourcing first.');
+
+          // 2) If caller provided subject/html, use them; otherwise generate a concise opener
+          let subj: string | undefined = args?.subject;
+          let html: string | undefined = args?.html;
+          if (!subj || !html) {
+            // Load persona context when available to improve copy
+            let persona: any = null;
+            if (personaId) {
+              const { data: p } = await supabaseAdmin
+                .from('personas')
+                .select('*')
+                .eq('id', personaId)
+                .eq('user_id', userId)
+                .maybeSingle();
+              persona = p || null;
+            }
+            const sys = 'Write a short, professional outreach email opener for a recruiting campaign. Keep to 4-6 sentences, no fluff, no exclamation marks. Include a Calendly style CTA line at the end if appropriate.';
+            const context = persona ? `Persona: ${persona.name}; Titles: ${(persona.titles||[]).join(', ')}; Includes: ${(persona.include_keywords||[]).join(', ')}; Locations: ${(persona.locations||[]).join(', ')}` : '';
+            const prompt = `${sys}\n${context}\nReturn JSON with keys subject, html.`;
+            const comp = await openai.chat.completions.create({ model:'gpt-4o-mini', messages:[{ role:'user', content: prompt }] });
+            try {
+              const t = comp.choices?.[0]?.message?.content || '';
+              const parsed = JSON.parse(t);
+              subj = parsed.subject || 'Quick intro';
+              html = parsed.html || '<p>Quick intro</p>';
+            } catch {
+              subj = 'Quick introduction';
+              html = '<p>Hi, I wanted to introduce myself and share a quick opportunity. Are you open to a short chat?</p>';
+            }
+          }
+
+          // 3) Use REX tool to queue messages to the campaign (supports draft mode)
+          // Invoke capabilities from rex/server
+          const { server } = await import('../rex/server');
+          const caps = (server as any)?.getCapabilities?.();
+          const tool = caps?.tools?.['send_campaign_email_auto'];
+          if (!tool?.handler) throw new Error('Email tool unavailable');
+          const result = await tool.handler({ userId, campaign_id: classicId, subject: subj, html, channel: 'sendgrid' });
+          return res.json({ message: `Queued ${result?.queued || 0} emails to your latest campaign.`, actions: [ { label:'View Campaign', value:'view_campaign' } ] });
+        } catch (e: any) {
+          return res.status(400).json({ message: e?.message || 'Outreach failed' });
+        }
+      }
       if (action === 'schedule') {
         return res.json({ message: 'Should I set it for a specific date or make it recurring?', actions: [ { label: 'One-Time', value: 'one_time' }, { label: 'Recurring', value: 'recurring' } ] });
       }
