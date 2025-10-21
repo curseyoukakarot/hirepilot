@@ -190,6 +190,11 @@ const HomePage = () => {
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold mb-4">Everything you need to hire faster</h2>
             <p className="text-xl text-gray-400">From sourcing to closing, HirePilot handles it all</p>
+            <div className="mt-6 flex justify-center">
+              <a href="/workflows" className="bg-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors">
+                Explore Workflows
+              </a>
+            </div>
           </div>
           <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
             <div className="feature-card bg-gradient-to-br from-blue-900/50 to-blue-800/30 p-8 rounded-2xl border border-blue-700/30 scroll-fade-in">
