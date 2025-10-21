@@ -26,20 +26,20 @@ export default function IntegrationsAndWorkflows() {
 
   const integrations = [
     { name: "Apollo", icon: "/icons/apollo.svg", desc: "Source and enrich B2B leads instantly." },
-    { name: "LinkedIn Sales Navigator", icon: "/icons/linkedin.svg", desc: "Find top talent and decision-makers." },
+    { name: "LinkedIn Sales Navigator", icon: "/linkedin-sn.png", desc: "Find top talent and decision-makers." },
     { name: "Chrome Extension", icon: "/icons/chrome.svg", desc: "Save any LinkedIn profile into HirePilot." },
     { name: "Slack", icon: "/icons/slack.svg", desc: "Real-time notifications and team collaboration." },
     { name: "SendGrid", icon: "/icons/sendgrid.svg", desc: "Deliver, track, and analyze outbound sequences." },
     { name: "Zapier", icon: "/icons/zapier.svg", desc: "Connect HirePilot with 5,000+ apps effortlessly." },
     { name: "Make.com", icon: "/icons/make.svg", desc: "Advanced workflow orchestration for recruiters." },
-    { name: "Stripe", icon: "/icons/stripe.svg", desc: "Automate billing and client payments securely." },
-    { name: "DocuSign", icon: "/icons/docusign.svg", desc: "Send and sign placement agreements instantly." },
+    { name: "Stripe", icon: "/stripe.png", desc: "Automate billing and client payments securely." },
+    { name: "DocuSign", icon: "/docusign.png", desc: "Send and sign placement agreements instantly." },
     { name: "Google Calendar", icon: "/icons/google-calendar.svg", desc: "Schedule interviews seamlessly." },
     { name: "Notion", icon: "/icons/notion.svg", desc: "Create shared client workspaces and trackers." },
-    { name: "Monday.com", icon: "/icons/monday.svg", desc: "Visualize hiring pipelines and task boards." },
-    { name: "Clay", icon: "/icons/clay.svg", desc: "Score, segment, and prioritize leads." },
-    { name: "Hunter", icon: "/icons/hunter.svg", desc: "Find verified professional emails." },
-    { name: "Skrapp", icon: "/icons/skrapp.svg", desc: "Enrich lead emails & company data." },
+    { name: "Monday.com", icon: "/monday.png", desc: "Visualize hiring pipelines and task boards." },
+    { name: "Clay", icon: "/clay.png", desc: "Score, segment, and prioritize leads." },
+    { name: "Hunter", icon: "/hunter.png", desc: "Find verified professional emails." },
+    { name: "Skrapp", icon: "/skrapp.png", desc: "Enrich lead emails & company data." },
     { name: "Decodo", icon: "/icons/proxy.svg", desc: "Reliable proxy layer for LinkedIn scraping." },
   ];
 
