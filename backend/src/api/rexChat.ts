@@ -285,7 +285,7 @@ CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` :
         } catch {
           args = call.function?.arguments || call.arguments;
         }
-        // Force new campaign for sourcing
+        // Force new campaign for sourcing; resolve 'latest' for sending
         try {
           if (toolName === 'source_leads') {
             const lastUserMsg = [...(messages || [])].reverse().find(m => m.role === 'user');
@@ -303,6 +303,21 @@ CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` :
                 .upsert({ supabase_user_id: userId, latest_campaign_id: newCamp.id }, { onConflict: 'supabase_user_id' });
             } catch {
               args.campaignId = `new_${Date.now()}`;
+            }
+          }
+          if (toolName === 'send_campaign_email_auto') {
+            const cid = String(args?.campaign_id || '').trim();
+            const looksUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(cid);
+            if (!cid || cid === 'latest' || !looksUuid) {
+              // Find the most recent classic campaign for this user
+              const { data: latest } = await supabase
+                .from('campaigns')
+                .select('id,created_at')
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+              if (latest?.id) args.campaign_id = latest.id;
             }
           }
         } catch {}
