@@ -156,6 +156,38 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
         : Promise.resolve({ data: [] as any })) as any
     ] as any);
 
+    // Also surface candidates currently linked to the attached Job REQs via candidate_jobs
+    // so they appear in the Opportunity viewer without requiring re-submission.
+    let linkedReqCandidates: any[] = [];
+    if (reqIds.length) {
+      try {
+        const { data: cjobRows } = await supabase
+          .from('candidate_jobs')
+          .select('candidate_id')
+          .in('job_id', reqIds);
+        const candIds = Array.from(new Set((cjobRows || []).map((r: any) => r.candidate_id).filter(Boolean)));
+        if (candIds.length) {
+          const { data: cands } = await supabase
+            .from('candidates')
+            .select('id,first_name,last_name,email,linkedin_url,resume_url,title,years_experience,created_at')
+            .in('id', candIds);
+          linkedReqCandidates = (cands || []).map((c: any) => ({
+            id: `jobreq_${c.id}`,
+            candidate_id: c.id,
+            first_name: c.first_name || null,
+            last_name: c.last_name || null,
+            email: c.email || null,
+            linkedin_url: c.linkedin_url || null,
+            title: c.title || null,
+            years_experience: c.years_experience || null,
+            resume_url: c.resume_url || null,
+            created_at: c.created_at || null,
+            _from_job_req: true
+          }));
+        }
+      } catch {}
+    }
+
     // Map legacy candidates into application-like objects so UI can render them
     const legacyApps = (legacy || []).map((c: any) => ({
       id: `legacy_${c.id}`,
@@ -178,13 +210,29 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
       merged.push(row);
     }
 
+    // Merge job-req-linked candidates into submissions, avoiding duplicates by candidate_id or email
+    const subsOut = (() => {
+      const out: any[] = [...(subs || [])];
+      const seenById = new Set<string>(out.map((s:any)=>String(s.candidate_id||'')));
+      const seenByEmail = new Set<string>(out.map((s:any)=>String(s.email||'').toLowerCase()).filter(Boolean));
+      for (const row of (linkedReqCandidates || [])) {
+        const idKey = String(row.candidate_id || '');
+        const emailKey = String(row.email || '').toLowerCase();
+        if ((idKey && seenById.has(idKey)) || (emailKey && seenByEmail.has(emailKey))) continue;
+        if (idKey) seenById.add(idKey);
+        if (emailKey) seenByEmail.add(emailKey);
+        out.push(row);
+      }
+      return out;
+    })();
+
     res.json({
       ...opp,
       req_ids: reqIds,
       client: clientRow,
       owner: { id: ownerRow?.id, name: owner_name, email: ownerRow?.email },
       applications: merged,
-      submissions: subs || []
+      submissions: subsOut
     });
   } catch (e: any) {
     res.status(500).json({ error: e.message || 'Internal server error' });
