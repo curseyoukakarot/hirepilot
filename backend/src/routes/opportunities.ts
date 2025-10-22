@@ -169,7 +169,7 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
         if (candIds.length) {
           const { data: cands } = await supabase
             .from('candidates')
-            .select('id,first_name,last_name,email,linkedin_url,resume_url,title,years_experience,created_at')
+            .select('id,first_name,last_name,email,linkedin_url,resume_url,title,years_experience,created_at,enrichment_data')
             .in('id', candIds);
           linkedReqCandidates = (cands || []).map((c: any) => ({
             id: `jobreq_${c.id}`,
@@ -181,6 +181,9 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
             title: c.title || null,
             years_experience: c.years_experience || null,
             resume_url: c.resume_url || null,
+            notable_impact: (c.enrichment_data?.last_submission?.impact) || null,
+            motivation: (c.enrichment_data?.last_submission?.motivation) || null,
+            additional_notes: (c.enrichment_data?.last_submission?.accolades) || null,
             created_at: c.created_at || null,
             _from_job_req: true
           }));

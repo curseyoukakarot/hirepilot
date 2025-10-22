@@ -70,6 +70,17 @@ router.post('/submitCandidate', requireAuth as any, async (req: Request, res: Re
       const lastNameGuess = (typeof (req.body?.last_name) === 'string' && req.body.last_name.trim())
         ? String(req.body.last_name).trim().slice(0, 60)
         : (String(candidateIdOrName || '').trim().split(' ').slice(1).join(' ') || '').slice(0, 60);
+      const submissionSnapshot = {
+        impact: impact || '',
+        motivation: motivation || '',
+        accolades: accolades || '',
+        years_experience: experience || '',
+        expected_compensation: salary || '',
+        location: location || '',
+        linkedin_url: linkedin || '',
+        resume_url: resume || ''
+      };
+
       const insertPayload: any = {
         user_id: ownerId,
         first_name: firstNameGuess || null,
@@ -79,8 +90,9 @@ router.post('/submitCandidate', requireAuth as any, async (req: Request, res: Re
         title: title || null,
         linkedin_url: linkedin || null,
         resume_url: resume || null,
+        years_experience: experience || null,
         status: 'sourced',
-        enrichment_data: {},
+        enrichment_data: { last_submission: { ...submissionSnapshot, at: new Date().toISOString(), by_user_id: userId } },
         notes: [impact, motivation, accolades].filter(Boolean).join('\n\n') || null
       };
       const { data: created, error: cErr } = await db
@@ -134,6 +146,33 @@ router.post('/submitCandidate', requireAuth as any, async (req: Request, res: Re
         return res.status(500).json({ error: 'Failed to link candidate to job', details: (linkErr as any)?.message || String(linkErr) });
       }
     }
+
+    // Update existing candidate with latest submission snapshot if we reused an existing row
+    try {
+      if (candidateRow && candidateRow.id) {
+        const current = candidateRow.enrichment_data || {};
+        const last_submission = {
+          impact: impact || '',
+          motivation: motivation || '',
+          accolades: accolades || '',
+          years_experience: experience || '',
+          expected_compensation: salary || '',
+          location: location || '',
+          linkedin_url: linkedin || candidateRow.linkedin_url || '',
+          resume_url: resume || candidateRow.resume_url || '',
+          at: new Date().toISOString(),
+          by_user_id: userId
+        };
+        await db
+          .from('candidates')
+          .update({
+            enrichment_data: { ...(current || {}), last_submission },
+            years_experience: candidateRow.years_experience || experience || null,
+            title: candidateRow.title || title || null
+          })
+          .eq('id', candidateRow.id);
+      }
+    } catch {}
 
     // Notify owner via email + Slack
     try {
