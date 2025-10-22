@@ -34,6 +34,7 @@ export default function OpportunityDetail() {
   const [signature, setSignature] = useState('');
   const [detailOpen, setDetailOpen] = useState<any|null>(null);
   const [me, setMe] = useState<any>(null);
+  const BACKEND = (window as any).VITE_BACKEND_URL || (import.meta as any).env?.VITE_BACKEND_URL;
 
   useEffect(() => {
     const run = async () => {
@@ -41,26 +42,26 @@ export default function OpportunityDetail() {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
       setMe(session?.user || null);
-      const resp = await fetch(`${(import.meta as any).env.VITE_BACKEND_URL}/api/opportunities/${id}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const resp = await fetch(`${BACKEND}/api/opportunities/${id}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       const js = resp.ok ? await resp.json() : null;
       setOpp(js);
       setNotes(js?.notes || '');
       // load activity via unified deals activity
       try {
-        const actRes = await fetch(`${(import.meta as any).env.VITE_BACKEND_URL}/api/deals/activity?entityType=opportunity&entityId=${id}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        const actRes = await fetch(`${BACKEND}/api/deals/activity?entityType=opportunity&entityId=${id}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
         const js = actRes.ok ? await actRes.json() : { rows: [] };
         setActivity(js.rows || []);
       } catch {}
       try {
-        const cRes = await fetch(`${(import.meta as any).env.VITE_BACKEND_URL}/api/opportunities/${id}/collaborators`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        const cRes = await fetch(`${BACKEND}/api/opportunities/${id}/collaborators`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
         setCollabs(cRes.ok ? await cRes.json() : []);
       } catch {}
       try {
-        const rRes = await fetch(`${(import.meta as any).env.VITE_BACKEND_URL}/api/opportunities/${id}/available-reqs`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        const rRes = await fetch(`${BACKEND}/api/opportunities/${id}/available-reqs`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
         setAvailableReqs(rRes.ok ? await rRes.json() : []);
       } catch {}
       try {
-        const uRes = await fetch(`${(import.meta as any).env.VITE_BACKEND_URL}/api/opportunities/${id}/available-users`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        const uRes = await fetch(`${BACKEND}/api/opportunities/${id}/available-users`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
         setAvailableUsers(uRes.ok ? await uRes.json() : []);
       } catch {}
       setLoading(false);
@@ -71,7 +72,7 @@ export default function OpportunityDetail() {
   const saveNotes = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
-    await fetch(`${(import.meta as any).env.VITE_BACKEND_URL}/api/opportunities/${id}/notes`, {
+    await fetch(`${BACKEND}/api/opportunities/${id}/notes`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({ notes })
@@ -89,14 +90,14 @@ export default function OpportunityDetail() {
       body: newActivity.trim(),
       occurredAt: new Date().toISOString()
     };
-    const resp = await fetch(`${(window as any).VITE_BACKEND_URL || (import.meta as any).env?.VITE_BACKEND_URL}/api/deals/activity`, {
+    const resp = await fetch(`${BACKEND}/api/deals/activity`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify(payload)
     });
     if (resp.ok) {
       // refresh
-      const actRes = await fetch(`${(window as any).VITE_BACKEND_URL || (import.meta as any).env?.VITE_BACKEND_URL}/api/deals/activity?entityType=opportunity&entityId=${id}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const actRes = await fetch(`${BACKEND}/api/deals/activity?entityType=opportunity&entityId=${id}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       const js = actRes.ok ? await actRes.json() : { rows: [] };
       setActivity(js.rows || []);
       setNewActivity('');
@@ -107,7 +108,7 @@ export default function OpportunityDetail() {
     if (!newCollab.trim()) return;
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
-    const resp = await fetch(`${(window as any).VITE_BACKEND_URL || (import.meta as any).env?.VITE_BACKEND_URL}/api/opportunities/${id}/collaborators`, {
+    const resp = await fetch(`${BACKEND}/api/opportunities/${id}/collaborators`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({ email: newCollab.trim() })
@@ -125,13 +126,16 @@ export default function OpportunityDetail() {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
     const reqIds = Array.from(new Set([...(opp?.req_ids || []), idStr]));
-    const resp = await fetch(`${(window as any).VITE_BACKEND_URL || (import.meta as any).env?.VITE_BACKEND_URL}/api/opportunities/${id}`, {
+    const resp = await fetch(`${BACKEND}/api/opportunities/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({ req_ids: reqIds })
     });
     if (resp.ok) {
-      setOpp((o:any) => ({ ...o, req_ids: reqIds }));
+      // Re-fetch full opportunity to pull in imported candidates from linked REQs
+      const ref = await fetch(`${BACKEND}/api/opportunities/${id}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const js = ref.ok ? await ref.json() : null;
+      if (js) setOpp(js); else setOpp((o:any) => ({ ...o, req_ids: reqIds }));
       setNewReqId('');
     }
   };
