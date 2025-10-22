@@ -44,7 +44,32 @@ export default function OpportunityDetail() {
       setMe(session?.user || null);
       const resp = await fetch(`${BACKEND}/api/opportunities/${id}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       const js = resp.ok ? await resp.json() : null;
-      setOpp(js);
+      // If main endpoint returns no submissions but we have linked REQs, try diagnostic and surface results
+      if (js && Array.isArray(js.submissions) && js.submissions.length === 0 && (js.req_ids||[]).length) {
+        try {
+          const diag = await fetch(`${BACKEND}/api/opportunities/${id}/linked-candidates`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+          if (diag.ok) {
+            const dj = await diag.json();
+            const mapped = (dj?.candidates||[]).map((c:any) => ({
+              id: `jobreq_${c.candidate_id}`,
+              candidate_id: c.candidate_id,
+              first_name: c.first_name || null,
+              last_name: c.last_name || null,
+              email: c.email || null,
+              linkedin_url: c.linkedin_url || null,
+              title: c.title || null,
+              years_experience: c.years_experience || null,
+              resume_url: c.resume_url || null,
+              _from_job_req: true
+            }));
+            setOpp({ ...js, submissions: mapped });
+          } else {
+            setOpp(js);
+          }
+        } catch { setOpp(js); }
+      } else {
+        setOpp(js);
+      }
       setNotes(js?.notes || '');
       // load activity via unified deals activity
       try {

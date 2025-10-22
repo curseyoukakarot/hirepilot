@@ -68,7 +68,7 @@ export default function WorkflowRecipeModal({
     <AnimatePresence>
       {isOpen ? (
         <motion.div
-          className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
           onMouseDown={handleOverlayClick}
           initial={overlay.initial}
           animate={overlay.animate}
@@ -77,7 +77,7 @@ export default function WorkflowRecipeModal({
           <motion.div
             role="dialog"
             aria-modal="true"
-            className="bg-white rounded-2xl shadow-lg border border-gray-200 max-w-4xl mx-auto overflow-hidden w-full"
+            className="bg-slate-950 text-white rounded-2xl shadow-lg border border-slate-800 max-w-4xl mx-auto overflow-hidden w-full"
             initial={modal.initial}
             animate={modal.animate}
             exit={modal.exit}
@@ -85,20 +85,20 @@ export default function WorkflowRecipeModal({
             onMouseDown={(e) => e.stopPropagation()}
           >
             {/* Modal Header (preserve classes) */}
-            <div className="bg-gray-50 border-b border-gray-200 p-6">
+            <div className="bg-slate-900 border-b border-slate-800 p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
                   <div className="w-12 h-12 bg-gradient-to-br from-accent to-accent/80 rounded-xl flex items-center justify-center">
                     <i className="fa-solid fa-bolt text-white"></i>
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-gray-900">{title}</h3>
-                    <p className="text-gray-600">{summary}</p>
+                    <h3 className="text-xl font-bold text-white">{title}</h3>
+                    <p className="text-slate-300">{summary}</p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-3">
                   <div className="flex items-center space-x-2">
-                    <span className="text-sm text-gray-600">Developer View</span>
+                    <span className="text-sm text-slate-300">Developer View</span>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
                         type="checkbox"
@@ -107,10 +107,10 @@ export default function WorkflowRecipeModal({
                         checked={devMode}
                         onChange={(e) => setDevMode(e.target.checked)}
                       />
-                      <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-primary peer-focus:outline-none peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:h-5 after:w-5 after:rounded-full after:transition-all"></div>
+                      <div className="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-primary peer-focus:outline-none peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:h-5 after:w-5 after:rounded-full after:transition-all"></div>
                     </label>
                   </div>
-                  <button ref={closeBtnRef} className="text-gray-400 hover:text-gray-600" onClick={onClose} aria-label="Close">
+                  <button ref={closeBtnRef} className="text-slate-400 hover:text-white" onClick={onClose} aria-label="Close">
                     <i className="fa-solid fa-times text-xl"></i>
                   </button>
                 </div>
@@ -126,7 +126,7 @@ export default function WorkflowRecipeModal({
                     className={
                       tab === activeTab
                         ? 'px-4 py-2 bg-primary text-white rounded-lg font-medium'
-                        : 'px-4 py-2 text-gray-600 hover:text-gray-900 rounded-lg'
+                        : 'px-4 py-2 text-slate-300 hover:text-white rounded-lg'
                     }
                     onClick={() => setActiveTab(tab)}
                   >
@@ -143,8 +143,8 @@ export default function WorkflowRecipeModal({
                       <i className="fa-solid fa-info text-white"></i>
                     </div>
                     <div>
-                      <h4 className="font-semibold text-gray-900 mb-2">What This Does</h4>
-                      <p className="text-gray-700">{summary}</p>
+                      <h4 className="font-semibold text-white mb-2">What This Does</h4>
+                      <p className="text-slate-300">{summary}</p>
                     </div>
                   </div>
 
@@ -152,14 +152,14 @@ export default function WorkflowRecipeModal({
                     {toolsGrid}
                   </div>
 
-                  <div className="flex items-center justify-between p-4 bg-gradient-to-r from-primary/5 to-secondary/5 rounded-lg border border-primary/20">
+                  <div className="flex items-center justify-between p-4 bg-gradient-to-r from-primary/10 to-secondary/10 rounded-lg border border-primary/20">
                     <div className="flex items-center space-x-3">
                       <i className="fa-solid fa-clock text-primary"></i>
-                      <span className="font-medium text-gray-900">Setup Time: {setupTime}</span>
+                      <span className="font-medium text-white">Setup Time: {setupTime}</span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <i className="fa-solid fa-star text-warning"></i>
-                      <span className="font-medium text-gray-900">Difficulty: {difficulty}</span>
+                      <span className="font-medium text-white">Difficulty: {difficulty}</span>
                     </div>
                   </div>
                 </div>
@@ -173,11 +173,11 @@ export default function WorkflowRecipeModal({
                         <div className="w-8 h-8 bg-gradient-to-br from-primary to-secondary rounded-md text-white flex items-center justify-center font-semibold">
                           {idx + 1}
                         </div>
-                        <div className="text-gray-800">{step}</div>
+                        <div className="text-slate-200">{step}</div>
                       </div>
                     ))
                   ) : (
-                    <div className="text-gray-600">No setup steps provided.</div>
+                    <div className="text-slate-400">No setup steps provided.</div>
                   )}
                 </div>
               )}
@@ -189,7 +189,7 @@ export default function WorkflowRecipeModal({
                       <pre className="code-block"><code className="language-yaml">{formula}</code></pre>
                     </div>
                   ) : (
-                    <div className="p-4 bg-gray-50 rounded-lg text-gray-700">
+                    <div className="p-4 bg-slate-900 rounded-lg text-slate-200">
                       Enable Developer View to see YAML formula and API code examples.
                     </div>
                   )}
@@ -233,14 +233,14 @@ export default function WorkflowRecipeModal({
             </div>
 
             {/* Modal Footer */}
-            <div className="bg-gray-50 border-t border-gray-200 p-6">
+            <div className="bg-slate-900 border-t border-slate-800 p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   <div className="w-2 h-2 bg-success rounded-full"></div>
-                  <span className="text-sm text-gray-600">Ready to deploy</span>
+                  <span className="text-sm text-slate-300">Ready to deploy</span>
                 </div>
                 <div className="flex space-x-3">
-                  <button className="border border-gray-300 text-gray-700 hover:bg-gray-50 px-6 py-2 rounded-lg font-medium transition-all">
+                  <button className="border border-slate-700 text-slate-200 hover:bg-slate-800 px-6 py-2 rounded-lg font-medium transition-all">
                     Preview
                   </button>
                   <button className="bg-primary hover:bg-primary/90 text-white px-6 py-2 rounded-lg font-medium transition-all">
