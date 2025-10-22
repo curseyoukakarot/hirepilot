@@ -50,6 +50,7 @@ import TermsPage from './screens/TermsPage';
 import RexSupport from './screens/RexSupport';
 import ApiDocs from './screens/ApiDocs';
 import IntegrationsAndWorkflows from './pages/IntegrationsAndWorkflows';
+import WorkflowsPage from './pages/WorkflowsPage';
 import AffiliateProgram from './screens/AffiliateProgram';
 import ProductHunt from './screens/ProductHunt';
 import FreeForever from './screens/FreeForever';
@@ -549,7 +550,7 @@ function InnerApp() {
               <Route path="/pricing" element={<Pricing />} />
               <Route path="/freeforever" element={<FreeForever />} />
               <Route path="/rex" element={<MeetRex />} />
-              <Route path="/workflows" element={<IntegrationsAndWorkflows />} />
+              <Route path="/workflows" element={<WorkflowsPage />} />
               <Route path="/copilot" element={<Copilot />} />
               <Route path="/enterprise" element={<Handsfree />} />
               <Route path="/templates" element={<TemplateManager userId="mock-user-id" />} />
