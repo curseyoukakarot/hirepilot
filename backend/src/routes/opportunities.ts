@@ -276,38 +276,33 @@ router.get('/:id/linked-candidates', requireAuth, async (req: Request, res: Resp
     const { data: links } = await supabase.from('opportunity_job_reqs').select('req_id').eq('opportunity_id', id);
     const reqIds = (links || []).map((l: any) => l.req_id);
 
-    let candIds: string[] = [];
+    // Preferred: single join identical to pipeline route
+    let joined: any[] = [];
+    let joinError: any = null;
     if (reqIds.length) {
-      const { data: cjRows } = await supabase.from('candidate_jobs').select('candidate_id').in('job_id', reqIds);
-      candIds = Array.from(new Set((cjRows || []).map((r: any) => r.candidate_id).filter(Boolean)));
+      const { data, error } = await supabase
+        .from('candidate_jobs')
+        .select('candidate_id, candidates(id,first_name,last_name,email,linkedin_url,resume_url,title,years_experience,created_at)')
+        .in('job_id', reqIds);
+      joined = data || [];
+      joinError = error || null;
     }
 
-    let candidatesOut: any[] = [];
-    if (candIds.length) {
-      const first = await supabase
-        .from('candidates')
-        .select('id,first_name,last_name,email,linkedin_url,resume_url,title,years_experience,created_at,enrichment_data')
-        .in('id', candIds);
-      let rows: any[] = first.data || [];
-      if (first.error && String((first.error as any).code || '') === '42703') {
-        const second = await supabase
-          .from('candidates')
-          .select('id,first_name,last_name,email,linkedin_url,resume_url,title,years_experience,created_at')
-          .in('id', candIds);
-        rows = second.data || [];
-      }
-      candidatesOut = (rows || []).map((c: any) => ({
-        candidate_id: c.id,
-        first_name: c.first_name,
-        last_name: c.last_name,
-        email: c.email,
-        title: c.title,
-        years_experience: c.years_experience,
-        resume_url: c.resume_url
-      }));
-    }
+    const candidatesOut = (joined || []).map((row: any) => {
+      const c = Array.isArray(row.candidates) ? row.candidates[0] : row.candidates;
+      return {
+        candidate_id: row.candidate_id,
+        first_name: c?.first_name || null,
+        last_name: c?.last_name || null,
+        email: c?.email || null,
+        title: c?.title || null,
+        years_experience: c?.years_experience || null,
+        resume_url: c?.resume_url || null,
+        linkedin_url: c?.linkedin_url || null
+      };
+    });
 
-    res.json({ req_ids: reqIds, candidate_ids: candIds, count: candidatesOut.length, candidates: candidatesOut });
+    res.json({ req_ids: reqIds, count: candidatesOut.length, candidates: candidatesOut, _debug: { joinErrorCode: joinError?.code || null, joinErrorMsg: joinError?.message || null } });
   } catch (e: any) { res.status(500).json({ error: e.message || 'Internal server error' }); }
 });
 
