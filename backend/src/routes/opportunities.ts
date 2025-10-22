@@ -174,7 +174,7 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
         // Step 2: fetch candidates by ids, with progressive fallbacks for columns missing in prod
         if (candIds.length) {
           let candRows: any[] = [];
-          let attempt = await supabase
+          let attempt: any = await supabase
             .from('candidates')
             .select('id,first_name,last_name,email,linkedin_url,resume_url,title,years_experience,created_at,enrichment_data')
             .in('id', candIds);
@@ -286,7 +286,7 @@ router.get('/:id/linked-candidates', requireAuth, async (req: Request, res: Resp
     if (reqIds.length) {
       let data: any[] | null = null; let error: any = null;
       // Attempt with years_experience
-      let resp = await supabase
+      let resp: any = await supabase
         .from('candidate_jobs')
         .select('candidate_id, candidates(id,first_name,last_name,email,linkedin_url,resume_url,title,years_experience,created_at)')
         .in('job_id', reqIds);
