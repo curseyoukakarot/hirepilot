@@ -171,25 +171,29 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
         }
         const candIds = Array.from(new Set((cjRows || []).map((r: any) => r.candidate_id).filter(Boolean)));
 
-        // Step 2: fetch candidates by ids, with fallback if enrichment_data missing
+        // Step 2: fetch candidates by ids, with progressive fallbacks for columns missing in prod
         if (candIds.length) {
           let candRows: any[] = [];
-          const first = await supabase
+          let attempt = await supabase
             .from('candidates')
             .select('id,first_name,last_name,email,linkedin_url,resume_url,title,years_experience,created_at,enrichment_data')
             .in('id', candIds);
-          if (first.error && String((first.error as any).code || '') === '42703') {
-            const second = await supabase
+          if (attempt.error && String((attempt.error as any).code || '') === '42703') {
+            attempt = await supabase
               .from('candidates')
               .select('id,first_name,last_name,email,linkedin_url,resume_url,title,years_experience,created_at')
               .in('id', candIds);
-            candRows = second.data || [];
-            if (second.error) console.log('[opportunities/:id] candidates fallback error', second.error);
-          } else if (first.error) {
-            console.log('[opportunities/:id] candidates error', first.error);
-          } else {
-            candRows = first.data || [];
+            if (attempt.error && String((attempt.error as any).code || '') === '42703') {
+              attempt = await supabase
+                .from('candidates')
+                .select('id,first_name,last_name,email,linkedin_url,resume_url,title,created_at')
+                .in('id', candIds);
+            }
           }
+          if (attempt.error) {
+            console.log('[opportunities/:id] candidates error', attempt.error);
+          }
+          candRows = attempt.data || [];
 
           linkedReqCandidates = (candRows || []).map((c: any) => ({
             id: `jobreq_${c.id}`,
@@ -199,7 +203,7 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
             email: c.email || null,
             linkedin_url: c.linkedin_url || null,
             title: c.title || null,
-            years_experience: c.years_experience || null,
+            years_experience: (c as any).years_experience || null,
             resume_url: c.resume_url || null,
             notable_impact: (c.enrichment_data?.last_submission?.impact) || null,
             motivation: (c.enrichment_data?.last_submission?.motivation) || null,
@@ -280,10 +284,21 @@ router.get('/:id/linked-candidates', requireAuth, async (req: Request, res: Resp
     let joined: any[] = [];
     let joinError: any = null;
     if (reqIds.length) {
-      const { data, error } = await supabase
+      let data: any[] | null = null; let error: any = null;
+      // Attempt with years_experience
+      let resp = await supabase
         .from('candidate_jobs')
         .select('candidate_id, candidates(id,first_name,last_name,email,linkedin_url,resume_url,title,years_experience,created_at)')
         .in('job_id', reqIds);
+      data = resp.data || null; error = resp.error || null;
+      if (error && String(error.code || '') === '42703') {
+        // Fallback without years_experience
+        resp = await supabase
+          .from('candidate_jobs')
+          .select('candidate_id, candidates(id,first_name,last_name,email,linkedin_url,resume_url,title,created_at)')
+          .in('job_id', reqIds);
+        data = resp.data || null; error = resp.error || null;
+      }
       joined = data || [];
       joinError = error || null;
     }

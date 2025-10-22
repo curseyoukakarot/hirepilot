@@ -35,7 +35,7 @@ export default function WorkflowsPage() {
   }, [filtered]);
 
   return (
-    <div id="main-content" className="ml-64 bg-slate-950 min-h-screen text-white">
+    <div id="main-content" className="bg-slate-950 min-h-screen text-white">
       {/* Top Bar */}
       <header id="header" className="bg-slate-900 border-b border-slate-800 px-8 py-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
