@@ -78,6 +78,75 @@ export default async function rexChat(req: Request, res: Response) {
     // Allow all users to access REX - no restrictions (temporary override)
     const allowed = true;
 
+    // ===============================================
+    // Deterministic pre-processor for explicit intents
+    // ===============================================
+    try {
+      const lastUserMsg = [...(messages || [])].reverse().find(m => m.role === 'user');
+      const lastUserText = String((lastUserMsg as any)?.content || '').toLowerCase();
+      let providerHint: 'sendgrid'|'google'|'outlook'|null = null;
+
+      // Pattern A: "send from my <provider> account"
+      const providerMatch = /(send\s+from\s+my\s+)(sendgrid|google|outlook)(\s+account)?/i.exec(String((lastUserMsg as any)?.content || ''));
+      if (providerMatch) {
+        providerHint = providerMatch[2].toLowerCase() as any;
+        try {
+          await supabase
+            .from('user_settings')
+            .upsert({ user_id: userId, preferred_email_provider: providerHint }, { onConflict: 'user_id' });
+          console.log('[rexChat][pre] set preferred provider', { userId, provider: providerHint });
+        } catch (e) {
+          console.warn('[rexChat][pre] failed to set preferred provider', (e as any)?.message || e);
+        }
+      }
+
+      // Pattern B: "send/email ... to lead <uuid>" (or "lead id: <uuid>")
+      const sendLeadMatch = /(send|email)[^\n]*?(?:to|lead)[^\n]*?(?:lead[-_\s]*id[:\s]*)?([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})/i.exec(String((lastUserMsg as any)?.content || ''));
+      if (sendLeadMatch) {
+        const leadId = sendLeadMatch[2];
+
+        // Extract a recent draft from the previous assistant message
+        const prevAssistant = [...(messages || [])].slice(0, Math.max(0, (messages || []).length - 1)).reverse().find(m => m.role === 'assistant');
+        const assistantText = prevAssistant
+          ? (typeof (prevAssistant as any).content === 'string'
+              ? String((prevAssistant as any).content)
+              : String((prevAssistant as any)?.content?.text || ''))
+          : '';
+
+        // Very lightweight subject/body parsing
+        let subject = '';
+        const subjMatch = /\*\*?subject\*\*?\s*:?\s*(.+)/i.exec(assistantText) || /subject\s*:?\s*(.+)/i.exec(assistantText);
+        if (subjMatch) subject = subjMatch[1].trim();
+        if (!subject) subject = 'Message';
+        let html = assistantText ? assistantText.replace(/\n/g, '<br/>') : '';
+
+        if (!html) {
+          console.log('[rexChat][pre] no draft html located; falling back to model');
+        } else {
+          try {
+            const { server: rexServer } = await import('../rex/server');
+            const caps = rexServer.getCapabilities?.();
+            const tool = caps?.tools?.['send_email_to_lead'];
+            if (!tool?.handler) throw new Error('send_email_to_lead tool not available');
+            const result = await tool.handler({ userId, lead_id: leadId, subject, html, provider: providerHint || undefined });
+            if (result?.ok) {
+              const used = result?.used || providerHint || 'provider';
+              return res.status(200).json({ reply: { role: 'assistant', content: `Email sent to lead ${leadId} via ${used}.` } });
+            }
+            if (result?.error === 'NO_EMAIL_PROVIDER') {
+              return res.status(200).json({ reply: { role: 'assistant', content: 'You need to connect an email service first (SendGrid, Google, or Outlook). Go to Settings → Integrations to connect.' } });
+            }
+            // If tool returned non-ok, fall through to model
+            console.warn('[rexChat][pre] send_email_to_lead returned non-ok', result);
+          } catch (preErr) {
+            console.warn('[rexChat][pre] send_email_to_lead error', (preErr as any)?.message || preErr);
+          }
+        }
+      }
+    } catch (preTopErr) {
+      console.warn('[rexChat][pre] preprocessor top-level error', (preTopErr as any)?.message || preTopErr);
+    }
+
     // Hard short-circuit: Sniper LinkedIn post collection (avoid model decision-making)
     try {
       const lastUserMsgEarly = [...(messages || [])].reverse().find(m => m.role === 'user');
