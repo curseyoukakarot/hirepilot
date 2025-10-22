@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { FaEnvelope, FaChartBar, FaCog, FaSignOutAlt, FaCreditCard, FaShieldAlt, FaRobot, FaExclamationTriangle, FaCookie, FaSlidersH, FaPlug, FaBell, FaUsers } from 'react-icons/fa';
+import { FaEnvelope, FaChartBar, FaCog, FaSignOutAlt, FaCreditCard, FaShieldAlt, FaRobot, FaExclamationTriangle, FaCookie, FaSlidersH, FaPlug, FaBell, FaUsers, FaTerminal } from 'react-icons/fa';
 import { supabase } from '../lib/supabaseClient';
 import { usePlan } from '../context/PlanContext';
 
@@ -132,7 +132,7 @@ export default function Sidebar() {
                       }`
                     }
                   >
-                    <span className="mr-3 text-lg"><FaRobot /></span>
+                    <span className="mr-3 text-lg"><FaTerminal /></span>
                     Agent Mode
                   </NavLink>
                 </li>
