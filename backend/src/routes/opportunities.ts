@@ -264,6 +264,53 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/opportunities/:id/linked-candidates (diagnostic)
+router.get('/:id/linked-candidates', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    const allowed = await canViewOpportunities(userId);
+    if (!allowed) { res.status(403).json({ error: 'access_denied' }); return; }
+
+    const { id } = req.params;
+    const { data: links } = await supabase.from('opportunity_job_reqs').select('req_id').eq('opportunity_id', id);
+    const reqIds = (links || []).map((l: any) => l.req_id);
+
+    let candIds: string[] = [];
+    if (reqIds.length) {
+      const { data: cjRows } = await supabase.from('candidate_jobs').select('candidate_id').in('job_id', reqIds);
+      candIds = Array.from(new Set((cjRows || []).map((r: any) => r.candidate_id).filter(Boolean)));
+    }
+
+    let candidatesOut: any[] = [];
+    if (candIds.length) {
+      const first = await supabase
+        .from('candidates')
+        .select('id,first_name,last_name,email,linkedin_url,resume_url,title,years_experience,created_at,enrichment_data')
+        .in('id', candIds);
+      let rows: any[] = first.data || [];
+      if (first.error && String((first.error as any).code || '') === '42703') {
+        const second = await supabase
+          .from('candidates')
+          .select('id,first_name,last_name,email,linkedin_url,resume_url,title,years_experience,created_at')
+          .in('id', candIds);
+        rows = second.data || [];
+      }
+      candidatesOut = (rows || []).map((c: any) => ({
+        candidate_id: c.id,
+        first_name: c.first_name,
+        last_name: c.last_name,
+        email: c.email,
+        title: c.title,
+        years_experience: c.years_experience,
+        resume_url: c.resume_url
+      }));
+    }
+
+    res.json({ req_ids: reqIds, candidate_ids: candIds, count: candidatesOut.length, candidates: candidatesOut });
+  } catch (e: any) { res.status(500).json({ error: e.message || 'Internal server error' }); }
+});
+
 // PATCH /api/opportunities/:id/notes
 router.patch('/:id/notes', requireAuth, async (req: Request, res: Response) => {
   try {

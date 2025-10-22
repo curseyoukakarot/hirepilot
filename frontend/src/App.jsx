@@ -310,7 +310,7 @@ export default function App() {
 
 function InnerApp() {
   const location = useLocation();
-  const landingPages = ["/", "/signup", "/login", "/reset-password", "/copilot", "/enterprise", "/pricing", "/rex", "/rexsupport", "/chromeextension", "/chromeextension/privacy", "/terms", "/apidoc", "/workflows", "/test-gmail", "/affiliates", "/blog/zapierguide", "/producthunt", "/dfydashboard", "/freeforever", "/jobs/share", "/apply"];
+  const landingPages = ["/", "/signup", "/login", "/reset-password", "/copilot", "/enterprise", "/pricing", "/rex", "/rexsupport", "/chromeextension", "/chromeextension/privacy", "/terms", "/apidoc", "/test-gmail", "/affiliates", "/blog/zapierguide", "/producthunt", "/dfydashboard", "/freeforever", "/jobs/share", "/apply"];
   // Treat blog landing and article pages as public landing pages (no dashboard UI)
   const isPartnerArea = location.pathname.startsWith('/partners');
   // Public dynamic pages (e.g., share/apply) should not be gated by auth
@@ -550,7 +550,7 @@ function InnerApp() {
               <Route path="/pricing" element={<Pricing />} />
               <Route path="/freeforever" element={<FreeForever />} />
               <Route path="/rex" element={<MeetRex />} />
-              <Route path="/workflows" element={<WorkflowsPage />} />
+              <Route path="/workflows" element={dbRole ? <WorkflowsPage /> : <Navigate to="/login" />} />
               <Route path="/copilot" element={<Copilot />} />
               <Route path="/enterprise" element={<Handsfree />} />
               <Route path="/templates" element={<TemplateManager userId="mock-user-id" />} />
