@@ -161,50 +161,45 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
     let linkedReqCandidates: any[] = [];
     if (reqIds.length) {
       try {
-        const { data: cjobRows } = await supabase
-          .from('candidate_jobs')
-          .select('candidate_id')
-          .in('job_id', reqIds);
-        const candIds = Array.from(new Set((cjobRows || []).map((r: any) => r.candidate_id).filter(Boolean)));
-        if (candIds.length) {
-          // Some environments may not yet have 'enrichment_data' column; attempt with it first, then fallback
-          let cands: any[] | null = null;
-          try {
-            const { data, error } = await supabase
-              .from('candidates')
-              .select('id,first_name,last_name,email,linkedin_url,resume_url,title,years_experience,created_at,enrichment_data')
-              .in('id', candIds);
-            if (error && String((error as any).code || '') === '42703') {
-              // retry without enrichment_data
-              const retry = await supabase
-                .from('candidates')
-                .select('id,first_name,last_name,email,linkedin_url,resume_url,title,years_experience,created_at')
-                .in('id', candIds);
-              cands = retry.data || [];
-            } else if (error) {
-              cands = [];
-            } else {
-              cands = data || [];
-            }
-          } catch { cands = []; }
+        // Prefer a single join to avoid mismatch across environments
+        let joined: any[] | null = null;
+        try {
+          const { data, error } = await supabase
+            .from('candidate_jobs')
+            .select('candidate_id, candidates(id,first_name,last_name,email,linkedin_url,resume_url,title,years_experience,created_at,enrichment_data)')
+            .in('job_id', reqIds);
+          if (error && String((error as any).code || '') === '42703') {
+            const retry = await supabase
+              .from('candidate_jobs')
+              .select('candidate_id, candidates(id,first_name,last_name,email,linkedin_url,resume_url,title,years_experience,created_at)')
+              .in('job_id', reqIds);
+            joined = retry.data || [];
+          } else if (error) {
+            joined = [];
+          } else {
+            joined = data || [];
+          }
+        } catch { joined = []; }
 
-          linkedReqCandidates = (cands || []).map((c: any) => ({
-            id: `jobreq_${c.id}`,
-            candidate_id: c.id,
-            first_name: c.first_name || null,
-            last_name: c.last_name || null,
-            email: c.email || null,
-            linkedin_url: c.linkedin_url || null,
-            title: c.title || null,
-            years_experience: c.years_experience || null,
-            resume_url: c.resume_url || null,
-            notable_impact: (c.enrichment_data?.last_submission?.impact) || null,
-            motivation: (c.enrichment_data?.last_submission?.motivation) || null,
-            additional_notes: (c.enrichment_data?.last_submission?.accolades) || null,
-            created_at: c.created_at || null,
+        linkedReqCandidates = (joined || []).map((row: any) => {
+          const c = Array.isArray(row.candidates) ? row.candidates[0] : row.candidates;
+          return {
+            id: `jobreq_${row.candidate_id}`,
+            candidate_id: row.candidate_id,
+            first_name: c?.first_name || null,
+            last_name: c?.last_name || null,
+            email: c?.email || null,
+            linkedin_url: c?.linkedin_url || null,
+            title: c?.title || null,
+            years_experience: c?.years_experience || null,
+            resume_url: c?.resume_url || null,
+            notable_impact: (c?.enrichment_data?.last_submission?.impact) || null,
+            motivation: (c?.enrichment_data?.last_submission?.motivation) || null,
+            additional_notes: (c?.enrichment_data?.last_submission?.accolades) || null,
+            created_at: c?.created_at || null,
             _from_job_req: true
-          }));
-        }
+          };
+        });
       } catch {}
     }
 
