@@ -161,46 +161,56 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
     let linkedReqCandidates: any[] = [];
     if (reqIds.length) {
       try {
-        // Prefer a single join to avoid mismatch across environments
-        let joined: any[] | null = null;
-        try {
-          const { data, error } = await supabase
-            .from('candidate_jobs')
-            .select('candidate_id, candidates(id,first_name,last_name,email,linkedin_url,resume_url,title,years_experience,created_at,enrichment_data)')
-            .in('job_id', reqIds);
-          if (error && String((error as any).code || '') === '42703') {
-            const retry = await supabase
-              .from('candidate_jobs')
-              .select('candidate_id, candidates(id,first_name,last_name,email,linkedin_url,resume_url,title,years_experience,created_at)')
-              .in('job_id', reqIds);
-            joined = retry.data || [];
-          } else if (error) {
-            joined = [];
-          } else {
-            joined = data || [];
-          }
-        } catch { joined = []; }
+        // Step 1: fetch candidate_ids for the linked REQs
+        const { data: cjRows, error: cjErr } = await supabase
+          .from('candidate_jobs')
+          .select('candidate_id')
+          .in('job_id', reqIds);
+        if (cjErr) {
+          console.log('[opportunities/:id] candidate_jobs error', cjErr);
+        }
+        const candIds = Array.from(new Set((cjRows || []).map((r: any) => r.candidate_id).filter(Boolean)));
 
-        linkedReqCandidates = (joined || []).map((row: any) => {
-          const c = Array.isArray(row.candidates) ? row.candidates[0] : row.candidates;
-          return {
-            id: `jobreq_${row.candidate_id}`,
-            candidate_id: row.candidate_id,
-            first_name: c?.first_name || null,
-            last_name: c?.last_name || null,
-            email: c?.email || null,
-            linkedin_url: c?.linkedin_url || null,
-            title: c?.title || null,
-            years_experience: c?.years_experience || null,
-            resume_url: c?.resume_url || null,
-            notable_impact: (c?.enrichment_data?.last_submission?.impact) || null,
-            motivation: (c?.enrichment_data?.last_submission?.motivation) || null,
-            additional_notes: (c?.enrichment_data?.last_submission?.accolades) || null,
-            created_at: c?.created_at || null,
+        // Step 2: fetch candidates by ids, with fallback if enrichment_data missing
+        if (candIds.length) {
+          let candRows: any[] = [];
+          const first = await supabase
+            .from('candidates')
+            .select('id,first_name,last_name,email,linkedin_url,resume_url,title,years_experience,created_at,enrichment_data')
+            .in('id', candIds);
+          if (first.error && String((first.error as any).code || '') === '42703') {
+            const second = await supabase
+              .from('candidates')
+              .select('id,first_name,last_name,email,linkedin_url,resume_url,title,years_experience,created_at')
+              .in('id', candIds);
+            candRows = second.data || [];
+            if (second.error) console.log('[opportunities/:id] candidates fallback error', second.error);
+          } else if (first.error) {
+            console.log('[opportunities/:id] candidates error', first.error);
+          } else {
+            candRows = first.data || [];
+          }
+
+          linkedReqCandidates = (candRows || []).map((c: any) => ({
+            id: `jobreq_${c.id}`,
+            candidate_id: c.id,
+            first_name: c.first_name || null,
+            last_name: c.last_name || null,
+            email: c.email || null,
+            linkedin_url: c.linkedin_url || null,
+            title: c.title || null,
+            years_experience: c.years_experience || null,
+            resume_url: c.resume_url || null,
+            notable_impact: (c.enrichment_data?.last_submission?.impact) || null,
+            motivation: (c.enrichment_data?.last_submission?.motivation) || null,
+            additional_notes: (c.enrichment_data?.last_submission?.accolades) || null,
+            created_at: c.created_at || null,
             _from_job_req: true
-          };
-        });
-      } catch {}
+          }));
+        }
+      } catch (e) {
+        console.log('[opportunities/:id] linkedReqCandidates exception', e);
+      }
     }
 
     // Map legacy candidates into application-like objects so UI can render them
