@@ -1,6 +1,9 @@
 import { supabase } from '../supabaseClient';
 
-const API_BASE = (typeof window !== 'undefined' && (window as any).__HP_API_BASE__) || (typeof window !== 'undefined' && window.location.hostname === 'app.thehirepilot.com' ? 'https://api.thehirepilot.com' : '');
+// Resolve API base across app and marketing domains
+const host = (typeof window !== 'undefined' && window.location && window.location.hostname) ? window.location.hostname : '';
+const defaultBase = host && host.endsWith('thehirepilot.com') ? 'https://api.thehirepilot.com' : '';
+const API_BASE = (typeof window !== 'undefined' && (window as any).__HP_API_BASE__) || defaultBase;
 const apiUrl = (p: string) => `${API_BASE}${p}`;
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
