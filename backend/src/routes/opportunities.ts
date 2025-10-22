@@ -167,10 +167,27 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
           .in('job_id', reqIds);
         const candIds = Array.from(new Set((cjobRows || []).map((r: any) => r.candidate_id).filter(Boolean)));
         if (candIds.length) {
-          const { data: cands } = await supabase
-            .from('candidates')
-            .select('id,first_name,last_name,email,linkedin_url,resume_url,title,years_experience,created_at,enrichment_data')
-            .in('id', candIds);
+          // Some environments may not yet have 'enrichment_data' column; attempt with it first, then fallback
+          let cands: any[] | null = null;
+          try {
+            const { data, error } = await supabase
+              .from('candidates')
+              .select('id,first_name,last_name,email,linkedin_url,resume_url,title,years_experience,created_at,enrichment_data')
+              .in('id', candIds);
+            if (error && String((error as any).code || '') === '42703') {
+              // retry without enrichment_data
+              const retry = await supabase
+                .from('candidates')
+                .select('id,first_name,last_name,email,linkedin_url,resume_url,title,years_experience,created_at')
+                .in('id', candIds);
+              cands = retry.data || [];
+            } else if (error) {
+              cands = [];
+            } else {
+              cands = data || [];
+            }
+          } catch { cands = []; }
+
           linkedReqCandidates = (cands || []).map((c: any) => ({
             id: `jobreq_${c.id}`,
             candidate_id: c.id,
