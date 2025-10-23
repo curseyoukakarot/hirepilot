@@ -121,9 +121,63 @@ export default function SandboxPage() {
     };
   }, []);
 
+  const collectGraph = () => {
+    const canvas = document.getElementById('main-canvas');
+    if (!canvas) return { nodes: [] } as any;
+    const nodes = Array.from(canvas.querySelectorAll('.absolute.transform'))
+      .map((el) => {
+        const title = (el.querySelector('h3') as HTMLElement)?.textContent || '';
+        const endpoint = (el.querySelector('.text-xs') as HTMLElement)?.textContent?.trim() || '';
+        const type = (el.querySelector('p.text-xs')?.textContent || '').includes('Action') ? 'Action' : 'Trigger';
+        const style = (el as HTMLElement).style || ({} as any);
+        return { title, endpoint, type, left: style.left, top: style.top };
+      });
+    return { nodes } as any;
+  };
+
+  const handlePreviewJson = () => {
+    const data = collectGraph();
+    try { alert(JSON.stringify(data, null, 2)); } catch {}
+  };
+
+  const handleTestRun = async () => {
+    try {
+      const data = collectGraph();
+      const trigger = (data.nodes || []).find((n: any) => n.type === 'Trigger');
+      const action = (data.nodes || []).find((n: any) => n.type === 'Action');
+      const res = await fetch('/api/workflows/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trigger_endpoint: trigger?.endpoint, action_endpoint: action?.endpoint }),
+      });
+      if (res.ok) alert('Test completed successfully'); else alert('Test failed');
+    } catch (e) {
+      alert('Test failed');
+    }
+  };
+
+  const handleActivate = async () => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get('workflowId');
+      if (!id) {
+        alert('No workflowId provided. Save or open a workflow first.');
+        return;
+      }
+      const res = await fetch('/api/workflows/toggle', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, is_active: true }),
+      });
+      if (res.ok) alert('Workflow activated'); else alert('Failed to activate');
+    } catch (e) {
+      alert('Failed to activate');
+    }
+  };
+
   return (
     <>
-      <div id="sandbox-container" className="flex h-screen">
+      <div id="sandbox-container" className="flex h-screen text-white">
         {/* Left Sidebar */}
         <div id="sidebar" className="w-72 bg-gray-900 border-r border-gray-800 p-4 flex flex-col">
           {/* Triggers Section */}
@@ -299,15 +353,15 @@ export default function SandboxPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button className="bg-gray-800 hover:bg-gray-700 text-sm px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2">
+          <button onClick={handlePreviewJson} className="bg-gray-800 hover:bg-gray-700 text-sm px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2">
             <i className="fa-solid fa-code"></i>
             Preview JSON
           </button>
-          <button className="bg-blue-700 hover:bg-blue-600 text-sm px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2">
+          <button onClick={handleTestRun} className="bg-blue-700 hover:bg-blue-600 text-sm px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2">
             <i className="fa-solid fa-play"></i>
             Test Run
           </button>
-          <button className="bg-green-700 hover:bg-green-600 text-sm px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2">
+          <button onClick={handleActivate} className="bg-green-700 hover:bg-green-600 text-sm px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2">
             <i className="fa-solid fa-rocket"></i>
             Activate
           </button>
