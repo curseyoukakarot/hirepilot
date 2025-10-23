@@ -4,6 +4,172 @@ import PublicFooter from '../components/PublicFooter';
 
 export default function ApiDocs() {
   const html = String.raw`
+  <main class="max-w-6xl mx-auto px-6 pt-28 pb-10">
+    <!-- HERO -->
+    <section id="hero" class="mb-12 text-center">
+      <h1 class="text-4xl font-bold mb-4 text-blue-400">
+        <i class="fas fa-book mr-3"></i>HirePilot API Reference
+      </h1>
+      <p class="text-xl text-gray-300 max-w-3xl mx-auto">
+        Build and automate recruiting workflows with the <strong>HirePilot API</strong>.  
+        Trigger events in Zapier/Make or orchestrate actions directly through <strong>REX</strong>.
+        All endpoints are authenticated and follow REST conventions.
+      </p>
+    </section>
+
+    <div class="grid lg:grid-cols-4 gap-8">
+      <!-- SIDEBAR -->
+      <aside id="sidebar" class="lg:col-span-1">
+        <nav class="sticky top-24 bg-gray-900/50 rounded-xl p-6 border border-gray-800">
+          <h3 class="text-lg font-semibold mb-4 text-blue-300">Quick Navigation</h3>
+          <ul class="space-y-2 text-gray-400">
+            <li><a href="#authentication" class="hover:text-white flex items-center py-1"><i class="fas fa-lock mr-2"></i>Authentication</a></li>
+            <li><a href="#events-universal" class="hover:text-white flex items-center py-1"><i class="fas fa-rss mr-2"></i>Universal Events</a></li>
+            <li><a href="#actions" class="hover:text-white flex items-center py-1"><i class="fas fa-bolt mr-2"></i>Actions</a></li>
+            <li><a href="#rex" class="hover:text-white flex items-center py-1"><i class="fas fa-robot mr-2"></i>REX Tools</a></li>
+            <li><a href="#examples" class="hover:text-white flex items-center py-1"><i class="fas fa-code mr-2"></i>Examples</a></li>
+            <li><a href="#rate-limits" class="hover:text-white flex items-center py-1"><i class="fas fa-tachometer-alt mr-2"></i>Rate Limits</a></li>
+          </ul>
+        </nav>
+      </aside>
+
+      <!-- MAIN CONTENT -->
+      <div class="lg:col-span-3 space-y-12">
+
+        <!-- AUTH -->
+        <section id="authentication" class="bg-gray-900/50 rounded-xl p-8 border border-gray-800">
+          <h2 class="text-2xl font-semibold text-blue-300 mb-4 flex items-center"><i class="fas fa-lock mr-3"></i>Authentication</h2>
+          <p class="text-gray-400 mb-4">Include your API key in every request header:</p>
+          <pre class="bg-gray-800 border border-gray-700 p-4 rounded-lg text-sm text-white">X-API-Key: YOUR_API_KEY</pre>
+        </section>
+
+        <!-- UNIVERSAL EVENTS -->
+        <section id="events-universal" class="bg-gray-900/50 rounded-xl p-8 border border-gray-800">
+          <h2 class="text-2xl font-semibold text-blue-300 mb-4 flex items-center"><i class="fas fa-rss mr-3"></i>Universal Events</h2>
+          <p class="text-gray-400 mb-4">Poll once and receive all activity in your workspace — leads, candidates, deals, campaigns, and REX actions.</p>
+
+          <pre class="bg-gray-800 border border-gray-700 p-4 rounded-lg text-sm text-white mb-3">
+GET /api/zapier/triggers/events?event_type=opportunity_submitted&amp;since=2025-01-01T00:00:00Z
+          </pre>
+
+          <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-sm text-gray-500">Sample Event Payload</span>
+            </div>
+            <pre class="text-sm overflow-auto text-white">{
+  "id": "evt_789",
+  "event_type": "opportunity_submitted",
+  "created_at": "2025-10-23T00:00:00Z",
+  "payload": {
+    "candidate": "Jane Doe",
+    "opportunity_id": "opp_123",
+    "status": "submitted"
+  }
+}</pre>
+          </div>
+        </section>
+
+        <!-- ACTION ENDPOINTS -->
+        <section id="actions" class="bg-gray-900/50 rounded-xl p-8 border border-gray-800">
+          <h2 class="text-2xl font-semibold text-blue-300 mb-4 flex items-center"><i class="fas fa-bolt mr-3"></i>Action Endpoints</h2>
+          <p class="text-gray-400 mb-4">Trigger actions manually or from automations. All actions are REX-compatible and emit events back into the feed.</p>
+
+          <h3 class="text-lg font-semibold text-green-300 mt-6 mb-2">📈 Deals & Submissions</h3>
+          <ul class="list-disc pl-6 text-gray-300">
+            <li><code>/api/opportunities/:id/submit-to-client</code> — Mark candidate submitted</li>
+            <li><code>/api/opportunities/:id/application</code> — Create job application</li>
+            <li><code>/api/opportunities/:id/notes</code> — Add or update notes</li>
+            <li><code>/api/deals/activity</code> — Log deal activity</li>
+          </ul>
+
+          <h3 class="text-lg font-semibold text-green-300 mt-6 mb-2">💬 Messaging & Campaigns</h3>
+          <ul class="list-disc pl-6 text-gray-300">
+            <li><code>/api/messages/bulk-schedule</code> — Schedule mass messages</li>
+            <li><code>/api/sourcing/campaigns/:id/relaunch</code> — Relaunch campaign</li>
+            <li><code>/api/sourcing/campaigns/:id/schedule</code> — Schedule new launch</li>
+          </ul>
+
+          <h3 class="text-lg font-semibold text-green-300 mt-6 mb-2">🤝 Clients & Contacts</h3>
+          <ul class="list-disc pl-6 text-gray-300">
+            <li><code>/api/clients</code> — Create client</li>
+            <li><code>/api/clients/:id</code> — Update client</li>
+            <li><code>/api/contacts</code> — Add new contact</li>
+          </ul>
+
+          <h3 class="text-lg font-semibold text-green-300 mt-6 mb-2">🎯 Sniper & Prospecting</h3>
+          <ul class="list-disc pl-6 text-gray-300">
+            <li><code>/api/sniper/targets</code> — Add new targets</li>
+            <li><code>/api/sniper/targets/:id/capture-now</code> — Trigger capture</li>
+          </ul>
+
+          <div class="bg-blue-900/20 border border-blue-700 rounded-lg p-4 mt-6">
+            <p class="text-blue-200 text-sm">Note: Billing, credit, and administrative endpoints are reserved for Super Admin use only and are not exposed through the public API.</p>
+          </div>
+        </section>
+
+        <!-- REX TOOLS -->
+        <section id="rex" class="bg-gray-900/50 rounded-xl p-8 border border-gray-800">
+          <h2 class="text-2xl font-semibold text-blue-300 mb-4 flex items-center"><i class="fas fa-robot mr-3"></i>REX Tool Invocation</h2>
+          <p class="text-gray-400 mb-4">Every REST endpoint can also be invoked by REX using its tool registry.  
+          This enables conversational automation without leaving HirePilot.</p>
+
+          <pre class="bg-gray-800 border border-gray-700 p-4 rounded-lg text-sm text-white mb-4">
+rex run opportunity.submitToClient --id=123
+rex run sourcing.relaunch --campaign=45
+rex run clients.create --name="Acme Corp"
+          </pre>
+
+          <p class="text-gray-400 mt-2">All tool executions emit a <code>rex_chat_triggered</code> event and appear in <code>/api/zapier/triggers/events</code>.</p>
+        </section>
+
+        <!-- EXAMPLES -->
+        <section id="examples" class="bg-gray-900/50 rounded-xl p-8 border border-gray-800">
+          <h2 class="text-2xl font-semibold text-blue-300 mb-4 flex items-center"><i class="fas fa-code mr-3"></i>Automation Examples</h2>
+
+          <div class="bg-gray-800 border border-gray-700 p-4 rounded-lg text-sm text-white mb-4">
+            <h4 class="text-blue-300 mb-2">Zapier Example – Candidate Submitted → Slack Alert</h4>
+            <pre>{
+  "trigger": "event_type=opportunity_submitted",
+  "action": "POST https://hooks.slack.com/...",
+  "body": { "text": "🚀 A new candidate was submitted to a client!" }
+}</pre>
+          </div>
+
+          <div class="bg-gray-800 border border-gray-700 p-4 rounded-lg text-sm text-white">
+            <h4 class="text-blue-300 mb-2">Make Example – Campaign Relaunched → Email Notification</h4>
+            <pre>{
+  "trigger": "event_type=campaign_relaunched",
+  "action": "POST /api/notifications",
+  "payload": { "message": "Campaign relaunched successfully" }
+}</pre>
+          </div>
+        </section>
+
+        <!-- RATE LIMITS -->
+        <section id="rate-limits" class="bg-gray-900/50 rounded-xl p-8 border border-gray-800">
+          <h2 class="text-2xl font-semibold text-blue-300 mb-4 flex items-center"><i class="fas fa-tachometer-alt mr-3"></i>Rate Limits</h2>
+          <p class="text-gray-400">Each API key is limited to <strong>60 requests/minute</strong>.  
+          REX and Zapier share the same limits. Idempotency keys are supported for all POST routes.</p>
+        </section>
+      </div>
+    </div>
+  </main>`;
+
+  return (
+    <div className="bg-gray-950 text-white font-sans">
+      <PublicNavbar />
+      <div dangerouslySetInnerHTML={{ __html: html }} />
+      <PublicFooter />
+    </div>
+  );
+}
+
+import React from 'react';
+import PublicNavbar from '../components/PublicNavbar';
+import PublicFooter from '../components/PublicFooter';
+
+export default function ApiDocs() {
+  const html = String.raw`
     <main class="max-w-6xl mx-auto px-6 pt-28 pb-10">
         <section id="hero" class="mb-12">
             <div class="text-center mb-8">
