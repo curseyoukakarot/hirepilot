@@ -3,6 +3,73 @@ import React, { useEffect, useState } from 'react';
 export default function SandboxPage() {
   const [selectedNode, setSelectedNode] = useState<{ title: string; endpoint: string; type: 'Trigger' | 'Action' } | null>(null);
   useEffect(() => {
+    // Dynamic presets per node (title/endpoint/type)
+    const getPresetFor = (node?: { title?: string; endpoint?: string; type?: string }) => {
+      const ep = String(node?.endpoint || '').toLowerCase();
+      const isAction = (node?.type || '').toLowerCase() === 'action' || ep.includes('/api/actions/');
+      // Defaults
+      const preset = {
+        nodeName: node?.title || 'Node',
+        candidateName: '{{candidate.name}}',
+        jobTitle: '{{job.title}}',
+        channel: isAction ? '#general' : '#hiring-alerts',
+        template: '⚡ {{candidate.name}} → {{job.title}}',
+        sample: {
+          candidate: { name: 'Sarah Johnson', email: 'sarah@example.com' },
+          job: { title: 'Senior Frontend Developer', department: 'Engineering' },
+          lead: { source: 'Apollo' },
+          client: { name: 'Acme Inc.' },
+          pipeline: { stage: 'Offer' }
+        }
+      };
+      const set = (o: Partial<typeof preset>) => Object.assign(preset, o);
+      // Triggers
+      if (ep.includes('candidate_hired')) set({ nodeName: 'Slack Hire Alert', channel: '#hiring-alerts', template: '🎉 {{candidate.name}} hired for {{job.title}}!' });
+      else if (ep.includes('lead_created')) set({ nodeName: 'New Lead Alert', channel: '#leads', template: '🆕 New lead: {{candidate.name}} ({{lead.source}})' });
+      else if (ep.includes('lead_tagged')) set({ nodeName: 'Lead Tagged Alert', channel: '#leads', template: '🏷️ {{candidate.name}} tagged – notify team' });
+      else if (ep.includes('lead_source_triggered')) set({ nodeName: 'Lead Source Detected', channel: '#leads', template: '🔗 Source: {{lead.source}} – {{candidate.name}}' });
+      else if (ep.includes('campaign_relaunched')) set({ nodeName: 'Campaign Relaunch', channel: '#campaigns', template: '🚀 Campaign relaunched – auditing sequences' });
+      else if (ep.includes('candidate_updated')) set({ nodeName: 'Candidate Updated', channel: '#updates', template: '📝 {{candidate.name}} updated (syncing records)' });
+      else if (ep.includes('pipeline_stage_updated')) set({ nodeName: 'Stage Changed', channel: '#pipeline', template: '🔄 {{candidate.name}} moved to {{pipeline.stage}}' });
+      else if (ep.includes('client_created')) set({ nodeName: 'Client Created', channel: '#clients', template: '🏢 New client: {{client.name}}' });
+      else if (ep.includes('client_updated')) set({ nodeName: 'Client Updated', channel: '#clients', template: '♻️ Client updated: {{client.name}}' });
+      else if (ep.includes('job_created')) set({ nodeName: 'New Job Req', channel: '#jobs', template: '📄 New role opened – {{job.title}}' });
+      // Actions
+      if (ep.includes('/api/actions/send_email_template')) set({ nodeName: 'Email Template', channel: '#general', template: '📧 Emailing {{candidate.name}} re: {{job.title}}' });
+      if (ep.includes('/api/actions/notifications')) set({ nodeName: 'Slack Notification', channel: '#alerts', template: '🔔 Update: {{candidate.name}} – {{job.title}}' });
+      if (ep.includes('/api/actions/sync_enrichment')) set({ nodeName: 'Sync Enrichment', channel: '#enrichment', template: '🧠 Enriching {{candidate.name}}' });
+      if (ep.includes('/api/actions/invoices_create')) set({ nodeName: 'Create Invoice', channel: '#billing', template: '💸 Invoice generated for {{client.name}}' });
+      if (ep.includes('/api/actions/add_note')) set({ nodeName: 'Add Deal Note', channel: '#pipeline', template: '📝 Note added for {{candidate.name}}' });
+      if (ep.includes('/api/actions/add_collaborator')) set({ nodeName: 'Add Collaborator', channel: '#team', template: '👥 Invited collaborator to {{job.title}}' });
+      if (ep.includes('/api/actions/update_pipeline_stage')) set({ nodeName: 'Update Stage', channel: '#pipeline', template: '➡️ Moving {{candidate.name}} to next stage' });
+      return preset;
+    };
+
+    const applyPresetToModal = (preset: ReturnType<typeof getPresetFor>) => {
+      const nodeNameInput = document.querySelector('#config-fields input[type="text"]') as HTMLInputElement | null; // first is Node Name
+      const textInputs = Array.from(document.querySelectorAll('#config-fields input[type="text"]')) as HTMLInputElement[];
+      const candidateInput = textInputs[1];
+      const jobInput = textInputs[2];
+      const channelSelect = document.querySelector('#config-fields select') as HTMLSelectElement | null;
+      const messageTextarea = document.querySelector('#config-fields textarea') as HTMLTextAreaElement | null;
+      if (nodeNameInput) nodeNameInput.value = preset.nodeName;
+      if (candidateInput) candidateInput.value = preset.candidateName;
+      if (jobInput) jobInput.value = preset.jobTitle;
+      if (channelSelect) channelSelect.value = preset.channel;
+      if (messageTextarea) messageTextarea.value = preset.template;
+      // Live preview
+      const pv = document.querySelector('#sample-preview p') as HTMLElement | null;
+      if (pv) {
+        const rendered = preset.template
+          .replaceAll('{{candidate.name}}', preset.sample.candidate.name)
+          .replaceAll('{{job.title}}', preset.sample.job.title)
+          .replaceAll('{{job.department}}', preset.sample.job.department)
+          .replaceAll('{{lead.source}}', preset.sample.lead.source)
+          .replaceAll('{{client.name}}', preset.sample.client.name)
+          .replaceAll('{{pipeline.stage}}', preset.sample.pipeline.stage);
+        pv.textContent = rendered;
+      }
+    };
     let isDragging = false as boolean;
     let draggedElement: HTMLElement | null = null;
     const dragOffset = { x: 0, y: 0 } as { x: number; y: number };
@@ -173,6 +240,8 @@ export default function SandboxPage() {
             pillsContainer.appendChild(span);
           });
         }
+        // apply preset now that DOM is visible
+        applyPresetToModal(getPresetFor(node));
       }).catch(()=>{});
     }
 
