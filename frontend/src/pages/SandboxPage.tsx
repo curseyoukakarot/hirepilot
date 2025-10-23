@@ -353,15 +353,15 @@ export default function SandboxPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={handlePreviewJson} className="bg-gray-800 hover:bg-gray-700 text-sm px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2">
+          <button onClick={handlePreviewJson} className="bg-gray-800 hover:bg-gray-700 text-white text-sm px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2">
             <i className="fa-solid fa-code"></i>
             Preview JSON
           </button>
-          <button onClick={handleTestRun} className="bg-blue-700 hover:bg-blue-600 text-sm px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2">
+          <button onClick={handleTestRun} className="bg-blue-700 hover:bg-blue-600 text-white text-sm px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2">
             <i className="fa-solid fa-play"></i>
             Test Run
           </button>
-          <button onClick={handleActivate} className="bg-green-700 hover:bg-green-600 text-sm px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2">
+          <button onClick={handleActivate} className="bg-green-700 hover:bg-green-600 text-white text-sm px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2">
             <i className="fa-solid fa-rocket"></i>
             Activate
           </button>
