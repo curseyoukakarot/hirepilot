@@ -67,6 +67,252 @@ export function createSupportMcpRouter(): Router {
         if (error) throw new Error(error.message);
         return { content: [{ type: 'text', text: JSON.stringify({ ticket_id: data.id }) }] } as any;
       }
+    },
+    // ---------------- REX Tools (HTTP surface) ----------------
+    'opportunity.submitToClient': {
+      description: 'Submit candidate to client for an opportunity',
+      input_schema: { type: 'object', properties: { user_token: { type: 'string' }, opportunityId: { type: 'string' }, candidateId: { type: 'string' }, message: { type: 'string' } }, required: ['user_token','opportunityId','candidateId'] },
+      handler: async ({ user_token, opportunityId, candidateId, message }: any) => {
+        const base = process.env.BACKEND_INTERNAL_URL || process.env.BACKEND_URL || '';
+        const resp = await fetch(`${base}/api/rex/tools/opportunity/submit-to-client`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user_token}` }, body: JSON.stringify({ opportunityId, candidateId, message }) } as any);
+        const body = await resp.json().catch(()=>({}));
+        return { content: [{ type: 'text', text: JSON.stringify({ status: resp.status, body }) }] } as any;
+      }
+    },
+    'opportunity.addNote': {
+      description: 'Add note to an opportunity',
+      input_schema: { type: 'object', properties: { user_token: { type: 'string' }, opportunityId: { type: 'string' }, text: { type: 'string' } }, required: ['user_token','opportunityId','text'] },
+      handler: async ({ user_token, opportunityId, text }: any) => {
+        const base = process.env.BACKEND_INTERNAL_URL || process.env.BACKEND_URL || '';
+        const resp = await fetch(`${base}/api/rex/tools/opportunity/notes`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user_token}` }, body: JSON.stringify({ opportunityId, text }) } as any);
+        const body = await resp.json().catch(()=>({}));
+        return { content: [{ type: 'text', text: JSON.stringify({ status: resp.status, body }) }] } as any;
+      }
+    },
+    'opportunity.addCollaborator': {
+      description: 'Add a collaborator to an opportunity',
+      input_schema: { type: 'object', properties: { user_token: { type: 'string' }, opportunityId: { type: 'string' }, email: { type: 'string' }, role: { type: 'string' } }, required: ['user_token','opportunityId','email'] },
+      handler: async ({ user_token, opportunityId, email, role }: any) => {
+        const base = process.env.BACKEND_INTERNAL_URL || process.env.BACKEND_URL || '';
+        const resp = await fetch(`${base}/api/rex/tools/opportunity/collaborators`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user_token}` }, body: JSON.stringify({ opportunityId, email, role }) } as any);
+        const body = await resp.json().catch(()=>({}));
+        return { content: [{ type: 'text', text: JSON.stringify({ status: resp.status, body }) }] } as any;
+      }
+    },
+    'messaging.bulkSchedule': {
+      description: 'Bulk schedule messages from a template',
+      input_schema: { type: 'object', properties: { user_token: { type: 'string' }, template_id: { type: 'string' }, lead_ids: { type: 'array', items: { type: 'string' } }, scheduled_at: { type: 'string' }, sender: { type: 'object' } }, required: ['user_token','template_id','lead_ids','scheduled_at','sender'] },
+      handler: async (args: any) => {
+        const { user_token, ...payload } = args || {};
+        const base = process.env.BACKEND_INTERNAL_URL || process.env.BACKEND_URL || '';
+        const resp = await fetch(`${base}/api/rex/tools/messaging/bulk-schedule`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user_token}` }, body: JSON.stringify(payload) } as any);
+        const body = await resp.json().catch(()=>({}));
+        return { content: [{ type: 'text', text: JSON.stringify({ status: resp.status, body }) }] } as any;
+      }
+    },
+    'messaging.scheduleMassMessage': {
+      description: 'Schedule arbitrary message batch',
+      input_schema: { type: 'object', properties: { user_token: { type: 'string' }, messages: { type: 'array', items: { type: 'object' } } }, required: ['user_token','messages'] },
+      handler: async (args: any) => {
+        const { user_token, ...payload } = args || {};
+        const base = process.env.BACKEND_INTERNAL_URL || process.env.BACKEND_URL || '';
+        const resp = await fetch(`${base}/api/rex/tools/messaging/schedule-mass`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user_token}` }, body: JSON.stringify(payload) } as any);
+        const body = await resp.json().catch(()=>({}));
+        return { content: [{ type: 'text', text: JSON.stringify({ status: resp.status, body }) }] } as any;
+      }
+    },
+    'sourcing.relaunch': {
+      description: 'Relaunch a sourcing campaign',
+      input_schema: { type: 'object', properties: { user_token: { type: 'string' }, campaignId: { type: 'string' } }, required: ['user_token','campaignId'] },
+      handler: async ({ user_token, campaignId }: any) => {
+        const base = process.env.BACKEND_INTERNAL_URL || process.env.BACKEND_URL || '';
+        const resp = await fetch(`${base}/api/rex/tools/sourcing/relaunch`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user_token}` }, body: JSON.stringify({ campaignId }) } as any);
+        const body = await resp.json().catch(()=>({}));
+        return { content: [{ type: 'text', text: JSON.stringify({ status: resp.status, body }) }] } as any;
+      }
+    },
+    'sourcing.schedule': {
+      description: 'Schedule a sourcing campaign',
+      input_schema: { type: 'object', properties: { user_token: { type: 'string' }, campaignId: { type: 'string' } }, required: ['user_token','campaignId'] },
+      handler: async ({ user_token, campaignId }: any) => {
+        const base = process.env.BACKEND_INTERNAL_URL || process.env.BACKEND_URL || '';
+        const resp = await fetch(`${base}/api/rex/tools/sourcing/schedule`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user_token}` }, body: JSON.stringify({ campaignId }) } as any);
+        const body = await resp.json().catch(()=>({}));
+        return { content: [{ type: 'text', text: JSON.stringify({ status: resp.status, body }) }] } as any;
+      }
+    },
+    'sourcing.stats': {
+      description: 'Get campaign stats (optionally emit snapshot)',
+      input_schema: { type: 'object', properties: { user_token: { type: 'string' }, campaignId: { type: 'string' }, emit: { type: 'boolean' } }, required: ['user_token','campaignId'] },
+      handler: async ({ user_token, campaignId, emit }: any) => {
+        const base = process.env.BACKEND_INTERNAL_URL || process.env.BACKEND_URL || '';
+        const resp = await fetch(`${base}/api/rex/tools/sourcing/stats`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user_token}` }, body: JSON.stringify({ campaignId, emit: !!emit }) } as any);
+        const body = await resp.json().catch(()=>({}));
+        return { content: [{ type: 'text', text: JSON.stringify({ status: resp.status, body }) }] } as any;
+      }
+    },
+    'enrichment.lead': {
+      description: 'Enrich a lead',
+      input_schema: { type: 'object', properties: { user_token: { type: 'string' }, leadId: { type: 'string' } }, required: ['user_token','leadId'] },
+      handler: async ({ user_token, leadId }: any) => {
+        const base = process.env.BACKEND_INTERNAL_URL || process.env.BACKEND_URL || '';
+        const resp = await fetch(`${base}/api/rex/tools/enrichment/lead`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user_token}` }, body: JSON.stringify({ leadId }) } as any);
+        const body = await resp.json().catch(()=>({}));
+        return { content: [{ type: 'text', text: JSON.stringify({ status: resp.status, body }) }] } as any;
+      }
+    },
+    'enrichment.candidate': {
+      description: 'Enrich a candidate',
+      input_schema: { type: 'object', properties: { user_token: { type: 'string' }, candidateId: { type: 'string' } }, required: ['user_token','candidateId'] },
+      handler: async ({ user_token, candidateId }: any) => {
+        const base = process.env.BACKEND_INTERNAL_URL || process.env.BACKEND_URL || '';
+        const resp = await fetch(`${base}/api/rex/tools/enrichment/candidate`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user_token}` }, body: JSON.stringify({ candidateId }) } as any);
+        const body = await resp.json().catch(()=>({}));
+        return { content: [{ type: 'text', text: JSON.stringify({ status: resp.status, body }) }] } as any;
+      }
+    },
+    'crm.clientCreate': {
+      description: 'Create a client',
+      input_schema: { type: 'object', properties: { user_token: { type: 'string' }, name: { type: 'string' }, domain: { type: 'string' } }, required: ['user_token','name'] },
+      handler: async ({ user_token, ...payload }: any) => {
+        const base = process.env.BACKEND_INTERNAL_URL || process.env.BACKEND_URL || '';
+        const resp = await fetch(`${base}/api/rex/tools/crm/client`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user_token}` }, body: JSON.stringify(payload) } as any);
+        const body = await resp.json().catch(()=>({}));
+        return { content: [{ type: 'text', text: JSON.stringify({ status: resp.status, body }) }] } as any;
+      }
+    },
+    'crm.clientUpdate': {
+      description: 'Update a client',
+      input_schema: { type: 'object', properties: { user_token: { type: 'string' }, id: { type: 'string' }, update: { type: 'object' } }, required: ['user_token','id','update'] },
+      handler: async ({ user_token, ...payload }: any) => {
+        const base = process.env.BACKEND_INTERNAL_URL || process.env.BACKEND_URL || '';
+        const resp = await fetch(`${base}/api/rex/tools/crm/client/update`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user_token}` }, body: JSON.stringify(payload) } as any);
+        const body = await resp.json().catch(()=>({}));
+        return { content: [{ type: 'text', text: JSON.stringify({ status: resp.status, body }) }] } as any;
+      }
+    },
+    'crm.clientEnrich': {
+      description: 'Enrich a client record',
+      input_schema: { type: 'object', properties: { user_token: { type: 'string' }, id: { type: 'string' } }, required: ['user_token','id'] },
+      handler: async ({ user_token, id }: any) => {
+        const base = process.env.BACKEND_INTERNAL_URL || process.env.BACKEND_URL || '';
+        const resp = await fetch(`${base}/api/rex/tools/crm/client/enrich`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user_token}` }, body: JSON.stringify({ id }) } as any);
+        const body = await resp.json().catch(()=>({}));
+        return { content: [{ type: 'text', text: JSON.stringify({ status: resp.status, body }) }] } as any;
+      }
+    },
+    'crm.contactCreate': {
+      description: 'Create a client contact',
+      input_schema: { type: 'object', properties: { user_token: { type: 'string' }, client_id: { type: 'string' }, email: { type: 'string' }, name: { type: 'string' }, title: { type: 'string' } }, required: ['user_token','client_id','email'] },
+      handler: async ({ user_token, ...payload }: any) => {
+        const base = process.env.BACKEND_INTERNAL_URL || process.env.BACKEND_URL || '';
+        const resp = await fetch(`${base}/api/rex/tools/crm/contact`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user_token}` }, body: JSON.stringify(payload) } as any);
+        const body = await resp.json().catch(()=>({}));
+        return { content: [{ type: 'text', text: JSON.stringify({ status: resp.status, body }) }] } as any;
+      }
+    },
+    'billing.purchaseCredits': {
+      description: 'Purchase credits',
+      input_schema: { type: 'object', properties: { user_token: { type: 'string' }, packageId: { type: 'string' } }, required: ['user_token','packageId'] },
+      handler: async ({ user_token, packageId }: any) => {
+        const base = process.env.BACKEND_INTERNAL_URL || process.env.BACKEND_URL || '';
+        const resp = await fetch(`${base}/api/rex/tools/billing/credits/purchase`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user_token}` }, body: JSON.stringify({ packageId }) } as any);
+        const body = await resp.json().catch(()=>({}));
+        return { content: [{ type: 'text', text: JSON.stringify({ status: resp.status, body }) }] } as any;
+      }
+    },
+    'billing.checkout': {
+      description: 'Start a subscription checkout session',
+      input_schema: { type: 'object', properties: { user_token: { type: 'string' } }, required: ['user_token'] },
+      handler: async ({ user_token }: any) => {
+        const base = process.env.BACKEND_INTERNAL_URL || process.env.BACKEND_URL || '';
+        const resp = await fetch(`${base}/api/rex/tools/billing/checkout`, { method: 'POST', headers: { Authorization: `Bearer ${user_token}` } } as any);
+        const body = await resp.json().catch(()=>({}));
+        return { content: [{ type: 'text', text: JSON.stringify({ status: resp.status, body }) }] } as any;
+      }
+    },
+    'billing.cancel': {
+      description: 'Cancel subscription',
+      input_schema: { type: 'object', properties: { user_token: { type: 'string' } }, required: ['user_token'] },
+      handler: async ({ user_token }: any) => {
+        const base = process.env.BACKEND_INTERNAL_URL || process.env.BACKEND_URL || '';
+        const resp = await fetch(`${base}/api/rex/tools/billing/cancel`, { method: 'POST', headers: { Authorization: `Bearer ${user_token}` } } as any);
+        const body = await resp.json().catch(()=>({}));
+        return { content: [{ type: 'text', text: JSON.stringify({ status: resp.status, body }) }] } as any;
+      }
+    },
+    'billing.invoiceCreate': {
+      description: 'Create an invoice',
+      input_schema: { type: 'object', properties: { user_token: { type: 'string' }, client_id: { type: 'string' }, amount: { type: 'number' }, currency: { type: 'string' }, description: { type: 'string' }, opportunity_id: { type: 'string' }, billing_type: { type: 'string' }, recipient_email: { type: 'string' }, notes: { type: 'string' } }, required: ['user_token','client_id','amount'] },
+      handler: async (args: any) => {
+        const { user_token, ...payload } = args || {};
+        const base = process.env.BACKEND_INTERNAL_URL || process.env.BACKEND_URL || '';
+        const resp = await fetch(`${base}/api/rex/tools/billing/invoice`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user_token}` }, body: JSON.stringify(payload) } as any);
+        const body = await resp.json().catch(()=>({}));
+        return { content: [{ type: 'text', text: JSON.stringify({ status: resp.status, body }) }] } as any;
+      }
+    },
+    'team.invite': {
+      description: 'Invite a team member',
+      input_schema: { type: 'object', properties: { user_token: { type: 'string' }, email: { type: 'string' }, role: { type: 'string' } }, required: ['user_token','email'] },
+      handler: async ({ user_token, ...payload }: any) => {
+        const base = process.env.BACKEND_INTERNAL_URL || process.env.BACKEND_URL || '';
+        const resp = await fetch(`${base}/api/rex/tools/team/invite`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user_token}` }, body: JSON.stringify(payload) } as any);
+        const body = await resp.json().catch(()=>({}));
+        return { content: [{ type: 'text', text: JSON.stringify({ status: resp.status, body }) }] } as any;
+      }
+    },
+    'team.updateRole': {
+      description: 'Update team member role',
+      input_schema: { type: 'object', properties: { user_token: { type: 'string' }, memberId: { type: 'string' }, role: { type: 'string' } }, required: ['user_token','memberId','role'] },
+      handler: async ({ user_token, ...payload }: any) => {
+        const base = process.env.BACKEND_INTERNAL_URL || process.env.BACKEND_URL || '';
+        const resp = await fetch(`${base}/api/rex/tools/team/role`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user_token}` }, body: JSON.stringify(payload) } as any);
+        const body = await resp.json().catch(()=>({}));
+        return { content: [{ type: 'text', text: JSON.stringify({ status: resp.status, body }) }] } as any;
+      }
+    },
+    'notifications.create': {
+      description: 'Create a user notification',
+      input_schema: { type: 'object', properties: { user_token: { type: 'string' }, title: { type: 'string' }, body: { type: 'string' }, type: { type: 'string' } }, required: ['user_token'] },
+      handler: async ({ user_token, ...payload }: any) => {
+        const base = process.env.BACKEND_INTERNAL_URL || process.env.BACKEND_URL || '';
+        const resp = await fetch(`${base}/api/rex/tools/notifications/create`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user_token}` }, body: JSON.stringify(payload) } as any);
+        const body = await resp.json().catch(()=>({}));
+        return { content: [{ type: 'text', text: JSON.stringify({ status: resp.status, body }) }] } as any;
+      }
+    },
+    'sniper.addTarget': {
+      description: 'Add a sniper capture target',
+      input_schema: { type: 'object', properties: { user_token: { type: 'string' }, url: { type: 'string' }, opener: { type: 'boolean' } }, required: ['user_token','url'] },
+      handler: async ({ user_token, ...payload }: any) => {
+        const base = process.env.BACKEND_INTERNAL_URL || process.env.BACKEND_URL || '';
+        const resp = await fetch(`${base}/api/rex/tools/sniper/targets`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user_token}` }, body: JSON.stringify(payload) } as any);
+        const body = await resp.json().catch(()=>({}));
+        return { content: [{ type: 'text', text: JSON.stringify({ status: resp.status, body }) }] } as any;
+      }
+    },
+    'sniper.captureNow': {
+      description: 'Trigger an immediate capture for a target',
+      input_schema: { type: 'object', properties: { user_token: { type: 'string' }, targetId: { type: 'string' } }, required: ['user_token','targetId'] },
+      handler: async ({ user_token, targetId }: any) => {
+        const base = process.env.BACKEND_INTERNAL_URL || process.env.BACKEND_URL || '';
+        const resp = await fetch(`${base}/api/rex/tools/sniper/capture-now`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user_token}` }, body: JSON.stringify({ targetId }) } as any);
+        const body = await resp.json().catch(()=>({}));
+        return { content: [{ type: 'text', text: JSON.stringify({ status: resp.status, body }) }] } as any;
+      }
+    },
+    'linkedin.connect': {
+      description: 'Queue LinkedIn connection requests',
+      input_schema: { type: 'object', properties: { user_token: { type: 'string' }, linkedin_urls: { type: 'array', items: { type: 'string' } }, message: { type: 'string' }, scheduled_at: { type: 'string' } }, required: ['user_token','linkedin_urls'] },
+      handler: async (args: any) => {
+        const { user_token, ...payload } = args || {};
+        const base = process.env.BACKEND_INTERNAL_URL || process.env.BACKEND_URL || '';
+        // Use the generic rex tools entry point (existing)
+        const resp = await fetch(`${base}/api/rex/tools`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user_token}` }, body: JSON.stringify({ tool: 'linkedin_connect', args: payload }) } as any);
+        const body = await resp.json().catch(()=>({}));
+        return { content: [{ type: 'text', text: JSON.stringify({ status: resp.status, body }) }] } as any;
+      }
     }
   };
 
