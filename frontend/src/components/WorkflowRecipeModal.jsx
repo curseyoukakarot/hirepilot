@@ -64,23 +64,31 @@ export default function WorkflowRecipeModal({
       return 'Integration';
     };
 
-    return tools?.slice(0, 3).map((tool, idx) => (
-      <div key={`${tool}-${idx}`} className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg">
-        {String(tool).toLowerCase() === 'slack' ? (
-          <i className="fa-brands fa-slack text-2xl text-[#4A154B]"></i>
-        ) : String(tool).toLowerCase() === 'stripe' ? (
-          <i className="fa-brands fa-stripe text-2xl text-[#635BFF]"></i>
-        ) : (
-          <div className="w-8 h-8 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center">
-            <i className="fa-solid fa-rocket text-white text-sm"></i>
-          </div>
-        )}
+    return tools?.slice(0, 3).map((tool, idx) => {
+      const k = String(tool).toLowerCase();
+      let iconNode = null;
+      if (k === 'slack') iconNode = <i className="fa-brands fa-slack text-2xl text-[#4A154B]"></i>;
+      else if (k === 'stripe') iconNode = <i className="fa-brands fa-stripe text-2xl text-[#635BFF]"></i>;
+      else if (k === 'linkedin') iconNode = <i className="fa-brands fa-linkedin text-2xl text-[#0A66C2]"></i>;
+      else if (k === 'sendgrid') iconNode = <img src="/sendgrid.png" alt="SendGrid" className="h-6 w-6" />;
+      else if (k === 'hirepilot') iconNode = <img src="/logo.png" alt="HirePilot" className="h-6 w-6" />;
+      else if (k === 'rex') iconNode = <span className="font-mono text-sm bg-slate-800 text-slate-100 px-1.5 py-0.5 rounded">&gt;_</span>;
+      else iconNode = (
+        <div className="w-8 h-8 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center">
+          <i className="fa-solid fa-rocket text-white text-sm"></i>
+        </div>
+      );
+
+      return (
+        <div key={`${tool}-${idx}`} className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg">
+          {iconNode}
         <div>
           <div className="font-medium text-gray-900">{tool}</div>
           <div className="text-sm text-gray-600">{subtitleFor(tool)}</div>
         </div>
-      </div>
-    ));
+        </div>
+      );
+    });
   }, [tools]);
 
   return (
