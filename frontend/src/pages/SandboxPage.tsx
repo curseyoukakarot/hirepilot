@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { getSchemaForEndpoint, nodeSchemas } from '../config/nodeSchemas';
 
 export default function SandboxPage() {
-  const [selectedNode, setSelectedNode] = useState<{ title: string; endpoint: string; type: 'Trigger' | 'Action' } | null>(null);
+  const [selectedNode, setSelectedNode] = useState<{ id?: string; title: string; endpoint: string; type: 'Trigger' | 'Action' } | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalState, setModalState] = useState<any>({ mode: 'guided', availableData: [], guidedDefaults: null, developerDefaults: null, preview: '' });
   useEffect(() => {
     // Dynamic presets per node (title/endpoint/type)
     const getPresetFor = (node?: { title?: string; endpoint?: string; type?: string }) => {
@@ -108,7 +111,7 @@ export default function SandboxPage() {
         const title = (node.querySelector('h3') as HTMLElement)?.textContent || 'Node';
         const endpoint = (node.querySelector('.text-xs') as HTMLElement)?.textContent?.trim() || '';
         const type = (node.querySelector('p.text-xs')?.textContent || '').includes('Action') ? 'Action' : 'Trigger';
-        setSelectedNode({ title, endpoint, type: type as any });
+        setSelectedNode({ id: `${Date.now()}-${Math.random()}`, title, endpoint, type: type as any });
         openNodeModal({ title, endpoint, type });
       });
     };
@@ -200,9 +203,10 @@ export default function SandboxPage() {
     const guidedContent = document.getElementById('guided-mode-content');
     const devContent = document.getElementById('dev-mode-content');
 
-    function openNodeModal(node?: { title: string; endpoint: string; type: string }) {
+    async function openNodeModal(node?: { title: string; endpoint: string; type: string }) {
       if (!overlay) return;
       (overlay as HTMLElement).style.display = 'flex';
+      setModalOpen(true);
       if (guidedModeBtn && devModeBtn && guidedContent && devContent) {
         guidedModeBtn.classList.add('bg-white', 'shadow-sm', 'text-blue-600');
         devModeBtn.classList.remove('bg-white', 'shadow-sm', 'text-blue-600');
@@ -212,37 +216,49 @@ export default function SandboxPage() {
       // Update modal header
       const header = document.querySelector('#modal-header h2') as HTMLElement | null;
       if (header && node?.title) header.textContent = `Configure ${node.type} – ${node.title}`;
-      // Fetch fields for guided mode based on node
+      // Fetch fields and hydrate schema
       const params = new URLSearchParams();
       if (node?.endpoint) params.set('endpoint', node.endpoint);
       if (node?.type) params.set('type', node.type.toLowerCase());
-      fetch('/api/workflows/fields' + (params.toString() ? `?${params.toString()}` : '')).then(async (r)=>{
-        if (!r.ok) return;
-        const data = await r.json().catch(()=>null);
-        const pillsContainer = document.getElementById('data-pills-section')?.querySelector('.flex.flex-wrap');
-        if (pillsContainer && data && Array.isArray(data.fields)) {
-          // clear previous
-          (pillsContainer as HTMLElement).innerHTML = '';
-          data.fields.forEach((f: string) => {
-            const span = document.createElement('span');
-            span.className = 'pill-token px-3 py-1 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs rounded-full cursor-pointer hover:scale-105 transition-transform';
-            span.textContent = `{{${f}}}`;
-            span.addEventListener('click', () => {
-              const active = document.activeElement as HTMLInputElement | HTMLTextAreaElement | null;
-              if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
-                const cursorPos = (active as any).selectionStart || 0;
-                const before = active.value.substring(0, cursorPos);
-                const after = active.value.substring((active as any).selectionEnd || cursorPos);
-                active.value = before + span.textContent + after;
-                (active as any).setSelectionRange(before.length + (span.textContent||'').length, before.length + (span.textContent||'').length);
-              }
+      const schema = getSchemaForEndpoint(node?.endpoint);
+      try {
+        const resp = await fetch('/api/workflows/fields' + (params.toString() ? `?${params.toString()}` : ''));
+        const data = await resp.json();
+        requestAnimationFrame(() => {
+          // rebuild pills deterministically using data-testid
+          const pillsWrap = document.querySelector('#data-pills-section .flex.flex-wrap') as HTMLElement | null;
+          if (pillsWrap) {
+            pillsWrap.innerHTML = '';
+            (data?.fields || []).forEach((f: any) => {
+              const name = typeof f === 'string' ? f : f?.name;
+              const span = document.createElement('span');
+              span.className = 'pill-token px-3 py-1 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs rounded-full cursor-pointer hover:scale-105 transition-transform';
+              span.textContent = `{{${name}}}`;
+              span.addEventListener('click', () => {
+                const active = document.activeElement as HTMLInputElement | HTMLTextAreaElement | null;
+                if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
+                  const cursorPos = (active as any).selectionStart || 0;
+                  const before = (active as any).value.substring(0, cursorPos);
+                  const after = (active as any).value.substring((active as any).selectionEnd || cursorPos);
+                  (active as any).value = before + span.textContent + after;
+                  (active as any).setSelectionRange(before.length + (span.textContent||'').length, before.length + (span.textContent||'').length);
+                }
+              });
+              pillsWrap.appendChild(span);
             });
-            pillsContainer.appendChild(span);
+          }
+          // apply schema-guided defaults
+          const preset = schema?.guided || getPresetFor(node);
+          applyPresetToModal(preset as any);
+          setModalState({
+            mode: 'guided',
+            availableData: data?.fields || [],
+            guidedDefaults: preset,
+            developerDefaults: schema?.developer || null,
+            preview: ''
           });
-        }
-        // apply preset now that DOM is visible
-        applyPresetToModal(getPresetFor(node));
-      }).catch(()=>{});
+        });
+      } catch {}
     }
 
     function closeModal() {
@@ -285,6 +301,16 @@ export default function SandboxPage() {
       (document.getElementById('close-modal') as HTMLElement | null)?.removeEventListener('click', closeModal);
     };
   }, []);
+
+  // Reset modal state when node id changes
+  useEffect(() => {
+    if (!selectedNode) return;
+    // rehydrate by reopening with the node context
+    // relies on earlier openNodeModal logic to fetch and apply
+    // For safety, ensure overlay is visible
+    const overlay = document.getElementById('modal-overlay') as HTMLElement | null;
+    if (overlay && overlay.style.display !== 'flex') overlay.style.display = 'flex';
+  }, [selectedNode?.id]);
 
   const collectGraph = () => {
     const canvas = document.getElementById('main-canvas');
