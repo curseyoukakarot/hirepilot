@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import PublicNavbar from '../components/PublicNavbar';
 import PublicFooter from '../components/PublicFooter';
 
@@ -74,33 +74,97 @@ GET /api/zapier/triggers/events?event_type=opportunity_submitted&amp;since=2025-
           <h2 class="text-2xl font-semibold text-blue-300 mb-4 flex items-center"><i class="fas fa-bolt mr-3"></i>Action Endpoints</h2>
           <p class="text-gray-400 mb-4">Trigger actions manually or from automations. All actions are REX-compatible and emit events back into the feed.</p>
 
+          <!-- Deals & Submissions -->
           <h3 class="text-lg font-semibold text-green-300 mt-6 mb-2">📈 Deals & Submissions</h3>
-          <ul class="list-disc pl-6 text-gray-300">
+          <ul class="list-disc pl-6 text-gray-300 mb-4">
             <li><code>/api/opportunities/:id/submit-to-client</code> — Mark candidate submitted</li>
             <li><code>/api/opportunities/:id/application</code> — Create job application</li>
             <li><code>/api/opportunities/:id/notes</code> — Add or update notes</li>
             <li><code>/api/deals/activity</code> — Log deal activity</li>
           </ul>
 
-          <h3 class="text-lg font-semibold text-green-300 mt-6 mb-2">💬 Messaging & Campaigns</h3>
-          <ul class="list-disc pl-6 text-gray-300">
+          <div class="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+            <button class="toggle-btn w-full text-left flex justify-between items-center p-4 hover:bg-gray-750 transition">
+              <span class="text-blue-300 font-semibold">View cURL Example</span>
+              <i class="fas fa-chevron-down text-blue-300 transition-transform duration-200"></i>
+            </button>
+            <div class="hidden toggle-content p-4 border-t border-gray-700">
+              <div class="flex justify-end mb-2">
+                <button class="copy-btn px-2 py-1 text-xs bg-gray-700 rounded hover:bg-gray-600">Copy</button>
+              </div>
+              <pre class="text-sm text-white overflow-auto">curl -X POST https://api.thehirepilot.com/api/opportunities/123/submit-to-client \
+-H "X-API-Key: YOUR_API_KEY" \
+-d '{"status":"submitted","notes":"Sent via automation"}'</pre>
+            </div>
+          </div>
+
+          <!-- Messaging & Campaigns -->
+          <h3 class="text-lg font-semibold text-green-300 mt-8 mb-2">💬 Messaging & Campaigns</h3>
+          <ul class="list-disc pl-6 text-gray-300 mb-4">
             <li><code>/api/messages/bulk-schedule</code> — Schedule mass messages</li>
             <li><code>/api/sourcing/campaigns/:id/relaunch</code> — Relaunch campaign</li>
             <li><code>/api/sourcing/campaigns/:id/schedule</code> — Schedule new launch</li>
           </ul>
 
-          <h3 class="text-lg font-semibold text-green-300 mt-6 mb-2">🤝 Clients & Contacts</h3>
-          <ul class="list-disc pl-6 text-gray-300">
+          <div class="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+            <button class="toggle-btn w-full text-left flex justify-between items-center p-4 hover:bg-gray-750 transition">
+              <span class="text-blue-300 font-semibold">View cURL Example</span>
+              <i class="fas fa-chevron-down text-blue-300 transition-transform duration-200"></i>
+            </button>
+            <div class="hidden toggle-content p-4 border-t border-gray-700">
+              <div class="flex justify-end mb-2">
+                <button class="copy-btn px-2 py-1 text-xs bg-gray-700 rounded hover:bg-gray-600">Copy</button>
+              </div>
+              <pre class="text-sm text-white overflow-auto">curl -X POST https://api.thehirepilot.com/api/messages/bulk-schedule \
+-H "X-API-Key: YOUR_API_KEY" \
+-d '{"message":"Hi {{first_name}}, excited to connect!","leads":["lead_1","lead_2"]}'</pre>
+            </div>
+          </div>
+
+          <!-- Clients & Contacts -->
+          <h3 class="text-lg font-semibold text-green-300 mt-8 mb-2">🤝 Clients & Contacts</h3>
+          <ul class="list-disc pl-6 text-gray-300 mb-4">
             <li><code>/api/clients</code> — Create client</li>
             <li><code>/api/clients/:id</code> — Update client</li>
             <li><code>/api/contacts</code> — Add new contact</li>
           </ul>
 
-          <h3 class="text-lg font-semibold text-green-300 mt-6 mb-2">🎯 Sniper & Prospecting</h3>
-          <ul class="list-disc pl-6 text-gray-300">
+          <div class="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+            <button class="toggle-btn w-full text-left flex justify-between items-center p-4 hover:bg-gray-750 transition">
+              <span class="text-blue-300 font-semibold">View cURL Example</span>
+              <i class="fas fa-chevron-down text-blue-300 transition-transform duration-200"></i>
+            </button>
+            <div class="hidden toggle-content p-4 border-t border-gray-700">
+              <div class="flex justify-end mb-2">
+                <button class="copy-btn px-2 py-1 text-xs bg-gray-700 rounded hover:bg-gray-600">Copy</button>
+              </div>
+              <pre class="text-sm text-white overflow-auto">curl -X POST https://api.thehirepilot.com/api/clients \
+-H "X-API-Key: YOUR_API_KEY" \
+-d '{"name":"Acme Corp","industry":"SaaS","website":"https://acme.com"}'</pre>
+            </div>
+          </div>
+
+          <!-- Sniper -->
+          <h3 class="text-lg font-semibold text-green-300 mt-8 mb-2">🎯 Sniper & Prospecting</h3>
+          <ul class="list-disc pl-6 text-gray-300 mb-4">
             <li><code>/api/sniper/targets</code> — Add new targets</li>
             <li><code>/api/sniper/targets/:id/capture-now</code> — Trigger capture</li>
           </ul>
+
+          <div class="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+            <button class="toggle-btn w-full text-left flex justify-between items-center p-4 hover:bg-gray-750 transition">
+              <span class="text-blue-300 font-semibold">View cURL Example</span>
+              <i class="fas fa-chevron-down text-blue-300 transition-transform duration-200"></i>
+            </button>
+            <div class="hidden toggle-content p-4 border-t border-gray-700">
+              <div class="flex justify-end mb-2">
+                <button class="copy-btn px-2 py-1 text-xs bg-gray-700 rounded hover:bg-gray-600">Copy</button>
+              </div>
+              <pre class="text-sm text-white overflow-auto">curl -X POST https://api.thehirepilot.com/api/sniper/targets \
+-H "X-API-Key: YOUR_API_KEY" \
+-d '{"company":"Globex","title_keywords":["VP of Sales","CRO"],"location":"Austin, TX"}'</pre>
+            </div>
+          </div>
 
           <div class="bg-blue-900/20 border border-blue-700 rounded-lg p-4 mt-6">
             <p class="text-blue-200 text-sm">Note: Billing, credit, and administrative endpoints are reserved for Super Admin use only and are not exposed through the public API.</p>
@@ -154,6 +218,43 @@ rex run clients.create --name="Acme Corp"
       </div>
     </div>
   </main>`;
+
+  // Attach interactive behavior for collapsible blocks and copy buttons
+  // Since the content is injected via dangerouslySetInnerHTML, we wire events after mount
+  useEffect(() => {
+    const onToggle = (ev) => {
+      const btn = ev.currentTarget;
+      const content = btn.nextElementSibling;
+      const icon = btn.querySelector('i');
+      const expanded = !content.classList.contains('hidden');
+      document.querySelectorAll('.toggle-content').forEach((el) => el.classList.add('hidden'));
+      document.querySelectorAll('.toggle-btn i').forEach((i) => i.classList.remove('rotate-180'));
+      if (!expanded) {
+        content.classList.remove('hidden');
+        if (icon) icon.classList.add('rotate-180');
+      }
+    };
+    const onCopy = async (ev) => {
+      const btn = ev.currentTarget;
+      const container = btn.closest('.toggle-content');
+      const pre = container ? container.querySelector('pre') : null;
+      const text = pre ? pre.textContent : '';
+      try {
+        if (text) await navigator.clipboard.writeText(text);
+        const original = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = original; }, 1200);
+      } catch {}
+    };
+    const toggleBtns = Array.from(document.querySelectorAll('.toggle-btn'));
+    const copyBtns = Array.from(document.querySelectorAll('.copy-btn'));
+    toggleBtns.forEach((b) => b.addEventListener('click', onToggle));
+    copyBtns.forEach((b) => b.addEventListener('click', onCopy));
+    return () => {
+      toggleBtns.forEach((b) => b.removeEventListener('click', onToggle));
+      copyBtns.forEach((b) => b.removeEventListener('click', onCopy));
+    };
+  }, []);
 
   return (
     <div className="bg-gray-950 text-white font-sans">
