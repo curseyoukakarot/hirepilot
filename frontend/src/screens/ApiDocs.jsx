@@ -67,6 +67,43 @@ GET /api/zapier/triggers/events?event_type=opportunity_submitted&amp;since=2025-
   }
 }</pre>
           </div>
+
+          <div class="mt-6 bg-gray-900/40 rounded-xl p-4 border border-gray-800">
+            <h3 class="text-lg font-semibold text-green-300 mb-2">Lead Triggers</h3>
+            <p class="text-gray-400 mb-3">Use these to automate based on lead source and tag changes.</p>
+            <ul class="list-disc pl-6 text-gray-300 mb-4">
+              <li><code>lead_source_added</code> — Fired when a lead is created from a recognized source (apollo, skrapp, hunter, linkedin, sourcing_campaign, sales_nav, chrome_extension)</li>
+              <li><code>lead_tag_added</code> — Fired when a new tag is added to a lead</li>
+            </ul>
+            <div class="grid md:grid-cols-2 gap-4">
+              <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-sm text-gray-500">Filter: lead_source_added</span>
+                  <button class="copy-btn text-blue-400 hover:text-blue-300 text-sm"><i class="fas fa-copy mr-1"></i>Copy</button>
+                </div>
+                <pre class="text-sm overflow-auto">GET /api/zapier/triggers/events?event_type=lead_source_added&since=2025-01-01T00:00:00Z</pre>
+              </div>
+              <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-sm text-gray-500">Filter: lead_tag_added</span>
+                  <button class="copy-btn text-blue-400 hover:text-blue-300 text-sm"><i class="fas fa-copy mr-1"></i>Copy</button>
+                </div>
+                <pre class="text-sm overflow-auto">GET /api/zapier/triggers/events?event_type=lead_tag_added&since=2025-01-01T00:00:00Z</pre>
+              </div>
+            </div>
+            <div class="bg-gray-800 rounded-lg p-4 border border-gray-700 mt-4">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-sm text-gray-500">Sample Payload (lead_tag_added)</span>
+                <button class="copy-btn text-blue-400 hover:text-blue-300 text-sm"><i class="fas fa-copy mr-1"></i>Copy</button>
+              </div>
+              <pre class="text-sm overflow-auto">{
+  "id": "evt_555",
+  "event_type": "lead_tag_added",
+  "created_at": "2025-10-23T10:00:00Z",
+  "payload": { "entity": "leads", "entity_id": "lead_123", "tag": "vip" }
+}</pre>
+            </div>
+          </div>
         </section>
 
         <!-- ACTION ENDPOINTS -->
@@ -173,6 +210,41 @@ GET /api/zapier/triggers/events?event_type=opportunity_submitted&amp;since=2025-
             <li><code>/api/leads/:id/enrich</code> — Enrich lead</li>
             <li><code>/api/candidates/:id/enrich</code> — Enrich candidate</li>
           </ul>
+
+          <div class="bg-gray-900/40 rounded-xl p-4 border border-gray-800 mb-4">
+            <h4 class="text-green-300 font-semibold mb-2">Lead Tag/Source Automation</h4>
+            <p class="text-gray-400 text-sm mb-2">Examples of cURL-based workflows tied to lead triggers:</p>
+            <div class="bg-gray-800 rounded-lg p-4 border border-gray-700 mb-3">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-sm text-gray-500">When Apollo lead added → add tag</span>
+                <button class="copy-btn text-blue-400 hover:text-blue-300 text-sm"><i class="fas fa-copy mr-1"></i>Copy</button>
+              </div>
+              <pre class="text-sm overflow-auto"># Poll events
+curl "https://api.thehirepilot.com/api/zapier/triggers/events?event_type=lead_source_added&since={{now}}" \
+-H "X-API-Key: YOUR_API_KEY"
+
+# If payload.source == 'apollo', tag the lead (example endpoint)
+curl -X PATCH https://api.thehirepilot.com/api/leads/lead_123 \
+-H "X-API-Key: YOUR_API_KEY" \
+-H "Content-Type: application/json" \
+-d '{"tags":["apollo","warm"]}'</pre>
+            </div>
+            <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-sm text-gray-500">When tag added → send email template</span>
+                <button class="copy-btn text-blue-400 hover:text-blue-300 text-sm"><i class="fas fa-copy mr-1"></i>Copy</button>
+              </div>
+              <pre class="text-sm overflow-auto"># Poll events
+curl "https://api.thehirepilot.com/api/zapier/triggers/events?event_type=lead_tag_added&since={{now}}" \
+-H "X-API-Key: YOUR_API_KEY"
+
+# On event.payload.tag == 'vip', trigger messaging (example)
+curl -X POST https://api.thehirepilot.com/api/messages/bulk-schedule \
+-H "X-API-Key: YOUR_API_KEY" \
+-H "Content-Type: application/json" \
+-d '{"template_id":"vip_template","lead_ids":["lead_123"]}'</pre>
+            </div>
+          </div>
 
           <div class="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
             <button class="toggle-btn w-full text-left flex justify-between items-center p-4 hover:bg-gray-750 transition">
