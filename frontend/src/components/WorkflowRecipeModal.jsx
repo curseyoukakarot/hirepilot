@@ -173,7 +173,7 @@ export default function WorkflowRecipeModal({
                         <div className="w-8 h-8 bg-gradient-to-br from-primary to-secondary rounded-md text-white flex items-center justify-center font-semibold">
                           {idx + 1}
                         </div>
-                        <div className="text-slate-200">{step}</div>
+                        <div className="text-black">{step}</div>
                       </div>
                     ))
                   ) : (
