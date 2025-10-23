@@ -816,6 +816,21 @@ router.post('/candidates', requireAuth, async (req: ApiRequest, res: Response) =
       return;
     }
 
+    try {
+      const { createZapEvent, EVENT_TYPES } = await import('../lib/events');
+      const src = (req.body?.source || req.body?.enrichment_source || '').toString().toLowerCase();
+      const allowed = new Set(['apollo','skrapp','hunter','linkedin','sourcing_campaign','sales_nav','chrome_extension']);
+      const normalized = src === 'chrome extension' ? 'chrome_extension' : src;
+      if (allowed.has(normalized)) {
+        await createZapEvent({
+          event_type: EVENT_TYPES.lead_source_added as any,
+          user_id: req.user.id,
+          entity: 'leads',
+          entity_id: (data as any)?.id,
+          payload: { source: normalized }
+        });
+      }
+    } catch {}
     res.status(201).json(data);
   } catch (e) {
     console.error('Create candidate (leads router) error:', e);
@@ -1445,6 +1460,20 @@ router.post('/bulk-add', requireAuth, async (req: Request, res: Response) => {
       res.status(500).json({ error: error.message });
       return;
     }
+
+    // Emit source-added events for batch imports via Chrome Extension
+    try {
+      const { createZapEvent, EVENT_TYPES } = await import('../lib/events');
+      for (const row of (data || [])) {
+        await createZapEvent({
+          event_type: EVENT_TYPES.lead_source_added as any,
+          user_id: req.user!.id,
+          entity: 'leads',
+          entity_id: row.id,
+          payload: { source: 'chrome_extension' }
+        });
+      }
+    } catch {}
 
     res.json({ 
       success: true, 
