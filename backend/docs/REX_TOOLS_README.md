@@ -1,99 +1,80 @@
-# REX Tools - Quick Commands
+# REX Tools and Automation API
 
-This guide lists REX tool commands you can call (via chat or programmatic tool invocation) for the new features shipped in this phase.
+This document lists the primary categories and endpoints exposed for automation via HTTP and MCP.
 
-## Deals & Zapier Parity Tools
+## Event Feed
+- GET /api/zapier/triggers/event-types — list supported event types and descriptions
+- GET /api/zapier/triggers/events?event_type=...&since=...&limit=...&cursor=...
 
-- move_opportunity_stage
-  - Params: userId, opportunityId, stageId
-  - Effect: Moves an opportunity to a new stage.
-  - Example: "REX, move opportunity 123e4567-e89b-12d3-a456-426614174000 to stage 8a8f1f0e-..."
+Example:
+```
+curl "${BACKEND_URL}/api/zapier/triggers/events?event_type=opportunity_submitted&since=2024-01-01T00:00:00Z" -H "X-API-Key: <key>"
+```
 
-- update_deal
-  - Params: userId, dealId, patch
-  - Effect: Updates deal fields (title, value, billing_type, status, stage, client_id).
-  - Example: "REX, update deal 123... with value 25000 and status active"
+## REX Tools HTTP Surface (requires Bearer user JWT)
+Base: /api/rex/tools (rate limited, supports Idempotency-Key)
 
-- add_or_update_note
-  - Params: userId, entityType, entityId, noteId?, body, title?
-  - entityType: lead | candidate | decision_maker | opportunity
-  - Effect: Adds or updates a note for the target entity.
-  - Example: "REX, add a note to candidate 123... titled 'Intro Call' with body 'Great intro'"
+### Opportunity
+- POST /opportunity/submit-to-client { opportunityId, candidateId, message? }
+- POST /opportunity/notes { opportunityId, text }
+- POST /opportunity/collaborators { opportunityId, email, role? }
 
-- send_invoice
-  - Params: userId, clientId, amount, currency?, memo?
-  - Effect: Creates an invoice record for the client (Stripe send handled elsewhere).
-  - Example: "REX, send invoice to client 123... for $2000 USD memo 'September retainer'"
+### Messaging
+- POST /messaging/bulk-schedule { template_id, lead_ids[], scheduled_at, sender }
+- POST /messaging/schedule-mass { messages: [...] }
 
-## Candidate & Pipeline Tools
+### Sourcing
+- POST /sourcing/relaunch { campaignId }
+- POST /sourcing/schedule { campaignId }
+- POST /sourcing/stats { campaignId, emit? }
 
-- move_candidate
-  - Params: userId, candidateId, newStage
-  - Effect: Moves candidate status across main statuses (sourced → contacted → interviewed → offered → hired/rejected)
+### Enrichment
+- POST /enrichment/lead { leadId }
+- POST /enrichment/candidate { candidateId }
 
-- move_candidate_to_stage
-  - Params: userId, candidate, stage, jobId?
-  - Effect: Moves candidate to a pipeline stage by stage title (resolves candidate by id/email/name)
+### CRM
+- POST /crm/client { name, domain? }
+- POST /crm/client/update { id, update }
+- POST /crm/client/enrich { id }
+- POST /crm/contact { client_id, email, name?, title? }
 
-- update_candidate_notes
-  - Params: userId, candidateId, note, author
-  - Effect: Adds a note to the candidate (separate from Activity Log)
+### Billing / Credits / Invoices
+- POST /billing/credits/purchase { packageId }
+- POST /billing/checkout {}
+- POST /billing/cancel {}
+- POST /billing/invoice { client_id, amount, ... }
 
-- view_pipeline
-  - Params: userId, jobId, stage?, staleDays?, candidateName?
-  - Effect: Returns candidates in pipeline with optional filters
+### Team / Notifications
+- POST /team/invite { email, role? }
+- POST /team/role { memberId, role }
+- POST /notifications/create { title?, body?, type? }
 
-- get_pipeline_stats
-  - Params: userId, campaignId, stage
-  - Effect: Returns candidate stats for a campaign
+### Sniper
+- POST /sniper/targets { url, opener? }
+- POST /sniper/capture-now { targetId }
 
-## Email & Messaging Tools
+## MCP Tool Keys
+- opportunity.submitToClient, opportunity.addNote, opportunity.addCollaborator
+- messaging.bulkSchedule, messaging.scheduleMassMessage
+- sourcing.relaunch, sourcing.schedule, sourcing.stats
+- enrichment.lead, enrichment.candidate
+- crm.clientCreate, crm.clientUpdate, crm.clientEnrich, crm.contactCreate
+- billing.purchaseCredits, billing.checkout, billing.cancel, billing.invoiceCreate
+- team.invite, team.updateRole
+- notifications.create
+- sniper.addTarget, sniper.captureNow
+- linkedin.connect
 
-- send_message
-  - Params: userId, leadId, messageType, tone, jobDetails
-  - Effect: Sends a one-off message to a lead (SendGrid)
-
-- send_campaign_email_auto
-  - Params: userId, campaign_id, template_name?, subject?, html?, scheduled_for?, channel?
-  - Effect: Schedules messages to campaign leads using a template or provided draft
-
-- send_template_email
-  - Params: userId, lead, template_name? or template_id?, provider?
-  - Effect: Sends a templated email to a single lead
-
-- schedule_bulk_messages
-  - Params: userId, leadIds[], templateId, scheduledFor, channel
-  - Effect: Queues bulk messages to multiple leads
-
-- get_scheduled_messages, cancel_scheduled_message, get_scheduler_status
-  - Inspect, cancel, and view status of scheduled messages
-
-## Sourcing & Enrichment Tools
-
-- source_leads
-  - Params: userId, campaignId, source (apollo|linkedin), filters
-
-- filter_leads
-  - Params: userId, campaignId?, filters
-
-- enrich_lead, enrich_lead_profile
-  - Params: userId, leadId + fields[] OR name/email/linkedinUrl
-
-- get_campaign_lead_count
-  - Params: userId, campaignId
-
-## Automation (Zapier/Make) Helpers
-
-- trigger_zapier
-  - Params: userId, webhookName, payload
-
-- trigger_make_workflow
-  - Params: userId, workflowId, payload
-
-- test_zapier_integration, suggest_automation_workflows, setup_integration_guide, troubleshoot_integration, get_recent_automation_events
-
-## Notes
-
-- All tools respect existing auth/tenant scoping.
-- Some tools consume credits (sourcing/enrichment/email). Use `fetch_credits` first if needed.
-- For ambiguous names (e.g., candidate by name), REX resolves the best match or asks to disambiguate.
+## Examples
+Submit candidate:
+```
+curl -X POST "$BACKEND_URL/api/rex/tools/opportunity/submit-to-client" \
+ -H "Authorization: Bearer $USER_JWT" -H 'Content-Type: application/json' \
+ -d '{"opportunityId":"op_123","candidateId":"cand_456","message":"For review"}'
+```
+Bulk schedule:
+```
+curl -X POST "$BACKEND_URL/api/rex/tools/messaging/bulk-schedule" \
+ -H "Authorization: Bearer $USER_JWT" -H 'Content-Type: application/json' \
+ -d '{"template_id":"tmpl_1","lead_ids":["l1","l2"],"scheduled_at":"2025-01-10T15:00:00Z","sender":{"provider":"sendgrid"}}'
+```
