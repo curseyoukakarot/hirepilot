@@ -186,6 +186,191 @@ rex run clients.create --name="Acme Corp"
           <p class="text-gray-400 mt-2">All tool executions emit a <code>rex_chat_triggered</code> event and appear in <code>/api/zapier/triggers/events</code>.</p>
         </section>
 
+        <!-- REX Playground Adaptive -->
+        <section id="rex-playground" class="bg-gray-900/50 rounded-xl p-8 border border-gray-800">
+          <h2 class="text-2xl font-semibold text-blue-300 mb-6 flex items-center">
+            <i class="fas fa-terminal mr-3"></i>Live REX Playground
+          </h2>
+          <p class="text-gray-400 mb-6">
+            See how REX turns your words into real API actions and events.
+            Choose a category below and replay an actual conversation.
+          </p>
+
+          <!-- Category Tabs -->
+          <div class="flex flex-wrap gap-3 mb-6">
+            <button class="rex-tab active-tab bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium" data-target="rexDeals">📈 Deals & Submissions</button>
+            <button class="rex-tab bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-lg text-sm font-medium" data-target="rexMessaging">💬 Messaging & Campaigns</button>
+            <button class="rex-tab bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-lg text-sm font-medium" data-target="rexClients">🤝 Clients & CRM</button>
+            <button class="rex-tab bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-lg text-sm font-medium" data-target="rexSniper">🎯 Sniper & Prospecting</button>
+          </div>
+
+          <!-- Chat Containers -->
+          <div id="rexPlaygroundContainer" class="space-y-6">
+            <!-- Deals -->
+            <div id="rexDeals" class="rex-thread space-y-4">
+              <div class="flex flex-col space-y-2">
+                <div class="self-start bg-blue-900/40 border border-blue-700 text-blue-100 px-4 py-2 rounded-2xl max-w-lg">
+                  <strong>You:</strong> REX, submit Jane Doe to Acme Corp for the Account Executive role.
+                </div>
+                <div class="self-end bg-gray-800 border border-gray-700 text-gray-200 px-4 py-2 rounded-2xl max-w-lg">
+                  <strong>REX:</strong> ✅ Candidate Jane Doe submitted to Acme Corp.  
+                  <span class="text-sm text-blue-400 block mt-1">(POST /api/opportunities/:id/submit-to-client → event: opportunity_submitted)</span>
+                </div>
+              </div>
+              <div class="text-right mt-3">
+                <button class="tryRex bg-blue-800 hover:bg-blue-700 text-sm text-white px-3 py-1 rounded-md"
+                  data-command="Submit Jane Doe to Acme Corp for the Account Executive role"
+                  data-api="POST /api/opportunities/:id/submit-to-client\n{\n  'status': 'submitted',\n  'notes': 'Sent via automation'\n}"
+                  data-event="opportunity_submitted">
+                  🧪 Try This in REX Console
+                </button>
+              </div>
+
+              <div class="flex flex-col space-y-2">
+                <div class="self-start bg-blue-900/40 border border-blue-700 text-blue-100 px-4 py-2 rounded-2xl max-w-lg">
+                  <strong>You:</strong> Add an internal note for this deal: “Client expects interview next week.”
+                </div>
+                <div class="self-end bg-gray-800 border border-gray-700 text-gray-200 px-4 py-2 rounded-2xl max-w-lg">
+                  <strong>REX:</strong> 📝 Note added to deal successfully.  
+                  <span class="text-sm text-blue-400 block mt-1">(PATCH /api/opportunities/:id/notes → event: opportunity_note_added)</span>
+                </div>
+              </div>
+              <div class="text-right mt-3">
+                <button class="tryRex bg-blue-800 hover:bg-blue-700 text-sm text-white px-3 py-1 rounded-md"
+                  data-command="Add an internal note for this deal: “Client expects interview next week.”"
+                  data-api="PATCH /api/opportunities/:id/notes\n{\n  'notes': 'Client expects interview next week.'\n}"
+                  data-event="opportunity_note_added">
+                  🧪 Try This in REX Console
+                </button>
+              </div>
+            </div>
+
+            <!-- Messaging -->
+            <div id="rexMessaging" class="rex-thread hidden space-y-4">
+              <div class="flex flex-col space-y-2">
+                <div class="self-start bg-blue-900/40 border border-blue-700 text-blue-100 px-4 py-2 rounded-2xl max-w-lg">
+                  <strong>You:</strong> Send a batch message to everyone who opened last week’s email.
+                </div>
+                <div class="self-end bg-gray-800 border border-gray-700 text-gray-200 px-4 py-2 rounded-2xl max-w-lg">
+                  <strong>REX:</strong> 💌 Message batch scheduled for 132 recipients.  
+                  <span class="text-sm text-blue-400 block mt-1">(POST /api/messages/bulk-schedule → event: message_batch_scheduled)</span>
+                </div>
+              </div>
+              <div class="text-right mt-3">
+                <button class="tryRex bg-blue-800 hover:bg-blue-700 text-sm text-white px-3 py-1 rounded-md"
+                  data-command="Schedule a batch message to everyone who opened last week’s email"
+                  data-api="POST /api/messages/bulk-schedule\n{\n  'template_id': 'tmpl_1',\n  'lead_ids': ['l1','l2'],\n  'scheduled_at': '2025-01-10T15:00:00Z'\n}"
+                  data-event="message_batch_scheduled">
+                  🧪 Try This in REX Console
+                </button>
+              </div>
+
+              <div class="flex flex-col space-y-2">
+                <div class="self-start bg-blue-900/40 border border-blue-700 text-blue-100 px-4 py-2 rounded-2xl max-w-lg">
+                  <strong>You:</strong> REX, relaunch my “AE Candidates - Austin” campaign.
+                </div>
+                <div class="self-end bg-gray-800 border border-gray-700 text-gray-200 px-4 py-2 rounded-2xl max-w-lg">
+                  <strong>REX:</strong> 🚀 Campaign relaunched successfully.  
+                  <span class="text-sm text-blue-400 block mt-1">(POST /api/sourcing/campaigns/:id/relaunch → event: campaign_relaunched)</span>
+                </div>
+              </div>
+              <div class="text-right mt-3">
+                <button class="tryRex bg-blue-800 hover:bg-blue-700 text-sm text-white px-3 py-1 rounded-md"
+                  data-command="Relaunch my ‘AE Candidates - Austin’ campaign"
+                  data-api="POST /api/sourcing/campaigns/:id/relaunch\n{}"
+                  data-event="campaign_relaunched">
+                  🧪 Try This in REX Console
+                </button>
+              </div>
+            </div>
+
+            <!-- Clients -->
+            <div id="rexClients" class="rex-thread hidden space-y-4">
+              <div class="flex flex-col space-y-2">
+                <div class="self-start bg-blue-900/40 border border-blue-700 text-blue-100 px-4 py-2 rounded-2xl max-w-lg">
+                  <strong>You:</strong> Add Acme Corp as a new client in the CRM.
+                </div>
+                <div class="self-end bg-gray-800 border border-gray-700 text-gray-200 px-4 py-2 rounded-2xl max-w-lg">
+                  <strong>REX:</strong> 🧩 Client Acme Corp created successfully.  
+                  <span class="text-sm text-blue-400 block mt-1">(POST /api/clients → event: client_created)</span>
+                </div>
+              </div>
+              <div class="text-right mt-3">
+                <button class="tryRex bg-blue-800 hover:bg-blue-700 text-sm text-white px-3 py-1 rounded-md"
+                  data-command="Create client Acme Corp in CRM"
+                  data-api="POST /api/clients\n{\n  'name': 'Acme Corp'\n}"
+                  data-event="client_created">
+                  🧪 Try This in REX Console
+                </button>
+              </div>
+
+              <div class="flex flex-col space-y-2">
+                <div class="self-start bg-blue-900/40 border border-blue-700 text-blue-100 px-4 py-2 rounded-2xl max-w-lg">
+                  <strong>You:</strong> Sync enrichment for Acme Corp.
+                </div>
+                <div class="self-end bg-gray-800 border border-gray-700 text-gray-200 px-4 py-2 rounded-2xl max-w-lg">
+                  <strong>REX:</strong> 🔍 Client enriched with latest data (funding, size, tech stack).  
+                  <span class="text-sm text-blue-400 block mt-1">(POST /api/clients/:id/sync-enrichment → event: client_enriched)</span>
+                </div>
+              </div>
+              <div class="text-right mt-3">
+                <button class="tryRex bg-blue-800 hover:bg-blue-700 text-sm text-white px-3 py-1 rounded-md"
+                  data-command="Sync enrichment for client Acme Corp"
+                  data-api="POST /api/clients/:id/sync-enrichment\n{}"
+                  data-event="client_enriched">
+                  🧪 Try This in REX Console
+                </button>
+              </div>
+            </div>
+
+            <!-- Sniper -->
+            <div id="rexSniper" class="rex-thread hidden space-y-4">
+              <div class="flex flex-col space-y-2">
+                <div class="self-start bg-blue-900/40 border border-blue-700 text-blue-100 px-4 py-2 rounded-2xl max-w-lg">
+                  <strong>You:</strong> Find 10 new VP of Sales prospects in Austin.
+                </div>
+                <div class="self-end bg-gray-800 border border-gray-700 text-gray-200 px-4 py-2 rounded-2xl max-w-lg">
+                  <strong>REX:</strong> 🎯 Added 10 new targets to Sniper list.  
+                  <span class="text-sm text-blue-400 block mt-1">(POST /api/sniper/targets → event: sniper_target_added)</span>
+                </div>
+              </div>
+              <div class="text-right mt-3">
+                <button class="tryRex bg-blue-800 hover:bg-blue-700 text-sm text-white px-3 py-1 rounded-md"
+                  data-command="Add 10 new VP of Sales prospects in Austin to Sniper"
+                  data-api="POST /api/sniper/targets\n{\n  'count': 10,\n  'role': 'VP of Sales',\n  'location': 'Austin, TX'\n}"
+                  data-event="sniper_target_added">
+                  🧪 Try This in REX Console
+                </button>
+              </div>
+
+              <div class="flex flex-col space-y-2">
+                <div class="self-start bg-blue-900/40 border border-blue-700 text-blue-100 px-4 py-2 rounded-2xl max-w-lg">
+                  <strong>You:</strong> Trigger capture now for target “Globex.”
+                </div>
+                <div class="self-end bg-gray-800 border border-gray-700 text-gray-200 px-4 py-2 rounded-2xl max-w-lg">
+                  <strong>REX:</strong> ⏱ Capture initiated for Globex (LinkedIn scrape started).  
+                  <span class="text-sm text-blue-400 block mt-1">(POST /api/sniper/targets/:id/capture-now → event: sniper_capture_triggered)</span>
+                </div>
+              </div>
+              <div class="text-right mt-3">
+                <button class="tryRex bg-blue-800 hover:bg-blue-700 text-sm text-white px-3 py-1 rounded-md"
+                  data-command="Capture Globex now"
+                  data-api="POST /api/sniper/targets/:id/capture-now\n{}"
+                  data-event="sniper_capture_triggered">
+                  🧪 Try This in REX Console
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Replay -->
+          <div class="text-center mt-8">
+            <button id="simulateRexAdaptive" class="px-4 py-2 rounded-lg bg-blue-700 hover:bg-blue-600 transition text-sm font-medium">
+              ▶ Replay Conversation
+            </button>
+          </div>
+        </section>
+
         <!-- EXAMPLES -->
         <section id="examples" class="bg-gray-900/50 rounded-xl p-8 border border-gray-800">
           <h2 class="text-2xl font-semibold text-blue-300 mb-4 flex items-center"><i class="fas fa-code mr-3"></i>Automation Examples</h2>
@@ -219,6 +404,31 @@ rex run clients.create --name="Acme Corp"
     </div>
   </main>`;
 
+  // Append a global modal container outside of main (rendered as sibling in React root)
+  const modalHtml = String.raw`
+  <div id="rexModal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50 backdrop-blur-sm">
+    <div class="bg-gray-900 border border-blue-800 rounded-xl shadow-2xl w-full max-w-2xl mx-4">
+      <div class="flex justify-between items-center px-6 py-4 border-b border-blue-700">
+        <h3 class="text-lg font-semibold text-blue-300 flex items-center"><i class="fas fa-robot mr-2"></i> REX Console Preview</h3>
+        <button id="closeRexModal" class="text-gray-400 hover:text-gray-200"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="p-6 space-y-4">
+        <div>
+          <p class="text-sm text-gray-400 mb-1">🧠 <span class="font-semibold text-gray-200">Command</span></p>
+          <pre id="rexModalCommand" class="bg-gray-800 text-blue-200 rounded-lg p-3 overflow-x-auto text-sm"></pre>
+        </div>
+        <div>
+          <p class="text-sm text-gray-400 mb-1">💻 <span class="font-semibold text-gray-200">API Call</span></p>
+          <pre id="rexModalApi" class="bg-gray-800 text-green-300 rounded-lg p-3 overflow-x-auto text-sm"></pre>
+        </div>
+        <div>
+          <p class="text-sm text-gray-400 mb-1">⚡ <span class="font-semibold text-gray-200">Event Emitted</span></p>
+          <pre id="rexModalEvent" class="bg-gray-800 text-purple-300 rounded-lg p-3 overflow-x-auto text-sm"></pre>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
   // Attach interactive behavior for collapsible blocks and copy buttons
   // Since the content is injected via dangerouslySetInnerHTML, we wire events after mount
   useEffect(() => {
@@ -248,11 +458,74 @@ rex run clients.create --name="Acme Corp"
     };
     const toggleBtns = Array.from(document.querySelectorAll('.toggle-btn'));
     const copyBtns = Array.from(document.querySelectorAll('.copy-btn'));
+    // REX adaptive playground handlers
+    const tabs = Array.from(document.querySelectorAll('.rex-tab'));
+    const threads = Array.from(document.querySelectorAll('.rex-thread'));
+    const replayBtn = document.getElementById('simulateRexAdaptive');
+    const rexModal = document.getElementById('rexModal');
+    const closeRexModal = document.getElementById('closeRexModal');
+    const rexCommand = document.getElementById('rexModalCommand');
+    const rexApi = document.getElementById('rexModalApi');
+    const rexEvent = document.getElementById('rexModalEvent');
+
+    const onTab = (tab) => {
+      tabs.forEach((t) => t.classList.remove('active-tab', 'bg-blue-700', 'text-white'));
+      tab.classList.add('active-tab', 'bg-blue-700', 'text-white');
+      const target = tab.getAttribute('data-target');
+      threads.forEach((th) => th.classList.add('hidden'));
+      const active = document.getElementById(target);
+      if (active) active.classList.remove('hidden');
+    };
+    const onReplay = () => {
+      const visibleThread = document.querySelector('.rex-thread:not(.hidden)');
+      if (!visibleThread) return;
+      const messages = visibleThread.querySelectorAll('.flex');
+      messages.forEach((m) => m.classList.add('opacity-0', 'translate-y-2'));
+      let delay = 0;
+      for (const m of messages) {
+        setTimeout(() => {
+          m.classList.remove('opacity-0', 'translate-y-2');
+          m.classList.add('transition', 'duration-500', 'ease-out');
+        }, delay);
+        delay += 800;
+      }
+    };
+    const onTryRex = (ev) => {
+      const btn = ev.currentTarget;
+      const command = btn.getAttribute('data-command');
+      const apiCall = btn.getAttribute('data-api');
+      const eventEmitted = btn.getAttribute('data-event');
+
+      rexCommand.textContent = command;
+      rexApi.textContent = apiCall;
+      rexEvent.textContent = eventEmitted;
+      rexModal.classList.remove('hidden');
+    };
+    const onCloseRexModal = () => {
+      rexModal.classList.add('hidden');
+    };
+
     toggleBtns.forEach((b) => b.addEventListener('click', onToggle));
     copyBtns.forEach((b) => b.addEventListener('click', onCopy));
+    tabs.forEach((t) => t.addEventListener('click', () => onTab(t)));
+    if (replayBtn) replayBtn.addEventListener('click', onReplay);
+    const tryBtns = Array.from(document.querySelectorAll('.tryRex'));
+    tryBtns.forEach((b) => b.addEventListener('click', () => {
+      if (rexCommand) rexCommand.textContent = b.getAttribute('data-command') || '';
+      if (rexApi) rexApi.textContent = b.getAttribute('data-api') || '';
+      if (rexEvent) rexEvent.textContent = b.getAttribute('data-event') || '';
+      if (rexModal) { rexModal.classList.remove('hidden'); rexModal.classList.add('flex'); }
+    }));
+    if (closeRexModal) closeRexModal.addEventListener('click', () => { if (rexModal) { rexModal.classList.add('hidden'); rexModal.classList.remove('flex'); } });
+    if (rexModal) rexModal.addEventListener('click', (e) => { if (e.target === rexModal) { rexModal.classList.add('hidden'); rexModal.classList.remove('flex'); } });
     return () => {
       toggleBtns.forEach((b) => b.removeEventListener('click', onToggle));
       copyBtns.forEach((b) => b.removeEventListener('click', onCopy));
+      tabs.forEach((t) => t.removeEventListener('click', () => onTab(t)));
+      if (replayBtn) replayBtn.removeEventListener('click', onReplay);
+      tryBtns.forEach((b) => b.removeEventListener('click', () => {}));
+      if (closeRexModal) closeRexModal.removeEventListener('click', () => {});
+      if (rexModal) rexModal.removeEventListener('click', () => {});
     };
   }, []);
 
@@ -260,417 +533,7 @@ rex run clients.create --name="Acme Corp"
     <div className="bg-gray-950 text-white font-sans">
       <PublicNavbar />
       <div dangerouslySetInnerHTML={{ __html: html }} />
-      <PublicFooter />
-    </div>
-  );
-}
-
-import React from 'react';
-import PublicNavbar from '../components/PublicNavbar';
-import PublicFooter from '../components/PublicFooter';
-
-export default function ApiDocs() {
-  const html = String.raw`
-    <main class="max-w-6xl mx-auto px-6 pt-28 pb-10">
-        <section id="hero" class="mb-12">
-            <div class="text-center mb-8">
-                <h1 class="text-4xl font-bold mb-4 text-blue-400">
-                    <i class="fas fa-book mr-3"></i>API Reference
-                </h1>
-                <p class="text-xl text-gray-300 max-w-3xl mx-auto">
-                    Integrate HirePilot into your workflows using our secure REST API. Use the endpoints below to create, update, enrich, or retrieve leads and react to pipeline & messaging events. Supports Zapier, Make, and REX orchestration.
-                </p>
-            </div>
-        </section>
-
-        <div class="grid lg:grid-cols-4 gap-8">
-            <aside id="sidebar" class="lg:col-span-1">
-                <nav class="sticky top-24 bg-gray-900/50 rounded-xl p-6 border border-gray-800">
-                    <h3 class="text-lg font-semibold mb-4 text-blue-300">Quick Navigation</h3>
-                    <ul class="space-y-2">
-                        <li><a href="#authentication" class="text-gray-400 hover:text-white transition-colors flex items-center py-2 cursor-pointer"><i class="fas fa-lock mr-2"></i>Authentication</a></li>
-                        <li><a href="#events-universal" class="text-gray-400 hover:text-white transition-colors flex items-center py-2 cursor-pointer"><i class="fas fa-rss mr-2"></i>Universal Events (Polling)</a></li>
-                        <li><a href="#actions" class="text-gray-400 hover:text-white transition-colors flex items-center py-2 cursor-pointer"><i class="fas fa-bolt mr-2"></i>Action Endpoints</a></li>
-                        <li><a href="#messaging-signals" class="text-gray-400 hover:text-white transition-colors flex items-center py-2 cursor-pointer"><i class="fas fa-envelope-open-text mr-2"></i>Messaging Signals</a></li>
-                        <li><a href="#create-lead" class="text-gray-400 hover:text-white transition-colors flex items-center py-2 cursor-pointer"><i class="fas fa-plus mr-2"></i>Create Lead</a></li>
-                        <li><a href="#enrich-lead" class="text-gray-400 hover:text-white transition-colors flex items-center py-2 cursor-pointer"><i class="fas fa-magic mr-2"></i>Enrich Lead</a></li>
-                        <li><a href="#get-leads" class="text-gray-400 hover:text-white transition-colors flex items-center py-2 cursor-pointer"><i class="fas fa-download mr-2"></i>Legacy: Get Leads</a></li>
-                        <li><a href="#pipeline-changes" class="text-gray-400 hover:text-white transition-colors flex items-center py-2 cursor-pointer"><i class="fas fa-exchange-alt mr-2"></i>Legacy: Pipeline Changes</a></li>
-                        <li><a href="#webhooks" class="text-gray-400 hover:text-white transition-colors flex items-center py-2 cursor-pointer"><i class="fas fa-broadcast-tower mr-2"></i>Webhooks</a></li>
-                        <li><a href="#errors" class="text-gray-400 hover:text-white transition-colors flex items-center py-2 cursor-pointer"><i class="fas fa-bug mr-2"></i>Error Codes</a></li>
-                        <li><a href="#best-practices" class="text-gray-400 hover:text-white transition-colors flex items-center py-2 cursor-pointer"><i class="fas fa-lightbulb mr-2"></i>Best Practices</a></li>
-                        <li><a href="#examples" class="text-gray-400 hover:text-white transition-colors flex items-center py-2 cursor-pointer"><i class="fas fa-project-diagram mr-2"></i>Examples</a></li>
-                        <li><a href="#rex" class="text-gray-400 hover:text-white transition-colors flex items-center py-2 cursor-pointer"><i class="fas fa-robot mr-2"></i>REX Orchestration</a></li>
-                        <li><a href="#rate-limits" class="text-gray-400 hover:text-white transition-colors flex items-center py-2 cursor-pointer"><i class="fas fa-tachometer-alt mr-2"></i>Rate Limits</a></li>
-                    </ul>
-                </nav>
-            </aside>
-
-            <div class="lg:col-span-3 space-y-12">
-                <!-- Authentication -->
-                <section id="authentication" class="bg-gray-900/50 rounded-xl p-8 border border-gray-800">
-                    <h2 class="text-2xl font-semibold text-blue-300 mb-4 flex items-center">
-                        <i class="fas fa-lock mr-3"></i>Authentication
-                    </h2>
-                    <p class="text-gray-400 mb-4">Authenticate every request with your API key. HirePilot supports two header styles:</p>
-
-                    <div class="grid md:grid-cols-2 gap-4">
-                        <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-sm text-gray-500">Zapier/Make Header</span>
-                                <button class="text-blue-400 hover:text-blue-300 text-sm"><i class="fas fa-copy mr-1"></i>Copy</button>
-                            </div>
-                            <pre class="text-sm overflow-auto" style="color:#ffffff !important">X-API-Key: YOUR_API_KEY</pre>
-                        </div>
-                        <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-sm text-gray-500">Standard Bearer Header</span>
-                                <button class="text-blue-400 hover:text-blue-300 text-sm"><i class="fas fa-copy mr-1"></i>Copy</button>
-                            </div>
-                            <pre class="text-sm overflow-auto" style="color:#ffffff !important">Authorization: Bearer YOUR_API_KEY</pre>
-                        </div>
-                    </div>
-
-                    <div class="bg-blue-900/20 border border-blue-700 rounded-lg p-4 mt-4">
-                        <p class="text-blue-200 text-sm">Generate/rotate your API key in <strong>Settings → Integrations → Zapier/Make</strong>.</p>
-                    </div>
-                </section>
-
-                <!-- Universal Events -->
-                <section id="events-universal" class="bg-gray-900/50 rounded-xl p-8 border border-gray-800">
-                    <h2 class="text-2xl font-semibold text-blue-300 mb-4 flex items-center">
-                        <i class="fas fa-rss mr-3"></i>Universal Events (Polling)
-                    </h2>
-                    <p class="text-gray-400 mb-4">Poll a single endpoint for all event types. Ideal for Zapier/Make schedules.</p>
-
-                    <div class="mb-4">
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-900/50 text-blue-400 border border-blue-700">GET</span>
-                        <code class="ml-3" style="color:#ffffff !important">/api/zapier/triggers/events</code>
-                    </div>
-
-                    <div class="bg-gray-800 rounded-lg p-4 border border-gray-700 mb-4">
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-sm text-gray-500">Query Parameters (optional)</span>
-                            <button class="text-blue-400 hover:text-blue-300 text-sm"><i class="fas fa-copy mr-1"></i>Copy</button>
-                        </div>
-                        <pre class="text-sm overflow-auto">?event_type=lead_created
-?since=2025-01-01T00:00:00Z</pre>
-                    </div>
-
-                    <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-sm text-gray-500">Sample Response</span>
-                            <button class="text-blue-400 hover:text-blue-300 text-sm"><i class="fas fa-copy mr-1"></i>Copy</button>
-                        </div>
-                        <pre class="text-sm overflow-auto">{
-  "events": [
-    {
-      "id": "evt_123",
-      "event_type": "lead_created",
-      "created_at": "2025-08-01T12:00:00Z",
-      "payload": {
-        "id": "lead_abc123",
-        "email": "john@example.com",
-        "company": "Acme"
-      }
-    }
-  ]
-}</pre>
-                    </div>
-
-                    <div class="bg-yellow-900/20 border border-yellow-700 rounded-lg p-4 mt-4">
-                        <p class="text-yellow-200 text-sm"><strong>Note:</strong> The universal endpoint supersedes legacy polling endpoints. Keep using legacy routes if you already depend on them—otherwise switch here.</p>
-                    </div>
-                </section>
-
-                <!-- Action Endpoints (overview) -->
-                <section id="actions" class="bg-gray-900/50 rounded-xl p-8 border border-gray-800">
-                    <h2 class="text-2xl font-semibold text-blue-300 mb-4 flex items-center">
-                        <i class="fas fa-bolt mr-3"></i>Action Endpoints
-                    </h2>
-                    <p class="text-gray-400 mb-6">Make HirePilot do something from your automation—create/update leads or enrich them with Apollo.</p>
-
-                    <ul class="list-disc pl-6 text-gray-300 space-y-2">
-                        <li><code style="color:#ffffff !important">POST /api/zapier/leads</code> — Create or update a lead</li>
-                        <li><code style="color:#ffffff !important">POST /api/zapier/enrich</code> — Enrich a lead via Apollo (by <code style="color:#ffffff !important">lead_id</code> or <code style="color:#ffffff !important">email</code>)</li>
-                    </ul>
-                </section>
-
-                <!-- Create/Update Lead (detailed) -->
-                <section id="create-lead" class="bg-gray-900/50 rounded-xl p-8 border border-gray-800">
-                    <h2 class="text-2xl font-semibold text-blue-300 mb-4 flex items-center">
-                        <i class="fas fa-plus mr-3"></i>Create/Update Lead
-                    </h2>
-                    <div class="mb-4">
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-900/50 text-green-400 border border-green-700">POST</span>
-                        <code class="ml-3 text-green-400">/api/zapier/leads</code>
-                    </div>
-                    <p class="text-gray-400 mb-4">Create a new lead or update an existing one.</p>
-                    <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-sm text-gray-500">Request Body (minimum: email)</span>
-                            <button class="text-blue-400 hover:text-blue-300 text-sm"><i class="fas fa-copy mr-1"></i>Copy</button>
-                        </div>
-                        <pre class="text-sm overflow-auto">{
-  "email": "jane@example.com",
-  "first_name": "Jane",
-  "last_name": "Doe",
-  "company": "Acme",
-  "phone": "+15551234567",
-  "linkedin_url": "https://linkedin.com/in/janedoe"
-}</pre>
-                    </div>
-                </section>
-
-                <!-- Enrich Lead -->
-                <section id="enrich-lead" class="bg-gray-900/50 rounded-xl p-8 border border-gray-800">
-                    <h2 class="text-2xl font-semibold text-blue-300 mb-4 flex items-center">
-                        <i class="fas fa-magic mr-3"></i>Enrich Lead
-                    </h2>
-                    <div class="mb-4">
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-900/50 text-green-400 border border-green-700">POST</span>
-                        <code class="ml-3" style="color:#ffffff !important">/api/zapier/enrich</code>
-                    </div>
-                    <p class="text-gray-400 mb-4">Enrich a lead with Apollo. We derive user/workspace context from your API key.</p>
-                    <div class="bg-gray-800 rounded-lg p-4 border border-gray-700 mb-4">
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-sm text-gray-500">Request Body (option 1)</span>
-                            <button class="text-blue-400 hover:text-blue-300 text-sm"><i class="fas fa-copy mr-1"></i>Copy</button>
-                        </div>
-                        <pre class="text-sm overflow-auto">{
-  "lead_id": "lead_xyz789"
-}</pre>
-                    </div>
-                    <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-sm text-gray-500">Request Body (option 2)</span>
-                            <button class="text-blue-400 hover:text-blue-300 text-sm"><i class="fas fa-copy mr-1"></i>Copy</button>
-                        </div>
-                        <pre class="text-sm overflow-auto">{
-  "email": "alex@acme.com"
-}</pre>
-                    </div>
-                    <div class="bg-orange-900/20 border border-orange-700 rounded-lg p-4 mt-4">
-                        <p class="text-orange-200 text-sm">Tip: If you’re unsure about allowed <code>status</code> values in your workspace, omit that field and let HirePilot default it.</p>
-                    </div>
-                </section>
-
-                <!-- Messaging & Email Signals -->
-                <section id="messaging-signals" class="bg-gray-900/50 rounded-xl p-8 border border-gray-800">
-                    <h2 class="text-2xl font-semibold text-blue-300 mb-4 flex items-center">
-                        <i class="fas fa-envelope-open-text mr-3"></i>Messaging & Email Signals (Events)
-                    </h2>
-                    <p class="text-gray-400 mb-4">These event types are emitted via the Universal Events endpoint.</p>
-                    <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
-                        <pre class="text-sm overflow-auto">message_sent
-message_reply
-email_opened
-email_clicked
-email_bounced</pre>
-                    </div>
-                </section>
-
-                <!-- Legacy polling: Get Leads -->
-                <section id="get-leads" class="bg-gray-900/50 rounded-xl p-8 border border-gray-800">
-                    <h2 class="text-2xl font-semibold text-blue-300 mb-4 flex items-center">
-                        <i class="fas fa-download mr-3"></i>Get New Leads (Legacy)
-                    </h2>
-                    <div class="mb-4">
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-900/50 text-blue-400 border border-blue-700">GET</span>
-                        <code class="ml-3 text-green-400">/api/zapier/triggers/new-leads</code>
-                    </div>
-                    <p class="text-gray-400 mb-4">Legacy polling endpoint. Prefer <code>/api/zapier/triggers/events</code> for new builds.</p>
-                    <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-sm text-gray-500">Sample Response</span>
-                            <button class="text-blue-400 hover:text-blue-300 text-sm"><i class="fas fa-copy mr-1"></i>Copy</button>
-                        </div>
-                        <pre class="text-sm overflow-auto">[
-  {
-    "id": "lead_abc123",
-    "full_name": "John Smith",
-    "email": "john@example.com",
-    "campaign_id": "camp_001"
-  }
-]</pre>
-                    </div>
-                </section>
-
-                <!-- Legacy polling: Pipeline changes -->
-                <section id="pipeline-changes" class="bg-gray-900/50 rounded-xl p-8 border border-gray-800">
-                    <h2 class="text-2xl font-semibold text-blue-300 mb-4 flex items-center">
-                        <i class="fas fa-exchange-alt mr-3"></i>Pipeline Stage Changes (Legacy)
-                    </h2>
-                    <div class="mb-4">
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-900/50 text-blue-400 border border-blue-700">GET</span>
-                        <code class="ml-3 text-green-400">/api/zapier/triggers/pipeline-stage-changes</code>
-                    </div>
-                    <p class="text-gray-400">Legacy endpoint. Prefer the universal events endpoint with <code>?event_type=candidate_pipeline_stage_changed</code>.</p>
-                </section>
-
-                <!-- Webhooks -->
-                <section id="webhooks" class="bg-gray-900/50 rounded-xl p-8 border border-gray-800">
-                    <h2 class="text-2xl font-semibold text-blue-300 mb-4 flex items-center">
-                        <i class="fas fa-broadcast-tower mr-3"></i>Webhooks (Real-Time Push)
-                    </h2>
-                    <p class="text-gray-400 mb-4">Receive push events when leads/candidates are created or their stages change.</p>
-                    <div class="bg-gray-800 rounded-lg p-4 border border-gray-700 mb-6">
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-sm text-gray-500">Sample Webhook Payload</span>
-                            <button class="text-blue-400 hover:text-blue-300 text-sm"><i class="fas fa-copy mr-1"></i>Copy</button>
-                        </div>
-                        <pre class="text-sm overflow-auto">{
-  "event": "lead.created",
-  "lead": {
-    "id": "lead_abc123",
-    "full_name": "Jane Doe",
-    "email": "jane@example.com"
-  },
-  "timestamp": "2025-07-07T00:01:02Z"
-}</pre>
-                    </div>
-
-                    <div class="bg-orange-900/20 border border-orange-700 rounded-lg p-4">
-                        <h3 class="text-lg font-semibold text-orange-300 mb-3 flex items-center">
-                            <i class="fas fa-shield-alt mr-2"></i>Signature Verification
-                        </h3>
-                        <p class="text-gray-400 mb-3">Each webhook includes an <code class="text-orange-400">X-HirePilot-Signature</code> header (HMAC-SHA256).</p>
-                        <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
-                            <pre class="text-sm overflow-auto">const crypto = require('crypto');
-function verifySignature(payload, header, secret) {
-  const expected = crypto.createHmac('sha256', secret)
-    .update(payload).digest('hex');
-  return expected === header;
-}</pre>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Error Codes -->
-                <section id="errors" class="bg-gray-900/50 rounded-xl p-8 border border-gray-800">
-                    <h2 class="text-2xl font-semibold text-blue-300 mb-4 flex items-center">
-                        <i class="fas fa-bug mr-3"></i>Error Codes
-                    </h2>
-                    <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
-                        <pre class="text-sm overflow-auto">400  Missing/invalid fields (e.g., email required)
-401  Unauthorized (invalid/missing API key)
-403  Forbidden (insufficient permissions)
-404  Not found (e.g., lead to enrich not found)
-422  Apollo parameter error (details in response)
-500  Unexpected server error (include response JSON)</pre>
-                    </div>
-                </section>
-
-                <!-- Best Practices -->
-                <section id="best-practices" class="bg-gray-900/50 rounded-xl p-8 border border-gray-800">
-                    <h2 class="text-2xl font-semibold text-blue-300 mb-4 flex items-center">
-                        <i class="fas fa-lightbulb mr-3"></i>Best Practices
-                    </h2>
-                    <ul class="list-disc pl-6 text-gray-300 space-y-2">
-                        <li>Keep your API key secret. Rotate if exposed.</li>
-                        <li>Use <code>?since=</code> to poll only recent events (every 10–15 minutes is a good default).</li>
-                        <li>Filter by <code>event_type</code> during testing to avoid noisy automations.</li>
-                        <li>Chain actions logically: Create → Enrich → Notify → Sync to CRM.</li>
-                        <li>Let HirePilot default <code>status</code> if you’re unsure of allowed values.</li>
-                    </ul>
-                </section>
-
-                <!-- Examples -->
-                <section id="examples" class="bg-gray-900/50 rounded-xl p-8 border border-gray-800">
-                    <h2 class="text-2xl font-semibold text-blue-300 mb-4 flex items-center">
-                        <i class="fas fa-project-diagram mr-3"></i>Examples
-                    </h2>
-                    <div class="bg-gray-800 rounded-lg p-4 border border-gray-700 mb-4">
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-sm text-gray-500">Zapier Poll → Create → Enrich → Slack</span>
-                            <button class="text-blue-400 hover:text-blue-300 text-sm"><i class="fas fa-copy mr-1"></i>Copy</button>
-                        </div>
-                        <pre class="text-sm overflow-auto">1) GET /api/zapier/triggers/events?event_type=lead_created&since={{zap_meta_human_now}}
-2) POST /api/zapier/leads {"email":"alex@acme.com", ...}
-3) POST /api/zapier/enrich {"lead_id":"{{lead.id}}"}
-4) Slack message with enrich summary</pre>
-                    </div>
-                    <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-sm text-gray-500">Pipeline Move → Interview Prep</span>
-                            <button class="text-blue-400 hover:text-blue-300 text-sm"><i class="fas fa-copy mr-1"></i>Copy</button>
-                        </div>
-                        <pre class="text-sm overflow-auto">Trigger: event_type=candidate_pipeline_stage_changed
-Actions:
-- Create calendar placeholder
-- Generate interviewer checklist
-- Create task in Asana/Trello</pre>
-                    </div>
-                </section>
-
-                <!-- REX Orchestration -->
-                <section id="rex" class="bg-gray-900/50 rounded-xl p-8 border border-gray-800">
-                    <h2 class="text-2xl font-semibold text-blue-300 mb-4 flex items-center">
-                        <i class="fas fa-robot mr-3"></i>REX Orchestration
-                    </h2>
-                    <p class="text-gray-400 mb-4">Trigger automations by talking to REX inside HirePilot:</p>
-                    <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
-                        <pre class="text-sm overflow-auto">"Test my lead_created Zap"
-"Send an event to my Zapier webhook"
-"Enrich the last 10 new leads and DM me the summary"</pre>
-                    </div>
-                    <p class="text-gray-400 mt-4">Under the hood, REX calls the same REST endpoints and/or your webhook, enabling natural-language flows.</p>
-                </section>
-
-                <!-- Rate Limits -->
-                <section id="rate-limits" class="bg-gray-900/50 rounded-xl p-8 border border-gray-800">
-                    <h2 class="text-2xl font-semibold text-blue-300 mb-4 flex items-center">
-                        <i class="fas fa-tachometer-alt mr-3"></i>Rate Limits
-                    </h2>
-                    <div class="bg-yellow-900/20 border border-yellow-700 rounded-lg p-4">
-                        <div class="flex items-center mb-2">
-                            <i class="fas fa-exclamation-triangle text-yellow-400 mr-2"></i>
-                            <span class="text-yellow-300 font-medium">Rate Limit: 60 requests per minute</span>
-                        </div>
-                        <p class="text-gray-400">Each API key is limited to 60 requests per minute. Contact us if you need higher limits.</p>
-                    </div>
-                </section>
-            </div>
-        </div>
-    </main>
-
-    <footer id="footer" class="border-t border-gray-800 bg-gray-900/50 mt-16">
-        <div class="max-w-6xl mx-auto px-6 py-8">
-            <div class="text-center">
-                <p class="text-gray-400 mb-2">Need help with the API?</p>
-                <span class="inline-flex items-center text-blue-400 hover:text-blue-300 transition-colors cursor-pointer">
-                    <i class="fas fa-envelope mr-2"></i>
-                    support@thehirepilot.com
-                </span>
-            </div>
-        </div>
-    </footer>
-
-    <script>
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                document.querySelector(this.getAttribute('href')).scrollIntoView({ behavior: 'smooth' });
-            });
-        });
-
-        document.querySelectorAll('button').forEach(button => {
-            if (button.textContent.includes('Copy')) {
-                button.addEventListener('click', function() {
-                    const pre = this.closest('.bg-gray-800').querySelector('pre');
-                    if (!pre) return;
-                    navigator.clipboard.writeText(pre.textContent);
-                    this.innerHTML = '<i class="fas fa-check mr-1"></i>Copied!';
-                    setTimeout(() => { this.innerHTML = '<i class=\"fas fa-copy mr-1\"></i>Copy'; }, 2000);
-                });
-            }
-        });
-    </script>`;
-
-  return (
-    <div className="bg-gray-950 text-white font-sans">
-      <PublicNavbar />
-      <div dangerouslySetInnerHTML={{ __html: html }} />
+      <div dangerouslySetInnerHTML={{ __html: modalHtml }} />
       <PublicFooter />
     </div>
   );
