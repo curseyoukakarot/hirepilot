@@ -170,7 +170,7 @@ export default function WorkflowRecipeModal({
                   {setupSteps?.length ? (
                     setupSteps.map((step, idx) => (
                       <div key={idx} className="flex items-start space-x-3 p-4 bg-gray-50 rounded-lg">
-                        <div className="w-8 h-8 bg-gradient-to-br from-primary to-secondary rounded-md text-white flex items-center justify-center font-semibold">
+                        <div className="w-8 h-8 bg-gradient-to-br from-primary to-secondary rounded-md text-black flex items-center justify-center font-semibold">
                           {idx + 1}
                         </div>
                         <div className="text-black">{step}</div>
