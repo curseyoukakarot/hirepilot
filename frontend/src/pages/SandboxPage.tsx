@@ -179,7 +179,7 @@ export default function SandboxPage() {
     <>
       <div id="sandbox-container" className="flex h-screen text-white">
         {/* Left Sidebar */}
-        <div id="sidebar" className="w-72 bg-gray-900 border-r border-gray-800 p-4 flex flex-col">
+        <div id="sidebar" className="w-72 bg-gray-900 border-r border-gray-800 p-4 flex flex-col overflow-y-auto">
           {/* Triggers Section */}
           <div id="triggers-section" className="mb-6">
             <h2 className="text-lg font-semibold mb-3 text-blue-400 flex items-center gap-2">
@@ -222,6 +222,48 @@ export default function SandboxPage() {
                   <div className="text-xs text-gray-400">/api/events/lead_source_triggered</div>
                 </div>
               </div>
+              <div className="trigger-node bg-gray-800 hover:bg-gray-700 cursor-grab p-3 rounded-lg flex items-center gap-3 text-sm transition-all duration-200 hover:node-glow border border-gray-700 hover:border-blue-500/50" draggable>
+                <span className="text-blue-400 text-lg">📝</span>
+                <div>
+                  <div className="font-medium">Candidate Updated</div>
+                  <div className="text-xs text-gray-400">/api/events/candidate_updated</div>
+                </div>
+              </div>
+              <div className="trigger-node bg-gray-800 hover:bg-gray-700 cursor-grab p-3 rounded-lg flex items-center gap-3 text-sm transition-all duration-200 hover:node-glow border border-gray-700 hover:border-blue-500/50" draggable>
+                <span className="text-blue-400 text-lg">🔄</span>
+                <div>
+                  <div className="font-medium">Pipeline Stage Changed</div>
+                  <div className="text-xs text-gray-400">/api/events/pipeline_stage_updated</div>
+                </div>
+              </div>
+              <div className="trigger-node bg-gray-800 hover:bg-gray-700 cursor-grab p-3 rounded-lg flex items-center gap-3 text-sm transition-all duration-200 hover:node-glow border border-gray-700 hover:border-blue-500/50" draggable>
+                <span className="text-blue-400 text-lg">🏢</span>
+                <div>
+                  <div className="font-medium">Client Created</div>
+                  <div className="text-xs text-gray-400">/api/events/client_created</div>
+                </div>
+              </div>
+              <div className="trigger-node bg-gray-800 hover:bg-gray-700 cursor-grab p-3 rounded-lg flex items-center gap-3 text-sm transition-all duration-200 hover:node-glow border border-gray-700 hover:border-blue-500/50" draggable>
+                <span className="text-blue-400 text-lg">♻️</span>
+                <div>
+                  <div className="font-medium">Client Updated</div>
+                  <div className="text-xs text-gray-400">/api/events/client_updated</div>
+                </div>
+              </div>
+              <div className="trigger-node bg-gray-800 hover:bg-gray-700 cursor-grab p-3 rounded-lg flex items-center gap-3 text-sm transition-all duration-200 hover:node-glow border border-gray-700 hover:border-blue-500/50" draggable>
+                <span className="text-blue-400 text-lg">📄</span>
+                <div>
+                  <div className="font-medium">Job Req Created</div>
+                  <div className="text-xs text-gray-400">/api/events/job_created</div>
+                </div>
+              </div>
+              <div className="trigger-node bg-gray-800 hover:bg-gray-700 cursor-grab p-3 rounded-lg flex items-center gap-3 text-sm transition-all duration-200 hover:node-glow border border-gray-700 hover:border-blue-500/50" draggable>
+                <span className="text-blue-400 text-lg">🌐</span>
+                <div>
+                  <div className="font-medium">Universal Event Feed</div>
+                  <div className="text-xs text-gray-400">/api/zapier/triggers/events</div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -247,10 +289,17 @@ export default function SandboxPage() {
                 </div>
               </div>
               <div className="action-node bg-gray-800 hover:bg-gray-700 cursor-grab p-3 rounded-lg flex items-center gap-3 text-sm transition-all duration-200 hover:node-glow-purple border border-gray-700 hover:border-purple-500/50" draggable>
-                <span className="text-purple-400 text-lg">🤝</span>
+                <span className="text-purple-400 text-lg">✉️</span>
                 <div>
-                  <div className="font-medium">Create Client</div>
-                  <div className="text-xs text-gray-400">/api/actions/create_client</div>
+                  <div className="font-medium">Send Email Template</div>
+                  <div className="text-xs text-gray-400">/api/actions/send_email_template</div>
+                </div>
+              </div>
+              <div className="action-node bg-gray-800 hover:bg-gray-700 cursor-grab p-3 rounded-lg flex items-center gap-3 text-sm transition-all duration-200 hover:node-glow-purple border border-gray-700 hover:border-purple-500/50" draggable>
+                <span className="text-purple-400 text-lg">🔔</span>
+                <div>
+                  <div className="font-medium">Send Slack Notification</div>
+                  <div className="text-xs text-gray-400">/api/actions/notifications</div>
                 </div>
               </div>
               <div className="action-node bg-gray-800 hover:bg-gray-700 cursor-grab p-3 rounded-lg flex items-center gap-3 text-sm transition-all duration-200 hover:node-glow-purple border border-gray-700 hover:border-purple-500/50" draggable>
@@ -261,10 +310,38 @@ export default function SandboxPage() {
                 </div>
               </div>
               <div className="action-node bg-gray-800 hover:bg-gray-700 cursor-grab p-3 rounded-lg flex items-center gap-3 text-sm transition-all duration-200 hover:node-glow-purple border border-gray-700 hover:border-purple-500/50" draggable>
-                <span className="text-purple-400 text-lg">🎯</span>
+                <span className="text-purple-400 text-lg">🤝</span>
                 <div>
-                  <div className="font-medium">Trigger Sniper</div>
-                  <div className="text-xs text-gray-400">/api/actions/capture_sniper</div>
+                  <div className="font-medium">Create Client</div>
+                  <div className="text-xs text-gray-400">/api/actions/create_client</div>
+                </div>
+              </div>
+              <div className="action-node bg-gray-800 hover:bg-gray-700 cursor-grab p-3 rounded-lg flex items-center gap-3 text-sm transition-all duration-200 hover:node-glow-purple border border-gray-700 hover:border-purple-500/50" draggable>
+                <span className="text-purple-400 text-lg">🧾</span>
+                <div>
+                  <div className="font-medium">Create Invoice</div>
+                  <div className="text-xs text-gray-400">/api/actions/invoices_create</div>
+                </div>
+              </div>
+              <div className="action-node bg-gray-800 hover:bg-gray-700 cursor-grab p-3 rounded-lg flex items-center gap-3 text-sm transition-all duration-200 hover:node-glow-purple border border-gray-700 hover:border-purple-500/50" draggable>
+                <span className="text-purple-400 text-lg">📝</span>
+                <div>
+                  <div className="font-medium">Add Deal Note</div>
+                  <div className="text-xs text-gray-400">/api/actions/add_note</div>
+                </div>
+              </div>
+              <div className="action-node bg-gray-800 hover:bg-gray-700 cursor-grab p-3 rounded-lg flex items-center gap-3 text-sm transition-all duration-200 hover:node-glow-purple border border-gray-700 hover:border-purple-500/50" draggable>
+                <span className="text-purple-400 text-lg">👥</span>
+                <div>
+                  <div className="font-medium">Add Collaborator</div>
+                  <div className="text-xs text-gray-400">/api/actions/add_collaborator</div>
+                </div>
+              </div>
+              <div className="action-node bg-gray-800 hover:bg-gray-700 cursor-grab p-3 rounded-lg flex items-center gap-3 text-sm transition-all duration-200 hover:node-glow-purple border border-gray-700 hover:border-purple-500/50" draggable>
+                <span className="text-purple-400 text-lg">➡️</span>
+                <div>
+                  <div className="font-medium">Update Pipeline Stage</div>
+                  <div className="text-xs text-gray-400">/api/actions/update_pipeline_stage</div>
                 </div>
               </div>
               <div className="action-node bg-gray-800 hover:bg-gray-700 cursor-grab p-3 rounded-lg flex items-center gap-3 text-sm transition-all duration-200 hover:node-glow-purple border border-gray-700 hover:border-purple-500/50" draggable>
