@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import workflowsData from '../data/workflows';
+import { workflowLibrary } from '../data/workflowLibrary';
 import WorkflowRecipeModal from '../components/WorkflowRecipeModal';
 
 export default function WorkflowsPage() {
@@ -8,10 +8,10 @@ export default function WorkflowsPage() {
   const [query, setQuery] = useState('');
 
   const filtered = useMemo(() => {
-    if (!query) return workflowsData;
+    if (!query) return workflowLibrary;
     const q = query.toLowerCase();
-    return workflowsData.filter(
-      (w) => w.title.toLowerCase().includes(q) || w.summary.toLowerCase().includes(q)
+    return workflowLibrary.filter(
+      (w) => w.title.toLowerCase().includes(q) || (w.description || '').toLowerCase().includes(q)
     );
   }, [query]);
 
@@ -25,14 +25,32 @@ export default function WorkflowsPage() {
     setTimeout(() => setSelected(null), 200);
   };
 
-  const byDifficulty = useMemo(() => {
-    const groups = { Beginner: [], Intermediate: [], Advanced: [] };
+  const byCategory = useMemo(() => {
+    const groups = {};
     filtered.forEach((w) => {
-      if (groups[w.difficulty]) groups[w.difficulty].push(w);
-      else groups[w.difficulty] = [w];
+      const key = w.category || 'Other';
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(w);
     });
     return groups;
   }, [filtered]);
+
+  const colorClasses = {
+    indigo: 'bg-indigo-900 text-indigo-300',
+    purple: 'bg-purple-900 text-purple-300',
+    green: 'bg-green-900 text-green-300',
+    teal: 'bg-teal-900 text-teal-300',
+    red: 'bg-red-900 text-red-300',
+    amber: 'bg-amber-900 text-amber-300',
+  };
+
+  const toFormulaString = (wf) => {
+    if (wf?.recipeJSON) {
+      try { return JSON.stringify(wf.recipeJSON, null, 2); } catch (_) {}
+    }
+    const obj = { name: wf.title, trigger: wf.trigger, actions: wf.actions };
+    try { return JSON.stringify(obj, null, 2); } catch (_) { return String(obj); }
+  };
 
   return (
     <div id="main-content" className="bg-slate-950 min-h-screen text-white">
@@ -149,35 +167,25 @@ export default function WorkflowsPage() {
             <button className="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-medium hover:bg-slate-700 transition">REX</button>
           </div>
 
-          {/* Grouped by difficulty */}
-          {(['Beginner', 'Intermediate', 'Advanced']).map((group) => (
+          {/* Grouped by category */}
+          {Object.keys(byCategory).map((group) => (
             <div key={group} className="space-y-4">
               <h3 className="text-xl font-semibold">{group}</h3>
               <div id="workflow-grid" className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                {byDifficulty[group]?.map((wf) => (
+                {byCategory[group]?.map((wf) => (
                   <div key={wf.id} className="bg-slate-900 rounded-xl p-6 hover:bg-slate-800 transition group">
                     <div className="flex items-start justify-between mb-2">
                       <h3 className="text-lg font-semibold pr-2">{wf.title}</h3>
-                      <div className="flex items-center gap-2">
-                        <span className="px-2 py-1 bg-slate-800 text-slate-300 text-xs rounded-full">{wf.difficulty}</span>
-                        <span className="text-xs text-slate-400"><i className="fa-solid fa-clock mr-1"></i>{wf.setupTime}</span>
-                      </div>
+                      <span className={`px-2 py-1 rounded-full text-xs ${colorClasses[wf.color] || 'bg-slate-800 text-slate-300'}`}>
+                        <span className="mr-1">{wf.icon}</span>{wf.category}
+                      </span>
                     </div>
-                    <p className="text-slate-400 text-sm mb-4">{wf.summary}</p>
-                    <div className="flex gap-2 flex-wrap mb-4">
-                      {wf.tools?.slice(0, 2).map((t) => (
-                        <span key={t} className="text-xs bg-slate-800 px-2 py-1 rounded-full">{t}</span>
-                      ))}
-                    </div>
+                    <p className="text-slate-400 text-sm mb-4">{wf.description}</p>
                     <div className="flex gap-2">
-                      <button onClick={() => openRecipe(wf)} className="px-3 py-2 bg-indigo-500 rounded-lg text-xs font-semibold text-white hover:bg-indigo-400 transition">View Recipe</button>
-                      <button onClick={() => alert('Workflow simulation started!')} className="px-3 py-2 bg-slate-700 rounded-lg text-xs font-semibold text-white hover:bg-slate-600 transition">Trigger Example</button>
+                      <button onClick={() => openRecipe({ title: wf.title, summary: wf.description, tools: [wf.category], setupTime: '', difficulty: '', formula: toFormulaString(wf), setupSteps: [] })} className="px-3 py-2 bg-indigo-500 rounded-lg text-xs font-semibold text-white hover:bg-indigo-400 transition">View Recipe</button>
                     </div>
                   </div>
                 ))}
-                {!byDifficulty[group]?.length && (
-                  <div className="text-slate-500">No {group.toLowerCase()} workflows found.</div>
-                )}
               </div>
             </div>
           ))}
