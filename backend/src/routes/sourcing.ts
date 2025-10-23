@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase';
 import { requireAuth } from '../../middleware/authMiddleware';
 import { ApiRequest } from '../../types/api';
 import { sendTieredTemplateToCampaign, generateAndSendNewSequenceToCampaign, sendSingleMessageToCampaign } from '../services/messagingCampaign';
+import { createZapEvent, EVENT_TYPES } from '../lib/events';
 
 const router = express.Router();
 
@@ -59,6 +60,15 @@ router.post('/campaigns/:id/sequence', requireAuth, async (req: ApiRequest, res:
     };
     
     const sequence = await generateSequenceForCampaign(id, sequenceParams);
+    try {
+      await createZapEvent({
+        event_type: EVENT_TYPES.sequence_scheduled,
+        user_id: req.user!.id,
+        entity: 'campaign',
+        entity_id: id,
+        payload: { sequenceId: (sequence as any)?.id || null }
+      });
+    } catch {}
     return res.json(sequence);
   } catch (error: any) {
     console.error('Error generating sequence:', error);
@@ -95,6 +105,15 @@ router.post('/campaigns/:id/schedule', requireAuth, async (req: ApiRequest, res:
   try {
     const { id } = req.params;
     const result = await scheduleCampaign(id);
+    try {
+      await createZapEvent({
+        event_type: EVENT_TYPES.sequence_scheduled,
+        user_id: req.user!.id,
+        entity: 'campaign',
+        entity_id: id,
+        payload: { scheduled: true }
+      });
+    } catch {}
     return res.json(result);
   } catch (error: any) {
     console.error('Error scheduling campaign:', error);
@@ -142,6 +161,18 @@ router.get('/campaigns/:id/stats', requireAuth, async (req: ApiRequest, res: Res
       replies_received: stats.replied,
       positive_replies: stats.positive_replies
     };
+    const emit = String(req.query.emit || 'false') === 'true';
+    if (emit && req.user?.id) {
+      try {
+        await createZapEvent({
+          event_type: EVENT_TYPES.campaign_stats_snapshot,
+          user_id: req.user.id,
+          entity: 'campaign',
+          entity_id: id,
+          payload: mapped
+        });
+      } catch {}
+    }
     return res.json(mapped);
   } catch (error: any) {
     console.error('Error fetching campaign stats:', error);
@@ -401,6 +432,7 @@ router.post('/campaigns/:id/pause', requireAuth, async (req: ApiRequest, res: Re
       .eq('id', id);
     
     if (error) throw error;
+    try { await createZapEvent({ event_type: EVENT_TYPES.campaign_paused, user_id: req.user!.id, entity: 'campaign', entity_id: id, payload: { status: 'paused' } }); } catch {}
     return res.json({ success: true, status: 'paused' });
   } catch (error: any) {
     console.error('Error pausing campaign:', error);
@@ -418,6 +450,7 @@ router.post('/campaigns/:id/resume', requireAuth, async (req: ApiRequest, res: R
       .eq('id', id);
     
     if (error) throw error;
+    try { await createZapEvent({ event_type: EVENT_TYPES.campaign_resumed, user_id: req.user!.id, entity: 'campaign', entity_id: id, payload: { status: 'running' } }); } catch {}
     return res.json({ success: true, status: 'running' });
   } catch (error: any) {
     console.error('Error resuming campaign:', error);
@@ -434,6 +467,7 @@ router.post('/campaigns/:id/relaunch', requireAuth, async (req: ApiRequest, res:
       .update({ status: 'draft' })
       .eq('id', id);
     if (error) throw error;
+    try { await createZapEvent({ event_type: EVENT_TYPES.campaign_relaunched, user_id: req.user!.id, entity: 'campaign', entity_id: id, payload: { status: 'draft' } }); } catch {}
     return res.json({ success: true, status: 'draft' });
   } catch (error: any) {
     console.error('Error relaunching campaign:', error);

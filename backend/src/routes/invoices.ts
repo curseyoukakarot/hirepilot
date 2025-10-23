@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import { requireAuth } from '../../middleware/authMiddleware';
 import { supabase } from '../lib/supabase';
 import Stripe from 'stripe';
+import { createZapEvent, EVENT_TYPES } from '../lib/events';
 import { createInvoiceWithItem } from '../services/stripe';
 
 const router = express.Router();
@@ -233,6 +234,7 @@ router.post('/create', requireAuth, async (req: Request, res: Response) => {
     }).select('*').single();
     if (error) { res.status(500).json({ error: error.message }); return; }
 
+    try { await createZapEvent({ event_type: EVENT_TYPES.invoice_created, user_id: userId, entity: 'invoice', entity_id: data.id, payload: { amount: data.amount, currency: 'usd' } }); } catch {}
     res.json({ invoice: data, hosted_invoice_url: (hosted as any)?.hosted_invoice_url || null });
   } catch (e: any) {
     res.status(500).json({ error: e.message || 'Invoice creation failed' });

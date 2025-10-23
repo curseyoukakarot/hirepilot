@@ -7,6 +7,7 @@ import { candidateEnrichQueue } from '../queues/redis';
 import { logger } from '../lib/logger';
 import { basicParseFromText, type ParsedResume } from '../services/resumeParser';
 import { ingestCandidateFromParsed } from '../services/candidateIngest';
+import { createZapEvent, EVENT_TYPES } from '../lib/events';
 
 const router = express.Router();
 
@@ -315,6 +316,15 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
     }
 
     logger.info({ route: '/api/candidates/:id/enrich', orgId: undefined, action: 'sync_update', ok: true, candidateId: id, userId });
+    try {
+      await createZapEvent({
+        event_type: EVENT_TYPES.candidate_enrich_requested,
+        user_id: userId!,
+        entity: 'candidate',
+        entity_id: id,
+        payload: { email: data.email, enrichment_source: enrichmentSource }
+      });
+    } catch {}
     return res.json({ 
       email: data.email, 
       enrichment_source: enrichmentSource,

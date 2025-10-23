@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import { createZapEvent, EVENT_TYPES } from '../lib/events';
 import crypto from 'crypto';
 import { supabase } from '../lib/supabase';
 import { slack, sendEphemeralMessage } from '../services/slack';
@@ -338,6 +339,7 @@ router.post('/slack/test', async (req: Request, res: Response) => {
       ]
     });
 
+    try { const uid = (req as any)?.user?.id; if (uid) { await createZapEvent({ event_type: EVENT_TYPES.notification_created, user_id: uid, entity: 'notification', entity_id: undefined, payload: { kind: 'slack_test' } }); } } catch {}
     return res.json({
       success: true,
       message_ts: result.ts,

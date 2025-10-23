@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { requireAuthUnified as requireAuth } from '../../middleware/requireAuthUnified';
 import { supabase } from '../lib/supabase';
 import { logger } from '../lib/logger';
+import { createZapEvent, EVENT_TYPES } from '../lib/events';
 
 const router = express.Router();
 // Router-level CORS guard to guarantee headers on all responses for this endpoint
@@ -64,6 +65,16 @@ router.post('/activity', requireAuth, async (req: Request, res: Response) => {
     if (lerr) { res.status(500).json({ error: lerr.message || 'Failed to link activity' }); return; }
 
     logger.info({ route: '/api/deals/activity', orgId, action: 'create', ok: true, id: act.id });
+    // Emit zap event (deal_activity_logged)
+    try {
+      await createZapEvent({
+        event_type: EVENT_TYPES.deal_activity_logged,
+        user_id: userId,
+        entity: 'deal',
+        entity_id: String((payload.links[0] || {}).entityId || ''),
+        payload: { activity: act, links: payload.links }
+      });
+    } catch {}
     res.json({ ok: true, activity: act });
   } catch (e: any) {
     logger.error({ route: '/api/deals/activity', action: 'error', ok: false, error: e?.message });

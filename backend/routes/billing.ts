@@ -1,5 +1,6 @@
 import express from 'express';
 import { BillingController } from '../controllers/billingController';
+import { createZapEvent, EVENT_TYPES } from '../src/lib/events';
 import { requireAuth } from '../middleware/authMiddleware';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
@@ -165,13 +166,33 @@ router.get('/overview', async (req, res) => {
 router.get('/plans', BillingController.getPlans);
 
 // Create a checkout session for new subscription
-router.post('/checkout', requireAuth, BillingController.createCheckoutSession);
+router.post('/checkout', requireAuth, async (req, res, next) => {
+  try {
+    await (BillingController as any).createCheckoutSession(req, res);
+    try {
+      const uid = (req as any)?.user?.id;
+      if (uid) {
+        await createZapEvent({ event_type: EVENT_TYPES.subscription_checkout_started, user_id: uid, entity: 'subscription', entity_id: undefined, payload: {} });
+      }
+    } catch {}
+  } catch (e) { next(e); }
+});
 
 // Create a portal session for managing subscription
 router.post('/portal', requireAuth, BillingController.createPortalSession);
 
 // Cancel subscription
-router.post('/cancel', requireAuth, BillingController.cancelSubscription);
+router.post('/cancel', requireAuth, async (req, res, next) => {
+  try {
+    await (BillingController as any).cancelSubscription(req, res);
+    try {
+      const uid = (req as any)?.user?.id;
+      if (uid) {
+        await createZapEvent({ event_type: EVENT_TYPES.subscription_cancelled, user_id: uid, entity: 'subscription', entity_id: undefined, payload: {} });
+      }
+    } catch {}
+  } catch (e) { next(e); }
+});
 
 // Get detailed credit usage history
 router.get('/credits/history', requireAuth, BillingController.getCreditHistory);

@@ -2,6 +2,7 @@ import express from 'express';
 import { CreditService } from '../services/creditService';
 import { A_LA_CARTE_PACKAGES } from '../config/pricing';
 import Stripe from 'stripe';
+import { createZapEvent, EVENT_TYPES } from '../src/lib/events';
 import { createClient } from '@supabase/supabase-js';
 
 const router = express.Router();
@@ -113,6 +114,9 @@ router.post('/purchase', async (req, res) => {
       cancel_url: `${process.env.FRONTEND_URL || process.env.CLIENT_URL}/settings/credits?purchase=canceled`
     });
 
+    try {
+      await createZapEvent({ event_type: EVENT_TYPES.credits_purchased, user_id: userId, entity: 'credits', entity_id: String(packageId), payload: { credits: creditPackage.credits } });
+    } catch {}
     res.json({ sessionId: session.id });
   } catch (error: any) {
     console.error('Error creating checkout session:', error);

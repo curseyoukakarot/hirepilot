@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import { requireAuth } from '../../middleware/authMiddleware';
 import { supabase } from '../lib/supabase';
 import { supabaseAdmin } from '../lib/supabaseAdmin';
+import { createZapEvent, EVENT_TYPES } from '../lib/events';
 
 const router = express.Router();
 
@@ -330,6 +331,16 @@ router.patch('/:id/notes', requireAuth, async (req: Request, res: Response) => {
     const { notes } = req.body || {};
     const { data, error } = await supabase.from('opportunities').update({ notes: notes ?? null }).eq('id', id).select('id,notes').maybeSingle();
     if (error) { res.status(500).json({ error: error.message }); return; }
+    // Emit zap event
+    try {
+      await createZapEvent({
+        event_type: EVENT_TYPES.opportunity_note_added,
+        user_id: userId,
+        entity: 'opportunity',
+        entity_id: id,
+        payload: { note: data }
+      });
+    } catch {}
     res.json(data);
   } catch (e:any) { res.status(500).json({ error: e.message || 'Internal server error' }); }
 });
@@ -450,6 +461,16 @@ router.post('/:id/application', requireAuth, async (req: Request, res: Response)
       .select('*')
       .single();
     if (error) { res.status(500).json({ error: error.message }); return; }
+    // Emit zap event
+    try {
+      await createZapEvent({
+        event_type: EVENT_TYPES.opportunity_application_created,
+        user_id: userId,
+        entity: 'opportunity',
+        entity_id: id,
+        payload: { opportunityId: id, application: data }
+      });
+    } catch {}
     res.status(201).json(data);
   } catch (e:any) { res.status(500).json({ error: e.message || 'Internal server error' }); }
 });
@@ -525,6 +546,16 @@ router.post('/:id/submit-to-client', requireAuth, async (req: Request, res: Resp
     }
     // log activity
     try { await supabase.from('opportunity_activity').insert({ opportunity_id: id, user_id: userId, message: 'Submitted candidate to client', created_at: new Date().toISOString() }); } catch {}
+    // Emit zap event (opportunity_submitted)
+    try {
+      await createZapEvent({
+        event_type: EVENT_TYPES.opportunity_submitted,
+        user_id: userId,
+        entity: 'opportunity',
+        entity_id: id,
+        payload: { opportunityId: id, submission: submission || null }
+      });
+    } catch {}
     res.json({ ok: true });
   } catch (e:any) { res.status(500).json({ error: e.message || 'Internal server error' }); }
 });
@@ -572,6 +603,16 @@ router.post('/:id/notes', requireAuth, async (req: Request, res: Response) => {
       .select('id')
       .maybeSingle();
     if (error) { res.status(500).json({ error: error.message }); return; }
+    // Emit zap event (map job note to opportunity note for automations)
+    try {
+      await createZapEvent({
+        event_type: EVENT_TYPES.opportunity_note_added,
+        user_id: userId,
+        entity: 'opportunity',
+        entity_id: id,
+        payload: { note: { id: (data as any)?.id, text } }
+      });
+    } catch {}
     res.status(201).json({ id: (data as any)?.id || null });
   } catch (e: any) {
     res.status(500).json({ error: e.message || 'Internal server error' });
@@ -594,6 +635,19 @@ router.post('/:id/collaborators', requireAuth, async (req: Request, res: Respons
     const { email, role } = req.body || {};
     const { data, error } = await supabase.from('opportunity_collaborators').insert({ opportunity_id: id, email, role: role || 'collaborator', created_at: new Date().toISOString() }).select('*').single();
     if (error) { res.status(500).json({ error: error.message }); return; }
+    // Emit zap event
+    try {
+      const userId = (req as any).user?.id as string | undefined;
+      if (userId) {
+        await createZapEvent({
+          event_type: EVENT_TYPES.opportunity_collaborator_added,
+          user_id: userId,
+          entity: 'opportunity',
+          entity_id: id,
+          payload: { collaborator: data }
+        });
+      }
+    } catch {}
     res.status(201).json(data);
   } catch (e:any) { res.status(500).json({ error: e.message || 'Internal server error' }); }
 });

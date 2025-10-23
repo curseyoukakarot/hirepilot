@@ -2,6 +2,7 @@ import { ApiRequest } from '../types/api';
 import { Response } from 'express';
 import { supabaseDb } from '../lib/supabase';
 import { personalizeMessage } from '../utils/messageUtils';
+import { createZapEvent, EVENT_TYPES } from '../src/lib/events';
 
 /**
  * POST /api/messages/bulk-schedule
@@ -54,6 +55,16 @@ export default async function bulkSchedule(req: ApiRequest, res: Response) {
 
     const { error } = await supabaseDb.from('messages').insert(rows);
     if (error) throw error;
+
+    try {
+      await createZapEvent({
+        event_type: EVENT_TYPES.message_batch_scheduled,
+        user_id: userId!,
+        entity: 'message_batch',
+        entity_id: undefined,
+        payload: { count: rows.length, scheduled_at }
+      });
+    } catch {}
 
     res.status(201).json({ scheduled: rows.length, scheduled_at });
   } catch (e: any) {

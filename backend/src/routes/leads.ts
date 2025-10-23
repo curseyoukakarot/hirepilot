@@ -8,6 +8,7 @@ import { requireAuth } from '../../middleware/authMiddleware';
 import { searchAndEnrichPeople } from '../../utils/apolloApi';
 import { ApiRequest } from '../../types/api';
 import { EmailEventService } from '../../services/emailEventService';
+import { createZapEvent, EVENT_TYPES } from '../lib/events';
 import { CreditService } from '../../services/creditService';
 import { emitZapEvent, ZAP_EVENT_TYPES, createLeadEventData } from '../../lib/zapEventEmitter';
 import axios from 'axios';
@@ -446,6 +447,17 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
         console.error('[LeadEnrich] Credit deduction failed (non-fatal):', creditErr);
       }
     }
+
+    // Emit automation event: lead_enrich_requested
+    try {
+      await createZapEvent({
+        event_type: EVENT_TYPES.lead_enrich_requested,
+        user_id: userId!,
+        entity: 'lead',
+        entity_id: targetId,
+        payload: { source: enrichmentSource, errors: errorMessages }
+      });
+    } catch {}
 
     // Return updated lead with enrichment status
     return res.status(200).json({

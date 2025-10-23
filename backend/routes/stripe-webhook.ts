@@ -4,6 +4,7 @@ import { BillingService } from '../services/billingService';
 import { CreditService } from '../services/creditService';
 import { PRICING_CONFIG, A_LA_CARTE_PACKAGES, SUBSCRIPTION_PLANS, getCreditsForPlan } from '../config/pricing';
 import { createClient } from '@supabase/supabase-js';
+import { createZapEvent, EVENT_TYPES } from '../src/lib/events';
 
 const router = express.Router();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -93,6 +94,7 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
           status: 'paid',
           paidAt: new Date(invoice.status_transitions.paid_at! * 1000)
         });
+        try { await createZapEvent({ event_type: EVENT_TYPES.invoice_paid, user_id: userId, entity: 'invoice', entity_id: invoice.id, payload: { amount: invoice.amount_paid, currency: invoice.currency } }); } catch {}
 
         // Add monthly allocation credits on subscription renewals (rollover enabled)
         try {

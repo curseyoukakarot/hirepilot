@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { supabaseDb } from '../lib/supabase';
+import { createZapEvent, EVENT_TYPES } from '../src/lib/events';
 
 export default async function scheduleMassMessage(req: Request, res: Response) {
   try {
@@ -34,6 +35,21 @@ export default async function scheduleMassMessage(req: Request, res: Response) {
     }
 
     console.log(`✅ Scheduled ${data.length} messages`);
+    // Emit automation event
+    try {
+      // Derive user id from first message if present
+      const uid = Array.isArray(messages) && messages[0]?.user_id ? String(messages[0].user_id) : undefined;
+      if (uid) {
+        await createZapEvent({
+          event_type: EVENT_TYPES.message_batch_scheduled,
+          user_id: uid,
+          entity: 'message_batch',
+          entity_id: undefined,
+          payload: { count: data.length }
+        });
+      }
+    } catch {}
+
     res.json({ 
       success: true, 
       scheduled: data.length,
