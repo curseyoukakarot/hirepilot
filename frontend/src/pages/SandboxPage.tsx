@@ -1,6 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 
 export default function SandboxPage() {
+  const [selectedNode, setSelectedNode] = useState<{ title: string; endpoint: string; type: 'Trigger' | 'Action' } | null>(null);
   useEffect(() => {
     let isDragging = false as boolean;
     let draggedElement: HTMLElement | null = null;
@@ -36,7 +37,12 @@ export default function SandboxPage() {
 
     const makeNodeClickable = (node: HTMLElement) => {
       node.addEventListener('click', () => {
-        if (!isDragging) openNodeModal();
+        if (isDragging) return;
+        const title = (node.querySelector('h3') as HTMLElement)?.textContent || 'Node';
+        const endpoint = (node.querySelector('.text-xs') as HTMLElement)?.textContent?.trim() || '';
+        const type = (node.querySelector('p.text-xs')?.textContent || '').includes('Action') ? 'Action' : 'Trigger';
+        setSelectedNode({ title, endpoint, type: type as any });
+        openNodeModal({ title, endpoint, type });
       });
     };
 
@@ -127,7 +133,7 @@ export default function SandboxPage() {
     const guidedContent = document.getElementById('guided-mode-content');
     const devContent = document.getElementById('dev-mode-content');
 
-    function openNodeModal() {
+    function openNodeModal(node?: { title: string; endpoint: string; type: string }) {
       if (!overlay) return;
       (overlay as HTMLElement).style.display = 'flex';
       if (guidedModeBtn && devModeBtn && guidedContent && devContent) {
@@ -136,12 +142,20 @@ export default function SandboxPage() {
         guidedContent.classList.remove('hidden');
         devContent.classList.add('hidden');
       }
-      // Fetch fields for guided mode
-      fetch('/api/workflows/fields?trigger=candidate_hired').then(async (r)=>{
+      // Update modal header
+      const header = document.querySelector('#modal-header h2') as HTMLElement | null;
+      if (header && node?.title) header.textContent = `Configure ${node.type} – ${node.title}`;
+      // Fetch fields for guided mode based on node
+      const params = new URLSearchParams();
+      if (node?.endpoint) params.set('endpoint', node.endpoint);
+      if (node?.type) params.set('type', node.type.toLowerCase());
+      fetch('/api/workflows/fields' + (params.toString() ? `?${params.toString()}` : '')).then(async (r)=>{
         if (!r.ok) return;
         const data = await r.json().catch(()=>null);
         const pillsContainer = document.getElementById('data-pills-section')?.querySelector('.flex.flex-wrap');
         if (pillsContainer && data && Array.isArray(data.fields)) {
+          // clear previous
+          (pillsContainer as HTMLElement).innerHTML = '';
           data.fields.forEach((f: string) => {
             const span = document.createElement('span');
             span.className = 'pill-token px-3 py-1 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs rounded-full cursor-pointer hover:scale-105 transition-transform';
