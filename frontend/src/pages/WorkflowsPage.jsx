@@ -182,7 +182,7 @@ export default function WorkflowsPage() {
                     </div>
                     <p className="text-slate-400 text-sm mb-4">{wf.description}</p>
                     <div className="flex gap-2">
-                      <button onClick={() => openRecipe({ title: wf.title, summary: wf.description, tools: [wf.category], setupTime: '', difficulty: '', formula: toFormulaString(wf), setupSteps: [] })} className="px-3 py-2 bg-indigo-500 rounded-lg text-xs font-semibold text-white hover:bg-indigo-400 transition">View Recipe</button>
+                      <button onClick={() => openRecipe({ title: wf.title, summary: wf.description, tools: wf.tools || [wf.category], setupTime: wf.setupTime || '', difficulty: wf.difficulty || '', formula: toFormulaString(wf), setupSteps: wf.setupSteps || [] })} className="px-3 py-2 bg-indigo-500 rounded-lg text-xs font-semibold text-white hover:bg-indigo-400 transition">View Recipe</button>
                     </div>
                   </div>
                 ))}
