@@ -19,6 +19,9 @@ export const EVENT_TYPES = {
   email_opened: 'email_opened',
   email_clicked: 'email_clicked',
   email_bounced: 'email_bounced',
+  // --- Lead Triggers ---
+  lead_tag_added: 'lead_tag_added',
+  lead_source_added: 'lead_source_added',
 
   // --- Deals & Submissions ---
   opportunity_submitted: 'opportunity_submitted',

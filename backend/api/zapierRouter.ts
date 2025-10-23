@@ -158,7 +158,10 @@ router.get('/triggers/event-types', apiKeyAuth, async (_req: ApiRequest, res: Re
     sniper_target_added: 'Sniper target added',
     sniper_capture_triggered: 'Sniper capture triggered',
     rex_chat_triggered: 'REX chat/tool triggered',
-    rex_linkedin_connect_sent: 'REX sent a LinkedIn connection'
+    rex_linkedin_connect_sent: 'REX sent a LinkedIn connection',
+    // Lead triggers
+    lead_tag_added: 'Tag added to a lead',
+    lead_source_added: 'Lead created from a specific source (extension/APIs)'
   };
   const all = Object.values(EVENT_TYPES);
   return res.json({

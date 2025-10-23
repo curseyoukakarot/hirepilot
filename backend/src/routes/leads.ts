@@ -1981,18 +1981,20 @@ export const updateLead = async (req: ApiRequest, res: Response) => {
           });
         }
 
-        // If tags changed, we could add a specific event for that
-        if (req.body.tags && JSON.stringify(req.body.tags) !== JSON.stringify(originalLead.tags)) {
-          emitZapEvent({
-            userId: req.user!.id,
-            eventType: ZAP_EVENT_TYPES.LEAD_UPDATED,
-            eventData: createLeadEventData(data, {
-              previous_tags: originalLead.tags || [],
-              new_tags: req.body.tags || [],
-              action: 'tags_updated'
-            }),
-            sourceTable: 'leads',
-            sourceId: data.id
+        // If tags changed, emit dedicated tag-added events for any newly added tags
+        if (Array.isArray(req.body.tags) && JSON.stringify(req.body.tags) !== JSON.stringify(originalLead.tags)) {
+          const prev = new Set<string>((originalLead.tags || []) as any);
+          const next = new Set<string>((req.body.tags || []) as any);
+          const added: string[] = [];
+          next.forEach((t: string) => { if (!prev.has(t)) added.push(t); });
+          added.forEach((tag) => {
+            try { emitZapEvent({
+              userId: req.user!.id,
+              eventType: ZAP_EVENT_TYPES.LEAD_UPDATED,
+              eventData: createLeadEventData(data, { tag, action: 'tag_added' }),
+              sourceTable: 'leads',
+              sourceId: data.id
+            }); } catch {}
           });
         }
       });
