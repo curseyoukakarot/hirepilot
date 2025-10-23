@@ -99,6 +99,21 @@ GET /api/zapier/triggers/events?event_type=opportunity_submitted&amp;since=2025-
             </div>
           </div>
 
+          <div class="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden mt-3">
+            <button class="toggle-btn w-full text-left flex justify-between items-center p-4 hover:bg-gray-750 transition">
+              <span class="text-blue-300 font-semibold">View cURL Example (Add Collaborator)</span>
+              <i class="fas fa-chevron-down text-blue-300 transition-transform duration-200"></i>
+            </button>
+            <div class="hidden toggle-content p-4 border-t border-gray-700">
+              <div class="flex justify-end mb-2">
+                <button class="copy-btn px-2 py-1 text-xs bg-gray-700 rounded hover:bg-gray-600">Copy</button>
+              </div>
+              <pre class="text-sm text-white overflow-auto">curl -X POST https://api.thehirepilot.com/api/opportunities/123/collaborators \
+-H "X-API-Key: YOUR_API_KEY" \
+-d '{"email":"teammate@acme.com","role":"viewer"}'</pre>
+            </div>
+          </div>
+
           <!-- Messaging & Campaigns -->
           <h3 class="text-lg font-semibold text-green-300 mt-8 mb-2">💬 Messaging & Campaigns</h3>
           <ul class="list-disc pl-6 text-gray-300 mb-4">
@@ -109,15 +124,9 @@ GET /api/zapier/triggers/events?event_type=opportunity_submitted&amp;since=2025-
             <li><code>/api/sourcing/campaigns/:id/stats</code> — Stats (emit snapshot with ?emit=true)</li>
           </ul>
 
-          <h3 class="text-lg font-semibold text-green-300 mt-6 mb-2">🧠 Enrichment & Intelligence</h3>
-          <ul class="list-disc pl-6 text-gray-300 mb-4">
-            <li><code>/api/leads/:id/enrich</code> — Enrich lead</li>
-            <li><code>/api/candidates/:id/enrich</code> — Enrich candidate</li>
-          </ul>
-
           <div class="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
             <button class="toggle-btn w-full text-left flex justify-between items-center p-4 hover:bg-gray-750 transition">
-              <span class="text-blue-300 font-semibold">View cURL Example</span>
+              <span class="text-blue-300 font-semibold">View cURL Example (Bulk Schedule)</span>
               <i class="fas fa-chevron-down text-blue-300 transition-transform duration-200"></i>
             </button>
             <div class="hidden toggle-content p-4 border-t border-gray-700">
@@ -130,6 +139,69 @@ GET /api/zapier/triggers/events?event_type=opportunity_submitted&amp;since=2025-
             </div>
           </div>
 
+          <div class="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden mt-3">
+            <button class="toggle-btn w-full text-left flex justify-between items-center p-4 hover:bg-gray-750 transition">
+              <span class="text-blue-300 font-semibold">View cURL Example (scheduleMassMessage)</span>
+              <i class="fas fa-chevron-down text-blue-300 transition-transform duration-200"></i>
+            </button>
+            <div class="hidden toggle-content p-4 border-t border-gray-700">
+              <div class="flex justify-end mb-2">
+                <button class="copy-btn px-2 py-1 text-xs bg-gray-700 rounded hover:bg-gray-600">Copy</button>
+              </div>
+              <pre class="text-sm text-white overflow-auto">curl -X POST https://api.thehirepilot.com/api/scheduleMassMessage \
+-H "X-API-Key: YOUR_API_KEY" \
+-d '{"messages":[{"leadId":"l1","templateId":"t1"}]}'</pre>
+            </div>
+          </div>
+
+          <div class="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden mt-3">
+            <button class="toggle-btn w-full text-left flex justify-between items-center p-4 hover:bg-gray-750 transition">
+              <span class="text-blue-300 font-semibold">View cURL Example (Campaign Stats)</span>
+              <i class="fas fa-chevron-down text-blue-300 transition-transform duration-200"></i>
+            </button>
+            <div class="hidden toggle-content p-4 border-t border-gray-700">
+              <div class="flex justify-end mb-2">
+                <button class="copy-btn px-2 py-1 text-xs bg-gray-700 rounded hover:bg-gray-600">Copy</button>
+              </div>
+              <pre class="text-sm text-white overflow-auto">curl "https://api.thehirepilot.com/api/sourcing/campaigns/camp_123/stats?emit=true" \
+-H "X-API-Key: YOUR_API_KEY"</pre>
+            </div>
+          </div>
+
+          <h3 class="text-lg font-semibold text-green-300 mt-6 mb-2">🧠 Enrichment & Intelligence</h3>
+          <ul class="list-disc pl-6 text-gray-300 mb-4">
+            <li><code>/api/leads/:id/enrich</code> — Enrich lead</li>
+            <li><code>/api/candidates/:id/enrich</code> — Enrich candidate</li>
+          </ul>
+
+          <div class="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+            <button class="toggle-btn w-full text-left flex justify-between items-center p-4 hover:bg-gray-750 transition">
+              <span class="text-blue-300 font-semibold">View cURL Example (Lead Enrich)</span>
+              <i class="fas fa-chevron-down text-blue-300 transition-transform duration-200"></i>
+            </button>
+            <div class="hidden toggle-content p-4 border-t border-gray-700">
+              <div class="flex justify-end mb-2">
+                <button class="copy-btn px-2 py-1 text-xs bg-gray-700 rounded hover:bg-gray-600">Copy</button>
+              </div>
+              <pre class="text-sm text-white overflow-auto">curl -X POST https://api.thehirepilot.com/api/leads/lead_123/enrich \
+-H "X-API-Key: YOUR_API_KEY"</pre>
+            </div>
+          </div>
+
+          <div class="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden mt-3">
+            <button class="toggle-btn w-full text-left flex justify-between items-center p-4 hover:bg-gray-750 transition">
+              <span class="text-blue-300 font-semibold">View cURL Example (Candidate Enrich)</span>
+              <i class="fas fa-chevron-down text-blue-300 transition-transform duration-200"></i>
+            </button>
+            <div class="hidden toggle-content p-4 border-t border-gray-700">
+              <div class="flex justify-end mb-2">
+                <button class="copy-btn px-2 py-1 text-xs bg-gray-700 rounded hover:bg-gray-600">Copy</button>
+              </div>
+              <pre class="text-sm text-white overflow-auto">curl -X POST https://api.thehirepilot.com/api/candidates/cand_123/enrich \
+-H "X-API-Key: YOUR_API_KEY"</pre>
+            </div>
+          </div>
+
           <!-- Clients & Contacts -->
           <h3 class="text-lg font-semibold text-green-300 mt-8 mb-2">🤝 CRM / Client Sync</h3>
           <ul class="list-disc pl-6 text-gray-300 mb-4">
@@ -139,6 +211,20 @@ GET /api/zapier/triggers/events?event_type=opportunity_submitted&amp;since=2025-
             <li><code>/api/contacts</code> — Add new contact</li>
           </ul>
 
+          <div class="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+            <button class="toggle-btn w-full text-left flex justify-between items-center p-4 hover:bg-gray-750 transition">
+              <span class="text-blue-300 font-semibold">View cURL Example (Client Enrich)</span>
+              <i class="fas fa-chevron-down text-blue-300 transition-transform duration-200"></i>
+            </button>
+            <div class="hidden toggle-content p-4 border-t border-gray-700">
+              <div class="flex justify-end mb-2">
+                <button class="copy-btn px-2 py-1 text-xs bg-gray-700 rounded hover:bg-gray-600">Copy</button>
+              </div>
+              <pre class="text-sm text-white overflow-auto">curl -X POST https://api.thehirepilot.com/api/clients/cli_123/sync-enrichment \
+-H "X-API-Key: YOUR_API_KEY"</pre>
+            </div>
+          </div>
+
           <h3 class="text-lg font-semibold text-green-300 mt-8 mb-2">👥 Teams / Notifications</h3>
           <ul class="list-disc pl-6 text-gray-300 mb-4">
             <li><code>/api/team/invite</code> — Invite member</li>
@@ -146,6 +232,51 @@ GET /api/zapier/triggers/events?event_type=opportunity_submitted&amp;since=2025-
             <li><code>/api/notifications</code> — Create notification</li>
             <li><code>/api/invoices/create</code> — Create invoice</li>
           </ul>
+
+          <div class="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+            <button class="toggle-btn w-full text-left flex justify-between items-center p-4 hover:bg-gray-750 transition">
+              <span class="text-blue-300 font-semibold">View cURL Example (Team Invite)</span>
+              <i class="fas fa-chevron-down text-blue-300 transition-transform duration-200"></i>
+            </button>
+            <div class="hidden toggle-content p-4 border-t border-gray-700">
+              <div class="flex justify-end mb-2">
+                <button class="copy-btn px-2 py-1 text-xs bg-gray-700 rounded hover:bg-gray-600">Copy</button>
+              </div>
+              <pre class="text-sm text-white overflow-auto">curl -X POST https://api.thehirepilot.com/api/team/invite \
+-H "X-API-Key: YOUR_API_KEY" \
+-d '{"email":"newuser@example.com","role":"member"}'</pre>
+            </div>
+          </div>
+
+          <div class="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden mt-3">
+            <button class="toggle-btn w-full text-left flex justify-between items-center p-4 hover:bg-gray-750 transition">
+              <span class="text-blue-300 font-semibold">View cURL Example (Update Role)</span>
+              <i class="fas fa-chevron-down text-blue-300 transition-transform duration-200"></i>
+            </button>
+            <div class="hidden toggle-content p-4 border-t border-gray-700">
+              <div class="flex justify-end mb-2">
+                <button class="copy-btn px-2 py-1 text-xs bg-gray-700 rounded hover:bg-gray-600">Copy</button>
+              </div>
+              <pre class="text-sm text-white overflow-auto">curl -X PUT https://api.thehirepilot.com/api/team/member/mem_123/role \
+-H "X-API-Key: YOUR_API_KEY" \
+-d '{"role":"admin"}'</pre>
+            </div>
+          </div>
+
+          <div class="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden mt-3">
+            <button class="toggle-btn w-full text-left flex justify-between items-center p-4 hover:bg-gray-750 transition">
+              <span class="text-blue-300 font-semibold">View cURL Example (Create Invoice)</span>
+              <i class="fas fa-chevron-down text-blue-300 transition-transform duration-200"></i>
+            </button>
+            <div class="hidden toggle-content p-4 border-t border-gray-700">
+              <div class="flex justify-end mb-2">
+                <button class="copy-btn px-2 py-1 text-xs bg-gray-700 rounded hover:bg-gray-600">Copy</button>
+              </div>
+              <pre class="text-sm text-white overflow-auto">curl -X POST https://api.thehirepilot.com/api/invoices/create \
+-H "X-API-Key: YOUR_API_KEY" \
+-d '{"client_id":"cli_123","amount":5000,"billing_type":"fixed","opportunity_id":"opp_123"}'</pre>
+            </div>
+          </div>
 
           <div class="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
             <button class="toggle-btn w-full text-left flex justify-between items-center p-4 hover:bg-gray-750 transition">
@@ -176,16 +307,17 @@ GET /api/zapier/triggers/events?event_type=opportunity_submitted&amp;since=2025-
 
           <div class="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
             <button class="toggle-btn w-full text-left flex justify-between items-center p-4 hover:bg-gray-750 transition">
-              <span class="text-blue-300 font-semibold">View cURL Example</span>
+              <span class="text-blue-300 font-semibold">View cURL Example (LinkedIn Connect)</span>
               <i class="fas fa-chevron-down text-blue-300 transition-transform duration-200"></i>
             </button>
             <div class="hidden toggle-content p-4 border-t border-gray-700">
               <div class="flex justify-end mb-2">
                 <button class="copy-btn px-2 py-1 text-xs bg-gray-700 rounded hover:bg-gray-600">Copy</button>
               </div>
-              <pre class="text-sm text-white overflow-auto">curl -X POST https://api.thehirepilot.com/api/sniper/targets \
--H "X-API-Key: YOUR_API_KEY" \
--d '{"company":"Globex","title_keywords":["VP of Sales","CRO"],"location":"Austin, TX"}'</pre>
+              <pre class="text-sm text-white overflow-auto">curl -X POST https://api.thehirepilot.com/api/rex/tools/linkedin_connect \
+-H "Authorization: Bearer $USER_JWT" \
+-H "Content-Type: application/json" \
+-d '{"linkedin_urls":["https://linkedin.com/in/janedoe"],"message":"Great to connect!"}'</pre>
             </div>
           </div>
 
