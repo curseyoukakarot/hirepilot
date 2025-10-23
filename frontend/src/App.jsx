@@ -317,7 +317,7 @@ function InnerApp() {
   const isPublicShare = location.pathname.includes('/jobs/share');
   const isPublicApply = location.pathname.includes('/apply');
   // Only the marketing page "/rex" should be treated as public; do NOT blanket-match all "/rex*" paths
-  const isAuthPage = landingPages.includes(location.pathname) || location.pathname.startsWith('/blog') || isPartnerArea || isPublicShare || isPublicApply;
+  let isAuthPage = landingPages.includes(location.pathname) || location.pathname.startsWith('/blog') || isPartnerArea || isPublicShare || isPublicApply;
   const isBlog = location.pathname.startsWith('/blog');
   // Whether the current authenticated user is a guest collaborator (computed below)
   const [isGuestUser, setIsGuestUser] = useState(false);
@@ -361,6 +361,11 @@ function InnerApp() {
   const [isSuspended, setIsSuspended] = useState(false);
   const [rexFlags, setRexFlags] = useState({ producthunt: false, popup: false });
   useGAPageViews();
+
+  // Treat /workflows as a public landing page when unauthenticated
+  if (!dbRole && location.pathname === '/workflows') {
+    isAuthPage = true;
+  }
 
   // set hp_ref cookie if present on any public route
   useEffect(() => {
@@ -550,7 +555,7 @@ function InnerApp() {
               <Route path="/pricing" element={<Pricing />} />
               <Route path="/freeforever" element={<FreeForever />} />
               <Route path="/rex" element={<MeetRex />} />
-              <Route path="/workflows" element={dbRole ? <WorkflowsPage /> : <Navigate to="/login" />} />
+              <Route path="/workflows" element={dbRole ? <WorkflowsPage /> : <IntegrationsAndWorkflows />} />
               <Route path="/copilot" element={<Copilot />} />
               <Route path="/enterprise" element={<Handsfree />} />
               <Route path="/templates" element={<TemplateManager userId="mock-user-id" />} />
