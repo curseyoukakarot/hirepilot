@@ -51,6 +51,7 @@ import RexSupport from './screens/RexSupport';
 import ApiDocs from './screens/ApiDocs';
 import IntegrationsAndWorkflows from './pages/IntegrationsAndWorkflows';
 import WorkflowsPage from './pages/WorkflowsPage';
+import SandboxPage from './pages/SandboxPage';
 import AffiliateProgram from './screens/AffiliateProgram';
 import ProductHunt from './screens/ProductHunt';
 import FreeForever from './screens/FreeForever';
@@ -532,6 +533,7 @@ function InnerApp() {
               <Route path="/signout" element={<SignOutRedirect />} />
               <Route path="/billing" element={<BillingScreen />} />
               <Route path="/rex-chat" element={dbRole ? <REXChat /> : <Navigate to="/login" />} />
+              <Route path="/sandbox" element={dbRole ? <SandboxPage /> : <Navigate to="/login" />} />
               <Route path="/jobs/share/:shareId" element={<PublicJobPage />} />
               <Route path="/jobs/share/:shareId/*" element={<PublicJobPage />} />
               <Route path="/apply/:jobId" element={<ApplyForm />} />
