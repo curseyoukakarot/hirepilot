@@ -81,6 +81,7 @@ GET /api/zapier/triggers/events?event_type=opportunity_submitted&amp;since=2025-
             <li><code>/api/opportunities/:id/application</code> — Create job application</li>
             <li><code>/api/opportunities/:id/notes</code> — Add or update notes</li>
             <li><code>/api/deals/activity</code> — Log deal activity</li>
+            <li><code>/api/opportunities/:id/collaborators</code> — Add collaborator</li>
           </ul>
 
           <div class="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
@@ -104,6 +105,14 @@ GET /api/zapier/triggers/events?event_type=opportunity_submitted&amp;since=2025-
             <li><code>/api/messages/bulk-schedule</code> — Schedule mass messages</li>
             <li><code>/api/sourcing/campaigns/:id/relaunch</code> — Relaunch campaign</li>
             <li><code>/api/sourcing/campaigns/:id/schedule</code> — Schedule new launch</li>
+            <li><code>/api/scheduleMassMessage</code> — Schedule mass messages</li>
+            <li><code>/api/sourcing/campaigns/:id/stats</code> — Stats (emit snapshot with ?emit=true)</li>
+          </ul>
+
+          <h3 class="text-lg font-semibold text-green-300 mt-6 mb-2">🧠 Enrichment & Intelligence</h3>
+          <ul class="list-disc pl-6 text-gray-300 mb-4">
+            <li><code>/api/leads/:id/enrich</code> — Enrich lead</li>
+            <li><code>/api/candidates/:id/enrich</code> — Enrich candidate</li>
           </ul>
 
           <div class="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
@@ -122,11 +131,20 @@ GET /api/zapier/triggers/events?event_type=opportunity_submitted&amp;since=2025-
           </div>
 
           <!-- Clients & Contacts -->
-          <h3 class="text-lg font-semibold text-green-300 mt-8 mb-2">🤝 Clients & Contacts</h3>
+          <h3 class="text-lg font-semibold text-green-300 mt-8 mb-2">🤝 CRM / Client Sync</h3>
           <ul class="list-disc pl-6 text-gray-300 mb-4">
             <li><code>/api/clients</code> — Create client</li>
             <li><code>/api/clients/:id</code> — Update client</li>
+            <li><code>/api/clients/:id/sync-enrichment</code> — Enrich client</li>
             <li><code>/api/contacts</code> — Add new contact</li>
+          </ul>
+
+          <h3 class="text-lg font-semibold text-green-300 mt-8 mb-2">👥 Teams / Notifications</h3>
+          <ul class="list-disc pl-6 text-gray-300 mb-4">
+            <li><code>/api/team/invite</code> — Invite member</li>
+            <li><code>PUT /api/team/member/:id/role</code> — Update role</li>
+            <li><code>/api/notifications</code> — Create notification</li>
+            <li><code>/api/invoices/create</code> — Create invoice</li>
           </ul>
 
           <div class="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
@@ -149,6 +167,11 @@ GET /api/zapier/triggers/events?event_type=opportunity_submitted&amp;since=2025-
           <ul class="list-disc pl-6 text-gray-300 mb-4">
             <li><code>/api/sniper/targets</code> — Add new targets</li>
             <li><code>/api/sniper/targets/:id/capture-now</code> — Trigger capture</li>
+          </ul>
+
+          <h3 class="text-lg font-semibold text-green-300 mt-8 mb-2">🤖 REX / Tools</h3>
+          <ul class="list-disc pl-6 text-gray-300 mb-4">
+            <li><code>/api/rex/tools/linkedin_connect</code> — LinkedIn connect</li>
           </ul>
 
           <div class="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
