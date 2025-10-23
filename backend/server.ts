@@ -131,6 +131,7 @@ import { sniperWorker } from './src/workers/sniper.worker';
 import { registerSniperRoutes } from './src/routes/sniper.routes';
 import { sniperOpenerWorker } from './src/workers/sniper.opener.worker';
 import rexConversationsRouter from './src/routes/rexConversations';
+import { rexTools as rexToolsRouter } from './src/routes/rex/tools';
 import salesPolicyRouter from './src/routes/sales/policy.routes';
 import salesInboundRouter from './src/routes/sales/inbound.routes';
 import salesOpsRouter from './src/routes/sales/ops.routes';
@@ -517,6 +518,8 @@ app.get('/api/campaigns/all/performance', (req, res) => {
 app.post('/api/rex/chat', rexChat);
 app.post('/api/rex/tools', rexToolsHandler);
 app.post('/api/rex/tools/linkedin_connect', linkedinConnectHandler);
+// REX tools (structured)
+app.use('/api/rex/tools', rexToolsRouter);
 // Important: Do NOT attach global auth middleware at '/api' level.
 // The routes within rexConversationsRouter already apply requireAuth per-route.
 // Attaching requireAuth here would unintentionally protect ALL '/api/*' routes,
@@ -1053,9 +1056,9 @@ app.listen(Number(PORT), '0.0.0.0', () => {
         const { createClient } = await import('@supabase/supabase-js');
         const admin = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string, { auth: { autoRefreshToken: false, persistSession: false } });
         // Use SQL function wrapper or direct rpc if available; fallback to non-concurrent refresh
-        await admin.rpc('exec_sql', { sql: 'refresh materialized view message_event_rollup' } as any).catch(()=>{});
-        await admin.rpc('exec_sql', { sql: 'refresh materialized view template_performance_mv' } as any).catch(()=>{});
-        await admin.rpc('exec_sql', { sql: 'refresh materialized view sequence_performance_mv' } as any).catch(()=>{});
+        try { await admin.rpc('exec_sql', { sql: 'refresh materialized view message_event_rollup' } as any); } catch {}
+        try { await admin.rpc('exec_sql', { sql: 'refresh materialized view template_performance_mv' } as any); } catch {}
+        try { await admin.rpc('exec_sql', { sql: 'refresh materialized view sequence_performance_mv' } as any); } catch {}
         console.log('[Analytics] materialized views refreshed');
       } catch (e) {
         console.warn('[Analytics] refresh failed', (e as any)?.message || e);

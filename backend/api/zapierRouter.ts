@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { apiKeyAuth } from '../middleware/apiKeyAuth';
 import { ApiRequest } from '../types/api';
 import { supabaseDb } from '../lib/supabase';
+import { EVENT_TYPES } from '../src/lib/events';
 import enrichLead from './enrichLead';
 import zapierTestRouter from './zapierTestEvent';
 
@@ -124,32 +125,85 @@ router.get('/triggers/new-leads', apiKeyAuth, async (req: ApiRequest, res: Respo
  * This replaces the need for multiple specific polling endpoints
  * Supports filtering by event_type, since timestamp, and pagination
  */
+// List supported event types and human descriptions
+router.get('/triggers/event-types', apiKeyAuth, async (_req: ApiRequest, res: Response) => {
+  // Human-friendly descriptions for UI/docs
+  const DESC: Record<string, string> = {
+    opportunity_submitted: 'Candidate submitted to client',
+    opportunity_application_created: 'Application recorded for an opportunity',
+    opportunity_note_added: 'Note added on an opportunity',
+    opportunity_collaborator_added: 'Collaborator added to an opportunity',
+    deal_activity_logged: 'Deal activity logged',
+    campaign_launched: 'Sourcing campaign launched',
+    campaign_paused: 'Sourcing campaign paused',
+    campaign_resumed: 'Sourcing campaign resumed',
+    campaign_relaunched: 'Sourcing campaign relaunched',
+    campaign_stats_snapshot: 'Sourcing campaign stats snapshot',
+    sequence_scheduled: 'Sequence scheduled',
+    message_batch_scheduled: 'Bulk message batch scheduled',
+    lead_enrich_requested: 'Lead enrichment requested',
+    candidate_enrich_requested: 'Candidate enrichment requested',
+    client_created: 'Client created',
+    client_updated: 'Client updated',
+    client_enriched: 'Client enriched',
+    contact_created: 'Contact created',
+    credits_purchased: 'Credits purchased',
+    subscription_checkout_started: 'Subscription checkout started',
+    subscription_cancelled: 'Subscription cancelled',
+    invoice_created: 'Invoice created',
+    invoice_paid: 'Invoice paid',
+    team_invite_sent: 'Team invitation sent',
+    team_role_updated: 'Team role updated',
+    notification_created: 'Notification created',
+    sniper_target_added: 'Sniper target added',
+    sniper_capture_triggered: 'Sniper capture triggered',
+    rex_chat_triggered: 'REX chat/tool triggered',
+    rex_linkedin_connect_sent: 'REX sent a LinkedIn connection'
+  };
+  const all = Object.values(EVENT_TYPES);
+  return res.json({
+    event_types: all.map(t => ({ type: t, description: DESC[t] || '' }))
+  });
+});
+
 router.get('/triggers/events', apiKeyAuth, async (req: ApiRequest, res: Response) => {
   try {
     console.log('[Zapier] Poll /triggers/events query=', req.query);
     const userId = req.user!.id;
     const eventType = req.query.event_type as string | undefined;
     const since = req.query.since as string | undefined;
+    const cursor = req.query.cursor as string | undefined; // ISO8601 cursor
     const limit = Math.min(parseInt(req.query.limit as string || '50'), 100);
-    const sinceDate = since ? new Date(since) : new Date(Date.now() - 15 * 60 * 1000);
+    const sinceDate = since ? new Date(since) : null;
+
+    // Validate event type if provided
+    if (eventType && !Object.values(EVENT_TYPES).includes(eventType as any)) {
+      return res.status(400).json({ error: 'invalid_event_type', allowed: Object.values(EVENT_TYPES) });
+    }
 
     let query = supabaseDb
       .from('zap_events')
       .select('*')
       .eq('user_id', userId)
-      .gt('created_at', sinceDate.toISOString())
-      .order('created_at', { ascending: true })
-      .limit(limit);
+      .order('created_at', { ascending: false })
+      .limit(limit + 1); // fetch one extra for next_cursor detection
 
-    if (eventType) {
-      query = query.eq('event_type', eventType);
-    }
+    if (eventType) query = query.eq('event_type', eventType);
+    if (sinceDate) query = query.gte('created_at', sinceDate.toISOString());
+    if (cursor) query = query.lt('created_at', cursor);
 
     const { data, error } = await query;
-
     if (error) throw error;
 
-    return res.status(200).json({ events: data });
+    const rows = data || [];
+    const hasMore = rows.length > limit;
+    const slice = hasMore ? rows.slice(0, limit) : rows;
+    const nextCursor = hasMore ? slice[slice.length - 1]?.created_at : null;
+
+    return res.status(200).json({
+      events: slice.reverse(), // oldest-first for consumers
+      meta: { limit, event_type: eventType, since, next_cursor: nextCursor }
+    });
   } catch (err: any) {
     console.error('[Zapier] /triggers/events error:', err);
     return res.status(500).json({ error: err.message || 'Internal server error' });
