@@ -45,11 +45,30 @@ export default function WorkflowRecipeModal({
   const copyWithFeedback = (text, button) => copyToClipboard(text, button);
 
   const toolsGrid = useMemo(() => {
+    const subtitleFor = (t) => {
+      const k = String(t || '').toLowerCase();
+      if (k === 'slack') return 'Team notification';
+      if (k === 'stripe') return 'Billing';
+      if (k === 'hirepilot') return 'Trigger source';
+      if (k === 'apollo') return 'Lead source';
+      if (k === 'sendgrid') return 'Email';
+      if (k === 'google calendar' || k === 'calendar') return 'Calendar';
+      if (k === 'linkedin') return 'Social';
+      if (k === 'rex') return 'AI';
+      if (k === 'skrapp') return 'Lead source';
+      if (k === 'asana') return 'Tasks';
+      if (k === 'hubspot') return 'CRM';
+      if (k === 'docusign') return 'E-signature';
+      if (k === 'bigquery') return 'Warehouse';
+      if (k === 'sniper') return 'Capture';
+      return 'Integration';
+    };
+
     return tools?.slice(0, 3).map((tool, idx) => (
       <div key={`${tool}-${idx}`} className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg">
-        {tool.toLowerCase() === 'slack' ? (
+        {String(tool).toLowerCase() === 'slack' ? (
           <i className="fa-brands fa-slack text-2xl text-[#4A154B]"></i>
-        ) : tool.toLowerCase() === 'stripe' ? (
+        ) : String(tool).toLowerCase() === 'stripe' ? (
           <i className="fa-brands fa-stripe text-2xl text-[#635BFF]"></i>
         ) : (
           <div className="w-8 h-8 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center">
@@ -58,7 +77,7 @@ export default function WorkflowRecipeModal({
         )}
         <div>
           <div className="font-medium text-gray-900">{tool}</div>
-          <div className="text-sm text-gray-600">{idx === 0 ? 'Team notification' : idx === 1 ? 'Invoice creation' : 'Trigger source'}</div>
+          <div className="text-sm text-gray-600">{subtitleFor(tool)}</div>
         </div>
       </div>
     ));
