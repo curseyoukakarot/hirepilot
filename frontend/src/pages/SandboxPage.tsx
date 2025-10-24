@@ -260,13 +260,13 @@ export default function SandboxPage() {
       if (node?.type) params.set('type', node.type.toLowerCase());
       const schema = getSchemaForEndpoint(node?.endpoint);
       // Apply preset immediately (fallback) and render fallback tokens if API unavailable
-      const fallbackPreset = (schema?.guided || getPresetFor(node));
+      const fallbackPreset: any = (schema?.guided || getPresetFor(node));
       requestAnimationFrame(() => {
         applyPresetToModal(fallbackPreset as any, node?.title);
         const pillsWrap = document.querySelector('#data-pills-section .flex.flex-wrap') as HTMLElement | null;
-        if (pillsWrap && Array.isArray(fallbackPreset?.fields)) {
+        if (pillsWrap && Array.isArray((fallbackPreset as any)?.fields)) {
           pillsWrap.innerHTML = '';
-          (fallbackPreset.fields as string[]).forEach((name) => {
+          ((fallbackPreset as any).fields as string[]).forEach((name) => {
             const span = document.createElement('span');
             span.className = 'pill-token px-3 py-1 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs rounded-full cursor-pointer hover:scale-105 transition-transform';
             span.textContent = `{{${name}}}`;
@@ -291,7 +291,6 @@ export default function SandboxPage() {
         const data = await resp.json().catch(() => null);
         requestAnimationFrame(() => {
           // rebuild pills deterministically using data-testid
-          const pillsWrap = document.getElementById('pills-wrap') as HTMLElement | null;
           const pillsWrap = document.getElementById('pills-wrap') as HTMLElement | null;
           if (pillsWrap) {
             pillsWrap.innerHTML = '';
