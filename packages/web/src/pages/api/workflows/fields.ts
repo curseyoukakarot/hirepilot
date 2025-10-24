@@ -8,6 +8,30 @@ export default async function handler(req: any, res: any) {
     const category = String(type || '').toLowerCase() === 'action' ? 'actions' : 'events';
     ep = `/api/${category}/${slug}`;
   }
+
+  // CORS allow app domain
+  try {
+    const allowOrigin = process.env.CORS_ALLOW_ORIGIN || 'https://app.thehirepilot.com';
+    res.setHeader('Access-Control-Allow-Origin', allowOrigin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  } catch {}
+  if (req.method === 'OPTIONS') return res.status(204).end();
+
+  // Server-side proxy to Railway if service key is present
+  const railwayBase = process.env.FIELDS_API_BASE || 'https://api.thehirepilot.com/api';
+  const serviceKey = process.env.VITE_FIELDS_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || '';
+  if (serviceKey) {
+    try {
+      const url = `${railwayBase.replace(/\/$/, '')}/workflows/fields?endpoint=${encodeURIComponent(ep)}&type=${encodeURIComponent(String(type || ''))}`;
+      const r = await fetch(url, { headers: { 'Authorization': `Bearer ${serviceKey}`, 'Accept':'application/json' }, method: 'GET' } as any);
+      const ct = String(r.headers.get('content-type') || '');
+      if (r.ok && ct.includes('application/json')) {
+        const body = await r.json();
+        return res.status(200).json(body);
+      }
+    } catch {}
+  }
   // Global tokens
   const base = [
     'candidate.id', 'candidate.name', 'candidate.email', 'candidate.phone',
