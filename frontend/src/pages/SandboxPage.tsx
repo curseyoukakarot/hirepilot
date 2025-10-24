@@ -286,12 +286,40 @@ export default function SandboxPage() {
       });
 
       try {
+        const getApiBase = () => {
+          try {
+            const w: any = window as any;
+            const flags = (w && w.__REX_FLAGS__) || {};
+            const envUrl = (w && (w.VITE_BACKEND_URL || w.VITE_API_BASE_URL)) || '';
+            const host = (typeof window !== 'undefined' && window.location ? window.location.origin : '');
+            const isProd = host && host.indexOf('thehirepilot.com') > -1;
+            const defaultBase = isProd ? 'https://api.thehirepilot.com' : 'http://localhost:8080';
+            const apiBase = flags.apiBaseUrl || envUrl || defaultBase;
+            return apiBase.endsWith('/api') ? apiBase : (apiBase + '/api');
+          } catch { return '/api'; }
+        };
+
         const origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '';
         const absUrl = origin ? `${origin}/api/workflows/fields${params.toString() ? `?${params.toString()}` : ''}` : `/api/workflows/fields${params.toString() ? `?${params.toString()}` : ''}`;
+
+        // 1) Try same-origin Next API (Vercel)
         let resp = await fetch(absUrl, { headers: { 'Accept': 'application/json' } });
-        if (!resp.ok || (resp.headers && !String(resp.headers.get('content-type') || '').includes('application/json'))) {
-          // Fallback to relative in case of proxy
-          resp = await fetch(`/api/workflows/fields${params.toString() ? `?${params.toString()}` : ''}`, { headers: { 'Accept': 'application/json' } });
+        try { console.debug('[Sandbox] fields fetch 1 (vercel)', absUrl, 'status=', resp.status, 'ct=', resp.headers.get('content-type')); } catch {}
+
+        // 2) If HTML/app-shell or non-200, try Railway backend base
+        const isJson = resp.ok && String(resp.headers.get('content-type') || '').includes('application/json');
+        if (!isJson) {
+          const railway = getApiBase();
+          const railUrl = `${railway.replace(/\/$/, '')}/workflows/fields${params.toString() ? `?${params.toString()}` : ''}`;
+          resp = await fetch(railUrl, { headers: { 'Accept': 'application/json' } });
+          try { console.debug('[Sandbox] fields fetch 2 (railway)', railUrl, 'status=', resp.status, 'ct=', resp.headers.get('content-type')); } catch {}
+        }
+        // 3) Last fallback to relative
+        const finalIsJson = resp.ok && String(resp.headers.get('content-type') || '').includes('application/json');
+        if (!finalIsJson) {
+          const relUrl = `/api/workflows/fields${params.toString() ? `?${params.toString()}` : ''}`;
+          resp = await fetch(relUrl, { headers: { 'Accept': 'application/json' } });
+          try { console.debug('[Sandbox] fields fetch 3 (relative)', relUrl, 'status=', resp.status, 'ct=', resp.headers.get('content-type')); } catch {}
         }
         if (!resp.ok) throw new Error('bad resp');
         const data = await resp.json().catch(() => null);
