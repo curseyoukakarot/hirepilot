@@ -21,7 +21,7 @@ export const nodeSchemas: Record<string, NodeSchema> = {
     guided: {
       channel: '#hiring-alerts',
       template: '🎉 {{candidate.name}} hired for {{job.title}}!',
-      fields: ['candidate.name', 'job.title', 'job.department', 'deal.value']
+      fields: ['candidate.name', 'job.title', 'job.department', 'deal.value', 'invoice.amount']
     },
     developer: {
       endpoint: '/api/events/candidate_hired',
@@ -44,73 +44,78 @@ export const nodeSchemas: Record<string, NodeSchema> = {
   lead_created: {
     guided: {
       channel: '#leads',
-      template: '🆕 New lead: {{candidate.name}} ({{lead.source}})'
+      template: '🆕 New lead: {{candidate.name}} ({{lead.source}})',
+      fields: ['candidate.name', 'candidate.email', 'lead.source']
     },
     developer: { endpoint: '/api/events/lead_created', method: 'POST' }
   },
   lead_source_triggered: {
-    guided: { channel: '#leads', template: '🔗 Source: {{lead.source}} – {{candidate.name}}' },
+    guided: { channel: '#leads', template: '🔗 Source: {{lead.source}} – {{candidate.name}}', fields: ['lead.source', 'candidate.name', 'candidate.email'] },
     developer: { endpoint: '/api/events/lead_source_triggered', method: 'POST' }
   },
   campaign_relaunched: {
-    guided: { channel: '#campaigns', template: '🚀 Campaign relaunched – auditing sequences' },
+    guided: { channel: '#campaigns', template: '🚀 Campaign relaunched – auditing sequences', fields: ['campaign.id', 'campaign.name'] },
     developer: { endpoint: '/api/events/campaign_relaunched', method: 'POST' }
   },
   candidate_updated: {
-    guided: { channel: '#updates', template: '📝 {{candidate.name}} updated (syncing records)' },
+    guided: { channel: '#updates', template: '📝 {{candidate.name}} updated (syncing records)', fields: ['candidate.name', 'candidate.updated_fields'] },
     developer: { endpoint: '/api/events/candidate_updated', method: 'POST' }
   },
   pipeline_stage_updated: {
-    guided: { channel: '#pipeline', template: '🔄 {{candidate.name}} moved to {{pipeline.stage}}' },
+    guided: { channel: '#pipeline', template: '🔄 {{candidate.name}} moved to {{pipeline.stage}}', fields: ['pipeline.stage', 'pipeline.prev_stage', 'candidate.name'] },
     developer: { endpoint: '/api/events/pipeline_stage_updated', method: 'POST' }
   },
   client_created: {
-    guided: { channel: '#clients', template: '🏢 New client: {{client.name}}' },
+    guided: { channel: '#clients', template: '🏢 New client: {{client.name}}', fields: ['client.name', 'client.domain', 'client.owner'] },
     developer: { endpoint: '/api/events/client_created', method: 'POST' }
   },
   client_updated: {
-    guided: { channel: '#clients', template: '♻️ Client updated: {{client.name}}' },
+    guided: { channel: '#clients', template: '♻️ Client updated: {{client.name}}', fields: ['client.name', 'client.domain', 'client.owner'] },
     developer: { endpoint: '/api/events/client_updated', method: 'POST' }
   },
   job_created: {
-    guided: { channel: '#jobs', template: '📄 New role opened – {{job.title}}' },
+    guided: { channel: '#jobs', template: '📄 New role opened – {{job.title}}', fields: ['job.title', 'job.department', 'job.location'] },
     developer: { endpoint: '/api/events/job_created', method: 'POST' }
+  },
+  events: {
+    guided: { channel: '#general', template: '🌐 Event: {{event.type}}', fields: ['event.type', 'event.payload'] },
+    developer: { endpoint: '/api/zapier/triggers/events', method: 'POST' }
   },
   // Actions
   send_email_template: {
-    guided: { channel: '#general', template: '📧 Emailing {{candidate.name}} re: {{job.title}}' },
+    guided: { channel: '#general', template: '📧 Emailing {{candidate.name}} re: {{job.title}}', fields: ['template.id', 'template.vars.*', 'candidate.name', 'job.title'] },
     developer: { endpoint: '/api/actions/send_email_template', method: 'POST' }
   },
   notifications: {
-    guided: { channel: '#alerts', template: '🔔 Update: {{candidate.name}} – {{job.title}}' },
+    guided: { channel: '#alerts', template: '🔔 Update: {{candidate.name}} – {{job.title}}', fields: ['channel', 'thread_ts', 'message.body'] },
     developer: { endpoint: '/api/actions/notifications', method: 'POST' }
   },
   sync_enrichment: {
-    guided: { channel: '#enrichment', template: '🧠 Enriching {{candidate.name}}' },
+    guided: { channel: '#enrichment', template: '🧠 Enriching {{candidate.name}}', fields: ['provider', 'credit_cost', 'candidate.email'] },
     developer: { endpoint: '/api/actions/sync_enrichment', method: 'POST' }
   },
   create_client: {
-    guided: { channel: '#clients', template: '🤝 Create client {{client.name}}' },
+    guided: { channel: '#clients', template: '🤝 Create client {{client.name}}', fields: ['client.name', 'client.domain', 'client.owner'] },
     developer: { endpoint: '/api/actions/create_client', method: 'POST' }
   },
   invoices_create: {
-    guided: { channel: '#billing', template: '💸 Invoice generated for {{client.name}}' },
+    guided: { channel: '#billing', template: '💸 Invoice generated for {{client.name}}', fields: ['invoice.id', 'invoice.amount', 'invoice.currency'] },
     developer: { endpoint: '/api/actions/invoices_create', method: 'POST' }
   },
   add_note: {
-    guided: { channel: '#pipeline', template: '📝 Note added for {{candidate.name}}' },
+    guided: { channel: '#pipeline', template: '📝 Note added for {{candidate.name}}', fields: ['note.text', 'candidate.name'] },
     developer: { endpoint: '/api/actions/add_note', method: 'POST' }
   },
   add_collaborator: {
-    guided: { channel: '#team', template: '👥 Invited collaborator to {{job.title}}' },
+    guided: { channel: '#team', template: '👥 Invited collaborator to {{job.title}}', fields: ['collaborator.email', 'collaborator.role'] },
     developer: { endpoint: '/api/actions/add_collaborator', method: 'POST' }
   },
   update_pipeline_stage: {
-    guided: { channel: '#pipeline', template: '➡️ Moving {{candidate.name}} to next stage' },
+    guided: { channel: '#pipeline', template: '➡️ Moving {{candidate.name}} to next stage', fields: ['pipeline.new_stage', 'pipeline.stage'] },
     developer: { endpoint: '/api/actions/update_pipeline_stage', method: 'POST' }
   },
   rex_chat: {
-    guided: { channel: '#general', template: '🤖 REX: {{prompt}}' },
+    guided: { channel: '#general', template: '🤖 REX: {{prompt}}', fields: ['prompt', 'mode'] },
     developer: { endpoint: '/api/actions/rex_chat', method: 'POST' }
   }
 };

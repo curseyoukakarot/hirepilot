@@ -50,8 +50,20 @@ export default async function handler(req: any, res: any) {
   ];
 
   let fields = [...base];
+  let matched = false;
   for (const m of map) {
-    if (m.match.test(ep)) { fields = [...fields, ...m.extra]; break; }
+    if (m.match.test(ep)) { fields = [...fields, ...m.extra]; matched = true; break; }
+  }
+  // If no match (e.g., only slug passed), try slug-only map
+  if (!matched) {
+    const slug = ep.split('/').filter(Boolean).pop() || '';
+    const slugMap: Record<string, string[]> = {
+      candidate_hired: [...common.deals, ...common.billing],
+      lead_tagged: [...common.tags],
+      pipeline_stage_updated: [...common.pipeline],
+      send_email_template: ['template.id', 'template.vars.*']
+    };
+    if (slugMap[slug]) fields = [...fields, ...slugMap[slug]];
   }
 
   try {
