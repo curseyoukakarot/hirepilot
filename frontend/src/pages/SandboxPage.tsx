@@ -67,13 +67,21 @@ export default function SandboxPage() {
       // Live preview
       const pv = document.querySelector('#sample-preview p') as HTMLElement | null;
       if (pv) {
-        const rendered = preset.template
-          .replaceAll('{{candidate.name}}', preset.sample.candidate.name)
-          .replaceAll('{{job.title}}', preset.sample.job.title)
-          .replaceAll('{{job.department}}', preset.sample.job.department)
-          .replaceAll('{{lead.source}}', preset.sample.lead.source)
-          .replaceAll('{{client.name}}', preset.sample.client.name)
-          .replaceAll('{{pipeline.stage}}', preset.sample.pipeline.stage);
+        const defaultSample = {
+          candidate: { name: 'Sarah Johnson', email: 'sarah@example.com' },
+          job: { title: 'Senior Frontend Developer', department: 'Engineering' },
+          lead: { source: 'Apollo' },
+          client: { name: 'Acme Inc.' },
+          pipeline: { stage: 'Offer', prev_stage: 'Interview' }
+        } as any;
+        const sample = (preset && preset.sample) ? preset.sample : defaultSample;
+        const rendered = String(preset.template || '')
+          .replaceAll('{{candidate.name}}', sample?.candidate?.name || '')
+          .replaceAll('{{job.title}}', sample?.job?.title || '')
+          .replaceAll('{{job.department}}', sample?.job?.department || '')
+          .replaceAll('{{lead.source}}', sample?.lead?.source || '')
+          .replaceAll('{{client.name}}', sample?.client?.name || '')
+          .replaceAll('{{pipeline.stage}}', sample?.pipeline?.stage || '');
         pv.textContent = rendered;
       }
     };
