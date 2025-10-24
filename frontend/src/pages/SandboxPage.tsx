@@ -105,12 +105,50 @@ export default function SandboxPage() {
       }
     };
 
+    const inferSlugFromTitle = (title: string) => {
+      const t = String(title || '').toLowerCase();
+      const map: Record<string, string> = {
+        'candidate hired': 'candidate_hired',
+        'lead created': 'lead_created',
+        'lead tagged': 'lead_tagged',
+        'lead source detected': 'lead_source_triggered',
+        'campaign relaunched': 'campaign_relaunched',
+        'candidate updated': 'candidate_updated',
+        'pipeline stage changed': 'pipeline_stage_updated',
+        'client created': 'client_created',
+        'client updated': 'client_updated',
+        'job req created': 'job_created',
+        'universal event feed': 'events',
+        // actions
+        'send email template': 'send_email_template',
+        'send slack notification': 'notifications',
+        'sync enrichment': 'sync_enrichment',
+        'create client': 'create_client',
+        'create invoice': 'invoices_create',
+        'add deal note': 'add_note',
+        'add collaborator': 'add_collaborator',
+        'update pipeline stage': 'update_pipeline_stage',
+        'trigger rex chat': 'rex_chat'
+      };
+      return map[t];
+    };
+
     const makeNodeClickable = (node: HTMLElement) => {
       node.addEventListener('click', () => {
         if (isDragging) return;
         const title = (node.querySelector('h3') as HTMLElement)?.textContent || 'Node';
-        const endpoint = (node.querySelector('.text-xs') as HTMLElement)?.textContent?.trim() || '';
+        // Prefer text-xs element that contains '/api/' so we don't grab the small label "Trigger"
+        let endpoint = '';
+        try {
+          const candidates = Array.from(node.querySelectorAll('.text-xs')) as HTMLElement[];
+          const match = candidates.find((el) => (el.textContent || '').includes('/api/'));
+          endpoint = (match?.textContent || '').trim();
+        } catch {}
         const type = (node.querySelector('p.text-xs')?.textContent || '').includes('Action') ? 'Action' : 'Trigger';
+        if (!endpoint || !endpoint.includes('/api/')) {
+          const slug = inferSlugFromTitle(title);
+          if (slug) endpoint = `/${type === 'Action' ? 'api/actions' : 'api/events'}/${slug}`;
+        }
         setSelectedNode({ id: `${Date.now()}-${Math.random()}`, title, endpoint, type: type as any });
         openNodeModal({ title, endpoint, type });
       });
