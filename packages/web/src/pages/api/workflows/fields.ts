@@ -18,19 +18,27 @@ export default async function handler(req: any, res: any) {
   } catch {}
   if (req.method === 'OPTIONS') return res.status(204).end();
 
-  // Server-side proxy to Railway if service key is present
+  // Server-side proxy to Railway using forwarded user Authorization header (JWT from Supabase)
   const railwayBase = process.env.FIELDS_API_BASE || 'https://api.thehirepilot.com/api';
-  const serviceKey = process.env.VITE_FIELDS_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || '';
-  if (serviceKey) {
+  const authHeader: string | undefined = req.headers && (req.headers['authorization'] as string | undefined);
+  if (authHeader) {
     try {
       const url = `${railwayBase.replace(/\/$/, '')}/workflows/fields?endpoint=${encodeURIComponent(ep)}&type=${encodeURIComponent(String(type || ''))}`;
-      const r = await fetch(url, { headers: { 'Authorization': `Bearer ${serviceKey}`, 'Accept':'application/json' }, method: 'GET' } as any);
+      const r = await fetch(url, { headers: { 'Authorization': authHeader, 'Accept':'application/json' }, method: 'GET' } as any);
       const ct = String(r.headers.get('content-type') || '');
       if (r.ok && ct.includes('application/json')) {
         const body = await r.json();
         return res.status(200).json(body);
       }
-    } catch {}
+      // Log and bubble up response for debugging
+      try { if (process.env.NODE_ENV !== 'production') console.log('Railway fetch status:', r.status, 'ct:', ct); } catch {}
+      const snippet = await r.text().catch(() => '')
+        .then((t) => (typeof t === 'string' ? t.slice(0, 200) : ''));
+      return res.status(r.status || 502).json({ error: 'Failed fetch', debug: { status: r.status, bodySnippet: snippet } });
+    } catch (e: any) {
+      try { if (process.env.NODE_ENV !== 'production') console.error('Railway fetch error', e?.message || e); } catch {}
+      return res.status(502).json({ error: 'Proxy error' });
+    }
   }
   // Global tokens
   const base = [

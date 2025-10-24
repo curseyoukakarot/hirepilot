@@ -341,29 +341,11 @@ export default function SandboxPage() {
           } catch { return '/api'; }
         };
 
+        // Only call Next proxy; it forwards Authorization to Railway
         const origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '';
-        const absUrl = origin ? `${origin}/api/workflows/fields${params.toString() ? `?${params.toString()}` : ''}` : `/api/workflows/fields${params.toString() ? `?${params.toString()}` : ''}`;
-
-        // 1) Try same-origin Next API (Vercel)
-        let resp = await fetch(absUrl, { headers: await getAuthHeaders(), credentials: 'include' });
-        try { console.debug('[Sandbox] fields fetch 1 (vercel)', absUrl, 'status=', resp.status, 'ct=', resp.headers.get('content-type')); } catch {}
-
-        // 2) If HTML/app-shell or non-200, try Railway backend base
-        const isJson = resp.ok && String(resp.headers.get('content-type') || '').includes('application/json');
-        if (!isJson) {
-          const railway = getApiBase();
-          const railUrl = `${railway.replace(/\/$/, '')}/workflows/fields${params.toString() ? `?${params.toString()}` : ''}`;
-          // attach Supabase auth if present to avoid 401
-          resp = await fetch(railUrl, { headers: await getAuthHeaders(), credentials: 'include' });
-          try { console.debug('[Sandbox] fields fetch 2 (railway)', railUrl, 'status=', resp.status, 'ct=', resp.headers.get('content-type')); } catch {}
-        }
-        // 3) Last fallback to relative
-        const finalIsJson = resp.ok && String(resp.headers.get('content-type') || '').includes('application/json');
-        if (!finalIsJson) {
-          const relUrl = `/api/workflows/fields${params.toString() ? `?${params.toString()}` : ''}`;
-          resp = await fetch(relUrl, { headers: await getAuthHeaders(), credentials: 'include' });
-          try { console.debug('[Sandbox] fields fetch 3 (relative)', relUrl, 'status=', resp.status, 'ct=', resp.headers.get('content-type')); } catch {}
-        }
+        const proxyUrl = origin ? `${origin}/api/workflows/fields${params.toString() ? `?${params.toString()}` : ''}` : `/api/workflows/fields${params.toString() ? `?${params.toString()}` : ''}`;
+        let resp = await fetch(proxyUrl, { headers: await getAuthHeaders(), credentials: 'include' });
+        try { console.debug('[Sandbox] fields fetch (proxy)', proxyUrl, 'status=', resp.status, 'ct=', resp.headers.get('content-type')); } catch {}
         if (!resp.ok) throw new Error('bad resp');
         const data = await resp.json().catch(async () => { try { console.debug('[Sandbox] fields non-JSON body', await resp.text()); } catch {}; return null; });
         requestAnimationFrame(() => {
