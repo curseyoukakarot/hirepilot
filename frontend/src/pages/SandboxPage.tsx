@@ -291,7 +291,8 @@ export default function SandboxPage() {
         const data = await resp.json().catch(() => null);
         requestAnimationFrame(() => {
           // rebuild pills deterministically using data-testid
-          const pillsWrap = document.querySelector('#data-pills-section .flex.flex-wrap') as HTMLElement | null;
+          const pillsWrap = document.getElementById('pills-wrap') as HTMLElement | null;
+          const pillsWrap = document.getElementById('pills-wrap') as HTMLElement | null;
           if (pillsWrap) {
             pillsWrap.innerHTML = '';
             (data?.fields || []).forEach((f: any) => {
@@ -749,7 +750,7 @@ export default function SandboxPage() {
                 <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
                   <i className="fas fa-tags mr-2 text-blue-500"></i>Available Data
                 </h3>
-                <div className="flex flex-wrap gap-2">
+                <div id="pills-wrap" className="flex flex-wrap gap-2" data-testid="pills-container">
                   <span className="pill-token px-3 py-1 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs rounded-full cursor-pointer hover:scale-105 transition-transform">{"{{candidate.name}}"}</span>
                   <span className="pill-token px-3 py-1 bg-gradient-to-r from-green-500 to-teal-600 text-white text-xs rounded-full cursor-pointer hover:scale-105 transition-transform">{"{{job.title}}"}</span>
                   <span className="pill-token px-3 py-1 bg-gradient-to-r from-orange-500 to-red-600 text-white text-xs rounded-full cursor-pointer hover:scale-105 transition-transform">{"{{candidate.email}}"}</span>

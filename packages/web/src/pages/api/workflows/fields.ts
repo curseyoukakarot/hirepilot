@@ -1,7 +1,13 @@
 export default async function handler(req: any, res: any) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
   const { endpoint, type } = req.query || {};
-  const ep = String(endpoint || '').toLowerCase();
+  let ep = String(endpoint || '').toLowerCase();
+  // If the caller passed a slug (e.g., 'client_created' or 'trigger') instead of a full path, try to coerce to a full path
+  if (ep && !ep.includes('/api/')) {
+    const slug = ep.split('/').filter(Boolean).pop() || ep;
+    const category = String(type || '').toLowerCase() === 'action' ? 'actions' : 'events';
+    ep = `/api/${category}/${slug}`;
+  }
   // Global tokens
   const base = [
     'candidate.id', 'candidate.name', 'candidate.email', 'candidate.phone',
