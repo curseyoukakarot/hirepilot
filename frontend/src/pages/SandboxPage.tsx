@@ -316,8 +316,16 @@ export default function SandboxPage() {
               if (m) token = decodeURIComponent(m[1]);
             }
           } catch {}
+          // Service key fallback (for server-proxy-less testing; ensure not exposed in prod)
+          try {
+            const w:any = window as any;
+            const svc = (typeof import.meta !== 'undefined' && (import.meta as any).env && ((import.meta as any).env.VITE_FIELDS_SERVICE_KEY || (import.meta as any).env.VITE_SUPABASE_SERVICE_KEY))
+              || w.__HP_SERVICE_KEY__ || w.HP_SERVICE_KEY;
+            if (!token && svc) token = String(svc);
+          } catch {}
           const h: Record<string,string> = { 'Accept': 'application/json' };
-          if (token) { h['Authorization'] = `Bearer ${token}`; h['x-supabase-auth'] = `Bearer ${token}`; }
+          if (token) { h['Authorization'] = `Bearer ${token}`; h['x-supabase-auth'] = `Bearer ${token}`; h['x-api-key'] = token; }
+          try { if (typeof window !== 'undefined' && window.location?.origin) h['Origin'] = window.location.origin; } catch {}
           return h;
         };
         const getApiBase = () => {
