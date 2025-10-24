@@ -324,8 +324,8 @@ export default function SandboxPage() {
             if (!token && svc) token = String(svc);
           } catch {}
           const h: Record<string,string> = { 'Accept': 'application/json' };
-          if (token) { h['Authorization'] = `Bearer ${token}`; h['x-supabase-auth'] = `Bearer ${token}`; h['x-api-key'] = token; }
-          try { if (typeof window !== 'undefined' && window.location?.origin) h['Origin'] = window.location.origin; } catch {}
+          // CORS-friendly: only send Authorization to pass preflight on Railway
+          if (token) { h['Authorization'] = `Bearer ${token}`; }
           return h;
         };
         const getApiBase = () => {
