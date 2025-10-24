@@ -1,4 +1,8 @@
 import React, { useEffect, useState } from 'react';
+// Supabase client import path fallback
+let supabase: any = null;
+try { supabase = require('../lib/supabaseClient').supabase; } catch {}
+try { if (!supabase) supabase = require('../../lib/supabaseClient').supabase; } catch {}
 import { getSchemaForEndpoint, nodeSchemas } from '../config/nodeSchemas';
 
 export default function SandboxPage() {
@@ -311,7 +315,13 @@ export default function SandboxPage() {
         if (!isJson) {
           const railway = getApiBase();
           const railUrl = `${railway.replace(/\/$/, '')}/workflows/fields${params.toString() ? `?${params.toString()}` : ''}`;
-          resp = await fetch(railUrl, { headers: { 'Accept': 'application/json' } });
+          // attach Supabase auth if present to avoid 401
+          let authHeader: Record<string, string> = { 'Accept': 'application/json' };
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.access_token) authHeader = { ...authHeader, 'Authorization': `Bearer ${session.access_token}` };
+          } catch {}
+          resp = await fetch(railUrl, { headers: authHeader, credentials: 'include' });
           try { console.debug('[Sandbox] fields fetch 2 (railway)', railUrl, 'status=', resp.status, 'ct=', resp.headers.get('content-type')); } catch {}
         }
         // 3) Last fallback to relative
