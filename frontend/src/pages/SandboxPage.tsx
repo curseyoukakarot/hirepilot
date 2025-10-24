@@ -286,7 +286,13 @@ export default function SandboxPage() {
       });
 
       try {
-        const resp = await fetch('/api/workflows/fields' + (params.toString() ? `?${params.toString()}` : ''));
+        const origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '';
+        const absUrl = origin ? `${origin}/api/workflows/fields${params.toString() ? `?${params.toString()}` : ''}` : `/api/workflows/fields${params.toString() ? `?${params.toString()}` : ''}`;
+        let resp = await fetch(absUrl, { headers: { 'Accept': 'application/json' } });
+        if (!resp.ok || (resp.headers && !String(resp.headers.get('content-type') || '').includes('application/json'))) {
+          // Fallback to relative in case of proxy
+          resp = await fetch(`/api/workflows/fields${params.toString() ? `?${params.toString()}` : ''}`, { headers: { 'Accept': 'application/json' } });
+        }
         if (!resp.ok) throw new Error('bad resp');
         const data = await resp.json().catch(() => null);
         requestAnimationFrame(() => {
