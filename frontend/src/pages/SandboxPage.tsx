@@ -290,6 +290,28 @@ export default function SandboxPage() {
       });
 
       try {
+        const getAuthHeaders = async () => {
+          let token: string | null = null;
+          // Supabase session if available
+          try { if (supabase?.auth?.getSession) { const { data:{ session } } = await supabase.auth.getSession(); token = session?.access_token || null; } } catch {}
+          // LocalStorage fallback (works with sb-*-auth-token)
+          try {
+            if (!token && typeof localStorage !== 'undefined') {
+              const key = Object.keys(localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
+              if (key) { const raw = localStorage.getItem(key); if (raw) { const obj = JSON.parse(raw); token = obj?.access_token || obj?.accessToken || null; } }
+            }
+          } catch {}
+          // Cookie fallback
+          try {
+            if (!token && typeof document !== 'undefined') {
+              const m = document.cookie.match(/(?:^|; )sb-access-token=([^;]+)/);
+              if (m) token = decodeURIComponent(m[1]);
+            }
+          } catch {}
+          const h: Record<string,string> = { 'Accept': 'application/json' };
+          if (token) { h['Authorization'] = `Bearer ${token}`; h['x-supabase-auth'] = `Bearer ${token}`; }
+          return h;
+        };
         const getApiBase = () => {
           try {
             const w: any = window as any;
@@ -307,7 +329,7 @@ export default function SandboxPage() {
         const absUrl = origin ? `${origin}/api/workflows/fields${params.toString() ? `?${params.toString()}` : ''}` : `/api/workflows/fields${params.toString() ? `?${params.toString()}` : ''}`;
 
         // 1) Try same-origin Next API (Vercel)
-        let resp = await fetch(absUrl, { headers: { 'Accept': 'application/json' } });
+        let resp = await fetch(absUrl, { headers: await getAuthHeaders(), credentials: 'include' });
         try { console.debug('[Sandbox] fields fetch 1 (vercel)', absUrl, 'status=', resp.status, 'ct=', resp.headers.get('content-type')); } catch {}
 
         // 2) If HTML/app-shell or non-200, try Railway backend base
@@ -316,23 +338,18 @@ export default function SandboxPage() {
           const railway = getApiBase();
           const railUrl = `${railway.replace(/\/$/, '')}/workflows/fields${params.toString() ? `?${params.toString()}` : ''}`;
           // attach Supabase auth if present to avoid 401
-          let authHeader: Record<string, string> = { 'Accept': 'application/json' };
-          try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session?.access_token) authHeader = { ...authHeader, 'Authorization': `Bearer ${session.access_token}` };
-          } catch {}
-          resp = await fetch(railUrl, { headers: authHeader, credentials: 'include' });
+          resp = await fetch(railUrl, { headers: await getAuthHeaders(), credentials: 'include' });
           try { console.debug('[Sandbox] fields fetch 2 (railway)', railUrl, 'status=', resp.status, 'ct=', resp.headers.get('content-type')); } catch {}
         }
         // 3) Last fallback to relative
         const finalIsJson = resp.ok && String(resp.headers.get('content-type') || '').includes('application/json');
         if (!finalIsJson) {
           const relUrl = `/api/workflows/fields${params.toString() ? `?${params.toString()}` : ''}`;
-          resp = await fetch(relUrl, { headers: { 'Accept': 'application/json' } });
+          resp = await fetch(relUrl, { headers: await getAuthHeaders(), credentials: 'include' });
           try { console.debug('[Sandbox] fields fetch 3 (relative)', relUrl, 'status=', resp.status, 'ct=', resp.headers.get('content-type')); } catch {}
         }
         if (!resp.ok) throw new Error('bad resp');
-        const data = await resp.json().catch(() => null);
+        const data = await resp.json().catch(async () => { try { console.debug('[Sandbox] fields non-JSON body', await resp.text()); } catch {}; return null; });
         requestAnimationFrame(() => {
           // rebuild pills deterministically using data-testid
           const pillsWrap = document.getElementById('pills-wrap') as HTMLElement | null;
