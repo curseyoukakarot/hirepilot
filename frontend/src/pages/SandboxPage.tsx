@@ -48,14 +48,14 @@ export default function SandboxPage() {
       return preset;
     };
 
-    const applyPresetToModal = (preset: ReturnType<typeof getPresetFor>) => {
+    const applyPresetToModal = (preset: any, nodeTitle?: string) => {
       const nodeNameInput = document.querySelector('#config-fields input[type="text"]') as HTMLInputElement | null; // first is Node Name
       const textInputs = Array.from(document.querySelectorAll('#config-fields input[type="text"]')) as HTMLInputElement[];
       const candidateInput = textInputs[1];
       const jobInput = textInputs[2];
       const channelSelect = document.querySelector('#config-fields select') as HTMLSelectElement | null;
       const messageTextarea = document.querySelector('#config-fields textarea') as HTMLTextAreaElement | null;
-      if (nodeNameInput) nodeNameInput.value = preset.nodeName;
+      if (nodeNameInput) nodeNameInput.value = preset.nodeName || preset.name || nodeTitle || nodeNameInput.value;
       if (candidateInput) candidateInput.value = preset.candidateName;
       if (jobInput) jobInput.value = preset.jobTitle;
       if (channelSelect) channelSelect.value = preset.channel;
@@ -221,9 +221,36 @@ export default function SandboxPage() {
       if (node?.endpoint) params.set('endpoint', node.endpoint);
       if (node?.type) params.set('type', node.type.toLowerCase());
       const schema = getSchemaForEndpoint(node?.endpoint);
+      // Apply preset immediately (fallback) and render fallback tokens if API unavailable
+      const fallbackPreset = (schema?.guided || getPresetFor(node));
+      requestAnimationFrame(() => {
+        applyPresetToModal(fallbackPreset as any, node?.title);
+        const pillsWrap = document.querySelector('#data-pills-section .flex.flex-wrap') as HTMLElement | null;
+        if (pillsWrap && Array.isArray(fallbackPreset?.fields)) {
+          pillsWrap.innerHTML = '';
+          (fallbackPreset.fields as string[]).forEach((name) => {
+            const span = document.createElement('span');
+            span.className = 'pill-token px-3 py-1 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs rounded-full cursor-pointer hover:scale-105 transition-transform';
+            span.textContent = `{{${name}}}`;
+            span.addEventListener('click', () => {
+              const active = document.activeElement as HTMLInputElement | HTMLTextAreaElement | null;
+              if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
+                const cursorPos = (active as any).selectionStart || 0;
+                const before = (active as any).value.substring(0, cursorPos);
+                const after = (active as any).value.substring((active as any).selectionEnd || cursorPos);
+                (active as any).value = before + span.textContent + after;
+                (active as any).setSelectionRange(before.length + (span.textContent||'').length, before.length + (span.textContent||'').length);
+              }
+            });
+            pillsWrap.appendChild(span);
+          });
+        }
+      });
+
       try {
         const resp = await fetch('/api/workflows/fields' + (params.toString() ? `?${params.toString()}` : ''));
-        const data = await resp.json();
+        if (!resp.ok) throw new Error('bad resp');
+        const data = await resp.json().catch(() => null);
         requestAnimationFrame(() => {
           // rebuild pills deterministically using data-testid
           const pillsWrap = document.querySelector('#data-pills-section .flex.flex-wrap') as HTMLElement | null;
@@ -249,7 +276,7 @@ export default function SandboxPage() {
           }
           // apply schema-guided defaults
           const preset = schema?.guided || getPresetFor(node);
-          applyPresetToModal(preset as any);
+          applyPresetToModal(preset as any, node?.title);
           setModalState({
             mode: 'guided',
             availableData: data?.fields || [],

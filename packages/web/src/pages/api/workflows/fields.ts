@@ -54,6 +54,9 @@ export default async function handler(req: any, res: any) {
     if (m.match.test(ep)) { fields = [...fields, ...m.extra]; break; }
   }
 
+  try {
+    res.setHeader('Content-Type', 'application/json');
+  } catch {}
   return res.status(200).json({ fields });
 }
 
