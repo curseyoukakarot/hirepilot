@@ -343,9 +343,19 @@ export default function SandboxPage() {
 
         // Only call Next proxy; it forwards Authorization to Railway
         const origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '';
-        const proxyUrl = origin ? `${origin}/api/workflows/fields${params.toString() ? `?${params.toString()}` : ''}` : `/api/workflows/fields${params.toString() ? `?${params.toString()}` : ''}`;
+        // Allow overriding the proxy host (packages/web) if the current origin hosts only the SPA
+        const proxyBase = (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_FIELDS_PROXY_BASE) || origin;
+        let proxyUrl = `${proxyBase}/api/workflows/fields${params.toString() ? `?${params.toString()}` : ''}`;
         let resp = await fetch(proxyUrl, { headers: await getAuthHeaders(), credentials: 'include' });
-        try { console.debug('[Sandbox] fields fetch (proxy)', proxyUrl, 'status=', resp.status, 'ct=', resp.headers.get('content-type')); } catch {}
+        let ct = String(resp.headers.get('content-type') || '');
+        try { console.debug('[Sandbox] fields fetch (proxy)', proxyUrl, 'status=', resp.status, 'ct=', ct); } catch {}
+        // If the response is HTML (likely hitting SPA instead of API), try fallback to same-path relative (in case of reverse proxy)
+        if (ct.includes('text/html')) {
+          const relUrl = `/api/workflows/fields${params.toString() ? `?${params.toString()}` : ''}`;
+          resp = await fetch(relUrl, { headers: await getAuthHeaders(), credentials: 'include' });
+          ct = String(resp.headers.get('content-type') || '');
+          try { console.debug('[Sandbox] fields fetch (proxy-relative)', relUrl, 'status=', resp.status, 'ct=', ct); } catch {}
+        }
         if (!resp.ok) throw new Error('bad resp');
         const data = await resp.json().catch(async () => { try { console.debug('[Sandbox] fields non-JSON body', await resp.text()); } catch {}; return null; });
         requestAnimationFrame(() => {
