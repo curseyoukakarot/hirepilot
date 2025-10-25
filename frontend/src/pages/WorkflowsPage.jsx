@@ -15,7 +15,13 @@ export default function WorkflowsPage() {
       'Optionally set scoring rules under Messaging → Scoring.',
       'Save and test with a sample lead.'
     ] },
-    { id: 2, title: 'LinkedIn Connect → Slack Introduction', category: 'Sourcing', trigger: 'New LinkedIn connection (Chrome Extension)', action: 'Post Slack summary to #new-prospects', tools: ['Chrome Extension', 'Slack', 'HirePilot'], description: 'Instantly post a prospect intro in Slack when a LI connection is made.' },
+    { id: 2, title: 'LinkedIn Connect → Slack Introduction', category: 'Sourcing', trigger: 'New LinkedIn connection (Chrome Extension)', action: 'Tag lead + post Slack message', tools: ['Chrome Extension', 'HirePilot', 'Slack'], description: 'When a connection is made, tag the lead and announce in Slack.', setupTime: '5 min', difficulty: 'Beginner', setupSteps: [
+      'Install/enable the HirePilot Chrome Extension and sign in.',
+      'On LinkedIn, click the “LinkedIn Request” button in the extension to send the request.',
+      'HirePilot will tag the lead "LinkedIn Request Made" automatically.',
+      'In Workflows, create a trigger for leads tagged "LinkedIn Request Made".',
+      'Add an action to post a Slack message to your desired channel.'
+    ] },
     { id: 3, title: 'Hunter Verified → Send Intro Email via SendGrid', category: 'Sourcing', trigger: 'Email verified by Hunter', action: 'Send personalized intro using SendGrid template', tools: ['Hunter', 'SendGrid', 'HirePilot'], description: 'Auto-send a personalized intro once a verified email is found.' },
     { id: 4, title: 'Sales Navigator Saved Lead → Create Job Target', category: 'Sourcing', trigger: 'Saved lead on Sales Navigator', action: 'Add to Sniper Target list', tools: ['LinkedIn Sales Navigator', 'HirePilot'], description: 'Saving a lead on Sales Navigator automatically creates a Sniper target.' },
     { id: 5, title: 'Lead Tagged “Hiring Manager” → Create Client in CRM', category: 'Sourcing', trigger: "Lead tagged 'Hiring Manager'", action: 'Create client record in Monday.com', tools: ['HirePilot', 'Monday.com'], description: 'Tag leads as “Hiring Manager” to auto-create a client in your CRM.' },
