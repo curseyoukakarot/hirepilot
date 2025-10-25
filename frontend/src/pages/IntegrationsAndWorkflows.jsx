@@ -25,6 +25,7 @@ export default function IntegrationsAndWorkflows() {
     "Billing",
     "REX Intelligence",
     "Client Experience",
+    "Team",
   ];
 
   const integrations = [
@@ -48,250 +49,48 @@ export default function IntegrationsAndWorkflows() {
     { name: "Decodo", icon: "/decodo.png", desc: "Reliable proxy layer for LinkedIn scraping." },
   ];
 
-  // ---------- 25 Workflow Recipes ----------
+  // ---------- Replaced Workflow Library ----------
   const workflows = [
-    // 1–3 Sourcing
-    {
-      id: 1,
-      title: "Auto-Enrich New Lead (Apollo → HirePilot)",
-      category: "Sourcing",
-      trigger: "New lead found in Apollo",
-      action: "Enrich via Hunter/Skrapp → Add to campaign",
-      tools: ["Apollo", "Hunter", "Skrapp", "HirePilot"],
-      desc: "Turns raw lead data into outreach-ready contacts automatically.",
-    },
-    {
-      id: 2,
-      title: "LinkedIn Profile → Candidate Card",
-      category: "Sourcing",
-      trigger: "Chrome Extension scrape",
-      action: "Create enriched candidate in HirePilot",
-      tools: ["Chrome Extension", "Decodo", "HirePilot"],
-      desc: "Turn any LinkedIn profile into a live candidate instantly.",
-    },
-    {
-      id: 3,
-      title: "Lead Scoring via Clay + HirePilot",
-      category: "Sourcing",
-      trigger: "Campaign launch",
-      action: "Send leads to Clay for scoring & segmentation",
-      tools: ["Clay", "HirePilot"],
-      desc: "Identify top prospects by seniority, size, and funding.",
-    },
+    // Lead & Prospecting (Sourcing)
+    { id: 1, title: "Apollo → Smart Enrichment & Warm Tagging", category: "Sourcing", trigger: "Lead arrives from Apollo", action: "Auto-enrich, score, and tag 'Warm'", tools: ["Apollo", "Hunter", "Skrapp", "HirePilot"], desc: "When a lead arrives from Apollo, HirePilot enriches, scores interest, and tags them 'Warm'." },
+    { id: 2, title: "LinkedIn Connect → Slack Introduction", category: "Sourcing", trigger: "New LinkedIn connection (Chrome Extension)", action: "Post Slack summary to #new-prospects", tools: ["Chrome Extension", "Slack", "HirePilot"], desc: "Instantly post a prospect intro in Slack when a LI connection is made." },
+    { id: 3, title: "Hunter Verified → Send Intro Email via SendGrid", category: "Sourcing", trigger: "Email verified by Hunter", action: "Send personalized intro using SendGrid template", tools: ["Hunter", "SendGrid", "HirePilot"], desc: "Auto-send a personalized intro once a verified email is found." },
+    { id: 4, title: "Sales Navigator Saved Lead → Create Job Target", category: "Sourcing", trigger: "Saved lead on Sales Navigator", action: "Add to Sniper Target list", tools: ["LinkedIn Sales Navigator", "HirePilot"], desc: "Saving a lead on Sales Navigator automatically creates a Sniper target." },
+    { id: 5, title: "Lead Tagged “Hiring Manager” → Create Client in CRM", category: "Sourcing", trigger: "Lead tagged 'Hiring Manager'", action: "Create client record in Monday.com", tools: ["HirePilot", "Monday.com"], desc: "Tag leads as 'Hiring Manager' to auto-create a client in your CRM." },
 
-    // 4–6 Messaging
-    {
-      id: 4,
-      title: "Lead Reply → Slack Alert",
-      category: "Messaging",
-      trigger: "message_reply",
-      action: "Notify recruiter in Slack with candidate link",
-      tools: ["HirePilot", "Slack"],
-      desc: "Never miss a reply again—get instant Slack pings.",
-    },
-    {
-      id: 5,
-      title: "Campaign Send → SendGrid Attribution",
-      category: "Messaging",
-      trigger: "message_sent",
-      action: "Track SendGrid IDs for analytics",
-      tools: ["HirePilot", "SendGrid"],
-      desc: "Monitor opens, clicks, and replies across campaigns.",
-    },
-    {
-      id: 6,
-      title: "New Candidate → Client Email (HTML submission)",
-      category: "Messaging",
-      trigger: "candidate_created",
-      action: "Send styled candidate email to client",
-      tools: ["HirePilot", "SendGrid"],
-      desc: "Auto-send beautiful candidate submissions to clients.",
-    },
+    // Messaging & Campaigns
+    { id: 6, title: "Lead Replied → Notify Recruiter in Slack", category: "Messaging", trigger: "Reply detected", action: "Post Slack alert with message text", tools: ["HirePilot", "Slack"], desc: "Real-time Slack alerts when prospects or candidates reply." },
+    { id: 7, title: "Lead Source: Skrapp → Launch Warm-Up Sequence", category: "Messaging", trigger: "Lead from Skrapp", action: "Start 'Intro + Reminder' sequence with SendGrid tracking", tools: ["Skrapp", "SendGrid", "HirePilot"], desc: "Warm up Skrapp leads with a gentle sequence and tracking." },
+    { id: 8, title: "Campaign Relaunched → Team Announcement + Stats", category: "Messaging", trigger: "Campaign relaunched", action: "Push stats summary to Slack", tools: ["HirePilot", "Slack"], desc: "Announce relaunch with fresh send/reply/open metrics." },
+    { id: 9, title: "High-Performing Template → Clone to New Campaign", category: "Messaging", trigger: ">45% open rate detected", action: "Clone template to 'Top Performers' folder", tools: ["HirePilot"], desc: "Automatically surface winning templates for reuse." },
+    { id: 10, title: "Reply Detected → Update Candidate Profile in Notion", category: "Messaging", trigger: "Reply received", action: "Append last message to candidate's Notion timeline", tools: ["Notion", "HirePilot"], desc: "Keep Notion profiles updated with latest replies." },
 
-    // 7–9 Pipeline/Client
-    {
-      id: 7,
-      title: "Candidate Hired → Stripe Invoice",
-      category: "Billing",
-      trigger: "candidate_hired",
-      action: "Create invoice in Stripe → send to client",
-      tools: ["HirePilot", "Stripe"],
-      desc: "Bill clients automatically when hires are made.",
-    },
-    {
-      id: 8,
-      title: "Pipeline Stage Updated → Monday.com Task",
-      category: "Pipeline",
-      trigger: "pipeline_stage_updated",
-      action: "Update task board in Monday.com",
-      tools: ["HirePilot", "Monday.com"],
-      desc: "Keep client boards perfectly in sync with every stage move.",
-    },
-    {
-      id: 9,
-      title: "Job REQ Created → Slack Channel",
-      category: "Client Experience",
-      trigger: "pipeline_created",
-      action: "Create dedicated Slack channel for that REQ",
-      tools: ["HirePilot", "Slack", "Zapier"],
-      desc: "Instant collaboration channels per open role.",
-    },
+    // Client & CRM
+    { id: 11, title: "Client Created → Auto-Enrich + Slack Welcome", category: "Client Experience", trigger: "client_created", action: "Enrich company + send Slack 'Client added'", tools: ["HirePilot", "Slack"], desc: "New clients are enriched and announced instantly." },
+    { id: 12, title: "Client Updated → Send Snapshot to Notion CRM", category: "Client Experience", trigger: "client_updated", action: "Update Notion CRM card via Make.com", tools: ["Make.com", "Notion", "HirePilot"], desc: "Sync client updates to your Notion CRM automatically." },
+    { id: 13, title: "Contact Added → Schedule Intro Email", category: "Client Experience", trigger: "Contact created", action: "Send intro email via SendGrid after 15 minutes", tools: ["SendGrid", "HirePilot"], desc: "New contacts get a timely intro email queued by HirePilot." },
+    { id: 14, title: "New Client → Create Monday Board + Slack Channel", category: "Client Experience", trigger: "client_created", action: "Create Monday board + dedicated Slack channel", tools: ["Monday.com", "Slack", "HirePilot"], desc: "Kick off client projects with auto-created boards and channels." },
+    { id: 15, title: "Client Synced → Generate Stripe Invoice Draft", category: "Billing", trigger: "Client enrichment completed", action: "Draft Stripe invoice (Pro)", tools: ["Stripe", "HirePilot"], desc: "Automate invoice drafts once enrichment finishes." },
 
-    // 10–11 Billing/Admin
-    {
-      id: 10,
-      title: "Candidate Offered → DocuSign Contract",
-      category: "Billing",
-      trigger: "candidate_offered",
-      action: "Auto-generate placement agreement in DocuSign",
-      tools: ["HirePilot", "DocuSign"],
-      desc: "Send contracts instantly at offer stage.",
-    },
-    {
-      id: 11,
-      title: "Client Signed → Stripe Subscription Setup",
-      category: "Billing",
-      trigger: "client_created",
-      action: "Create subscription in Stripe",
-      tools: ["HirePilot", "Stripe"],
-      desc: "Automate recurring billing for retained clients.",
-    },
+    // Deals & Placements
+    { id: 16, title: "Candidate Hired → Create Stripe Invoice + Slack Win Alert", category: "Billing", trigger: "candidate_hired", action: "Create invoice + confetti Slack alert", tools: ["Stripe", "Slack", "HirePilot"], desc: "Celebrate wins and bill instantly on hire." },
+    { id: 17, title: "Candidate Submitted → Create DocuSign Offer Letter", category: "Pipeline", trigger: "candidate_submitted", action: "Generate & send DocuSign offer", tools: ["DocuSign", "HirePilot"], desc: "Streamline offer letter creation and delivery." },
+    { id: 18, title: "Pipeline Stage Updated → Update Google Sheet Tracker", category: "Pipeline", trigger: "pipeline_stage_updated", action: "Append change to master Google Sheet", tools: ["Google Sheets", "HirePilot"], desc: "Keep your master pipeline spreadsheet in sync." },
+    { id: 19, title: "Candidate Rejected → Send “Keep Warm” Message", category: "Messaging", trigger: "candidate_rejected", action: "Send follow-up to keep candidate engaged", tools: ["SendGrid", "HirePilot"], desc: "Maintain relationships even when candidates are not a fit." },
+    { id: 20, title: "New Application → Create Task in Monday.com", category: "Pipeline", trigger: "application_created", action: "Add task card to client's Monday board", tools: ["Monday.com", "HirePilot"], desc: "Ensure new applications create actionable tasks." },
 
-    // 12–15 REX Core
-    {
-      id: 12,
-      title: "REX Scheduler → Weekly Sourcing Run",
-      category: "REX Intelligence",
-      trigger: "Every Monday 9:00 AM",
-      action: "Run Apollo searches + build new campaign",
-      tools: ["REX", "Apollo", "HirePilot"],
-      desc: "Fully autonomous sourcing with weekly reports.",
-    },
-    {
-      id: 13,
-      title: "REX Assist → Job Matching Intelligence",
-      category: "REX Intelligence",
-      trigger: "Upload resume or job description",
-      action: "Match candidate to best REQ via embeddings",
-      tools: ["REX", "Supabase", "HirePilot"],
-      desc: "Instant fit analysis between job and resume using AI embeddings.",
-    },
-    {
-      id: 14,
-      title: "REX Workflow → Candidate Enrichment Loop",
-      category: "REX Intelligence",
-      trigger: "Lead imported without email",
-      action: "Try Skrapp → Hunter → Apollo until enriched",
-      tools: ["REX", "Skrapp", "Hunter", "Apollo"],
-      desc: "Smart cascading enrichment using your credit logic.",
-    },
-    {
-      id: 15,
-      title: "REX Daily Digest → Slack Summary",
-      category: "REX Intelligence",
-      trigger: "Daily at 5:00 PM",
-      action: "Summarize replies, updates, and hires to Slack",
-      tools: ["REX", "Slack"],
-      desc: "Your recruiting day, summarized automatically.",
-    },
+    // Team & Collaboration
+    { id: 21, title: "Collaborator Added → Send Slack Welcome", category: "Team", trigger: "collaborator_added", action: "Send Slack intro with links & next steps", tools: ["Slack", "HirePilot"], desc: "Welcome new collaborators with helpful context." },
+    { id: 22, title: "Role Changed → Sync Permissions + Notion Access", category: "Team", trigger: "role_updated", action: "Sync access across Notion and Slack", tools: ["Notion", "Slack", "HirePilot"], desc: "Keep team permissions consistent across tools." },
+    { id: 23, title: "Invite Sent → Trigger Onboarding Sequence", category: "Team", trigger: "invite_sent", action: "Send onboarding email series via SendGrid", tools: ["SendGrid", "HirePilot"], desc: "Automate onboarding for new team invites." },
 
-    // 16–18 Intelligence & Alerts
-    {
-      id: 16,
-      title: "Weekly Hiring Analytics → Slack + Email",
-      category: "REX Intelligence",
-      trigger: "Every Friday 5:00 PM",
-      action: "Compile KPIs → send Slack summary + HTML email",
-      tools: ["HirePilot", "REX", "Slack", "SendGrid"],
-      desc: "From raw pipeline data to a clean weekly report—no spreadsheets.",
-    },
-    {
-      id: 17,
-      title: "Job Market Intelligence → Auto Brief",
-      category: "REX Intelligence",
-      trigger: "New Job REQ created",
-      action: "Scan sources → build insights (salary, demand, volume)",
-      tools: ["HirePilot", "REX", "Apollo", "Browserless"],
-      desc: "Instant market context for smarter searches.",
-    },
-    {
-      id: 18,
-      title: "REX Alert → Pipeline Bottleneck",
-      category: "REX Intelligence",
-      trigger: "Candidate count drops below threshold",
-      action: "Send Slack alert + suggest sourcing run",
-      tools: ["REX", "Slack"],
-      desc: "Proactive alerts before your pipeline dries up.",
-    },
+    // Sniper & REX Automation
+    { id: 24, title: "Sniper Target Captured → Create Candidate + Enrich Profile", category: "REX Intelligence", trigger: "sniper_target_captured", action: "Create candidate + run enrichment", tools: ["Sniper", "HirePilot"], desc: "Convert captured targets into enriched candidates automatically." },
+    { id: 25, title: "REX Chat → Generate Daily Summary in Notion", category: "REX Intelligence", trigger: "Daily at 6:00 PM", action: "Create a Notion 'Recruiting Summary' page", tools: ["REX", "Notion", "HirePilot"], desc: "REX writes a daily summary of hires, campaigns, and conversations." },
 
-    // 19–21 Messaging & Meetings
-    {
-      id: 19,
-      title: "Auto Follow-Up (No Reply After 5 Days)",
-      category: "Messaging",
-      trigger: "message_sent with no reply after 5 days",
-      action: "Send next sequence message automatically",
-      tools: ["HirePilot", "SendGrid"],
-      desc: "Polite persistence that boosts reply rates hands-free.",
-    },
-    {
-      id: 20,
-      title: "Hot Lead Keywords → Calendar Invite",
-      category: "Messaging",
-      trigger: "lead_responded containing 'interested'/'let’s chat'",
-      action: "Create calendar invite + send confirmation",
-      tools: ["HirePilot", "Google Calendar", "SendGrid"],
-      desc: "Instantly converts interest into a scheduled call.",
-    },
-    {
-      id: 21,
-      title: "Candidate Declined → Nurture Campaign",
-      category: "Messaging",
-      trigger: "candidate_rejected",
-      action: "Add to re-engagement campaign",
-      tools: ["HirePilot", "Zapier"],
-      desc: "Keep relationships warm even after a no.",
-    },
-
-    // 22–23 Client Experience
-    {
-      id: 22,
-      title: "New Client → Shared Slack + Notion Space",
-      category: "Client Experience",
-      trigger: "client_created",
-      action: "Create shared Slack channel + Notion workspace",
-      tools: ["HirePilot", "Slack", "Notion", "Zapier"],
-      desc: "Onboard clients with a ready-to-use collaboration hub.",
-    },
-    {
-      id: 23,
-      title: "Invoice Paid → Thank-You Email",
-      category: "Client Experience",
-      trigger: "Stripe webhook invoice.paid",
-      action: "Send custom thank-you email with next steps",
-      tools: ["Stripe", "SendGrid"],
-      desc: "Polished post-payment touch that strengthens relationships.",
-    },
-
-    // 24–25 Candidate Management
-    {
-      id: 24,
-      title: "Resume Uploaded → Auto-Screening Summary",
-      category: "Pipeline",
-      trigger: "candidate resume upload",
-      action: "REX parses resume → generate summary (skills, fit, YOE)",
-      tools: ["HirePilot", "REX"],
-      desc: "Transforms raw resumes into structured insights automatically.",
-    },
-    {
-      id: 25,
-      title: "Move to Interview → Confirmation Email",
-      category: "Pipeline",
-      trigger: "candidate_interviewed",
-      action: "Send confirmation + prep resources",
-      tools: ["HirePilot", "SendGrid"],
-      desc: "Deliver a professional candidate experience, automatically.",
-    },
+    // AI-Enhanced Automations (REX Intelligence)
+    { id: 26, title: "REX Detects Unresponsive Campaign → Suggest A/B Test", category: "REX Intelligence", trigger: "Low reply rate detected", action: "Draft alternate subject line", tools: ["REX", "HirePilot"], desc: "REX proposes A/B test ideas when performance drops." },
+    { id: 27, title: "REX Detects Hiring Gap → Build Outreach Sequence", category: "REX Intelligence", trigger: "Open role without candidates", action: "Draft and launch new outreach campaign", tools: ["REX", "HirePilot"], desc: "Fill role gaps by auto-building a fresh outreach sequence." },
   ];
 
   const [filter, setFilter] = useState("All");
