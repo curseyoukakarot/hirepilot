@@ -74,6 +74,7 @@ export default function WorkflowRecipeModal({
       else if (k === 'chrome' || k === 'chrome extension') iconNode = <img src="/chrome.png" alt="Chrome" className="h-6 w-6" />;
       else if (k === 'sendgrid') iconNode = <img src="/sendgrid.png" alt="SendGrid" className="h-6 w-6" />;
       else if (k === 'hunter') iconNode = <img src="/hunter.png" alt="Hunter" className="h-6 w-6" />;
+      else if (k === 'skrapp') iconNode = <img src="/skrapp.png" alt="Skrapp" className="h-6 w-6" />;
       else if (k === 'monday' || k === 'monday.com') iconNode = <img src="/monday.png" alt="Monday.com" className="h-6 w-6" />;
       else if (k === 'apollo') iconNode = <img src="/apollo-logo-v2.png" alt="Apollo" className="h-6 w-6" />;
       else if (k === 'hirepilot') iconNode = <img src="/logo.png" alt="HirePilot" className="h-6 w-6" />;
