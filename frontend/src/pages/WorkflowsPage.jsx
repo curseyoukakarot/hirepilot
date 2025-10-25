@@ -9,7 +9,12 @@ export default function WorkflowsPage() {
   // Curated in-app workflow recipes (mirrors public /workflows)
   const workflows = [
     // Lead & Prospecting (Sourcing)
-    { id: 1, title: 'Apollo → Smart Enrichment & Warm Tagging', category: 'Sourcing', trigger: 'Lead arrives from Apollo', action: "Auto-enrich, score, and tag 'Warm'", tools: ['Apollo', 'Hunter', 'Skrapp', 'HirePilot'], description: "When a lead arrives from Apollo, HirePilot enriches, scores interest, and tags them 'Warm'." },
+    { id: 1, title: 'Apollo → Smart Enrichment & Warm Tagging', category: 'Sourcing', trigger: 'Lead arrives from Apollo', action: "Auto-enrich, score, and tag 'Warm'", tools: ['Apollo', 'HirePilot'], description: "When a lead arrives from Apollo, HirePilot enriches, scores interest, and tags them 'Warm'.", setupTime: '5 min', difficulty: 'Beginner', setupSteps: [
+      'Connect your Apollo API key in Settings → Integrations.',
+      'Enable “Auto-enrich new Apollo leads” in Workflows.',
+      'Optionally set scoring rules under Messaging → Scoring.',
+      'Save and test with a sample lead.'
+    ] },
     { id: 2, title: 'LinkedIn Connect → Slack Introduction', category: 'Sourcing', trigger: 'New LinkedIn connection (Chrome Extension)', action: 'Post Slack summary to #new-prospects', tools: ['Chrome Extension', 'Slack', 'HirePilot'], description: 'Instantly post a prospect intro in Slack when a LI connection is made.' },
     { id: 3, title: 'Hunter Verified → Send Intro Email via SendGrid', category: 'Sourcing', trigger: 'Email verified by Hunter', action: 'Send personalized intro using SendGrid template', tools: ['Hunter', 'SendGrid', 'HirePilot'], description: 'Auto-send a personalized intro once a verified email is found.' },
     { id: 4, title: 'Sales Navigator Saved Lead → Create Job Target', category: 'Sourcing', trigger: 'Saved lead on Sales Navigator', action: 'Add to Sniper Target list', tools: ['LinkedIn Sales Navigator', 'HirePilot'], description: 'Saving a lead on Sales Navigator automatically creates a Sniper target.' },
