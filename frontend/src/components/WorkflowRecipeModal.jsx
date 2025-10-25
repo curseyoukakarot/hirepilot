@@ -15,6 +15,7 @@ export default function WorkflowRecipeModal({
   difficulty,
   formula = '',
   setupSteps = [],
+  copyZap = '',
 }) {
   const [activeTab, setActiveTab] = useState('Overview');
   const [devMode, setDevMode] = useState(false);
@@ -73,6 +74,7 @@ export default function WorkflowRecipeModal({
       else if (k === 'chrome' || k === 'chrome extension') iconNode = <img src="/chrome.png" alt="Chrome" className="h-6 w-6" />;
       else if (k === 'sendgrid') iconNode = <img src="/sendgrid.png" alt="SendGrid" className="h-6 w-6" />;
       else if (k === 'hunter') iconNode = <img src="/hunter.png" alt="Hunter" className="h-6 w-6" />;
+      else if (k === 'monday' || k === 'monday.com') iconNode = <img src="/monday.png" alt="Monday.com" className="h-6 w-6" />;
       else if (k === 'apollo') iconNode = <img src="/apollo-logo-v2.png" alt="Apollo" className="h-6 w-6" />;
       else if (k === 'hirepilot') iconNode = <img src="/logo.png" alt="HirePilot" className="h-6 w-6" />;
       else if (k === 'rex') iconNode = <span className="font-mono text-sm bg-slate-800 text-slate-100 px-1.5 py-0.5 rounded">&gt;_</span>;
@@ -230,7 +232,7 @@ export default function WorkflowRecipeModal({
                 <div className="space-y-4">
                   <div className="flex flex-wrap gap-3">
                     <button
-                      onClick={(e) => copyWithFeedback('Zapier configuration copied! Import this into your Zapier account.', e.currentTarget)}
+                      onClick={(e) => copyWithFeedback(copyZap || 'Zapier configuration copied! Import this into your Zapier account.', e.currentTarget)}
                       className="px-6 py-3 bg-primary hover:bg-primary/90 rounded-lg font-semibold transition-all flex items-center text-white"
                     >
                       <i className="fa-solid fa-bolt mr-2"></i>
