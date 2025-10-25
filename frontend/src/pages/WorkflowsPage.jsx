@@ -29,7 +29,6 @@ export default function WorkflowsPage() {
       'Open the workflow card → confirm trigger (source = Hunter, status = Verified) → select your SendGrid template → Deploy Recipe.',
       'Test: add a new lead via Hunter or Chrome Extension; when verified, an intro email is sent. Check Activity Log → Messaging Events.'
     ] },
-    { id: 4, title: 'Sales Navigator Saved Lead → Create Job Target', category: 'Sourcing', trigger: 'Saved lead on Sales Navigator', action: 'Add to Sniper Target list', tools: ['LinkedIn Sales Navigator', 'HirePilot'], description: 'Saving a lead on Sales Navigator automatically creates a Sniper target.' },
     { id: 5, title: 'Lead Tagged “Hiring Manager” → Create Client in CRM', category: 'Sourcing', trigger: "Lead tagged 'Hiring Manager'", action: 'Create client record in Monday.com', tools: ['HirePilot', 'Monday.com'], description: 'Tag leads as “Hiring Manager” to auto-create a client in your CRM.' },
 
     // Messaging & Campaigns
