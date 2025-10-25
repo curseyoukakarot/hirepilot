@@ -22,7 +22,13 @@ export default function WorkflowsPage() {
       'In Workflows, create a trigger for leads tagged "LinkedIn Request Made".',
       'Add an action to post a Slack message to your desired channel.'
     ] },
-    { id: 3, title: 'Hunter Verified → Send Intro Email via SendGrid', category: 'Sourcing', trigger: 'Email verified by Hunter', action: 'Send personalized intro using SendGrid template', tools: ['Hunter', 'SendGrid', 'HirePilot'], description: 'Auto-send a personalized intro once a verified email is found.' },
+    { id: 3, title: 'Hunter Verified → Send Intro Email via SendGrid', category: 'Sourcing', trigger: 'Email verified by Hunter', action: 'Send personalized intro using SendGrid template', tools: ['Hunter', 'HirePilot', 'SendGrid'], description: 'Auto-send a personalized intro once a verified email is found.', setupTime: '5–10 min', difficulty: 'Beginner', setupSteps: [
+      'Connect Hunter: Settings → Integrations → Hunter → paste API key → Connect.',
+      'Connect SendGrid: Settings → Integrations → SendGrid → add API key (Mail Send).',
+      'Choose or create a Messaging → Template with personalization tokens (e.g., {{lead.first_name}}, {{lead.company}}).',
+      'Open the workflow card → confirm trigger (source = Hunter, status = Verified) → select your SendGrid template → Deploy Recipe.',
+      'Test: add a new lead via Hunter or Chrome Extension; when verified, an intro email is sent. Check Activity Log → Messaging Events.'
+    ] },
     { id: 4, title: 'Sales Navigator Saved Lead → Create Job Target', category: 'Sourcing', trigger: 'Saved lead on Sales Navigator', action: 'Add to Sniper Target list', tools: ['LinkedIn Sales Navigator', 'HirePilot'], description: 'Saving a lead on Sales Navigator automatically creates a Sniper target.' },
     { id: 5, title: 'Lead Tagged “Hiring Manager” → Create Client in CRM', category: 'Sourcing', trigger: "Lead tagged 'Hiring Manager'", action: 'Create client record in Monday.com', tools: ['HirePilot', 'Monday.com'], description: 'Tag leads as “Hiring Manager” to auto-create a client in your CRM.' },
 
