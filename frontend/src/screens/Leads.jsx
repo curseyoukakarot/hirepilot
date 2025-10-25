@@ -134,8 +134,26 @@ export default function Leads() {
         return Array.isArray(lead.tags) ? lead.tags.join(', ').toLowerCase() : '';
       case 'location':
         return getLocationString(lead).toLowerCase();
-      case 'source':
-        return (lead.enrichment_source || '').toLowerCase();
+      case 'source': {
+        // Prefer original source; fall back to enrichment_source only if original missing
+        const normalizeSource = (val) => {
+          if (!val) return '';
+          const v = String(val).trim().toLowerCase();
+          if (v === 'apollo') return 'apollo';
+          if (v === 'sales navigator' || v === 'sales_navigator' || v === 'phantombuster' || v === 'phantom' || v === 'sales navigator (phantombuster)' || v === 'salesnav') return 'sales navigator';
+          if (v === 'chrome extension') return 'chrome extension';
+          return v;
+        };
+        // Parse enrichment if needed to inspect possible source nested there
+        let enrichment = lead.enrichment_data;
+        if (typeof enrichment === 'string') {
+          try { enrichment = JSON.parse(enrichment); } catch { enrichment = {}; }
+        }
+        const computed = normalizeSource(lead.source)
+          || normalizeSource(lead.enrichment_source)
+          || normalizeSource(enrichment && enrichment.source);
+        return computed || '';
+      }
       case 'lastUpdated':
         return new Date(lead.updated_at || lead.created_at || 0).getTime();
       default:
@@ -711,7 +729,26 @@ export default function Leads() {
                         <div className="text-sm text-gray-900">{getLocationString(lead) || 'Unknown'}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{lead.enrichment_source || 'Unknown'}</div>
+                        <div className="text-sm text-gray-900">{
+                          (() => {
+                            const normalizeSource = (val) => {
+                              if (!val) return null;
+                              const v = String(val).trim().toLowerCase();
+                              if (v === 'apollo') return 'Apollo';
+                              if (v === 'sales navigator' || v === 'sales_navigator' || v === 'phantombuster' || v === 'phantom' || v === 'sales navigator (phantombuster)' || v === 'salesnav') return 'Sales Navigator';
+                              if (v === 'chrome extension') return 'Chrome Extension';
+                              return val;
+                            };
+                            let enrichment = lead.enrichment_data;
+                            if (typeof enrichment === 'string') {
+                              try { enrichment = JSON.parse(enrichment); } catch { enrichment = {}; }
+                            }
+                            return normalizeSource(lead.source)
+                              || normalizeSource(lead.enrichment_source)
+                              || normalizeSource(enrichment && enrichment.source)
+                              || 'Unknown';
+                          })()
+                        }</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">{new Date(lead.updated_at || lead.created_at).toLocaleString()}</div>

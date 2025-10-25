@@ -146,8 +146,8 @@ function LeadManagement() {
           return val; // keep original case if already human-readable
         };
 
-        const computedSource = normalizeSource(lead.enrichment_source)
-          || normalizeSource(lead.source)
+        const computedSource = normalizeSource(lead.source)
+          || normalizeSource(lead.enrichment_source)
           || normalizeSource(enrichment.source)
           || 'Unknown';
 
