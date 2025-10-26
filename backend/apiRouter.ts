@@ -74,6 +74,7 @@ import healthCheck from './api/health';
 import linkedinTriggerRouter from './src/routes/campaigns/linkedin/trigger';
 import linkedInCookieRouter from './src/routes/cookies/storeLinkedInCookie';
 import adminUsersRouter from './src/routes/adminUsers';
+import fieldsHandler from './api/fields';
 
 // LinkedIn session admin router
 const linkedinSessionAdmin = require('./api/linkedinSessionAdmin');
@@ -86,6 +87,9 @@ export type ApiHandler = (req: ApiRequest, res: Response) => Promise<void>;
 
 // Health check endpoint for Railway
 router.get('/health', healthCheck);
+
+// Canonical fields endpoint for Sandbox modal
+router.get('/fields', fieldsHandler);
 
 // Get campaigns
 router.get("/getCampaigns", getCampaigns);
