@@ -75,10 +75,27 @@ export default async function slackSlash(req: Request, res: Response) {
       return;
     }
 
-    const { user_id: supabaseUserId, campaign_id } = await resolveREXContext({
-      slack_user_id,
-      slack_user_email
-    });
+    let supabaseUserId: string | null = null;
+    let campaign_id: string | null = null;
+    try {
+      const ctx = await resolveREXContext({ slack_user_id, slack_user_email });
+      supabaseUserId = ctx.user_id;
+      campaign_id = ctx.campaign_id;
+    } catch (e) {
+      // Fallback: map by email directly from users if available
+      if (slack_user_email) {
+        const { data: userRow } = await supabase
+          .from('users')
+          .select('id')
+          .ilike('email', slack_user_email)
+          .maybeSingle();
+        supabaseUserId = userRow?.id || null;
+      }
+    }
+    if (!supabaseUserId) {
+      await postToSlack(slack_user_id, 'I could not link your Slack to a HirePilot account. Try `/rex link you@company.com`.', channel_id);
+      return;
+    }
 
     // Call the existing rexChat endpoint so we benefit from MCP tool handling
     const backendBase = process.env.BACKEND_INTERNAL_URL || `http://127.0.0.1:${process.env.PORT || 8080}`;
@@ -89,7 +106,7 @@ export default async function slackSlash(req: Request, res: Response) {
       messages: [ { role: 'user', content: text || '' } ]
     });
 
-    const replyText = chatResp.reply?.content?.trim() || '(no reply)';
+    const replyText = (chatResp?.reply?.content || chatResp?.message || 'Understood.').toString().trim();
     await postToSlack(slack_user_id, replyText, channel_id);
   } catch (err: any) {
     console.error('slash error', err);
