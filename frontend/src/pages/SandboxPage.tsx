@@ -312,8 +312,12 @@ export default function SandboxPage() {
           // Cookie fallback
           try {
             if (!token && typeof document !== 'undefined') {
-              const m = document.cookie.match(/(?:^|; )sb-access-token=([^;]+)/);
-              if (m) token = decodeURIComponent(m[1]);
+              const m1 = document.cookie.match(/(?:^|; )sb-access-token=([^;]+)/);
+              if (m1) token = decodeURIComponent(m1[1]);
+              if (!token) {
+                const m2 = document.cookie.match(/(?:^|; )hp_jwt=([^;]+)/);
+                if (m2) token = decodeURIComponent(m2[1]);
+              }
             }
           } catch {}
           // Service key fallback (for server-proxy-less testing; ensure not exposed in prod)
@@ -322,6 +326,11 @@ export default function SandboxPage() {
             const svc = (typeof import.meta !== 'undefined' && (import.meta as any).env && ((import.meta as any).env.VITE_FIELDS_SERVICE_KEY || (import.meta as any).env.VITE_SUPABASE_SERVICE_KEY))
               || w.__HP_SERVICE_KEY__ || w.HP_SERVICE_KEY;
             if (!token && svc) token = String(svc);
+          } catch {}
+          // Explicit debug/user token override if present
+          try {
+            const w:any = window as any;
+            if (!token && w.__HP_USER_TOKEN__) token = String(w.__HP_USER_TOKEN__);
           } catch {}
           const h: Record<string,string> = { 'Accept': 'application/json' };
           // CORS-friendly: only send Authorization to pass preflight on Railway
