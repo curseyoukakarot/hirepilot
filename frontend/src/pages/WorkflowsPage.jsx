@@ -89,7 +89,66 @@ export default function WorkflowsPage() {
     ], copyZap: `🔧 Zapier Detailed Setup\n\nTrigger (HirePilot):\n\t•\tEvent: client_created\n\t•\tEndpoint:\n\nGET /api/zapier/triggers/events?event_type=client_created&since={{now}}\n\n\n\t•\tSample Payload:\n\n{\n  "id": "evt_512",\n  "event_type": "client_created",\n  "created_at": "2025-10-25T18:50:00Z",\n  "payload": {\n    "client_id": "cli_001",\n    "client_name": "Acme Corporation",\n    "primary_contact": "Trish Kapos",\n    "email": "trish@acmecorp.com",\n    "owner": "Brandon Omoregie"\n  }\n}\n\n\n\n⸻\n\nAction 1 – Monday.com:\n\t•\tApp: Monday.com\n\t•\tEvent: “Create Board”\n\t•\tBoard Name: {{payload.client_name}} Recruiting Board\n\t•\tWorkspace: Select “Client Projects”\n\t•\tTemplate Board (optional): Choose your preferred client template to duplicate\n\t•\tAdd Columns: Job Titles, Pipeline Stage, Activity Log, Recruiter Owner\n\n⸻\n\nAction 2 – Slack:\n\t•\tApp: Slack\n\t•\tEvent: “Create Channel”\n\t•\tChannel Name: client-{{payload.client_name | lowercase | replace(" ", "-")}}\n\t•\tPrivate Channel: Yes (recommended)\n\t•\tInvite Members: Tag the recruiter ({{payload.owner}}) and client contact if integrated\n\nAction 3 – Slack Welcome Message:\n\t•\tEvent: “Send Message”\n\t•\tMessage Template:\n\n👋 Welcome to the #client-{{payload.client_name | lowercase}} channel!\nThis space will track all activity for {{payload.client_name}}’s hiring project.\nMonday board: {{monday_board_url}}\nClient Owner: {{payload.owner}}\n\n`, copyMake: `⚙️ Make.com Setup (Advanced)\n\nTrigger (HirePilot HTTP Watcher):\n\t•\tURL:\nhttps://api.thehirepilot.com/api/zapier/triggers/events?event_type=client_created\n\nStep 1 – Monday Module:\n\t•\t“Create a Board” → Name it {{payload.client_name}} Recruiting Board\n\t•\tUse a board template or predefine structure\n\nStep 2 – Slack Module:\n\t•\t“Create Channel” → client-{{payload.client_name | lowercase}}\n\t•\t“Send Message” → Post welcome with embedded Monday board link\n\nStep 3 – (Optional)\nAdd “Invite Team Members” or “Create Folder in Google Drive” for each new client.\n\n⸻\n\nResult:\nEach new client added in HirePilot automatically gets:\n\t•\tA ready-to-go Monday.com board for tracking hires\n\t•\tA dedicated Slack channel for communication\n\t•\tA welcome post linking both\n\nEverything launches instantly — no manual setup required. 🚀\n` },
 
     // Deals & Placements
-    { id: 16, title: 'Candidate Hired → Create Stripe Invoice + Slack Win Alert', category: 'Billing', trigger: 'candidate_hired', action: 'Create invoice + confetti Slack alert', tools: ['Stripe', 'Slack', 'HirePilot'], description: 'Celebrate wins and bill instantly on hire.' },
+    { id: 16, title: 'Candidate Hired → Create Stripe Invoice + Slack Win Alert', category: 'Billing', trigger: 'candidate_hired', action: 'Create invoice + confetti Slack alert', tools: ['HirePilot', 'Stripe', 'Slack'], description: 'Celebrate wins and bill instantly on hire.', setupTime: '5–10 min', difficulty: 'Beginner', setupSteps: [
+      'Connect Stripe and Slack in HirePilot → Settings → Integrations.',
+      'Enable the Candidate Hired trigger (/api/events/candidate_hired).',
+      'Map your placement fee or flat rate field in the Stripe action.',
+      'HirePilot will auto-create the invoice and post a win message to Slack.'
+    ], copyZap: [
+      '🔧 Zapier Detailed Setup',
+      '',
+      'Trigger (HirePilot):',
+      '\t•\tEvent: candidate_hired',
+      '\t•\tEndpoint:',
+      '',
+      'GET /api/zapier/triggers/events?event_type=candidate_hired&since={{now}}',
+      '',
+      '\t•\tSample Payload:',
+      '',
+      '{',
+      '  "id": "evt_701",',
+      '  "event_type": "candidate_hired",',
+      '  "created_at": "2025-10-25T19:30:00Z",',
+      '  "payload": {',
+      '    "candidate_id": "cand_208",',
+      '    "candidate_name": "Jordan Lewis",',
+      '    "job_title": "Product Manager",',
+      '    "client_company": "BrightPath Analytics",',
+      '    "placement_fee": 18000,',
+      '    "start_date": "2025-11-04",',
+      '    "owner": "Brandon Omoregie"',
+      '  }',
+      '}',
+      '',
+      '⸻',
+      '',
+      'Action 1 – Stripe:',
+      '\t•\tApp: Stripe',
+      '\t•\tEvent: “Create Invoice”',
+      '\t•\tCustomer: Match client_company or auto-create a new customer.',
+      '\t•\tLine Item Description: Placement fee for {{payload.candidate_name}} - {{payload.job_title}}',
+      '\t•\tAmount: {{payload.placement_fee}}',
+      '\t•\tCurrency: USD',
+      '\t•\tAuto-finalize: ✅ Yes',
+      '',
+      '⸻',
+      '',
+      'Action 2 – Slack:',
+      '\t•\tApp: Slack',
+      '\t•\tEvent: “Send Channel Message”',
+      '\t•\tChannel: #placements (or your internal wins channel)',
+      '\t•\tMessage Template:',
+      '',
+      '🎉 **New Hire Confirmed!**',
+      'Candidate: {{payload.candidate_name}}',
+      'Role: {{payload.job_title}}',
+      'Client: {{payload.client_company}}',
+      'Placement Fee: ${{payload.placement_fee}}',
+      'Owner: {{payload.owner}}',
+      'Invoice automatically created in Stripe 💸',
+      '',
+      '\t•\tEmoji Reaction: 🥂 or 🚀',
+    ].join('\n'), copyMake: `⚙️ Make.com Setup (Advanced Flow)\n\nTrigger (HirePilot HTTP Watcher):\n\t•\tURL:\nhttps://api.thehirepilot.com/api/zapier/triggers/events?event_type=candidate_hired\n\nStep 1 – Stripe (Create Invoice):\n\t•\tCustomer: Find or create by company name.\n\t•\tAdd Line Item: Placement Fee for {{payload.candidate_name}} ({{payload.job_title}})\n\t•\tAmount: {{payload.placement_fee}}\n\t•\tAuto-send invoice.\n\nStep 2 – Slack (Post Message):\n\t•\tChannel: placements\n\t•\tMessage: As above (include invoice URL dynamically from Stripe module).\n\nStep 3 – (Optional)\nAdd “Send Email to Client” via SendGrid to share the official invoice automatically.\n\n⸻\n\nResult:\nWhen a recruiter marks a candidate as Hired, HirePilot instantly:\n✅ Generates and sends a Stripe invoice for the placement fee\n✅ Posts a celebratory win in Slack\n✅ Keeps billing, morale, and reporting all perfectly in sync 🎯\n` },
     { id: 17, title: 'Candidate Submitted → Create DocuSign Offer Letter', category: 'Pipeline', trigger: 'candidate_submitted', action: 'Generate & send DocuSign offer', tools: ['DocuSign', 'HirePilot'], description: 'Streamline offer letter creation and delivery.' },
     { id: 18, title: 'Pipeline Stage Updated → Update Google Sheet Tracker', category: 'Pipeline', trigger: 'pipeline_stage_updated', action: 'Append change to master Google Sheet', tools: ['Google Sheets', 'HirePilot'], description: 'Keep your master pipeline spreadsheet in sync.' },
     { id: 19, title: 'Candidate Rejected → Send “Keep Warm” Message', category: 'Messaging', trigger: 'candidate_rejected', action: 'Send follow-up to keep candidate engaged', tools: ['HirePilot', 'SendGrid'], description: 'Maintain relationships even when candidates are not a fit.', setupTime: '5 min', difficulty: 'Beginner', setupSteps: [
@@ -289,7 +348,7 @@ export default function WorkflowsPage() {
                     </div>
                     <p className="text-slate-400 text-sm mb-4">{wf.description}</p>
                     <div className="flex gap-2">
-                      <button onClick={() => openRecipe({ title: wf.title, summary: wf.description, tools: wf.tools || [wf.category], setupTime: wf.setupTime || '', difficulty: wf.difficulty || '', formula: toFormulaString(wf), setupSteps: wf.setupSteps || [], copyZap: wf.copyZap || '' })} className="px-3 py-2 bg-indigo-500 rounded-lg text-xs font-semibold text-white hover:bg-indigo-400 transition">View Recipe</button>
+                      <button onClick={() => openRecipe({ title: wf.title, summary: wf.description, tools: wf.tools || [wf.category], setupTime: wf.setupTime || '', difficulty: wf.difficulty || '', formula: toFormulaString(wf), setupSteps: wf.setupSteps || [], copyZap: wf.copyZap || '', copyMake: wf.copyMake || '' })} className="px-3 py-2 bg-indigo-500 rounded-lg text-xs font-semibold text-white hover:bg-indigo-400 transition">View Recipe</button>
                     </div>
                   </div>
                 ))}
