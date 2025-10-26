@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { FaSlack, FaCheckCircle } from "react-icons/fa";
 import { supabase } from "../../../lib/supabaseClient";
-import { api, apiPost } from "../../../lib/api";
+import { api, apiPost, apiGet } from "../../../lib/api";
 
 export default function RexSlackIntegrationCard({ user }) {
   // Toggle state – default enabled for demo
@@ -169,8 +169,7 @@ export default function RexSlackIntegrationCard({ user }) {
         ) : (
           <button
             onClick={async () => {
-              const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/slack/connect?user_id=${user.id}`);
-              const { url } = await res.json();
+              const { url } = await apiGet(`/api/slack/connect?user_id=${user.id}`);
               const popup = window.open(url, '_blank', 'width=600,height=700');
               const timer = setInterval(async () => {
                 if (popup?.closed) {
