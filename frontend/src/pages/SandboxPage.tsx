@@ -337,13 +337,21 @@ export default function SandboxPage() {
         }
         // If proxy path still not JSON/OK, try direct Railway API with Authorization
         if (!resp.ok || !ct.includes('application/json')) {
-          const directBase = ((typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_FIELDS_API_BASE) || 'https://api.thehirepilot.com/api');
-          const directUrl = `${directBase.replace(/\/$/, '')}/workflows/fields${params.toString() ? `?${params.toString()}` : ''}`;
-          const directResp = await fetch(directUrl, { headers: await getAuthHeaders(), credentials: 'include' });
-          const dct = String(directResp.headers.get('content-type') || '');
-          try { console.debug('[Sandbox] fields fetch (direct)', directUrl, 'status=', directResp.status, 'ct=', dct); } catch {}
-          if (!directResp.ok || !dct.includes('application/json')) throw new Error('bad resp');
-          resp = directResp;
+          const envBase = ((typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_FIELDS_API_BASE) || 'https://api.thehirepilot.com');
+          const base = envBase.replace(/\/$/, '');
+          const candidates = [
+            `${base}/workflows/fields${params.toString() ? `?${params.toString()}` : ''}`,
+            `${base}/api/workflows/fields${params.toString() ? `?${params.toString()}` : ''}`
+          ];
+          let okResp: Response | null = null;
+          for (const url of candidates) {
+            const r = await fetch(url, { headers: await getAuthHeaders(), credentials: 'include' });
+            const rct = String(r.headers.get('content-type') || '');
+            try { console.debug('[Sandbox] fields fetch (direct candidate)', url, 'status=', r.status, 'ct=', rct); } catch {}
+            if (r.ok && rct.includes('application/json')) { okResp = r; break; }
+          }
+          if (!okResp) throw new Error('bad resp');
+          resp = okResp;
         }
         const data = await resp.json().catch(async () => { try { console.debug('[Sandbox] fields non-JSON body', await resp.text()); } catch {}; return null; });
         requestAnimationFrame(() => {
