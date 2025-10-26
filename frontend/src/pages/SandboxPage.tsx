@@ -420,22 +420,54 @@ export default function SandboxPage() {
         try {
           const envBase = ((typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_FIELDS_API_BASE) || 'https://api.thehirepilot.com');
           const base = envBase.replace(/\/$/, '');
-          const slug = inferSlugFromTitle(node?.title || '') || 'lead_source_added';
           const since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
-          const url = `${base}/api/zapier/triggers/events?event_type=${encodeURIComponent(slug)}&since=${encodeURIComponent(since)}`;
-          const r = await fetch(url, { headers: await (async () => {
+          const toAuth = await (async () => {
             try {
               const { data: { session } } = await supabase.auth.getSession();
               const token = session?.access_token;
               const h: Record<string,string> = { Accept: 'application/json' };
               if (token) h['Authorization'] = `Bearer ${token}`;
+              try {
+                const w: any = window as any;
+                const apiKey = (typeof import.meta !== 'undefined' && (import.meta as any).env && ((import.meta as any).env.VITE_HP_API_KEY || (import.meta as any).env.VITE_FIELDS_SERVICE_KEY))
+                  || w.__HP_API_KEY__ || w.__HP_SERVICE_KEY__ || w.HP_API_KEY;
+                if (apiKey) h['X-API-Key'] = String(apiKey);
+              } catch {}
               return h;
             } catch { return { Accept: 'application/json' } as Record<string,string>; }
-          })(), credentials: 'include' });
-          const ct = String(r.headers.get('content-type') || '');
-          if (r.ok && ct.includes('application/json')) {
-            const js: any = await r.json();
-            const first = Array.isArray(js) ? js[0] : (js?.events?.[0] || js);
+          })();
+
+          const slugFromEndpoint = (ep: string) => {
+            const s = String(ep || '');
+            if (s.includes('lead_created')) return 'lead_source_added';
+            if (s.includes('lead_tagged')) return 'lead_tag_added';
+            if (s.includes('campaign_relaunched')) return 'campaign_relaunched';
+            if (s.includes('candidate_hired')) return 'opportunity_submitted';
+            if (s.includes('pipeline_stage')) return 'pipeline_stage_updated';
+            if (s.includes('client_updated')) return 'client_updated';
+            if (s.includes('client_created')) return 'client_created';
+            return inferSlugFromTitle(node?.title || '') || 'lead_source_added';
+          };
+
+          const tryTypes = Array.from(new Set([
+            slugFromEndpoint(node?.endpoint || ''),
+            'lead_source_added',
+            'lead_tag_added',
+            'campaign_relaunched',
+            'opportunity_submitted'
+          ]));
+
+          let picked: any = null;
+          for (const ev of tryTypes) {
+            const url = `${base}/api/zapier/triggers/events?event_type=${encodeURIComponent(ev)}&since=${encodeURIComponent(since)}`;
+            const r = await fetch(url, { headers: toAuth, credentials: 'include' });
+            const ct = String(r.headers.get('content-type') || '');
+            try { console.debug('[Sandbox] events fallback', ev, r.status, ct); } catch {}
+            if (r.ok && ct.includes('application/json')) { picked = await r.json(); break; }
+          }
+
+          if (picked) {
+            const first = Array.isArray(picked) ? picked[0] : (picked?.events?.[0] || picked);
             const payload = first?.payload || first?.data || {};
             const acc: string[] = [];
             const walk = (o: any, p: string[] = []) => {
