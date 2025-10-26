@@ -20,28 +20,26 @@ export default function WorkflowsPage() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
-        // Fetch consolidated status from backend settings endpoint if available
         const base = import.meta.env.VITE_BACKEND_URL || '';
-        const res = await fetch(`${base}/api/user-integrations`, { headers: { Authorization: `Bearer ${session.access_token}` } });
-        if (res.ok) {
-          const js = await res.json();
-          const hasZapier = Boolean(js?.zapier_api_key || js?.api_keys?.zapier);
-          const hasSendgrid = Boolean(js?.sendgrid_api_key || js?.api_keys?.sendgrid || js?.sendgrid?.has_keys);
-          setIntegrationStatus(s => ({ ...s, zapier: hasZapier, sendgrid: hasSendgrid }));
-        } else {
-          // Fallback: query API keys endpoint to infer Zapier key
-          // Correct path is /api/apiKeys (matches Settings → Integrations card)
+        // 1) Best-effort consolidated settings (may not include Zapier)
+        try {
+          const res = await fetch(`${base}/api/user-integrations`, { headers: { Authorization: `Bearer ${session.access_token}` } });
+          if (res.ok) {
+            const js = await res.json();
+            const hasSendgrid = Boolean(js?.sendgrid_api_key || js?.api_keys?.sendgrid || js?.sendgrid?.has_keys);
+            setIntegrationStatus(s => ({ ...s, sendgrid: hasSendgrid }));
+          }
+        } catch {}
+        // 2) Canonical: check /api/apiKeys (service role) → any key means Zapier/Make is enabled
+        try {
           const keysRes = await fetch(`${base}/api/apiKeys`, { headers: { Authorization: `Bearer ${session.access_token}` } });
           if (keysRes.ok) {
             const keysJs = await keysRes.json().catch(() => ({}));
             const keys = Array.isArray(keysJs?.keys) ? keysJs.keys : [];
-            // Treat ANY API key as Zapier connected (key is used for Zapier/Make webhooks)
             const hasAnyKey = keys.length > 0;
-            const hasZapier = hasAnyKey || keys.some((k) => /zapier/i.test(String(k?.provider || k?.name || k?.label || '')));
-            const hasSendgrid = keys.some((k) => /sendgrid/i.test(String(k?.provider || k?.name || k?.label || '')));
-            setIntegrationStatus(s => ({ ...s, zapier: hasZapier, sendgrid: hasSendgrid }));
+            if (hasAnyKey) setIntegrationStatus(s => ({ ...s, zapier: true }));
           }
-        }
+        } catch {}
       } catch {}
       try {
         const { data: { user } } = await supabase.auth.getUser();
