@@ -35,8 +35,9 @@ export default function WorkflowsPage() {
             const keysJs = await keysRes.json().catch(() => ({}));
             const keys = Array.isArray(keysJs?.keys) ? keysJs.keys : [];
             const hasZapier = keys.some((k) => /zapier/i.test(String(k?.provider || k?.name || k?.label || '')));
+            const hasAnyKey = keys.length > 0; // Connected if any API key exists per product spec
             const hasSendgrid = keys.some((k) => /sendgrid/i.test(String(k?.provider || k?.name || k?.label || '')));
-            setIntegrationStatus(s => ({ ...s, zapier: hasZapier, sendgrid: hasSendgrid }));
+            setIntegrationStatus(s => ({ ...s, zapier: (hasZapier || hasAnyKey), sendgrid: hasSendgrid }));
           }
         }
       } catch {}
@@ -77,11 +78,12 @@ export default function WorkflowsPage() {
           try {
             const { data: keyRows } = await supabase
               .from('api_keys')
-              .select('provider,name,label')
+              .select('id,provider,name,label')
               .eq('user_id', user.id);
             if (Array.isArray(keyRows)) {
               const hasZap = keyRows.some(k => /zapier/i.test(String(k?.provider || k?.name || k?.label || '')));
-              if (hasZap) setIntegrationStatus(s => ({ ...s, zapier: true }));
+              const hasAny = keyRows.length > 0;
+              if (hasZap || hasAny) setIntegrationStatus(s => ({ ...s, zapier: true }));
             }
           } catch {}
 
