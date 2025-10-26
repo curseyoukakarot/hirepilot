@@ -54,6 +54,7 @@ export default function WorkflowRecipeModal({
       if (k === 'hirepilot') return 'Trigger source';
       if (k === 'apollo') return 'Lead source';
       if (k === 'sendgrid') return 'Email';
+      if (k === 'google sheets' || k === 'sheets' || k === 'google') return 'Spreadsheet';
       if (k === 'google calendar' || k === 'calendar') return 'Calendar';
       if (k === 'linkedin') return 'Social';
       if (k === 'rex') return 'AI';
@@ -80,6 +81,7 @@ export default function WorkflowRecipeModal({
       else if (k === 'monday' || k === 'monday.com') iconNode = <img src="/monday.png" alt="Monday.com" className="h-6 w-6" />;
       else if (k === 'docusign') iconNode = <img src="/docusign.png" alt="DocuSign" className="h-6 w-6" />;
       else if (k === 'notion') iconNode = <img src="/Notion.png" alt="Notion" className="h-6 w-6" />;
+      else if (k === 'google sheets' || k === 'sheets' || k === 'google') iconNode = <img src="/google.png" alt="Google Sheets" className="h-6 w-6" />;
       else if (k === 'make' || k === 'make.com') iconNode = <img src="/make_trigger_watermarked.png" alt="Make.com" className="h-6 w-6" />;
       else if (k === 'apollo') iconNode = <img src="/apollo-logo-v2.png" alt="Apollo" className="h-6 w-6" />;
       else if (k === 'hirepilot') iconNode = <img src="/logo.png" alt="HirePilot" className="h-6 w-6" />;
