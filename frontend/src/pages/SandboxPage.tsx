@@ -298,44 +298,17 @@ export default function SandboxPage() {
       });
 
       try {
-        const getAuthHeaders = async () => {
-          let token: string | null = null;
-          // Supabase session if available
-          try { if (supabase?.auth?.getSession) { const { data:{ session } } = await supabase.auth.getSession(); token = session?.access_token || null; } } catch {}
-          // LocalStorage fallback (works with sb-*-auth-token)
+        const getAuthHeaders = async (): Promise<Record<string, string>> => {
           try {
-            if (!token && typeof localStorage !== 'undefined') {
-              const key = Object.keys(localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
-              if (key) { const raw = localStorage.getItem(key); if (raw) { const obj = JSON.parse(raw); token = obj?.access_token || obj?.accessToken || null; } }
+            if (supabase?.auth?.getSession) {
+              const { data: { session } } = await supabase.auth.getSession();
+              const token = session?.access_token;
+              const h: Record<string, string> = { Accept: 'application/json' };
+              if (token) h['Authorization'] = `Bearer ${token}`;
+              return h;
             }
           } catch {}
-          // Cookie fallback
-          try {
-            if (!token && typeof document !== 'undefined') {
-              const m1 = document.cookie.match(/(?:^|; )sb-access-token=([^;]+)/);
-              if (m1) token = decodeURIComponent(m1[1]);
-              if (!token) {
-                const m2 = document.cookie.match(/(?:^|; )hp_jwt=([^;]+)/);
-                if (m2) token = decodeURIComponent(m2[1]);
-              }
-            }
-          } catch {}
-          // Service key fallback (for server-proxy-less testing; ensure not exposed in prod)
-          try {
-            const w:any = window as any;
-            const svc = (typeof import.meta !== 'undefined' && (import.meta as any).env && ((import.meta as any).env.VITE_FIELDS_SERVICE_KEY || (import.meta as any).env.VITE_SUPABASE_SERVICE_KEY))
-              || w.__HP_SERVICE_KEY__ || w.HP_SERVICE_KEY;
-            if (!token && svc) token = String(svc);
-          } catch {}
-          // Explicit debug/user token override if present
-          try {
-            const w:any = window as any;
-            if (!token && w.__HP_USER_TOKEN__) token = String(w.__HP_USER_TOKEN__);
-          } catch {}
-          const h: Record<string,string> = { 'Accept': 'application/json' };
-          // CORS-friendly: only send Authorization to pass preflight on Railway
-          if (token) { h['Authorization'] = `Bearer ${token}`; }
-          return h;
+          return { Accept: 'application/json' } as Record<string, string>;
         };
         const getApiBase = () => {
           try {
@@ -369,7 +342,7 @@ export default function SandboxPage() {
         if (!resp.ok || !ct.includes('application/json')) {
           const directBase = ((typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_FIELDS_API_BASE) || 'https://api.thehirepilot.com/api');
           const directUrl = `${directBase.replace(/\/$/, '')}/workflows/fields${params.toString() ? `?${params.toString()}` : ''}`;
-          const directResp = await fetch(directUrl, { headers: await getAuthHeaders() });
+          const directResp = await fetch(directUrl, { headers: await getAuthHeaders(), credentials: 'include' });
           const dct = String(directResp.headers.get('content-type') || '');
           try { console.debug('[Sandbox] fields fetch (direct)', directUrl, 'status=', directResp.status, 'ct=', dct); } catch {}
           if (!directResp.ok || !dct.includes('application/json')) throw new Error('bad resp');
