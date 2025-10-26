@@ -347,9 +347,21 @@ export default function SandboxPage() {
         if (!resp.ok || !ct.includes('application/json')) {
           const envBase = ((typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_FIELDS_API_BASE) || 'https://api.thehirepilot.com');
           const base = envBase.replace(/\/$/, '');
+          const typeLower = (node?.type || '').toLowerCase();
+          const qs = params.toString() ? `?${params.toString()}` : '';
           const candidates = [
-            `${base}/workflows/fields${params.toString() ? `?${params.toString()}` : ''}`,
-            `${base}/api/workflows/fields${params.toString() ? `?${params.toString()}` : ''}`
+            // flat fields path
+            `${base}/api/fields${qs}`,
+            `${base}/fields${qs}`,
+            // workflows namespace
+            `${base}/api/workflows/fields${qs}`,
+            `${base}/workflows/fields${qs}`,
+            // type-specific
+            `${base}/api/events/fields${qs}`,
+            `${base}/api/actions/fields${qs}`,
+            // versioned fallbacks
+            `${base}/v1/fields${qs}`,
+            `${base}/api/v1/fields${qs}`
           ];
           let okResp: Response | null = null;
           for (const url of candidates) {
