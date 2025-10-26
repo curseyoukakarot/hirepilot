@@ -5,11 +5,20 @@ import { supabase } from '../../lib/supabase';
 import { resolveREXContext } from '../../lib/rexContext';
 import { WebClient } from '@slack/web-api';
 
-const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
-
 async function lookupEmailFromSlack(id: string): Promise<string | null> {
   try {
-    const user = await slack.users.info({ user: id });
+    // Prefer workspace-specific bot token tied to this Slack user
+    let token: string | undefined = undefined;
+    try {
+      const { data } = await supabase
+        .from('slack_accounts')
+        .select('access_token')
+        .eq('slack_user_id', id)
+        .maybeSingle();
+      token = (data as any)?.access_token;
+    } catch {}
+    const client = new WebClient(token || process.env.SLACK_BOT_TOKEN);
+    const user = await client.users.info({ user: id });
     // @ts-ignore slack types
     return user.user?.profile?.email || null;
   } catch {
