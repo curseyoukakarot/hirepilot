@@ -1826,6 +1826,27 @@ server.registerCapabilities({
         (data || []).forEach((r:any)=>{ out[r.key === 'rex_demo_url' ? 'demo_url' : 'calendly_url'] = r.value; });
         return out;
       }
+    },
+    slack_setup_guide: {
+      parameters: { userId: { type:'string' } },
+      handler: async ({ userId }) => {
+        // Provide workspace-specific URLs derived from backend env
+        const base = process.env.BACKEND_URL || process.env.BACKEND_PUBLIC_URL || 'https://api.thehirepilot.com';
+        const urls = {
+          commands: `${base}/api/slack/commands`,
+          interactivity: `${base}/api/slack/interactivity`,
+          events: `${base}/api/slack/events`
+        };
+        const steps = [
+          'Go to https://api.slack.com/apps → Create New App → From scratch → Name: "HirePilot (REX)" → pick your workspace.',
+          `Slash Commands → Create new command → Command: /rex → Request URL: ${urls.commands} → Usage hint: /rex link me → Save.`,
+          `Interactivity & Shortcuts → Toggle ON → Request URL: ${urls.interactivity} → Save.`,
+          `Event Subscriptions (optional) → Toggle ON → Request URL: ${urls.events} → Add bot event: app_mention → Save.`,
+          'OAuth & Permissions → Bot Token Scopes → add: commands, chat:write, channels:read, users:read → Install to workspace.',
+          'In Slack: /invite @YourBot to a channel → /rex link me → /rex hello.'
+        ];
+        return { urls, steps };
+      }
     }
   })
 });
