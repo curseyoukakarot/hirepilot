@@ -30,14 +30,16 @@ export default function WorkflowsPage() {
           setIntegrationStatus(s => ({ ...s, zapier: hasZapier, sendgrid: hasSendgrid }));
         } else {
           // Fallback: query API keys endpoint to infer Zapier key
-          const keysRes = await fetch(`${base}/api/getApiKeys`, { headers: { Authorization: `Bearer ${session.access_token}` } });
+          // Correct path is /api/apiKeys (matches Settings → Integrations card)
+          const keysRes = await fetch(`${base}/api/apiKeys`, { headers: { Authorization: `Bearer ${session.access_token}` } });
           if (keysRes.ok) {
             const keysJs = await keysRes.json().catch(() => ({}));
             const keys = Array.isArray(keysJs?.keys) ? keysJs.keys : [];
-            const hasZapier = keys.some((k) => /zapier/i.test(String(k?.provider || k?.name || k?.label || '')));
-            const hasAnyKey = keys.length > 0; // Connected if any API key exists per product spec
+            // Treat ANY API key as Zapier connected (key is used for Zapier/Make webhooks)
+            const hasAnyKey = keys.length > 0;
+            const hasZapier = hasAnyKey || keys.some((k) => /zapier/i.test(String(k?.provider || k?.name || k?.label || '')));
             const hasSendgrid = keys.some((k) => /sendgrid/i.test(String(k?.provider || k?.name || k?.label || '')));
-            setIntegrationStatus(s => ({ ...s, zapier: (hasZapier || hasAnyKey), sendgrid: hasSendgrid }));
+            setIntegrationStatus(s => ({ ...s, zapier: hasZapier, sendgrid: hasSendgrid }));
           }
         }
       } catch {}
@@ -74,7 +76,7 @@ export default function WorkflowsPage() {
               setIntegrationStatus(s => ({ ...s, sendgrid: true }));
             }
           } catch {}
-          // Zapier fallback via api_keys
+          // Zapier fallback via api_keys (same table used by /api/apiKeys)
           try {
             const { data: keyRows } = await supabase
               .from('api_keys')
