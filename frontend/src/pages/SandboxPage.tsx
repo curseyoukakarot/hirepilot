@@ -494,7 +494,22 @@ export default function SandboxPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, is_active: true }),
       });
-      if (res.ok) alert('Workflow activated'); else alert('Failed to activate');
+      if (res.ok) {
+        try {
+          // When activated, persist to My Workflows list used by /workflows
+          const titleEl = document.querySelector('#workflow-node-1 h3') as HTMLElement | null;
+          const title = (titleEl?.textContent || 'Activated Workflow').trim();
+          const description = 'Workflow activated from Sandbox';
+          const stored = JSON.parse(localStorage.getItem('hp_my_workflows_v1') || '[]');
+          const exists = Array.isArray(stored) && stored.some((w:any) => w.title === title);
+          const wf = { id: Date.now(), title, description, tools: [], category: 'Custom' };
+          const next = exists ? stored : [...stored, wf];
+          localStorage.setItem('hp_my_workflows_v1', JSON.stringify(next));
+        } catch {}
+        alert('Workflow activated');
+      } else {
+        alert('Failed to activate');
+      }
     } catch (e) {
       alert('Failed to activate');
     }
@@ -704,7 +719,7 @@ export default function SandboxPage() {
               <div className="text-xs text-blue-100 bg-blue-900/30 rounded-md px-2 py-1">/api/events/candidate_hired</div>
               <div className="absolute -right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 bg-blue-400 rounded-full border-2 border-white shadow-lg"></div>
             </div>
-          </div>
+      </div>
 
           <div id="workflow-node-2" className="absolute top-32 left-96 transform transition-all duration-200 hover:scale-105" style={{ cursor: 'move' }}>
             <div className="bg-gradient-to-br from-purple-600 to-purple-800 p-4 rounded-xl shadow-lg border border-purple-400/20 w-64 node-glow-purple">
@@ -718,7 +733,7 @@ export default function SandboxPage() {
               <div className="text-xs text-purple-100 bg-purple-900/30 rounded-md px-2 py-1">/api/actions/slack_notification</div>
               <div className="absolute -left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 bg-purple-400 rounded-full border-2 border-white shadow-lg"></div>
             </div>
-          </div>
+      </div>
 
           {/* Connection Line */}
           <svg id="connection-svg" className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 as any }}>
@@ -932,7 +947,7 @@ export default function SandboxPage() {
             </div>
           </div>
         </div>
-      </div>
+    </div>
     </>
   );
 }
