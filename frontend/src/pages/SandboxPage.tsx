@@ -1,8 +1,5 @@
 import React, { useEffect, useState } from 'react';
-// Supabase client import path fallback
-let supabase: any = null;
-try { supabase = require('../lib/supabaseClient').supabase; } catch {}
-try { if (!supabase) supabase = require('../../lib/supabaseClient').supabase; } catch {}
+import { supabase } from '../lib/supabaseClient';
 import { getSchemaForEndpoint, nodeSchemas } from '../config/nodeSchemas';
 
 export default function SandboxPage() {
