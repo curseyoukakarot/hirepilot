@@ -43,17 +43,22 @@ export default function WorkflowsPage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (user?.id) {
           // Primary check: slack_accounts row
-          const { data: slackRow } = await supabase.from('slack_accounts').select('id').eq('user_id', user.id).maybeSingle();
+          // Some deployments use different PK/columns; avoid selecting a non-existent field
+          const { data: slackRow } = await supabase
+            .from('slack_accounts')
+            .select('*')
+            .eq('user_id', user.id)
+            .maybeSingle();
           let slackConnected = Boolean(slackRow);
           // Fallback: user_settings webhook/token from new OAuth flow
           if (!slackConnected) {
             try {
               const { data: settings } = await supabase
                 .from('user_settings')
-                .select('slack_webhook_url, slack_access_token')
+                .select('slack_webhook_url, slack_channel')
                 .eq('user_id', user.id)
                 .maybeSingle();
-              slackConnected = Boolean(settings?.slack_webhook_url || settings?.slack_access_token);
+              slackConnected = Boolean(settings?.slack_webhook_url || settings?.slack_channel);
             } catch {}
           }
           setIntegrationStatus(s => ({ ...s, slack: slackConnected }));
@@ -73,9 +78,11 @@ export default function WorkflowsPage() {
         const base = import.meta.env.VITE_BACKEND_URL || '';
         const { data: { session } } = await supabase.auth.getSession();
         const liRes = await fetch(`${base}/api/linkedin/check`, { headers: { Authorization: `Bearer ${session?.access_token}` } });
-        const liJs = await liRes.json().catch(() => ({}));
-        setIntegrationStatus(s => ({ ...s, linkedin: Boolean(liJs?.connected) }));
-      } catch {}
+        if (liRes.ok) {
+          const liJs = await liRes.json().catch(() => ({}));
+          setIntegrationStatus(s => ({ ...s, linkedin: Boolean(liJs?.connected) }));
+        }
+      } catch {/* optional; not critical for workflows */}
     })();
   }, []);
 
