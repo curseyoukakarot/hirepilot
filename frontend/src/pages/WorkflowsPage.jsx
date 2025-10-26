@@ -13,6 +13,7 @@ export default function WorkflowsPage() {
   });
   const [integrationStatus, setIntegrationStatus] = useState({ slack:false, zapier:false, sendgrid:false, stripe:false, linkedin:false });
   const [showAddedToast, setShowAddedToast] = useState(false);
+  const [isFree, setIsFree] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -34,6 +35,9 @@ export default function WorkflowsPage() {
         if (user?.id) {
           const { data: slackRow } = await supabase.from('slack_accounts').select('id').eq('user_id', user.id).maybeSingle();
           setIntegrationStatus(s => ({ ...s, slack: Boolean(slackRow) }));
+          const { data: roleRow } = await supabase.from('users').select('role').eq('id', user.id).maybeSingle();
+          const roleLc = String(roleRow?.role || user?.user_metadata?.role || '').toLowerCase();
+          setIsFree(roleLc === 'free');
         }
       } catch {}
       try {
@@ -311,6 +315,18 @@ export default function WorkflowsPage() {
     const obj = { name: wf.title, trigger: wf.trigger, actions: (wf.actions || (wf.action ? [{ name: wf.action }] : [])) };
     try { return JSON.stringify(obj, null, 2); } catch (_) { return String(obj); }
   };
+
+  if (isFree) {
+    return (
+      <div className="bg-slate-950 min-h-screen text-white flex items-start justify-center p-8">
+        <div className="w-full max-w-5xl bg-amber-50 border border-amber-200 rounded-2xl p-8 text-amber-900">
+          <h2 className="text-3xl font-extrabold mb-2">Workflows is a paid feature</h2>
+          <p className="text-lg mb-6">Upgrade to unlock advanced workflows and automations.</p>
+          <a href="/pricing" className="inline-block px-5 py-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold">See Plans</a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div id="main-content" className="bg-slate-950 min-h-screen text-white">

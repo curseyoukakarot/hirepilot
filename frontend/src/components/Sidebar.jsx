@@ -17,6 +17,7 @@ export default function Sidebar() {
   const [isPremium, setIsPremium] = useState(false);
   const [rexEnabled, setRexEnabled] = useState(false);
   const [isGuest, setIsGuest] = useState(false);
+  const [canAccessWorkflows, setCanAccessWorkflows] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
@@ -72,6 +73,9 @@ export default function Sidebar() {
       setIsSuperAdmin(role === 'super_admin');
       setRexEnabled(rexEnabled);
       setIsGuest(guestFlag);
+      // Workflows eligibility: explicit paid roles only (no rexEnabled shortcut)
+      const workflowsPaidRoles = ['members','member','admin','team_admin','teamadmin','recruitpro','super_admin','superadmin'];
+      setCanAccessWorkflows(workflowsPaidRoles.includes(roleLc));
     };
     fetchRole();
   }, []);
@@ -151,6 +155,23 @@ export default function Sidebar() {
                     REX Chat
                   </NavLink>
                 </li>
+                {canAccessWorkflows && (
+                  <li>
+                    <NavLink
+                      to="/workflows"
+                      className={({ isActive }) =>
+                        `flex items-center px-4 py-2 text-base rounded-lg font-medium transition-colors cursor-pointer ${
+                          isActive
+                            ? 'bg-indigo-50 text-indigo-700 font-semibold dark:bg-gray-700 dark:text-indigo-300'
+                            : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        }`
+                      }
+                    >
+                      <span className="mr-3 text-lg"><FaPlug /></span>
+                      Workflows
+                    </NavLink>
+                  </li>
+                )}
                 {/* Action Inbox is inside Agent Mode */}
               </>
             )}
