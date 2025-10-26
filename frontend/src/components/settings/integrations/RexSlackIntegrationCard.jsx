@@ -73,17 +73,33 @@ export default function RexSlackIntegrationCard({ user }) {
       .maybeSingle();
     setConnected(Boolean(slackRow));
     if (slackRow?.team_name) setChannel(slackRow.team_name);
+    // also refresh enabled flag
+    try {
+      const { data: userRow } = await supabase
+        .from('users')
+        .select('rex_slack_enabled')
+        .eq('id', user.id)
+        .single();
+      if (userRow) setEnabled(Boolean(userRow.rex_slack_enabled));
+    } catch {}
   };
 
   const handleToggle = async () => {
     const newVal = !enabled;
     setEnabled(newVal);
     if (user?.id) {
-      await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/integrations/slack/enabled`, {
-        method: ' POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, enabled: newVal })
-      });
+      try {
+        const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/integrations/slack/enabled`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id, enabled: newVal })
+        });
+        if (!resp.ok) throw new Error('Request failed');
+      } catch (e) {
+        // revert on failure
+        setEnabled(!newVal);
+        alert('Failed to update Slack notifications. Please try again.');
+      }
     }
   };
 
@@ -99,9 +115,9 @@ export default function RexSlackIntegrationCard({ user }) {
             REX Slack Integration
           </h3>
         </div>
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200">
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${connected ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}>
           <FaCheckCircle className="mr-1" />
-          Connected
+          {connected ? 'Connected' : 'Not connected'}
         </span>
       </div>
 
@@ -143,12 +159,17 @@ export default function RexSlackIntegrationCard({ user }) {
           <button
             onClick={async () => {
               if (!confirm('Disconnect Slack?')) return;
-              await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/slack/disconnect`, {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: user.id })
-              });
-              await refreshStatus();
+              try {
+                const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/slack/disconnect`, {
+                  method: 'DELETE',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ userId: user.id })
+                });
+                if (!resp.ok) throw new Error('Request failed');
+                await refreshStatus();
+              } catch (e) {
+                alert('Failed to disconnect Slack. Please try again.');
+              }
             }}
             className="text-sm text-red-600 hover:text-red-700 font-medium"
           >
