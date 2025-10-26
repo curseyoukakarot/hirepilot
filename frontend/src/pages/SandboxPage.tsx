@@ -280,7 +280,15 @@ export default function SandboxPage() {
       const fallbackPreset: any = (schema?.guided || getPresetFor(node));
       requestAnimationFrame(() => {
         applyPresetToModal(fallbackPreset as any, node?.title);
-        const pillsWrap = document.querySelector('#data-pills-section .flex.flex-wrap') as HTMLElement | null;
+        const pillsWrap = document.getElementById('pills-wrap') as HTMLElement | null;
+        const getTargetField = (): HTMLInputElement | HTMLTextAreaElement | null => {
+          const active = document.activeElement as HTMLInputElement | HTMLTextAreaElement | null;
+          if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return active;
+          const defText = document.querySelector('#config-fields textarea') as HTMLTextAreaElement | null;
+          if (defText) return defText;
+          const firstInput = document.querySelector('#config-fields input[type="text"]') as HTMLInputElement | null;
+          return firstInput;
+        };
         if (pillsWrap && Array.isArray((fallbackPreset as any)?.fields)) {
           pillsWrap.innerHTML = '';
           ((fallbackPreset as any).fields as string[]).forEach((name) => {
@@ -288,14 +296,17 @@ export default function SandboxPage() {
             span.className = 'pill-token px-3 py-1 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs rounded-full cursor-pointer hover:scale-105 transition-transform';
             span.textContent = `{{${name}}}`;
             span.addEventListener('click', () => {
-              const active = document.activeElement as HTMLInputElement | HTMLTextAreaElement | null;
-              if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
-                const cursorPos = (active as any).selectionStart || 0;
-                const before = (active as any).value.substring(0, cursorPos);
-                const after = (active as any).value.substring((active as any).selectionEnd || cursorPos);
-                (active as any).value = before + span.textContent + after;
-                (active as any).setSelectionRange(before.length + (span.textContent||'').length, before.length + (span.textContent||'').length);
-              }
+              const target = getTargetField();
+              if (!target) return;
+              const insert = span.textContent || '';
+              const value = (target as any).value || '';
+              const isFocused = document.activeElement === target;
+              const startPos = isFocused ? ((target as any).selectionStart || value.length) : value.length;
+              const endPos = isFocused ? ((target as any).selectionEnd || startPos) : startPos;
+              const before = value.substring(0, startPos);
+              const after = value.substring(endPos);
+              (target as any).value = before + insert + after;
+              try { (target as any).focus(); (target as any).setSelectionRange(before.length + insert.length, before.length + insert.length); } catch {}
             });
             pillsWrap.appendChild(span);
           });
@@ -389,6 +400,14 @@ export default function SandboxPage() {
           // rebuild pills deterministically using data-testid
           const pillsWrap = document.getElementById('pills-wrap') as HTMLElement | null;
           if (pillsWrap) {
+            const getTargetField = (): HTMLInputElement | HTMLTextAreaElement | null => {
+              const active = document.activeElement as HTMLInputElement | HTMLTextAreaElement | null;
+              if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return active;
+              const defText = document.querySelector('#config-fields textarea') as HTMLTextAreaElement | null;
+              if (defText) return defText;
+              const firstInput = document.querySelector('#config-fields input[type="text"]') as HTMLInputElement | null;
+              return firstInput;
+            };
             pillsWrap.innerHTML = '';
             (data?.fields || []).forEach((f: any) => {
               const name = typeof f === 'string' ? f : f?.name;
@@ -396,14 +415,17 @@ export default function SandboxPage() {
               span.className = 'pill-token px-3 py-1 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs rounded-full cursor-pointer hover:scale-105 transition-transform';
               span.textContent = `{{${name}}}`;
               span.addEventListener('click', () => {
-                const active = document.activeElement as HTMLInputElement | HTMLTextAreaElement | null;
-                if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
-                  const cursorPos = (active as any).selectionStart || 0;
-                  const before = (active as any).value.substring(0, cursorPos);
-                  const after = (active as any).value.substring((active as any).selectionEnd || cursorPos);
-                  (active as any).value = before + span.textContent + after;
-                  (active as any).setSelectionRange(before.length + (span.textContent||'').length, before.length + (span.textContent||'').length);
-                }
+                const target = getTargetField();
+                if (!target) return;
+                const insert = span.textContent || '';
+                const value = (target as any).value || '';
+                const isFocused = document.activeElement === target;
+                const startPos = isFocused ? ((target as any).selectionStart || value.length) : value.length;
+                const endPos = isFocused ? ((target as any).selectionEnd || startPos) : startPos;
+                const before = value.substring(0, startPos);
+                const after = value.substring(endPos);
+                (target as any).value = before + insert + after;
+                try { (target as any).focus(); (target as any).setSelectionRange(before.length + insert.length, before.length + insert.length); } catch {}
               });
               pillsWrap.appendChild(span);
             });
@@ -487,20 +509,31 @@ export default function SandboxPage() {
             requestAnimationFrame(() => {
               const pillsWrap = document.getElementById('pills-wrap') as HTMLElement | null;
               if (pillsWrap) {
+                const getTargetField = (): HTMLInputElement | HTMLTextAreaElement | null => {
+                  const active = document.activeElement as HTMLInputElement | HTMLTextAreaElement | null;
+                  if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return active;
+                  const defText = document.querySelector('#config-fields textarea') as HTMLTextAreaElement | null;
+                  if (defText) return defText;
+                  const firstInput = document.querySelector('#config-fields input[type="text"]') as HTMLInputElement | null;
+                  return firstInput;
+                };
                 pillsWrap.innerHTML = '';
                 acc.slice(0, 50).forEach((name) => {
                   const span = document.createElement('span');
                   span.className = 'pill-token px-3 py-1 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs rounded-full cursor-pointer hover:scale-105 transition-transform';
                   span.textContent = `{{${name}}}`;
                   span.addEventListener('click', () => {
-                    const active = document.activeElement as HTMLInputElement | HTMLTextAreaElement | null;
-                    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
-                      const cursorPos = (active as any).selectionStart || 0;
-                      const before = (active as any).value.substring(0, cursorPos);
-                      const after = (active as any).value.substring((active as any).selectionEnd || cursorPos);
-                      (active as any).value = before + span.textContent + after;
-                      (active as any).setSelectionRange(before.length + (span.textContent||'').length, before.length + (span.textContent||'').length);
-                    }
+                    const target = getTargetField();
+                    if (!target) return;
+                    const insert = span.textContent || '';
+                    const value = (target as any).value || '';
+                    const isFocused = document.activeElement === target;
+                    const startPos = isFocused ? ((target as any).selectionStart || value.length) : value.length;
+                    const endPos = isFocused ? ((target as any).selectionEnd || startPos) : startPos;
+                    const before = value.substring(0, startPos);
+                    const after = value.substring(endPos);
+                    (target as any).value = before + insert + after;
+                    try { (target as any).focus(); (target as any).setSelectionRange(before.length + insert.length, before.length + insert.length); } catch {}
                   });
                   pillsWrap.appendChild(span);
                 });
