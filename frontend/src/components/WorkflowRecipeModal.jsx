@@ -244,7 +244,7 @@ export default function WorkflowRecipeModal({
                       Copy Zap
                     </button>
                     <button
-                      onClick={(e) => copyWithFeedback('Make.com blueprint copied! Import this into your Make account.', e.currentTarget)}
+                      onClick={(e) => copyWithFeedback(copyMake || 'Make.com blueprint copied! Import this into your Make account.', e.currentTarget)}
                       className="px-6 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-semibold transition-all flex items-center text-white"
                     >
                       <i className="fa-solid fa-puzzle-piece mr-2"></i>
