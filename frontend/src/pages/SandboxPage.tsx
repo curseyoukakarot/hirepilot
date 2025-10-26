@@ -335,50 +335,54 @@ export default function SandboxPage() {
           } catch { return '/api'; }
         };
 
-        // Only call Next proxy; it forwards Authorization to Railway
+        // Prefer canonical fields route first
         const origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '';
-        // Allow overriding the proxy host (packages/web) if the current origin hosts only the SPA
         const proxyBase = (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_FIELDS_PROXY_BASE) || origin;
-        let proxyUrl = `${proxyBase}/api/workflows/fields${params.toString() ? `?${params.toString()}` : ''}`;
+        // Try canonical route
+        let proxyUrl = `${proxyBase}/api/fields${params.toString() ? `?${params.toString()}` : ''}`;
         let resp = await fetch(proxyUrl, { headers: await getAuthHeaders(), credentials: 'include' });
         let ct = String(resp.headers.get('content-type') || '');
-        try { console.debug('[Sandbox] fields fetch (proxy)', proxyUrl, 'status=', resp.status, 'ct=', ct); } catch {}
+        try { console.debug('[Sandbox] fields fetch (canonical)', proxyUrl, 'status=', resp.status, 'ct=', ct); } catch {}
         // If the response is HTML (likely hitting SPA instead of API), try fallback to same-path relative (in case of reverse proxy)
         if (ct.includes('text/html')) {
-          const relUrl = `/api/workflows/fields${params.toString() ? `?${params.toString()}` : ''}`;
+          const relUrl = `/api/fields${params.toString() ? `?${params.toString()}` : ''}`;
           resp = await fetch(relUrl, { headers: await getAuthHeaders(), credentials: 'include' });
           ct = String(resp.headers.get('content-type') || '');
-          try { console.debug('[Sandbox] fields fetch (proxy-relative)', relUrl, 'status=', resp.status, 'ct=', ct); } catch {}
+          try { console.debug('[Sandbox] fields fetch (canonical-relative)', relUrl, 'status=', resp.status, 'ct=', ct); } catch {}
         }
-        // If proxy path still not JSON/OK, try direct Railway API with Authorization
+        // If not OK/JSON, try legacy proxy (/api/workflows/fields) then direct Railway
         if (!resp.ok || !ct.includes('application/json')) {
-          const envBase = ((typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_FIELDS_API_BASE) || 'https://api.thehirepilot.com');
-          const base = envBase.replace(/\/$/, '');
-          const typeLower = (node?.type || '').toLowerCase();
-          const qs = params.toString() ? `?${params.toString()}` : '';
-          const candidates = [
-            // flat fields path
-            `${base}/api/fields${qs}`,
-            `${base}/fields${qs}`,
-            // workflows namespace
-            `${base}/api/workflows/fields${qs}`,
-            `${base}/workflows/fields${qs}`,
-            // type-specific
-            `${base}/api/events/fields${qs}`,
-            `${base}/api/actions/fields${qs}`,
-            // versioned fallbacks
-            `${base}/v1/fields${qs}`,
-            `${base}/api/v1/fields${qs}`
-          ];
-          let okResp: Response | null = null;
-          for (const url of candidates) {
-            const r = await fetch(url, { headers: await getAuthHeaders(), credentials: 'include' });
-            const rct = String(r.headers.get('content-type') || '');
-            try { console.debug('[Sandbox] fields fetch (direct candidate)', url, 'status=', r.status, 'ct=', rct); } catch {}
-            if (r.ok && rct.includes('application/json')) { okResp = r; break; }
+          // Try legacy internal proxy first
+          const legacyUrl = `${proxyBase}/api/workflows/fields${params.toString() ? `?${params.toString()}` : ''}`;
+          let legacy = await fetch(legacyUrl, { headers: await getAuthHeaders(), credentials: 'include' });
+          let legacyCt = String(legacy.headers.get('content-type') || '');
+          if (!(legacy.ok && legacyCt.includes('application/json'))) {
+            // Then try direct Railway candidates
+            const envBase = ((typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_FIELDS_API_BASE) || 'https://api.thehirepilot.com');
+            const base = envBase.replace(/\/$/, '');
+            const qs = params.toString() ? `?${params.toString()}` : '';
+            const candidates = [
+              `${base}/api/fields${qs}`,
+              `${base}/fields${qs}`,
+              `${base}/api/workflows/fields${qs}`,
+              `${base}/workflows/fields${qs}`,
+              `${base}/api/events/fields${qs}`,
+              `${base}/api/actions/fields${qs}`,
+              `${base}/v1/fields${qs}`,
+              `${base}/api/v1/fields${qs}`
+            ];
+            let okResp: Response | null = null;
+            for (const url of candidates) {
+              const r = await fetch(url, { headers: await getAuthHeaders(), credentials: 'include' });
+              const rct = String(r.headers.get('content-type') || '');
+              try { console.debug('[Sandbox] fields fetch (direct candidate)', url, 'status=', r.status, 'ct=', rct); } catch {}
+              if (r.ok && rct.includes('application/json')) { okResp = r; break; }
+            }
+            if (!okResp) throw new Error('bad resp');
+            resp = okResp;
+          } else {
+            resp = legacy;
           }
-          if (!okResp) throw new Error('bad resp');
-          resp = okResp;
         }
         const data = await resp.json().catch(async () => { try { console.debug('[Sandbox] fields non-JSON body', await resp.text()); } catch {}; return null; });
         requestAnimationFrame(() => {
