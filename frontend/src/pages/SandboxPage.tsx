@@ -265,7 +265,15 @@ export default function SandboxPage() {
       if (header && node?.title) header.textContent = `Configure ${node.type} – ${node.title}`;
       // Fetch fields and hydrate schema
       const params = new URLSearchParams();
-      if (node?.endpoint) params.set('endpoint', node.endpoint);
+      // Send slug (not full path) to backend to avoid route mismatches
+      const toSlug = (ep: string, type: string) => {
+        const s = String(ep || '').trim();
+        if (s.startsWith('/api/events/')) return s.replace('/api/events/', '');
+        if (s.startsWith('/api/actions/')) return s.replace('/api/actions/', '');
+        const bySlash = s.split('/').filter(Boolean);
+        return bySlash.length ? bySlash[bySlash.length - 1] : inferSlugFromTitle(node?.title || '');
+      };
+      if (node?.endpoint) params.set('endpoint', toSlug(node.endpoint, node?.type || ''));
       if (node?.type) params.set('type', node.type.toLowerCase());
       const schema = getSchemaForEndpoint(node?.endpoint);
       // Apply preset immediately (fallback) and render fallback tokens if API unavailable
