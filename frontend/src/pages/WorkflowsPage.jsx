@@ -62,6 +62,29 @@ export default function WorkflowsPage() {
               slackConnected = Boolean(settings?.slack_webhook_url || settings?.slack_channel);
             } catch {}
           }
+          // SendGrid fallback via user_sendgrid_keys
+          try {
+            const { data: sgRow } = await supabase
+              .from('user_sendgrid_keys')
+              .select('api_key, default_sender')
+              .eq('user_id', user.id)
+              .maybeSingle();
+            if (sgRow?.api_key || sgRow?.default_sender) {
+              setIntegrationStatus(s => ({ ...s, sendgrid: true }));
+            }
+          } catch {}
+          // Zapier fallback via api_keys
+          try {
+            const { data: keyRows } = await supabase
+              .from('api_keys')
+              .select('provider,name,label')
+              .eq('user_id', user.id);
+            if (Array.isArray(keyRows)) {
+              const hasZap = keyRows.some(k => /zapier/i.test(String(k?.provider || k?.name || k?.label || '')));
+              if (hasZap) setIntegrationStatus(s => ({ ...s, zapier: true }));
+            }
+          } catch {}
+
           setIntegrationStatus(s => ({ ...s, slack: slackConnected }));
           const { data: roleRow } = await supabase.from('users').select('role').eq('id', user.id).maybeSingle();
           const roleLc = String(roleRow?.role || user?.user_metadata?.role || '').toLowerCase();
@@ -76,12 +99,15 @@ export default function WorkflowsPage() {
         setIntegrationStatus(s => ({ ...s, stripe: Boolean(stripeJs?.has_keys || stripeJs?.connected_account_id) }));
       } catch {}
       try {
-        const base = import.meta.env.VITE_BACKEND_URL || '';
-        const { data: { session } } = await supabase.auth.getSession();
-        const liRes = await fetch(`${base}/api/linkedin/check`, { headers: { Authorization: `Bearer ${session?.access_token}` } });
-        if (liRes.ok) {
-          const liJs = await liRes.json().catch(() => ({}));
-          setIntegrationStatus(s => ({ ...s, linkedin: Boolean(liJs?.connected) }));
+        // Avoid noisy 404s unless explicitly enabled via env
+        if (import.meta.env.VITE_LINKEDIN_CHECK === '1') {
+          const base = import.meta.env.VITE_BACKEND_URL || '';
+          const { data: { session } } = await supabase.auth.getSession();
+          const liRes = await fetch(`${base}/api/linkedin/check`, { headers: { Authorization: `Bearer ${session?.access_token}` } });
+          if (liRes.ok) {
+            const liJs = await liRes.json().catch(() => ({}));
+            setIntegrationStatus(s => ({ ...s, linkedin: Boolean(liJs?.connected) }));
+          }
         }
       } catch {/* optional; not critical for workflows */}
     })();
