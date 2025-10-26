@@ -279,9 +279,9 @@ export default function WorkflowsPage() {
         <section id="integrations-status" className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold">Your Connected Integrations</h2>
-            <button className="text-indigo-400 hover:text-indigo-300 font-medium">
+            <a href="/settings/integrations" className="text-indigo-400 hover:text-indigo-300 font-medium">
               Manage All <i className="fa-solid fa-arrow-right ml-1"></i>
-            </button>
+            </a>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
@@ -295,18 +295,14 @@ export default function WorkflowsPage() {
             </div>
 
             <div className="bg-slate-900 rounded-xl p-5 flex flex-col items-center hover:bg-slate-800 transition">
-              <div className="w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center mb-3">
-                <i className="fa-solid fa-bolt text-white text-xl"></i>
-              </div>
+              <img src="/zapier.png" alt="Zapier" className="w-12 h-12 rounded-lg mb-3" />
               <h4 className="font-semibold text-sm">Zapier</h4>
               <span className="text-xs mt-2 text-green-400">✅ Connected</span>
               <button className="mt-3 text-xs px-3 py-1 bg-slate-700 rounded-lg hover:bg-slate-600 transition">Manage</button>
             </div>
 
             <div className="bg-slate-900 rounded-xl p-5 flex flex-col items-center hover:bg-slate-800 transition">
-              <div className="w-12 h-12 bg-red-500 rounded-lg flex items-center justify-center mb-3">
-                <i className="fa-solid fa-envelope text-white text-xl"></i>
-              </div>
+              <img src="/sendgrid.png" alt="SendGrid" className="w-12 h-12 rounded-lg mb-3" />
               <h4 className="font-semibold text-sm">SendGrid</h4>
               <span className="text-xs mt-2 text-red-400">⚠️ Not Connected</span>
               <button className="mt-3 text-xs px-3 py-1 bg-indigo-600 rounded-lg hover:bg-indigo-500 transition">Connect</button>
@@ -330,14 +326,7 @@ export default function WorkflowsPage() {
               <button className="mt-3 text-xs px-3 py-1 bg-indigo-600 rounded-lg hover:bg-indigo-500 transition">Connect</button>
             </div>
 
-            <div className="bg-slate-900 rounded-xl p-5 flex flex-col items-center hover:bg-slate-800 transition">
-              <div className="w-12 h-12 bg-green-500 rounded-lg flex items-center justify-center mb-3">
-                <i className="fa-solid fa-calendar text-white text-xl"></i>
-              </div>
-              <h4 className="font-semibold text-sm">Calendly</h4>
-              <span className="text-xs mt-2 text-green-400">✅ Connected</span>
-              <button className="mt-3 text-xs px-3 py-1 bg-slate-700 rounded-lg hover:bg-slate-600 transition">Manage</button>
-            </div>
+            {/* Calendly removed because integration is not native/direct */}
           </div>
         </section>
 
