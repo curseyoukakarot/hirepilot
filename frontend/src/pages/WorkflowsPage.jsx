@@ -6,6 +6,10 @@ export default function WorkflowsPage() {
   const [selected, setSelected] = useState(null);
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [activeTab, setActiveTab] = useState('library'); // 'library' | 'mine'
+  const [savedWorkflows, setSavedWorkflows] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('hp_my_workflows_v1') || '[]'); } catch { return []; }
+  });
   const [integrationStatus, setIntegrationStatus] = useState({ slack:false, zapier:false, sendgrid:false, stripe:false, linkedin:false });
 
   useEffect(() => {
@@ -250,6 +254,23 @@ export default function WorkflowsPage() {
     setIsOpen(true);
   };
 
+  const addWorkflow = (wf) => {
+    setSavedWorkflows(prev => {
+      const exists = prev.some((x) => x.title === wf.title);
+      const next = exists ? prev : [...prev, { id: Date.now(), ...wf }];
+      try { localStorage.setItem('hp_my_workflows_v1', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
+  const removeWorkflow = (id) => {
+    setSavedWorkflows(prev => {
+      const next = prev.filter(w => w.id !== id);
+      try { localStorage.setItem('hp_my_workflows_v1', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
   const closeRecipe = () => {
     setIsOpen(false);
     setTimeout(() => setSelected(null), 200);
@@ -371,7 +392,17 @@ export default function WorkflowsPage() {
           </div>
         </section>
 
-        {/* Workflow Library */}
+        {/* Tabs */}
+        <div className="flex items-center gap-2 mt-2">
+          <button onClick={() => setActiveTab('library')} className={activeTab==='library' ? 'px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium' : 'px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-medium hover:bg-slate-700 transition'}>
+            Workflows Library
+          </button>
+          <button onClick={() => setActiveTab('mine')} className={activeTab==='mine' ? 'px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium' : 'px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-medium hover:bg-slate-700 transition'}>
+            My Workflows
+          </button>
+        </div>
+
+        {activeTab === 'library' && (
         <section id="workflow-library" className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold">Workflow Recipes Library</h2>
@@ -402,6 +433,7 @@ export default function WorkflowsPage() {
                     <p className="text-slate-400 text-sm mb-4">{wf.description}</p>
                     <div className="flex gap-2">
                       <button onClick={() => openRecipe({ title: wf.title, summary: wf.description, tools: wf.tools || [wf.category], setupTime: wf.setupTime || '', difficulty: wf.difficulty || '', formula: toFormulaString(wf), setupSteps: wf.setupSteps || [], copyZap: wf.copyZap || '', copyMake: wf.copyMake || '' })} className="px-3 py-2 bg-indigo-500 rounded-lg text-xs font-semibold text-white hover:bg-indigo-400 transition">View Recipe</button>
+                      <button onClick={() => addWorkflow(wf)} className="px-3 py-2 bg-emerald-600 rounded-lg text-xs font-semibold text-white hover:bg-emerald-500 transition">Add Workflow</button>
                     </div>
                   </div>
                 ))}
@@ -409,6 +441,35 @@ export default function WorkflowsPage() {
             </div>
           ))}
         </section>
+        )}
+
+        {activeTab === 'mine' && (
+        <section id="my-workflows" className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold">My Workflows</h2>
+          </div>
+          {savedWorkflows?.length ? (
+            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+              {savedWorkflows.map((wf) => (
+                <div key={wf.id} className="bg-slate-900 rounded-xl p-6 hover:bg-slate-800 transition group">
+                  <div className="flex items-start justify-between mb-2">
+                    <h3 className="text-lg font-semibold pr-2">{wf.title}</h3>
+                    <span className="px-2 py-1 rounded-full text-xs bg-slate-800 text-slate-300">Saved</span>
+                  </div>
+                  <p className="text-slate-400 text-sm mb-4">{wf.description || 'Saved workflow'}</p>
+                  <div className="flex gap-2">
+                    <button onClick={() => openRecipe({ title: wf.title, summary: wf.description, tools: wf.tools || [], setupTime: wf.setupTime || '', difficulty: wf.difficulty || '', formula: toFormulaString(wf), setupSteps: wf.setupSteps || [], copyZap: wf.copyZap || '', copyMake: wf.copyMake || '' })} className="px-3 py-2 bg-indigo-500 rounded-lg text-xs font-semibold text-white hover:bg-indigo-400 transition">View Details</button>
+                    <button onClick={() => window.open('/sandbox', '_self')} className="px-3 py-2 bg-blue-600 rounded-lg text-xs font-semibold text-white hover:bg-blue-500 transition">Open in Sandbox</button>
+                    <button onClick={() => removeWorkflow(wf.id)} className="px-3 py-2 bg-slate-700 rounded-lg text-xs font-semibold text-white hover:bg-slate-600 transition">Remove</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-slate-400">No saved workflows yet. Add some from the Workflows Library.</div>
+          )}
+        </section>
+        )}
       </main>
 
       <WorkflowRecipeModal
