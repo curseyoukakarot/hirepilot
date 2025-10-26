@@ -291,21 +291,21 @@ export default function WorkflowsPage() {
               </div>
               <h4 className="font-semibold text-sm">Slack</h4>
               <span className="text-xs mt-2 text-green-400">✅ Connected</span>
-              <button className="mt-3 text-xs px-3 py-1 bg-slate-700 rounded-lg hover:bg-slate-600 transition">Manage</button>
+              <button onClick={() => window.open('/settings/integrations#slack', '_self')} className="mt-3 text-xs px-3 py-1 bg-slate-700 rounded-lg hover:bg-slate-600 transition">Manage</button>
             </div>
 
             <div className="bg-slate-900 rounded-xl p-5 flex flex-col items-center hover:bg-slate-800 transition">
               <img src="/zapier.png" alt="Zapier" className="w-12 h-12 rounded-lg mb-3" />
               <h4 className="font-semibold text-sm">Zapier</h4>
               <span className="text-xs mt-2 text-green-400">✅ Connected</span>
-              <button className="mt-3 text-xs px-3 py-1 bg-slate-700 rounded-lg hover:bg-slate-600 transition">Manage</button>
+              <button onClick={() => window.open('/settings/integrations#zapier', '_self')} className="mt-3 text-xs px-3 py-1 bg-slate-700 rounded-lg hover:bg-slate-600 transition">Manage</button>
             </div>
 
             <div className="bg-slate-900 rounded-xl p-5 flex flex-col items-center hover:bg-slate-800 transition">
               <img src="/sendgrid.png" alt="SendGrid" className="w-12 h-12 rounded-lg mb-3" />
               <h4 className="font-semibold text-sm">SendGrid</h4>
               <span className="text-xs mt-2 text-red-400">⚠️ Not Connected</span>
-              <button className="mt-3 text-xs px-3 py-1 bg-indigo-600 rounded-lg hover:bg-indigo-500 transition">Connect</button>
+              <button onClick={() => window.open('/settings/integrations#sendgrid', '_self')} className="mt-3 text-xs px-3 py-1 bg-indigo-600 rounded-lg hover:bg-indigo-500 transition">Connect</button>
             </div>
 
             <div className="bg-slate-900 rounded-xl p-5 flex flex-col items-center hover:bg-slate-800 transition">
@@ -314,7 +314,7 @@ export default function WorkflowsPage() {
               </div>
               <h4 className="font-semibold text-sm">Stripe</h4>
               <span className="text-xs mt-2 text-green-400">✅ Connected</span>
-              <button className="mt-3 text-xs px-3 py-1 bg-slate-700 rounded-lg hover:bg-slate-600 transition">Manage</button>
+              <button onClick={() => window.open('/settings/integrations#stripe', '_self')} className="mt-3 text-xs px-3 py-1 bg-slate-700 rounded-lg hover:bg-slate-600 transition">Manage</button>
             </div>
 
             <div className="bg-slate-900 rounded-xl p-5 flex flex-col items-center hover:bg-slate-800 transition">
@@ -323,7 +323,7 @@ export default function WorkflowsPage() {
               </div>
               <h4 className="font-semibold text-sm">LinkedIn</h4>
               <span className="text-xs mt-2 text-red-400">⚠️ Not Connected</span>
-              <button className="mt-3 text-xs px-3 py-1 bg-indigo-600 rounded-lg hover:bg-indigo-500 transition">Connect</button>
+              <button onClick={() => window.open('/settings/integrations#linkedin', '_self')} className="mt-3 text-xs px-3 py-1 bg-indigo-600 rounded-lg hover:bg-indigo-500 transition">Connect</button>
             </div>
 
             {/* Calendly removed because integration is not native/direct */}
