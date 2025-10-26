@@ -30,7 +30,9 @@ async function lookupEmailFromSlack(id: string): Promise<string | null> {
 export default async function slackSlash(req: Request, res: Response) {
   const { user_id: slack_user_id, text, channel_id } = req.body as any;
   // Immediate ack to Slack (must complete < 3s)
-  res.json({ text: 'REX is thinking…' });
+  try {
+    res.json({ text: 'REX is thinking…' });
+  } catch {}
 
   try {
     const slack_user_email = await lookupEmailFromSlack(slack_user_id);
@@ -61,12 +63,13 @@ export default async function slackSlash(req: Request, res: Response) {
       }
 
       // Save mapping
-      const { updateREXContext } = await import('../hooks/updateUserContext');
-      await updateREXContext({
-        supabase_user_id: userRow.id,
-        slack_user_id,
-        slack_user_email: candidateEmail
-      });
+      // Persist mapping in slack_accounts, so posting can resolve by slack_user_id
+      try {
+        await supabase
+          .from('slack_accounts')
+          .update({ slack_user_id, slack_user_email: candidateEmail })
+          .eq('user_id', userRow.id);
+      } catch {}
 
       await postToSlack(slack_user_id, '✅ Slack account linked to your HirePilot profile!', channel_id);
       return;

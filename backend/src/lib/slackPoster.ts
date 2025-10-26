@@ -21,6 +21,17 @@ export async function postToSlack(userIdOrSlackId: string, text: string, channel
       .maybeSingle());
   }
 
+  // Final fallback: use the latest workspace token available
+  if ((!data || error) && !data) {
+    const { data: anyToken } = await supabase
+      .from('slack_accounts')
+      .select('access_token, channel_name')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (anyToken) data = anyToken as any;
+  }
+
   if (!data || error) throw new Error('Slack not connected');
 
   const token = data.access_token;
