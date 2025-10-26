@@ -356,7 +356,16 @@ export default function SandboxPage() {
           ct = String(resp.headers.get('content-type') || '');
           try { console.debug('[Sandbox] fields fetch (proxy-relative)', relUrl, 'status=', resp.status, 'ct=', ct); } catch {}
         }
-        if (!resp.ok) throw new Error('bad resp');
+        // If proxy path still not JSON/OK, try direct Railway API with Authorization
+        if (!resp.ok || !ct.includes('application/json')) {
+          const directBase = ((typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_FIELDS_API_BASE) || 'https://api.thehirepilot.com/api');
+          const directUrl = `${directBase.replace(/\/$/, '')}/workflows/fields${params.toString() ? `?${params.toString()}` : ''}`;
+          const directResp = await fetch(directUrl, { headers: await getAuthHeaders() });
+          const dct = String(directResp.headers.get('content-type') || '');
+          try { console.debug('[Sandbox] fields fetch (direct)', directUrl, 'status=', directResp.status, 'ct=', dct); } catch {}
+          if (!directResp.ok || !dct.includes('application/json')) throw new Error('bad resp');
+          resp = directResp;
+        }
         const data = await resp.json().catch(async () => { try { console.debug('[Sandbox] fields non-JSON body', await resp.text()); } catch {}; return null; });
         requestAnimationFrame(() => {
           // rebuild pills deterministically using data-testid
