@@ -35,7 +35,8 @@ export default function WorkflowsPage() {
             const keysJs = await keysRes.json().catch(() => ({}));
             const keys = Array.isArray(keysJs?.keys) ? keysJs.keys : [];
             const hasZapier = keys.some((k) => /zapier/i.test(String(k?.provider || k?.name || k?.label || '')));
-            setIntegrationStatus(s => ({ ...s, zapier: hasZapier }));
+            const hasSendgrid = keys.some((k) => /sendgrid/i.test(String(k?.provider || k?.name || k?.label || '')));
+            setIntegrationStatus(s => ({ ...s, zapier: hasZapier, sendgrid: hasSendgrid }));
           }
         }
       } catch {}
