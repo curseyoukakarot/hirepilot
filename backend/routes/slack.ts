@@ -73,7 +73,14 @@ router.get('/auth/slack/init', async (req, res) => {
     }
 
     const redirectUri = `${process.env.BACKEND_URL}/api/auth/slack/callback`;
-    const scope = 'incoming-webhook,chat:write';
+    // Request channel listing scopes in addition to posting
+    const scope = [
+      'incoming-webhook',
+      'chat:write',
+      'channels:read',
+      'groups:read',
+      'conversations:read'
+    ].join(',');
 
     const url = `https://slack.com/oauth/v2/authorize?client_id=${clientId}&scope=${scope}&redirect_uri=${redirectUri}&state=${encodeURIComponent(state)}`;
     
@@ -115,13 +122,16 @@ router.get('/auth/slack/callback', async (req, res) => {
       throw new Error('Failed to get access token');
     }
 
-    // Store webhook URL in user settings (upsert to ensure row exists)
+    // Store webhook URL and bot access token in user settings (upsert to ensure row exists)
     const { error: updateError } = await supabase
       .from('user_settings')
       .upsert({
         user_id: userId,
         slack_webhook_url: result.incoming_webhook?.url,
-        slack_channel: result.incoming_webhook?.channel
+        slack_channel: result.incoming_webhook?.channel,
+        slack_access_token: result.access_token as string,
+        slack_team_id: (result.team as any)?.id || null,
+        slack_bot_user_id: (result.bot_user_id as any) || null
       }, { onConflict: 'user_id' });
 
     if (updateError) {

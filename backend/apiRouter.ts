@@ -92,11 +92,22 @@ router.get('/health', healthCheck);
 // List Slack channels for the authenticated user's workspace (via bot token)
 router.get('/slack/channels', requireAuthFlag, async (req, res) => {
   try {
-    const channels: Array<{ id: string; name: string; is_member?: boolean }>
-      = [] as any;
+    // Prefer user-connected token if stored (workspace-specific), fallback to bot token
+    const userId = (req as any)?.user?.id;
+    let token: string | null = null;
+    try {
+      const { createClient } = require('@supabase/supabase-js');
+      const admin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { autoRefreshToken: false, persistSession: false } });
+      const { data } = await admin.from('user_settings').select('slack_access_token').eq('user_id', userId).maybeSingle();
+      token = data?.slack_access_token || null;
+    } catch {}
+
+    const web = token ? new (require('@slack/web-api').WebClient)(token) : slackClient;
+
+    const channels: Array<{ id: string; name: string; is_member?: boolean }> = [] as any;
     let cursor: string | undefined = undefined;
     do {
-      const result: any = await (slackClient as any).conversations.list({
+      const result: any = await (web as any).conversations.list({
         types: 'public_channel,private_channel',
         exclude_archived: true,
         limit: 200,
