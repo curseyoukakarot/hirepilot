@@ -462,8 +462,9 @@ app.use('/api/stripe', stripeIntegrationRouter);
   app.use('/api/cron', cronProcessorRouter);
   app.use('/api/admin', adminUsersRouter);
   app.use('/api/admin', adminRouter);
-// Advanced Agent Mode (Personas & Schedules) — requires auth to populate req.user
-app.use('/', requireAuthFlag, agentAdvancedRouter);
+// Advanced Agent Mode (Personas & Schedules)
+// NOTE: Mount AFTER public OAuth callbacks (e.g., /api/slack/callback) to avoid intercepting with auth
+// We'll attach this later in the file after Slack routes are declared.
 // REX Chat unified endpoint (uses unified auth inside router)
 app.use('/api/agent', agentChatRouter);
 // Fallback direct handler retained for edge cases; require auth to avoid anonymous uuid issues
@@ -569,6 +570,9 @@ app.post('/api/stripe/webhook', bodyParser.raw({ type: 'application/json' }), st
 app.use('/api/affiliates', requireAuthFlag, affiliatesRouter);
 app.use('/api/payouts', requireAuthFlag, payoutsRouter);
   app.use('/api/tracking', trackingRouter);
+
+  // Now that public OAuth routes are mounted, attach advanced router which requires auth
+  app.use('/', requireAuthFlag, agentAdvancedRouter);
 
   // Feature-flagged: session cookie auth endpoints (safe additive)
   if (String(process.env.ENABLE_SESSION_COOKIE_AUTH || 'false').toLowerCase() === 'true') {
