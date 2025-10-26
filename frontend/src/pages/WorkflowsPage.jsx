@@ -447,6 +447,12 @@ export default function WorkflowsPage() {
         <section id="my-workflows" className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold">My Workflows</h2>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-slate-300 hidden md:inline">Create your own workflow here:</span>
+              <button onClick={() => window.open('/sandbox','_self')} className="px-3 py-1.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-xs font-semibold hover:from-emerald-400 hover:to-teal-500 transition">
+                Sandbox
+              </button>
+            </div>
           </div>
           {savedWorkflows?.length ? (
             <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
