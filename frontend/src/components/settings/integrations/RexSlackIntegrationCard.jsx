@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { FaSlack, FaCheckCircle } from "react-icons/fa";
 import { supabase } from "../../../lib/supabaseClient";
+import { api, apiPost } from "../../../lib/api";
 
 export default function RexSlackIntegrationCard({ user }) {
   // Toggle state – default enabled for demo
@@ -89,12 +90,7 @@ export default function RexSlackIntegrationCard({ user }) {
     setEnabled(newVal);
     if (user?.id) {
       try {
-        const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/integrations/slack/enabled`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.id, enabled: newVal })
-        });
-        if (!resp.ok) throw new Error('Request failed');
+        await apiPost('/api/integrations/slack/enabled', { userId: user.id, enabled: newVal });
       } catch (e) {
         // revert on failure
         setEnabled(!newVal);
@@ -160,12 +156,7 @@ export default function RexSlackIntegrationCard({ user }) {
             onClick={async () => {
               if (!confirm('Disconnect Slack?')) return;
               try {
-                const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/slack/disconnect`, {
-                  method: 'DELETE',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ userId: user.id })
-                });
-                if (!resp.ok) throw new Error('Request failed');
+                await api('/api/slack/disconnect', { method: 'DELETE', body: JSON.stringify({ userId: user.id }) });
                 await refreshStatus();
               } catch (e) {
                 alert('Failed to disconnect Slack. Please try again.');
