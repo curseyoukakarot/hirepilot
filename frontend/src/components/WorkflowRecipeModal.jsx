@@ -16,6 +16,7 @@ export default function WorkflowRecipeModal({
   formula = '',
   setupSteps = [],
   copyZap = '',
+  copyMake = '',
 }) {
   const [activeTab, setActiveTab] = useState('Overview');
   const [devMode, setDevMode] = useState(false);
@@ -57,6 +58,7 @@ export default function WorkflowRecipeModal({
       if (k === 'linkedin') return 'Social';
       if (k === 'rex') return 'AI';
       if (k === 'skrapp') return 'Lead source';
+      if (k === 'make' || k === 'make.com') return 'Automation';
       if (k === 'asana') return 'Tasks';
       if (k === 'hubspot') return 'CRM';
       if (k === 'docusign') return 'E-signature';
@@ -76,6 +78,7 @@ export default function WorkflowRecipeModal({
       else if (k === 'hunter') iconNode = <img src="/hunter.png" alt="Hunter" className="h-6 w-6" />;
       else if (k === 'skrapp') iconNode = <img src="/skrapp.png" alt="Skrapp" className="h-6 w-6" />;
       else if (k === 'monday' || k === 'monday.com') iconNode = <img src="/monday.png" alt="Monday.com" className="h-6 w-6" />;
+      else if (k === 'make' || k === 'make.com') iconNode = <img src="/make.png" alt="Make.com" className="h-6 w-6" />;
       else if (k === 'apollo') iconNode = <img src="/apollo-logo-v2.png" alt="Apollo" className="h-6 w-6" />;
       else if (k === 'hirepilot') iconNode = <img src="/logo.png" alt="HirePilot" className="h-6 w-6" />;
       else if (k === 'rex') iconNode = <span className="font-mono text-sm bg-slate-800 text-slate-100 px-1.5 py-0.5 rounded">&gt;_</span>;
