@@ -108,7 +108,8 @@ router.get('/slack/channels', requireAuthFlag, async (req, res) => {
     let cursor: string | undefined = undefined;
     do {
       const result: any = await (web as any).conversations.list({
-        types: 'public_channel,private_channel',
+        // include ims and mpims if token permits; Slack ignores unknown types
+        types: 'public_channel,private_channel,mpim,im',
         exclude_archived: true,
         limit: 200,
         cursor

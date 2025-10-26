@@ -74,12 +74,14 @@ router.get('/auth/slack/init', async (req, res) => {
 
     const redirectUri = `${process.env.BACKEND_URL}/api/auth/slack/callback`;
     // Request channel listing scopes in addition to posting
+    // Slack requires channels:read (public), groups:read (private), mpim:read and im:read (DMs)
     const scope = [
       'incoming-webhook',
       'chat:write',
       'channels:read',
       'groups:read',
-      'conversations:read'
+      'mpim:read',
+      'im:read'
     ].join(',');
 
     const url = `https://slack.com/oauth/v2/authorize?client_id=${clientId}&scope=${scope}&redirect_uri=${redirectUri}&state=${encodeURIComponent(state)}`;
