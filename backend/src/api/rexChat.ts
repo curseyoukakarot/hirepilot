@@ -84,6 +84,25 @@ export default async function rexChat(req: Request, res: Response) {
     try {
       const lastUserMsg = [...(messages || [])].reverse().find(m => m.role === 'user');
       const lastUserText = String((lastUserMsg as any)?.content || '').toLowerCase();
+      // Slack setup intent: provide exact instructions with correct URLs without waiting for tool calls
+      if (/(setup|set\s*up|enable).*(rex).*slack|slack.*(setup|set\s*up).*rex/.test(lastUserText)) {
+        const base = process.env.BACKEND_URL || process.env.BACKEND_PUBLIC_URL || 'https://api.thehirepilot.com';
+        const urls = {
+          commands: `${base}/api/slack/commands`,
+          interactivity: `${base}/api/slack/interactivity`,
+          events: `${base}/api/slack/events`
+        };
+        const text = [
+          'Here\'s how to enable REX in your Slack workspace:',
+          '1) Go to https://api.slack.com/apps → Create New App → From scratch → Name: "HirePilot (REX)" and choose your workspace.',
+          `2) Slash Commands → Create new → Command: /rex → Request URL: ${urls.commands} → Usage hint: /rex link me → Save.`,
+          `3) Interactivity & Shortcuts → Toggle ON → Request URL: ${urls.interactivity} → Save.`,
+          `4) (Optional) Event Subscriptions → Toggle ON → Request URL: ${urls.events} → Add bot event: app_mention → Save.`,
+          '5) OAuth & Permissions → Bot Token Scopes → add: commands, chat:write, channels:read, users:read → Install to workspace.',
+          '6) In Slack, invite the bot to a channel with /invite @YourBot → then run /rex link me and /rex hello.'
+        ].join('\n');
+        return res.status(200).json({ reply: { role:'assistant', content: text } });
+      }
       let providerHint: 'sendgrid'|'google'|'outlook'|null = null;
 
       // Pattern A: "send from my <provider> account"
@@ -219,6 +238,8 @@ export default async function rexChat(req: Request, res: Response) {
       },
       { type:'function',function:{name:'enrich_lead',parameters:{ type:'object', properties:{ userId:{type:'string'}, linkedin_url:{type:'string'}}, required:['userId','linkedin_url']}}},
       { type:'function',function:{name:'get_campaign_metrics',parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'}}, required:['userId','campaign_id']}}},
+      // Slack setup guide
+      { type:'function', function:{ name:'slack_setup_guide', parameters:{ type:'object', properties:{ userId:{ type:'string' } }, required:['userId'] } } },
       // Lead sourcing and filtering
       { type:'function',function:{name:'source_leads',parameters:{ type:'object', properties:{ userId:{type:'string'}, campaignId:{type:'string'}, source:{type:'string'}, filters:{type:'object'}}, required:['userId','campaignId','source']}}},
       { type:'function',function:{name:'filter_leads',parameters:{ type:'object', properties:{ userId:{type:'string'}, campaignId:{type:'string'}, filters:{ type:'object', properties:{ title:{type:'string'}, synonyms:{type:'boolean'}, strict_level:{type:'boolean'}, has_email:{type:'boolean'}, verified_only:{type:'boolean'}, personal_email_only:{type:'boolean'}, limit:{type:'number'}, count:{type:'number'} } }}, required:['userId']}}},
