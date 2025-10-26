@@ -173,7 +173,7 @@ export default function WorkflowsPage() {
     { id: 21, title: 'Collaborator Added → Send Slack Welcome', category: 'Team', trigger: 'collaborator_added', action: 'Send Slack intro with links & next steps', tools: ['Slack', 'HirePilot'], description: 'Welcome new collaborators with helpful context.' },
 
     // Sniper & REX Automation
-    { id: 24, title: 'Sniper Target Captured → Create Candidate + Enrich Profile', category: 'REX Intelligence', trigger: 'sniper_target_captured', action: 'Create candidate + run enrichment', tools: ['Sniper', 'HirePilot'], description: 'Convert captured targets into enriched candidates automatically.' },
+    // Removed Sniper Target card per request
     { id: 25, title: 'REX Chat → Generate Daily Summary in Notion', category: 'REX Intelligence', trigger: 'Daily at 6:00 PM', action: "Create a Notion 'Recruiting Summary' page", tools: ['REX', 'Notion', 'HirePilot'], description: 'REX writes a daily summary of hires, campaigns, and conversations.' },
 
     // AI-Enhanced Automations (optional bonus)
