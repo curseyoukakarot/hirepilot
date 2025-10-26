@@ -8,7 +8,7 @@ export async function postToSlack(userIdOrSlackId: string, text: string, channel
 
   let { data, error } = await supabase
     .from('slack_accounts')
-    .select('access_token, channel_name')
+    .select('user_id, access_token, channel_name')
     .eq(column, userIdOrSlackId)
     .maybeSingle();
 
@@ -16,7 +16,7 @@ export async function postToSlack(userIdOrSlackId: string, text: string, channel
   if ((!data || error) && isSlackId) {
     ({ data, error } = await supabase
       .from('slack_accounts')
-      .select('access_token, channel_name')
+      .select('user_id, access_token, channel_name')
       .eq('user_id', userIdOrSlackId) // unlikely but fallback
       .maybeSingle());
   }
@@ -32,9 +32,21 @@ export async function postToSlack(userIdOrSlackId: string, text: string, channel
     if (anyToken) data = anyToken as any;
   }
 
-  if (!data || error) throw new Error('Slack not connected');
+  if ((!data || error) && !data) throw new Error('Slack not connected');
 
-  const token = data.access_token;
+  // Resolve access token: prefer slack_accounts.access_token → fallback to user_settings.slack_access_token
+  let token: string | undefined = (data as any)?.access_token;
+  if (!token && (data as any)?.user_id) {
+    try {
+      const { data: settings } = await supabase
+        .from('user_settings')
+        .select('slack_access_token')
+        .eq('user_id', (data as any).user_id)
+        .maybeSingle();
+      token = (settings as any)?.slack_access_token || token;
+    } catch {}
+  }
+  if (!token) throw new Error('Missing Slack access token');
   const channelName = channel || data.channel_name;
   if (!channelName) throw new Error('No Slack channel');
 
