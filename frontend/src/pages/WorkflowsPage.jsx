@@ -1,10 +1,53 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { supabase } from '../lib/supabaseClient';
 import WorkflowRecipeModal from '../components/WorkflowRecipeModal';
 
 export default function WorkflowsPage() {
   const [selected, setSelected] = useState(null);
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [integrationStatus, setIntegrationStatus] = useState({ slack:false, zapier:false, sendgrid:false, stripe:false, linkedin:false });
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+        // Fetch consolidated status from backend settings endpoint if available
+        const base = import.meta.env.VITE_BACKEND_URL || '';
+        const res = await fetch(`${base}/api/user-integrations`, { headers: { Authorization: `Bearer ${session.access_token}` } });
+        if (res.ok) {
+          const js = await res.json();
+          setIntegrationStatus(s => ({
+            ...s,
+            zapier: Boolean(js?.zapier_api_key),
+            sendgrid: Boolean(js?.sendgrid_api_key || js?.sendgrid?.has_keys),
+          }));
+        }
+      } catch {}
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id) {
+          const { data: slackRow } = await supabase.from('slack_accounts').select('id').eq('user_id', user.id).maybeSingle();
+          setIntegrationStatus(s => ({ ...s, slack: Boolean(slackRow) }));
+        }
+      } catch {}
+      try {
+        const base = import.meta.env.VITE_BACKEND_URL || '';
+        const { data: { session } } = await supabase.auth.getSession();
+        const stripeRes = await fetch(`${base}/api/stripe/status`, { headers: { Authorization: `Bearer ${session?.access_token}` } });
+        const stripeJs = await stripeRes.json().catch(() => ({}));
+        setIntegrationStatus(s => ({ ...s, stripe: Boolean(stripeJs?.has_keys || stripeJs?.connected_account_id) }));
+      } catch {}
+      try {
+        const base = import.meta.env.VITE_BACKEND_URL || '';
+        const { data: { session } } = await supabase.auth.getSession();
+        const liRes = await fetch(`${base}/api/linkedin/check`, { headers: { Authorization: `Bearer ${session?.access_token}` } });
+        const liJs = await liRes.json().catch(() => ({}));
+        setIntegrationStatus(s => ({ ...s, linkedin: Boolean(liJs?.connected) }));
+      } catch {}
+    })();
+  }, []);
 
   // Curated in-app workflow recipes (mirrors public /workflows)
   const workflows = [
@@ -290,21 +333,21 @@ export default function WorkflowsPage() {
                 <i className="fa-brands fa-slack text-white text-xl"></i>
               </div>
               <h4 className="font-semibold text-sm">Slack</h4>
-              <span className="text-xs mt-2 text-green-400">✅ Connected</span>
+              <span className={`text-xs mt-2 ${integrationStatus.slack ? 'text-green-400' : 'text-red-400'}`}>{integrationStatus.slack ? '✅ Connected' : '⚠️ Not Connected'}</span>
               <button onClick={() => window.open('/settings/integrations#slack', '_self')} className="mt-3 text-xs px-3 py-1 bg-slate-700 rounded-lg hover:bg-slate-600 transition">Manage</button>
             </div>
 
             <div className="bg-slate-900 rounded-xl p-5 flex flex-col items-center hover:bg-slate-800 transition">
               <img src="/zapier.png" alt="Zapier" className="w-12 h-12 rounded-lg mb-3" />
               <h4 className="font-semibold text-sm">Zapier</h4>
-              <span className="text-xs mt-2 text-green-400">✅ Connected</span>
+              <span className={`text-xs mt-2 ${integrationStatus.zapier ? 'text-green-400' : 'text-red-400'}`}>{integrationStatus.zapier ? '✅ Connected' : '⚠️ Not Connected'}</span>
               <button onClick={() => window.open('/settings/integrations#zapier', '_self')} className="mt-3 text-xs px-3 py-1 bg-slate-700 rounded-lg hover:bg-slate-600 transition">Manage</button>
             </div>
 
             <div className="bg-slate-900 rounded-xl p-5 flex flex-col items-center hover:bg-slate-800 transition">
               <img src="/sendgrid.png" alt="SendGrid" className="w-12 h-12 rounded-lg mb-3" />
               <h4 className="font-semibold text-sm">SendGrid</h4>
-              <span className="text-xs mt-2 text-red-400">⚠️ Not Connected</span>
+              <span className={`text-xs mt-2 ${integrationStatus.sendgrid ? 'text-green-400' : 'text-red-400'}`}>{integrationStatus.sendgrid ? '✅ Connected' : '⚠️ Not Connected'}</span>
               <button onClick={() => window.open('/settings/integrations#sendgrid', '_self')} className="mt-3 text-xs px-3 py-1 bg-indigo-600 rounded-lg hover:bg-indigo-500 transition">Connect</button>
             </div>
 
@@ -313,7 +356,7 @@ export default function WorkflowsPage() {
                 <i className="fa-brands fa-stripe text-white text-xl"></i>
               </div>
               <h4 className="font-semibold text-sm">Stripe</h4>
-              <span className="text-xs mt-2 text-green-400">✅ Connected</span>
+              <span className={`text-xs mt-2 ${integrationStatus.stripe ? 'text-green-400' : 'text-red-400'}`}>{integrationStatus.stripe ? '✅ Connected' : '⚠️ Not Connected'}</span>
               <button onClick={() => window.open('/settings/integrations#stripe', '_self')} className="mt-3 text-xs px-3 py-1 bg-slate-700 rounded-lg hover:bg-slate-600 transition">Manage</button>
             </div>
 
@@ -322,7 +365,7 @@ export default function WorkflowsPage() {
                 <i className="fa-brands fa-linkedin text-white text-xl"></i>
               </div>
               <h4 className="font-semibold text-sm">LinkedIn</h4>
-              <span className="text-xs mt-2 text-red-400">⚠️ Not Connected</span>
+              <span className={`text-xs mt-2 ${integrationStatus.linkedin ? 'text-green-400' : 'text-red-400'}`}>{integrationStatus.linkedin ? '✅ Connected' : '⚠️ Not Connected'}</span>
               <button onClick={() => window.open('/settings/integrations#linkedin', '_self')} className="mt-3 text-xs px-3 py-1 bg-indigo-600 rounded-lg hover:bg-indigo-500 transition">Connect</button>
             </div>
 
