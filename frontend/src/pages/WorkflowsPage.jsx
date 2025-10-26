@@ -80,12 +80,11 @@ export default function WorkflowsPage() {
           try {
             const { data: keyRows } = await supabase
               .from('api_keys')
-              .select('id,provider,name,label')
+              .select('id')
               .eq('user_id', user.id);
             if (Array.isArray(keyRows)) {
-              const hasZap = keyRows.some(k => /zapier/i.test(String(k?.provider || k?.name || k?.label || '')));
               const hasAny = keyRows.length > 0;
-              if (hasZap || hasAny) setIntegrationStatus(s => ({ ...s, zapier: true }));
+              if (hasAny) setIntegrationStatus(s => ({ ...s, zapier: true }));
             }
           } catch {}
 
@@ -103,14 +102,18 @@ export default function WorkflowsPage() {
         setIntegrationStatus(s => ({ ...s, stripe: Boolean(stripeJs?.has_keys || stripeJs?.connected_account_id) }));
       } catch {}
       try {
-        // Avoid noisy 404s unless explicitly enabled via env
-        if (import.meta.env.VITE_LINKEDIN_CHECK === '1') {
-          const base = import.meta.env.VITE_BACKEND_URL || '';
-          const { data: { session } } = await supabase.auth.getSession();
-          const liRes = await fetch(`${base}/api/linkedin/check`, { headers: { Authorization: `Bearer ${session?.access_token}` } });
-          if (liRes.ok) {
-            const liJs = await liRes.json().catch(() => ({}));
-            setIntegrationStatus(s => ({ ...s, linkedin: Boolean(liJs?.connected) }));
+        // Use existing check-cookie endpoint (POST) to avoid 404s
+        const base = import.meta.env.VITE_BACKEND_URL || '';
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id) {
+          const res = await fetch(`${base}/api/linkedin/check-cookie`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: user.id })
+          });
+          if (res.ok) {
+            const js = await res.json().catch(() => ({}));
+            setIntegrationStatus(s => ({ ...s, linkedin: Boolean(js?.exists) }));
           }
         }
       } catch {/* optional; not critical for workflows */}
