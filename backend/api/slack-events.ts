@@ -36,13 +36,30 @@ export async function slackEventsHandler(req: express.Request, res: express.Resp
       rawLen: rawBuf.length,
     });
 
+    // Parse body early so we can respond to Slack URL verification before signature checks
+    let payload: any = undefined;
+    try {
+      payload = JSON.parse(rawBuf.toString('utf8'));
+    } catch (e) {
+      console.error('[slack-events] parse error', e);
+      res.status(400).send('parse error');
+      return;
+    }
+    console.log('[slack-events] parsed payload', payload);
+
+    // Slack URL verification: respond with plain challenge string
+    if (payload?.type === 'url_verification') {
+      res.status(200).send(payload.challenge || '');
+      return;
+    }
+
+    // From here on, verify signatures for real events
     const secret = process.env.SLACK_SIGNING_SECRET;
     if (!secret) {
       res.status(500).send('SLACK_SIGNING_SECRET not set');
       return;
     }
 
-    // Signature verification on raw body
     const timestamp = req.headers['x-slack-request-timestamp'] as string | undefined;
     const signature = req.headers['x-slack-signature'] as string | undefined;
     if (!timestamp || !signature) {
@@ -59,23 +76,6 @@ export async function slackEventsHandler(req: express.Request, res: express.Resp
     if (!crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature))) {
       console.warn('[slack-events] signature mismatch', { expected, provided: signature });
       res.status(400).send('bad signature');
-      return;
-    }
-
-    // Parse after signature verification
-    let payload: any = undefined;
-    try {
-      payload = JSON.parse(rawBuf.toString('utf8'));
-    } catch (e) {
-      console.error('[slack-events] parse error', e);
-      res.status(400).send('parse error');
-      return;
-    }
-    console.log('[slack-events] parsed payload', payload);
-
-    // URL verification
-    if (payload?.type === 'url_verification') {
-      res.status(200).send(payload.challenge || '');
       return;
     }
 
