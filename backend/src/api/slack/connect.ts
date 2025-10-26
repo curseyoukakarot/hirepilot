@@ -6,7 +6,6 @@ export default function slackConnect(req: Request, res: Response) {
     return res.status(400).json({ error: 'missing user_id' });
   }
   const clientId = process.env.SLACK_CLIENT_ID;
-  res.set('Access-Control-Allow-Origin','*');
   const redirect = `${process.env.BACKEND_PUBLIC_URL}/api/slack/callback`;
   const url =
     `https://slack.com/oauth/v2/authorize?client_id=${clientId}` +
