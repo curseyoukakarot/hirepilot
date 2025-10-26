@@ -96,6 +96,16 @@ export default async function slackSlash(req: Request, res: Response) {
       await postToSlack(slack_user_id, 'I could not link your Slack to a HirePilot account. Try `/rex link you@company.com`.', channel_id);
       return;
     }
+    // Ensure backend flag is enabled so REX responds for Slack users
+    try {
+      await supabase
+        .from('users')
+        .update({ rex_slack_enabled: true })
+        .eq('id', supabaseUserId);
+      await supabase
+        .from('integrations')
+        .upsert({ user_id: supabaseUserId, provider: 'rex', status: 'enabled', connected_at: new Date().toISOString() }, { onConflict: 'user_id,provider' });
+    } catch {}
 
     // Call the existing rexChat endpoint so we benefit from MCP tool handling
     const backendBase = process.env.BACKEND_INTERNAL_URL || `http://127.0.0.1:${process.env.PORT || 8080}`;
