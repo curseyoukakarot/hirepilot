@@ -333,6 +333,34 @@ export default function SandboxPage() {
           } catch {}
           return { Accept: 'application/json' } as Record<string, string>;
         };
+        // Populate Slack channels when modal opens
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token;
+          const base = ((typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_BACKEND_URL) || '');
+          if (token) {
+            const r = await fetch(`${base}/api/slack/channels`, { headers: { Authorization: `Bearer ${token}` } });
+            const js = await r.json().catch(() => ({} as any));
+            const select = document.getElementById('slack-channel-select') as HTMLSelectElement | null;
+            if (select) {
+              select.innerHTML = '';
+              const channels: Array<{ id: string; name: string }> = (js?.channels || []).slice(0, 200);
+              if (channels.length === 0) {
+                const opt = document.createElement('option');
+                opt.value = '';
+                opt.textContent = 'No channels found';
+                select.appendChild(opt);
+              } else {
+                channels.forEach((c) => {
+                  const opt = document.createElement('option');
+                  opt.value = c.id;
+                  opt.textContent = `#${c.name}`;
+                  select.appendChild(opt);
+                });
+              }
+            }
+          }
+        } catch {}
         const getApiBase = () => {
           try {
             const w: any = window as any;
@@ -1026,10 +1054,8 @@ export default function SandboxPage() {
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Slack Channel</label>
-                    <select className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                      <option value="#hiring-alerts">#hiring-alerts</option>
-                      <option value="#general">#general</option>
-                      <option value="#placements">#placements</option>
+                    <select id="slack-channel-select" className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                      <option value="">Loading channels…</option>
                     </select>
                   </div>
                   <div>

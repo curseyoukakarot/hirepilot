@@ -74,6 +74,7 @@ import healthCheck from './api/health';
 import linkedinTriggerRouter from './src/routes/campaigns/linkedin/trigger';
 import linkedInCookieRouter from './src/routes/cookies/storeLinkedInCookie';
 import adminUsersRouter from './src/routes/adminUsers';
+import { slack as slackClient } from './src/services/slack';
 import fieldsHandler from './api/fields';
 
 // LinkedIn session admin router
@@ -87,6 +88,30 @@ export type ApiHandler = (req: ApiRequest, res: Response) => Promise<void>;
 
 // Health check endpoint for Railway
 router.get('/health', healthCheck);
+
+// List Slack channels for the authenticated user's workspace (via bot token)
+router.get('/slack/channels', requireAuthFlag, async (req, res) => {
+  try {
+    const channels: Array<{ id: string; name: string; is_member?: boolean }>
+      = [] as any;
+    let cursor: string | undefined = undefined;
+    do {
+      const result: any = await (slackClient as any).conversations.list({
+        types: 'public_channel,private_channel',
+        exclude_archived: true,
+        limit: 200,
+        cursor
+      });
+      const batch = (result?.channels || []).map((c: any) => ({ id: c.id, name: c.name, is_member: c.is_member }));
+      channels.push(...batch);
+      cursor = result?.response_metadata?.next_cursor || undefined;
+    } while (cursor);
+    return res.json({ channels });
+  } catch (e: any) {
+    try { console.error('Failed to list Slack channels', e?.message || e); } catch {}
+    return res.status(500).json({ error: 'Failed to list Slack channels' });
+  }
+});
 
 // Canonical fields endpoint for Sandbox modal
 router.get('/fields', fieldsHandler);
