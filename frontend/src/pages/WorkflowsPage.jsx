@@ -171,8 +171,6 @@ export default function WorkflowsPage() {
 
     // Team & Collaboration
     { id: 21, title: 'Collaborator Added → Send Slack Welcome', category: 'Team', trigger: 'collaborator_added', action: 'Send Slack intro with links & next steps', tools: ['Slack', 'HirePilot'], description: 'Welcome new collaborators with helpful context.' },
-    { id: 22, title: 'Role Changed → Sync Permissions + Notion Access', category: 'Team', trigger: 'role_updated', action: 'Sync access across Notion and Slack', tools: ['Notion', 'Slack', 'HirePilot'], description: 'Keep team permissions consistent across tools.' },
-    { id: 23, title: 'Invite Sent → Trigger Onboarding Sequence', category: 'Team', trigger: 'invite_sent', action: 'Send onboarding email series via SendGrid', tools: ['SendGrid', 'HirePilot'], description: 'Automate onboarding for new team invites.' },
 
     // Sniper & REX Automation
     { id: 24, title: 'Sniper Target Captured → Create Candidate + Enrich Profile', category: 'REX Intelligence', trigger: 'sniper_target_captured', action: 'Create candidate + run enrichment', tools: ['Sniper', 'HirePilot'], description: 'Convert captured targets into enriched candidates automatically.' },
