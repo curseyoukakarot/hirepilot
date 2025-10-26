@@ -310,6 +310,13 @@ export default function SandboxPage() {
               const token = session?.access_token;
               const h: Record<string, string> = { Accept: 'application/json' };
               if (token) h['Authorization'] = `Bearer ${token}`;
+              // Optional service/API key support per docs (X-API-Key)
+              try {
+                const w: any = window as any;
+                const apiKey = (typeof import.meta !== 'undefined' && (import.meta as any).env && ((import.meta as any).env.VITE_HP_API_KEY || (import.meta as any).env.VITE_FIELDS_SERVICE_KEY))
+                  || w.__HP_API_KEY__ || w.__HP_SERVICE_KEY__ || w.HP_API_KEY;
+                if (apiKey) h['X-API-Key'] = String(apiKey);
+              } catch {}
               return h;
             }
           } catch {}
@@ -408,7 +415,73 @@ export default function SandboxPage() {
             preview: ''
           });
         });
-      } catch {}
+      } catch {
+        // Enhanced fallback: derive fields from Universal Events API if available (triggers)
+        try {
+          const envBase = ((typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_FIELDS_API_BASE) || 'https://api.thehirepilot.com');
+          const base = envBase.replace(/\/$/, '');
+          const slug = inferSlugFromTitle(node?.title || '') || 'lead_source_added';
+          const since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+          const url = `${base}/api/zapier/triggers/events?event_type=${encodeURIComponent(slug)}&since=${encodeURIComponent(since)}`;
+          const r = await fetch(url, { headers: await (async () => {
+            try {
+              const { data: { session } } = await supabase.auth.getSession();
+              const token = session?.access_token;
+              const h: Record<string,string> = { Accept: 'application/json' };
+              if (token) h['Authorization'] = `Bearer ${token}`;
+              return h;
+            } catch { return { Accept: 'application/json' } as Record<string,string>; }
+          })(), credentials: 'include' });
+          const ct = String(r.headers.get('content-type') || '');
+          if (r.ok && ct.includes('application/json')) {
+            const js: any = await r.json();
+            const first = Array.isArray(js) ? js[0] : (js?.events?.[0] || js);
+            const payload = first?.payload || first?.data || {};
+            const acc: string[] = [];
+            const walk = (o: any, p: string[] = []) => {
+              if (!o || typeof o !== 'object') return;
+              for (const k of Object.keys(o)) {
+                const v = o[k];
+                const path = [...p, k];
+                if (v && typeof v === 'object') walk(v, path);
+                else acc.push(path.join('.'));
+              }
+            };
+            walk(payload, []);
+            requestAnimationFrame(() => {
+              const pillsWrap = document.getElementById('pills-wrap') as HTMLElement | null;
+              if (pillsWrap) {
+                pillsWrap.innerHTML = '';
+                acc.slice(0, 50).forEach((name) => {
+                  const span = document.createElement('span');
+                  span.className = 'pill-token px-3 py-1 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs rounded-full cursor-pointer hover:scale-105 transition-transform';
+                  span.textContent = `{{${name}}}`;
+                  span.addEventListener('click', () => {
+                    const active = document.activeElement as HTMLInputElement | HTMLTextAreaElement | null;
+                    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
+                      const cursorPos = (active as any).selectionStart || 0;
+                      const before = (active as any).value.substring(0, cursorPos);
+                      const after = (active as any).value.substring((active as any).selectionEnd || cursorPos);
+                      (active as any).value = before + span.textContent + after;
+                      (active as any).setSelectionRange(before.length + (span.textContent||'').length, before.length + (span.textContent||'').length);
+                    }
+                  });
+                  pillsWrap.appendChild(span);
+                });
+              }
+              const preset = getSchemaForEndpoint(node?.endpoint)?.guided || getPresetFor(node);
+              applyPresetToModal(preset as any, node?.title);
+              setModalState({
+                mode: 'guided',
+                availableData: acc,
+                guidedDefaults: preset,
+                developerDefaults: null,
+                preview: ''
+              });
+            });
+          }
+        } catch {}
+      }
     }
 
     function closeModal() {
