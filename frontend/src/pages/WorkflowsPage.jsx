@@ -28,13 +28,35 @@ export default function WorkflowsPage() {
           const hasZapier = Boolean(js?.zapier_api_key || js?.api_keys?.zapier);
           const hasSendgrid = Boolean(js?.sendgrid_api_key || js?.api_keys?.sendgrid || js?.sendgrid?.has_keys);
           setIntegrationStatus(s => ({ ...s, zapier: hasZapier, sendgrid: hasSendgrid }));
+        } else {
+          // Fallback: query API keys endpoint to infer Zapier key
+          const keysRes = await fetch(`${base}/api/getApiKeys`, { headers: { Authorization: `Bearer ${session.access_token}` } });
+          if (keysRes.ok) {
+            const keysJs = await keysRes.json().catch(() => ({}));
+            const keys = Array.isArray(keysJs?.keys) ? keysJs.keys : [];
+            const hasZapier = keys.some((k) => /zapier/i.test(String(k?.provider || k?.name || k?.label || '')));
+            setIntegrationStatus(s => ({ ...s, zapier: hasZapier }));
+          }
         }
       } catch {}
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user?.id) {
+          // Primary check: slack_accounts row
           const { data: slackRow } = await supabase.from('slack_accounts').select('id').eq('user_id', user.id).maybeSingle();
-          setIntegrationStatus(s => ({ ...s, slack: Boolean(slackRow) }));
+          let slackConnected = Boolean(slackRow);
+          // Fallback: user_settings webhook/token from new OAuth flow
+          if (!slackConnected) {
+            try {
+              const { data: settings } = await supabase
+                .from('user_settings')
+                .select('slack_webhook_url, slack_access_token')
+                .eq('user_id', user.id)
+                .maybeSingle();
+              slackConnected = Boolean(settings?.slack_webhook_url || settings?.slack_access_token);
+            } catch {}
+          }
+          setIntegrationStatus(s => ({ ...s, slack: slackConnected }));
           const { data: roleRow } = await supabase.from('users').select('role').eq('id', user.id).maybeSingle();
           const roleLc = String(roleRow?.role || user?.user_metadata?.role || '').toLowerCase();
           setIsFree(roleLc === 'free');
