@@ -71,7 +71,16 @@ export default async function slackSlash(req: Request, res: Response) {
           .eq('user_id', userRow.id);
       } catch {}
 
-      await postToSlack(slack_user_id, '✅ Slack account linked to your HirePilot profile!', channel_id);
+      const responseUrl = (req as any)?.body?.response_url as string | undefined;
+      try {
+        if (responseUrl) {
+          await axios.post(responseUrl, { response_type: 'ephemeral', text: '✅ Slack account linked to your HirePilot profile!' });
+        } else {
+          await postToSlack(slack_user_id, '✅ Slack account linked to your HirePilot profile!', channel_id);
+        }
+      } catch {
+        try { await postToSlack(slack_user_id, '✅ Slack account linked to your HirePilot profile!', channel_id); } catch {}
+      }
       return;
     }
 
@@ -117,7 +126,17 @@ export default async function slackSlash(req: Request, res: Response) {
     });
 
     const replyText = (chatResp?.reply?.content || chatResp?.message || 'Understood.').toString().trim();
-    await postToSlack(slack_user_id, replyText, channel_id);
+    const responseUrl = (req as any)?.body?.response_url as string | undefined;
+    try {
+      if (responseUrl) {
+        await axios.post(responseUrl, { response_type: 'ephemeral', text: replyText });
+      } else {
+        await postToSlack(slack_user_id, replyText, channel_id);
+      }
+    } catch (postErr) {
+      console.error('slash post error', postErr);
+      try { await postToSlack(slack_user_id, replyText, channel_id); } catch {}
+    }
   } catch (err: any) {
     console.error('slash error', err);
     try {
