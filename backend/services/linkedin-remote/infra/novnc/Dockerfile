@@ -11,6 +11,9 @@ RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add
     sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list' && \
     apt-get update && apt-get install -y google-chrome-stable && rm -rf /var/lib/apt/lists/*
 
+# Optional Chromium fallback (varies by base OS); ignore failure if package not present
+RUN apt-get update && (apt-get install -y chromium || apt-get install -y chromium-browser || true) && rm -rf /var/lib/apt/lists/*
+
 # User
 RUN useradd -m chrome
 USER chrome
@@ -24,8 +27,9 @@ ENV USER_DATA_DIR=/home/chrome/user-data-dir
 # Files
 USER root
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY launch-browser.sh /usr/local/bin/launch-browser.sh
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN chmod +x /entrypoint.sh /usr/local/bin/launch-browser.sh
 USER chrome
 
 EXPOSE 8080 9222
