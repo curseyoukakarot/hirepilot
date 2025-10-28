@@ -241,6 +241,7 @@ export class DockerEngine implements OrchestratorEngine {
       Env: [
         `USER_DATA_DIR=/home/chrome/user-data-dir/${opts.sessionId}`,
         `SCREEN_GEOMETRY=1366x768x24`,
+        `START_URL=${process.env.LI_START_URL || 'https://www.linkedin.com/login'}`,
         ...(opts.proxyUrl ? [`HTTPS_PROXY=${opts.proxyUrl}`, `HTTP_PROXY=${opts.proxyUrl}`] : [])
       ],
       ExposedPorts: isBrowserless ? { '3000/tcp': {} } : { '8080/tcp': {}, '9222/tcp': {} },
