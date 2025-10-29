@@ -238,16 +238,19 @@ export class DockerEngine implements OrchestratorEngine {
     };
     const preferredPort = pickPortInRange();
     const preferredDebug = preferredPort ? Math.min(preferredPort + 1, 65535) : undefined;
+    const userProfileRel = `/home/chrome/user-data-dir/${opts.userId}`;
+    const hostProfileDir = `/var/hp/profiles/${opts.userId}`;
     const containerConfig: any = {
       Image: requestedImage,
       Env: [
-        `USER_DATA_DIR=/home/chrome/user-data-dir/${opts.sessionId}`,
+        `USER_DATA_DIR=${userProfileRel}`,
         `SCREEN_GEOMETRY=1366x768x24`,
         `START_URL=${process.env.LI_START_URL || 'https://www.linkedin.com/login'}`,
         ...(opts.proxyUrl ? [`HTTPS_PROXY=${opts.proxyUrl}`, `HTTP_PROXY=${opts.proxyUrl}`] : [])
       ],
       ExposedPorts: isBrowserless ? { '3000/tcp': {} } : { '8080/tcp': {}, '9222/tcp': {} },
       HostConfig: {
+        Binds: [ `${hostProfileDir}:${userProfileRel}` ],
         PortBindings: isBrowserless
           ? { '3000/tcp': [{ HostPort: preferredPort ? String(preferredPort) : '' }] }
           : {

@@ -35,7 +35,7 @@ router.post('/start', async (req, res) => {
     const sessionId = data.id as string;
 
     const proxyUrl = await assignProxyForUser(userId);
-    const result = await startSession({ sessionId, runtime, proxyUrl });
+    const result = await startSession({ sessionId, userId, runtime, proxyUrl });
 
     await supabase.from('container_instances').insert({
       session_id: sessionId,
