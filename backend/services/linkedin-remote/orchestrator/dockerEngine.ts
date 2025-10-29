@@ -327,9 +327,9 @@ export class DockerEngine implements OrchestratorEngine {
       streamUrl,
       remoteDebugUrl: (() => {
         try {
-          const baseEnv = String(process.env.STREAM_PUBLIC_BASE_URL || '').trim();
-          if (baseEnv) {
-            const u = new URL(baseEnv);
+          const apiBaseEnv = String(process.env.BACKEND_URL || process.env.API_PUBLIC_BASE_URL || '').trim();
+          if (apiBaseEnv) {
+            const u = new URL(apiBaseEnv);
             const base = `${u.origin.replace(/\/$/, '')}`;
             return `${base}/stream/cdp/${debugPort}/devtools/browser`;
           }
