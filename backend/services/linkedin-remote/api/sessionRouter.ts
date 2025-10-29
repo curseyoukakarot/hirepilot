@@ -88,6 +88,13 @@ router.post('/complete', async (req, res) => {
 
     const result = await harvestCookies(sessionId, ci.remote_debug_url);
     await supabase.from('container_instances').update({ state: 'ready' }).eq('id', ci.id);
+
+    // Stop and remove the container to ensure fresh profile for the next user/session
+    try {
+      const containerId = (ci as any)?.container_id as string | undefined;
+      if (containerId) await stopSession(containerId).catch(()=>{});
+    } catch {}
+
     res.json({ ok: true, harvested: result });
   } catch (e:any) { res.status(500).json({ error: e.message }); }
 });

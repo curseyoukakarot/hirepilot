@@ -328,8 +328,9 @@ export class DockerEngine implements OrchestratorEngine {
     const resolvedRemoteDebugUrl = await (async () => {
       const candidates: { versionUrl: string; toWs: (guidPath?: string) => string }[] = [];
       try {
+        const streamProxyHostSet = Boolean(process.env.STREAM_PROXY_TARGET_HOST || process.env.DOCKER_PROXY_HOST || process.env.DOCKER_PUBLIC_HOST);
         const apiBaseEnv = String(process.env.BACKEND_URL || process.env.API_PUBLIC_BASE_URL || '').trim();
-        if (apiBaseEnv) {
+        if (apiBaseEnv && streamProxyHostSet) {
           const api = new URL(apiBaseEnv);
           const isHttps = api.protocol === 'https:';
           const origin = `${api.protocol}//${api.host}`.replace(/\/$/, '');
