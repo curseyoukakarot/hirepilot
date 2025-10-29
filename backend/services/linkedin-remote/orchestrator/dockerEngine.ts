@@ -330,8 +330,9 @@ export class DockerEngine implements OrchestratorEngine {
           const apiBaseEnv = String(process.env.BACKEND_URL || process.env.API_PUBLIC_BASE_URL || '').trim();
           if (apiBaseEnv) {
             const u = new URL(apiBaseEnv);
-            const base = `${u.origin.replace(/\/$/, '')}`;
-            return `${base}/stream/cdp/${debugPort}/devtools/browser`;
+            const isHttps = u.protocol === 'https:';
+            const wsOrigin = `${isHttps ? 'wss' : 'ws'}://${u.host}`;
+            return `${wsOrigin}/stream/cdp/${debugPort}/devtools/browser`;
           }
         } catch {}
         if (process.env.DOCKER_PUBLIC_BASE_URL) return `${publicBaseRaw.replace(/\/$/, '')}:${debugPort}/devtools/browser`;
