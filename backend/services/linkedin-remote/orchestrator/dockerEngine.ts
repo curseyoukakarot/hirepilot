@@ -326,36 +326,49 @@ export class DockerEngine implements OrchestratorEngine {
 
     // Resolve DevTools browser websocket with GUID via /json/version (through API proxy when available)
     const resolvedRemoteDebugUrl = await (async () => {
+      const candidates: { versionUrl: string; toWs: (guidPath?: string) => string }[] = [];
       try {
         const apiBaseEnv = String(process.env.BACKEND_URL || process.env.API_PUBLIC_BASE_URL || '').trim();
         if (apiBaseEnv) {
           const api = new URL(apiBaseEnv);
           const isHttps = api.protocol === 'https:';
           const origin = `${api.protocol}//${api.host}`.replace(/\/$/, '');
-          const versionUrl = `${origin}/stream/cdp/${debugPort}/json/version`;
-          const u = new URL(versionUrl);
+          candidates.push({
+            versionUrl: `${origin}/stream/cdp/${debugPort}/json/version`,
+            toWs: (guidPath?: string) => `${isHttps ? 'wss' : 'ws'}://${api.host}/stream/cdp/${debugPort}${guidPath || '/devtools/browser'}`
+          });
+        }
+      } catch {}
+      if (parsedDockerHost) {
+        candidates.push({ versionUrl: `http://${parsedDockerHost}:${debugPort}/json/version`, toWs: (p?: string) => `ws://${parsedDockerHost}:${debugPort}${p || '/devtools/browser'}` });
+      }
+      if (process.env.DOCKER_PUBLIC_BASE_URL) {
+        const hostOnly = publicBaseRaw.replace(/^https?:\/\//, '').replace(/\/$/, '');
+        candidates.push({ versionUrl: `http://${hostOnly}:${debugPort}/json/version`, toWs: (p?: string) => `ws://${hostOnly}:${debugPort}${p || '/devtools/browser'}` });
+      }
+      candidates.push({ versionUrl: `http://127.0.0.1:${debugPort}/json/version`, toWs: (p?: string) => `ws://127.0.0.1:${debugPort}${p || '/devtools/browser'}` });
+
+      for (const c of candidates) {
+        try {
+          const u = new URL(c.versionUrl);
+          const isHttps = u.protocol === 'https:';
           const client = isHttps ? https : http;
           const json: any = await new Promise((resolve, reject) => {
             const req = client.request(u, (res) => {
               let body = '';
-              res.on('data', (c) => { body += c.toString(); });
-              res.on('end', () => {
-                try { resolve(JSON.parse(body)); } catch (e) { reject(e); }
-              });
+              res.on('data', (ch) => { body += ch.toString(); });
+              res.on('end', () => { try { resolve(JSON.parse(body)); } catch (e) { reject(e); } });
             });
             req.on('error', reject); req.end();
           });
           const wsUrl: string | undefined = json?.webSocketDebuggerUrl;
           if (wsUrl) {
             const wsPath = new URL(wsUrl).pathname; // /devtools/browser/<id>
-            const wsOrigin = `${isHttps ? 'wss' : 'ws'}://${api.host}`;
-            return `${wsOrigin}/stream/cdp/${debugPort}${wsPath}`;
+            return c.toWs(wsPath);
           }
-          // Fallback to plain path with no GUID (may fail on some versions)
-          const wsOrigin = `${isHttps ? 'wss' : 'ws'}://${api.host}`;
-          return `${wsOrigin}/stream/cdp/${debugPort}/devtools/browser`;
-        }
-      } catch {}
+        } catch { /* try next */ }
+      }
+      // Last resort without GUID
       if (process.env.DOCKER_PUBLIC_BASE_URL) return `${publicBaseRaw.replace(/\/$/, '')}:${debugPort}/devtools/browser`;
       if (parsedDockerHost) return `ws://${parsedDockerHost}:${debugPort}/devtools/browser`;
       return `ws://localhost:${debugPort}/devtools/browser`;
