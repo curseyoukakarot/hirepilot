@@ -3,6 +3,8 @@ import { OrchestratorEngine, StartOpts, StartResult } from './engine';
 import fs from 'node:fs';
 import path from 'node:path';
 import WebSocket from 'ws';
+import http from 'node:http';
+import https from 'node:https';
 
 function getDocker(): Docker {
   const dockerHost = process.env.DOCKER_HOST;
@@ -322,23 +324,47 @@ export class DockerEngine implements OrchestratorEngine {
       return `http://localhost:${streamPort}/vnc.html?autoconnect=1&resize=scale`;
     })();
 
+    // Resolve DevTools browser websocket with GUID via /json/version (through API proxy when available)
+    const resolvedRemoteDebugUrl = await (async () => {
+      try {
+        const apiBaseEnv = String(process.env.BACKEND_URL || process.env.API_PUBLIC_BASE_URL || '').trim();
+        if (apiBaseEnv) {
+          const api = new URL(apiBaseEnv);
+          const isHttps = api.protocol === 'https:';
+          const origin = `${api.protocol}//${api.host}`.replace(/\/$/, '');
+          const versionUrl = `${origin}/stream/cdp/${debugPort}/json/version`;
+          const u = new URL(versionUrl);
+          const client = isHttps ? https : http;
+          const json: any = await new Promise((resolve, reject) => {
+            const req = client.request(u, (res) => {
+              let body = '';
+              res.on('data', (c) => { body += c.toString(); });
+              res.on('end', () => {
+                try { resolve(JSON.parse(body)); } catch (e) { reject(e); }
+              });
+            });
+            req.on('error', reject); req.end();
+          });
+          const wsUrl: string | undefined = json?.webSocketDebuggerUrl;
+          if (wsUrl) {
+            const wsPath = new URL(wsUrl).pathname; // /devtools/browser/<id>
+            const wsOrigin = `${isHttps ? 'wss' : 'ws'}://${api.host}`;
+            return `${wsOrigin}/stream/cdp/${debugPort}${wsPath}`;
+          }
+          // Fallback to plain path with no GUID (may fail on some versions)
+          const wsOrigin = `${isHttps ? 'wss' : 'ws'}://${api.host}`;
+          return `${wsOrigin}/stream/cdp/${debugPort}/devtools/browser`;
+        }
+      } catch {}
+      if (process.env.DOCKER_PUBLIC_BASE_URL) return `${publicBaseRaw.replace(/\/$/, '')}:${debugPort}/devtools/browser`;
+      if (parsedDockerHost) return `ws://${parsedDockerHost}:${debugPort}/devtools/browser`;
+      return `ws://localhost:${debugPort}/devtools/browser`;
+    })();
+
     return {
       containerId: container.id,
       streamUrl,
-      remoteDebugUrl: (() => {
-        try {
-          const apiBaseEnv = String(process.env.BACKEND_URL || process.env.API_PUBLIC_BASE_URL || '').trim();
-          if (apiBaseEnv) {
-            const u = new URL(apiBaseEnv);
-            const isHttps = u.protocol === 'https:';
-            const wsOrigin = `${isHttps ? 'wss' : 'ws'}://${u.host}`;
-            return `${wsOrigin}/stream/cdp/${debugPort}/devtools/browser`;
-          }
-        } catch {}
-        if (process.env.DOCKER_PUBLIC_BASE_URL) return `${publicBaseRaw.replace(/\/$/, '')}:${debugPort}/devtools/browser`;
-        if (parsedDockerHost) return `ws://${parsedDockerHost}:${debugPort}/devtools/browser`;
-        return `ws://localhost:${debugPort}/devtools/browser`;
-      })()
+      remoteDebugUrl: resolvedRemoteDebugUrl
     };
   }
 
