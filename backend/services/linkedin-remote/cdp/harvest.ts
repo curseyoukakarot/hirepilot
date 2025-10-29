@@ -43,8 +43,18 @@ export async function harvestCookies(sessionId: string, remoteDebugUrl: string) 
     .update({ cookies_encrypted: enc, status: 'active', last_login_at: new Date().toISOString(), last_refresh_at: new Date().toISOString() })
     .eq('id', sessionId);
 
+  // Build a simple name→value map for convenience (filter to linkedin hosts only)
+  const cookieMap: Record<string, string> = {};
+  for (const c of list) {
+    try {
+      if (typeof c?.domain === 'string' && /linkedin\./i.test(c.domain)) {
+        cookieMap[c.name] = String(c.value ?? '');
+      }
+    } catch {}
+  }
+
   ws.close();
-  return { cookieCount: list.length, hasLiAt: true };
+  return { cookieCount: list.length, hasLiAt: true, cookies: cookieMap };
 }
 
 
