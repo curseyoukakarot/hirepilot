@@ -5,9 +5,11 @@ import { FaSearch, FaChartBar, FaUsers, FaRegFileAlt, FaTimes } from 'react-icon
 import { supabase } from '../lib/supabaseClient';
 import { apiDelete, apiPost } from '../lib/api';
 import { toast } from '../components/ui/use-toast';
+import { usePlan } from '../context/PlanContext';
 
 function Campaigns() {
   const navigate = useNavigate();
+  const { isFree, role } = usePlan();
   const [user, setUser] = useState(null);
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,6 +17,11 @@ function Campaigns() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [showTemplates, setShowTemplates] = useState(null);
   const [showMeta, setShowMeta] = useState(null); // campaign id for meta modal
+
+  // Paid role-gated visibility for Persona quick start
+  const paidRoles = ['members','admin','recruitpro','team_admin','super_admin'];
+  const roleLc = String(role || '').toLowerCase().replace(/\s|-/g, '_');
+  const showPersonaCTA = !isFree && paidRoles.includes(roleLc);
 
   useEffect(() => {
     const fetchUserAndCampaigns = async () => {
@@ -47,6 +54,9 @@ function Campaigns() {
 
   const handleCreateCampaign = () => {
     navigate('/campaigns/new/job-description');
+  };
+  const handleNewPersona = () => {
+    navigate('/agent/advanced/personas');
   };
 
   const handleDeleteCampaign = async (campaignId) => {
@@ -137,12 +147,23 @@ function Campaigns() {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Your Campaigns</h1>
           <p className="text-gray-500 mb-4 md:mb-0">Manage, launch, and track your recruiting campaigns in one place.</p>
         </div>
-        <button
-          onClick={handleCreateCampaign}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg text-lg flex items-center shadow transition-all duration-150"
-        >
-          <FaPlus className="mr-2" /> New Campaign
-        </button>
+        <div className="flex items-center gap-3">
+          {showPersonaCTA && (
+            <button
+              onClick={handleNewPersona}
+              className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg text-lg flex items-center shadow transition-all duration-150"
+              title="Create a Persona in Agent Mode"
+            >
+              <FaPlus className="mr-2" /> New Persona
+            </button>
+          )}
+          <button
+            onClick={handleCreateCampaign}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg text-lg flex items-center shadow transition-all duration-150"
+          >
+            <FaPlus className="mr-2" /> New Campaign
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
