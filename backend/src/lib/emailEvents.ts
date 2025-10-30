@@ -7,4 +7,20 @@ export enum LifecycleEventKey {
   Founder = 'user_day1_checkin',
 }
 
+export enum DripEventKey {
+  FreeCampaign = 'drip.free.campaign',
+  FreeREX = 'drip.free.rex',
+  FreeCSV = 'drip.free.csv',
+  FreeExtension = 'drip.free.extension',
+  FreeRequests = 'drip.free.requests',
+  FreeLeads = 'drip.free.leads',
+
+  PaidAgent = 'drip.paid.agent',
+  PaidREX = 'drip.paid.rex',
+  PaidDeals = 'drip.paid.deals',
+  PaidLeads = 'drip.paid.leads',
+  PaidCandidates = 'drip.paid.candidates',
+  PaidREQs = 'drip.paid.reqs',
+}
+
 
