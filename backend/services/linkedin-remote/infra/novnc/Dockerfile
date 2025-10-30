@@ -6,6 +6,9 @@ RUN apt-get update && apt-get install -y \
   novnc websockify curl unzip \
   --no-install-recommends && rm -rf /var/lib/apt/lists/*
 
+# Utilities for X framebuffer init and input
+RUN apt-get update && apt-get install -y x11-apps xdotool && rm -rf /var/lib/apt/lists/*
+
 # Chrome
 RUN wget -q -O /usr/share/keyrings/google-linux-signing-key.gpg https://dl.google.com/linux/linux_signing_key.pub && \
     echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-linux-signing-key.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \

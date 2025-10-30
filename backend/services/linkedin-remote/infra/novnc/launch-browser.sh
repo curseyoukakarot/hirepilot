@@ -8,8 +8,10 @@ URL="${START_URL:-${LI_START_URL:-https://www.linkedin.com/login}}"
 export DISPLAY="${DISPLAY:-:99}"
 
 # Give Xvfb a moment to fully initialize and set a solid background to trigger framebuffer
-sleep 2
+sleep 3
 xsetroot -solid black || true
+xrandr -display :99 -s 1366x768 || true
+xdotool mousemove 10 10 || true
 
 # Pick available browser binary
 CHROME=""
