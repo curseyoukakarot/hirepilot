@@ -719,6 +719,45 @@ export default function MessagingCenter() {
   // Clear selection when folder changes or list refreshes
   useEffect(() => { clearSelection(); }, [activeFolder]);
 
+  // Bulk restore selected (from Trash)
+  const handleBulkRestore = async () => {
+    if (selectedIds.size === 0) return;
+    try {
+      const ids = Array.from(selectedIds);
+      const { error } = await supabase
+        .from('messages')
+        .update({ status: 'sent', updated_at: new Date().toISOString() })
+        .in('id', ids);
+      if (error) throw error;
+      toast.success('Selected messages restored');
+      clearSelection();
+      await fetchMessages(activeFolder);
+    } catch (err) {
+      console.error('Bulk restore failed', err);
+      toast.error('Failed to restore selected messages');
+    }
+  };
+
+  // Permanently delete selected (Trash only)
+  const handleBulkPermanentDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!window.confirm('Delete selected messages permanently? This cannot be undone.')) return;
+    try {
+      const ids = Array.from(selectedIds);
+      const { error } = await supabase
+        .from('messages')
+        .delete()
+        .in('id', ids);
+      if (error) throw error;
+      toast.success('Selected messages deleted permanently');
+      clearSelection();
+      await fetchMessages(activeFolder);
+    } catch (err) {
+      console.error('Permanent delete failed', err);
+      toast.error('Failed to delete selected messages');
+    }
+  };
+
   // Update the message view to include a trash button
   const MessageView = ({ message }) => (
     <div>
@@ -1100,13 +1139,30 @@ export default function MessagingCenter() {
             <h2 className="text-lg font-semibold text-gray-800">{activeFolder}</h2>
           </div>
           <div className="flex items-center gap-2">
-            {selectedIds.size > 0 && activeFolder !== 'Trash' && (
-              <button
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-red-50 text-red-700 hover:bg-red-100 border border-red-200"
-                onClick={handleBulkTrash}
-              >
-                <FaTrash /> Delete
-              </button>
+            {selectedIds.size > 0 && (
+              activeFolder === 'Trash' ? (
+                <>
+                  <button
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-green-50 text-green-700 hover:bg-green-100 border border-green-200"
+                    onClick={handleBulkRestore}
+                  >
+                    Restore Selected
+                  </button>
+                  <button
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-red-50 text-red-700 hover:bg-red-100 border border-red-200"
+                    onClick={handleBulkPermanentDelete}
+                  >
+                    <FaTrash /> Delete Permanently
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-red-50 text-red-700 hover:bg-red-100 border border-red-200"
+                  onClick={handleBulkTrash}
+                >
+                  <FaTrash /> Delete
+                </button>
+              )
             )}
             <button className="text-gray-500 hover:text-gray-700"><FaFilter /></button>
             <button className="text-gray-500 hover:text-gray-700"><FaSort /></button>
@@ -1127,15 +1183,13 @@ export default function MessagingCenter() {
                 onClick={() => handleInboxClick(msg)}
               >
                 <div className="flex items-start space-x-3">
-                  {activeFolder !== 'Trash' && (
-                    <input
-                      type="checkbox"
-                      className="mt-2 h-4 w-4"
-                      checked={isSelected(msg.id)}
-                      onChange={(e) => { e.stopPropagation(); toggleSelect(msg.id); }}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  )}
+                  <input
+                    type="checkbox"
+                    className="mt-2 h-4 w-4"
+                    checked={isSelected(msg.id)}
+                    onChange={(e) => { e.stopPropagation(); toggleSelect(msg.id); }}
+                    onClick={(e) => e.stopPropagation()}
+                  />
                   <img src={msg.avatar} alt="Sender" className="w-10 h-10 rounded-full flex-shrink-0 shadow" />
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-center">
