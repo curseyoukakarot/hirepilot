@@ -2,6 +2,8 @@ import { Client } from '@microsoft/microsoft-graph-client';
 import { supabase } from '../lib/supabaseClient';
 import { EmailEventService } from './emailEventService';
 import { getOutlookAccessToken } from './outlookTokenHelper';
+import { SourcingNotifications } from '../src/lib/notifications';
+import { postToSlack } from '../src/lib/slackPoster';
 
 export class OutlookTrackingService {
   /**
@@ -174,7 +176,7 @@ export class OutlookTrackingService {
       // Get message details
       const message = await client
         .api(`/me/messages/${messageId}`)
-        .select('conversationId,inReplyTo')
+        .select('conversationId,inReplyTo,subject,from,bodyPreview')
         .get();
 
       // Check if this is a reply
@@ -201,9 +203,34 @@ export class OutlookTrackingService {
         event_type: 'reply',
         metadata: {
           reply_message_id: messageId,
-          conversation_id: message.conversationId
+          conversation_id: message.conversationId,
+          subject: message.subject,
+          from: message?.from?.emailAddress?.address,
+          preview: message.bodyPreview
         }
       });
+
+      // 1) In‑app Action Inbox card for the owner
+      try {
+        await SourcingNotifications.newReply({
+          userId: originalMessage.user_id,
+          campaignId: originalMessage.campaign_id!,
+          leadId: originalMessage.lead_id!,
+          replyId: messageId,
+          classification: 'neutral',
+          subject: message.subject || '(no subject)',
+          fromEmail: (message?.from?.emailAddress?.address) || 'unknown',
+          body: message.bodyPreview || ''
+        });
+      } catch (e) {
+        console.warn('[OutlookTrackingService] failed to push Action Inbox card', e);
+      }
+
+      // 2) Slack notification (best‑effort, only if Slack connected)
+      try {
+        const text = `💬 New Outlook reply\nCampaign: ${originalMessage.campaign_id || 'unknown'}\nLead: ${originalMessage.lead_id || 'unknown'}\nFrom: ${(message?.from?.emailAddress?.address) || 'unknown'}\nSubject: ${message.subject || '(no subject)'}\nPreview: ${(message.bodyPreview || '').slice(0, 180)}`;
+        await postToSlack(originalMessage.user_id, text);
+      } catch {}
     } catch (error) {
       console.error('Error handling Outlook webhook:', error);
       throw error;
