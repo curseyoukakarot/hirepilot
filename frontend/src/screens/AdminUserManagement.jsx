@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { FaUserPlus, FaEdit, FaTrash, FaCoins, FaKey, FaCog, FaEye, FaUserSecret, FaEnvelope } from 'react-icons/fa';
+import { FaUserPlus, FaEdit, FaTrash, FaCoins, FaKey, FaCog, FaEye, FaUserSecret, FaEnvelope, FaPaperPlane } from 'react-icons/fa';
 import { supabase } from '../lib/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import UserDetailDrawer from '../components/UserDetailDrawer';
@@ -23,6 +23,10 @@ export default function AdminUserManagement() {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [backfillLoading, setBackfillLoading] = useState(false);
   const [welcomeLoading, setWelcomeLoading] = useState(false);
+  const [dripModalOpen, setDripModalOpen] = useState(false);
+  const [dripSubmitting, setDripSubmitting] = useState(false);
+  const [dripPlan, setDripPlan] = useState('all'); // all | free | paid
+  const [selectedTemplates, setSelectedTemplates] = useState(new Set());
   const [featureUser, setFeatureUser] = useState(null);
   const [features, setFeatures] = useState({ rex_enabled: false, zapier_enabled: false });
   const [featuresLoading, setFeaturesLoading] = useState(false);
@@ -199,6 +203,69 @@ export default function AdminUserManagement() {
   };
 
   // Backfill Free Welcome Emails (server computes recipients)
+  // Drip Backfill Modal helpers
+  const DRIP_TEMPLATES = {
+    free: [
+      { key: 'drip.free.campaign', label: 'Free: Campaign', template: 'drip-free-campaign' },
+      { key: 'drip.free.rex', label: 'Free: REX', template: 'drip-free-rex' },
+      { key: 'drip.free.csv', label: 'Free: CSV', template: 'drip-free-csv' },
+      { key: 'drip.free.extension', label: 'Free: Extension', template: 'drip-free-extension' },
+      { key: 'drip.free.requests', label: 'Free: LinkedIn Requests', template: 'drip-free-requests' },
+      { key: 'drip.free.leads', label: 'Free: Leads', template: 'drip-free-leads' },
+    ],
+    paid: [
+      { key: 'drip.paid.agent', label: 'Paid: Agent Mode', template: 'drip-paid-agent' },
+      { key: 'drip.paid.rex', label: 'Paid: REX Advanced', template: 'drip-paid-rex' },
+      { key: 'drip.paid.deals', label: 'Paid: Deals', template: 'drip-paid-deals' },
+      { key: 'drip.paid.leads', label: 'Paid: Leads', template: 'drip-paid-leads' },
+      { key: 'drip.paid.candidates', label: 'Paid: Candidates', template: 'drip-paid-candidates' },
+      { key: 'drip.paid.reqs', label: 'Paid: Job REQs', template: 'drip-paid-reqs' },
+    ]
+  };
+
+  const toggleTemplate = (tpl) => {
+    const next = new Set(selectedTemplates);
+    if (next.has(tpl)) next.delete(tpl); else next.add(tpl);
+    setSelectedTemplates(next);
+  };
+
+  const selectAllForPlan = (plan) => {
+    const next = new Set(selectedTemplates);
+    DRIP_TEMPLATES[plan].forEach(t => next.add(t.template));
+    setSelectedTemplates(next);
+  };
+
+  const clearAll = () => setSelectedTemplates(new Set());
+
+  const submitDripBackfill = async () => {
+    try {
+      setDripSubmitting(true);
+      setError('');
+      setSuccess('');
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const body = {
+        plan: dripPlan === 'all' ? undefined : dripPlan,
+        templates: Array.from(selectedTemplates)
+      };
+      if (!body.templates || body.templates.length === 0) delete body.templates;
+      const res = await fetch(`${BACKEND_URL}/api/admin/users/backfill-drips`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) throw new Error('Failed to enqueue drips');
+      const result = await res.json();
+      setSuccess(`Enqueued ${result.enqueued} drip emails for ${result.plan} users.`);
+      setDripModalOpen(false);
+      setSelectedTemplates(new Set());
+      setDripPlan('all');
+    } catch (e) {
+      setError('Failed to enqueue drips');
+    } finally {
+      setDripSubmitting(false);
+    }
+  };
+
   const handleBackfillWelcome = async () => {
     if (!window.confirm('Send Free Forever welcome email to all eligible users who have not received it yet?')) return;
     setWelcomeLoading(true);
@@ -318,6 +385,12 @@ export default function AdminUserManagement() {
             <FaCoins /> {backfillLoading ? 'Processing...' : 'Backfill Credits'}
           </button>
           <button
+            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"
+            onClick={() => setDripModalOpen(true)}
+          >
+            <FaPaperPlane /> Backfill Drips
+          </button>
+          <button
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
             onClick={() => setShowInvite(true)}
           >
@@ -327,6 +400,71 @@ export default function AdminUserManagement() {
       </div>
       {error && <div className="mb-4 text-red-600">{error}</div>}
       {success && <div className="mb-4 text-green-600">{success}</div>}
+
+  {/* Backfill Drips Modal */}
+  {dripModalOpen && (
+    <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-3xl shadow-lg border border-gray-200">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-gray-800">Backfill Drip Emails</h2>
+          <button onClick={() => setDripModalOpen(false)} className="text-gray-500 hover:text-gray-700">✕</button>
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Target plan</label>
+          <div className="flex gap-4 text-gray-800">
+            {['all','free','paid'].map((p) => (
+              <label key={p} className="flex items-center gap-2">
+                <input type="radio" name="drip-plan" checked={dripPlan === p} onChange={() => setDripPlan(p)} />
+                <span className="capitalize">{p}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-medium text-gray-800">Free templates</h3>
+              <button className="text-sm text-indigo-600" onClick={() => selectAllForPlan('free')}>Select all</button>
+            </div>
+            <div className="space-y-2 max-h-60 overflow-auto border rounded p-3">
+              {DRIP_TEMPLATES.free.map(t => (
+                <label key={t.template} className="flex items-center gap-2 text-gray-800">
+                  <input type="checkbox" checked={selectedTemplates.has(t.template)} onChange={() => toggleTemplate(t.template)} />
+                  <span>{t.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-medium text-gray-800">Paid templates</h3>
+              <button className="text-sm text-indigo-600" onClick={() => selectAllForPlan('paid')}>Select all</button>
+            </div>
+            <div className="space-y-2 max-h-60 overflow-auto border rounded p-3">
+              {DRIP_TEMPLATES.paid.map(t => (
+                <label key={t.template} className="flex items-center gap-2 text-gray-800">
+                  <input type="checkbox" checked={selectedTemplates.has(t.template)} onChange={() => toggleTemplate(t.template)} />
+                  <span>{t.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between mt-6">
+          <button className="text-sm text-gray-600" onClick={clearAll}>Clear selection</button>
+          <div className="flex gap-2">
+            <button className="px-4 py-2 rounded bg-gray-200 text-gray-800" onClick={() => setDripModalOpen(false)}>Cancel</button>
+            <button className={`px-4 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700 ${dripSubmitting ? 'opacity-70 cursor-not-allowed':''}`} onClick={submitDripBackfill} disabled={dripSubmitting}>
+              {dripSubmitting ? 'Enqueuing…' : 'Enqueue'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )}
       <div className="overflow-x-auto rounded-lg shadow">
         <table className="min-w-full bg-white border border-gray-200">
           <thead>

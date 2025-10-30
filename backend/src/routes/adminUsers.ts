@@ -9,6 +9,8 @@ import { ApiRequest } from '../../types/api';
 import { CreditService } from '../../services/creditService';
 import { sendEmail } from '../../lib/sendEmail';
 import { queueDripOnSignup } from '../lib/queueDripOnSignup';
+import { dripCadence } from '../lib/dripSchedule';
+import { dripQueue } from '../queues/dripQueue';
 // reuse the same instance name to avoid conflict
 const supabaseClient = dbClient;
 
@@ -728,6 +730,7 @@ export default router;
 router.post('/users/backfill-drips', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
   try {
     const planFilter = String((req.body?.plan || '')).toLowerCase();
+    const templates: string[] | undefined = Array.isArray(req.body?.templates) ? req.body.templates : undefined;
     const { data: users, error } = await supabaseDb
       .from('users')
       .select('id, email, plan, first_name, firstName')
@@ -739,8 +742,25 @@ router.post('/users/backfill-drips', requireAuth, requireSuperAdmin, async (req:
     for (const u of list) {
       const plan = String(u.plan || '').toLowerCase() === 'free' ? 'free' : 'paid';
       try {
-        await queueDripOnSignup({ id: u.id, email: u.email, first_name: u.first_name || u.firstName || '' }, plan as any);
-        enqueued++;
+        const firstName = u.first_name || u.firstName || '';
+        if (!templates || templates.length === 0) {
+          await queueDripOnSignup({ id: u.id, email: u.email, first_name: firstName }, (planFilter || plan) as any);
+          enqueued++;
+        } else {
+          // Enqueue only selected templates (respect plan when filtering available templates)
+          const available = plan === 'free' ? dripCadence.free : dripCadence.paid;
+          const subset = available.filter(s => templates.includes(s.template));
+          for (const s of subset) {
+            await dripQueue.add('send', {
+              user_id: u.id,
+              to: u.email,
+              template: s.template,
+              tokens: { first_name: firstName, app_url: process.env.APP_URL || 'https://thehirepilot.com' },
+              event_key: s.key,
+            }, { delay: 0 });
+            enqueued++;
+          }
+        }
       } catch {}
     }
     res.json({ success: true, plan: planFilter || 'all', enqueued, total_candidates: list.length });
