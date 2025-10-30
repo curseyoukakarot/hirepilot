@@ -733,7 +733,7 @@ router.post('/users/backfill-drips', requireAuth, requireSuperAdmin, async (req:
     const templates: string[] | undefined = Array.isArray(req.body?.templates) ? req.body.templates : undefined;
     const { data: users, error } = await supabaseDb
       .from('users')
-      .select('id, email, plan, first_name, firstName')
+      .select('id, email, plan, firstName')
       .then((r: any) => r);
     if (error) return res.status(500).json({ error: error.message });
 
