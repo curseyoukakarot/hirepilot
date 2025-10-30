@@ -44,14 +44,20 @@ export default function ConnectLinkedInModal({ open, onClose, userId }: Props) {
         </div>
         <div className="p-0">
           {streamUrl ? (
-            <iframe
-              src={"https://stream.thehirepilot.com/vnc_lite.html?path=websockify?host=64.181.209.62&port=58080"}
-              className="w-full h-[540px]"
-              // allow='clipboard-write' makes login copy/paste less painful
-              sandbox="allow-scripts allow-forms allow-same-origin allow-pointer-lock allow-popups allow-popups-to-escape-sandbox"
-              allow="clipboard-write"
-              onError={() => setError('Remote session failed to load. Please try again.')}
-            />
+            (() => {
+              const origin = (() => { try { return new URL(streamUrl).origin; } catch { return 'https://stream.thehirepilot.com'; } })();
+              const noVncUrl = `${origin}/vnc_lite.html?path=websockify&encrypt=1&autoconnect=1&resize=scale`;
+              return (
+                <iframe
+                  src={noVncUrl}
+                  className="w-full h-[540px]"
+                  // allow='clipboard-write' makes login copy/paste less painful
+                  sandbox="allow-scripts allow-forms allow-same-origin allow-pointer-lock allow-popups allow-popups-to-escape-sandbox"
+                  allow="clipboard-write"
+                  onError={() => setError('Remote session failed to load. Please try again.')}
+                />
+              );
+            })()
           ) : (
             <div className="h-[540px] flex items-center justify-center text-gray-500">Starting remote session…</div>
           )}
