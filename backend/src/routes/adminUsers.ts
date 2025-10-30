@@ -8,6 +8,7 @@ import { randomUUID } from 'crypto';
 import { ApiRequest } from '../../types/api';
 import { CreditService } from '../../services/creditService';
 import { sendEmail } from '../../lib/sendEmail';
+import { queueDripOnSignup } from '../lib/queueDripOnSignup';
 // reuse the same instance name to avoid conflict
 const supabaseClient = dbClient;
 
@@ -407,6 +408,14 @@ router.patch('/users/:id/plan', requireAuth, requireSuperAdmin, async (req: Requ
       .select('*')
       .maybeSingle();
     if (error) return res.status(500).json({ error: error.message });
+    // Queue paid drip on upgrade (best-effort)
+    try {
+      if (String(plan || '').toLowerCase() !== 'free') {
+        const email = (data as any)?.email;
+        const firstName = (data as any)?.first_name || (data as any)?.firstName || '';
+        if (email) await queueDripOnSignup({ id: userId, email, first_name: firstName }, 'paid');
+      }
+    } catch {}
     return res.json({ success: true, user: data });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'Failed to set plan' });
@@ -714,3 +723,28 @@ export const inviteTeamMember = async (req: ApiRequest, res: Response) => {
 };
 
 export default router; 
+
+// POST /api/admin/users/backfill-drips  { plan?: 'free' | 'paid' }
+router.post('/users/backfill-drips', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
+  try {
+    const planFilter = String((req.body?.plan || '')).toLowerCase();
+    const { data: users, error } = await supabaseDb
+      .from('users')
+      .select('id, email, plan, first_name, firstName')
+      .then((r: any) => r);
+    if (error) return res.status(500).json({ error: error.message });
+
+    const list = (users || []).filter((u: any) => u.email && (!planFilter || String(u.plan || '').toLowerCase() === planFilter));
+    let enqueued = 0;
+    for (const u of list) {
+      const plan = String(u.plan || '').toLowerCase() === 'free' ? 'free' : 'paid';
+      try {
+        await queueDripOnSignup({ id: u.id, email: u.email, first_name: u.first_name || u.firstName || '' }, plan as any);
+        enqueued++;
+      } catch {}
+    }
+    res.json({ success: true, plan: planFilter || 'all', enqueued, total_candidates: list.length });
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message || 'backfill_failed' });
+  }
+});

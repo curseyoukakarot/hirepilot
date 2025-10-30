@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { supabase } from '../lib/supabase';
+import { queueDripOnSignup } from '../lib/queueDripOnSignup';
 import { sendSignupWelcomeEmail } from '../../services/sendUserHtmlEmail';
 import { freeForeverQueue } from '../../jobs/freeForeverCadence';
 
@@ -64,6 +65,11 @@ router.post('/signup', async (req, res) => {
       try {
         const firstName = (first_name || (metadata && metadata.first_name)) || '';
         await freeForeverQueue.add('step-0', { email: userEmail, first_name: firstName, step: 0 });
+      } catch {}
+
+      // Queue new drip cadence (free plan)
+      try {
+        await queueDripOnSignup({ id: userId, email: userEmail, first_name: first_name || (metadata && metadata.first_name) }, 'free');
       } catch {}
     }
 

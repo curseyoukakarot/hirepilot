@@ -6,6 +6,7 @@ import { requireAuth } from '../../middleware/authMiddleware';
 import requireAuthUnified from '../../middleware/requireAuthUnified';
 import { ApiRequest } from '../../types/api';
 import { supabaseAdmin } from '../services/supabase';
+import { queueDripOnSignup } from '../lib/queueDripOnSignup';
 
 const router = express.Router();
 // GET /api/user/plan
@@ -443,6 +444,20 @@ router.post('/upgrade', requireAuth, async (req: ApiRequest, res: Response) => {
       .select()
       .single();
     if (error) return res.status(500).json({ error: error.message });
+    // If upgraded to a paid plan (anything not 'free'), queue paid drip cadence
+    try {
+      if (String(plan || '').toLowerCase() !== 'free') {
+        // Load email + first name for tokens
+        const { data: u } = await supabase
+          .from('users')
+          .select('email, first_name, firstName')
+          .eq('id', userId)
+          .maybeSingle();
+        const email = (u as any)?.email || (req.user as any)?.email;
+        const firstName = (u as any)?.first_name || (u as any)?.firstName || '';
+        if (email) await queueDripOnSignup({ id: userId, email, first_name: firstName }, 'paid');
+      }
+    } catch {}
     res.json({ success: true, data });
   } catch (e) {
     res.status(500).json({ error: 'Failed to upgrade plan' });
