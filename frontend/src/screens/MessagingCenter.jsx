@@ -64,6 +64,8 @@ export default function MessagingCenter() {
   const [activeSubtab, setActiveSubtab] = useState('Templates');
   const [showSequenceBuilder, setShowSequenceBuilder] = useState(false);
   const [editingSequence, setEditingSequence] = useState(null);
+  // Bulk selection state for inbox list
+  const [selectedIds, setSelectedIds] = useState(new Set());
   
   // Template management state
   const [editingTemplate, setEditingTemplate] = useState(null);
@@ -157,14 +159,14 @@ export default function MessagingCenter() {
       // Trash folder shows all messages with status 'trash'
       query = query.eq('status', 'trash');
     } else if (folder === 'Sent') {
-      // Sent folder shows all messages that were sent (including trashed ones)
-      query = query.in('status', ['sent', 'trash']).neq('status', 'draft');
+      // Sent folder shows only sent (hide trashed)
+      query = query.eq('status', 'sent');
     } else if (folder === 'Drafts') {
       // Drafts folder shows only draft messages (not trashed)
       query = query.eq('status', 'draft');
     } else if (folder === 'Inbox') {
-      // For Inbox, show sent messages (you may want to implement actual inbox later)
-      query = query.in('status', ['sent', 'trash']).neq('status', 'draft');
+      // Inbox shows non-trashed sent messages for now
+      query = query.eq('status', 'sent');
     }
     
     const { data, error } = await query;
@@ -173,11 +175,8 @@ export default function MessagingCenter() {
       if (folder === 'Trash') {
         setMessageList(data);
       } else {
-        // For other folders, show all messages but indicate if they're trashed
-        setMessageList(data.map(msg => ({
-          ...msg,
-          isTrashed: msg.status === 'trash'
-        })));
+        // For other folders, hide trashed items entirely
+        setMessageList((data || []).filter(m => m.status !== 'trash'));
       }
     } else {
       setMessageList([]);
@@ -683,6 +682,43 @@ export default function MessagingCenter() {
     }
   };
 
+  // Bulk selection helpers
+  const isSelected = (id) => selectedIds.has(id);
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const clearSelection = () => setSelectedIds(new Set());
+  const selectAllVisible = () => {
+    setSelectedIds(new Set(messageList.map(m => m.id)));
+  };
+  const allSelected = messageList.length > 0 && messageList.every(m => selectedIds.has(m.id));
+  const toggleSelectAll = () => {
+    if (allSelected) clearSelection(); else selectAllVisible();
+  };
+  const handleBulkTrash = async () => {
+    if (selectedIds.size === 0) return;
+    try {
+      const ids = Array.from(selectedIds);
+      const { error } = await supabase
+        .from('messages')
+        .update({ status: 'trash', updated_at: new Date().toISOString() })
+        .in('id', ids);
+      if (error) throw error;
+      toast.success('Selected messages moved to Trash');
+      clearSelection();
+      await fetchMessages(activeFolder);
+    } catch (err) {
+      console.error('Bulk trash failed', err);
+      toast.error('Failed to move selected messages');
+    }
+  };
+  // Clear selection when folder changes or list refreshes
+  useEffect(() => { clearSelection(); }, [activeFolder]);
+
   // Update the message view to include a trash button
   const MessageView = ({ message }) => (
     <div>
@@ -1051,8 +1087,27 @@ export default function MessagingCenter() {
       {/* Message List */}
       <section className="w-1/3 border-r border-gray-200 overflow-y-auto flex flex-col bg-white shadow-md">
         <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex justify-between items-center z-10">
-          <h2 className="text-lg font-semibold text-gray-800">{activeFolder}</h2>
-          <div className="flex space-x-2">
+          <div className="flex items-center gap-3">
+            {activeFolder !== 'Templates' && (
+              <input
+                type="checkbox"
+                className="h-4 w-4"
+                checked={allSelected}
+                onChange={toggleSelectAll}
+                aria-label="Select all"
+              />
+            )}
+            <h2 className="text-lg font-semibold text-gray-800">{activeFolder}</h2>
+          </div>
+          <div className="flex items-center gap-2">
+            {selectedIds.size > 0 && activeFolder !== 'Trash' && (
+              <button
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-red-50 text-red-700 hover:bg-red-100 border border-red-200"
+                onClick={handleBulkTrash}
+              >
+                <FaTrash /> Delete
+              </button>
+            )}
             <button className="text-gray-500 hover:text-gray-700"><FaFilter /></button>
             <button className="text-gray-500 hover:text-gray-700"><FaSort /></button>
           </div>
@@ -1072,6 +1127,15 @@ export default function MessagingCenter() {
                 onClick={() => handleInboxClick(msg)}
               >
                 <div className="flex items-start space-x-3">
+                  {activeFolder !== 'Trash' && (
+                    <input
+                      type="checkbox"
+                      className="mt-2 h-4 w-4"
+                      checked={isSelected(msg.id)}
+                      onChange={(e) => { e.stopPropagation(); toggleSelect(msg.id); }}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  )}
                   <img src={msg.avatar} alt="Sender" className="w-10 h-10 rounded-full flex-shrink-0 shadow" />
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-center">
