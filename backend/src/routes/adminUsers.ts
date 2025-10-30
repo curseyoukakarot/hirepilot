@@ -731,13 +731,17 @@ router.post('/users/backfill-drips', requireAuth, requireSuperAdmin, async (req:
   try {
     const planFilter = String((req.body?.plan || '')).toLowerCase();
     const templates: string[] | undefined = Array.isArray(req.body?.templates) ? req.body.templates : undefined;
+    const userIds: string[] | undefined = Array.isArray(req.body?.user_ids) ? req.body.user_ids : undefined;
     const { data: users, error } = await supabaseDb
       .from('users')
       .select('id, email, plan, firstName')
       .then((r: any) => r);
     if (error) return res.status(500).json({ error: error.message });
 
-    const list = (users || []).filter((u: any) => u.email && (!planFilter || String(u.plan || '').toLowerCase() === planFilter));
+    const list = (users || [])
+      .filter((u: any) => u.email)
+      .filter((u: any) => !planFilter || String(u.plan || '').toLowerCase() === planFilter)
+      .filter((u: any) => !userIds || userIds.includes(u.id));
     let enqueued = 0;
     for (const u of list) {
       const plan = String(u.plan || '').toLowerCase() === 'free' ? 'free' : 'paid';

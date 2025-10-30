@@ -27,6 +27,8 @@ export default function AdminUserManagement() {
   const [dripSubmitting, setDripSubmitting] = useState(false);
   const [dripPlan, setDripPlan] = useState('all'); // all | free | paid
   const [selectedTemplates, setSelectedTemplates] = useState(new Set());
+  const [dripUserIds, setDripUserIds] = useState(new Set());
+  const [dripUserSearch, setDripUserSearch] = useState('');
   const [featureUser, setFeatureUser] = useState(null);
   const [features, setFeatures] = useState({ rex_enabled: false, zapier_enabled: false });
   const [featuresLoading, setFeaturesLoading] = useState(false);
@@ -245,9 +247,11 @@ export default function AdminUserManagement() {
       const token = (await supabase.auth.getSession()).data.session?.access_token;
       const body = {
         plan: dripPlan === 'all' ? undefined : dripPlan,
-        templates: Array.from(selectedTemplates)
+        templates: Array.from(selectedTemplates),
+        user_ids: Array.from(dripUserIds)
       };
       if (!body.templates || body.templates.length === 0) delete body.templates;
+      if (!body.user_ids || body.user_ids.length === 0) delete body.user_ids;
       const res = await fetch(`${BACKEND_URL}/api/admin/users/backfill-drips`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -259,6 +263,7 @@ export default function AdminUserManagement() {
       setDripModalOpen(false);
       setSelectedTemplates(new Set());
       setDripPlan('all');
+      setDripUserIds(new Set());
     } catch (e) {
       setError('Failed to enqueue drips');
     } finally {
@@ -386,7 +391,7 @@ export default function AdminUserManagement() {
           </button>
           <button
             className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"
-            onClick={() => setDripModalOpen(true)}
+            onClick={() => { setDripModalOpen(true); setDripUserIds(new Set()); }}
           >
             <FaPaperPlane /> Backfill Drips
           </button>
@@ -408,6 +413,31 @@ export default function AdminUserManagement() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-gray-800">Backfill Drip Emails</h2>
           <button onClick={() => setDripModalOpen(false)} className="text-gray-500 hover:text-gray-700">✕</button>
+        </div>
+
+        {/* User selection */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Select users</label>
+          <div className="flex items-center gap-2 mb-2">
+            <input className="border rounded px-3 py-2 w-full" placeholder="Search by email or name" value={dripUserSearch} onChange={(e)=>setDripUserSearch(e.target.value)} />
+            <button className="text-sm text-indigo-600" onClick={()=> setDripUserIds(new Set(users.map(u=>u.id)))}>Select all</button>
+            <button className="text-sm text-gray-600" onClick={()=> setDripUserIds(new Set())}>Clear</button>
+          </div>
+          <div className="max-h-40 overflow-auto border rounded p-3 space-y-2">
+            {(users || [])
+              .filter(u => !dripUserSearch || `${u.firstName || ''} ${u.lastName || ''} ${u.email}`.toLowerCase().includes(dripUserSearch.toLowerCase()))
+              .map(u => (
+                <label key={u.id} className="flex items-center gap-2 text-gray-800">
+                  <input type="checkbox" checked={dripUserIds.has(u.id)} onChange={()=>{
+                    const next = new Set(dripUserIds);
+                    if (next.has(u.id)) next.delete(u.id); else next.add(u.id);
+                    setDripUserIds(next);
+                  }}/>
+                  <span>{u.firstName} {u.lastName} · {u.email}</span>
+                  {u.plan && <span className="ml-auto text-xs text-gray-500">{String(u.plan).toUpperCase()}</span>}
+                </label>
+              ))}
+          </div>
         </div>
 
         <div className="mb-4">
@@ -498,6 +528,18 @@ export default function AdminUserManagement() {
                     title="View User Details"
                   >
                     <FaEye />
+                  </button>
+                  <button
+                    className="p-2 bg-indigo-100 hover:bg-indigo-200 rounded"
+                    title="Backfill Drips for this user"
+                    onClick={() => {
+                      setSelectedTemplates(new Set());
+                      setDripPlan(String(user.plan || '').toLowerCase() === 'free' ? 'free' : 'paid');
+                      setDripUserIds(new Set([user.id]));
+                      setDripModalOpen(true);
+                    }}
+                  >
+                    <FaPaperPlane />
                   </button>
                   <button 
                     className="p-2 bg-indigo-100 hover:bg-indigo-200 rounded" 
