@@ -7,6 +7,10 @@ URL="${START_URL:-${LI_START_URL:-https://www.linkedin.com/login}}"
 # Ensure DISPLAY is set for Chrome
 export DISPLAY="${DISPLAY:-:99}"
 
+# Give Xvfb a moment to fully initialize and set a solid background to trigger framebuffer
+sleep 2
+xsetroot -solid black || true
+
 # Pick available browser binary
 CHROME=""
 for c in \
@@ -30,6 +34,7 @@ exec "$CHROME" \
   --disable-gpu \
   --disable-software-rasterizer \
   --disable-dev-shm-usage \
+  --disable-features=UseOzonePlatform \
   --no-first-run \
   --no-default-browser-check \
   --window-size=1366,768 \
