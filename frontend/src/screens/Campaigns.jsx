@@ -58,6 +58,9 @@ function Campaigns() {
   const handleNewPersona = () => {
     navigate('/agent/advanced/personas');
   };
+  const handleTryRex = () => {
+    navigate('/rex-chat');
+  };
 
   const handleDeleteCampaign = async (campaignId) => {
     if (!window.confirm('Are you sure you want to delete this campaign?')) return;
@@ -148,6 +151,13 @@ function Campaigns() {
           <p className="text-gray-500 mb-4 md:mb-0">Manage, launch, and track your recruiting campaigns in one place.</p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={handleTryRex}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg text-lg flex items-center shadow transition-all duration-150"
+            title="Open REX Chat"
+          >
+            <FaRocket className="mr-2" /> Try with REX
+          </button>
           {showPersonaCTA && (
             <button
               onClick={handleNewPersona}
