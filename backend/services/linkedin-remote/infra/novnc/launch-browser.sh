@@ -4,6 +4,9 @@ set -euo pipefail
 # Determine start URL (prefer START_URL, then LI_START_URL, then LinkedIn login)
 URL="${START_URL:-${LI_START_URL:-https://www.linkedin.com/login}}"
 
+# Ensure DISPLAY is set for Chrome
+export DISPLAY="${DISPLAY:-:99}"
+
 # Pick available browser binary
 CHROME=""
 for c in \
@@ -24,6 +27,8 @@ exec "$CHROME" \
   --remote-debugging-address=0.0.0.0 \
   --remote-debugging-port=9222 \
   --user-data-dir="${USER_DATA_DIR:-/home/chrome/user-data-dir}" \
+  --disable-gpu \
+  --disable-software-rasterizer \
   --disable-dev-shm-usage \
   --no-first-run \
   --no-default-browser-check \
