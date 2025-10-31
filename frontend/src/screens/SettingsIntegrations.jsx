@@ -3,9 +3,11 @@ import { supabase } from '../lib/supabaseClient';
 import { toast } from 'react-hot-toast';
 import { api } from '../lib/api';
 import ApolloApiKeyModal from '../components/ApolloApiKeyModal';
+import ZapierWizardModal from '../components/settings/integrations/ZapierWizardModal.jsx';
 
-function ZapierModalFrame({ onClose }) {
+function ZapierModalFrame({ onClose, apiKey }) {
   const iframeRef = useRef(null);
+  const keyText = apiKey || '66879c7f-a888-410a-9a86-2ff77388c8ce';
   const srcDoc = `<!DOCTYPE html>
 <html>
   <head>
@@ -51,7 +53,7 @@ function ZapierModalFrame({ onClose }) {
                   </span>
               </div>
               <div class="flex items-center justify-between bg-gray-900/70 border border-gray-700 rounded-lg px-3 py-2">
-                  <span class="font-mono text-sm text-gray-400" id="api-key">66879c7f-a888-410a-9a86-2ff77388c8ce</span>
+                  <span class="font-mono text-sm text-gray-400" id="api-key">${keyText}</span>
                   <button onclick="copyApiKey()" class="text-indigo-400 hover:text-indigo-300 flex items-center gap-1 text-sm transition-colors">
                       <i class="fas fa-copy text-xs"></i> 
                       <span id="copy-text">Copy</span>
@@ -202,6 +204,17 @@ function ZapierModalFrame({ onClose }) {
     return () => { try { iframe.removeEventListener('load', onLoad); } catch {} };
   }, [onClose]);
 
+  useEffect(() => {
+    // Update API key when it changes
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+    try {
+      const doc = iframe.contentDocument;
+      const el = doc && doc.getElementById('api-key');
+      if (el && apiKey) el.textContent = apiKey;
+    } catch {}
+  }, [apiKey]);
+
   return (
     <iframe
       ref={iframeRef}
@@ -216,6 +229,8 @@ export default function SettingsIntegrations() {
   const [loading, setLoading] = useState(true);
   const [agentModeEnabled, setAgentModeEnabled] = useState(false);
   const [showZapier, setShowZapier] = useState(false);
+  const [showZapierWizard, setShowZapierWizard] = useState(false);
+  const [zapierApiKey, setZapierApiKey] = useState('');
 
   // Integration statuses
   const [googleConnected, setGoogleConnected] = useState(false);
@@ -269,6 +284,15 @@ export default function SettingsIntegrations() {
         setSendgridConnected(!!rows?.find(r => r.provider === 'sendgrid' && r.status === 'connected'));
         setApolloConnected(!!rows?.find(r => r.provider === 'apollo' && r.status === 'connected'));
 
+        // Fetch existing API key for Zapier/Make
+        try {
+          const session = await supabase.auth.getSession();
+          const token = session.data.session?.access_token;
+          const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/apiKeys`, { headers: { Authorization: `Bearer ${token}` } });
+          const data = await res.json();
+          if (data.keys && data.keys.length > 0) setZapierApiKey(data.keys[0].key);
+        } catch {}
+
         // Agent mode
         try {
           const data = await api('/api/agent-mode');
@@ -279,6 +303,26 @@ export default function SettingsIntegrations() {
       }
     })();
   }, []);
+
+  const generateZapierApiKey = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/apiKeys`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.apiKey) {
+        setZapierApiKey(data.apiKey);
+        toast.success('API Key generated');
+      } else {
+        toast.error('Failed to generate key');
+      }
+    } catch {
+      toast.error('Failed to generate key');
+    }
+  };
 
   // ---------- Handlers ----------
   const connectGoogle = async () => {
@@ -493,8 +537,13 @@ export default function SettingsIntegrations() {
           </div>
           {open.automation && (
             <div className="border-t border-gray-100 bg-gray-50 p-6">
+              <div className="flex justify-end mb-3">
+                <button onClick={()=>setShowZapierWizard(true)} className="px-3 py-1.5 rounded-lg text-sm bg-gray-800 text-white hover:bg-gray-700">
+                  Generate API Key
+                </button>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card iconSrc="/zapier-icon.png" name="Zapier" status={'Not Connected'} onConnect={()=>setShowZapier(true)} />
+                <Card iconSrc="/zapier-icon.png" name="Zapier" status={zapierApiKey ? 'Connected' : 'Not Connected'} onConnect={()=>setShowZapier(true)} />
                 <Card iconSrc="/make-logo-v1.png" name="Make" status={'Pending'} disableActions onConnect={()=>{}} />
               </div>
             </div>
@@ -617,8 +666,17 @@ export default function SettingsIntegrations() {
       {/* Apollo Modal */}
       <ApolloApiKeyModal isOpen={showApolloModal} onClose={()=>setShowApolloModal(false)} onSuccess={onApolloSuccess} currentApiKey={''} />
 
+      {/* Zapier Wizard (Generate API Key) */}
+      <ZapierWizardModal
+        isOpen={showZapierWizard}
+        onClose={()=>setShowZapierWizard(false)}
+        apiKey={zapierApiKey}
+        onApiKeyGenerated={generateZapierApiKey}
+        onWebhookSaved={()=>{}}
+      />
+
       {/* Zapier Modal Overlay (iframe) */}
-      {showZapier && <ZapierModalFrame onClose={()=>setShowZapier(false)} />}
+      {showZapier && <ZapierModalFrame onClose={()=>setShowZapier(false)} apiKey={zapierApiKey} />}
     </div>
   );
 }
