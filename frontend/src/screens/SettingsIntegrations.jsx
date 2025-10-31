@@ -5,6 +5,8 @@ import { api } from '../lib/api';
 import ApolloApiKeyModal from '../components/ApolloApiKeyModal';
 import ZapierWizardModal from '../components/settings/integrations/ZapierWizardModal.jsx';
 
+const BACKEND = import.meta.env.VITE_BACKEND_URL;
+
 function ZapierModalFrame({ onClose, apiKey }) {
   const iframeRef = useRef(null);
   const keyText = apiKey || '66879c7f-a888-410a-9a86-2ff77388c8ce';
@@ -237,6 +239,7 @@ export default function SettingsIntegrations() {
   const [outlookConnected, setOutlookConnected] = useState(false);
   const [sendgridConnected, setSendgridConnected] = useState(false);
   const [apolloConnected, setApolloConnected] = useState(false);
+  const [slackConnected, setSlackConnected] = useState(false);
 
   // Category accordion states
   const [open, setOpen] = useState({ messaging: true, sourcing: false, automation: false, collaboration: false });
@@ -255,9 +258,9 @@ export default function SettingsIntegrations() {
 
   // Active connection count for header
   const activeConnections = useMemo(() => {
-    return [googleConnected, outlookConnected, sendgridConnected, apolloConnected, agentModeEnabled]
+    return [googleConnected, outlookConnected, sendgridConnected, apolloConnected, agentModeEnabled, slackConnected]
       .filter(Boolean).length;
-  }, [googleConnected, outlookConnected, sendgridConnected, apolloConnected, agentModeEnabled]);
+  }, [googleConnected, outlookConnected, sendgridConnected, apolloConnected, agentModeEnabled, slackConnected]);
 
   useEffect(() => {
     (async () => {
@@ -283,6 +286,7 @@ export default function SettingsIntegrations() {
         setOutlookConnected(!!rows?.find(r => r.provider === 'outlook' && r.status === 'connected'));
         setSendgridConnected(!!rows?.find(r => r.provider === 'sendgrid' && r.status === 'connected'));
         setApolloConnected(!!rows?.find(r => r.provider === 'apollo' && r.status === 'connected'));
+        setSlackConnected(!!rows?.find(r => r.provider === 'slack' && r.status === 'connected'));
 
         // Fetch existing API key for Zapier/Make
         try {
@@ -394,6 +398,47 @@ export default function SettingsIntegrations() {
     setAgentModeEnabled(enabled);
     try { await api('/api/agent-mode', { method: 'POST', body: JSON.stringify({ enabled }) }); }
     catch { setAgentModeEnabled(!enabled); toast.error('Failed to update Agent Mode'); }
+  };
+
+  // Slack connect/disconnect
+  const refreshSlackStatus = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: slackRow } = await supabase
+        .from('slack_accounts')
+        .select('team_name')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      setSlackConnected(Boolean(slackRow));
+    } catch {}
+  };
+
+  const connectSlack = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const res = await fetch(`${BACKEND}/api/slack/connect?user_id=${user.id}`);
+      const { url } = await res.json();
+      if (!url) { toast.error('Failed to start Slack OAuth'); return; }
+      const popup = window.open(url, '_blank', 'width=600,height=700');
+      const timer = setInterval(async () => {
+        if (popup?.closed) {
+          clearInterval(timer);
+          await refreshSlackStatus();
+        }
+      }, 1500);
+    } catch { toast.error('Failed to start Slack OAuth'); }
+  };
+
+  const disconnectSlack = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const res = await fetch(`${BACKEND}/api/slack/disconnect`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: user.id }) });
+      if (res.ok) { await refreshSlackStatus(); toast.success('Slack disconnected'); }
+      else toast.error('Failed to disconnect Slack');
+    } catch { toast.error('Failed to disconnect Slack'); }
   };
 
   const Card = ({ iconClass, iconSrc, name, status, onConnect, onDisconnect, connectLabel = 'Connect', disableActions = false }) => (
@@ -544,7 +589,7 @@ export default function SettingsIntegrations() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Card iconSrc="/zapier-icon.png" name="Zapier" status={zapierApiKey ? 'Connected' : 'Not Connected'} onConnect={()=>setShowZapier(true)} />
-                <Card iconSrc="/make-logo-v1.png" name="Make" status={'Pending'} disableActions onConnect={()=>{}} />
+                <Card iconClass="fa-brands fa-slack text-purple-600" name="Connect REX to Slack" status={slackConnected ? 'Connected' : 'Not Connected'} onConnect={connectSlack} onDisconnect={disconnectSlack} connectLabel={slackConnected ? 'Connected' : 'Connect to Slack'} />
               </div>
             </div>
           )}
@@ -567,7 +612,6 @@ export default function SettingsIntegrations() {
           {open.collaboration && (
             <div className="border-t border-gray-100 bg-gray-50 p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card iconClass="fa-brands fa-slack text-purple-600" name="Slack" status={'Pending'} disableActions onConnect={()=>{}} />
                 <Card
                   iconClass="fa-solid fa-terminal text-blue-600"
                   name="Agent Mode"
