@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { apiGet, apiPost } from '../lib/api';
 import { supabase } from '../lib/supabaseClient';
 import { toast } from '../components/ui/use-toast';
+import ConnectLinkedInModal from '../components/linkedin/ConnectLinkedInModal';
 
 function formatDate(d) {
   try {
@@ -19,6 +20,8 @@ export default function RemoteSessionConnect({ accountId: accountIdProp, campaig
   const [testingId, setTestingId] = useState(null);
   const [connecting, setConnecting] = useState(false);
   const [showConnectModal, setShowConnectModal] = useState(false);
+  const [showLinkedinModal, setShowLinkedinModal] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState('');
   const [activeTab, setActiveTab] = useState('extension'); // 'extension' | 'manual'
   const [sessionName, setSessionName] = useState('My Home LinkedIn');
   const [sessionDataBase64, setSessionDataBase64] = useState('');
@@ -43,6 +46,15 @@ export default function RemoteSessionConnect({ accountId: accountIdProp, campaig
   }, []);
 
   useEffect(() => { loadSessions(); }, [loadSessions]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id) setCurrentUserId(user.id);
+      } catch {}
+    })();
+  }, []);
 
   // Activity polling
   useEffect(() => {
@@ -163,7 +175,10 @@ export default function RemoteSessionConnect({ accountId: accountIdProp, campaig
     <div className="bg-white border rounded-lg p-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900">LinkedIn Remote Sessions</h3>
-        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700" onClick={handleOpenConnect}>Connect Remote Session</button>
+        <div className="flex items-center gap-2">
+          <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700" onClick={() => setShowLinkedinModal(true)}>Connect Remote Session</button>
+          <button className="px-4 py-2 border text-gray-700 rounded-lg hover:bg-gray-50" onClick={handleOpenConnect}>Paste Session</button>
+        </div>
       </div>
 
       {loading ? (
@@ -334,6 +349,15 @@ export default function RemoteSessionConnect({ accountId: accountIdProp, campaig
             </div>
           </div>
         </div>
+      )}
+
+      {/* Streamed Remote Session Modal */}
+      {showLinkedinModal && (
+        <ConnectLinkedInModal
+          open={showLinkedinModal}
+          onClose={async () => { setShowLinkedinModal(false); await loadSessions(); }}
+          userId={currentUserId}
+        />
       )}
     </div>
   );
