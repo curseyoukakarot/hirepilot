@@ -143,11 +143,15 @@ export default function SettingsIntegrations() {
     catch { setAgentModeEnabled(!enabled); toast.error('Failed to update Agent Mode'); }
   };
 
-  const Card = ({ iconClass, name, status, onConnect, onDisconnect, connectLabel = 'Connect', disableActions = false }) => (
+  const Card = ({ iconClass, iconSrc, name, status, onConnect, onDisconnect, connectLabel = 'Connect', disableActions = false }) => (
     <div className="p-4 bg-white rounded-xl shadow-sm flex justify-between items-center border hover:shadow-md transition-shadow">
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 bg-white rounded-md flex items-center justify-center">
-          <i className={iconClass}></i>
+        <div className="w-8 h-8 rounded-md flex items-center justify-center bg-transparent">
+          {iconSrc ? (
+            <img src={iconSrc} alt={name} className="w-8 h-8 object-contain" />
+          ) : (
+            <i className={iconClass}></i>
+          )}
         </div>
         <div>
           <p className="font-medium text-gray-900">{name}</p>
@@ -221,7 +225,7 @@ export default function SettingsIntegrations() {
                   onDisconnect={()=>toast('Use Outlook account settings to disconnect')}
                 />
                 <Card
-                  iconClass="fa-solid fa-paper-plane text-orange-600"
+                  iconSrc="/sendgrid.png"
                   name="SendGrid"
                   status={sendgridConnected ? 'Connected' : 'Not Connected'}
                   onConnect={()=>setShowSendGridModal(true)}
@@ -250,15 +254,15 @@ export default function SettingsIntegrations() {
             <div className="border-t border-gray-100 bg-gray-50 p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Card
-                  iconClass="fa-solid fa-rocket text-indigo-600"
+                  iconSrc="/apollo-logo-v2.png"
                   name="Apollo"
                   status={apolloConnected ? 'Connected' : 'Not Connected'}
                   onConnect={()=>setShowApolloModal(true)}
                   onDisconnect={()=>setShowApolloModal(true)}
                   connectLabel={apolloConnected ? 'Manage' : 'Connect'}
                 />
-                <Card iconClass="fa-solid fa-crosshairs text-green-600" name="Hunter.io" status={'Pending'} disableActions onConnect={()=>{}} />
-                <Card iconClass="fa-solid fa-user-plus text-teal-600" name="Skrapp" status={'Pending'} disableActions onConnect={()=>{}} />
+                <Card iconSrc="/hunter.png" name="Hunter.io" status={'Pending'} disableActions onConnect={()=>{}} />
+                <Card iconSrc="/skrapp.png" name="Skrapp" status={'Pending'} disableActions onConnect={()=>{}} />
               </div>
             </div>
           )}
@@ -281,8 +285,8 @@ export default function SettingsIntegrations() {
           {open.automation && (
             <div className="border-t border-gray-100 bg-gray-50 p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card iconClass="fa-solid fa-zap text-orange-600" name="Zapier" status={'Pending'} disableActions onConnect={()=>{}} />
-                <Card iconClass="fa-solid fa-cogs text-violet-600" name="Make" status={'Pending'} disableActions onConnect={()=>{}} />
+                <Card iconSrc="/zapier-icon.png" name="Zapier" status={'Pending'} disableActions onConnect={()=>{}} />
+                <Card iconSrc="/make-logo-v1.png" name="Make" status={'Pending'} disableActions onConnect={()=>{}} />
               </div>
             </div>
           )}
@@ -307,7 +311,7 @@ export default function SettingsIntegrations() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Card iconClass="fa-brands fa-slack text-purple-600" name="Slack" status={'Pending'} disableActions onConnect={()=>{}} />
                 <Card
-                  iconClass="fa-solid fa-robot text-blue-600"
+                  iconClass="fa-solid fa-terminal text-blue-600"
                   name="Agent Mode"
                   status={agentModeEnabled ? 'Connected' : 'Not Connected'}
                   onConnect={()=>setAgentMode(true)}
