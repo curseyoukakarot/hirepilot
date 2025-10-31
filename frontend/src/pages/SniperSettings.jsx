@@ -1,4 +1,61 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import RemoteSessionConnect from '../components/RemoteSessionConnect';
+import { supabase } from '../lib/supabaseClient';
+
+function LinkedInCookieCard() {
+  const [cookie, setCookie] = React.useState('');
+  const [status, setStatus] = React.useState('none'); // valid | invalid | none
+  const [message, setMessage] = React.useState('');
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/linkedin/check-cookie`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: user.id })
+        });
+        const js = await res.json();
+        if (res.ok && js.exists) { setStatus('valid'); setMessage('A LinkedIn session cookie is already stored.'); }
+        else { setStatus('invalid'); setMessage('No valid cookie found.'); }
+      } catch {}
+    })();
+  }, []);
+
+  const save = async () => {
+    setMessage('');
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setStatus('invalid'); setMessage('You must be logged in.'); return; }
+    if (!cookie) { setStatus('invalid'); setMessage('Please paste your LinkedIn li_at cookie.'); return; }
+    try {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/linkedin/save-cookie`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: user.id, session_cookie: cookie })
+      });
+      const js = await res.json();
+      if (res.ok) { setCookie(''); setStatus('valid'); setMessage('LinkedIn session cookie saved!'); }
+      else { setStatus('invalid'); setMessage(js.error || 'Failed to save session cookie'); }
+    } catch { setStatus('invalid'); setMessage('Error saving session cookie'); }
+  };
+
+  return (
+    <div className="flex flex-col border rounded-lg p-6 hover:border-blue-500 transition-all w-full bg-white">
+      <div>
+        <div className="flex items-center space-x-3 mb-2">
+          <span className="font-medium text-gray-900">Paste LinkedIn Session Cookie</span>
+          <span className={`px-2 py-1 text-xs rounded-full ${status==='valid'?'bg-green-50 text-green-600':'bg-yellow-50 text-yellow-600'}`}>{status==='valid'?'Valid':'Invalid'}</span>
+        </div>
+        <p className="text-gray-600 mb-4">Paste your active LinkedIn li_at session cookie to let us securely access Sales Navigator on your behalf.</p>
+        <div className="flex space-x-2">
+          <input type="text" placeholder="Paste your li_at cookie here" className="flex-1 border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value={cookie} onChange={e=>setCookie(e.target.value)} />
+          <button onClick={save} className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900">Save Cookie</button>
+        </div>
+        {message && (
+          <div className={`mt-2 text-sm ${status==='valid'?'text-green-600':'text-red-600'}`}>{message}</div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function SniperSettings() {
   const html = `<!DOCTYPE html>
@@ -155,15 +212,21 @@ export default function SniperSettings() {
 
             <nav class="-mb-px flex space-x-8">
 
-                <button class="py-2 px-1 border-b-2 border-blue-500 font-medium text-sm text-blue-600">
+                <button id="tab-global-defaults" class="py-2 px-1 border-b-2 border-blue-500 font-medium text-sm text-blue-600">
 
                     Global Defaults
 
                 </button>
 
-                <button class="py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                <button id="tab-per-campaign" class="py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
 
                     Per-Campaign Overrides
+
+                </button>
+
+                <button id="tab-linkedin" class="py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
+
+                    Linkedin Connect
 
                 </button>
 
@@ -677,11 +740,40 @@ export default function SniperSettings() {
 
     </div>
 
+    <!-- LinkedIn Connect Tab Content -->
+    <div id="linkedin-content" class="px-6 py-6 hidden">
+      <div class="grid grid-cols-12 gap-6">
+        <div class="col-span-12 space-y-6">
+          <div class="bg-white rounded-lg border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">LinkedIn Remote Session</h3>
+            <div id="linkedin-connect-mount"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
 </div>
 
 
 
 <script>
+
+// Tab toggle
+const tabGlobal = document.getElementById('tab-global-defaults');
+const tabCampaign = document.getElementById('tab-per-campaign');
+const tabLinkedin = document.getElementById('tab-linkedin');
+const contentGlobal = document.getElementById('main-content');
+const contentLinkedin = document.getElementById('linkedin-content');
+
+function activate(btn){
+  [tabGlobal, tabCampaign, tabLinkedin].forEach(b=>{ if(!b) return; b.classList.remove('border-blue-500','text-blue-600'); b.classList.add('border-transparent','text-gray-500'); });
+  btn.classList.remove('border-transparent','text-gray-500');
+  btn.classList.add('border-blue-500','text-blue-600');
+}
+
+tabGlobal?.addEventListener('click', ()=>{ activate(tabGlobal); contentGlobal?.classList.remove('hidden'); contentLinkedin?.classList.add('hidden'); });
+tabCampaign?.addEventListener('click', ()=>{ activate(tabCampaign); contentGlobal?.classList.remove('hidden'); contentLinkedin?.classList.add('hidden'); });
+tabLinkedin?.addEventListener('click', ()=>{ activate(tabLinkedin); contentGlobal?.classList.add('hidden'); contentLinkedin?.classList.remove('hidden'); });
 
 // Toggle switches functionality
 
@@ -740,6 +832,20 @@ document.querySelectorAll('.px-3.py-2').forEach(button => {
 </body>
 
 </html>`;
+
+  useEffect(() => {
+    const mount = document.getElementById('linkedin-connect-mount');
+    if (!mount) return;
+    import('react-dom/client').then(({ createRoot }) => {
+      const root = createRoot(mount);
+      root.render(
+        <div className="space-y-6">
+          <RemoteSessionConnect />
+          <LinkedInCookieCard />
+        </div>
+      );
+    });
+  }, []);
 
   return <div dangerouslySetInnerHTML={{ __html: html }} />;
 }
