@@ -1,6 +1,6 @@
 import sg from '@sendgrid/mail';
 
-type SendArgs = { from: string; to: string; subject: string; html: string; headers?: Record<string,string>; apiKey?: string };
+type SendArgs = { from: string; to: string; subject: string; html: string; headers?: Record<string,string>; apiKey?: string; replyTo?: string };
 
 export async function sendEmail(args: SendArgs){
   const key = args.apiKey || process.env.SENDGRID_API_KEY;
@@ -9,6 +9,7 @@ export async function sendEmail(args: SendArgs){
   }
   sg.setApiKey(key);
   const msg = { to: args.to, from: args.from, subject: args.subject, html: args.html, headers: args.headers || {} } as any;
+  if (args.replyTo) (msg as any).replyTo = args.replyTo;
   await sg.send(msg);
 }
 

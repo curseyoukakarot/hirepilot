@@ -19,7 +19,11 @@ export async function sendLifecycleEmail(params: {
   subject?: string;
 }) {
   const { to, template, tokens } = params;
-  const from = params.from || 'HirePilot <notifications@hirepilot.com>';
+  // Default display name: special-case founder intro to come from Brandon
+  const from = params.from
+    || (template === 'founder-intro'
+      ? 'Brandon @ HirePilot <notifications@hirepilot.com>'
+      : 'HirePilot <notifications@hirepilot.com>');
 
   try {
     // Resolve template path (works from ts-node and built dist)
@@ -57,7 +61,8 @@ export async function sendLifecycleEmail(params: {
       subject = (m && m[1]) ? m[1].trim() : 'HirePilot update';
     }
 
-    await sendgridSend({ from, to, subject: subject!, html });
+    const replyTo = template === 'founder-intro' ? 'brandon@thehirepilot.com' : undefined;
+    await sendgridSend({ from, to, subject: subject!, html, replyTo });
     logger.info({ at: 'sendLifecycleEmail.sent', template, to });
     return { ok: true } as const;
   } catch (err: any) {
