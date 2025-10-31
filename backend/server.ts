@@ -150,6 +150,7 @@ import sessionRouter from './services/linkedin-remote/api/sessionRouter';
 import streamProxyRouter from './services/linkedin-remote/stream/proxy';
 import { bootLinkedinWorker } from './services/linkedin-remote/queue/workers/linkedinWorker';
 import remoteSessionsRouter from './src/routes/remoteSessions';
+import sniperApiRouter from './src/routes/sniper.api';
 // MCP Support Agent routes
 import agentTokenRoute from './src/routes/agentToken';
 import supportTools from './src/routes/support';
@@ -560,6 +561,7 @@ app.post('/webhooks/user-created', userCreatedWebhook);
   app.use('/api/stripe', stripeRouter);
   // Remote session storage & testing
   app.use('/api', remoteSessionsRouter);
+  app.use('/api', sniperApiRouter);
   // Affiliates + payouts APIs (require auth)
   app.use('/api/affiliates', requireAuthFlag, affiliatesRouter);
   app.use('/api/admin/affiliates', requireAuthFlag, affiliatesAdminRouter);
