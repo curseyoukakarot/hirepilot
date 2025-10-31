@@ -105,10 +105,21 @@ export default function Leads() {
   const [sortDir, setSortDir] = useState('desc'); // asc | desc
 
   const getLocationString = (lead) => {
+    // Prefer normalized columns first
     const parts = [lead.city, lead.state, lead.country].filter(Boolean);
     if (parts.length > 0) return parts.join(', ');
     if (lead.campaign_location) return lead.campaign_location;
-    return '';
+    // Fallbacks: string location column and enrichment-derived location
+    try {
+      let enrichment = lead.enrichment_data;
+      if (typeof enrichment === 'string') {
+        enrichment = JSON.parse(enrichment);
+      }
+      const enrichedLocation = enrichment?.location || enrichment?.apollo?.location || '';
+      return lead.location || enrichedLocation || '';
+    } catch {
+      return lead.location || '';
+    }
   };
 
   const getLeadName = (lead) => {

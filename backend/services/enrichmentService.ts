@@ -163,35 +163,42 @@ export class EnrichmentService {
     campaignId: string,
     enrichedPeople: EnrichedPerson[]
   ): Promise<void> {
-    const updates = enrichedPeople.map(person => ({
-      id: person.id,
-      email: person.email,
-      first_name: person.first_name || '',
-      last_name: person.last_name || '',
-      title: person.title || '',
-      company: person.organization?.name || '',
-      linkedin_url: person.linkedin_url ?? null,
-      city: person.city ?? '',
-      state: person.state ?? '',
-      country: person.country ?? '',
-      is_unlocked: true,
-      enriched_at: new Date().toISOString(),
-      apollo_id: person.id,
-      enrichment_source: 'apollo',
-      confidence: person.confidence_score || 0,
-      enrichment_data: {
-        apollo: {
-          person_id: person.id || '',
-          organization: person.organization,
-          email_status: person.email_status || 'unknown',
-          location: person.location,
-          seniority: person.seniority,
-          department: person.department,
-          skills: person.skills,
-        }
-      },
-      updated_at: new Date().toISOString()
-    })) as LeadUpdate[];
+    // Build update payloads without clobbering existing location fields.
+    // Only include city/state/country when Apollo returns a value.
+    const updates = enrichedPeople.map(person => {
+      const update: any = {
+        id: person.id,
+        email: person.email,
+        first_name: person.first_name || '',
+        last_name: person.last_name || '',
+        title: person.title || '',
+        company: person.organization?.name || '',
+        linkedin_url: person.linkedin_url ?? null,
+        is_unlocked: true,
+        enriched_at: new Date().toISOString(),
+        apollo_id: person.id,
+        enrichment_source: 'apollo',
+        confidence: person.confidence_score || 0,
+        enrichment_data: {
+          apollo: {
+            person_id: person.id || '',
+            organization: person.organization,
+            email_status: person.email_status || 'unknown',
+            location: person.location,
+            seniority: person.seniority,
+            department: person.department,
+            skills: person.skills,
+          }
+        },
+        updated_at: new Date().toISOString()
+      };
+
+      if (person.city) update.city = person.city;
+      if (person.state) update.state = person.state;
+      if (person.country) update.country = person.country;
+
+      return update;
+    });
 
     let successCount = 0;
     let errorCount = 0;
