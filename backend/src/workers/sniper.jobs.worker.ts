@@ -2,6 +2,7 @@ import { Worker, Queue } from 'bullmq';
 import { connection } from '../queues/redis';
 import { supabase } from '../lib/supabase';
 import { tryConsume, incrementConcurrency, decrementConcurrency } from '../lib/throttle';
+import { notifySourcingComplete } from '../lib/notifier';
 
 const queueName = 'sniper:jobs';
 export const sniperJobsQueue = new Queue(queueName, { connection });
@@ -42,8 +43,12 @@ export const sniperJobsWorker = new Worker(queueName, async (job) => {
     }
 
     // Placeholder: perform the action (stub)
-    const result = { ok: true, action: payload.action, processed: Math.min(1, tokenAttempt.remaining + 1) };
+    const result = { ok: true, action: payload.action, processed: 1 };
     await supabase.from('sniper_jobs').update({ status: 'completed', result }).eq('id', payload.activityLogId);
+    // Fetch job to compute notification stats
+    const { data: job } = await supabase.from('sniper_jobs').select('account_id,campaign_id,payload').eq('id', payload.activityLogId).maybeSingle();
+    const sampleSize = Number((job as any)?.payload?.sampleSize || 0);
+    await notifySourcingComplete({ accountId: (job as any)?.account_id || null, userId: '', campaignId: (job as any)?.campaign_id || undefined, sessionId: payload.sessionId, stats: { leadsFound: sampleSize, errors: 0 } });
     return result as any;
   } catch (e: any) {
     await supabase.from('sniper_jobs').update({ status: 'failed', result: { error: e?.message || 'failed' } }).eq('id', payload.activityLogId);
