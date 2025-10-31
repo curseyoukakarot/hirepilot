@@ -149,6 +149,7 @@ import { startFreeForeverWorker } from './jobs/freeForeverCadence';
 import sessionRouter from './services/linkedin-remote/api/sessionRouter';
 import streamProxyRouter from './services/linkedin-remote/stream/proxy';
 import { bootLinkedinWorker } from './services/linkedin-remote/queue/workers/linkedinWorker';
+import remoteSessionsRouter from './src/routes/remoteSessions';
 // MCP Support Agent routes
 import agentTokenRoute from './src/routes/agentToken';
 import supportTools from './src/routes/support';
@@ -557,6 +558,8 @@ app.post('/api/slack/test-post', slackTestPost);
 app.post('/api/slack/slash', slackSlash);
 app.post('/webhooks/user-created', userCreatedWebhook);
   app.use('/api/stripe', stripeRouter);
+  // Remote session storage & testing
+  app.use('/api', remoteSessionsRouter);
   // Affiliates + payouts APIs (require auth)
   app.use('/api/affiliates', requireAuthFlag, affiliatesRouter);
   app.use('/api/admin/affiliates', requireAuthFlag, affiliatesAdminRouter);
