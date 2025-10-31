@@ -834,17 +834,50 @@ document.querySelectorAll('.px-3.py-2').forEach(button => {
 </html>`;
 
   useEffect(() => {
+    // Wire tab navigation (scripts in innerHTML won't execute)
+    const tabGlobal = document.getElementById('tab-global-defaults');
+    const tabCampaign = document.getElementById('tab-per-campaign');
+    const tabLinkedin = document.getElementById('tab-linkedin');
+    const contentGlobal = document.getElementById('main-content');
+    const contentLinkedin = document.getElementById('linkedin-content');
+
+    const activate = (btn) => {
+      [tabGlobal, tabCampaign, tabLinkedin].forEach(b => {
+        if (!b) return;
+        b.classList.remove('border-blue-500', 'text-blue-600');
+        b.classList.add('border-transparent', 'text-gray-500');
+      });
+      if (btn) {
+        btn.classList.remove('border-transparent', 'text-gray-500');
+        btn.classList.add('border-blue-500', 'text-blue-600');
+      }
+    };
+    const showGlobal = (e) => { e && e.preventDefault && e.preventDefault(); activate(tabGlobal); contentGlobal?.classList.remove('hidden'); contentLinkedin?.classList.add('hidden'); };
+    const showLinkedin = (e) => { e && e.preventDefault && e.preventDefault(); activate(tabLinkedin); contentGlobal?.classList.add('hidden'); contentLinkedin?.classList.remove('hidden'); };
+
+    tabGlobal?.addEventListener('click', showGlobal);
+    tabCampaign?.addEventListener('click', showGlobal);
+    tabLinkedin?.addEventListener('click', showLinkedin);
+
+    // Mount React components into LinkedIn tab
     const mount = document.getElementById('linkedin-connect-mount');
-    if (!mount) return;
-    import('react-dom/client').then(({ createRoot }) => {
-      const root = createRoot(mount);
-      root.render(
-        <div className="space-y-6">
-          <RemoteSessionConnect />
-          <LinkedInCookieCard />
-        </div>
-      );
-    });
+    if (mount) {
+      import('react-dom/client').then(({ createRoot }) => {
+        const root = createRoot(mount);
+        root.render(
+          <div className="space-y-6">
+            <RemoteSessionConnect />
+            <LinkedInCookieCard />
+          </div>
+        );
+      });
+    }
+
+    return () => {
+      tabGlobal?.removeEventListener('click', showGlobal);
+      tabCampaign?.removeEventListener('click', showGlobal);
+      tabLinkedin?.removeEventListener('click', showLinkedin);
+    };
   }, []);
 
   return <div dangerouslySetInnerHTML={{ __html: html }} />;
