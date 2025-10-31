@@ -1,12 +1,221 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { toast } from 'react-hot-toast';
 import { api } from '../lib/api';
 import ApolloApiKeyModal from '../components/ApolloApiKeyModal';
 
+function ZapierModalFrame({ onClose }) {
+  const iframeRef = useRef(null);
+  const srcDoc = `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8' />
+    <meta name='viewport' content='width=device-width, initial-scale=1' />
+    <script src='https://cdn.tailwindcss.com'></script>
+    <script> window.FontAwesomeConfig = { autoReplaceSvg: 'nest'}; </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js' crossorigin='anonymous' referrerpolicy='no-referrer'></script>
+  </head>
+  <body>
+    <!-- BEGIN EXACT USER MODAL CODE -->
+    <!-- Zapier Modal -->
+    <div id="zapier-modal" class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 opacity-0 pointer-events-none transition-all duration-300">
+      <div id="modal-content" class="bg-gray-900 text-gray-100 rounded-2xl shadow-2xl max-w-3xl w-full mx-4 p-6 relative border border-gray-800 transform scale-95 translate-y-4 transition-all duration-300">
+          
+          <!-- Glow Effect -->
+          <div class="absolute inset-0 rounded-2xl bg-gradient-to-r from-indigo-600/20 to-purple-600/20 blur-lg -z-10"></div>
+          
+          <!-- Header -->
+          <div class="flex justify-between items-start mb-6">
+              <div class="flex items-center gap-3">
+                  <div class="p-3 bg-amber-400/10 rounded-xl">
+                      <i class="fas fa-bolt text-amber-400 text-xl"></i>
+                  </div>
+                  <div>
+                      <h2 class="text-lg font-semibold">Zapier / Make Integration</h2>
+                      <p class="text-sm text-gray-400">
+                          Connect HirePilot to Zapier or Make to trigger automations from your recruiting workflows.
+                      </p>
+                  </div>
+              </div>
+              <button onclick="closeZapierModal()" class="text-gray-400 hover:text-gray-200 transition-colors">
+                  <i class="fas fa-times text-lg"></i>
+              </button>
+          </div>
+
+          <!-- API Key Section -->
+          <div class="bg-gray-800/60 rounded-lg p-4 mb-5">
+              <div class="flex justify-between items-center mb-3">
+                  <p class="text-sm font-medium text-gray-300">API Key</p>
+                  <span id="status-badge" class="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full animate-pulse">
+                      Enabled
+                  </span>
+              </div>
+              <div class="flex items-center justify-between bg-gray-900/70 border border-gray-700 rounded-lg px-3 py-2">
+                  <span class="font-mono text-sm text-gray-400" id="api-key">66879c7f-a888-410a-9a86-2ff77388c8ce</span>
+                  <button onclick="copyApiKey()" class="text-indigo-400 hover:text-indigo-300 flex items-center gap-1 text-sm transition-colors">
+                      <i class="fas fa-copy text-xs"></i> 
+                      <span id="copy-text">Copy</span>
+                  </button>
+              </div>
+          </div>
+
+          <!-- Event Types -->
+          <div class="space-y-4 mb-6">
+              <h3 class="text-sm font-semibold text-gray-300 uppercase tracking-wide">Available Event Types</h3>
+              
+              <!-- Leads & Candidates -->
+              <div class="mb-4">
+                  <h4 class="text-xs text-gray-500 mb-2 flex items-center gap-1">
+                      <span>🔥</span> LEADS & CANDIDATES
+                  </h4>
+                  <div class="grid sm:grid-cols-2 gap-2">
+                      <div class="event-tile">lead_created</div>
+                      <div class="event-tile">lead_updated</div>
+                      <div class="event-tile">lead_enriched</div>
+                      <div class="event-tile">candidate_created</div>
+                      <div class="event-tile">candidate_hired</div>
+                      <div class="event-tile">candidate_rejected</div>
+                  </div>
+              </div>
+
+              <!-- Messaging -->
+              <div>
+                  <h4 class="text-xs text-gray-500 mb-2 flex items-center gap-1">
+                      <span>💬</span> MESSAGING
+                  </h4>
+                  <div class="grid sm:grid-cols-2 gap-2">
+                      <div class="event-tile">message_sent</div>
+                      <div class="event-tile">message_reply</div>
+                      <div class="event-tile">email_bounced</div>
+                  </div>
+              </div>
+          </div>
+
+          <!-- Endpoints Accordion -->
+          <details class="group border-t border-gray-800 pt-4 mb-6">
+              <summary class="cursor-pointer text-sm font-medium text-indigo-400 flex items-center justify-between hover:text-indigo-300 transition-colors">
+                  Trigger Endpoints
+                  <i class="fas fa-chevron-up text-gray-500 group-open:rotate-180 transition-transform duration-200"></i>
+              </summary>
+              <div class="mt-3 space-y-2">
+                  <div class="endpoint-tile">GET https://api.thehirepilot.com/api/zapier/triggers/events</div>
+                  <div class="endpoint-tile">GET https://your-project.supabase.co/functions/v1/zap-events</div>
+                  <div class="endpoint-tile">GET https://api.thehirepilot.com/api/zapier/triggers/new-leads</div>
+              </div>
+          </details>
+
+          <!-- Footer -->
+          <div class="flex justify-end gap-3">
+              <button onclick="closeZapierModal()" class="px-4 py-2 text-sm rounded-lg bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors">
+                  Close
+              </button>
+              <button class="px-4 py-2 text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 transition-colors">
+                  <i class="fas fa-external-link-alt text-xs mr-1"></i>
+                  View Documentation
+              </button>
+          </div>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg transform translate-x-full transition-transform duration-300 z-50">
+      <i class="fas fa-check mr-2"></i>
+      <span>Copied to clipboard!</span>
+    </div>
+
+    <script>
+    function openZapierModal() {
+      const modal = document.getElementById('zapier-modal');
+      const content = document.getElementById('modal-content');
+      modal.classList.remove('opacity-0', 'pointer-events-none');
+      content.classList.remove('scale-95', 'translate-y-4');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeZapierModal() {
+      const modal = document.getElementById('zapier-modal');
+      const content = document.getElementById('modal-content');
+      modal.classList.add('opacity-0', 'pointer-events-none');
+      content.classList.add('scale-95', 'translate-y-4');
+      document.body.style.overflow = '';
+    }
+    function copyApiKey() {
+      const apiKey = document.getElementById('api-key').textContent;
+      const copyText = document.getElementById('copy-text');
+      navigator.clipboard.writeText(apiKey).then(() => {
+        copyText.textContent = 'Copied!';
+        copyText.style.color = '#10b981';
+        showToast();
+        setTimeout(() => {
+          copyText.textContent = 'Copy';
+          copyText.style.color = '';
+        }, 1200);
+      });
+    }
+    function showToast() {
+      const toast = document.getElementById('toast');
+      toast.classList.remove('translate-x-full');
+      setTimeout(() => toast.classList.add('translate-x-full'), 2000);
+    }
+    document.getElementById('zapier-modal').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) closeZapierModal();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeZapierModal();
+    });
+    </script>
+
+    <style>
+    .event-tile { padding: 0.5rem 0.75rem; background-color: rgba(31,41,55,0.4); border: 1px solid rgb(55,65,81); border-radius: 0.375rem; font-size: 0.875rem; color: rgb(209,213,219); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; display:flex; align-items:center; justify-content: space-between; }
+    .event-tile::after { content: 'trigger'; font-size: 0.75rem; color: rgb(107,114,128); }
+    .endpoint-tile { display:flex; align-items:center; justify-content: space-between; background-color: rgba(31,41,55,0.3); border-radius: 0.375rem; padding: 0.5rem 0.75rem; font-size: 0.875rem; color: rgb(156,163,175); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    </style>
+    <!-- END EXACT USER MODAL CODE -->
+  </body>
+</html>`;
+
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+    const onLoad = () => {
+      try {
+        const win = iframe.contentWindow;
+        const doc = iframe.contentDocument;
+        // Open the modal immediately
+        if (win && typeof win.openZapierModal === 'function') {
+          win.openZapierModal();
+        } else {
+          setTimeout(() => { try { win.openZapierModal && win.openZapierModal(); } catch {} }, 50);
+        }
+        // Observe close to unmount overlay
+        const modal = doc.getElementById('zapier-modal');
+        if (modal && win && 'MutationObserver' in win) {
+          const obs = new win.MutationObserver(() => {
+            if (modal.classList.contains('pointer-events-none')) {
+              onClose && onClose();
+            }
+          });
+          obs.observe(modal, { attributes: true, attributeFilter: ['class'] });
+        }
+      } catch {}
+    };
+    iframe.addEventListener('load', onLoad);
+    return () => { try { iframe.removeEventListener('load', onLoad); } catch {} };
+  }, [onClose]);
+
+  return (
+    <iframe
+      ref={iframeRef}
+      title="Zapier Modal"
+      srcDoc={srcDoc}
+      style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', border: 0, zIndex: 9999 }}
+    />
+  );
+}
+
 export default function SettingsIntegrations() {
   const [loading, setLoading] = useState(true);
   const [agentModeEnabled, setAgentModeEnabled] = useState(false);
+  const [showZapier, setShowZapier] = useState(false);
 
   // Integration statuses
   const [googleConnected, setGoogleConnected] = useState(false);
@@ -268,7 +477,7 @@ export default function SettingsIntegrations() {
           )}
         </div>
 
-        {/* Automations (hold off) */}
+        {/* Automations (Zapier modal enabled) */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-6">
           <div className="flex justify-between items-center p-6 cursor-pointer hover:bg-gray-50" onClick={()=>setOpen(s=>({...s, automation:!s.automation}))}>
             <div className="flex items-center gap-4">
@@ -285,7 +494,7 @@ export default function SettingsIntegrations() {
           {open.automation && (
             <div className="border-t border-gray-100 bg-gray-50 p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card iconSrc="/zapier-icon.png" name="Zapier" status={'Pending'} disableActions onConnect={()=>{}} />
+                <Card iconSrc="/zapier-icon.png" name="Zapier" status={'Not Connected'} onConnect={()=>setShowZapier(true)} />
                 <Card iconSrc="/make-logo-v1.png" name="Make" status={'Pending'} disableActions onConnect={()=>{}} />
               </div>
             </div>
@@ -407,6 +616,9 @@ export default function SettingsIntegrations() {
 
       {/* Apollo Modal */}
       <ApolloApiKeyModal isOpen={showApolloModal} onClose={()=>setShowApolloModal(false)} onSuccess={onApolloSuccess} currentApiKey={''} />
+
+      {/* Zapier Modal Overlay (iframe) */}
+      {showZapier && <ZapierModalFrame onClose={()=>setShowZapier(false)} />}
     </div>
   );
 }
