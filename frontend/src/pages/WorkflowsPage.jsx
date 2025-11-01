@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import WorkflowRecipeModal from '../components/WorkflowRecipeModal';
 import { AnimatePresence, motion } from 'framer-motion';
+import { INTENT_WORKFLOWS, INTENT_CATEGORY, estimateDiscoveryCredits } from '../data/intentWorkflows';
 
 export default function WorkflowsPage() {
   const [selected, setSelected] = useState(null);
@@ -492,6 +493,52 @@ export default function WorkflowsPage() {
         <section id="workflow-library" className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold">Workflow Recipes Library</h2>
+          </div>
+
+          {/* Intent category (Sniper) */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <h3 className="text-xl font-semibold">{INTENT_CATEGORY}</h3>
+              <span className="text-xs text-slate-400">Public + Coming Soon</span>
+            </div>
+            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+              {INTENT_WORKFLOWS.map((w) => (
+                <div key={w.slug} className="relative bg-slate-900 rounded-xl p-6 hover:bg-slate-800 transition group">
+                  {w.visibility === 'in_app_only' && w.coming_soon && (
+                    <div className="absolute -top-2 -right-2 bg-amber-500 text-amber-950 text-[11px] font-semibold px-2 py-1 rounded">Coming Soon</div>
+                  )}
+                  <div className="flex items-start justify-between mb-2">
+                    <h3 className="text-lg font-semibold pr-2">{w.title}</h3>
+                    <span
+                      className="px-2 py-1 rounded-full text-[11px] bg-slate-800 text-slate-300"
+                      title={(() => { const e = estimateDiscoveryCredits(w); return e ? `Estimated credits (preview): ~${e}` : 'Estimated credits not available'; })()}
+                    >
+                      Intent
+                    </span>
+                  </div>
+                  <p className="text-slate-400 text-sm mb-3">{w.description}</p>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {(w.badges || []).map((b) => (
+                      <span key={b} className="text-[11px] px-2 py-1 rounded bg-slate-800 text-slate-300">{b}</span>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    {w.visibility === 'public' ? (
+                      <>
+                        <button onClick={() => addWorkflow({ id: w.slug, title: w.title, description: w.description, category: INTENT_CATEGORY, tools: w.badges || [] })} className="px-3 py-2 bg-emerald-600 rounded-lg text-xs font-semibold text-white hover:bg-emerald-500 transition">Add to Library</button>
+                        <button onClick={() => window.open('/sniper', '_self')} className="px-3 py-2 bg-indigo-600 rounded-lg text-xs font-semibold text-white hover:bg-indigo-500 transition">Add to Session</button>
+                      </>
+                    ) : (
+                      <>
+                        <button disabled className="px-3 py-2 bg-slate-700 rounded-lg text-xs font-semibold text-white opacity-60 cursor-not-allowed">Run (Disabled)</button>
+                        <button onClick={() => alert('We\'ll notify you when this is live.')} className="px-3 py-2 bg-indigo-600 rounded-lg text-xs font-semibold text-white hover:bg-indigo-500 transition">Notify Me</button>
+                        <button onClick={() => addWorkflow({ id: w.slug, title: w.title, description: w.description, category: INTENT_CATEGORY, tools: w.badges || [] })} className="px-3 py-2 bg-emerald-600 rounded-lg text-xs font-semibold text-white hover:bg-emerald-500 transition">Add to Library</button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Category Filters (static UI for now) */}

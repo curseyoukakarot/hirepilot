@@ -4,6 +4,7 @@ import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { FaStripeS, FaLinkedin } from "react-icons/fa6";
 import PublicNavbar from "../components/PublicNavbar";
 import PublicFooter from "../components/PublicFooter";
+import { INTENT_WORKFLOWS, INTENT_CATEGORY, estimateDiscoveryCredits } from "../data/intentWorkflows";
 
 /**
  * Integrations & Workflows — HirePilot
@@ -26,6 +27,7 @@ export default function IntegrationsAndWorkflows() {
     "REX Intelligence",
     "Client Experience",
     "Team",
+    INTENT_CATEGORY,
   ];
 
   const integrations = [
@@ -49,7 +51,7 @@ export default function IntegrationsAndWorkflows() {
     { name: "Decodo", icon: "/decodo.png", desc: "Reliable proxy layer for LinkedIn scraping." },
   ];
 
-  // ---------- Replaced Workflow Library ----------
+  // ---------- Base Workflow Library ----------
   const workflows = [
     // Lead & Prospecting (Sourcing)
     { id: 1, title: "Apollo → Smart Enrichment & Warm Tagging", category: "Sourcing", trigger: "Lead arrives from Apollo", action: "Auto-enrich, score, and tag 'Warm'", tools: ["Apollo", "Hunter", "Skrapp", "HirePilot"], desc: "When a lead arrives from Apollo, HirePilot enriches, scores interest, and tags them 'Warm'." },
@@ -96,9 +98,29 @@ export default function IntegrationsAndWorkflows() {
   const [filter, setFilter] = useState("All");
   const [selected, setSelected] = useState(null);
 
+  // Map Intent (public-only) to marketing workflows shape
+  const intentPublic = useMemo(
+    () => INTENT_WORKFLOWS.filter((w) => w.visibility === 'public'),
+    []
+  );
+
+  const intentMapped = useMemo(() => intentPublic.map((w) => ({
+    id: `intent-${w.slug}`,
+    title: w.title,
+    category: INTENT_CATEGORY,
+    trigger: 'Discovery',
+    action: 'Add to Library | Add to Session',
+    tools: w.badges || ['Sniper'],
+    desc: w.description,
+    _intent: w,
+    _isIntent: true
+  })), [intentPublic]);
+
+  const allWorkflows = useMemo(() => ([...intentMapped, ...workflows]), [intentMapped]);
+
   const filtered = useMemo(
-    () => (filter === "All" ? workflows : workflows.filter((w) => w.category === filter)),
-    [filter, workflows]
+    () => (filter === "All" ? allWorkflows : allWorkflows.filter((w) => w.category === filter)),
+    [filter, allWorkflows]
   );
 
   // Small component: pill list of tool logos (fallback to text if icon missing)
@@ -216,7 +238,20 @@ export default function IntegrationsAndWorkflows() {
                   className="bg-slate-800 rounded-2xl p-6 flex flex-col justify-between hover:shadow-xl transition"
                 >
                   <div>
-                    <h3 className="text-xl font-semibold mb-1">{w.title}</h3>
+                    <div className="flex items-start justify-between gap-3">
+                      <h3 className="text-xl font-semibold mb-1">{w.title}</h3>
+                      {w._isIntent && (
+                        <span
+                          className="text-[11px] px-2 py-1 rounded bg-slate-700 text-slate-200"
+                          title={(() => {
+                            const est = estimateDiscoveryCredits(w._intent);
+                            return est ? `Estimated credits (preview): ~${est}` : 'Estimated credits not available';
+                          })()}
+                        >
+                          Intent
+                        </span>
+                      )}
+                    </div>
                     <p className="text-slate-400 text-sm mb-3">{w.desc}</p>
                     <div className="text-slate-500 text-xs space-y-1">
                       <p><strong>Trigger:</strong> {w.trigger}</p>
@@ -226,18 +261,37 @@ export default function IntegrationsAndWorkflows() {
                   </div>
 
                   <div className="mt-5 flex items-center gap-3">
-                    <button
-                      onClick={() => setSelected(w)}
-                      className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 rounded-lg text-white text-sm font-semibold"
-                    >
-                      View Recipe
-                    </button>
-                    <button
-                      className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white text-sm font-semibold"
-                      onClick={() => alert('Login required to add workflows.')}
-                    >
-                      Add to My Workflows
-                    </button>
+                    {w._isIntent ? (
+                      <>
+                        <button
+                          onClick={() => alert('Added to Library (preview). Create an account to run.')}
+                          className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 rounded-lg text-white text-sm font-semibold"
+                        >
+                          Add to Library
+                        </button>
+                        <button
+                          onClick={() => alert('Start a session in-app to run this workflow.')}
+                          className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white text-sm font-semibold"
+                        >
+                          Add to Session
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => setSelected(w)}
+                          className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 rounded-lg text-white text-sm font-semibold"
+                        >
+                          View Recipe
+                        </button>
+                        <button
+                          className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white text-sm font-semibold"
+                          onClick={() => alert('Login required to add workflows.')}
+                        >
+                          Add to My Workflows
+                        </button>
+                      </>
+                    )}
                   </div>
                 </motion.div>
               ))}
