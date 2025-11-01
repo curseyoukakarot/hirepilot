@@ -74,6 +74,56 @@ export async function addLeads(campaignId: string, leads: any[], options?: { sou
   const { error } = await supabase.from('sourcing_leads').insert(payload);
   if (error) throw error;
 
+  // Mirror into base leads for visibility in /leads (All Campaigns) view
+  // Non-fatal; ignore errors to avoid blocking sourcing flow
+  try {
+    // Resolve campaign owner to attribute leads to correct user in base leads table
+    const { data: campOwner } = await supabase
+      .from('sourcing_campaigns')
+      .select('created_by')
+      .eq('id', campaignId)
+      .maybeSingle();
+
+    const ownerUserId = (campOwner as any)?.created_by as string | undefined;
+    if (ownerUserId) {
+      // Collect unique, valid emails from incoming payload
+      const emails = Array.from(new Set((payload || [])
+        .map((p: any) => (p?.email ? String(p.email).trim().toLowerCase() : ''))
+        .filter(Boolean)));
+
+      if (emails.length > 0) {
+        // Find existing leads for this user to avoid duplicates by (user_id,email)
+        const { data: existing } = await supabase
+          .from('leads')
+          .select('email')
+          .eq('user_id', ownerUserId)
+          .in('email', emails);
+
+        const existingEmails = new Set((existing || []).map((r: any) => String(r.email || '').toLowerCase()));
+
+        const toInsert = (payload || [])
+          .filter((p: any) => p?.email && !existingEmails.has(String(p.email).toLowerCase()))
+          .map((p: any) => ({
+            user_id: ownerUserId,
+            name: p.name || p.email,
+            email: p.email,
+            title: p.title || null,
+            company: p.company || null,
+            linkedin_url: p.linkedin_url || null,
+            // Important: base leads.campaign_id references classic campaigns. Leave null to avoid FK issues.
+            campaign_id: null,
+            source: 'sourcing_campaign'
+          }));
+
+        if (toInsert.length > 0) {
+          await supabase.from('leads').insert(toInsert);
+        }
+      }
+    }
+  } catch (mirrorErr) {
+    console.warn('[sourcing.addLeads] non-fatal base leads mirror error:', mirrorErr);
+  }
+
   // If campaign is in draft, flip to running after adding leads
   try {
     const { data: campaign, error: fetchErr } = await supabase
