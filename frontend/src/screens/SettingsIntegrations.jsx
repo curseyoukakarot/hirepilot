@@ -607,7 +607,7 @@ export default function SettingsIntegrations() {
           {open.automation && (
             <div className="border-t border-gray-100 bg-gray-50 p-6">
               <div className="flex justify-end mb-3">
-                <button onClick={()=>setShowZapierWizard(true)} className="px-3 py-1.5 rounded-lg text-sm bg-gray-800 text-white hover:bg-gray-700">
+                <button onClick={()=>requirePaid(()=>setShowZapierWizard(true),'Generate API Key')} className="px-3 py-1.5 rounded-lg text-sm bg-gray-800 text-white hover:bg-gray-700">
                   Generate API Key
                 </button>
               </div>
