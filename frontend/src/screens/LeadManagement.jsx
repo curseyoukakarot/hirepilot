@@ -785,6 +785,12 @@ function LeadManagement() {
         body: JSON.stringify({ messages: payload })
       });
       if (!response.ok) throw new Error('Failed to send messages');
+      // Optimistically update statuses to "Messaged"
+      setLeads(prev => prev.map(l => (
+        selectedLeadIds.includes(l.id)
+          ? { ...l, status: 'Messaged' }
+          : l
+      )));
       toast.success('Messages sent!');
       setShowBulkMessageModal(false);
     } catch (err) {
