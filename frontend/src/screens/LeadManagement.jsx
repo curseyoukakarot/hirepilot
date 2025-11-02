@@ -738,6 +738,17 @@ function LeadManagement() {
     setShowAttachToCampaignModal(true);
   };
 
+  // Bulk deselector: exclude leads without an email address from current selection
+  const handleExcludeNoEmail = () => {
+    if (!Array.isArray(selectedLeadIds) || selectedLeadIds.length === 0) return;
+    const idsWithEmail = selectedLeadIds.filter(id => {
+      const lead = (leads || []).find(l => l.id === id);
+      const email = (lead && lead.email) ? String(lead.email).trim() : '';
+      return email.length > 0;
+    });
+    setSelectedLeadIds(idsWithEmail);
+  };
+
   // Handle success after attaching leads to campaign
   const handleAttachSuccess = () => {
     // Refresh the leads to show updated campaign information
@@ -1403,6 +1414,14 @@ function LeadManagement() {
             onClick={selectedLeadIds.length > 0 ? () => setShowBulkTagModal(true) : undefined}
           >
             Tag
+          </button>
+          <button
+            className={`border px-4 py-2 rounded-lg hover:bg-gray-50 disabled:opacity-50 ${selectedLeadIds.length === 0 ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+            disabled={selectedLeadIds.length === 0}
+            onClick={selectedLeadIds.length > 0 ? handleExcludeNoEmail : undefined}
+            title="Remove selected leads without an email address"
+          >
+            Exclude No Email
           </button>
           <button
             className={`border px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-purple-50 text-purple-700 border-purple-500 disabled:opacity-50 ${selectedLeadIds.length === 0 ? 'cursor-not-allowed' : 'cursor-pointer'}`}
