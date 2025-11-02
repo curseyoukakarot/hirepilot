@@ -376,6 +376,16 @@ export default function SettingsIntegrations() {
     window.location.href = url;
   };
 
+  const disconnectOutlook = async () => {
+    try {
+      await updateIntegrationStatus('outlook', 'not_connected');
+      toast.success('Outlook disconnected');
+      setOutlookConnected(false);
+    } catch {
+      toast.error('Failed to disconnect Outlook');
+    }
+  };
+
   // SendGrid modal handlers
   const validateSendGridKey = async () => {
     try {
@@ -544,7 +554,7 @@ export default function SettingsIntegrations() {
                   name="Outlook"
                   status={outlookConnected ? 'Connected' : 'Not Connected'}
                   onConnect={connectOutlook}
-                  onDisconnect={()=>toast('Use Outlook account settings to disconnect')}
+                  onDisconnect={disconnectOutlook}
                 />
                 <Card
                   iconSrc="/sendgrid.png"
