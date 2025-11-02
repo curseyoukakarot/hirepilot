@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast';
 import { api } from '../lib/api';
 import ApolloApiKeyModal from '../components/ApolloApiKeyModal';
 import ZapierWizardModal from '../components/settings/integrations/ZapierWizardModal.jsx';
+import { usePlan } from '../context/PlanContext';
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL;
 
@@ -228,11 +229,16 @@ function ZapierModalFrame({ onClose, apiKey }) {
 }
 
 export default function SettingsIntegrations() {
+  const { isFree } = usePlan();
   const [loading, setLoading] = useState(true);
   const [agentModeEnabled, setAgentModeEnabled] = useState(false);
   const [showZapier, setShowZapier] = useState(false);
   const [showZapierWizard, setShowZapierWizard] = useState(false);
   const [zapierApiKey, setZapierApiKey] = useState('');
+  const [showStripeModal, setShowStripeModal] = useState(false);
+  const [stripeKeys, setStripeKeys] = useState({ publishable: '', secret: '' });
+  const [stripeLoading, setStripeLoading] = useState(false);
+  const [stripeConnected, setStripeConnected] = useState({ hasKeys: false, accountId: null, mode: 'connect' });
 
   // Integration statuses
   const [googleConnected, setGoogleConnected] = useState(false);
@@ -258,9 +264,10 @@ export default function SettingsIntegrations() {
 
   // Active connection count for header
   const activeConnections = useMemo(() => {
-    return [googleConnected, outlookConnected, sendgridConnected, apolloConnected, agentModeEnabled, slackConnected]
+    const stripeIsConnected = !!(stripeConnected.hasKeys || stripeConnected.accountId);
+    return [googleConnected, outlookConnected, sendgridConnected, apolloConnected, agentModeEnabled, slackConnected, stripeIsConnected]
       .filter(Boolean).length;
-  }, [googleConnected, outlookConnected, sendgridConnected, apolloConnected, agentModeEnabled, slackConnected]);
+  }, [googleConnected, outlookConnected, sendgridConnected, apolloConnected, agentModeEnabled, slackConnected, stripeConnected]);
 
   useEffect(() => {
     (async () => {
@@ -287,6 +294,7 @@ export default function SettingsIntegrations() {
         setSendgridConnected(!!rows?.find(r => r.provider === 'sendgrid' && r.status === 'connected'));
         setApolloConnected(!!rows?.find(r => r.provider === 'apollo' && r.status === 'connected'));
         setSlackConnected(!!rows?.find(r => r.provider === 'slack' && r.status === 'connected'));
+        setStripeConnected(!!rows?.find(r => r.provider === 'stripe' && r.status === 'connected'));
 
         // Fetch existing API key for Zapier/Make
         try {
@@ -295,6 +303,14 @@ export default function SettingsIntegrations() {
           const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/apiKeys`, { headers: { Authorization: `Bearer ${token}` } });
           const data = await res.json();
           if (data.keys && data.keys.length > 0) setZapierApiKey(data.keys[0].key);
+        } catch {}
+
+        // Load Stripe status (non-blocking)
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const res = await fetch(`${BACKEND}/api/stripe/status`, { headers: { Authorization: `Bearer ${session?.access_token}` } });
+          const js = await res.json();
+          if (res.ok) setStripeConnected({ hasKeys: !!js.has_keys, accountId: js.connected_account_id || null, mode: js.mode || 'connect' });
         } catch {}
 
         // Agent mode
@@ -590,6 +606,9 @@ export default function SettingsIntegrations() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Card iconSrc="/zapier-icon.png" name="Zapier" status={zapierApiKey ? 'Connected' : 'Not Connected'} onConnect={()=>setShowZapier(true)} />
                 <Card iconClass="fa-brands fa-slack text-purple-600" name="Connect REX to Slack" status={slackConnected ? 'Connected' : 'Not Connected'} onConnect={connectSlack} onDisconnect={disconnectSlack} connectLabel={slackConnected ? 'Connected' : 'Connect to Slack'} />
+                {!isFree && (
+                  <Card iconClass="fa-brands fa-stripe-s text-indigo-600" name="Stripe Billing" status={(stripeConnected.hasKeys || stripeConnected.accountId) ? 'Connected' : 'Not Connected'} onConnect={()=>setShowStripeModal(true)} onDisconnect={()=>setShowStripeModal(true)} connectLabel={(stripeConnected.hasKeys || stripeConnected.accountId) ? 'Manage' : 'Connect'} />
+                )}
               </div>
             </div>
           )}
@@ -721,6 +740,71 @@ export default function SettingsIntegrations() {
 
       {/* Zapier Modal Overlay (iframe) */}
       {showZapier && <ZapierModalFrame onClose={()=>setShowZapier(false)} apiKey={zapierApiKey} />}
+
+      {/* Stripe Modal (original card content) */}
+      {showStripeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-lg">
+            <div className="flex items-start justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-semibold text-gray-900">Stripe</h2>
+                <p className="text-gray-600 mt-2">Connect Stripe to create and send invoices directly from HirePilot.</p>
+              </div>
+              <button className="text-gray-500" onClick={()=>setShowStripeModal(false)}>×</button>
+            </div>
+            <div className="mb-4 flex items-center gap-3">
+              <span className={`text-sm ${stripeConnected.mode==='connect'?'font-semibold text-indigo-700':'text-gray-600'}`}>Stripe Connect</span>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" className="sr-only peer" checked={stripeConnected.mode==='keys'} onChange={(e)=>setStripeConnected(s=>({ ...s, mode: e.target.checked ? 'keys' : 'connect' }))} />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+              </label>
+              <span className={`text-sm ${stripeConnected.mode==='keys'?'font-semibold text-indigo-700':'text-gray-600'}`}>Use My Keys</span>
+            </div>
+            <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${stripeConnected.mode==='keys' ? '' : 'opacity-50 pointer-events-none'}`}>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Publishable Key</label>
+                <input type="password" className="w-full border rounded-md px-3 py-2" placeholder="pk_live_..." value={stripeKeys.publishable} onChange={e=>setStripeKeys(p=>({ ...p, publishable: e.target.value }))} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Secret Key</label>
+                <input type="password" className="w-full border rounded-md px-3 py-2" placeholder="sk_live_..." value={stripeKeys.secret} onChange={e=>setStripeKeys(p=>({ ...p, secret: e.target.value }))} />
+              </div>
+            </div>
+            <div className="mt-4 flex items-center gap-3">
+              <button
+                className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium disabled:opacity-50"
+                disabled={stripeLoading || stripeConnected.mode!=='keys' || !stripeKeys.publishable || !stripeKeys.secret}
+                onClick={async ()=>{
+                  setStripeLoading(true);
+                  try {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    const resp = await fetch(`${BACKEND}/api/stripe/save-keys`, { method:'POST', headers: { 'Content-Type':'application/json', Authorization: `Bearer ${session?.access_token}` }, body: JSON.stringify({ publishable_key: stripeKeys.publishable, secret_key: stripeKeys.secret, mode: 'keys' }) });
+                    const js = await resp.json();
+                    if (resp.ok) { setStripeConnected(s=>({ ...s, hasKeys: true, mode: 'keys' })); toast.success('Stripe keys saved'); }
+                    else toast.error(js.error || 'Failed to save keys');
+                  } finally { setStripeLoading(false); }
+                }}
+              >Save Keys</button>
+              <button
+                className="px-4 py-2 border rounded-md text-sm"
+                onClick={async ()=>{
+                  try {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    const resp = await fetch(`${BACKEND}/api/stripe/oauth/init`, { headers: { Authorization: `Bearer ${session?.access_token}` } });
+                    const js = await resp.json();
+                    if (resp.ok && js.url) { window.open(js.url, '_blank'); }
+                    else toast.error(js.error || 'Failed to start Stripe Connect OAuth');
+                  } catch (e) { toast.error('Failed to start OAuth'); }
+                }}
+              >{stripeConnected.accountId ? 'Manage Stripe Connect' : 'Connect with Stripe'}</button>
+              {stripeConnected.mode==='keys' && stripeConnected.hasKeys && <span className="text-sm text-green-600">Keys saved</span>}
+              {stripeConnected.accountId && <span className="text-sm text-gray-600">Account: {stripeConnected.accountId}</span>}
+              <div className="flex-1"></div>
+              <button className="px-3 py-2 text-sm" onClick={()=>setShowStripeModal(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
