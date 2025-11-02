@@ -482,6 +482,14 @@ export default function SettingsIntegrations() {
     </div>
   );
 
+  // Upgrade gate
+  const [showUpgrade, setShowUpgrade] = useState(false);
+  const [upgradeFeature, setUpgradeFeature] = useState('this feature');
+  const requirePaid = (cb, featureLabel) => {
+    if (isFree) { setUpgradeFeature(featureLabel || 'this feature'); setShowUpgrade(true); return; }
+    cb && cb();
+  };
+
   if (loading) return <div className="p-6">Loading integrations...</div>;
 
   return (
@@ -571,12 +579,12 @@ export default function SettingsIntegrations() {
                   iconSrc="/apollo-logo-v2.png"
                   name="Apollo"
                   status={apolloConnected ? 'Connected' : 'Not Connected'}
-                  onConnect={()=>setShowApolloModal(true)}
+                  onConnect={()=>requirePaid(()=>setShowApolloModal(true),'Apollo integration')}
                   onDisconnect={()=>setShowApolloModal(true)}
                   connectLabel={apolloConnected ? 'Manage' : 'Connect'}
                 />
-                <Card iconSrc="/hunter.png" name="Hunter.io" status={'Pending'} disableActions onConnect={()=>{}} />
-                <Card iconSrc="/skrapp.png" name="Skrapp" status={'Pending'} disableActions onConnect={()=>{}} />
+                <Card iconSrc="/hunter.png" name="Hunter.io" status={'Pending'} onConnect={()=>requirePaid(()=>{},'Hunter.io integration')} />
+                <Card iconSrc="/skrapp.png" name="Skrapp" status={'Pending'} onConnect={()=>requirePaid(()=>{},'Skrapp integration')} />
               </div>
             </div>
           )}
@@ -604,11 +612,9 @@ export default function SettingsIntegrations() {
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card iconSrc="/zapier-icon.png" name="Zapier" status={zapierApiKey ? 'Connected' : 'Not Connected'} onConnect={()=>setShowZapier(true)} />
-                <Card iconClass="fa-brands fa-slack text-purple-600" name="Connect REX to Slack" status={slackConnected ? 'Connected' : 'Not Connected'} onConnect={connectSlack} onDisconnect={disconnectSlack} connectLabel={slackConnected ? 'Connected' : 'Connect to Slack'} />
-                {!isFree && (
-                  <Card iconClass="fa-brands fa-stripe-s text-indigo-600" name="Stripe Billing" status={(stripeConnected.hasKeys || stripeConnected.accountId) ? 'Connected' : 'Not Connected'} onConnect={()=>setShowStripeModal(true)} onDisconnect={()=>setShowStripeModal(true)} connectLabel={(stripeConnected.hasKeys || stripeConnected.accountId) ? 'Manage' : 'Connect'} />
-                )}
+                <Card iconSrc="/zapier-icon.png" name="Zapier" status={zapierApiKey ? 'Connected' : 'Not Connected'} onConnect={()=>requirePaid(()=>setShowZapier(true),'Zapier integration')} />
+                <Card iconClass="fa-brands fa-slack text-purple-600" name="Connect REX to Slack" status={slackConnected ? 'Connected' : 'Not Connected'} onConnect={()=>requirePaid(connectSlack,'REX Slack integration')} onDisconnect={disconnectSlack} connectLabel={slackConnected ? 'Connected' : 'Connect to Slack'} />
+                <Card iconClass="fa-brands fa-stripe-s text-indigo-600" name="Stripe Billing" status={(stripeConnected.hasKeys || stripeConnected.accountId) ? 'Connected' : 'Not Connected'} onConnect={()=>requirePaid(()=>setShowStripeModal(true),'Stripe Billing')} onDisconnect={()=>setShowStripeModal(true)} connectLabel={(stripeConnected.hasKeys || stripeConnected.accountId) ? 'Manage' : 'Connect'} />
               </div>
             </div>
           )}
@@ -635,7 +641,7 @@ export default function SettingsIntegrations() {
                   iconClass="fa-solid fa-terminal text-blue-600"
                   name="Agent Mode"
                   status={agentModeEnabled ? 'Connected' : 'Not Connected'}
-                  onConnect={()=>setAgentMode(true)}
+                  onConnect={()=>requirePaid(()=>setAgentMode(true),'Agent Mode')}
                   onDisconnect={()=>setAgentMode(false)}
                   connectLabel={agentModeEnabled ? 'Enabled' : 'Enable'}
                 />
@@ -740,6 +746,20 @@ export default function SettingsIntegrations() {
 
       {/* Zapier Modal Overlay (iframe) */}
       {showZapier && <ZapierModalFrame onClose={()=>setShowZapier(false)} apiKey={zapierApiKey} />}
+
+      {/* Upgrade Required Modal */}
+      {showUpgrade && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg">
+            <h3 className="text-lg font-semibold mb-2">Upgrade Required</h3>
+            <p className="text-gray-600 mb-4">{`You need a paid plan to use ${upgradeFeature}.`}</p>
+            <div className="flex justify-end gap-2">
+              <button className="px-4 py-2 border rounded-md text-sm" onClick={()=>setShowUpgrade(false)}>Close</button>
+              <a href="/pricing" className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700">View Plans</a>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stripe Modal (original card content) */}
       {showStripeModal && (
