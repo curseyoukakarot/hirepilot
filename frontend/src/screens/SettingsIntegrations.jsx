@@ -345,6 +345,27 @@ export default function SettingsIntegrations() {
   };
 
   // ---------- Handlers ----------
+  // Generic integration status helper
+  const updateIntegrationStatus = async (provider, status) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('No user');
+    if (status === 'connected') {
+      await supabase.from('integrations').upsert({
+        user_id: user.id,
+        provider,
+        status: 'connected',
+        connected_at: new Date().toISOString()
+      }, { onConflict: 'user_id,provider' });
+    } else {
+      await supabase.from('integrations').upsert({
+        user_id: user.id,
+        provider,
+        status: 'not_connected',
+        connected_at: null
+      }, { onConflict: 'user_id,provider' });
+    }
+  };
+
   const connectGoogle = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
