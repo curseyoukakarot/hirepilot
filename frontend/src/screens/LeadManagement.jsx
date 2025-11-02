@@ -385,11 +385,11 @@ function LeadManagement() {
       }
 
       const { message, lead } = await response.json();
-      
-      // Update the lead in the local state
-      setLeads(leads.map(l => 
-        l.id === lead.id ? { ...l, status: lead.status } : l
-      ));
+      // Optimistically mark as Messaged regardless of backend status payload
+      const targetId = (lead && lead.id) || selectedLead.id;
+      setLeads(prev => prev.map(l => (
+        l.id === targetId ? { ...l, status: 'Messaged' } : l
+      )));
 
       setShowMessageModal(false);
       setMessageContent('');
