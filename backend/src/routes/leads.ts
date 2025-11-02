@@ -2145,21 +2145,34 @@ router.post('/attach-to-campaign', requireAuth, async (req: ApiRequest, res: Res
       });
     }
 
-    // Verify that the user owns all the leads
-    const { data: userLeads, error: leadsError } = await supabase
-      .from('leads')
-      .select('id')
-      .in('id', leadIds)
-      .eq('user_id', userId);
-
-    if (leadsError) {
-      return res.status(500).json({
+    // Normalize and validate leadIds
+    const ids: string[] = Array.from(new Set((leadIds as any[]).map((x) => String(x).trim())));
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const invalidIds = ids.filter((id) => !uuidRe.test(id));
+    if (invalidIds.length > 0) {
+      return res.status(400).json({
         success: false,
-        error: 'Failed to verify lead ownership'
+        error: `Invalid leadIds provided: ${invalidIds.slice(0, 5).join(', ')}${invalidIds.length > 5 ? '…' : ''}`
       });
     }
 
-    if (!userLeads || userLeads.length !== leadIds.length) {
+    // Verify that the user owns all the leads (chunked to avoid query limits)
+    let ownedIds: string[] = [];
+    const chunkSize = 900; // safe margin under PostgREST parameter limits
+    for (let i = 0; i < ids.length; i += chunkSize) {
+      const chunk = ids.slice(i, i + chunkSize);
+      const { data: chunkRows, error: leadsError } = await supabase
+        .from('leads')
+        .select('id')
+        .in('id', chunk)
+        .eq('user_id', userId);
+      if (leadsError) {
+        return res.status(500).json({ success: false, error: `Failed to verify lead ownership: ${leadsError.message}` });
+      }
+      ownedIds = ownedIds.concat((chunkRows || []).map((r: any) => r.id));
+    }
+
+    if (ownedIds.length !== ids.length) {
       return res.status(403).json({
         success: false,
         error: 'Some leads not found or access denied'
@@ -2167,21 +2180,18 @@ router.post('/attach-to-campaign', requireAuth, async (req: ApiRequest, res: Res
     }
 
     // Update the campaign_id for all the leads
-    const { error: updateError } = await supabase
-      .from('leads')
-      .update({ 
-        campaign_id: campaignId,
-        updated_at: new Date().toISOString()
-      })
-      .in('id', leadIds)
-      .eq('user_id', userId);
-
-    if (updateError) {
-      console.error('Error updating leads:', updateError);
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to attach leads to campaign'
-      });
+    const nowIso = new Date().toISOString();
+    for (let i = 0; i < ownedIds.length; i += chunkSize) {
+      const chunk = ownedIds.slice(i, i + chunkSize);
+      const { error: updateError } = await supabase
+        .from('leads')
+        .update({ campaign_id: campaignId, updated_at: nowIso })
+        .in('id', chunk)
+        .eq('user_id', userId);
+      if (updateError) {
+        console.error('Error updating leads:', updateError);
+        return res.status(500).json({ success: false, error: `Failed to attach leads to campaign: ${updateError.message}` });
+      }
     }
 
     // If the campaign is currently in draft, flip it to active
@@ -2208,9 +2218,9 @@ router.post('/attach-to-campaign', requireAuth, async (req: ApiRequest, res: Res
 
     res.json({
       success: true,
-      message: `Successfully attached ${leadIds.length} lead(s) to campaign`,
+      message: `Successfully attached ${ids.length} lead(s) to campaign`,
       campaignName: campaign.name || campaign.title,
-      attachedLeads: leadIds.length
+      attachedLeads: ids.length
     });
 
   } catch (error) {
