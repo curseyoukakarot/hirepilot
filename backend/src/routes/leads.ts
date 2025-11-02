@@ -2156,20 +2156,36 @@ router.post('/attach-to-campaign', requireAuth, async (req: ApiRequest, res: Res
       });
     }
 
-    // Verify that the user owns all the leads (chunked to avoid query limits)
-    let ownedIds: string[] = [];
-    const chunkSize = 900; // safe margin under PostgREST parameter limits
-    for (let i = 0; i < ids.length; i += chunkSize) {
-      const chunk = ids.slice(i, i + chunkSize);
-      const { data: chunkRows, error: leadsError } = await supabase
-        .from('leads')
-        .select('id')
-        .in('id', chunk)
-        .eq('user_id', userId);
-      if (leadsError) {
-        return res.status(500).json({ success: false, error: `Failed to verify lead ownership: ${leadsError.message}` });
+    // Helper: retry wrapper to smooth transient fetch issues to Supabase
+    const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
+    const execWithRetry = async <T>(factory: () => Promise<{ data: T; error: any }>, tries = 3, baseDelay = 200) => {
+      let lastErr: any = null;
+      for (let attempt = 1; attempt <= tries; attempt++) {
+        const { data, error } = await factory();
+        if (!error) return { data, error: null } as { data: T; error: null };
+        lastErr = error;
+        if (attempt < tries) await delay(baseDelay * attempt);
       }
-      ownedIds = ownedIds.concat((chunkRows || []).map((r: any) => r.id));
+      throw lastErr;
+    };
+
+    // Verify that the user owns all the leads (chunked to avoid URL size limits)
+    let ownedIds: string[] = [];
+    const OWNERSHIP_CHUNK = 150; // keep URL comfortably <8KB (UUID ~36 chars)
+    for (let i = 0; i < ids.length; i += OWNERSHIP_CHUNK) {
+      const chunk = ids.slice(i, i + OWNERSHIP_CHUNK);
+      try {
+        const { data: chunkRows } = await execWithRetry<any[]>(async () =>
+          await supabase
+            .from('leads')
+            .select('id')
+            .in('id', chunk)
+            .eq('user_id', userId)
+        );
+        ownedIds = ownedIds.concat((chunkRows || []).map((r: any) => r.id));
+      } catch (fetchErr: any) {
+        return res.status(503).json({ success: false, error: `Failed to verify lead ownership: ${String(fetchErr)}` });
+      }
     }
 
     if (ownedIds.length !== ids.length) {
@@ -2181,16 +2197,19 @@ router.post('/attach-to-campaign', requireAuth, async (req: ApiRequest, res: Res
 
     // Update the campaign_id for all the leads
     const nowIso = new Date().toISOString();
-    for (let i = 0; i < ownedIds.length; i += chunkSize) {
-      const chunk = ownedIds.slice(i, i + chunkSize);
-      const { error: updateError } = await supabase
-        .from('leads')
-        .update({ campaign_id: campaignId, updated_at: nowIso })
-        .in('id', chunk)
-        .eq('user_id', userId);
-      if (updateError) {
-        console.error('Error updating leads:', updateError);
-        return res.status(500).json({ success: false, error: `Failed to attach leads to campaign: ${updateError.message}` });
+    const UPDATE_CHUNK = 150;
+    for (let i = 0; i < ownedIds.length; i += UPDATE_CHUNK) {
+      const chunk = ownedIds.slice(i, i + UPDATE_CHUNK);
+      try {
+        await execWithRetry<null>(async () =>
+          await supabase
+            .from('leads')
+            .update({ campaign_id: campaignId, updated_at: nowIso })
+            .in('id', chunk)
+            .eq('user_id', userId)
+        );
+      } catch (fetchErr: any) {
+        return res.status(503).json({ success: false, error: `Failed to attach leads to campaign: ${String(fetchErr)}` });
       }
     }
 
