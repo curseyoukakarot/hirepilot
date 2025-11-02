@@ -18,7 +18,12 @@ export async function requireAuthUnified(req: Request, res: Response, next: Next
     // Allowlist: public/alternate-auth endpoints that handle their own auth (e.g., x-user-id)
     // Avoid blocking LinkedIn remote session bootstrap and streaming endpoints
     const path = String(req.path || '');
-    if (path.startsWith('/linkedin/session') || path.startsWith('/stream')) {
+    if (
+      path.startsWith('/linkedin/session') ||
+      path.startsWith('/stream') ||
+      // Allow public OAuth callbacks (Outlook etc.) to proceed without auth
+      path.startsWith('/api/auth/outlook/callback')
+    ) {
       return next();
     }
 
