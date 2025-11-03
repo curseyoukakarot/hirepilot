@@ -76,24 +76,56 @@ export async function attributeEvent(ev: EmailEventRow): Promise<boolean> {
 
     // Step 2B: Fallback - match by provider message identifiers when available
     if ((!user_id || !campaign_id || !lead_id) && (sg_message_id || message_id)) {
-      const ors: string[] = [];
-      if (sg_message_id) ors.push(`sg_message_id.eq.${escapeOrVal(sg_message_id)}`);
-      if (message_id) ors.push(`message_id_header.eq.${escapeOrVal(message_id)}`);
-      if (ors.length) {
-        const { data: msg2, error: e2 } = await supabaseAdmin
+      // Some DBs may not have sg_message_id column. Try message_id_header first (safe), then best-effort message_id.
+      try {
+        const { data: msgByHeader } = await supabaseAdmin
           .from('messages')
           .select('user_id,campaign_id,lead_id')
-          .or(ors.join(','))
+          .eq('message_id_header', message_id || '')
           .order('sent_at', { ascending: false })
           .limit(1)
           .maybeSingle();
-        if (e2) throw e2;
-        if (msg2) {
-          user_id = user_id || (msg2 as any).user_id || null;
-          campaign_id = campaign_id || (msg2 as any).campaign_id || null;
-          lead_id = lead_id || (msg2 as any).lead_id || null;
+        if (msgByHeader) {
+          user_id = user_id || (msgByHeader as any).user_id || null;
+          campaign_id = campaign_id || (msgByHeader as any).campaign_id || null;
+          lead_id = lead_id || (msgByHeader as any).lead_id || null;
         }
+      } catch {}
+      if (!user_id || !campaign_id || !lead_id) {
+        try {
+          // Only attempt sg_message_id where the column exists; if not, the error is caught and ignored
+          const { data: msgBySg } = await supabaseAdmin
+            .from('messages' as any)
+            .select('user_id,campaign_id,lead_id')
+            .eq('sg_message_id' as any, sg_message_id || '')
+            .order('sent_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (msgBySg) {
+            user_id = user_id || (msgBySg as any).user_id || null;
+            campaign_id = campaign_id || (msgBySg as any).campaign_id || null;
+            lead_id = lead_id || (msgBySg as any).lead_id || null;
+          }
+        } catch {}
       }
+    }
+
+    // Step 2C: Fallback - resolve via leads table by recipient email
+    if ((!user_id || !campaign_id || !lead_id) && email) {
+      try {
+        const { data: leadRow } = await supabaseAdmin
+          .from('leads')
+          .select('id,user_id,campaign_id')
+          .eq('email', email)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (leadRow) {
+          user_id = user_id || (leadRow as any).user_id || null;
+          lead_id = lead_id || (leadRow as any).id || null;
+          campaign_id = campaign_id || (leadRow as any).campaign_id || null;
+        }
+      } catch {}
     }
 
     // Step 3: Update if we found anything
@@ -112,9 +144,21 @@ export async function attributeEvent(ev: EmailEventRow): Promise<boolean> {
         }
       }
 
+      // If lead_id does not exist (stale), avoid FK violation by dropping it
+      let finalLeadId: string | null = lead_id;
+      if (lead_id) {
+        try {
+          const { data: leadExists } = await supabaseAdmin
+            .from('leads')
+            .select('id')
+            .eq('id', lead_id)
+            .maybeSingle();
+          if (!leadExists) finalLeadId = null;
+        } catch { finalLeadId = null; }
+      }
       const { error: updErr } = await supabaseAdmin
         .from('email_events')
-        .update({ user_id, campaign_id, lead_id })
+        .update({ user_id, campaign_id, lead_id: finalLeadId })
         .eq('sg_event_id', ev.sg_event_id);
       if (updErr) throw updErr;
       return true;
