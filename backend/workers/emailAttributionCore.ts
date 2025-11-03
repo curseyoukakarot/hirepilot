@@ -56,8 +56,8 @@ export async function attributeEvent(ev: EmailEventRow): Promise<boolean> {
       email = email || metadata.raw.email || null;
     }
 
-    // Step 2: Fallback - match by recipient email if still missing data
-    if ((!user_id || !campaign_id) && email) {
+    // Step 2A: Fallback - match by recipient email if still missing data
+    if ((!user_id || !campaign_id || !lead_id) && email) {
       const { data: msg, error: e1 } = await supabaseAdmin
         .from('messages')
         .select('user_id,campaign_id,lead_id')
@@ -71,6 +71,28 @@ export async function attributeEvent(ev: EmailEventRow): Promise<boolean> {
         user_id = user_id || msg.user_id || null;
         campaign_id = campaign_id || msg.campaign_id || null;
         lead_id = lead_id || msg.lead_id || null;
+      }
+    }
+
+    // Step 2B: Fallback - match by provider message identifiers when available
+    if ((!user_id || !campaign_id || !lead_id) && (sg_message_id || message_id)) {
+      const ors: string[] = [];
+      if (sg_message_id) ors.push(`sg_message_id.eq.${escapeOrVal(sg_message_id)}`);
+      if (message_id) ors.push(`message_id_header.eq.${escapeOrVal(message_id)}`);
+      if (ors.length) {
+        const { data: msg2, error: e2 } = await supabaseAdmin
+          .from('messages')
+          .select('user_id,campaign_id,lead_id')
+          .or(ors.join(','))
+          .order('sent_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (e2) throw e2;
+        if (msg2) {
+          user_id = user_id || (msg2 as any).user_id || null;
+          campaign_id = campaign_id || (msg2 as any).campaign_id || null;
+          lead_id = lead_id || (msg2 as any).lead_id || null;
+        }
       }
     }
 
