@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y \
   --no-install-recommends && rm -rf /var/lib/apt/lists/*
 
 # Utilities for X framebuffer init and input
-RUN apt-get update && apt-get install -y x11-apps xdotool && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y x11-apps xdotool socat && rm -rf /var/lib/apt/lists/*
 
 # Chrome
 RUN wget -q -O /usr/share/keyrings/google-linux-signing-key.gpg https://dl.google.com/linux/linux_signing_key.pub && \

@@ -248,14 +248,15 @@ export class DockerEngine implements OrchestratorEngine {
         `START_URL=${process.env.LI_START_URL || 'https://www.linkedin.com/login'}`,
         ...(opts.proxyUrl ? [`HTTPS_PROXY=${opts.proxyUrl}`, `HTTP_PROXY=${opts.proxyUrl}`] : [])
       ],
-      ExposedPorts: isBrowserless ? { '3000/tcp': {} } : { '8080/tcp': {}, '9222/tcp': {} },
+      ExposedPorts: isBrowserless ? { '3000/tcp': {} } : { '8080/tcp': {}, '9223/tcp': {} },
       HostConfig: {
         Binds: [ `${hostProfileDir}:${userProfileRel}` ],
         PortBindings: isBrowserless
           ? { '3000/tcp': [{ HostPort: preferredPort ? String(preferredPort) : '' }] }
           : {
               '8080/tcp': [{ HostPort: process.env.NOVNC_PORT || '58080' }],
-              '9222/tcp': [{ HostPort: process.env.CDP_PORT || '59222' }]
+              // Publish socat-forwarded port 9223 → host CDP port
+              '9223/tcp': [{ HostPort: process.env.CDP_PORT || '59222' }]
             }
       },
       Labels: { 'hp.sessionId': opts.sessionId }
@@ -286,7 +287,7 @@ export class DockerEngine implements OrchestratorEngine {
 
     const ports = (data as any)?.NetworkSettings?.Ports as any;
     const streamPort = isBrowserless ? ports?.['3000/tcp']?.[0]?.HostPort as string : ports?.['8080/tcp']?.[0]?.HostPort as string;
-    const debugPort = isBrowserless ? streamPort : ports?.['9222/tcp']?.[0]?.HostPort as string;
+    const debugPort = isBrowserless ? streamPort : ports?.['9223/tcp']?.[0]?.HostPort as string;
 
     // Choose the public base used by the frontend iframe to reach the container
     // Priority:
