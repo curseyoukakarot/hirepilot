@@ -1,4 +1,4 @@
-import { createSupabaseForRequest, getBearerToken, assertAuth } from '../../_utils/supabaseServer';
+import { createSupabaseForRequest, getBearerToken, assertAuth } from '../_utils/supabaseServer';
 
 export default async function handler(req: any, res: any) {
   try {
@@ -98,25 +98,90 @@ export default async function handler(req: any, res: any) {
         break;
       }
       case 'revenue-forecast': {
-        // Stage-weighted forecast from opportunities created in the last 12 months
-        const { data: opps } = await supabase
-          .from('opportunities')
-          .select('created_at,stage,value,owner_id')
-          .eq('owner_id', user.id);
+        // True revenue pacing with configurable mode & horizon
+        const mode = (qp.mode as string) || 'paid'; // 'paid' | 'closewon' | 'blended'
+        const horizon = (qp.horizon as string) || 'eoy'; // 'eoy' | '12m'
+
         const now = new Date();
-        const buckets: Array<{ month: string; revenue: number }> = [];
-        for (let i = 5; i >= 0; i--) {
+        const start12 = new Date(now.getFullYear(), now.getMonth()-11, 1);
+        const keyFor = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+
+        // Build 12-month buckets
+        const months12: Array<{ month: string; revenue: number; projected?: boolean }> = [];
+        for (let i=11; i>=0; i--) {
           const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
-          buckets.push({ month: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`, revenue: 0 });
+          months12.push({ month: keyFor(d), revenue: 0 });
         }
-        const weights: Record<string, number> = { 'Pipeline': 0.25, 'Best Case': 0.5, 'Commit': 0.9, 'Close Won': 1, 'Closed Lost': 0 };
-        (opps||[]).forEach((o:any) => {
-          const created = new Date(o.created_at || now);
-          const key = `${created.getFullYear()}-${String(created.getMonth()+1).padStart(2,'0')}`;
-          const b = buckets.find(b => b.month === key);
-          if (b) b.revenue += (Number(o.value)||0) * (weights[String(o.stage||'Pipeline')] ?? 0);
-        });
-        data = buckets;
+
+        const applyWeights = (stage?: string) => {
+          const weights: Record<string, number> = { 'Pipeline': 0.25, 'Best Case': 0.5, 'Commit': 0.9, 'Close Won': 1, 'Closed Lost': 0 };
+          return weights[String(stage||'Pipeline')] ?? 0;
+        };
+
+        if (mode === 'paid') {
+          const { data: invs } = await supabase
+            .from('invoices')
+            .select('amount,paid_at,sent_at,opportunity_id')
+            .gte('sent_at', start12.toISOString());
+          (invs||[]).forEach((i:any) => {
+            const when = i.paid_at || i.sent_at || i.created_at;
+            const d = new Date(when || now);
+            const k = keyFor(new Date(d.getFullYear(), d.getMonth(), 1));
+            const b = months12.find(m => m.month === k);
+            if (b) b.revenue += Number(i.amount) || 0;
+          });
+        } else if (mode === 'closewon') {
+          const { data: opps } = await supabase
+            .from('opportunities')
+            .select('created_at,stage,value,owner_id')
+            .eq('owner_id', user.id);
+          (opps||[]).filter((o:any)=>String(o.stage||'')==='Close Won').forEach((o:any) => {
+            const d = new Date(o.created_at || now);
+            if (d < start12) return;
+            const k = keyFor(new Date(d.getFullYear(), d.getMonth(), 1));
+            const b = months12.find(m => m.month === k);
+            if (b) b.revenue += Number(o.value)||0;
+          });
+        } else { // blended (stage-weighted)
+          const { data: opps } = await supabase
+            .from('opportunities')
+            .select('created_at,stage,value,owner_id')
+            .eq('owner_id', user.id);
+          (opps||[]).forEach((o:any) => {
+            const d = new Date(o.created_at || now);
+            if (d < start12) return;
+            const k = keyFor(new Date(d.getFullYear(), d.getMonth(), 1));
+            const b = months12.find(m => m.month === k);
+            if (b) b.revenue += (Number(o.value)||0) * applyWeights(o.stage);
+          });
+        }
+
+        // Pacing projection
+        const monthsElapsed = now.getMonth() + 1; // 1..12
+        const curYear = now.getFullYear();
+        const ytd = months12.filter(m => Number(m.month.split('-')[0]) === curYear && Number(m.month.split('-')[1]) <= (now.getMonth()+1)).reduce((s,m)=>s+m.revenue,0);
+        const monthlyAvgYTD = monthsElapsed ? (ytd / monthsElapsed) : 0;
+        const projectedYearTotal = monthlyAvgYTD * 12;
+        const monthlyPace = horizon === 'eoy' ? monthlyAvgYTD : (months12.reduce((s,m)=>s+m.revenue,0) / 12);
+
+        // Fill future months
+        const out: Array<{ month: string; revenue: number; projected?: boolean }> = months12.map(m => ({ ...m }));
+        if (horizon === 'eoy') {
+          for (let m=now.getMonth()+1; m<12; m++) {
+            const k = keyFor(new Date(curYear, m, 1));
+            const ex = out.find(x => x.month === k);
+            if (ex) { ex.revenue = ex.revenue || monthlyPace; ex.projected = true; }
+            else out.push({ month: k, revenue: monthlyPace, projected: true });
+          }
+        } else {
+          // rolling next 12 months
+          for (let i=1; i<=12; i++) {
+            const d = new Date(now.getFullYear(), now.getMonth()+i, 1);
+            out.push({ month: keyFor(d), revenue: monthlyPace, projected: true });
+          }
+        }
+        // Return last 6 points to fit current UI
+        data = out.slice(-6);
         break;
       }
       case 'win-rate': {

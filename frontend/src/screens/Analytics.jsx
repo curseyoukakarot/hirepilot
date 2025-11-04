@@ -512,6 +512,23 @@ export default function Analytics() {
   );
 
   // Revenue Forecast (Deals) - line chart
+  const [revenueMode, setRevenueMode] = useState('paid'); // 'paid'|'closewon'|'blended'
+  const [revenueHorizon, setRevenueHorizon] = useState('eoy'); // 'eoy'|'12m'
+
+  useEffect(() => {
+    const refetch = async () => {
+      if (isModalOpen && modalWidget === 'Revenue Forecast') {
+        try {
+          const r = await apiFetch(`/api/widgets/revenue-forecast?mode=${encodeURIComponent(revenueMode)}&horizon=${encodeURIComponent(revenueHorizon)}`);
+          const j = await r.json();
+          setModalData(Array.isArray(j.data) ? j.data : []);
+        } catch {}
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    refetch();
+  }, [revenueMode, revenueHorizon, isModalOpen, modalWidget]);
+
   const renderRevenueForecast = () => (
     <div className="modal-variant">
       <div className="flex justify-between items-start p-6 border-b border-gray-200">
@@ -522,6 +539,19 @@ export default function Analytics() {
         <button onClick={() => setIsModalOpen(false)} className="text-gray-500 hover:text-purple-600 transition-all duration-300 hover:rotate-90"><i className="fas fa-times text-xl"></i></button>
       </div>
       <div className="p-6">
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <label className="text-sm text-gray-600">Source:</label>
+          <select className="border rounded-md p-2 text-sm" value={revenueMode} onChange={e=>setRevenueMode(e.target.value)}>
+            <option value="paid">Paid Invoices</option>
+            <option value="closewon">Close Won Deals</option>
+            <option value="blended">Blended (Stage-Weighted)</option>
+          </select>
+          <label className="text-sm text-gray-600 ml-2">Horizon:</label>
+          <select className="border rounded-md p-2 text-sm" value={revenueHorizon} onChange={e=>setRevenueHorizon(e.target.value)}>
+            <option value="eoy">Pace to End of Year</option>
+            <option value="12m">Rolling 12 Months</option>
+          </select>
+        </div>
         <div className="bg-white p-6 rounded-lg border">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-semibold text-gray-800">6-Month Forecast</h3>
