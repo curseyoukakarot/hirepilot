@@ -38,6 +38,32 @@ export default async function handler(req: any, res: any) {
         data = series;
         break;
       }
+      case 'deal-pipeline': {
+        // Aggregate opportunity values by stage
+        const { data: opps } = await supabase
+          .from('opportunities')
+          .select('stage,value,owner_id')
+          .eq('owner_id', user.id);
+        const sum = (st: string) => (opps||[]).filter(o => String(o.stage||'') === st).reduce((s,o:any)=> s + (Number(o.value)||0), 0);
+        const cnt = (st: string) => (opps||[]).filter(o => String(o.stage||'') === st).length;
+        const pipelineValue = sum('Pipeline');
+        const bestCaseValue = sum('Best Case');
+        const commitValue = sum('Commit');
+        const closedWonValue = sum('Close Won');
+        data = [{
+          pipelineValue,
+          bestCaseValue,
+          commitValue,
+          closedWonValue,
+          pipelineDeals: cnt('Pipeline'),
+          bestCaseDeals: cnt('Best Case'),
+          commitDeals: cnt('Commit'),
+          closedWonDeals: cnt('Close Won'),
+          totalActiveDeals: (opps||[]).filter(o=>['Pipeline','Best Case','Commit'].includes(String(o.stage||''))).length,
+          totalValue: pipelineValue + bestCaseValue + commitValue + closedWonValue,
+        }];
+        break;
+      }
       case 'open-rate': {
         const { data: rows } = await supabase
           .from('email_events')
@@ -72,16 +98,35 @@ export default async function handler(req: any, res: any) {
         break;
       }
       case 'revenue-forecast': {
-        const { data: rows } = await supabase
-          .from('revenue_monthly')
-          .select('month,revenue')
-          .order('month', { ascending: true });
-        data = rows || [];
+        // Stage-weighted forecast from opportunities created in the last 12 months
+        const { data: opps } = await supabase
+          .from('opportunities')
+          .select('created_at,stage,value,owner_id')
+          .eq('owner_id', user.id);
+        const now = new Date();
+        const buckets: Array<{ month: string; revenue: number }> = [];
+        for (let i = 5; i >= 0; i--) {
+          const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+          buckets.push({ month: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`, revenue: 0 });
+        }
+        const weights: Record<string, number> = { 'Pipeline': 0.25, 'Best Case': 0.5, 'Commit': 0.9, 'Close Won': 1, 'Closed Lost': 0 };
+        (opps||[]).forEach((o:any) => {
+          const created = new Date(o.created_at || now);
+          const key = `${created.getFullYear()}-${String(created.getMonth()+1).padStart(2,'0')}`;
+          const b = buckets.find(b => b.month === key);
+          if (b) b.revenue += (Number(o.value)||0) * (weights[String(o.stage||'Pipeline')] ?? 0);
+        });
+        data = buckets;
         break;
       }
       case 'win-rate': {
-        const { data: rows } = await supabase.from('win_rates').select('*');
-        data = rows || [];
+        const { data: opps } = await supabase
+          .from('opportunities')
+          .select('stage,owner_id')
+          .eq('owner_id', user.id);
+        const total = (opps||[]).length || 1;
+        const won = (opps||[]).filter(o => String(o.stage||'') === 'Close Won').length;
+        data = [{ user_id: user.id, win_rate: Math.round((won/total)*1000)/10 }];
         break;
       }
       case 'engagement': {

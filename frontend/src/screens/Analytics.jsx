@@ -269,8 +269,8 @@ export default function Analytics() {
             <div className="flex justify-between items-start">
               <div>
                 <h3 className="text-lg font-semibold text-blue-800">Pipeline</h3>
-                <div className="text-3xl font-bold text-blue-900 mt-2">$45K</div>
-                <div className="text-blue-700 text-sm">12 deals</div>
+                <div className="text-3xl font-bold text-blue-900 mt-2">${(modalData?.[0]?.pipelineValue||0).toLocaleString()}</div>
+                <div className="text-blue-700 text-sm">{modalData?.[0]?.pipelineDeals||0} deals</div>
               </div>
               <i className="fas fa-funnel text-blue-600 text-xl"></i>
             </div>
@@ -281,8 +281,8 @@ export default function Analytics() {
             <div className="flex justify-between items-start">
               <div>
                 <h3 className="text-lg font-semibold text-purple-800">Best Case</h3>
-                <div className="text-3xl font-bold text-purple-900 mt-2">$32K</div>
-                <div className="text-purple-700 text-sm">8 deals</div>
+                <div className="text-3xl font-bold text-purple-900 mt-2">${(modalData?.[0]?.bestCaseValue||0).toLocaleString()}</div>
+                <div className="text-purple-700 text-sm">{modalData?.[0]?.bestCaseDeals||0} deals</div>
               </div>
               <i className="fas fa-star text-purple-600 text-xl"></i>
             </div>
@@ -293,8 +293,8 @@ export default function Analytics() {
             <div className="flex justify-between items-start">
               <div>
                 <h3 className="text-lg font-semibold text-yellow-800">Commit</h3>
-                <div className="text-3xl font-bold text-yellow-900 mt-2">$20K</div>
-                <div className="text-yellow-700 text-sm">5 deals</div>
+                <div className="text-3xl font-bold text-yellow-900 mt-2">${(modalData?.[0]?.commitValue||0).toLocaleString()}</div>
+                <div className="text-yellow-700 text-sm">{modalData?.[0]?.commitDeals||0} deals</div>
               </div>
               <i className="fas fa-handshake text-yellow-600 text-xl"></i>
             </div>
@@ -305,8 +305,8 @@ export default function Analytics() {
             <div className="flex justify-between items-start">
               <div>
                 <h3 className="text-lg font-semibold text-green-800">Closed Won</h3>
-                <div className="text-3xl font-bold text-green-900 mt-2">$15K</div>
-                <div className="text-green-700 text-sm">3 deals</div>
+                <div className="text-3xl font-bold text-green-900 mt-2">${(modalData?.[0]?.closedWonValue||0).toLocaleString()}</div>
+                <div className="text-green-700 text-sm">{modalData?.[0]?.closedWonDeals||0} deals</div>
               </div>
               <i className="fas fa-trophy text-green-600 text-xl"></i>
             </div>
@@ -316,8 +316,8 @@ export default function Analytics() {
 
         <div className="mt-6 p-4 bg-neutral-bg rounded-lg">
           <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Active Deals: 47</span>
-            <span className="text-purple-900 font-semibold">Total Value: $2.3M</span>
+            <span className="text-gray-600">Active Deals: {modalData?.[0]?.totalActiveDeals||0}</span>
+            <span className="text-purple-900 font-semibold">Total Value: ${(modalData?.[0]?.totalValue||0).toLocaleString()}</span>
           </div>
         </div>
       </div>
