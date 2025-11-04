@@ -9,6 +9,10 @@ import DealLogActivityModal from '../components/deals/DealLogActivityModal';
 import DealsActivityList from '../components/deals/DealsActivityList';
 import ClientActivities from '../components/deals/ClientActivities';
 
+declare global {
+  interface ImportMeta { env: any }
+}
+
 type ViewTab = 'clients' | 'opportunities' | 'billing' | 'revenue';
 type ClientsSubView = 'companies' | 'decisionMakers';
 type OppView = 'table' | 'pipeline';
@@ -888,8 +892,8 @@ export default function DealsPage() {
                               if (resp.ok) {
                                 // Remove from table immediately
                                 setOpps(prev => prev.filter(row => row.id !== o.id));
-                                // Also refresh pipeline board in background if currently showing pipeline
-                                if (oppView === 'pipeline') { await refetchBoard(); }
+                                // Also refresh pipeline board in background
+                                await refetchBoard();
                               }
                             } catch {}
                           }}
@@ -1042,9 +1046,10 @@ export default function DealsPage() {
                   <BarChart data={(()=>{
                     let src = revMonthlyMode==='actual' ? revMonthly : revMonthlyProjected;
                     if (revSource==='closewon') {
-                      // Map close-won series to paid bar for visualization
-                      const cwMap = new Map((revMonthlyCloseWon||[]).map((r:any)=>[r.month, r.revenue]));
-                      src = (src||[]).map((r:any)=>({ ...r, paid: cwMap.get(r.month) || 0 }));
+                      // Use Close Won series as primary source so months render even if invoices are empty
+                      const cw = Array.isArray(revMonthlyCloseWon) ? revMonthlyCloseWon : [];
+                      // normalize to chart shape
+                      src = cw.map((r:any)=>({ month: r.month, paid: Number(r.revenue)||0, forecasted: 0, outstanding: 0 }));
                     }
                     const now = new Date();
                     let start: Date;
