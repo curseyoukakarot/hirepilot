@@ -1,618 +1,187 @@
-import React, { useRef, useState, useEffect, useMemo } from 'react';
-import { Chart } from 'chart.js/auto';
-import { supabase } from '../lib/supabaseClient';
-import { usePlan } from '../context/PlanContext';
-import { useNavigate } from 'react-router-dom';
-
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+import React, { useEffect, useMemo, useState } from 'react';
 
 export default function Analytics() {
-  const { isFree } = usePlan();
-  const navigate = useNavigate();
-  // Block free users from accessing analytics
-  useEffect(() => {
-    if (isFree) {
-      navigate('/billing', { replace: true });
-    }
-  }, [isFree, navigate]);
+  const [activeTab, setActiveTab] = useState('deals');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalTitle, setModalTitle] = useState('Widget Details');
 
-  const chartRef = useRef(null);
-  const [viewMode, setViewMode] = useState('chart');
-  const [user, setUser] = useState(null);
-  const [campaigns, setCampaigns] = useState([]);
-  const [metrics, setMetrics] = useState([]); // Array of { campaignId, sent, opens, open_rate, replies, reply_rate, conversions }
-  const [loading, setLoading] = useState(true);
-  const [leads, setLeads] = useState([]);
-  const [leadsLoading, setLeadsLoading] = useState(true);
-  const [leadsTotal, setLeadsTotal] = useState(0);
-  const [leadPage, setLeadPage] = useState(0); // pagination state
-  const LEADS_PER_PAGE = 2;
-  
-  // Time series data for chart and table
-  const [timeSeriesData, setTimeSeriesData] = useState([]);
-  const [timeSeriesLoading, setTimeSeriesLoading] = useState(true);
-  const [selectedTimeRange, setSelectedTimeRange] = useState('30d');
-  // Messaging analytics
-  const [viewEntity, setViewEntity] = useState('templates'); // 'templates' | 'sequences'
-  const [tplMetrics, setTplMetrics] = useState([]);
-  const [seqMetrics, setSeqMetrics] = useState([]);
-  const [selectedTpl, setSelectedTpl] = useState('all');
-  const [selectedSeq, setSelectedSeq] = useState('all');
-  const [tplList, setTplList] = useState([]);
-  const [seqList, setSeqList] = useState([]);
-  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const widgetData = useMemo(() => ({
+    deals: [
+      { name: 'Revenue Forecast', icon: 'fa-chart-line', color: 'purple' },
+      { name: 'Deal Pipeline', icon: 'fa-funnel-dollar', color: 'blue' },
+      { name: 'Win Rate KPI', icon: 'fa-trophy', color: 'green' },
+      { name: 'Engagement Breakdown', icon: 'fa-chart-pie', color: 'orange' }
+    ],
+    jobs: [
+      { name: 'Hiring Funnel', icon: 'fa-filter', color: 'blue' },
+      { name: 'Candidate Flow Viz', icon: 'fa-users', color: 'green' },
+      { name: 'Pipeline Velocity', icon: 'fa-tachometer-alt', color: 'purple' },
+      { name: 'Team Performance', icon: 'fa-chart-bar', color: 'orange' }
+    ],
+    outreach: [
+      { name: 'Reply Rate Chart', icon: 'fa-reply', color: 'green' },
+      { name: 'Open Rate Widget', icon: 'fa-envelope-open', color: 'blue' },
+      { name: 'Conversion Trends', icon: 'fa-chart-area', color: 'indigo' },
+      { name: 'Activity Overview', icon: 'fa-chart-bar', color: 'teal' }
+    ],
+    rex: [
+      { name: 'Hires by Source', icon: 'fa-robot', color: 'purple', ai: true },
+      { name: 'Q4 Revenue Projection', icon: 'fa-robot', color: 'purple', ai: true },
+      { name: 'Candidate Quality Score', icon: 'fa-robot', color: 'purple', ai: true },
+      { name: 'Outreach Optimization', icon: 'fa-robot', color: 'purple', ai: true }
+    ]
+  }), []);
+
+  const widgets = useMemo(() => widgetData[activeTab] || widgetData.deals, [activeTab, widgetData]);
 
   useEffect(() => {
-    const fetchUserAndCampaigns = async () => {
-      setLoading(true);
-      const { data } = await supabase.auth.getUser();
-      if (data?.user) {
-        setUser(data.user);
-        const response = await fetch(`${BACKEND_URL}/api/getCampaigns?user_id=${data.user.id}`);
-        const result = await response.json();
-        if (response.ok && result.campaigns) {
-          // Add 'All Campaigns' option
-          const allCampaignsOption = { id: 'all', title: 'All Campaigns' };
-          const campaignsWithAll = [allCampaignsOption, ...result.campaigns];
-          setCampaigns(campaignsWithAll);
-          // Fetch metrics for each campaign, including 'all'
-          const metricsArr = await Promise.all(
-            campaignsWithAll.map(async (c) => {
-              try {
-                const res = await fetch(`${BACKEND_URL}/api/campaigns/${c.id}/performance?user_id=${data.user.id}`);
-                if (!res.ok) {
-                  const errorData = await res.json();
-                  console.error(`[campaignPerformance] Error for campaign ${c.id}:`, errorData.error);
-                  return { campaignId: c.id, sent: 0, opens: 0, open_rate: 0, replies: 0, reply_rate: 0 };
-                }
-                const perf = await res.json();
-                return { campaignId: c.id, ...perf };
-              } catch (error) {
-                console.error(`[campaignPerformance] Error for campaign ${c.id}:`, error);
-                return { campaignId: c.id, sent: 0, opens: 0, open_rate: 0, replies: 0, reply_rate: 0 };
-              }
-            })
-          );
-          setMetrics(metricsArr);
-        } else {
-          setCampaigns([]);
-          setMetrics([]);
-        }
-      }
-      setLoading(false);
+    const onEsc = (e) => {
+      if (e.key === 'Escape') setIsModalOpen(false);
     };
-    fetchUserAndCampaigns();
+    window.addEventListener('keydown', onEsc);
+    return () => window.removeEventListener('keydown', onEsc);
   }, []);
 
-  useEffect(() => {
-    const fetchLeads = async () => {
-      setLeadsLoading(true);
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('Not authenticated');
-        const from = leadPage * LEADS_PER_PAGE;
-        const to = from + LEADS_PER_PAGE - 1;
-        const { data, error, count } = await supabase
-          .from('leads')
-          .select('*', { count: 'exact' })
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .range(from, to);
-        if (error) {
-          console.error('RLS error on leads query:', error);
-          // Don't throw - just set empty data to prevent page from breaking
-          setLeads([]);
-          setLeadsTotal(0);
-        } else {
-          setLeads(data || []);
-          setLeadsTotal(count || (data ? data.length : 0));
-        }
-      } catch (err) {
-        console.error('Error fetching leads:', err);
-        setLeads([]);
-        setLeadsTotal(0);
-      } finally {
-        setLeadsLoading(false);
-      }
-    };
-    fetchLeads();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leadPage]);
-
-  // Aggregate metrics for all campaigns
-  const total = metrics.reduce((acc, m) => {
-    acc.sent += m.sent || 0;
-    acc.opens += m.opens || 0;
-    acc.replies += m.replies || 0;
-    acc.converted_candidates += m.converted_candidates || 0;
-    acc.total_leads += m.total_leads || 0;
-    return acc;
-  }, { sent: 0, opens: 0, replies: 0, converted_candidates: 0, total_leads: 0 });
-  // KPI cards context switch: if a template/sequence is selected, derive KPIs from that row
-  let openRate = total.sent ? (total.opens / total.sent) * 100 : 0;
-  let replyRate = total.sent ? (total.replies / total.sent) * 100 : 0;
-  let conversionRate = total.total_leads ? (total.converted_candidates / total.total_leads) * 100 : 0;
-  if (viewEntity === 'templates' && selectedTpl !== 'all') {
-    const t = (tplMetrics||[]).find(x=>x.template_id===selectedTpl);
-    if (t) {
-      total.sent = t.sent||0; total.opens = t.opens||0; total.replies = t.replies||0;
-      openRate = total.sent ? (total.opens/total.sent)*100 : 0;
-      replyRate = total.sent ? (total.replies/total.sent)*100 : 0;
-    }
-  } else if (viewEntity === 'sequences' && selectedSeq !== 'all') {
-    const s = (seqMetrics||[]).find(x=>x.sequence_id===selectedSeq);
-    if (s) {
-      total.sent = s.sent||0; total.opens = s.opens||0; total.replies = s.replies||0;
-      openRate = total.sent ? (total.opens/total.sent)*100 : 0;
-      replyRate = total.sent ? (total.replies/total.sent)*100 : 0;
-    }
-  }
-
-  // Add state for selected campaign
-  const [selectedCampaignId, setSelectedCampaignId] = useState('all');
-
-  // Fetch time series data for chart and table
-  const fetchTimeSeriesData = async () => {
-    setTimeSeriesLoading(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token || '';
-      // If a specific Template or Sequence is selected, use messaging time-series
-      if ((viewEntity === 'templates' && selectedTpl !== 'all') || (viewEntity === 'sequences' && selectedSeq !== 'all')) {
-        const entity = viewEntity === 'templates' ? 'template' : 'sequence';
-        const id = viewEntity === 'templates' ? selectedTpl : selectedSeq;
-        const url = `${BACKEND_URL}/api/analytics/time-series?entity=${entity}&id=${id}&days=${selectedTimeRange.replace(/\D/g,'')||30}`;
-        const response = await fetch(url, { credentials: 'include', headers: token ? { 'Authorization': `Bearer ${token}` } : {} });
-        const result = await response.json();
-        setTimeSeriesData(Array.isArray(result.data) ? result.data : []);
-      } else {
-        // Otherwise show campaign-scoped chart at the selected time range
-        const { data: { user } } = await supabase.auth.getUser();
-        const cid = selectedCampaignId || 'all';
-        const rangeKey = selectedTimeRange;
-        const resp = await fetch(`${BACKEND_URL}/api/analytics/time-series?user_id=${user?.id||''}&campaign_id=${cid}&time_range=${rangeKey}`, { credentials: 'include', headers: token ? { 'Authorization': `Bearer ${token}` } : {} });
-        const j = await resp.json();
-        setTimeSeriesData(Array.isArray(j.data) ? j.data.map(x=>({ period:x.period, openRate:x.openRate, replyRate:x.replyRate, conversionRate:x.conversionRate })) : []);
-      }
-    } catch (e) {
-      setTimeSeriesData([]);
-    } finally {
-      setTimeSeriesLoading(false);
-    }
+  const openModal = (title) => {
+    setModalTitle(title);
+    setIsModalOpen(true);
   };
 
-  // Filter metrics for selected campaign
-  const selectedMetrics = metrics.find(m => m.campaignId === selectedCampaignId) || { sent: 0, opens: 0, open_rate: 0, replies: 0, reply_rate: 0, conversions: 0, conversion_rate: 0 };
-
-  // Aggregate series totals for template/sequence view (preferred source)
-  const seriesTotals = useMemo(() => {
-    const isMsgView = (viewEntity === 'templates' && selectedTpl !== 'all') || (viewEntity === 'sequences' && selectedSeq !== 'all');
-    if (!isMsgView) return null;
-    let sent = 0, opens = 0, replies = 0, conversions = 0;
-    (timeSeriesData||[]).forEach(pt => {
-      sent += Number(pt.sent || 0);
-      opens += Number(pt.opens || 0);
-      replies += Number(pt.replies || 0);
-      conversions += Number(pt.conversions || 0);
-    });
-    const openRate = sent > 0 ? (opens / sent) * 100 : 0;
-    const replyRate = sent > 0 ? (replies / sent) * 100 : 0;
-    const conversionRate = sent > 0 ? (conversions / sent) * 100 : 0;
-    return { sent, openRate, replyRate, conversionRate, converted: conversions };
-  }, [viewEntity, selectedTpl, selectedSeq, timeSeriesData]);
-
-  // Derive KPIs depending on view (campaign vs template/sequence)
-  const kpi = (() => {
-    if (seriesTotals) return seriesTotals;
-    if (viewEntity === 'templates' && selectedTpl !== 'all') {
-      const t = (tplMetrics||[]).find(x => x.template_id === selectedTpl);
-      return {
-        sent: t?.sent || 0,
-        openRate: t?.open_rate || 0,
-        replyRate: t?.reply_rate || 0,
-        conversionRate: 0,
-        converted: 0
-      };
-    }
-    if (viewEntity === 'sequences' && selectedSeq !== 'all') {
-      const s = (seqMetrics||[]).find(x => x.sequence_id === selectedSeq);
-      return {
-        sent: s?.sent || 0,
-        openRate: s?.open_rate || 0,
-        replyRate: s?.reply_rate || 0,
-        conversionRate: 0,
-        converted: 0
-      };
-    }
-    return {
-      sent: selectedMetrics.sent || 0,
-      openRate: selectedMetrics.open_rate || 0,
-      replyRate: selectedMetrics.reply_rate || 0,
-      conversionRate: selectedMetrics.conversion_rate || 0,
-      converted: total.converted_candidates || 0
-    };
-  })();
-
-  useEffect(() => {
-    fetchTimeSeriesData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewEntity, selectedTpl, selectedSeq, selectedTimeRange, selectedCampaignId]);
-
-  React.useEffect(() => {
-    // Initialize chart with real data
-    const ctx = document.getElementById('performanceChart')?.getContext('2d');
-    if (ctx && !timeSeriesLoading) {
-      // Destroy existing chart if it exists
-      if (chartRef.current) {
-        chartRef.current.destroy();
-      }
-
-      // Prepare data from timeSeriesData
-      const labels = timeSeriesData.map(item => item.period);
-      const openRateData = timeSeriesData.map(item => item.openRate);
-      const replyRateData = timeSeriesData.map(item => item.replyRate);
-      const conversionRateData = timeSeriesData.map(item => item.conversionRate);
-
-      // Create new chart instance with real data
-      chartRef.current = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels,
-          datasets: [
-            {
-              label: 'Open Rate',
-              data: openRateData,
-              borderColor: 'rgb(59, 130, 246)',
-              tension: 0.4,
-              fill: false
-            },
-            {
-              label: 'Reply Rate',
-              data: replyRateData,
-              borderColor: 'rgb(34, 197, 94)',
-              tension: 0.4,
-              fill: false
-            },
-            {
-              label: 'Conversion Rate',
-              data: conversionRateData,
-              borderColor: 'rgb(168, 85, 247)',
-              tension: 0.4,
-              fill: false
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              display: true
-            }
-          },
-          scales: {
-            y: {
-              beginAtZero: true,
-              max: Math.max(100, Math.max(...openRateData, ...replyRateData, ...conversionRateData) + 10),
-              ticks: {
-                callback: value => `${value}%`
-              }
-            }
-          }
-        }
-      });
-    }
-
-    // Cleanup function
-    return () => {
-      if (chartRef.current) {
-        chartRef.current.destroy();
-      }
-    };
-  }, [timeSeriesData, timeSeriesLoading]);
-
-  // Fetch messaging analytics (templates/sequences)
-  useEffect(() => {
-    const fetchAnalytics = async () => {
-      setAnalyticsLoading(true);
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const headers = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
-        if (viewEntity === 'templates') {
-          const r = await fetch(`${BACKEND_URL}/api/analytics/templates`, { headers, credentials: 'include' });
-          const j = await r.json();
-          setTplMetrics(Array.isArray(j.data) ? j.data : []);
-          // populate list
-          const lst = await fetch(`${BACKEND_URL}/api/analytics/template-list`, { headers, credentials: 'include' }).then(r=>r.json()).catch(()=>({data:[]}));
-          setTplList(Array.isArray(lst.data)?lst.data:[]);
-        } else {
-          const r = await fetch(`${BACKEND_URL}/api/analytics/sequences`, { headers, credentials: 'include' });
-          const j = await r.json();
-          setSeqMetrics(Array.isArray(j.data) ? j.data : []);
-          const lst = await fetch(`${BACKEND_URL}/api/analytics/sequence-list`, { headers, credentials: 'include' }).then(r=>r.json()).catch(()=>({data:[]}));
-          setSeqList(Array.isArray(lst.data)?lst.data:[]);
-        }
-      } catch (e) {
-        if (viewEntity === 'templates') setTplMetrics([]); else setSeqMetrics([]);
-      } finally {
-        setAnalyticsLoading(false);
-      }
-    };
-    fetchAnalytics();
-    // reset any selection when switching view
-    setSelectedTpl('all');
-    setSelectedSeq('all');
-  }, [viewEntity]);
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200">
-        <div className="px-6 py-4 mx-auto max-w-7xl">
+    <div className="bg-gray-50 min-h-screen">
+      <main id="main-content" className="flex-1 flex flex-col overflow-hidden">
+        <header id="header" className="bg-white border-b border-gray-200 p-6">
           <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Analytics & Widgets</h1>
+              <p className="text-gray-600 mt-1">Browse and add insights to your dashboard</p>
+              <p className="text-purple-600 text-sm mt-2 font-medium">Unlock insights with widgets—customize or let REX build for you!</p>
+            </div>
             <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-semibold text-gray-900">Campaign Performance</h1>
-              <span className="px-3 py-1 text-sm font-medium text-green-700 bg-green-100 rounded-full">Active</span>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="px-6 py-8 mx-auto max-w-7xl">
-        {/* Metrics Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-8">
-          <div className="p-3 sm:p-4 bg-white rounded-lg shadow-sm">
-            <h3 className="text-xs sm:text-sm font-medium text-gray-500">Leads Messaged</h3>
-            <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900">{kpi.sent}</p>
-          </div>
-          <div className="p-3 sm:p-4 bg-white rounded-lg shadow-sm">
-            <h3 className="text-xs sm:text-sm font-medium text-gray-500">Open Rate</h3>
-            <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900">{`${Number(kpi.openRate||0).toFixed(1)}%`}</p>
-          </div>
-          <div className="p-3 sm:p-4 bg-white rounded-lg shadow-sm">
-            <h3 className="text-xs sm:text-sm font-medium text-gray-500">Reply Rate</h3>
-            <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900">{`${Number(kpi.replyRate||0).toFixed(1)}%`}</p>
-          </div>
-          <div className="p-3 sm:p-4 bg-white rounded-lg shadow-sm">
-            <h3 className="text-xs sm:text-sm font-medium text-gray-500">Conversion Rate</h3>
-            <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900">{`${Number(kpi.conversionRate||0).toFixed(1)}%`}</p>
-          </div>
-          <div className="p-3 sm:p-4 bg-white rounded-lg shadow-sm">
-            <h3 className="text-xs sm:text-sm font-medium text-gray-500">Converted Candidates</h3>
-            <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900">{kpi.converted}</p>
-            <div className="text-[10px] sm:text-xs text-green-500">{`${Number(kpi.conversionRate||0).toFixed(1)}% Conversion Rate`}</div>
-          </div>
-        </div>
-
-        {/* Campaign Selector */}
-        <div className="mb-6 flex items-center gap-4">
-          <label htmlFor="campaign-select" className="text-sm font-medium text-gray-700">Campaign:</label>
-          <select
-            id="campaign-select"
-            className="px-3 py-2 border border-gray-300 rounded-lg"
-            value={selectedCampaignId}
-            onChange={e => setSelectedCampaignId(e.target.value)}
-          >
-            {campaigns.map(c => (
-              <option key={c.id} value={c.id}>{c.title}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Performance Chart */}
-        <div className="p-6 mb-8 bg-white rounded-lg shadow-sm">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-gray-900">Performance Overview</h2>
-            <div className="flex items-center space-x-4">
-              <select 
-                className="px-3 py-2 border border-gray-300 rounded-lg"
-                value={selectedTimeRange}
-                onChange={e => setSelectedTimeRange(e.target.value)}
-              >
-                <option value="30d">Last 30 days</option>
-                <option value="90d">Last 90 days</option>
-                <option value="1y">This year</option>
-              </select>
-              <div className="flex p-1 bg-gray-100 rounded-lg">
-                <button 
-                  className={`px-3 py-1 rounded ${viewMode === 'chart' ? 'bg-white text-gray-700' : 'text-gray-500 hover:bg-gray-50'}`}
-                  onClick={() => setViewMode('chart')}
-                >
-                  Chart
-                </button>
-                <button 
-                  className={`px-3 py-1 rounded ${viewMode === 'table' ? 'bg-white text-gray-700' : 'text-gray-500 hover:bg-gray-50'}`}
-                  onClick={() => setViewMode('table')}
-                >
-                  Table
-                </button>
+              <div className="relative">
+                <input type="text" placeholder="Search widgets..." className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" />
+                <i className="fa-solid fa-search absolute left-3 top-3 text-gray-400"></i>
               </div>
-
-        {/* Messaging Analytics */}
-        <div className="mb-6 flex items-center gap-4">
-          <label className="text-sm font-medium text-gray-700">Messaging Analytics:</label>
-          <select className="px-3 py-2 border border-gray-300 rounded-lg" value={viewEntity} onChange={e=>setViewEntity(e.target.value)}>
-            <option value="templates">By Template</option>
-            <option value="sequences">By Sequence</option>
-          </select>
-          {viewEntity === 'templates' && (
-            <>
-              <span className="text-sm text-gray-500">Template:</span>
-              <select className="px-3 py-2 border border-gray-300 rounded-lg" value={selectedTpl} onChange={e=>setSelectedTpl(e.target.value)}>
-                <option value="all">All</option>
-                {(tplList||tplMetrics||[]).map((t)=> (
-                  <option key={t.id || t.template_id} value={t.id || t.template_id}>{t.name || t.template_name || t.template_id}</option>
-                ))}
-              </select>
-            </>
-          )}
-          {viewEntity === 'sequences' && (
-            <>
-              <span className="text-sm text-gray-500">Sequence:</span>
-              <select className="px-3 py-2 border border-gray-300 rounded-lg" value={selectedSeq} onChange={e=>setSelectedSeq(e.target.value)}>
-                <option value="all">All</option>
-                {(seqList||seqMetrics||[]).map((s)=> (
-                  <option key={s.id || s.sequence_id} value={s.id || s.sequence_id}>{s.name || s.sequence_name || s.sequence_id}</option>
-                ))}
-              </select>
-            </>
-          )}
-        </div>
-
-        {viewEntity === 'templates' ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {(tplMetrics||[]).filter(t => selectedTpl==='all' || t.template_id===selectedTpl).map((t)=> (
-              <div key={t.template_id} className="rounded-2xl border p-4 bg-white">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="font-semibold text-sm">{t.template_name || `Template ${t.template_id}`}</div>
-                  <div className="text-xs text-gray-500">Sent {t.sent}</div>
-                </div>
-                <div className="flex gap-3 text-sm">
-                  <div className="flex-1"><div className="text-gray-500 text-xs">Open</div><div className="font-semibold">{t.open_rate}%</div></div>
-                  <div className="flex-1"><div className="text-gray-500 text-xs">Reply</div><div className="font-semibold">{t.reply_rate}%</div></div>
-                  <div className="flex-1"><div className="text-gray-500 text-xs">Bounce</div><div className="font-semibold">{t.bounce_rate}%</div></div>
-                </div>
-              </div>
-            ))}
-            {analyticsLoading && <div className="text-sm text-gray-500">Loading…</div>}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {(seqMetrics||[]).filter(s => selectedSeq==='all' || s.sequence_id===selectedSeq).map((s)=> (
-              <div key={s.sequence_id} className="rounded-2xl border p-4 bg-white">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="font-semibold text-sm">{s.sequence_name || `Sequence ${s.sequence_id}`}</div>
-                  <div className="text-xs text-gray-500">Sent {s.sent}</div>
-                </div>
-                <div className="flex gap-3 text-sm">
-                  <div className="flex-1"><div className="text-gray-500 text-xs">Open</div><div className="font-semibold">{s.open_rate}%</div></div>
-                  <div className="flex-1"><div className="text-gray-500 text-xs">Reply</div><div className="font-semibold">{s.reply_rate}%</div></div>
-                  <div className="flex-1"><div className="text-gray-500 text-xs">Bounce</div><div className="font-semibold">{s.bounce_rate}%</div></div>
-                </div>
-              </div>
-            ))}
-            {analyticsLoading && <div className="text-sm text-gray-500">Loading…</div>}
-          </div>
-        )}
-            </div>
-          </div>
-          
-          {viewMode === 'chart' ? (
-            <div className="h-[400px]">
-              <canvas id="performanceChart"></canvas>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Open Rate</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reply Rate</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Conversion Rate</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Growth</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {timeSeriesLoading ? (
-                    <tr><td colSpan="5" className="text-center py-8 text-gray-400">Loading performance data...</td></tr>
-                  ) : timeSeriesData.length === 0 ? (
-                    <tr><td colSpan="5" className="text-center py-8 text-gray-400">No performance data found.</td></tr>
-                  ) : (
-                    timeSeriesData.map((item, index) => (
-                      <tr key={index}>
-                        <td className="px-6 py-4 text-gray-900">{item.period}</td>
-                        <td className="px-6 py-4 text-gray-900">{item.openRate}%</td>
-                        <td className="px-6 py-4 text-gray-900">{item.replyRate}%</td>
-                        <td className="px-6 py-4 text-gray-900">{item.conversionRate}%</td>
-                        <td className={`px-6 py-4 ${item.growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {item.growth >= 0 ? '+' : ''}{item.growth}%
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {/* Lead Status Breakdown */}
-        <div className="bg-white rounded-lg shadow-sm">
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Lead Status Breakdown</h2>
-              <div className="flex items-center space-x-3">
-                <button className="flex items-center px-3 py-2 text-gray-600 bg-gray-100 rounded-lg">
-                  <i className="mr-2 fa-solid fa-filter"></i>Filter
-                </button>
-              </div>
-            </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lead Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last Contact</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Response</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {leadsLoading ? (
-                  <tr><td colSpan="5" className="text-center py-8 text-gray-400">Loading leads...</td></tr>
-                ) : leads.length === 0 ? (
-                  <tr><td colSpan="5" className="text-center py-8 text-gray-400">No leads found.</td></tr>
-                ) : (
-                  leads.map((lead) => (
-                    <tr key={lead.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center">
-                          <img src={lead.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(lead.first_name || lead.name || 'Lead')}&background=random`} className="w-8 h-8 mr-3 rounded-full" alt={lead.first_name || lead.name || 'Lead'} />
-                          <div>
-                            <div className="font-medium text-gray-900">{lead.first_name || lead.name} {lead.last_name || ''}</div>
-                            <div className="text-sm text-gray-500">{lead.title || '-'}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2 py-1 text-sm font-medium rounded-full ${lead.status === 'Interested' ? 'text-green-700 bg-green-100' : lead.status === 'Pending' ? 'text-yellow-700 bg-yellow-100' : 'text-gray-700 bg-gray-100'}`}>{lead.status || '-'}</span>
-                      </td>
-                      <td className="px-6 py-4 text-gray-500">{lead.last_contacted ? new Date(lead.last_contacted).toLocaleDateString() : '-'}</td>
-                      <td className="px-6 py-4 text-gray-500">{lead.response || '-'}</td>
-                      <td className="px-6 py-4">
-                        <button className="text-gray-400 hover:text-gray-600"><i className="fa-solid fa-ellipsis"></i></button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200">
-            <div className="text-sm text-gray-500">Showing {leads.length} of {leadsTotal} leads</div>
-            <div className="flex items-center space-x-2">
-              <button
-                className="px-3 py-1 text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={() => setLeadPage((p) => Math.max(0, p - 1))}
-                disabled={leadPage === 0}
-              >
-                Previous
-              </button>
-              <button
-                className="px-3 py-1 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={() => setLeadPage((p) => (p + 1) * LEADS_PER_PAGE < leadsTotal ? p + 1 : p)}
-                disabled={(leadPage + 1) * LEADS_PER_PAGE >= leadsTotal}
-              >
-                Next
+              <button className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors">
+                <i className="fa-solid fa-plus mr-2"></i>Create Custom
               </button>
             </div>
+          </div>
+        </header>
+
+        <div id="content-area" className="flex-1 overflow-y-auto p-6">
+          <div id="tabs-container" className="mb-8">
+            <nav className="flex space-x-8 border-b border-gray-200">
+              <button
+                className={`tab-btn pb-4 px-1 font-medium text-sm ${activeTab === 'deals' ? 'tab-active' : 'text-gray-500 hover:text-gray-700'}`}
+                onClick={() => setActiveTab('deals')}
+                data-tab="deals"
+              >
+                <i className="fa-solid fa-dollar-sign mr-2"></i>Deals
+              </button>
+              <button
+                className={`tab-btn pb-4 px-1 font-medium text-sm ${activeTab === 'jobs' ? 'tab-active' : 'text-gray-500 hover:text-gray-700'}`}
+                onClick={() => setActiveTab('jobs')}
+                data-tab="jobs"
+              >
+                <i className="fa-solid fa-briefcase mr-2"></i>Jobs
+              </button>
+              <button
+                className={`tab-btn pb-4 px-1 font-medium text-sm ${activeTab === 'outreach' ? 'tab-active' : 'text-gray-500 hover:text-gray-700'}`}
+                onClick={() => setActiveTab('outreach')}
+                data-tab="outreach"
+              >
+                <i className="fa-solid fa-paper-plane mr-2"></i>Outreach
+              </button>
+              <button
+                className={`tab-btn pb-4 px-1 font-medium text-sm ${activeTab === 'rex' ? 'tab-active text-purple-600' : 'text-purple-600 hover:text-purple-700'}`}
+                onClick={() => setActiveTab('rex')}
+                data-tab="rex"
+              >
+                <i className="fa-solid fa-robot mr-2"></i>REX Templates
+              </button>
+            </nav>
+          </div>
+
+          <div id="widgets-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {widgets.map((widget) => (
+              <div key={widget.name} className="widget-card bg-white rounded-lg shadow-md p-6 cursor-pointer" data-widget={widget.name}>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-purple-900">{widget.name}</h3>
+                  <button className="text-gray-400 hover:text-gray-600 hover:rotate-90 transition-transform">
+                    <i className="fa-solid fa-cog"></i>
+                  </button>
+                </div>
+                <div className={`h-32 bg-gradient-to-r from-${widget.color}-100 to-${widget.color}-200 rounded-lg mb-4 flex items-center justify-center`}>
+                  <i className={`fa-solid ${widget.icon} text-4xl text-${widget.color}-600`}></i>
+                </div>
+                <div className="flex space-x-2">
+                  <button className="flex-1 bg-purple-600 text-white py-2 px-3 rounded-lg text-sm hover:bg-purple-700 transition-colors">
+                    <i className="fa-solid fa-plus mr-1"></i>Add to Dashboard
+                  </button>
+                  <button
+                    className="px-3 py-2 border border-purple-300 text-purple-600 rounded-lg text-sm hover:bg-purple-50 transition-colors"
+                    onClick={(e) => { e.stopPropagation(); openModal(widget.name); }}
+                  >
+                    <i className="fa-solid fa-expand mr-1"></i>View
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </main>
+
+      <button id="help-button" className="fixed bottom-6 right-6 bg-purple-600 text-white w-14 h-14 rounded-full shadow-lg hover:bg-purple-700 transition-colors flex items-center justify-center z-50">
+        <i className="fa-solid fa-question text-xl"></i>
+      </button>
+
+      {isModalOpen && (
+        <div id="modal-overlay" className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur modal z-40" onClick={(e) => { if (e.target === e.currentTarget) setIsModalOpen(false); }}>
+          <div className="flex items-center justify-center min-h-screen p-4">
+            <div id="widget-modal" className={`bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto transform transition-transform duration-300 ${isModalOpen ? 'scale-100' : 'scale-0'}` }>
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h2 id="modal-title" className="text-2xl font-bold text-purple-900">{modalTitle}</h2>
+                  <button id="close-modal" className="text-gray-400 hover:text-gray-600" onClick={() => setIsModalOpen(false)}>
+                    <i className="fa-solid fa-times text-xl"></i>
+                  </button>
+                </div>
+              </div>
+              <div className="p-6">
+                <div className="mb-6">
+                  <div className="flex space-x-4 mb-4">
+                    <select className="border border-purple-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                      <option>All Clients</option>
+                      <option>Client A</option>
+                      <option>Client B</option>
+                    </select>
+                    <select className="border border-purple-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                      <option>Last 30 Days</option>
+                      <option>Last Quarter</option>
+                      <option>Last Year</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="h-64 bg-gradient-to-r from-purple-100 to-purple-200 rounded-lg mb-6 flex items-center justify-center">
+                  <div className="text-center">
+                    <i className="fa-solid fa-chart-line text-6xl text-purple-600 mb-4"></i>
+                    <p className="text-gray-600">Interactive chart would appear here</p>
+                  </div>
+                </div>
+                <div className="flex space-x-4">
+                  <button className="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors">
+                    <i className="fa-solid fa-plus mr-2"></i>Add to Dashboard
+                  </button>
+                  <button className="border border-purple-300 text-purple-600 px-6 py-3 rounded-lg hover:bg-purple-50 transition-colors">
+                    <i className="fa-solid fa-external-link-alt mr-2"></i>Open in Analytics
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-} 
+}
