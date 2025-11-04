@@ -42,7 +42,8 @@ export default function DealsPage() {
   const [revMonthlyProjected, setRevMonthlyProjected] = useState<Array<{ month: string; paid: number; forecasted: number; outstanding: number }>>([]);
   const [revMonthlyMode, setRevMonthlyMode] = useState<'actual'|'projected'>('actual');
   const [revSource, setRevSource] = useState<'paid'|'closewon'>('paid');
-  const [revMonthlyCloseWon, setRevMonthlyCloseWon] = useState<Array<{ month: string; revenue: number }>>([]);
+  const [revMonthlyCloseWon, setRevMonthlyCloseWon] = useState<Array<{ month: string; revenue: number; projected?: boolean }>>([]);
+  const [revMonthlyPaidOut, setRevMonthlyPaidOut] = useState<Array<{ month: string; revenue: number; projected?: boolean }>>([]);
   const [revMonthlyRange, setRevMonthlyRange] = useState<'90d'|'6m'|'1y'|'ytd'>('1y');
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [currentUserAvatar, setCurrentUserAvatar] = useState<string>('');
@@ -213,7 +214,7 @@ export default function DealsPage() {
       if (!access?.can_view_revenue) return;
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
-      const [sRes, mRes, cRes, pcRes, etRes, mpRes, cwRes] = await Promise.all([
+      const [sRes, mRes, cRes, pcRes, etRes, mpRes, cwRes, rfPaidRes] = await Promise.all([
         fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/summary`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
         fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/monthly`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
         fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/by-client`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
@@ -221,6 +222,7 @@ export default function DealsPage() {
         fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/engagement-types`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
         fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/monthly-projected`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
         fetch(`/api/widgets/revenue-forecast?mode=closewon&horizon=12m&limit=12`, { headers: token ? { Authorization: `Bearer ${token}` } : {}, credentials: 'include' }),
+        fetch(`/api/widgets/revenue-forecast?mode=paid&horizon=eoy&limit=12`, { headers: token ? { Authorization: `Bearer ${token}` } : {}, credentials: 'include' }),
       ]);
       setRevSummary(sRes.ok ? await sRes.json() : null);
       const monthly = mRes.ok ? await mRes.json() : [];
@@ -233,6 +235,8 @@ export default function DealsPage() {
       setRevByType(etRes.ok ? await etRes.json() : []);
       const cw = cwRes.ok ? await cwRes.json() : { data: [] };
       setRevMonthlyCloseWon(Array.isArray(cw.data) ? cw.data : []);
+      const rfPaid = rfPaidRes.ok ? await rfPaidRes.json() : { data: [] };
+      setRevMonthlyPaidOut(Array.isArray(rfPaid.data) ? rfPaid.data : []);
 
       // Auto-toggle to Projected if no actuals exist but projected has data
       const sum = (rows: any[]) => rows.reduce((s, r) => s + (Number(r.paid||0)+Number(r.forecasted||0)+Number(r.outstanding||0)), 0);
@@ -989,7 +993,18 @@ export default function DealsPage() {
                 </div>
                 <div className="bg-white rounded-2xl p-5 shadow-sm border">
                   <h2 className="text-sm text-gray-500">Forecasted Revenue</h2>
-                  <p className="text-2xl font-semibold mt-1">{(revSummary?.forecasted||0).toLocaleString('en-US', { style:'currency', currency:'USD' })}</p>
+                  <p className="text-2xl font-semibold mt-1">{(() => {
+                    // If Close Won mode, forecast by pacing close-won series to EOY
+                    const now = new Date();
+                    const curYear = now.getFullYear();
+                    const mm = now.getMonth();
+                    const sumProjected = (rows: any[]) => rows.filter((r:any)=>r.projected).reduce((s:number,r:any)=>s+(Number(r.revenue)||0),0);
+                    if (revSource==='closewon') return sumProjected(revMonthlyCloseWon).toLocaleString('en-US',{style:'currency',currency:'USD'});
+                    // Paid mode – use revenue-forecast paid out series projected months if available else backend summary
+                    const paidProj = sumProjected(revMonthlyPaidOut);
+                    const val = paidProj>0 ? paidProj : (revSummary?.forecasted||0);
+                    return val.toLocaleString('en-US',{style:'currency',currency:'USD'});
+                  })()}</p>
                 </div>
                 <div className="bg-white rounded-2xl p-5 shadow-sm border">
                   <h2 className="text-sm text-gray-500">Open Pipeline (Unpaid)</h2>
