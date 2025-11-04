@@ -453,13 +453,7 @@ function InnerApp() {
       navigate('/dashboard', { replace: true });
       return;
     }
-    // Use dbRole for redirect
-    if (dbRole === 'super_admin') {
-      if (location.pathname === '/' || location.pathname === '/dashboard') {
-        console.log('Redirecting to /super-admin (dbRole)');
-        navigate('/super-admin', { replace: true });
-      }
-    }
+    // Do not auto-redirect super admins away from the main dashboard
     if (isSuspended) {
       navigate('/pricing?payment_required=1', { replace: true });
       return;
@@ -577,16 +571,16 @@ function InnerApp() {
               <Route path="/phantom/lead-sync-failures" element={<LeadSyncFailures />} />
               <Route path="/phantom/config" element={<PhantomConfig />} />
               <Route path="/phantom/webhook-logs" element={<WebhookLogs />} />
-              <Route path="/super-admin" element={<SuperAdminDashboard />} />
-              <Route path="/super-admin/inbox" element={<ActionInbox />} />
-              <Route path="/super-admin/sourcing" element={<CampaignsPage />} />
-              <Route path="/super-admin/sourcing/campaigns/:id" element={<CampaignDetailPage />} />
-              <Route path="/super-admin/sourcing/campaigns/:id/replies" element={<RepliesPage />} />
+              <Route path="/super-admin" element={dbRole === 'super_admin' ? <SuperAdminDashboard /> : <Navigate to="/dashboard" replace />} />
+              <Route path="/super-admin/inbox" element={dbRole === 'super_admin' ? <ActionInbox /> : <Navigate to="/dashboard" replace />} />
+              <Route path="/super-admin/sourcing" element={dbRole === 'super_admin' ? <CampaignsPage /> : <Navigate to="/dashboard" replace />} />
+              <Route path="/super-admin/sourcing/campaigns/:id" element={dbRole === 'super_admin' ? <CampaignDetailPage /> : <Navigate to="/dashboard" replace />} />
+              <Route path="/super-admin/sourcing/campaigns/:id/replies" element={dbRole === 'super_admin' ? <RepliesPage /> : <Navigate to="/dashboard" replace />} />
               <Route path="/admin/users" element={<AdminUserManagement />} />
               <Route path="/admin/puppet-health" element={<AdminPuppetHealth />} />
               <Route path="/admin/proxy-management" element={<AdminProxyManagement />} />
               <Route path="/admin/affiliates" element={<AdminAffiliatesManager />} />
-              <Route path="/super-admin/affiliates" element={<AdminAffiliatesManager />} />
+              <Route path="/super-admin/affiliates" element={dbRole === 'super_admin' ? <AdminAffiliatesManager /> : <Navigate to="/dashboard" replace />} />
               <Route path="/blog" element={<BlogLandingPage />} />
               <Route path="/chromeextension" element={<ChromeExtension />} />
               <Route path="/chromeextension/privacy" element={<ChromeExtensionPrivacy />} />
