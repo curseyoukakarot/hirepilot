@@ -5,9 +5,11 @@ export default function Analytics() {
   const [activeTab, setActiveTab] = useState('deals');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalTitle, setModalTitle] = useState('Widget Details');
-  const [modalType, setModalType] = useState('deals'); // 'deals' | 'jobs' | 'outreach'
+  const [modalType, setModalType] = useState('deals'); // category fallback
+  const [modalWidget, setModalWidget] = useState(null); // exact widget name
   const [showExportMenu, setShowExportMenu] = useState(false);
   const chartRef = useRef(null);
+  const chartInstancesRef = useRef({});
 
   const widgetData = useMemo(() => ({
     deals: [
@@ -48,7 +50,7 @@ export default function Analytics() {
 
   const openModal = (title) => {
     setModalTitle(title);
-    // Map current tab to modal variant from provided source code
+    setModalWidget(title);
     const type = activeTab === 'deals' ? 'deals' : activeTab === 'jobs' ? 'jobs' : activeTab === 'outreach' ? 'outreach' : 'deals';
     setModalType(type);
     setIsModalOpen(true);
@@ -57,53 +59,116 @@ export default function Analytics() {
 
   // Initialize/destroy chart when outreach modal opens/closes (exact dataset from source)
   useEffect(() => {
-    if (isModalOpen && modalType === 'outreach') {
-      const ctx = document.getElementById('replyChart');
-      if (ctx) {
-        if (chartRef.current) chartRef.current.destroy();
-        chartRef.current = new Chart(ctx, {
-          type: 'line',
-          data: {
-            labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
-            datasets: [
-              {
-                label: 'Reply Rate %',
-                data: [40, 60, 50, 70],
-                borderColor: '#6B46C1',
-                backgroundColor: 'rgba(107, 70, 193, 0.1)',
-                borderWidth: 3,
-                fill: true,
-                tension: 0.4,
-                pointBackgroundColor: '#6B46C1',
-                pointBorderColor: '#ffffff',
-                pointBorderWidth: 2,
-                pointRadius: 6,
+    // helper to destroy all charts
+    const destroyAll = () => {
+      Object.values(chartInstancesRef.current || {}).forEach((inst) => {
+        try { inst.destroy(); } catch (_) {}
+      });
+      chartInstancesRef.current = {};
+      if (chartRef.current) { try { chartRef.current.destroy(); } catch (_) {}; chartRef.current = null; }
+    };
+
+    if (isModalOpen) {
+      // wait for DOM
+      const init = () => {
+        destroyAll();
+        // Initialize charts per modalWidget
+        if (modalWidget === 'Reply Rate Chart') {
+          const ctx = document.getElementById('chart-reply');
+          if (ctx) {
+            chartInstancesRef.current.reply = new Chart(ctx, {
+              type: 'line',
+              data: {
+                labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+                datasets: [{ label: 'Reply Rate %', data: [40, 60, 50, 70], borderColor: '#6B46C1', backgroundColor: 'rgba(107,70,193,0.1)', borderWidth: 3, fill: true, tension: 0.4, pointBackgroundColor: '#6B46C1', pointBorderColor: '#ffffff', pointBorderWidth: 2, pointRadius: 6 }]
               },
-            ],
-          },
-          options: {
-            responsive: true,
-            plugins: { legend: { display: false } },
-            scales: {
-              y: {
-                beginAtZero: true,
-                max: 100,
-                grid: { color: '#f3f4f6' },
-              },
-              x: { grid: { color: '#f3f4f6' } },
-            },
-            interaction: { intersect: false, mode: 'index' },
-          },
-        });
-      }
+              options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 100, grid: { color: '#f3f4f6' } }, x: { grid: { color: '#f3f4f6' } } }, interaction: { intersect: false, mode: 'index' } }
+            });
+          }
+        }
+        if (modalWidget === 'Revenue Forecast') {
+          const ctx = document.getElementById('chart-revenue');
+          if (ctx) {
+            chartInstancesRef.current.revenue = new Chart(ctx, {
+              type: 'line',
+              data: { labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], datasets: [{ label: 'Forecast ($)', data: [12, 15, 14, 18, 22, 26], borderColor: '#6B46C1', backgroundColor: 'rgba(107,70,193,0.08)', borderWidth: 3, fill: true, tension: 0.35 }] },
+              options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: '#f3f4f6' } }, x: { grid: { color: '#f3f4f6' } } } }
+            });
+          }
+        }
+        if (modalWidget === 'Win Rate KPI') {
+          const ctx = document.getElementById('chart-winrate');
+          if (ctx) {
+            chartInstancesRef.current.winrate = new Chart(ctx, {
+              type: 'doughnut',
+              data: { labels: ['Won', 'Lost'], datasets: [{ data: [68, 32], backgroundColor: ['#10B981', '#E5E7EB'], borderWidth: 0 }] },
+              options: { cutout: '70%', plugins: { legend: { display: false } } }
+            });
+          }
+        }
+        if (modalWidget === 'Engagement Breakdown') {
+          const ctx = document.getElementById('chart-engagement');
+          if (ctx) {
+            chartInstancesRef.current.engagement = new Chart(ctx, {
+              type: 'pie',
+              data: { labels: ['Opens', 'Replies', 'Bounces', 'Clicks'], datasets: [{ data: [55, 25, 10, 10], backgroundColor: ['#6366F1', '#10B981', '#F59E0B', '#6B46C1'] }] },
+              options: { plugins: { legend: { position: 'bottom' } } }
+            });
+          }
+        }
+        if (modalWidget === 'Pipeline Velocity') {
+          const ctx = document.getElementById('chart-velocity');
+          if (ctx) {
+            chartInstancesRef.current.velocity = new Chart(ctx, {
+              type: 'bar',
+              data: { labels: ['Applied', 'Screen', 'Interview', 'Offer', 'Hired'], datasets: [{ label: 'Days in Stage', data: [3, 5, 8, 4, 2], backgroundColor: '#6B46C1' }] },
+              options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+            });
+          }
+        }
+        if (modalWidget === 'Open Rate Widget') {
+          const ctx = document.getElementById('chart-openrate');
+          if (ctx) {
+            chartInstancesRef.current.openrate = new Chart(ctx, {
+              type: 'line',
+              data: { labels: ['W1', 'W2', 'W3', 'W4'], datasets: [{ label: 'Open %', data: [72, 78, 75, 82], borderColor: '#3B82F6', backgroundColor: 'rgba(59,130,246,0.12)', fill: true, tension: 0.35 }] },
+              options: { plugins: { legend: { display: false } }, responsive: true }
+            });
+          }
+        }
+        if (modalWidget === 'Conversion Trends') {
+          const ctx = document.getElementById('chart-conversion');
+          if (ctx) {
+            chartInstancesRef.current.conversion = new Chart(ctx, {
+              type: 'line',
+              data: { labels: ['Q1', 'Q2', 'Q3', 'Q4'], datasets: [{ label: 'Conversion %', data: [3.1, 3.6, 4.0, 4.4], borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,0.1)', fill: true, tension: 0.35 }] },
+              options: { plugins: { legend: { display: false } }, responsive: true, scales: { y: { beginAtZero: true } } }
+            });
+          }
+        }
+        if (modalWidget === 'Activity Overview') {
+          const ctx = document.getElementById('chart-activity');
+          if (ctx) {
+            chartInstancesRef.current.activity = new Chart(ctx, {
+              type: 'bar',
+              data: { labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'], datasets: [{ label: 'Activities', data: [120, 150, 90, 180, 130], backgroundColor: '#14B8A6' }] },
+              options: { plugins: { legend: { display: false } }, responsive: true }
+            });
+          }
+        }
+      };
+      const id = requestAnimationFrame(init);
+      return () => cancelAnimationFrame(id);
     }
+    // cleanup when closing
     return () => {
-      if (!isModalOpen && chartRef.current) {
-        chartRef.current.destroy();
-        chartRef.current = null;
+      if (!isModalOpen) {
+        Object.values(chartInstancesRef.current || {}).forEach((inst) => { try { inst.destroy(); } catch (_) {} });
+        chartInstancesRef.current = {};
+        if (chartRef.current) { try { chartRef.current.destroy(); } catch (_) {}; chartRef.current = null; }
       }
     };
-  }, [isModalOpen, modalType]);
+  }, [isModalOpen, modalWidget]);
 
   const renderDealsVariant = () => (
     <div id="deals-modal" className="modal-variant">
@@ -292,7 +357,7 @@ export default function Analytics() {
     <div id="outreach-modal" className="modal-variant">
       <div id="outreach-header" className="flex justify-between items-start p-6 border-b border-gray-200">
         <div>
-          <h2 className="text-2xl font-bold text-purple-900">Reply Rate Chart</h2>
+          <h2 className="text-2xl font-bold text-purple-900">{modalWidget === 'Reply Rate Chart' ? 'Reply Rate Chart' : modalWidget}</h2>
           <p className="text-gray-600 mt-1">Explore Your Data—Filter, Export, Add to Dashboard</p>
         </div>
         <button onClick={() => setIsModalOpen(false)} className="text-gray-500 hover:text-purple-600 transition-all duration-300 hover:rotate-90">
@@ -302,43 +367,78 @@ export default function Analytics() {
 
       <div id="outreach-filters" className="p-6 border-b border-gray-100">
         <div className="flex flex-wrap gap-4">
-          <select className="border border-purple-300 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 rounded-md p-2 min-w-48">
-            <option>By Template</option>
-            <option>Template A</option>
-            <option>Template B</option>
-            <option>Custom Template</option>
-          </select>
+          {modalWidget !== 'Activity Overview' && (
+            <select className="border border-purple-300 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 rounded-md p-2 min-w-48">
+              <option>By Template</option>
+              <option>Template A</option>
+              <option>Template B</option>
+              <option>Custom Template</option>
+            </select>
+          )}
           <input type="text" placeholder="Last 30 Days" className="border border-purple-300 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 rounded-md p-2" />
           <button className="bg-purple-600 text-white hover:bg-purple-700 rounded-md px-4 py-2 transition-colors">Apply</button>
         </div>
       </div>
 
       <div id="outreach-body" className="p-6">
-        <div className="bg-white p-6 rounded-lg border">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-gray-800">Reply Rate Trend</h3>
-            <div className="flex items-center text-green-600">
-              <i className="fas fa-arrow-up mr-1"></i>
-              <span className="font-semibold">+2.3%</span>
+        {modalWidget === 'Reply Rate Chart' && (
+          <>
+            <div className="bg-white p-6 rounded-lg border">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-800">Reply Rate Trend</h3>
+                <div className="flex items-center text-green-600">
+                  <i className="fas fa-arrow-up mr-1"></i>
+                  <span className="font-semibold">+2.3%</span>
+                </div>
+              </div>
+              <canvas id="chart-reply" width="400" height="200"></canvas>
             </div>
-          </div>
-          <canvas id="replyChart" width="400" height="200"></canvas>
-        </div>
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-purple-50 p-4 rounded-lg text-center"><div className="text-2xl font-bold text-purple-900">54.5%</div><div className="text-sm text-purple-700">Average Reply Rate</div></div>
+              <div className="bg-blue-50 p-4 rounded-lg text-center"><div className="text-2xl font-bold text-blue-900">78.2%</div><div className="text-sm text-blue-700">Open Rate</div></div>
+              <div className="bg-green-50 p-4 rounded-lg text-center"><div className="text-2xl font-bold text-green-900">1,247</div><div className="text-sm text-green-700">Total Sent</div></div>
+            </div>
+          </>
+        )}
 
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-purple-50 p-4 rounded-lg text-center">
-            <div className="text-2xl font-bold text-purple-900">54.5%</div>
-            <div className="text-sm text-purple-700">Average Reply Rate</div>
+        {modalWidget === 'Open Rate Widget' && (
+          <div className="bg-white p-6 rounded-lg border">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-800">Open Rate</h3>
+              <div className="flex items-center text-blue-600">
+                <i className="fas fa-arrow-up mr-1"></i>
+                <span className="font-semibold">+1.8%</span>
+              </div>
+            </div>
+            <canvas id="chart-openrate" width="400" height="200"></canvas>
           </div>
-          <div className="bg-blue-50 p-4 rounded-lg text-center">
-            <div className="text-2xl font-bold text-blue-900">78.2%</div>
-            <div className="text-sm text-blue-700">Open Rate</div>
+        )}
+
+        {modalWidget === 'Conversion Trends' && (
+          <div className="bg-white p-6 rounded-lg border">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-800">Conversion Trends</h3>
+              <div className="flex items-center text-green-600">
+                <i className="fas fa-arrow-up mr-1"></i>
+                <span className="font-semibold">+0.6%</span>
+              </div>
+            </div>
+            <canvas id="chart-conversion" width="400" height="200"></canvas>
           </div>
-          <div className="bg-green-50 p-4 rounded-lg text-center">
-            <div className="text-2xl font-bold text-green-900">1,247</div>
-            <div className="text-sm text-green-700">Total Sent</div>
+        )}
+
+        {modalWidget === 'Activity Overview' && (
+          <div className="bg-white p-6 rounded-lg border">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-800">Activity Overview</h3>
+              <div className="flex items-center text-teal-600">
+                <i className="fas fa-chart-bar mr-1"></i>
+                <span className="font-semibold">Weekly</span>
+              </div>
+            </div>
+            <canvas id="chart-activity" width="400" height="200"></canvas>
           </div>
-        </div>
+        )}
       </div>
 
       <div id="outreach-footer" className="p-6 border-t border-gray-200 flex justify-end gap-4">
@@ -349,6 +449,197 @@ export default function Analytics() {
             <i className="fas fa-download mr-2"></i>Export
           </button>
         </div>
+      </div>
+    </div>
+  );
+
+  // Revenue Forecast (Deals) - line chart
+  const renderRevenueForecast = () => (
+    <div className="modal-variant">
+      <div className="flex justify-between items-start p-6 border-b border-gray-200">
+        <div>
+          <h2 className="text-2xl font-bold text-purple-900">Revenue Forecast</h2>
+          <p className="text-gray-600 mt-1">Projected revenue based on pipeline and historical close rates</p>
+        </div>
+        <button onClick={() => setIsModalOpen(false)} className="text-gray-500 hover:text-purple-600 transition-all duration-300 hover:rotate-90"><i className="fas fa-times text-xl"></i></button>
+      </div>
+      <div className="p-6">
+        <div className="bg-white p-6 rounded-lg border">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-gray-800">6-Month Forecast</h3>
+            <div className="flex items-center text-purple-600">
+              <i className="fas fa-arrow-up mr-1"></i>
+              <span className="font-semibold">+18%</span>
+            </div>
+          </div>
+          <canvas id="chart-revenue" width="400" height="220"></canvas>
+        </div>
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-purple-50 p-4 rounded-lg text-center"><div className="text-2xl font-bold text-purple-900">$26k</div><div className="text-sm text-purple-700">Next Month</div></div>
+          <div className="bg-blue-50 p-4 rounded-lg text-center"><div className="text-2xl font-bold text-blue-900">$85k</div><div className="text-sm text-blue-700">Quarter</div></div>
+          <div className="bg-green-50 p-4 rounded-lg text-center"><div className="text-2xl font-bold text-green-900">$310k</div><div className="text-sm text-green-700">Year to Date</div></div>
+        </div>
+      </div>
+      <div className="p-6 border-t border-gray-200 flex justify-end gap-4">
+        <button className="border border-purple-600 text-purple-600 hover:bg-purple-50 rounded-md px-4 py-2 transition-colors">Go to Source</button>
+        <button className="bg-purple-600 text-white hover:bg-purple-700 rounded-md px-4 py-2 transition-colors">Add to Dashboard</button>
+      </div>
+    </div>
+  );
+
+  // Win Rate KPI (Deals) - donut KPI
+  const renderWinRateKPI = () => (
+    <div className="modal-variant">
+      <div className="flex justify-between items-start p-6 border-b border-gray-200">
+        <div>
+          <h2 className="text-2xl font-bold text-purple-900">Win Rate KPI</h2>
+          <p className="text-gray-600 mt-1">Won vs lost distribution and trend</p>
+        </div>
+        <button onClick={() => setIsModalOpen(false)} className="text-gray-500 hover:text-purple-600 transition-all duration-300 hover:rotate-90"><i className="fas fa-times text-xl"></i></button>
+      </div>
+      <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+        <div className="bg-white p-6 rounded-lg border flex items-center justify-center">
+          <div className="relative w-56 h-56">
+            <canvas id="chart-winrate" width="224" height="224"></canvas>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div>
+                <div className="text-3xl font-bold text-green-600 text-center">68%</div>
+                <div className="text-xs text-gray-500 text-center">Win Rate</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between bg-green-50 p-3 rounded-lg"><span className="text-green-800 font-medium">Won</span><span className="text-green-900 font-semibold">34</span></div>
+          <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg"><span className="text-gray-700 font-medium">Lost</span><span className="text-gray-900 font-semibold">16</span></div>
+          <div className="flex items-center justify-between bg-purple-50 p-3 rounded-lg"><span className="text-purple-800 font-medium">In Pipeline</span><span className="text-purple-900 font-semibold">27</span></div>
+        </div>
+      </div>
+      <div className="p-6 border-t border-gray-200 flex justify-end gap-4">
+        <button className="border border-purple-600 text-purple-600 hover:bg-purple-50 rounded-md px-4 py-2 transition-colors">Go to Source</button>
+        <button className="bg-purple-600 text-white hover:bg-purple-700 rounded-md px-4 py-2 transition-colors">Add to Dashboard</button>
+      </div>
+    </div>
+  );
+
+  // Engagement Breakdown (Deals) - pie with legend
+  const renderEngagementBreakdown = () => (
+    <div className="modal-variant">
+      <div className="flex justify-between items-start p-6 border-b border-gray-200">
+        <div>
+          <h2 className="text-2xl font-bold text-purple-900">Engagement Breakdown</h2>
+          <p className="text-gray-600 mt-1">Distribution of engagement events</p>
+        </div>
+        <button onClick={() => setIsModalOpen(false)} className="text-gray-500 hover:text-purple-600 transition-all duration-300 hover:rotate-90"><i className="fas fa-times text-xl"></i></button>
+      </div>
+      <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+        <div className="bg-white p-6 rounded-lg border flex items-center justify-center"><canvas id="chart-engagement" width="260" height="260"></canvas></div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between"><span className="text-indigo-700 font-medium">Opens</span><span className="text-gray-900 font-semibold">55%</span></div>
+          <div className="flex items-center justify-between"><span className="text-green-700 font-medium">Replies</span><span className="text-gray-900 font-semibold">25%</span></div>
+          <div className="flex items-center justify-between"><span className="text-amber-700 font-medium">Bounces</span><span className="text-gray-900 font-semibold">10%</span></div>
+          <div className="flex items-center justify-between"><span className="text-purple-700 font-medium">Clicks</span><span className="text-gray-900 font-semibold">10%</span></div>
+        </div>
+      </div>
+      <div className="p-6 border-t border-gray-200 flex justify-end gap-4">
+        <button className="border border-purple-600 text-purple-600 hover:bg-purple-50 rounded-md px-4 py-2 transition-colors">Go to Source</button>
+        <button className="bg-purple-600 text-white hover:bg-purple-700 rounded-md px-4 py-2 transition-colors">Add to Dashboard</button>
+      </div>
+    </div>
+  );
+
+  // Candidate Flow Viz (Jobs) - simplified staged bars
+  const renderCandidateFlowViz = () => (
+    <div className="modal-variant">
+      <div className="flex justify-between items-start p-6 border-b border-gray-200">
+        <div>
+          <h2 className="text-2xl font-bold text-purple-900">Candidate Flow Viz</h2>
+          <p className="text-gray-600 mt-1">Volume across stages</p>
+        </div>
+        <button onClick={() => setIsModalOpen(false)} className="text-gray-500 hover:text-purple-600 transition-all duration-300 hover:rotate-90"><i className="fas fa-times text-xl"></i></button>
+      </div>
+      <div className="p-6 space-y-3">
+        {[
+          { name: 'Applied', value: 420, from: 'from-purple-500', to: 'to-purple-300', text: 'text-white' },
+          { name: 'Screened', value: 310, from: 'from-purple-400', to: 'to-purple-200', text: 'text-white' },
+          { name: 'Interview', value: 180, from: 'from-purple-300', to: 'to-purple-100', text: 'text-purple-800' },
+          { name: 'Offer', value: 90, from: 'from-green-300', to: 'to-green-100', text: 'text-green-800' },
+          { name: 'Hired', value: 58, from: 'from-green-500', to: 'to-green-300', text: 'text-white' },
+        ].map((s) => (
+          <div key={s.name} className={`flex items-center justify-between p-4 bg-gradient-to-r ${s.from} ${s.to} rounded-full ${s.text}`}>
+            <span className="font-semibold">{s.name}</span>
+            <span className="font-bold">{s.value}</span>
+          </div>
+        ))}
+      </div>
+      <div className="p-6 border-t border-gray-200 flex justify-end gap-4">
+        <button className="border border-purple-600 text-purple-600 hover:bg-purple-50 rounded-md px-4 py-2 transition-colors">Go to Source</button>
+        <button className="bg-purple-600 text-white hover:bg-purple-700 rounded-md px-4 py-2 transition-colors">Add to Dashboard</button>
+      </div>
+    </div>
+  );
+
+  // Pipeline Velocity (Jobs) - bar chart
+  const renderPipelineVelocity = () => (
+    <div className="modal-variant">
+      <div className="flex justify-between items-start p-6 border-b border-gray-200">
+        <div>
+          <h2 className="text-2xl font-bold text-purple-900">Pipeline Velocity</h2>
+          <p className="text-gray-600 mt-1">Average days per stage</p>
+        </div>
+        <button onClick={() => setIsModalOpen(false)} className="text-gray-500 hover:text-purple-600 transition-all duration-300 hover:rotate-90"><i className="fas fa-times text-xl"></i></button>
+      </div>
+      <div className="p-6">
+        <div className="bg-white p-6 rounded-lg border"><canvas id="chart-velocity" width="400" height="220"></canvas></div>
+      </div>
+      <div className="p-6 border-t border-gray-200 flex justify-end gap-4">
+        <button className="border border-purple-600 text-purple-600 hover:bg-purple-50 rounded-md px-4 py-2 transition-colors">Go to Source</button>
+        <button className="bg-purple-600 text-white hover:bg-purple-700 rounded-md px-4 py-2 transition-colors">Add to Dashboard</button>
+      </div>
+    </div>
+  );
+
+  // Team Performance (Jobs) - table
+  const renderTeamPerformance = () => (
+    <div className="modal-variant">
+      <div className="flex justify-between items-start p-6 border-b border-gray-200">
+        <div>
+          <h2 className="text-2xl font-bold text-purple-900">Team Performance</h2>
+          <p className="text-gray-600 mt-1">Key metrics by recruiter</p>
+        </div>
+        <button onClick={() => setIsModalOpen(false)} className="text-gray-500 hover:text-purple-600 transition-all duration-300 hover:rotate-90"><i className="fas fa-times text-xl"></i></button>
+      </div>
+      <div className="p-6 overflow-x-auto">
+        <table className="min-w-full bg-white rounded-lg overflow-hidden">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Owner</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Sent</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Opens</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Replies</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Hires</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {[
+              { name: 'Sarah Johnson', sent: 420, opens: 330, replies: 88, hires: 6 },
+              { name: 'Mike Chen', sent: 380, opens: 295, replies: 72, hires: 5 },
+              { name: 'Lisa Rodriguez', sent: 410, opens: 320, replies: 81, hires: 7 },
+            ].map((r) => (
+              <tr key={r.name} className="hover:bg-gray-50">
+                <td className="px-4 py-2 font-medium text-gray-800">{r.name}</td>
+                <td className="px-4 py-2">{r.sent}</td>
+                <td className="px-4 py-2">{r.opens}</td>
+                <td className="px-4 py-2">{r.replies}</td>
+                <td className="px-4 py-2">{r.hires}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="p-6 border-t border-gray-200 flex justify-end gap-4">
+        <button className="border border-purple-600 text-purple-600 hover:bg-purple-50 rounded-md px-4 py-2 transition-colors">Go to Source</button>
+        <button className="bg-purple-600 text-white hover:bg-purple-700 rounded-md px-4 py-2 transition-colors">Add to Dashboard</button>
       </div>
     </div>
   );
@@ -446,9 +737,20 @@ export default function Analytics() {
         <div id="modal-overlay" className="fixed inset-0 bg-black/50 modal z-40" onClick={(e) => { if (e.target === e.currentTarget) { setIsModalOpen(false); setShowExportMenu(false); } }}>
           <div className="flex items-center justify-center min-h-screen p-4">
             <div id="modal-content" className={`bg-white rounded-xl shadow-2xl w-full md:w-3/4 lg:w-2/3 max-w-6xl max-h-[90vh] overflow-auto transform transition-transform duration-300 ${isModalOpen ? 'scale-100' : 'scale-95'}`}>
-              {modalType === 'deals' && renderDealsVariant()}
-              {modalType === 'jobs' && renderJobsVariant()}
-              {modalType === 'outreach' && renderOutreachVariant()}
+              {/* Render per-widget redesigns */}
+              {modalWidget === 'Deal Pipeline' && renderDealsVariant()}
+              {modalWidget === 'Hiring Funnel' && renderJobsVariant()}
+              {['Reply Rate Chart','Open Rate Widget','Conversion Trends','Activity Overview'].includes(modalWidget) && renderOutreachVariant()}
+              {modalWidget === 'Revenue Forecast' && renderRevenueForecast()}
+              {modalWidget === 'Win Rate KPI' && renderWinRateKPI()}
+              {modalWidget === 'Engagement Breakdown' && renderEngagementBreakdown()}
+              {modalWidget === 'Candidate Flow Viz' && renderCandidateFlowViz()}
+              {modalWidget === 'Pipeline Velocity' && renderPipelineVelocity()}
+              {modalWidget === 'Team Performance' && renderTeamPerformance()}
+              {/* Fallbacks by category if unknown */}
+              {!modalWidget && modalType === 'deals' && renderDealsVariant()}
+              {!modalWidget && modalType === 'jobs' && renderJobsVariant()}
+              {!modalWidget && modalType === 'outreach' && renderOutreachVariant()}
             </div>
           </div>
         </div>
