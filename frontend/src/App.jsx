@@ -364,6 +364,17 @@ function InnerApp() {
   const [rexFlags, setRexFlags] = useState({ producthunt: false, popup: false });
   useGAPageViews();
 
+  function RequireSuperAdmin({ children }) {
+    const location = useLocation();
+    if (!userLoaded) {
+      return <div className="flex items-center justify-center h-screen text-lg">Loading...</div>;
+    }
+    if (dbRole === 'super_admin' || dbRole === 'superadmin') {
+      return children;
+    }
+    return <Navigate to="/dashboard" replace state={{ from: location }} />;
+  }
+
   // Treat /workflows as a public landing page when unauthenticated
   if (!dbRole && location.pathname === '/workflows') {
     isAuthPage = true;
@@ -387,7 +398,8 @@ function InnerApp() {
           .eq('id', user.id)
           .maybeSingle();
         if (data?.role) {
-          setDbRole(data.role);
+          const normalizedRole = String(data.role).toLowerCase().replace(/\s|-/g, '_');
+          setDbRole(normalizedRole);
         } else {
           setDbRole(null);
         }
@@ -571,16 +583,16 @@ function InnerApp() {
               <Route path="/phantom/lead-sync-failures" element={<LeadSyncFailures />} />
               <Route path="/phantom/config" element={<PhantomConfig />} />
               <Route path="/phantom/webhook-logs" element={<WebhookLogs />} />
-              <Route path="/super-admin" element={dbRole === 'super_admin' ? <SuperAdminDashboard /> : <Navigate to="/dashboard" replace />} />
-              <Route path="/super-admin/inbox" element={dbRole === 'super_admin' ? <ActionInbox /> : <Navigate to="/dashboard" replace />} />
-              <Route path="/super-admin/sourcing" element={dbRole === 'super_admin' ? <CampaignsPage /> : <Navigate to="/dashboard" replace />} />
-              <Route path="/super-admin/sourcing/campaigns/:id" element={dbRole === 'super_admin' ? <CampaignDetailPage /> : <Navigate to="/dashboard" replace />} />
-              <Route path="/super-admin/sourcing/campaigns/:id/replies" element={dbRole === 'super_admin' ? <RepliesPage /> : <Navigate to="/dashboard" replace />} />
+              <Route path="/super-admin" element={<RequireSuperAdmin><SuperAdminDashboard /></RequireSuperAdmin>} />
+              <Route path="/super-admin/inbox" element={<RequireSuperAdmin><ActionInbox /></RequireSuperAdmin>} />
+              <Route path="/super-admin/sourcing" element={<RequireSuperAdmin><CampaignsPage /></RequireSuperAdmin>} />
+              <Route path="/super-admin/sourcing/campaigns/:id" element={<RequireSuperAdmin><CampaignDetailPage /></RequireSuperAdmin>} />
+              <Route path="/super-admin/sourcing/campaigns/:id/replies" element={<RequireSuperAdmin><RepliesPage /></RequireSuperAdmin>} />
               <Route path="/admin/users" element={<AdminUserManagement />} />
               <Route path="/admin/puppet-health" element={<AdminPuppetHealth />} />
               <Route path="/admin/proxy-management" element={<AdminProxyManagement />} />
               <Route path="/admin/affiliates" element={<AdminAffiliatesManager />} />
-              <Route path="/super-admin/affiliates" element={dbRole === 'super_admin' ? <AdminAffiliatesManager /> : <Navigate to="/dashboard" replace />} />
+              <Route path="/super-admin/affiliates" element={<RequireSuperAdmin><AdminAffiliatesManager /></RequireSuperAdmin>} />
               <Route path="/blog" element={<BlogLandingPage />} />
               <Route path="/chromeextension" element={<ChromeExtension />} />
               <Route path="/chromeextension/privacy" element={<ChromeExtensionPrivacy />} />
