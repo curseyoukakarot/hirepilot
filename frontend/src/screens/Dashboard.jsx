@@ -83,9 +83,20 @@ export default function Dashboard() {
     fetchUserAndMetrics();
   }, []);
 
-  // Load per-user dashboard widgets (localStorage persistence)
+  // Load per-user dashboard widgets from API (fallback to localStorage)
   useEffect(() => {
     const load = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        const r = await fetch('/api/dashboard/layout', { headers: token ? { Authorization: `Bearer ${token}` } : {}, credentials: 'include' });
+        if (r.ok) {
+          const j = await r.json();
+          const names = (Array.isArray(j.layout) ? j.layout : []).map(w => w.widget_id || w).slice(0,6);
+          setCustomWidgets(names);
+          return;
+        }
+      } catch {}
       const { data } = await supabase.auth.getUser();
       const key = `dashboard_widgets_${data?.user?.id || 'anon'}`;
       const localKey = 'dashboard_widgets_local';
@@ -95,48 +106,45 @@ export default function Dashboard() {
     load();
   }, []);
 
-  // Initialize snapshot charts when widgets change
+  // Initialize snapshot charts with real data when widgets change
   useEffect(() => {
-    // Destroy existing
     Object.values(dashChartsRef.current || {}).forEach((c) => { try { c.destroy(); } catch (_) {} });
     dashChartsRef.current = {};
-    // Reply Rate small chart
-    if (customWidgets.includes('Reply Rate Chart')) {
-      const ctx = document.getElementById('dash-reply-rate');
-      if (ctx) {
-        dashChartsRef.current.reply = new Chart(ctx, {
-          type: 'line',
-          data: { labels: ['Week 1','Week 2','Week 3','Week 4'], datasets: [{ data: [45,50,47,58], borderColor: '#6B46C1', backgroundColor: 'rgba(107,70,193,0.08)', fill: true, tension: 0.35, borderWidth: 2 }] },
-          options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { display: false } }, x: { ticks: { display: false } } }, responsive: true, maintainAspectRatio: false }
-        });
-      }
-    }
-    // Open Rate bars
-    if (customWidgets.includes('Open Rate Widget')) {
-      const ctx = document.getElementById('dash-open-rate');
-      if (ctx) {
-        dashChartsRef.current.open = new Chart(ctx, {
-          type: 'bar',
-          data: { labels: ['1','2','3','4','5'], datasets: [{ data: [12,14,11,15,16], backgroundColor: '#6B46C1' }] },
-          options: { plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { display: false } }, responsive: true, maintainAspectRatio: false }
-        });
-      }
-    }
-    // Revenue Forecast bars
-    if (customWidgets.includes('Revenue Forecast')) {
-      const ctx = document.getElementById('dash-revenue');
-      if (ctx) {
-        dashChartsRef.current.revenue = new Chart(ctx, {
-          type: 'bar',
-          data: { labels: ['Jan','Feb','Mar','Apr','May','Jun'], datasets: [{ data: [22,28,26,31,38,44], backgroundColor: '#3B82F6' }] },
-          options: { plugins: { legend: { display: false } }, scales: { y: { ticks: { color: '#6b7280' } }, x: { ticks: { color: '#6b7280' } } }, responsive: true, maintainAspectRatio: false }
-        });
-      }
-    }
-    return () => {
-      Object.values(dashChartsRef.current || {}).forEach((c) => { try { c.destroy(); } catch (_) {} });
-      dashChartsRef.current = {};
+    const fetchWithAuth = async (path) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      return fetch(path, { headers: token ? { Authorization: `Bearer ${token}` } : {}, credentials: 'include' });
     };
+    (async () => {
+      if (customWidgets.includes('Reply Rate Chart')) {
+        try {
+          const r = await fetchWithAuth('/api/widgets/reply-rate'); const j = r.ok ? await r.json() : { data: [] };
+          const labels = (j.data||[]).map(d=>d.period||''); const vals = (j.data||[]).map(d=>d.replyRate||0);
+          const ctx = document.getElementById('dash-reply-rate'); if (ctx) {
+            dashChartsRef.current.reply = new Chart(ctx, { type: 'line', data: { labels, datasets: [{ data: vals, borderColor: '#6B46C1', backgroundColor: 'rgba(107,70,193,0.08)', fill:true, tension:0.35, borderWidth:2 }] }, options: { plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ display:false } }, x:{ ticks:{ display:false } } }, responsive:true, maintainAspectRatio:false } });
+          }
+        } catch {}
+      }
+      if (customWidgets.includes('Open Rate Widget')) {
+        try {
+          const r = await fetchWithAuth('/api/widgets/open-rate'); const j = r.ok ? await r.json() : { data: [] };
+          const labels = (j.data||[]).map(d=>d.bucket||''); const vals = (j.data||[]).map(d=>d.openRate||0);
+          const ctx = document.getElementById('dash-open-rate'); if (ctx) {
+            dashChartsRef.current.open = new Chart(ctx, { type:'bar', data:{ labels, datasets:[{ data: vals, backgroundColor:'#6B46C1' }] }, options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ display:false }, x:{ display:false } }, responsive:true, maintainAspectRatio:false } });
+          }
+        } catch {}
+      }
+      if (customWidgets.includes('Revenue Forecast')) {
+        try {
+          const r = await fetchWithAuth('/api/widgets/revenue-forecast'); const j = r.ok ? await r.json() : { data: [] };
+          const labels = (j.data||[]).map(d=>d.month||''); const vals = (j.data||[]).map(d=>d.revenue||0);
+          const ctx = document.getElementById('dash-revenue'); if (ctx) {
+            dashChartsRef.current.revenue = new Chart(ctx, { type:'bar', data:{ labels, datasets:[{ data: vals, backgroundColor:'#3B82F6' }] }, options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ ticks:{ color:'#6b7280' } }, x:{ ticks:{ color:'#6b7280' } } }, responsive:true, maintainAspectRatio:false } });
+          }
+        } catch {}
+      }
+    })();
+    return () => { Object.values(dashChartsRef.current || {}).forEach((c) => { try { c.destroy(); } catch (_) {} }); dashChartsRef.current = {}; };
   }, [customWidgets]);
 
   useEffect(() => {

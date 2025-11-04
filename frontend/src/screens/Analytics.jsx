@@ -13,6 +13,30 @@ export default function Analytics() {
   const chartRef = useRef(null);
   const chartInstancesRef = useRef({});
   const navigate = useNavigate();
+  const [modalData, setModalData] = useState(null);
+
+  const widgetTypeMap = useMemo(() => ({
+    'Reply Rate Chart': 'reply-rate',
+    'Open Rate Widget': 'open-rate',
+    'Conversion Trends': 'conversion-trends',
+    'Revenue Forecast': 'revenue-forecast',
+    'Win Rate KPI': 'win-rate',
+    'Engagement Breakdown': 'engagement',
+    'Pipeline Velocity': 'pipeline-velocity',
+    'Team Performance': 'team-performance',
+    'Activity Overview': 'activity-overview',
+    'Deal Pipeline': 'deal-pipeline',
+    'Hiring Funnel': 'hiring-funnel',
+  }), []);
+
+  const apiFetch = async (url, init = {}) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    const headers = { 'Content-Type': 'application/json', ...(init.headers || {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+    const resp = await fetch(url, { ...init, headers, credentials: 'include' });
+    if (!resp.ok) throw new Error(await resp.text());
+    return resp;
+  };
 
   const widgetData = useMemo(() => ({
     deals: [
@@ -51,24 +75,33 @@ export default function Analytics() {
     return () => window.removeEventListener('keydown', onEsc);
   }, []);
 
-  const openModal = (title) => {
+  const openModal = async (title) => {
     setModalTitle(title);
     setModalWidget(title);
     const type = activeTab === 'deals' ? 'deals' : activeTab === 'jobs' ? 'jobs' : activeTab === 'outreach' ? 'outreach' : 'deals';
     setModalType(type);
     setIsModalOpen(true);
     setShowExportMenu(false);
+    try {
+      const wtype = widgetTypeMap[title];
+      if (wtype) {
+        const r = await apiFetch(`/api/widgets/${encodeURIComponent(wtype)}`);
+        const j = await r.json();
+        setModalData(Array.isArray(j.data) ? j.data : []);
+      } else {
+        setModalData(null);
+      }
+    } catch { setModalData(null); }
   };
 
   const addWidgetToDashboard = async (widgetName) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const key = `dashboard_widgets_${user?.id || 'anon'}`;
-      const existing = JSON.parse(localStorage.getItem(key) || '[]');
-      if (!existing.includes(widgetName)) {
-        const next = [...existing, widgetName].slice(0, 6); // cap at 6
-        localStorage.setItem(key, JSON.stringify(next));
-      }
+      // Load server layout and upsert
+      let existingLayout = [];
+      try { const r = await apiFetch('/api/dashboard/layout'); const j = await r.json(); existingLayout = Array.isArray(j.layout) ? j.layout : []; } catch {}
+      const already = existingLayout.some(w => (w.widget_id || w) === widgetName);
+      const layout = already ? existingLayout : [...existingLayout, { widget_id: widgetName, position: { x: 0, y: 0 }, config: {} }].slice(0,6);
+      await apiFetch('/api/dashboard/save', { method: 'POST', body: JSON.stringify({ layout }) });
       setIsModalOpen(false);
       navigate('/dashboard');
     } catch (_) {
@@ -103,8 +136,8 @@ export default function Analytics() {
             chartInstancesRef.current.reply = new Chart(ctx, {
               type: 'line',
               data: {
-                labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
-                datasets: [{ label: 'Reply Rate %', data: [40, 60, 50, 70], borderColor: '#6B46C1', backgroundColor: 'rgba(107,70,193,0.1)', borderWidth: 3, fill: true, tension: 0.4, pointBackgroundColor: '#6B46C1', pointBorderColor: '#ffffff', pointBorderWidth: 2, pointRadius: 6 }]
+                labels: (modalData||[{period:'Week 1'},{period:'Week 2'},{period:'Week 3'},{period:'Week 4'}]).map(d=>d.period||''),
+                datasets: [{ label: 'Reply Rate %', data: (modalData||[]).map(d=>d.replyRate||0), borderColor: '#6B46C1', backgroundColor: 'rgba(107,70,193,0.1)', borderWidth: 3, fill: true, tension: 0.4, pointBackgroundColor: '#6B46C1', pointBorderColor: '#ffffff', pointBorderWidth: 2, pointRadius: 6 }]
               },
               options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 100, grid: { color: '#f3f4f6' } }, x: { grid: { color: '#f3f4f6' } } }, interaction: { intersect: false, mode: 'index' } }
             });
@@ -115,7 +148,7 @@ export default function Analytics() {
           if (ctx) {
             chartInstancesRef.current.revenue = new Chart(ctx, {
               type: 'line',
-              data: { labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], datasets: [{ label: 'Forecast ($)', data: [12, 15, 14, 18, 22, 26], borderColor: '#6B46C1', backgroundColor: 'rgba(107,70,193,0.08)', borderWidth: 3, fill: true, tension: 0.35 }] },
+              data: { labels: (modalData||[]).map(d=>d.month||''), datasets: [{ label: 'Forecast ($)', data: (modalData||[]).map(d=>d.revenue||0), borderColor: '#6B46C1', backgroundColor: 'rgba(107,70,193,0.08)', borderWidth: 3, fill: true, tension: 0.35 }] },
               options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: '#f3f4f6' } }, x: { grid: { color: '#f3f4f6' } } } }
             });
           }
@@ -123,9 +156,10 @@ export default function Analytics() {
         if (modalWidget === 'Win Rate KPI') {
           const ctx = document.getElementById('chart-winrate');
           if (ctx) {
+            const wr = Math.round(((modalData?.[0]?.win_rate ?? 68) + Number.EPSILON)*10)/10;
             chartInstancesRef.current.winrate = new Chart(ctx, {
               type: 'doughnut',
-              data: { labels: ['Won', 'Lost'], datasets: [{ data: [68, 32], backgroundColor: ['#10B981', '#E5E7EB'], borderWidth: 0 }] },
+              data: { labels: ['Won', 'Lost'], datasets: [{ data: [wr, Math.max(0, 100-wr)], backgroundColor: ['#10B981', '#E5E7EB'], borderWidth: 0 }] },
               options: { cutout: '70%', plugins: { legend: { display: false } } }
             });
           }
@@ -135,7 +169,7 @@ export default function Analytics() {
           if (ctx) {
             chartInstancesRef.current.engagement = new Chart(ctx, {
               type: 'pie',
-              data: { labels: ['Opens', 'Replies', 'Bounces', 'Clicks'], datasets: [{ data: [55, 25, 10, 10], backgroundColor: ['#6366F1', '#10B981', '#F59E0B', '#6B46C1'] }] },
+              data: { labels: (modalData||[{metric:'open'},{metric:'reply'},{metric:'bounce'},{metric:'click'}]).map(d=>String(d.metric||'').toUpperCase()), datasets: [{ data: (modalData||[]).map(d=>d.pct||0), backgroundColor: ['#6366F1', '#10B981', '#F59E0B', '#6B46C1'] }] },
               options: { plugins: { legend: { position: 'bottom' } } }
             });
           }
@@ -145,7 +179,7 @@ export default function Analytics() {
           if (ctx) {
             chartInstancesRef.current.velocity = new Chart(ctx, {
               type: 'bar',
-              data: { labels: ['Applied', 'Screen', 'Interview', 'Offer', 'Hired'], datasets: [{ label: 'Days in Stage', data: [3, 5, 8, 4, 2], backgroundColor: '#6B46C1' }] },
+              data: { labels: (modalData||[{stage:'Applied'},{stage:'Screen'},{stage:'Interview'},{stage:'Offer'},{stage:'Hired'}]).map(d=>d.stage||''), datasets: [{ label: 'Days in Stage', data: (modalData||[]).map(d=>d.days||0), backgroundColor: '#6B46C1' }] },
               options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
             });
           }
@@ -155,7 +189,7 @@ export default function Analytics() {
           if (ctx) {
             chartInstancesRef.current.openrate = new Chart(ctx, {
               type: 'line',
-              data: { labels: ['W1', 'W2', 'W3', 'W4'], datasets: [{ label: 'Open %', data: [72, 78, 75, 82], borderColor: '#3B82F6', backgroundColor: 'rgba(59,130,246,0.12)', fill: true, tension: 0.35 }] },
+              data: { labels: (modalData||[{bucket:'1'},{bucket:'2'},{bucket:'3'},{bucket:'4'}]).map(d=>d.bucket||''), datasets: [{ label: 'Open %', data: (modalData||[]).map(d=>d.openRate||0), borderColor: '#3B82F6', backgroundColor: 'rgba(59,130,246,0.12)', fill: true, tension: 0.35 }] },
               options: { plugins: { legend: { display: false } }, responsive: true }
             });
           }
@@ -165,7 +199,7 @@ export default function Analytics() {
           if (ctx) {
             chartInstancesRef.current.conversion = new Chart(ctx, {
               type: 'line',
-              data: { labels: ['Q1', 'Q2', 'Q3', 'Q4'], datasets: [{ label: 'Conversion %', data: [3.1, 3.6, 4.0, 4.4], borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,0.1)', fill: true, tension: 0.35 }] },
+              data: { labels: (modalData||[{quarter:'Q1'},{quarter:'Q2'},{quarter:'Q3'},{quarter:'Q4'}]).map(d=>d.quarter||''), datasets: [{ label: 'Conversion %', data: (modalData||[]).map(d=>d.conversion||0), borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,0.1)', fill: true, tension: 0.35 }] },
               options: { plugins: { legend: { display: false } }, responsive: true, scales: { y: { beginAtZero: true } } }
             });
           }
