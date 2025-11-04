@@ -118,42 +118,46 @@ export default async function handler(req: any, res: any) {
           return weights[String(stage||'Pipeline')] ?? 0;
         };
 
+        const base = process.env.BACKEND_URL || process.env.VITE_BACKEND_URL || '';
         if (mode === 'paid') {
-          const { data: invs } = await supabase
-            .from('invoices')
-            .select('amount,paid_at,sent_at,opportunity_id')
-            .gte('sent_at', start12.toISOString());
-          (invs||[]).forEach((i:any) => {
-            const when = i.paid_at || i.sent_at || i.created_at;
-            const d = new Date(when || now);
-            const k = keyFor(new Date(d.getFullYear(), d.getMonth(), 1));
-            const b = months12.find(m => m.month === k);
-            if (b) b.revenue += Number(i.amount) || 0;
-          });
+          // Use backend revenue monthly (service role) to get paid amounts safely
+          if (base) {
+            const r = await fetch(`${base.replace(/\/$/, '')}/api/revenue/monthly`, { headers: token ? { Authorization: `Bearer ${token}` } : {} } as any);
+            const monthly = r.ok ? await r.json() : [];
+            (monthly||[]).forEach((row:any)=>{
+              const parts = String(row.month||'').split('-');
+              if (parts.length===2) {
+                const k = `${parts[0]}-${parts[1]}`;
+                const b = months12.find(m=>m.month===k);
+                if (b) b.revenue += Number(row.paid||0);
+              }
+            });
+          }
         } else if (mode === 'closewon') {
-          const { data: opps } = await supabase
-            .from('opportunities')
-            .select('created_at,stage,value,owner_id')
-            .eq('owner_id', user.id);
-          (opps||[]).filter((o:any)=>String(o.stage||'')==='Close Won').forEach((o:any) => {
-            const d = new Date(o.created_at || now);
-            if (d < start12) return;
-            const k = keyFor(new Date(d.getFullYear(), d.getMonth(), 1));
-            const b = months12.find(m => m.month === k);
-            if (b) b.revenue += Number(o.value)||0;
-          });
+          if (base) {
+            const qs = new URLSearchParams({ status: 'Close Won' });
+            const r = await fetch(`${base.replace(/\/$/, '')}/api/opportunities?${qs.toString()}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} } as any);
+            const opps = r.ok ? await r.json() : [];
+            (opps||[]).forEach((o:any)=>{
+              const d = new Date(o.created_at || now);
+              const k = keyFor(new Date(d.getFullYear(), d.getMonth(), 1));
+              const b = months12.find(m=>m.month===k);
+              if (b) b.revenue += Number(o.value)||0;
+            });
+          }
         } else { // blended (stage-weighted)
-          const { data: opps } = await supabase
-            .from('opportunities')
-            .select('created_at,stage,value,owner_id')
-            .eq('owner_id', user.id);
-          (opps||[]).forEach((o:any) => {
-            const d = new Date(o.created_at || now);
-            if (d < start12) return;
-            const k = keyFor(new Date(d.getFullYear(), d.getMonth(), 1));
-            const b = months12.find(m => m.month === k);
-            if (b) b.revenue += (Number(o.value)||0) * applyWeights(o.stage);
-          });
+          if (base) {
+            const r = await fetch(`${base.replace(/\/$/, '')}/api/revenue/monthly-projected`, { headers: token ? { Authorization: `Bearer ${token}` } : {} } as any);
+            const proj = r.ok ? await r.json() : [];
+            (proj||[]).forEach((row:any)=>{
+              const parts = String(row.month||'').split('-');
+              if (parts.length===2) {
+                const k = `${parts[0]}-${parts[1]}`;
+                const b = months12.find(m=>m.month===k);
+                if (b) b.revenue += Number(row.forecasted||0);
+              }
+            });
+          }
         }
 
         // Pacing projection
