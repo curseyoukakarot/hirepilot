@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Chart } from 'chart.js/auto';
 import { supabase } from '../lib/supabaseClient';
+import { useNavigate } from 'react-router-dom';
 
 export default function Analytics() {
   const [activeTab, setActiveTab] = useState('deals');
@@ -11,6 +12,7 @@ export default function Analytics() {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const chartRef = useRef(null);
   const chartInstancesRef = useRef({});
+  const navigate = useNavigate();
 
   const widgetData = useMemo(() => ({
     deals: [
@@ -68,12 +70,14 @@ export default function Analytics() {
         localStorage.setItem(key, JSON.stringify(next));
       }
       setIsModalOpen(false);
+      navigate('/dashboard');
     } catch (_) {
       // fallback local only
       const key = 'dashboard_widgets_local';
       const existing = JSON.parse(localStorage.getItem(key) || '[]');
       if (!existing.includes(widgetName)) localStorage.setItem(key, JSON.stringify([...existing, widgetName].slice(0,6)));
       setIsModalOpen(false);
+      navigate('/dashboard');
     }
   };
 
@@ -733,7 +737,7 @@ export default function Analytics() {
                   <i className={`fa-solid ${widget.icon} text-4xl text-${widget.color}-600`}></i>
                 </div>
                 <div className="flex space-x-2">
-                  <button className="flex-1 bg-purple-600 text-white py-2 px-3 rounded-lg text-sm hover:bg-purple-700 transition-colors">
+                  <button onClick={() => addWidgetToDashboard(widget.name)} className="flex-1 bg-purple-600 text-white py-2 px-3 rounded-lg text-sm hover:bg-purple-700 transition-colors">
                     <i className="fa-solid fa-plus mr-1"></i>Add to Dashboard
                   </button>
                   <button
