@@ -41,6 +41,8 @@ export default function DealsPage() {
   const [revMonthly, setRevMonthly] = useState<Array<{ month: string; paid: number; forecasted: number; outstanding: number }>>([]);
   const [revMonthlyProjected, setRevMonthlyProjected] = useState<Array<{ month: string; paid: number; forecasted: number; outstanding: number }>>([]);
   const [revMonthlyMode, setRevMonthlyMode] = useState<'actual'|'projected'>('actual');
+  const [revSource, setRevSource] = useState<'paid'|'closewon'>('paid');
+  const [revMonthlyCloseWon, setRevMonthlyCloseWon] = useState<Array<{ month: string; revenue: number }>>([]);
   const [revMonthlyRange, setRevMonthlyRange] = useState<'90d'|'6m'|'1y'|'ytd'>('1y');
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [currentUserAvatar, setCurrentUserAvatar] = useState<string>('');
@@ -211,13 +213,14 @@ export default function DealsPage() {
       if (!access?.can_view_revenue) return;
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
-      const [sRes, mRes, cRes, pcRes, etRes, mpRes] = await Promise.all([
+      const [sRes, mRes, cRes, pcRes, etRes, mpRes, cwRes] = await Promise.all([
         fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/summary`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
         fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/monthly`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
         fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/by-client`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
         fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/projected-by-client`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
         fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/engagement-types`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
         fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/monthly-projected`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+        fetch(`/api/widgets/revenue-forecast?mode=closewon&horizon=12m&limit=12`, { headers: token ? { Authorization: `Bearer ${token}` } : {}, credentials: 'include' }),
       ]);
       setRevSummary(sRes.ok ? await sRes.json() : null);
       const monthly = mRes.ok ? await mRes.json() : [];
@@ -228,6 +231,8 @@ export default function DealsPage() {
       const projClients = pcRes.ok ? await pcRes.json() : [];
       setRevByClient(prev => (prev && prev.length ? prev : projClients));
       setRevByType(etRes.ok ? await etRes.json() : []);
+      const cw = cwRes.ok ? await cwRes.json() : { data: [] };
+      setRevMonthlyCloseWon(Array.isArray(cw.data) ? cw.data : []);
 
       // Auto-toggle to Projected if no actuals exist but projected has data
       const sum = (rows: any[]) => rows.reduce((s, r) => s + (Number(r.paid||0)+Number(r.forecasted||0)+Number(r.outstanding||0)), 0);
@@ -977,7 +982,10 @@ export default function DealsPage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-white rounded-2xl p-5 shadow-sm border">
                   <h2 className="text-sm text-gray-500">Total Revenue</h2>
-                  <p className="text-2xl font-semibold mt-1 text-green-600">{(revSummary?.total_paid||0).toLocaleString('en-US', { style:'currency', currency:'USD' })}</p>
+                  <p className="text-2xl font-semibold mt-1 text-green-600">{(() => {
+                    if (revSource==='closewon') return (revMonthlyCloseWon.reduce((s,r)=>s+(Number(r.revenue)||0),0)).toLocaleString('en-US',{style:'currency',currency:'USD'});
+                    return (revSummary?.total_paid||0).toLocaleString('en-US', { style:'currency', currency:'USD' });
+                  })()}</p>
                 </div>
                 <div className="bg-white rounded-2xl p-5 shadow-sm border">
                   <h2 className="text-sm text-gray-500">Forecasted Revenue</h2>
@@ -1004,6 +1012,11 @@ export default function DealsPage() {
                     <button className={`px-2 py-1 rounded ${revMonthlyRange==='ytd'?'bg-gray-200':''}`} onClick={()=>setRevMonthlyRange('ytd')}>YTD</button>
                   </div>
                   <div className="flex items-center gap-2">
+                    <span className="text-gray-500">Source:</span>
+                    <button className={`px-2 py-1 rounded ${revSource==='paid'?'bg-gray-200':''}`} onClick={()=>setRevSource('paid')}>Paid</button>
+                    <button className={`px-2 py-1 rounded ${revSource==='closewon'?'bg-gray-200':''}`} onClick={()=>setRevSource('closewon')}>Close Won</button>
+                  </div>
+                  <div className="flex items-center gap-2">
                     <button className={`px-2 py-1 rounded ${revMonthlyMode==='actual'?'bg-gray-200':''}`} onClick={()=>setRevMonthlyMode('actual')}>Actual</button>
                     <button className={`px-2 py-1 rounded ${revMonthlyMode==='projected'?'bg-gray-200':''}`} onClick={()=>setRevMonthlyMode('projected')}>Projected</button>
                   </div>
@@ -1012,7 +1025,12 @@ export default function DealsPage() {
                   <div className="h-80">
                     <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={(()=>{
-                    const src = revMonthlyMode==='actual' ? revMonthly : revMonthlyProjected;
+                    let src = revMonthlyMode==='actual' ? revMonthly : revMonthlyProjected;
+                    if (revSource==='closewon') {
+                      // Map close-won series to paid bar for visualization
+                      const cwMap = new Map((revMonthlyCloseWon||[]).map((r:any)=>[r.month, r.revenue]));
+                      src = (src||[]).map((r:any)=>({ ...r, paid: cwMap.get(r.month) || 0 }));
+                    }
                     const now = new Date();
                     let start: Date;
                     if (revMonthlyRange==='ytd') {

@@ -180,8 +180,9 @@ export default async function handler(req: any, res: any) {
             out.push({ month: keyFor(d), revenue: monthlyPace, projected: true });
           }
         }
-        // Return last 6 points to fit current UI
-        data = out.slice(-6);
+        // Return last N points (default 6) for UI
+        const limit = Math.max(1, Math.min(24, Number(qp.limit || 6)));
+        data = out.slice(-limit);
         break;
       }
       case 'win-rate': {
