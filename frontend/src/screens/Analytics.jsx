@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Chart } from 'chart.js/auto';
+import { supabase } from '../lib/supabaseClient';
 
 export default function Analytics() {
   const [activeTab, setActiveTab] = useState('deals');
@@ -55,6 +56,25 @@ export default function Analytics() {
     setModalType(type);
     setIsModalOpen(true);
     setShowExportMenu(false);
+  };
+
+  const addWidgetToDashboard = async (widgetName) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const key = `dashboard_widgets_${user?.id || 'anon'}`;
+      const existing = JSON.parse(localStorage.getItem(key) || '[]');
+      if (!existing.includes(widgetName)) {
+        const next = [...existing, widgetName].slice(0, 6); // cap at 6
+        localStorage.setItem(key, JSON.stringify(next));
+      }
+      setIsModalOpen(false);
+    } catch (_) {
+      // fallback local only
+      const key = 'dashboard_widgets_local';
+      const existing = JSON.parse(localStorage.getItem(key) || '[]');
+      if (!existing.includes(widgetName)) localStorage.setItem(key, JSON.stringify([...existing, widgetName].slice(0,6)));
+      setIsModalOpen(false);
+    }
   };
 
   // Initialize/destroy chart when outreach modal opens/closes (exact dataset from source)
@@ -266,7 +286,7 @@ export default function Analytics() {
 
       <div id="deals-footer" className="p-6 border-t border-gray-200 flex justify-end gap-4">
         <button className="border border-purple-600 text-purple-600 hover:bg-purple-50 rounded-md px-4 py-2 transition-colors">Go to Source</button>
-        <button className="bg-purple-600 text-white hover:bg-purple-700 rounded-md px-4 py-2 transition-colors">Add to Dashboard</button>
+        <button onClick={() => addWidgetToDashboard('Deal Pipeline')} className="bg-purple-600 text-white hover:bg-purple-700 rounded-md px-4 py-2 transition-colors">Add to Dashboard</button>
         <div className="relative">
           <button onClick={() => setShowExportMenu((s) => !s)} className="bg-gray-600 text-white hover:bg-gray-700 rounded-md px-4 py-2 transition-colors">
             <i className="fas fa-download mr-2"></i>Export
@@ -343,7 +363,7 @@ export default function Analytics() {
 
       <div id="jobs-footer" className="p-6 border-t border-gray-200 flex justify-end gap-4">
         <button className="border border-purple-600 text-purple-600 hover:bg-purple-50 rounded-md px-4 py-2 transition-colors">Go to Source</button>
-        <button className="bg-purple-600 text-white hover:bg-purple-700 rounded-md px-4 py-2 transition-colors">Add to Dashboard</button>
+        <button onClick={() => addWidgetToDashboard('Hiring Funnel')} className="bg-purple-600 text-white hover:bg-purple-700 rounded-md px-4 py-2 transition-colors">Add to Dashboard</button>
         <div className="relative">
           <button onClick={() => setShowExportMenu((s) => !s)} className="bg-gray-600 text-white hover:bg-gray-700 rounded-md px-4 py-2 transition-colors">
             <i className="fas fa-download mr-2"></i>Export
@@ -443,7 +463,7 @@ export default function Analytics() {
 
       <div id="outreach-footer" className="p-6 border-t border-gray-200 flex justify-end gap-4">
         <button className="border border-purple-600 text-purple-600 hover:bg-purple-50 rounded-md px-4 py-2 transition-colors">Go to Source</button>
-        <button className="bg-purple-600 text-white hover:bg-purple-700 rounded-md px-4 py-2 transition-colors">Add to Dashboard</button>
+        <button onClick={() => addWidgetToDashboard(modalWidget || 'Reply Rate Chart')} className="bg-purple-600 text-white hover:bg-purple-700 rounded-md px-4 py-2 transition-colors">Add to Dashboard</button>
         <div className="relative">
           <button onClick={() => setShowExportMenu((s) => !s)} className="bg-gray-600 text-white hover:bg-gray-700 rounded-md px-4 py-2 transition-colors">
             <i className="fas fa-download mr-2"></i>Export
@@ -482,7 +502,7 @@ export default function Analytics() {
       </div>
       <div className="p-6 border-t border-gray-200 flex justify-end gap-4">
         <button className="border border-purple-600 text-purple-600 hover:bg-purple-50 rounded-md px-4 py-2 transition-colors">Go to Source</button>
-        <button className="bg-purple-600 text-white hover:bg-purple-700 rounded-md px-4 py-2 transition-colors">Add to Dashboard</button>
+        <button onClick={() => addWidgetToDashboard('Revenue Forecast')} className="bg-purple-600 text-white hover:bg-purple-700 rounded-md px-4 py-2 transition-colors">Add to Dashboard</button>
       </div>
     </div>
   );
@@ -517,7 +537,7 @@ export default function Analytics() {
       </div>
       <div className="p-6 border-t border-gray-200 flex justify-end gap-4">
         <button className="border border-purple-600 text-purple-600 hover:bg-purple-50 rounded-md px-4 py-2 transition-colors">Go to Source</button>
-        <button className="bg-purple-600 text-white hover:bg-purple-700 rounded-md px-4 py-2 transition-colors">Add to Dashboard</button>
+        <button onClick={() => addWidgetToDashboard('Win Rate KPI')} className="bg-purple-600 text-white hover:bg-purple-700 rounded-md px-4 py-2 transition-colors">Add to Dashboard</button>
       </div>
     </div>
   );
@@ -543,7 +563,7 @@ export default function Analytics() {
       </div>
       <div className="p-6 border-t border-gray-200 flex justify-end gap-4">
         <button className="border border-purple-600 text-purple-600 hover:bg-purple-50 rounded-md px-4 py-2 transition-colors">Go to Source</button>
-        <button className="bg-purple-600 text-white hover:bg-purple-700 rounded-md px-4 py-2 transition-colors">Add to Dashboard</button>
+        <button onClick={() => addWidgetToDashboard('Engagement Breakdown')} className="bg-purple-600 text-white hover:bg-purple-700 rounded-md px-4 py-2 transition-colors">Add to Dashboard</button>
       </div>
     </div>
   );
@@ -574,7 +594,7 @@ export default function Analytics() {
       </div>
       <div className="p-6 border-t border-gray-200 flex justify-end gap-4">
         <button className="border border-purple-600 text-purple-600 hover:bg-purple-50 rounded-md px-4 py-2 transition-colors">Go to Source</button>
-        <button className="bg-purple-600 text-white hover:bg-purple-700 rounded-md px-4 py-2 transition-colors">Add to Dashboard</button>
+        <button onClick={() => addWidgetToDashboard('Candidate Flow Viz')} className="bg-purple-600 text-white hover:bg-purple-700 rounded-md px-4 py-2 transition-colors">Add to Dashboard</button>
       </div>
     </div>
   );
@@ -594,7 +614,7 @@ export default function Analytics() {
       </div>
       <div className="p-6 border-t border-gray-200 flex justify-end gap-4">
         <button className="border border-purple-600 text-purple-600 hover:bg-purple-50 rounded-md px-4 py-2 transition-colors">Go to Source</button>
-        <button className="bg-purple-600 text-white hover:bg-purple-700 rounded-md px-4 py-2 transition-colors">Add to Dashboard</button>
+        <button onClick={() => addWidgetToDashboard('Pipeline Velocity')} className="bg-purple-600 text-white hover:bg-purple-700 rounded-md px-4 py-2 transition-colors">Add to Dashboard</button>
       </div>
     </div>
   );
@@ -639,7 +659,7 @@ export default function Analytics() {
       </div>
       <div className="p-6 border-t border-gray-200 flex justify-end gap-4">
         <button className="border border-purple-600 text-purple-600 hover:bg-purple-50 rounded-md px-4 py-2 transition-colors">Go to Source</button>
-        <button className="bg-purple-600 text-white hover:bg-purple-700 rounded-md px-4 py-2 transition-colors">Add to Dashboard</button>
+        <button onClick={() => addWidgetToDashboard('Team Performance')} className="bg-purple-600 text-white hover:bg-purple-700 rounded-md px-4 py-2 transition-colors">Add to Dashboard</button>
       </div>
     </div>
   );
