@@ -118,7 +118,7 @@ export default async function handler(req: any, res: any) {
           return weights[String(stage||'Pipeline')] ?? 0;
         };
 
-        const base = process.env.BACKEND_URL || process.env.VITE_BACKEND_URL || '';
+        const base = process.env.BACKEND_URL || '';
         if (mode === 'paid') {
           // Use backend revenue monthly (service role) to get paid amounts safely
           if (base) {
