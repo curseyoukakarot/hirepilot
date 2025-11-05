@@ -733,8 +733,9 @@ export default function Analytics() {
         if (!payload) {
           const { data: rows } = await supabase
             .from('email_events')
-            .select('event_type')
-            .gte('timestamp', new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString());
+            .select('event_type,event_timestamp')
+            .eq('user_id', session?.user?.id)
+            .gte('event_timestamp', new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString());
           const agg = { open: 0, reply: 0, bounce: 0, click: 0 };
           (rows || []).forEach((r) => { const ev = r && r.event_type; if (ev && (ev in agg)) agg[ev] = (agg[ev] || 0) + 1; });
           const total = Object.values(agg).reduce((a, b) => a + b, 0) || 1;

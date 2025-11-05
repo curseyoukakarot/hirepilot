@@ -238,7 +238,7 @@ export default async function handler(req: any, res: any) {
         try {
           const base = (process.env.BACKEND_URL || process.env.VITE_BACKEND_URL || '').replace(/\/$/, '');
           if (base && /^https?:\/\//i.test(base)) {
-            const perf = await fetch(`${base}/api/campaigns/all/performance`, { headers: token ? { Authorization: `Bearer ${token}` } : {} } as any);
+            const perf = await fetch(`${base}/api/campaigns/all/performance?user_id=${encodeURIComponent(user.id)}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} } as any);
             const ct = perf.headers?.get?.('content-type') || '';
             if (perf.ok && ct.includes('application/json')) {
               const p = await perf.json();
@@ -265,9 +265,9 @@ export default async function handler(req: any, res: any) {
         // Fallback to local email_events aggregation
         const { data: rows } = await supabase
           .from('email_events')
-          .select('event_type')
+          .select('event_type,event_timestamp')
           .eq('user_id', user.id)
-          .gte('timestamp', new Date(Date.now() - 30*24*3600*1000).toISOString());
+          .gte('event_timestamp', new Date(Date.now() - 30*24*3600*1000).toISOString());
         const agg = { open:0, reply:0, bounce:0, click:0 } as Record<string,number>;
         (rows||[]).forEach(r=>{ if((r as any).event_type in agg) agg[(r as any).event_type]++; });
         const total = Object.values(agg).reduce((a,b)=>a+b,0)||1;
