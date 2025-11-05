@@ -530,7 +530,7 @@ export default function Analytics() {
               <option>Custom Template</option>
             </select>
           )}
-          {modalWidget === 'Reply Rate Chart' ? (
+          {modalWidget === 'Reply Rate Chart' || modalWidget === 'Open Rate Widget' ? (
             <select value={replyRange} onChange={(e)=>setReplyRange(e.target.value)} className="border border-purple-300 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 rounded-md p-2">
               <option value="30d">Last 30 Days</option>
               <option value="90d">Last 90 Days</option>
@@ -785,6 +785,48 @@ export default function Analytics() {
     if (!inst || !Array.isArray(modalData)) return;
     const labels = (modalData || []).map((d) => String((d && d.period) || ''));
     const vals = (modalData || []).map((d) => Number((d && d.replyRate) || 0));
+    inst.data.labels = labels;
+    if (inst.data.datasets && inst.data.datasets[0]) inst.data.datasets[0].data = vals;
+    try { inst.update(); } catch {}
+  }, [modalData, isModalOpen, modalWidget]);
+
+  // Open Rate Widget – compute weekly series from email_events (same source as reply chart)
+  useEffect(() => {
+    const loadOpenSeries = async () => {
+      if (!(isModalOpen && modalWidget === 'Open Rate Widget')) return;
+      try {
+        const rangeDays = replyRange==='30d' ? 30 : replyRange==='90d' ? 90 : 180;
+        const { data: rows } = await supabase
+          .from('email_events')
+          .select('event_timestamp,event_type')
+          .gte('event_timestamp', new Date(Date.now() - rangeDays*24*3600*1000).toISOString());
+        const weekMs = 7*24*3600*1000;
+        const bucketCount = replyRange==='30d' ? 4 : replyRange==='90d' ? 12 : 24;
+        const labels = Array.from({ length: bucketCount }, (_, i) => `Week ${i+1}`);
+        const sent = Array.from({ length: bucketCount }, () => 0);
+        const opens = Array.from({ length: bucketCount }, () => 0);
+        (rows||[]).forEach((r) => {
+          const ts = r && r.event_timestamp ? new Date(r.event_timestamp) : null; if (!ts) return;
+          const diff = Date.now() - ts.getTime();
+          const idxFromEnd = Math.min(bucketCount-1, Math.floor(diff / weekMs));
+          const bucket = bucketCount - 1 - idxFromEnd; if (bucket < 0 || bucket >= bucketCount) return;
+          const et = r && r.event_type;
+          if (et === 'sent') sent[bucket]++; if (et === 'open') opens[bucket]++;
+        });
+        const series = labels.map((name, i) => ({ period: name, openRate: sent[i] ? Math.round((opens[i]/sent[i])*1000)/10 : 0 }));
+        setModalData(series);
+      } catch { setModalData([]); }
+    };
+    loadOpenSeries();
+  }, [isModalOpen, modalWidget, replyRange]);
+
+  // Update Open Rate chart when data arrives
+  useEffect(() => {
+    if (!(isModalOpen && modalWidget === 'Open Rate Widget')) return;
+    const inst = (chartInstancesRef.current || {}).openrate;
+    if (!inst || !Array.isArray(modalData)) return;
+    const labels = (modalData || []).map((d) => String((d && d.period) || ''));
+    const vals = (modalData || []).map((d) => Number((d && d.openRate) || 0));
     inst.data.labels = labels;
     if (inst.data.datasets && inst.data.datasets[0]) inst.data.datasets[0].data = vals;
     try { inst.update(); } catch {}
