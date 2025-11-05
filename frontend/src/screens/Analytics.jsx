@@ -85,9 +85,14 @@ export default function Analytics() {
     try {
       const wtype = widgetTypeMap[title];
       if (wtype) {
-        const r = await apiFetch(`/api/widgets/${encodeURIComponent(wtype)}`);
-        const j = await r.json();
-        setModalData(Array.isArray(j.data) ? j.data : []);
+        if (wtype === 'revenue-forecast') {
+          // Defer to revenue fetcher effect which uses backend endpoints
+          setModalData([]);
+        } else {
+          const r = await apiFetch(`/api/widgets/${encodeURIComponent(wtype)}`);
+          const j = await r.json();
+          setModalData(Array.isArray(j.data) ? j.data : []);
+        }
       } else {
         setModalData(null);
       }
@@ -556,12 +561,18 @@ export default function Analytics() {
 
         if (revenueMode === 'closewon') { await useCloseWon(); return; }
         if (revenueMode === 'blended') {
-          // Keep existing widgets endpoint for blended
-          const r = await apiFetch(`/api/widgets/revenue-forecast?mode=blended&horizon=${encodeURIComponent(revenueHorizon)}`);
-          const j = await r.json();
-          const arr = Array.isArray(j.data) ? j.data : [];
-          setModalData(arr);
-          setRevenueSummary(computeSummary(arr));
+          // Combine paid actuals with stage-weighted projections
+          const [paidRes, projRes] = await Promise.all([
+            apiFetch(`${base}/api/revenue/monthly`),
+            apiFetch(`${base}/api/revenue/monthly-projected`),
+          ]);
+          const paid = await paidRes.json();
+          const proj = await projRes.json();
+          const actual = (paid||[]).map(r=>({ month: r.month, revenue: Number(r.paid)||0 }));
+          const projected = (proj||[]).map(r=>({ month: r.month, revenue: Number(r.forecasted)||0, projected: true }));
+          const combined = [...actual, ...projected];
+          setModalData(combined);
+          setRevenueSummary(computeSummary(combined));
           return;
         }
 
