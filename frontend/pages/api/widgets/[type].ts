@@ -234,32 +234,34 @@ export default async function handler(req: any, res: any) {
         break;
       }
       case 'engagement': {
-        // Use backend performance endpoint (same as dashboard) to derive breakdown
-        const base = process.env.BACKEND_URL || process.env.VITE_BACKEND_URL || '';
-        if (base) {
-          const perf = await fetch(`${base.replace(/\/$/, '')}/api/campaigns/all/performance`, { headers: token ? { Authorization: `Bearer ${token}` } : {} } as any);
-          if (perf.ok) {
-            const p = await perf.json();
-            const sent = Number(p.sent||0);
-            const opens = Number(p.opens||0);
-            const replies = Number(p.replies||0);
-            const conversions = Number(p.conversions||0);
-            const openPct = sent ? (opens/sent)*100 : 0;
-            const replyPct = sent ? (replies/sent)*100 : 0;
-            // Treat bounces as the remainder not opened (proxy for non-opens) if no explicit bounce metric
-            const unopened = Math.max(0, sent - opens);
-            const bouncePct = sent ? (unopened/sent)*100 : 0;
-            // Use conversions as proxy for clicks when click metric not available
-            const clickPct = sent ? (conversions/sent)*100 : 0;
-            data = [
-              { metric: 'open', pct: Math.round(openPct*10)/10 },
-              { metric: 'reply', pct: Math.round(replyPct*10)/10 },
-              { metric: 'bounce', pct: Math.round(bouncePct*10)/10 },
-              { metric: 'click', pct: Math.round(clickPct*10)/10 },
-            ];
-            break;
+        // Prefer backend performance endpoint (if configured and returns JSON); else fallback to Supabase email_events
+        try {
+          const base = (process.env.BACKEND_URL || process.env.VITE_BACKEND_URL || '').replace(/\/$/, '');
+          if (base && /^https?:\/\//i.test(base)) {
+            const perf = await fetch(`${base}/api/campaigns/all/performance`, { headers: token ? { Authorization: `Bearer ${token}` } : {} } as any);
+            const ct = perf.headers?.get?.('content-type') || '';
+            if (perf.ok && ct.includes('application/json')) {
+              const p = await perf.json();
+              const sent = Number(p.sent||0);
+              const opens = Number(p.opens||0);
+              const replies = Number(p.replies||0);
+              const conversions = Number(p.conversions||0);
+              const openPct = sent ? (opens/sent)*100 : 0;
+              const replyPct = sent ? (replies/sent)*100 : 0;
+              // Treat bounces as not-opened when bounce metric is unavailable
+              const unopened = Math.max(0, sent - opens);
+              const bouncePct = sent ? (unopened/sent)*100 : 0;
+              const clickPct = sent ? (conversions/sent)*100 : 0; // proxy
+              data = [
+                { metric: 'open', pct: Math.round(openPct*10)/10 },
+                { metric: 'reply', pct: Math.round(replyPct*10)/10 },
+                { metric: 'bounce', pct: Math.round(bouncePct*10)/10 },
+                { metric: 'click', pct: Math.round(clickPct*10)/10 },
+              ];
+              break;
+            }
           }
-        }
+        } catch {}
         // Fallback to local email_events aggregation
         const { data: rows } = await supabase
           .from('email_events')
