@@ -240,7 +240,8 @@ export default function DealsPage() {
       setRevByType(etRes.ok ? await etRes.json() : []);
       const cw = cwRes.ok ? await cwRes.json() : { data: [] };
       let cwSeries: Array<{ month: string; revenue: number; projected?: boolean }> = Array.isArray(cw.data) ? cw.data : [];
-      if (!cwSeries.length) {
+      const sumRevenue = (rows: any[]) => rows.reduce((s:number,r:any)=>s+(Number(r.revenue)||0),0);
+      if (!cwSeries.length || sumRevenue(cwSeries) === 0) {
         // Fallback: build from backend opportunities Close Won
         const opps = oppCWRes.ok ? await oppCWRes.json() : [];
         const now = new Date();
@@ -291,6 +292,17 @@ export default function DealsPage() {
             const b = months12.find(m=>m.month===k);
             if (b) b.revenue += Number(o.value)||0;
           });
+          // EOY pacing for projection
+          const curYear = now.getFullYear();
+          const monthsElapsed = now.getMonth() + 1;
+          const ytd = months12.filter(m => Number(m.month.split('-')[0]) === curYear && Number(m.month.split('-')[1]) <= (now.getMonth()+1)).reduce((s,m)=>s+m.revenue,0);
+          const monthlyAvgYTD = monthsElapsed ? (ytd / monthsElapsed) : 0;
+          for (let m=now.getMonth()+1; m<12; m++) {
+            const k = keyFor(new Date(curYear, m, 1));
+            const ex = months12.find(x => x.month === k);
+            if (ex) { ex.revenue = ex.revenue || monthlyAvgYTD; ex.projected = true; }
+            else months12.push({ month: k, revenue: monthlyAvgYTD, projected: true });
+          }
           cwSeries = months12;
         }
       }
@@ -1139,7 +1151,7 @@ export default function DealsPage() {
                         <YAxis stroke="#9ca3af" fontSize={12} tickFormatter={(v)=>`$${Math.round(v/1000)}k`} />
                         <Tooltip formatter={(v)=>[(Number(v).toLocaleString('en-US',{style:'currency',currency:'USD'})),'']} />
                         <Legend />
-                        <Bar dataKey="paid" stackId="a" fill="#10b981" name="Paid" />
+                        <Bar dataKey="paid" stackId="a" fill="#10b981" name={revSource==='closewon' ? 'Revenue' : 'Paid'} />
                         <Bar dataKey="forecasted" stackId="a" fill="#3b82f6" name="Forecasted" />
                         <Bar dataKey="outstanding" stackId="a" fill="#f59e0b" name="Outstanding" />
                       </BarChart>
