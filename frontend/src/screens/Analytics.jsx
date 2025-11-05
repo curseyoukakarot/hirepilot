@@ -88,6 +88,50 @@ export default function Analytics() {
         if (wtype === 'revenue-forecast') {
           // Defer to revenue fetcher effect which uses backend endpoints
           setModalData([]);
+        } else if (wtype === 'deal-pipeline') {
+          // Fetch directly from Supabase to avoid SPA HTML from /api/widgets on Vercel
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) { setModalData([{ pipelineValue:0,bestCaseValue:0,commitValue:0,closedWonValue:0,pipelineDeals:0,bestCaseDeals:0,commitDeals:0,closedWonDeals:0,totalActiveDeals:0,totalValue:0 }]); return; }
+          const { data: me } = await supabase.from('users').select('role, team_id').eq('id', user.id).maybeSingle();
+          const role = String((me||{}).role || '').toLowerCase();
+          const teamId = (me||{}).team_id || null;
+          const isSuper = ['super_admin','superadmin'].includes(role);
+          const isTeamAdmin = role === 'team_admin';
+          let base = supabase.from('opportunities').select('stage,value,owner_id');
+          if (!isSuper) {
+            if (isTeamAdmin && teamId) {
+              const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', teamId);
+              const ids = (teamUsers || []).map((u)=>u.id);
+              base = base.in('owner_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
+            } else {
+              base = base.eq('owner_id', user.id);
+            }
+          }
+          const { data: opps } = await base;
+          const stageOf = (o) => {
+            const s = String(o.stage||'');
+            if (['Closed Won','Won'].includes(s)) return 'Close Won';
+            return s;
+          };
+          const sum = (st) => (opps||[]).filter(o => stageOf(o) === st).reduce((s,o)=> s + (Number(o.value)||0), 0);
+          const cnt = (st) => (opps||[]).filter(o => stageOf(o) === st).length;
+          const pipelineValue = sum('Pipeline');
+          const bestCaseValue = sum('Best Case');
+          const commitValue = sum('Commit');
+          const closedWonValue = sum('Close Won');
+          const dataRow = {
+            pipelineValue,
+            bestCaseValue,
+            commitValue,
+            closedWonValue,
+            pipelineDeals: cnt('Pipeline'),
+            bestCaseDeals: cnt('Best Case'),
+            commitDeals: cnt('Commit'),
+            closedWonDeals: cnt('Close Won'),
+            totalActiveDeals: (opps||[]).filter(o=>['Pipeline','Best Case','Commit'].includes(stageOf(o))).length,
+            totalValue: pipelineValue + bestCaseValue + commitValue + closedWonValue,
+          };
+          setModalData([dataRow]);
         } else {
           const r = await apiFetch(`/api/widgets/${encodeURIComponent(wtype)}`);
           const j = await r.json();
@@ -649,6 +693,71 @@ export default function Analytics() {
     refetch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revenueMode, revenueHorizon, isModalOpen, modalWidget]);
+
+  // Deal Pipeline modal data loader – avoid /api/widgets route to prevent HTML responses
+  useEffect(() => {
+    const loadDealPipeline = async () => {
+      if (!(isModalOpen && modalWidget === 'Deal Pipeline')) return;
+      try {
+        const fromProcess = (typeof process !== 'undefined' && process.env) ? (process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL) : '';
+        const fromVite = (typeof import.meta !== 'undefined' && import.meta.env) ? (import.meta.env.VITE_BACKEND_URL) : '';
+        const fromWindow = (typeof window !== 'undefined' && window.__BACKEND_URL__) ? window.__BACKEND_URL__ : '';
+        const base = String(fromProcess || fromVite || fromWindow || '').replace(/\/$/, '');
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        const hdrs = token ? { Authorization: `Bearer ${token}` } : {};
+
+        let rows = [];
+        if (base) {
+          const r = await fetch(`${base}/api/opportunity-pipeline`, { headers: hdrs });
+          rows = r.ok ? await r.json() : [];
+        }
+        if (!Array.isArray(rows) || !rows.length) {
+          // Supabase fallback with same scope
+          const { data: me } = await supabase.from('users').select('role, team_id').eq('id', session?.user?.id).maybeSingle();
+          const role = String((me||{}).role||'').toLowerCase();
+          const teamId = (me||{}).team_id || null;
+          const isSuper = ['super_admin','superadmin'].includes(role);
+          const isTeamAdmin = role === 'team_admin';
+          let baseQ = supabase.from('opportunities').select('stage,value,owner_id');
+          if (!isSuper) {
+            if (isTeamAdmin && teamId) {
+              const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', teamId);
+              const ids = (teamUsers||[]).map(u=>u.id);
+              baseQ = baseQ.in('owner_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
+            } else {
+              baseQ = baseQ.eq('owner_id', session?.user?.id);
+            }
+          }
+          const { data: opps } = await baseQ;
+          const stageOf = (o)=>{ const s=String(o.stage||''); return ['Closed Won','Won'].includes(s)?'Close Won':s; };
+          const agg = (st)=> (opps||[]).filter(o=>stageOf(o)===st);
+          rows = [
+            { stage:'Pipeline', items: agg('Pipeline'), total: agg('Pipeline').reduce((s,o)=>s+(Number(o.value)||0),0) },
+            { stage:'Best Case', items: agg('Best Case'), total: agg('Best Case').reduce((s,o)=>s+(Number(o.value)||0),0) },
+            { stage:'Commit', items: agg('Commit'), total: agg('Commit').reduce((s,o)=>s+(Number(o.value)||0),0) },
+            { stage:'Close Won', items: agg('Close Won'), total: agg('Close Won').reduce((s,o)=>s+(Number(o.value)||0),0) },
+          ];
+        }
+        const get = (name)=> rows.find(r=>String(r.stage||'')===name) || { total:0, items:[] };
+        const payload = [{
+          pipelineValue: Number(get('Pipeline').total||0),
+          bestCaseValue: Number(get('Best Case').total||0),
+          commitValue: Number(get('Commit').total||0),
+          closedWonValue: Number((get('Close Won').total||0) || (get('Closed Won').total||0)),
+          pipelineDeals: (get('Pipeline').items||[]).length,
+          bestCaseDeals: (get('Best Case').items||[]).length,
+          commitDeals: (get('Commit').items||[]).length,
+          closedWonDeals: (get('Close Won').items||[]).length || (get('Closed Won').items||[]).length,
+          totalActiveDeals: ['Pipeline','Best Case','Commit'].reduce((s,k)=> s + ((get(k).items||[]).length), 0),
+          totalValue: ['Pipeline','Best Case','Commit','Close Won'].reduce((s,k)=> s + Number((get(k).total||0)), 0)
+        }];
+        setModalData(payload);
+      } catch { setModalData([{ pipelineValue:0,bestCaseValue:0,commitValue:0,closedWonValue:0,pipelineDeals:0,bestCaseDeals:0,commitDeals:0,closedWonDeals:0,totalActiveDeals:0,totalValue:0 }]); }
+    };
+    loadDealPipeline();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isModalOpen, modalWidget]);
 
   const renderRevenueForecast = () => (
     <div className="modal-variant">
