@@ -39,28 +39,46 @@ export default async function handler(req: any, res: any) {
         break;
       }
       case 'deal-pipeline': {
-        // Proxy to backend opportunity pipeline so numbers match /opportunities
-        const base = process.env.BACKEND_URL || process.env.VITE_BACKEND_URL || '';
-        if (!base) { data = []; break; }
-        const r = await fetch(`${base.replace(/\/$/, '')}/api/opportunity-pipeline`, { headers: token ? { Authorization: `Bearer ${token}` } : {} } as any);
-        const rows = r.ok ? await r.json() : [];
-        // Map to expected card summary
-        const get = (name: string) => rows.find((s:any)=>String(s.stage||'')===name) || { total: 0, items: [] };
-        const pipeline = get('Pipeline');
-        const best = get('Best Case');
-        const commit = get('Commit');
-        const won = get('Close Won') || get('Closed Won');
+        // Compute from opportunities with same scoping as Opportunities page
+        const { data: me } = await supabase.from('users').select('role, team_id').eq('id', user.id).maybeSingle();
+        const role = String((me as any)?.role || '').toLowerCase();
+        const teamId = (me as any)?.team_id || null;
+        const isSuper = ['super_admin','superadmin'].includes(role);
+        const isTeamAdmin = role === 'team_admin';
+
+        let base = supabase.from('opportunities').select('stage,value,owner_id');
+        if (!isSuper) {
+          if (isTeamAdmin && teamId) {
+            const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', teamId);
+            const ids = (teamUsers || []).map((u:any)=>u.id);
+            base = base.in('owner_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
+          } else {
+            base = base.eq('owner_id', user.id);
+          }
+        }
+        const { data: opps } = await base;
+        const stageOf = (o:any) => {
+          const s = String(o.stage||'');
+          if (['Closed Won','Won'].includes(s)) return 'Close Won';
+          return s;
+        };
+        const sum = (st: string) => (opps||[]).filter(o => stageOf(o) === st).reduce((s,o:any)=> s + (Number(o.value)||0), 0);
+        const cnt = (st: string) => (opps||[]).filter(o => stageOf(o) === st).length;
+        const pipelineValue = sum('Pipeline');
+        const bestCaseValue = sum('Best Case');
+        const commitValue = sum('Commit');
+        const closedWonValue = sum('Close Won');
         data = [{
-          pipelineValue: Number(pipeline.total||0),
-          bestCaseValue: Number(best.total||0),
-          commitValue: Number(commit.total||0),
-          closedWonValue: Number(won.total||0),
-          pipelineDeals: (pipeline.items||[]).length,
-          bestCaseDeals: (best.items||[]).length,
-          commitDeals: (commit.items||[]).length,
-          closedWonDeals: (won.items||[]).length,
-          totalActiveDeals: ['Pipeline','Best Case','Commit'].reduce((s, k) => s + ((get(k).items||[]).length), 0),
-          totalValue: Number(pipeline.total||0) + Number(best.total||0) + Number(commit.total||0) + Number(won.total||0),
+          pipelineValue,
+          bestCaseValue,
+          commitValue,
+          closedWonValue,
+          pipelineDeals: cnt('Pipeline'),
+          bestCaseDeals: cnt('Best Case'),
+          commitDeals: cnt('Commit'),
+          closedWonDeals: cnt('Close Won'),
+          totalActiveDeals: (opps||[]).filter(o=>['Pipeline','Best Case','Commit'].includes(stageOf(o))).length,
+          totalValue: pipelineValue + bestCaseValue + commitValue + closedWonValue,
         }];
         break;
       }
