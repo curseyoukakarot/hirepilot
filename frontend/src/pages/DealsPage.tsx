@@ -218,7 +218,7 @@ export default function DealsPage() {
       if (!access?.can_view_revenue) return;
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
-      const [sRes, mRes, cRes, pcRes, etRes, mpRes, cwRes, rfPaidRes] = await Promise.all([
+      const [sRes, mRes, cRes, pcRes, etRes, mpRes, cwRes, rfPaidRes, oppCWRes] = await Promise.all([
         fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/summary`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
         fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/monthly`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
         fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/by-client`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
@@ -227,6 +227,7 @@ export default function DealsPage() {
         fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/monthly-projected`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
         fetch(`/api/widgets/revenue-forecast?mode=closewon&horizon=12m&limit=12`, { headers: token ? { Authorization: `Bearer ${token}` } : {}, credentials: 'include' }),
         fetch(`/api/widgets/revenue-forecast?mode=paid&horizon=eoy&limit=12`, { headers: token ? { Authorization: `Bearer ${token}` } : {}, credentials: 'include' }),
+        fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities?status=Close%20Won`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
       ]);
       setRevSummary(sRes.ok ? await sRes.json() : null);
       const monthly = mRes.ok ? await mRes.json() : [];
@@ -238,7 +239,37 @@ export default function DealsPage() {
       setRevByClient(prev => (prev && prev.length ? prev : projClients));
       setRevByType(etRes.ok ? await etRes.json() : []);
       const cw = cwRes.ok ? await cwRes.json() : { data: [] };
-      setRevMonthlyCloseWon(Array.isArray(cw.data) ? cw.data : []);
+      let cwSeries: Array<{ month: string; revenue: number; projected?: boolean }> = Array.isArray(cw.data) ? cw.data : [];
+      if (!cwSeries.length) {
+        // Fallback: build from backend opportunities Close Won
+        const opps = oppCWRes.ok ? await oppCWRes.json() : [];
+        const now = new Date();
+        const keyFor = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        const months12: Array<{ month: string; revenue: number; projected?: boolean }> = [];
+        for (let i=11; i>=0; i--) {
+          const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+          months12.push({ month: keyFor(d), revenue: 0 });
+        }
+        (opps||[]).forEach((o:any)=>{
+          const d = new Date(o.created_at || now);
+          const k = keyFor(new Date(d.getFullYear(), d.getMonth(), 1));
+          const b = months12.find(m=>m.month===k);
+          if (b) b.revenue += Number(o.value)||0;
+        });
+        // Simple EOY pacing projection
+        const curYear = now.getFullYear();
+        const monthsElapsed = now.getMonth() + 1;
+        const ytd = months12.filter(m => Number(m.month.split('-')[0]) === curYear && Number(m.month.split('-')[1]) <= (now.getMonth()+1)).reduce((s,m)=>s+m.revenue,0);
+        const monthlyAvgYTD = monthsElapsed ? (ytd / monthsElapsed) : 0;
+        for (let m=now.getMonth()+1; m<12; m++) {
+          const k = keyFor(new Date(curYear, m, 1));
+          const ex = months12.find(x => x.month === k);
+          if (ex) { ex.revenue = ex.revenue || monthlyAvgYTD; ex.projected = true; }
+          else months12.push({ month: k, revenue: monthlyAvgYTD, projected: true });
+        }
+        cwSeries = months12;
+      }
+      setRevMonthlyCloseWon(cwSeries);
       const rfPaid = rfPaidRes.ok ? await rfPaidRes.json() : { data: [] };
       setRevMonthlyPaidOut(Array.isArray(rfPaid.data) ? rfPaid.data : []);
 
