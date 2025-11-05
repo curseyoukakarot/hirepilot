@@ -285,6 +285,40 @@ export default async function handler(req: any, res: any) {
         data = stages.map((s,i)=>({ stage:s, days: vals[i] }));
         break;
       }
+      case 'candidate-flow': {
+        // Derive volume across stages from candidates table; fallback to applications table if exists
+        const stageOrder = ['Applied','Screened','Interview','Offer','Hired'];
+        const lowerMap: Record<string,string> = { applied:'Applied', screen:'Screened', screened:'Screened', interview:'Interview', offer:'Offer', hired:'Hired' };
+        // Try candidates.status grouped counts scoped to user
+        let counts: Record<string, number> = { Applied:0, Screened:0, Interview:0, Offer:0, Hired:0 };
+        try {
+          const { data: rows } = await supabase
+            .from('candidates')
+            .select('status,user_id')
+            .eq('user_id', user.id);
+          (rows||[]).forEach((r:any)=>{
+            const raw = String(r.status||'').toLowerCase();
+            const key = lowerMap[raw] || (raw.charAt(0).toUpperCase()+raw.slice(1));
+            if (key in counts) counts[key] = (counts[key]||0)+1;
+          });
+        } catch {}
+        // If still zeroes, try applications table (applications.status)
+        if (Object.values(counts).reduce((s,n)=>s+n,0) === 0) {
+          try {
+            const { data: apps } = await supabase
+              .from('applications')
+              .select('status,user_id')
+              .eq('user_id', user.id);
+            (apps||[]).forEach((r:any)=>{
+              const raw = String(r.status||'').toLowerCase();
+              const key = lowerMap[raw] || (raw.charAt(0).toUpperCase()+raw.slice(1));
+              if (key in counts) counts[key] = (counts[key]||0)+1;
+            });
+          } catch {}
+        }
+        data = stageOrder.map((stage)=>({ stage, value: counts[stage] || 0 }));
+        break;
+      }
       case 'team-performance': {
         const { data: rows } = await supabase
           .from('users')

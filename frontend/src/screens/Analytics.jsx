@@ -961,18 +961,25 @@ export default function Analytics() {
         <button onClick={() => setIsModalOpen(false)} className="text-gray-500 hover:text-purple-600 transition-all duration-300 hover:rotate-90"><i className="fas fa-times text-xl"></i></button>
       </div>
       <div className="p-6 space-y-3">
-        {[
-          { name: 'Applied', value: 420, from: 'from-purple-500', to: 'to-purple-300', text: 'text-white' },
-          { name: 'Screened', value: 310, from: 'from-purple-400', to: 'to-purple-200', text: 'text-white' },
-          { name: 'Interview', value: 180, from: 'from-purple-300', to: 'to-purple-100', text: 'text-purple-800' },
-          { name: 'Offer', value: 90, from: 'from-green-300', to: 'to-green-100', text: 'text-green-800' },
-          { name: 'Hired', value: 58, from: 'from-green-500', to: 'to-green-300', text: 'text-white' },
-        ].map((s) => (
-          <div key={s.name} className={`flex items-center justify-between p-4 bg-gradient-to-r ${s.from} ${s.to} rounded-full ${s.text}`}>
-            <span className="font-semibold">{s.name}</span>
-            <span className="font-bold">{s.value}</span>
-          </div>
-        ))}
+        {(() => {
+          const rows = Array.isArray(modalData) && modalData.length ? modalData : [
+            { stage: 'Applied', value: 0 },
+            { stage: 'Screened', value: 0 },
+            { stage: 'Interview', value: 0 },
+            { stage: 'Offer', value: 0 },
+            { stage: 'Hired', value: 0 },
+          ];
+          const color = (name) => name==='Hired' || name==='Offer' ? ['from-green-500','to-green-300','text-white'] : name==='Applied' ? ['from-purple-500','to-purple-300','text-white'] : name==='Screened' ? ['from-purple-400','to-purple-200','text-white'] : ['from-purple-300','to-purple-100','text-purple-800'];
+          return rows.map((s) => {
+            const [from,to,text] = color(s.stage);
+            return (
+              <div key={s.stage} className={`flex items-center justify-between p-4 bg-gradient-to-r ${from} ${to} rounded-full ${text}`}>
+                <span className="font-semibold">{s.stage}</span>
+                <span className="font-bold">{s.value}</span>
+              </div>
+            );
+          });
+        })()}
       </div>
       <div className="p-6 border-t border-gray-200 flex justify-end gap-4">
         <button className="border border-purple-600 text-purple-600 hover:bg-purple-50 rounded-md px-4 py-2 transition-colors">Go to Source</button>
