@@ -524,7 +524,10 @@ export default function Analytics() {
   useEffect(() => {
     const refetch = async () => {
       if (!(isModalOpen && modalWidget === 'Revenue Forecast')) return;
-      const base = String(process?.env?.BACKEND_URL || '').replace(/\/$/, '');
+      const fromProcess = (typeof process !== 'undefined' && process.env) ? (process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL) : '';
+      const fromVite = (typeof import.meta !== 'undefined' && import.meta.env) ? (import.meta.env.VITE_BACKEND_URL) : '';
+      const fromWindow = (typeof window !== 'undefined' && window.__BACKEND_URL__) ? window.__BACKEND_URL__ : '';
+      const base = String(fromProcess || fromVite || fromWindow || '').replace(/\/$/, '');
       if (!base) { setModalData([]); setRevenueSummary({ nextMonth: 0, quarter: 0, ytd: 0 }); return; }
       const toMonthKey = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
       const now = new Date();
