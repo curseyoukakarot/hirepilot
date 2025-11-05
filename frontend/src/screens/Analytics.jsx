@@ -153,8 +153,11 @@ export default function Analytics() {
           if (ctx) {
             chartInstancesRef.current.revenue = new Chart(ctx, {
               type: 'line',
-              data: { labels: (modalData||[]).map(d=>d.month||''), datasets: [{ label: 'Forecast ($)', data: (modalData||[]).map(d=>d.revenue||0), borderColor: '#6B46C1', backgroundColor: 'rgba(107,70,193,0.08)', borderWidth: 3, fill: true, tension: 0.35 }] },
-              options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: '#f3f4f6' } }, x: { grid: { color: '#f3f4f6' } } } }
+              data: { labels: [], datasets: [
+                { label: 'Actual', data: [], borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,0.10)', borderWidth: 3, fill: true, tension: 0.35 },
+                { label: 'Projected', data: [], borderColor: '#6B46C1', backgroundColor: 'rgba(107,70,193,0.08)', borderWidth: 3, fill: true, tension: 0.35, borderDash: [6,4] }
+              ] },
+              options: { responsive: true, plugins: { legend: { display: true, position: 'bottom' } }, scales: { y: { beginAtZero: true, grid: { color: '#f3f4f6' } }, x: { grid: { color: '#f3f4f6' } } } }
             });
           }
         }
@@ -232,6 +235,30 @@ export default function Analytics() {
       }
     };
   }, [isModalOpen, modalWidget]);
+
+  // Update Revenue Forecast chart when data changes
+  useEffect(() => {
+    if (!(isModalOpen && modalWidget === 'Revenue Forecast')) return;
+    const inst = chartInstancesRef.current.revenue;
+    if (!inst) return;
+    const rows = Array.isArray(modalData) ? modalData : [];
+    const months = Array.from(new Set(rows.map(r => String(r.month||'')))).sort();
+    const sumBy = (m, projected) => rows.filter(r => String(r.month) === m && Boolean(r.projected) === projected)
+      .reduce((s, r) => s + (Number(r.revenue)||0), 0);
+    const actual = months.map(m => sumBy(m, false));
+    const projected = months.map(m => sumBy(m, true));
+    inst.data.labels = months;
+    if (inst.data.datasets.length < 2) {
+      inst.data.datasets = [
+        { label: 'Actual', data: actual, borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,0.10)', borderWidth: 3, fill: true, tension: 0.35 },
+        { label: 'Projected', data: projected, borderColor: '#6B46C1', backgroundColor: 'rgba(107,70,193,0.08)', borderWidth: 3, fill: true, tension: 0.35, borderDash: [6,4] }
+      ];
+    } else {
+      inst.data.datasets[0].data = actual;
+      inst.data.datasets[1].data = projected;
+    }
+    try { inst.update(); } catch (_) {}
+  }, [modalData, isModalOpen, modalWidget]);
 
   const renderDealsVariant = () => (
     <div id="deals-modal" className="modal-variant">
