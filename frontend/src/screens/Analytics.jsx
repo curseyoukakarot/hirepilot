@@ -1168,28 +1168,28 @@ export default function Analytics() {
           <div id="tabs-container" className="mb-8">
             <nav className="flex space-x-8 border-b border-gray-200">
               <button
-                className={`tab-btn pb-4 px-1 font-medium text-sm ${activeTab === 'deals' ? 'tab-active' : 'text-gray-500 hover:text-gray-700'}`}
+                className={`pb-4 px-1 font-semibold text-sm border-b-2 ${activeTab === 'deals' ? 'text-purple-700 border-purple-600' : 'text-gray-500 hover:text-gray-700 border-transparent hover:border-gray-300'}`}
                 onClick={() => setActiveTab('deals')}
                 data-tab="deals"
               >
                 <i className="fa-solid fa-dollar-sign mr-2"></i>Deals
               </button>
               <button
-                className={`tab-btn pb-4 px-1 font-medium text-sm ${activeTab === 'jobs' ? 'tab-active' : 'text-gray-500 hover:text-gray-700'}`}
+                className={`pb-4 px-1 font-semibold text-sm border-b-2 ${activeTab === 'jobs' ? 'text-purple-700 border-purple-600' : 'text-gray-500 hover:text-gray-700 border-transparent hover:border-gray-300'}`}
                 onClick={() => setActiveTab('jobs')}
                 data-tab="jobs"
               >
                 <i className="fa-solid fa-briefcase mr-2"></i>Jobs
               </button>
               <button
-                className={`tab-btn pb-4 px-1 font-medium text-sm ${activeTab === 'outreach' ? 'tab-active' : 'text-gray-500 hover:text-gray-700'}`}
+                className={`pb-4 px-1 font-semibold text-sm border-b-2 ${activeTab === 'outreach' ? 'text-purple-700 border-purple-600' : 'text-gray-500 hover:text-gray-700 border-transparent hover:border-gray-300'}`}
                 onClick={() => setActiveTab('outreach')}
                 data-tab="outreach"
               >
                 <i className="fa-solid fa-paper-plane mr-2"></i>Outreach
               </button>
               <button
-                className={`tab-btn pb-4 px-1 font-medium text-sm ${activeTab === 'rex' ? 'tab-active text-purple-600' : 'text-purple-600 hover:text-purple-700'}`}
+                className={`pb-4 px-1 font-semibold text-sm border-b-2 ${activeTab === 'rex' ? 'text-purple-700 border-purple-600' : 'text-purple-600 hover:text-purple-700 border-transparent hover:border-purple-300'}`}
                 onClick={() => setActiveTab('rex')}
                 data-tab="rex"
               >
