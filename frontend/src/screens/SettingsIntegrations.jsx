@@ -8,7 +8,7 @@ import { usePlan } from '../context/PlanContext';
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL;
 
-function ZapierModalFrame({ onClose, apiKey }) {
+export function ZapierModalFrame({ onClose, apiKey }) {
   const iframeRef = useRef(null);
   const keyText = apiKey || '66879c7f-a888-410a-9a86-2ff77388c8ce';
   const srcDoc = `<!DOCTYPE html>
