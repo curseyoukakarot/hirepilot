@@ -276,14 +276,68 @@ export default async function handler(req: any, res: any) {
         break;
       }
       case 'pipeline-velocity': {
-        const { data: rows } = await supabase
-          .from('jobs')
-          .select('created_at,updated_at,status')
-          .eq('user_id', user.id)
-          .limit(500);
-        const stages = ['Applied','Screen','Interview','Offer','Hired'];
-        const vals = stages.map(()=>Math.floor(Math.random()*8)+2); // placeholder if durations unknown
-        data = stages.map((s,i)=>({ stage:s, days: vals[i] }));
+        // Average days per stage based on stage history
+        const stageOrder = ['Applied','Screen','Interview','Offer','Hired'];
+        const normalize = (s: string) => {
+          const t = String(s || '');
+          if (/screened?/i.test(t)) return 'Screen';
+          if (/interview/i.test(t)) return 'Interview';
+          if (/offer/i.test(t)) return 'Offer';
+          if (/hired/i.test(t)) return 'Hired';
+          return 'Applied';
+        };
+
+        // Scope opportunities by owner
+        const { data: opps } = await supabase
+          .from('opportunities')
+          .select('id,owner_id')
+          .eq('owner_id', user.id);
+        const oppIds = (opps||[]).map((o:any)=>o.id);
+
+        async function tryHistory(table: string, stageCol: string, tsCol: string, oppCol: string) {
+          try {
+            const { data: rows, error } = await supabase
+              .from(table)
+              .select(`${oppCol},${stageCol},${tsCol}`)
+              .in(oppCol, oppIds.length ? oppIds : ['00000000-0000-0000-0000-000000000000'])
+              .order(tsCol as any, { ascending: true } as any);
+            if (error) return null;
+            return rows || [];
+          } catch { return null; }
+        }
+
+        let history: any[] | null = null;
+        history = history || await tryHistory('opportunity_stage_history', 'stage', 'changed_at', 'opportunity_id');
+        history = history || await tryHistory('opportunity_stage_events', 'stage', 'changed_at', 'opportunity_id');
+        history = history || await tryHistory('opportunity_stages_history', 'stage', 'changed_at', 'opportunity_id');
+
+        if (history && history.length) {
+          // Group by opportunity, compute durations between consecutive stage timestamps
+          const byOpp = new Map<string, Array<{ stage: string; ts: number }>>();
+          for (const r of history) {
+            const opp = String((r as any).opportunity_id || (r as any).opportunity || (r as any).opp_id || '');
+            const stage = normalize((r as any).stage);
+            const ts = new Date((r as any).changed_at || (r as any).created_at || (r as any).updated_at || new Date()).getTime();
+            const arr = byOpp.get(opp) || [];
+            arr.push({ stage, ts });
+            byOpp.set(opp, arr);
+          }
+          const sums: Record<string, number> = { Applied:0, Screen:0, Interview:0, Offer:0, Hired:0 };
+          const counts: Record<string, number> = { Applied:0, Screen:0, Interview:0, Offer:0, Hired:0 };
+          for (const [, arr] of byOpp) {
+            arr.sort((a,b)=>a.ts-b.ts);
+            for (let i=0; i<arr.length-1; i++) {
+              const cur = arr[i];
+              const next = arr[i+1];
+              const days = Math.max(0, (next.ts - cur.ts) / (24*3600*1000));
+              if (cur.stage in sums) { sums[cur.stage]+=days; counts[cur.stage]++; }
+            }
+          }
+          data = stageOrder.map((st)=>({ stage: st, days: counts[st] ? Math.round((sums[st]/counts[st])*10)/10 : 0 }));
+        } else {
+          // Fallback: zeros to avoid misleading random values
+          data = stageOrder.map((s)=>({ stage:s, days: 0 }));
+        }
         break;
       }
       case 'candidate-flow': {

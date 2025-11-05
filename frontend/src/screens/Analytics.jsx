@@ -90,7 +90,7 @@ export default function Analytics() {
           setModalData([]);
         } else if (wtype === 'deal-pipeline') {
           // Fetch directly from Supabase to avoid SPA HTML from /api/widgets on Vercel
-          const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user } } = await supabase.auth.getUser();
           if (!user) { setModalData([{ pipelineValue:0,bestCaseValue:0,commitValue:0,closedWonValue:0,pipelineDeals:0,bestCaseDeals:0,commitDeals:0,closedWonDeals:0,totalActiveDeals:0,totalValue:0 }]); return; }
           const { data: me } = await supabase.from('users').select('role, team_id').eq('id', user.id).maybeSingle();
           const role = String((me||{}).role || '').toLowerCase();
@@ -103,9 +103,9 @@ export default function Analytics() {
               const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', teamId);
               const ids = (teamUsers || []).map((u)=>u.id);
               base = base.in('owner_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
-            } else {
+        } else {
               base = base.eq('owner_id', user.id);
-            }
+      }
           }
           const { data: opps } = await base;
           const stageOf = (o) => {
@@ -152,7 +152,7 @@ export default function Analytics() {
         if (user?.id) {
           const { data: row } = await supabase.from('user_dashboards').select('layout').eq('user_id', user.id).maybeSingle();
           existingLayout = Array.isArray(row?.layout) ? row.layout : [];
-        }
+      }
       } catch {}
       const already = existingLayout.some(w => (w.widget_id || w) === widgetName);
       const layout = already ? existingLayout : [...existingLayout, { widget_id: widgetName, position: { x: 0, y: 0 }, config: {} }].slice(0,6);
@@ -204,8 +204,8 @@ export default function Analytics() {
           const ctx = document.getElementById('chart-reply');
           if (ctx) {
             chartInstancesRef.current.reply = new Chart(ctx, {
-              type: 'line',
-              data: {
+        type: 'line',
+        data: {
                 labels: (modalData||[{period:'Week 1'},{period:'Week 2'},{period:'Week 3'},{period:'Week 4'}]).map(d=>d.period||''),
                 datasets: [{ label: 'Reply Rate %', data: (modalData||[]).map(d=>d.replyRate||0), borderColor: '#6B46C1', backgroundColor: 'rgba(107,70,193,0.1)', borderWidth: 3, fill: true, tension: 0.4, pointBackgroundColor: '#6B46C1', pointBorderColor: '#ffffff', pointBorderWidth: 2, pointRadius: 6 }]
               },
@@ -318,7 +318,7 @@ export default function Analytics() {
         { label: 'Actual', data: actual, borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,0.10)', borderWidth: 3, fill: true, tension: 0.35 },
         { label: 'Projected', data: projected, borderColor: '#6B46C1', backgroundColor: 'rgba(107,70,193,0.08)', borderWidth: 3, fill: true, tension: 0.35, borderDash: [6,4] }
       ];
-    } else {
+        } else {
       inst.data.datasets[0].data = actual;
       inst.data.datasets[1].data = projected;
     }
@@ -331,11 +331,11 @@ export default function Analytics() {
         <div>
           <h2 className="text-2xl font-bold text-purple-900">Deal Pipeline</h2>
           <p className="text-gray-600 mt-1">Explore Your Data—Filter, Export, Add to Dashboard</p>
-        </div>
+            </div>
         <button onClick={() => setIsModalOpen(false)} className="text-gray-500 hover:text-purple-600 transition-all duration-300 hover:rotate-90">
           <i className="fas fa-times text-xl"></i>
         </button>
-      </div>
+          </div>
 
       <div id="deals-filters" className="p-6 border-b border-gray-100">
         <div className="flex flex-wrap gap-4">
@@ -355,7 +355,7 @@ export default function Analytics() {
               <input type="radio" name="sort" value="date" className="text-purple-600" />
               <span className="text-sm">Date</span>
             </label>
-          </div>
+        </div>
           <button className="bg-purple-600 text-white hover:bg-purple-700 rounded-md px-4 py-2 transition-colors">Apply</button>
         </div>
       </div>
@@ -368,9 +368,9 @@ export default function Analytics() {
                 <h3 className="text-lg font-semibold text-blue-800">Pipeline</h3>
                 <div className="text-3xl font-bold text-blue-900 mt-2">${(modalData?.[0]?.pipelineValue||0).toLocaleString()}</div>
                 <div className="text-blue-700 text-sm">{modalData?.[0]?.pipelineDeals||0} deals</div>
-              </div>
+          </div>
               <i className="fas fa-funnel text-blue-600 text-xl"></i>
-            </div>
+          </div>
             <div className="opacity-0 group-hover:opacity-100 transition-opacity mt-2 text-xs text-blue-800">Top deal: Enterprise Exec $20K</div>
           </div>
 
@@ -380,11 +380,11 @@ export default function Analytics() {
                 <h3 className="text-lg font-semibold text-purple-800">Best Case</h3>
                 <div className="text-3xl font-bold text-purple-900 mt-2">${(modalData?.[0]?.bestCaseValue||0).toLocaleString()}</div>
                 <div className="text-purple-700 text-sm">{modalData?.[0]?.bestCaseDeals||0} deals</div>
-              </div>
-              <i className="fas fa-star text-purple-600 text-xl"></i>
-            </div>
-            <div className="opacity-0 group-hover:opacity-100 transition-opacity mt-2 text-xs text-purple-800">Avg deal size: $4K</div>
           </div>
+              <i className="fas fa-star text-purple-600 text-xl"></i>
+          </div>
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity mt-2 text-xs text-purple-800">Avg deal size: $4K</div>
+        </div>
 
           <div className="bg-yellow-100 rounded-lg p-6 hover:scale-105 transition-transform cursor-pointer group">
             <div className="flex justify-between items-start">
@@ -396,7 +396,7 @@ export default function Analytics() {
               <i className="fas fa-handshake text-yellow-600 text-xl"></i>
             </div>
             <div className="opacity-0 group-hover:opacity-100 transition-opacity mt-2 text-xs text-yellow-800">Close rate: 85%</div>
-          </div>
+        </div>
 
           <div className="bg-green-100 rounded-lg p-6 hover:scale-105 transition-transform cursor-pointer group">
             <div className="flex justify-between items-start">
@@ -457,7 +457,7 @@ export default function Analytics() {
             <option>BDD-Milwaukee</option>
             <option>Frontend-Remote</option>
             <option>Backend-NYC</option>
-          </select>
+              </select>
           <input type="text" placeholder="Last 30 Days" className="border border-purple-300 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 rounded-md p-2" />
           <button className="bg-purple-600 text-white hover:bg-purple-700 rounded-md px-4 py-2 transition-colors">Apply</button>
         </div>
@@ -502,7 +502,7 @@ export default function Analytics() {
         <div className="relative">
           <button onClick={() => setShowExportMenu((s) => !s)} className="bg-gray-600 text-white hover:bg-gray-700 rounded-md px-4 py-2 transition-colors">
             <i className="fas fa-download mr-2"></i>Export
-          </button>
+                </button>
         </div>
       </div>
     </div>
@@ -517,8 +517,8 @@ export default function Analytics() {
         </div>
         <button onClick={() => setIsModalOpen(false)} className="text-gray-500 hover:text-purple-600 transition-all duration-300 hover:rotate-90">
           <i className="fas fa-times text-xl"></i>
-        </button>
-      </div>
+                </button>
+              </div>
 
       <div id="outreach-filters" className="p-6 border-b border-gray-100">
         <div className="flex flex-wrap gap-4">
@@ -528,14 +528,14 @@ export default function Analytics() {
               <option>Template A</option>
               <option>Template B</option>
               <option>Custom Template</option>
-            </select>
+          </select>
           )}
           {modalWidget === 'Reply Rate Chart' || modalWidget === 'Open Rate Widget' ? (
             <select value={replyRange} onChange={(e)=>setReplyRange(e.target.value)} className="border border-purple-300 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 rounded-md p-2">
               <option value="30d">Last 30 Days</option>
               <option value="90d">Last 90 Days</option>
               <option value="6m">Last 6 Months</option>
-            </select>
+              </select>
           ) : (
             <input type="text" placeholder="Last 30 Days" className="border border-purple-300 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 rounded-md p-2" />
           )}
@@ -545,7 +545,7 @@ export default function Analytics() {
 
       <div id="outreach-body" className="p-6">
         {modalWidget === 'Reply Rate Chart' && (
-          <>
+            <>
             <div className="bg-white p-6 rounded-lg border">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold text-gray-800">Reply Rate Trend</h3>
@@ -561,8 +561,8 @@ export default function Analytics() {
               <div className="bg-blue-50 p-4 rounded-lg text-center"><div className="text-2xl font-bold text-blue-900">{(replySummary.openRate||0).toFixed(1)}%</div><div className="text-sm text-blue-700">Open Rate</div></div>
               <div className="bg-green-50 p-4 rounded-lg text-center"><div className="text-2xl font-bold text-green-900">{(replySummary.totalSent||0).toLocaleString('en-US')}</div><div className="text-sm text-green-700">Total Sent</div></div>
             </div>
-          </>
-        )}
+            </>
+          )}
 
         {modalWidget === 'Open Rate Widget' && (
           <div className="bg-white p-6 rounded-lg border">
@@ -571,10 +571,10 @@ export default function Analytics() {
               <div className="flex items-center text-blue-600">
                 <i className="fas fa-arrow-up mr-1"></i>
                 <span className="font-semibold">+1.8%</span>
-              </div>
-            </div>
+                </div>
+                </div>
             <canvas id="chart-openrate" width="400" height="200"></canvas>
-          </div>
+              </div>
         )}
 
         {modalWidget === 'Conversion Trends' && (
@@ -584,10 +584,10 @@ export default function Analytics() {
               <div className="flex items-center text-green-600">
                 <i className="fas fa-arrow-up mr-1"></i>
                 <span className="font-semibold">+0.6%</span>
-              </div>
-            </div>
-            <canvas id="chart-conversion" width="400" height="200"></canvas>
           </div>
+                </div>
+            <canvas id="chart-conversion" width="400" height="200"></canvas>
+                </div>
         )}
 
         {modalWidget === 'Activity Overview' && (
@@ -602,7 +602,7 @@ export default function Analytics() {
             <canvas id="chart-activity" width="400" height="200"></canvas>
           </div>
         )}
-      </div>
+            </div>
 
       <div id="outreach-footer" className="p-6 border-t border-gray-200 flex justify-end gap-4">
         <button className="border border-purple-600 text-purple-600 hover:bg-purple-50 rounded-md px-4 py-2 transition-colors">Go to Source</button>
@@ -611,7 +611,7 @@ export default function Analytics() {
           <button onClick={() => setShowExportMenu((s) => !s)} className="bg-gray-600 text-white hover:bg-gray-700 rounded-md px-4 py-2 transition-colors">
             <i className="fas fa-download mr-2"></i>Export
           </button>
-        </div>
+          </div>
       </div>
     </div>
   );
@@ -832,6 +832,18 @@ export default function Analytics() {
     try { inst.update(); } catch {}
   }, [modalData, isModalOpen, modalWidget]);
 
+  // Pipeline Velocity – update chart when data arrives
+  useEffect(() => {
+    if (!(isModalOpen && modalWidget === 'Pipeline Velocity')) return;
+    const inst = (chartInstancesRef.current || {}).velocity;
+    if (!inst || !Array.isArray(modalData)) return;
+    const labels = (modalData || []).map((d)=>String((d && d.stage) || ''));
+    const vals = (modalData || []).map((d)=>Number((d && d.days) || 0));
+    inst.data.labels = labels;
+    if (inst.data.datasets && inst.data.datasets[0]) inst.data.datasets[0].data = vals;
+    try { inst.update(); } catch {}
+  }, [modalData, isModalOpen, modalWidget]);
+
   // Reply Rate Chart – fetch performance summary for tiles
   useEffect(() => {
     const loadReplySummary = async () => {
@@ -969,7 +981,7 @@ export default function Analytics() {
         <div>
           <h2 className="text-2xl font-bold text-purple-900">Revenue Forecast</h2>
           <p className="text-gray-600 mt-1">Projected revenue based on pipeline and historical close rates</p>
-        </div>
+            </div>
         <button onClick={() => setIsModalOpen(false)} className="text-gray-500 hover:text-purple-600 transition-all duration-300 hover:rotate-90"><i className="fas fa-times text-xl"></i></button>
       </div>
       <div className="p-6">
@@ -1151,15 +1163,15 @@ export default function Analytics() {
       </div>
       <div className="p-6 overflow-x-auto">
         <table className="min-w-full bg-white rounded-lg overflow-hidden">
-          <thead className="bg-gray-50">
-            <tr>
+                <thead className="bg-gray-50">
+                  <tr>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Owner</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Sent</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Opens</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Replies</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Hires</th>
-            </tr>
-          </thead>
+                  </tr>
+                </thead>
           <tbody className="divide-y">
             {[
               { name: 'Sarah Johnson', sent: 420, opens: 330, replies: 88, hires: 6 },
@@ -1172,15 +1184,15 @@ export default function Analytics() {
                 <td className="px-4 py-2">{r.opens}</td>
                 <td className="px-4 py-2">{r.replies}</td>
                 <td className="px-4 py-2">{r.hires}</td>
-              </tr>
+                      </tr>
             ))}
-          </tbody>
-        </table>
-      </div>
+                </tbody>
+              </table>
+            </div>
       <div className="p-6 border-t border-gray-200 flex justify-end gap-4">
         <button className="border border-purple-600 text-purple-600 hover:bg-purple-50 rounded-md px-4 py-2 transition-colors">Go to Source</button>
         <button onClick={() => addWidgetToDashboard('Team Performance')} className="bg-purple-600 text-white hover:bg-purple-700 rounded-md px-4 py-2 transition-colors">Add to Dashboard</button>
-      </div>
+        </div>
     </div>
   );
 
@@ -1188,21 +1200,21 @@ export default function Analytics() {
     <div className="bg-gray-50 min-h-screen">
       <main id="main-content" className="flex-1 flex flex-col overflow-hidden">
         <header id="header" className="bg-white border-b border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
+            <div className="flex items-center justify-between">
+                          <div>
               <h1 className="text-3xl font-bold text-gray-900">Analytics & Widgets</h1>
               <p className="text-gray-600 mt-1">Browse and add insights to your dashboard</p>
               <p className="text-purple-600 text-sm mt-2 font-medium">Unlock insights with widgets—customize or let REX build for you!</p>
-            </div>
+                          </div>
             <div className="flex items-center space-x-4">
               <div className="relative">
                 <input type="text" placeholder="Search widgets..." className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" />
                 <i className="fa-solid fa-search absolute left-3 top-3 text-gray-400"></i>
-              </div>
+                        </div>
               <button className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors">
                 <i className="fa-solid fa-plus mr-2"></i>Create Custom
               </button>
-            </div>
+          </div>
           </div>
         </header>
 
@@ -1238,7 +1250,7 @@ export default function Analytics() {
                 <i className="fa-solid fa-robot mr-2"></i>REX Templates
               </button>
             </nav>
-          </div>
+            </div>
 
           <div id="widgets-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {widgets.map((widget) => (
@@ -1297,4 +1309,4 @@ export default function Analytics() {
       )}
     </div>
   );
-}
+} 
