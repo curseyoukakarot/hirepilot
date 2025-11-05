@@ -189,10 +189,49 @@ export default function Dashboard() {
       }
       if (customWidgets.includes('Engagement Breakdown')) {
         try {
-          const r = await fetchWithAuth('/api/widgets/engagement');
-          const j = r.ok ? await r.json() : { data: [] };
-          setEngagement(Array.isArray(j.data) ? j.data : null);
-        } catch {}
+          const fromProcess = (typeof process !== 'undefined' && process.env) ? (process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL) : '';
+          const fromVite = (typeof import.meta !== 'undefined' && import.meta.env) ? (import.meta.env.VITE_BACKEND_URL) : '';
+          const fromWindow = (typeof window !== 'undefined' && window.__BACKEND_URL__) ? window.__BACKEND_URL__ : '';
+          const base = String(fromProcess || fromVite || fromWindow || '').replace(/\/$/, '');
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token;
+          const uid = session?.user?.id || '';
+          const hdrs = token ? { Authorization: `Bearer ${token}` } : {};
+          let payload = null;
+          if (base) {
+            const r = await fetch(`${base}/api/campaigns/all/performance?user_id=${encodeURIComponent(uid)}`, { headers: hdrs });
+            const ct = r.headers?.get?.('content-type') || '';
+            if (r.ok && ct.includes('application/json')) {
+              const p = await r.json();
+              const sent = Number(p.sent||0);
+              const opens = Number(p.opens||0);
+              const replies = Number(p.replies||0);
+              const conversions = Number(p.conversions||0);
+              const openPct = sent ? (opens/sent)*100 : 0;
+              const replyPct = sent ? (replies/sent)*100 : 0;
+              const bouncePct = sent ? (Math.max(0, sent - opens)/sent)*100 : 0;
+              const clickPct = sent ? (conversions/sent)*100 : 0;
+              payload = [
+                { metric: 'open', pct: Math.round(openPct*10)/10 },
+                { metric: 'reply', pct: Math.round(replyPct*10)/10 },
+                { metric: 'bounce', pct: Math.round(bouncePct*10)/10 },
+                { metric: 'click', pct: Math.round(clickPct*10)/10 },
+              ];
+            }
+          }
+          if (!payload) {
+            const { data: rows } = await supabase
+              .from('email_events')
+              .select('event_type,event_timestamp')
+              .eq('user_id', uid)
+              .gte('event_timestamp', new Date(Date.now() - 30*24*3600*1000).toISOString());
+            const agg = { open:0, reply:0, bounce:0, click:0 };
+            (rows||[]).forEach(r=>{ const ev = r && r.event_type; if (ev && (ev in agg)) agg[ev] = (agg[ev]||0)+1; });
+            const total = Object.values(agg).reduce((a,b)=>a+b,0)||1;
+            payload = Object.entries(agg).map(([k,v])=>({ metric:k, pct: Math.round(((v/total)*1000))/10 }));
+          }
+          setEngagement(payload);
+        } catch { setEngagement([{metric:'open',pct:0},{metric:'reply',pct:0},{metric:'bounce',pct:0},{metric:'click',pct:0}]); }
       }
       if (customWidgets.includes('Reply Rate Chart')) {
         try {
