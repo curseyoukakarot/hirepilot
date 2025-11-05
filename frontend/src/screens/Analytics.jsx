@@ -549,9 +549,9 @@ export default function Analytics() {
               <canvas id="chart-reply" width="400" height="200"></canvas>
             </div>
             <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-purple-50 p-4 rounded-lg text-center"><div className="text-2xl font-bold text-purple-900">54.5%</div><div className="text-sm text-purple-700">Average Reply Rate</div></div>
-              <div className="bg-blue-50 p-4 rounded-lg text-center"><div className="text-2xl font-bold text-blue-900">78.2%</div><div className="text-sm text-blue-700">Open Rate</div></div>
-              <div className="bg-green-50 p-4 rounded-lg text-center"><div className="text-2xl font-bold text-green-900">1,247</div><div className="text-sm text-green-700">Total Sent</div></div>
+              <div className="bg-purple-50 p-4 rounded-lg text-center"><div className="text-2xl font-bold text-purple-900">{(replySummary.avgReplyRate||0).toFixed(1)}%</div><div className="text-sm text-purple-700">Average Reply Rate</div></div>
+              <div className="bg-blue-50 p-4 rounded-lg text-center"><div className="text-2xl font-bold text-blue-900">{(replySummary.openRate||0).toFixed(1)}%</div><div className="text-sm text-blue-700">Open Rate</div></div>
+              <div className="bg-green-50 p-4 rounded-lg text-center"><div className="text-2xl font-bold text-green-900">{(replySummary.totalSent||0).toLocaleString('en-US')}</div><div className="text-sm text-green-700">Total Sent</div></div>
             </div>
           </>
         )}
@@ -612,6 +612,7 @@ export default function Analytics() {
   const [revenueMode, setRevenueMode] = useState('paid'); // 'paid'|'closewon'|'blended'
   const [revenueHorizon, setRevenueHorizon] = useState('eoy'); // 'eoy'|'12m'
   const [revenueSummary, setRevenueSummary] = useState({ nextMonth: 0, quarter: 0, ytd: 0 });
+  const [replySummary, setReplySummary] = useState({ avgReplyRate: 0, openRate: 0, totalSent: 0 });
 
   useEffect(() => {
     const refetch = async () => {
@@ -767,6 +768,35 @@ export default function Analytics() {
     if (inst.data.datasets && inst.data.datasets[0]) inst.data.datasets[0].data = vals;
     try { inst.update(); } catch {}
   }, [modalData, isModalOpen, modalWidget]);
+
+  // Reply Rate Chart – fetch performance summary for tiles
+  useEffect(() => {
+    const loadReplySummary = async () => {
+      if (!(isModalOpen && modalWidget === 'Reply Rate Chart')) return;
+      try {
+        const fromProcess = (typeof process !== 'undefined' && process.env) ? (process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL) : '';
+        const fromVite = (typeof import.meta !== 'undefined' && import.meta.env) ? (import.meta.env.VITE_BACKEND_URL) : '';
+        const fromWindow = (typeof window !== 'undefined' && window.__BACKEND_URL__) ? window.__BACKEND_URL__ : '';
+        const base = String(fromProcess || fromVite || fromWindow || '').replace(/\/$/, '');
+        if (!base) return;
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        const uid = session?.user?.id || '';
+        const hdrs = token ? { Authorization: `Bearer ${token}` } : {};
+        const r = await fetch(`${base}/api/campaigns/all/performance?user_id=${encodeURIComponent(uid)}`, { headers: hdrs });
+        const ct = r.headers?.get?.('content-type') || '';
+        if (!r.ok || !ct.includes('application/json')) return;
+        const p = await r.json();
+        const sent = Number(p.sent||0);
+        const opens = Number(p.opens||0);
+        const replies = Number(p.replies||0);
+        const avgReplyRate = sent ? (replies/sent)*100 : 0;
+        const openRate = sent ? (opens/sent)*100 : 0;
+        setReplySummary({ avgReplyRate, openRate, totalSent: sent });
+      } catch {}
+    };
+    loadReplySummary();
+  }, [isModalOpen, modalWidget]);
   // Deal Pipeline modal data loader – avoid /api/widgets route to prevent HTML responses
   useEffect(() => {
     const loadDealPipeline = async () => {

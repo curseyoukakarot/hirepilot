@@ -18,18 +18,19 @@ export default async function handler(req: any, res: any) {
 
     switch (type) {
       case 'reply-rate': {
-        // Aggregate reply rate by week from email_events
+        // Aggregate reply rate by week from email_events (use correct timestamp column)
         const { data: rows } = await supabase
           .from('email_events')
-          .select('timestamp,event_type')
+          .select('event_timestamp,event_type')
           .eq('user_id', user.id)
-          .gte('timestamp', new Date(Date.now() - 30*24*3600*1000).toISOString());
+          .gte('event_timestamp', new Date(Date.now() - 30*24*3600*1000).toISOString());
         // Lightweight in-API aggregation (fallback if SQL UDFs not present)
         const buckets = ['Week 1','Week 2','Week 3','Week 4'];
         const counts = [0,0,0,0];
         const sent: number[] = [0,0,0,0];
         (rows||[]).forEach(r => {
-          const idx = Math.min(3, Math.floor(((Date.now() - new Date(r.timestamp).getTime())/(7*24*3600*1000))));
+          const ts = (r as any).event_timestamp;
+          const idx = Math.min(3, Math.floor(((Date.now() - new Date(ts).getTime())/(7*24*3600*1000))));
           if (idx>=0) {
             if (r.event_type==='reply') counts[3-idx]++; else if (r.event_type==='sent') sent[3-idx]++;
           }
