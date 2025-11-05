@@ -153,7 +153,7 @@ export default async function handler(req: any, res: any) {
               .from('opportunities')
               .select('created_at,stage,value,owner_id')
               .eq('owner_id', user.id)
-              .eq('stage', 'Close Won');
+              .in('stage', ['Close Won','Closed Won','Won']);
             (opps||[]).forEach((o:any) => {
               const d = new Date(o.created_at || now);
               const k = keyFor(new Date(d.getFullYear(), d.getMonth(), 1));

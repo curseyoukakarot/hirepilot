@@ -277,7 +277,7 @@ export default function DealsPage() {
             .from('opportunities')
             .select('created_at,stage,value,owner_id')
             .eq('owner_id', user.id)
-            .eq('stage', 'Close Won');
+            .in('stage', ['Close Won','Closed Won','Won']);
           const now = new Date();
           const keyFor = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
           const months12: Array<{ month: string; revenue: number; projected?: boolean }> = [];
@@ -1047,7 +1047,20 @@ export default function DealsPage() {
                 <div className="bg-white rounded-2xl p-5 shadow-sm border">
                   <h2 className="text-sm text-gray-500">Total Revenue</h2>
                   <p className="text-2xl font-semibold mt-1 text-green-600">{(() => {
-                    if (revSource==='closewon') return (revMonthlyCloseWon.reduce((s,r)=>s+(Number(r.revenue)||0),0)).toLocaleString('en-US',{style:'currency',currency:'USD'});
+                    if (revSource==='closewon') {
+                      // Respect selected time range for the card as well
+                      const now = new Date();
+                      let start: Date;
+                      if (revMonthlyRange==='ytd') start = new Date(now.getFullYear(),0,1);
+                      else {
+                        const monthsBack = revMonthlyRange==='90d' ? 3 : revMonthlyRange==='6m' ? 6 : 12;
+                        start = new Date(now.getFullYear(), now.getMonth()-monthsBack+1, 1);
+                      }
+                      const parseMonth = (s: string) => { const [y,m]=String(s).split('-'); return new Date(Number(y), Number(m)-1, 1); };
+                      const filtered = (revMonthlyCloseWon||[]).filter(r=>parseMonth(r.month)>=start);
+                      const sum = filtered.reduce((s,r)=>s+(Number(r.revenue)||0),0);
+                      return sum.toLocaleString('en-US',{style:'currency',currency:'USD'});
+                    }
                     return (revSummary?.total_paid||0).toLocaleString('en-US', { style:'currency', currency:'USD' });
                   })()}</p>
                 </div>
