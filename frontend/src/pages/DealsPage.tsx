@@ -269,6 +269,31 @@ export default function DealsPage() {
         }
         cwSeries = months12;
       }
+      if (!cwSeries.length) {
+        // Final fallback: query Supabase directly with RLS to compute Close Won
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id) {
+          const { data: opps2 } = await supabase
+            .from('opportunities')
+            .select('created_at,stage,value,owner_id')
+            .eq('owner_id', user.id)
+            .eq('stage', 'Close Won');
+          const now = new Date();
+          const keyFor = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+          const months12: Array<{ month: string; revenue: number; projected?: boolean }> = [];
+          for (let i=11; i>=0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+            months12.push({ month: keyFor(d), revenue: 0 });
+          }
+          (opps2||[]).forEach((o:any)=>{
+            const d = new Date(o.created_at || now);
+            const k = keyFor(new Date(d.getFullYear(), d.getMonth(), 1));
+            const b = months12.find(m=>m.month===k);
+            if (b) b.revenue += Number(o.value)||0;
+          });
+          cwSeries = months12;
+        }
+      }
       setRevMonthlyCloseWon(cwSeries);
       const rfPaid = rfPaidRes.ok ? await rfPaidRes.json() : { data: [] };
       setRevMonthlyPaidOut(Array.isArray(rfPaid.data) ? rfPaid.data : []);
