@@ -514,19 +514,77 @@ export default function Analytics() {
   // Revenue Forecast (Deals) - line chart
   const [revenueMode, setRevenueMode] = useState('paid'); // 'paid'|'closewon'|'blended'
   const [revenueHorizon, setRevenueHorizon] = useState('eoy'); // 'eoy'|'12m'
+  const [revenueSummary, setRevenueSummary] = useState({ nextMonth: 0, quarter: 0, ytd: 0 });
 
   useEffect(() => {
     const refetch = async () => {
-      if (isModalOpen && modalWidget === 'Revenue Forecast') {
-        try {
-          const r = await apiFetch(`/api/widgets/revenue-forecast?mode=${encodeURIComponent(revenueMode)}&horizon=${encodeURIComponent(revenueHorizon)}`);
+      if (!(isModalOpen && modalWidget === 'Revenue Forecast')) return;
+      const base = (import.meta?.env?.VITE_BACKEND_URL || process.env.VITE_BACKEND_URL || '').replace(/\/$/, '');
+      const toMonthKey = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      const now = new Date();
+
+      try {
+        // Helper to compute summary metrics
+        const computeSummary = (combined) => {
+          const idx = new Map(combined.map((r) => [r.month, r]));
+          const nm = new Date(now.getFullYear(), now.getMonth()+1, 1);
+          const q2 = new Date(now.getFullYear(), now.getMonth()+2, 1);
+          const q3 = new Date(now.getFullYear(), now.getMonth()+3, 1);
+          const keys = [toMonthKey(nm), toMonthKey(q2), toMonthKey(q3)];
+          const nextMonth = (idx.get(keys[0])?.revenue || 0);
+          const quarter = keys.reduce((s,k)=> s + (idx.get(k)?.revenue || 0), 0);
+          const ytd = combined
+            .filter(r => Number(r.month.split('-')[0]) === now.getFullYear() && Number(r.month.split('-')[1]) <= (now.getMonth()+1) && !r.projected)
+            .reduce((s,r)=> s + (r.revenue||0), 0);
+          return { nextMonth, quarter, ytd };
+        };
+
+        const useCloseWon = async () => {
+          const [mRes, pRes] = await Promise.all([
+            apiFetch(`${base}/api/revenue/closewon-monthly?range=1y`),
+            apiFetch(`${base}/api/revenue/closewon-projected?horizon=${encodeURIComponent(revenueHorizon)}`),
+          ]);
+          const m = await mRes.json();
+          const p = await pRes.json();
+          const actual = (m.series||[]).map(r=>({ month: r.month, revenue: Number(r.revenue)||0 }));
+          const projected = (p.series||[]).filter(r=>r.projected).map(r=>({ month: r.month, revenue: Number(r.revenue)||0, projected: true }));
+          const combined = [...actual, ...projected];
+          setModalData(combined);
+          setRevenueSummary(computeSummary(combined));
+        };
+
+        if (revenueMode === 'closewon') { await useCloseWon(); return; }
+        if (revenueMode === 'blended') {
+          // Keep existing widgets endpoint for blended
+          const r = await apiFetch(`/api/widgets/revenue-forecast?mode=blended&horizon=${encodeURIComponent(revenueHorizon)}`);
           const j = await r.json();
-          setModalData(Array.isArray(j.data) ? j.data : []);
-        } catch {}
+          const arr = Array.isArray(j.data) ? j.data : [];
+          setModalData(arr);
+          setRevenueSummary(computeSummary(arr));
+          return;
+        }
+
+        // Paid mode with fallback to Close Won
+        const [paidRes, projRes] = await Promise.all([
+          apiFetch(`${base}/api/revenue/monthly`),
+          apiFetch(`${base}/api/revenue/monthly-projected`),
+        ]);
+        const paid = await paidRes.json();
+        const proj = await projRes.json();
+        const actual = (paid||[]).map(r=>({ month: r.month, revenue: Number(r.paid)||0 }));
+        const projected = (proj||[]).map(r=>({ month: r.month, revenue: Number(r.forecasted)||0, projected: true }));
+        const sumPaid = actual.reduce((s,r)=>s+(r.revenue||0),0);
+        if (sumPaid === 0) { await useCloseWon(); return; }
+        const combined = [...actual, ...projected];
+        setModalData(combined);
+        setRevenueSummary(computeSummary(combined));
+      } catch {
+        setModalData([]);
+        setRevenueSummary({ nextMonth: 0, quarter: 0, ytd: 0 });
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     refetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revenueMode, revenueHorizon, isModalOpen, modalWidget]);
 
   const renderRevenueForecast = () => (
@@ -563,9 +621,9 @@ export default function Analytics() {
           <canvas id="chart-revenue" width="400" height="220"></canvas>
         </div>
         <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-purple-50 p-4 rounded-lg text-center"><div className="text-2xl font-bold text-purple-900">$26k</div><div className="text-sm text-purple-700">Next Month</div></div>
-          <div className="bg-blue-50 p-4 rounded-lg text-center"><div className="text-2xl font-bold text-blue-900">$85k</div><div className="text-sm text-blue-700">Quarter</div></div>
-          <div className="bg-green-50 p-4 rounded-lg text-center"><div className="text-2xl font-bold text-green-900">$310k</div><div className="text-sm text-green-700">Year to Date</div></div>
+          <div className="bg-purple-50 p-4 rounded-lg text-center"><div className="text-2xl font-bold text-purple-900">{revenueSummary.nextMonth.toLocaleString('en-US',{style:'currency',currency:'USD'})}</div><div className="text-sm text-purple-700">Next Month</div></div>
+          <div className="bg-blue-50 p-4 rounded-lg text-center"><div className="text-2xl font-bold text-blue-900">{revenueSummary.quarter.toLocaleString('en-US',{style:'currency',currency:'USD'})}</div><div className="text-sm text-blue-700">Quarter</div></div>
+          <div className="bg-green-50 p-4 rounded-lg text-center"><div className="text-2xl font-bold text-green-900">{revenueSummary.ytd.toLocaleString('en-US',{style:'currency',currency:'USD'})}</div><div className="text-sm text-green-700">Year to Date</div></div>
         </div>
       </div>
       <div className="p-6 border-t border-gray-200 flex justify-end gap-4">
