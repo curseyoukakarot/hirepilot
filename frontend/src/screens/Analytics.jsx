@@ -101,14 +101,18 @@ export default function Analytics() {
 
   const addWidgetToDashboard = async (widgetName) => {
     try {
-      // Load server layout and upsert
+      // Prefer direct Supabase save to avoid 405 on deployed /api routes
       let existingLayout = [];
-      try { const r = await apiFetch('/api/dashboard/layout'); const j = await r.json(); existingLayout = Array.isArray(j.layout) ? j.layout : []; } catch {}
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id) {
+          const { data: row } = await supabase.from('user_dashboards').select('layout').eq('user_id', user.id).maybeSingle();
+          existingLayout = Array.isArray(row?.layout) ? row.layout : [];
+        }
+      } catch {}
       const already = existingLayout.some(w => (w.widget_id || w) === widgetName);
       const layout = already ? existingLayout : [...existingLayout, { widget_id: widgetName, position: { x: 0, y: 0 }, config: {} }].slice(0,6);
-      const saveResp = await fetch('/api/dashboard/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ layout }) });
-      if (!saveResp.ok) {
-        // Fallback: save directly to Supabase with RLS (update-if-exists, else insert)
+      try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user?.id) {
           const { data: existing } = await supabase.from('user_dashboards').select('user_id').eq('user_id', user.id).maybeSingle();
@@ -120,6 +124,9 @@ export default function Analytics() {
             if (error) throw new Error(error.message);
           }
         }
+      } catch {
+        // Final fallback: call API route if present
+        await fetch('/api/dashboard/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ layout }) });
       }
       setIsModalOpen(false);
       navigate('/dashboard');

@@ -97,6 +97,19 @@ export default function Dashboard() {
           return;
         }
       } catch {}
+      // Supabase fallback under RLS
+      try {
+        const { data: u } = await supabase.auth.getUser();
+        const uid = u?.user?.id;
+        if (uid) {
+          const { data: row } = await supabase.from('user_dashboards').select('layout').eq('user_id', uid).maybeSingle();
+          if (row?.layout) {
+            const names = (Array.isArray(row.layout) ? row.layout : []).map(w => w.widget_id || w).slice(0,6);
+            setCustomWidgets(names);
+            return;
+          }
+        }
+      } catch {}
       const { data } = await supabase.auth.getUser();
       const key = `dashboard_widgets_${data?.user?.id || 'anon'}`;
       const localKey = 'dashboard_widgets_local';
@@ -136,10 +149,28 @@ export default function Dashboard() {
       }
       if (customWidgets.includes('Revenue Forecast')) {
         try {
-          const r = await fetchWithAuth('/api/widgets/revenue-forecast'); const j = r.ok ? await r.json() : { data: [] };
-          const labels = (j.data||[]).map(d=>d.month||''); const vals = (j.data||[]).map(d=>d.revenue||0);
+          const base = (import.meta?.env?.VITE_BACKEND_URL || '').replace(/\/$/, '');
+          const [paidRes, projRes] = await Promise.all([
+            fetch(`${base}/api/revenue/monthly`),
+            fetch(`${base}/api/revenue/monthly-projected`),
+          ]);
+          let actual = []; let projected = [];
+          if (paidRes.ok) { const paid = await paidRes.json(); actual = (paid||[]).map(r=>({ month: r.month, revenue: Number(r.paid)||0 })); }
+          if (projRes.ok) { const p = await projRes.json(); projected = (p||[]).map(r=>({ month: r.month, revenue: Number(r.forecasted)||0 })); }
+          if (!actual.length || actual.reduce((s,r)=>s+r.revenue,0)===0) {
+            // Fallback to Close Won monthly
+            const cw = await fetch(`${base}/api/revenue/closewon-monthly?range=1y`);
+            const js = cw.ok ? await cw.json() : { series: [] };
+            actual = (js.series||[]).map(r=>({ month:r.month, revenue:Number(r.revenue)||0 }));
+          }
+          const months = (actual.concat(projected)).map(r=>r.month);
+          const uniqueMonths = Array.from(new Set(months)).slice(-6); // last 6 for snapshot
+          const idx = new Map(uniqueMonths.map((m,i)=>[m,i]));
+          const valsArr = new Array(uniqueMonths.length).fill(0);
+          actual.forEach(r=>{ const i = idx.get(r.month); if (i!==undefined) valsArr[i] += r.revenue; });
+          projected.forEach(r=>{ const i = idx.get(r.month); if (i!==undefined) valsArr[i] += r.revenue; });
           const ctx = document.getElementById('dash-revenue'); if (ctx) {
-            dashChartsRef.current.revenue = new Chart(ctx, { type:'bar', data:{ labels, datasets:[{ data: vals, backgroundColor:'#3B82F6' }] }, options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ ticks:{ color:'#6b7280' } }, x:{ ticks:{ color:'#6b7280' } } }, responsive:true, maintainAspectRatio:false } });
+            dashChartsRef.current.revenue = new Chart(ctx, { type:'bar', data:{ labels: uniqueMonths, datasets:[{ data: valsArr, backgroundColor:'#3B82F6' }] }, options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ ticks:{ color:'#6b7280' } }, x:{ ticks:{ color:'#6b7280' } } }, responsive:true, maintainAspectRatio:false } });
           }
         } catch {}
       }
