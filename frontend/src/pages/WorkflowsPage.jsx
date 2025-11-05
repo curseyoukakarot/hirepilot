@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import WorkflowRecipeModal from '../components/WorkflowRecipeModal';
+import ZapierWizardModal from '../components/settings/integrations/ZapierWizardModal.jsx';
 import { AnimatePresence, motion } from 'framer-motion';
 import { INTENT_WORKFLOWS, INTENT_CATEGORY, estimateDiscoveryCredits } from '../data/intentWorkflows';
 
@@ -15,6 +16,8 @@ export default function WorkflowsPage() {
   const [integrationStatus, setIntegrationStatus] = useState({ slack:false, zapier:false, sendgrid:false, stripe:false, linkedin:false });
   const [showAddedToast, setShowAddedToast] = useState(false);
   const [isFree, setIsFree] = useState(false);
+  const [showZapierWizard, setShowZapierWizard] = useState(false);
+  const [zapierApiKey, setZapierApiKey] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -328,6 +331,41 @@ export default function WorkflowsPage() {
     setIsOpen(true);
   };
 
+  const openZapierWizard = async () => {
+    setShowZapierWizard(true);
+    try {
+      const base = import.meta.env.VITE_BACKEND_URL || '';
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch(`${base}/api/apiKeys`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (res.ok) {
+        const js = await res.json().catch(() => ({}));
+        if (typeof js?.apiKey === 'string' && js.apiKey) setZapierApiKey(js.apiKey);
+        const keys = Array.isArray(js?.keys) ? js.keys : [];
+        if (!js?.apiKey && keys.length > 0 && keys[0]?.key) setZapierApiKey(keys[0].key);
+      }
+    } catch {}
+  };
+
+  const generateZapierApiKey = async () => {
+    try {
+      const base = import.meta.env.VITE_BACKEND_URL || '';
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch(`${base}/api/apiKeys`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      });
+      const js = await res.json().catch(() => ({}));
+      if (typeof js?.apiKey === 'string' && js.apiKey) {
+        setZapierApiKey(js.apiKey);
+        setIntegrationStatus(s => ({ ...s, zapier: true }));
+      }
+    } catch {}
+  };
+
   const addWorkflow = (wf) => {
     setSavedWorkflows(prev => {
       const exists = prev.some((x) => x.title === wf.title);
@@ -447,7 +485,7 @@ export default function WorkflowsPage() {
               <img src="/zapier-icon.png" alt="Zapier" className="w-12 h-12 rounded-lg mb-3" />
               <h4 className="font-semibold text-sm">Zapier</h4>
               <span className={`text-xs mt-2 ${integrationStatus.zapier ? 'text-green-400' : 'text-red-400'}`}>{integrationStatus.zapier ? '✅ Connected' : '⚠️ Not Connected'}</span>
-              <button onClick={() => window.open('/settings/integrations#zapier', '_self')} className="mt-3 text-xs px-3 py-1 bg-slate-700 rounded-lg hover:bg-slate-600 transition">Manage</button>
+              <button onClick={openZapierWizard} className="mt-3 text-xs px-3 py-1 bg-slate-700 rounded-lg hover:bg-slate-600 transition">Manage</button>
             </div>
 
             <div className="bg-slate-900 rounded-xl p-5 flex flex-col items-center hover:bg-slate-800 transition">
@@ -622,6 +660,14 @@ export default function WorkflowsPage() {
         formula={selected?.formula || ''}
         setupSteps={selected?.setupSteps || []}
         copyZap={selected?.copyZap || ''}
+      />
+
+      <ZapierWizardModal
+        isOpen={showZapierWizard}
+        onClose={() => setShowZapierWizard(false)}
+        apiKey={zapierApiKey}
+        onApiKeyGenerated={generateZapierApiKey}
+        onWebhookSaved={() => setIntegrationStatus(s => ({ ...s, zapier: true }))}
       />
 
       <AnimatePresence>
