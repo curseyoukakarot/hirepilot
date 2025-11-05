@@ -23,6 +23,7 @@ export default function Dashboard() {
   const [rexEnabled, setRexEnabled] = useState(false);
   const [customWidgets, setCustomWidgets] = useState([]);
   const [dealPipeline, setDealPipeline] = useState(null);
+  const [engagement, setEngagement] = useState(null);
   const navigate = useNavigate();
   const { isFree } = usePlan();
 
@@ -185,6 +186,13 @@ export default function Dashboard() {
           };
           setDealPipeline(payload);
         } catch { setDealPipeline({ pipelineValue:0,bestCaseValue:0,commitValue:0,closedWonValue:0,pipelineDeals:0,bestCaseDeals:0,commitDeals:0,closedWonDeals:0 }); }
+      }
+      if (customWidgets.includes('Engagement Breakdown')) {
+        try {
+          const r = await fetchWithAuth('/api/widgets/engagement');
+          const j = r.ok ? await r.json() : { data: [] };
+          setEngagement(Array.isArray(j.data) ? j.data : null);
+        } catch {}
       }
       if (customWidgets.includes('Reply Rate Chart')) {
         try {
@@ -445,6 +453,28 @@ export default function Dashboard() {
           <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
             <select className="border rounded-md p-2 text-gray-600"><option>All Owners</option></select>
             <select className="border rounded-md p-2 text-gray-600"><option>Sort by Value</option></select>
+          </div>
+        </div>
+      )}
+      {customWidgets.includes('Engagement Breakdown') && (
+        <div className="bg-white rounded-2xl shadow-md p-6">
+          <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-semibold">Engagement Breakdown</h3><span className="text-gray-400">⚙️</span></div>
+          <div className="space-y-2 text-sm">
+            {(() => {
+              const pct = (k) => {
+                const row = (engagement||[]).find(d => String(d.metric) === k);
+                const v = Number(row && row.pct) || 0;
+                return `${Math.round(v*10)/10}%`;
+              };
+              return (
+                <>
+                  <div className="flex items-center justify-between"><span className="text-indigo-700">Opens</span><span className="font-semibold">{pct('open')}</span></div>
+                  <div className="flex items-center justify-between"><span className="text-green-700">Replies</span><span className="font-semibold">{pct('reply')}</span></div>
+                  <div className="flex items-center justify-between"><span className="text-amber-700">Bounces</span><span className="font-semibold">{pct('bounce')}</span></div>
+                  <div className="flex items-center justify-between"><span className="text-purple-700">Clicks</span><span className="font-semibold">{pct('click')}</span></div>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}
