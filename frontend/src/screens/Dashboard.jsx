@@ -235,8 +235,33 @@ export default function Dashboard() {
       }
       if (customWidgets.includes('Reply Rate Chart')) {
         try {
-          const r = await fetchWithAuth('/api/widgets/reply-rate'); const j = r.ok ? await r.json() : { data: [] };
-          const labels = (j.data||[]).map(d=>d.period||''); const vals = (j.data||[]).map(d=>d.replyRate||0);
+          let labels = []; let vals = [];
+          try {
+            const r = await fetchWithAuth('/api/widgets/reply-rate');
+            const j = r.ok ? await r.json() : { data: [] };
+            if (Array.isArray(j.data) && j.data.length) {
+              labels = j.data.map((d)=>d.period||'');
+              vals = j.data.map((d)=>d.replyRate||0);
+            }
+          } catch {}
+          if (!vals.length) {
+            // Fallback to Supabase: last 90 days weekly buckets
+            const { data: rows } = await supabase
+              .from('email_events')
+              .select('event_timestamp,event_type');
+            const bucketCount = 12; const weekMs = 7*24*3600*1000;
+            labels = Array.from({ length: bucketCount }, (_, i) => `W${i+1}`);
+            const sent = Array.from({ length: bucketCount }, () => 0);
+            const replies = Array.from({ length: bucketCount }, () => 0);
+            (rows||[]).forEach((r)=>{
+              const ts = r?.event_timestamp ? new Date(r.event_timestamp) : null; if (!ts) return;
+              const diff = Date.now() - ts.getTime();
+              const idxFromEnd = Math.min(bucketCount-1, Math.floor(diff/weekMs));
+              const bucket = bucketCount - 1 - idxFromEnd; if (bucket<0 || bucket>=bucketCount) return;
+              if (r.event_type==='sent') sent[bucket]++; else if (r.event_type==='reply') replies[bucket]++;
+            });
+            vals = sent.map((s,i)=> s ? Math.round((replies[i]/s)*1000)/10 : 0);
+          }
           const ctx = document.getElementById('dash-reply-rate'); if (ctx) {
             dashChartsRef.current.reply = new Chart(ctx, { type: 'line', data: { labels, datasets: [{ data: vals, borderColor: '#6B46C1', backgroundColor: 'rgba(107,70,193,0.08)', fill:true, tension:0.35, borderWidth:2 }] }, options: { plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ display:false } }, x:{ ticks:{ display:false } } }, responsive:true, maintainAspectRatio:false } });
           }
