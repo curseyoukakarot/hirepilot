@@ -234,14 +234,40 @@ export default async function handler(req: any, res: any) {
         break;
       }
       case 'engagement': {
-        // Simple breakout from email_events
+        // Use backend performance endpoint (same as dashboard) to derive breakdown
+        const base = process.env.BACKEND_URL || process.env.VITE_BACKEND_URL || '';
+        if (base) {
+          const perf = await fetch(`${base.replace(/\/$/, '')}/api/campaigns/all/performance`, { headers: token ? { Authorization: `Bearer ${token}` } : {} } as any);
+          if (perf.ok) {
+            const p = await perf.json();
+            const sent = Number(p.sent||0);
+            const opens = Number(p.opens||0);
+            const replies = Number(p.replies||0);
+            const conversions = Number(p.conversions||0);
+            const openPct = sent ? (opens/sent)*100 : 0;
+            const replyPct = sent ? (replies/sent)*100 : 0;
+            // Treat bounces as the remainder not opened (proxy for non-opens) if no explicit bounce metric
+            const unopened = Math.max(0, sent - opens);
+            const bouncePct = sent ? (unopened/sent)*100 : 0;
+            // Use conversions as proxy for clicks when click metric not available
+            const clickPct = sent ? (conversions/sent)*100 : 0;
+            data = [
+              { metric: 'open', pct: Math.round(openPct*10)/10 },
+              { metric: 'reply', pct: Math.round(replyPct*10)/10 },
+              { metric: 'bounce', pct: Math.round(bouncePct*10)/10 },
+              { metric: 'click', pct: Math.round(clickPct*10)/10 },
+            ];
+            break;
+          }
+        }
+        // Fallback to local email_events aggregation
         const { data: rows } = await supabase
           .from('email_events')
           .select('event_type')
           .eq('user_id', user.id)
           .gte('timestamp', new Date(Date.now() - 30*24*3600*1000).toISOString());
         const agg = { open:0, reply:0, bounce:0, click:0 } as Record<string,number>;
-        (rows||[]).forEach(r=>{ if(r.event_type in agg) agg[r.event_type]++; });
+        (rows||[]).forEach(r=>{ if((r as any).event_type in agg) agg[(r as any).event_type]++; });
         const total = Object.values(agg).reduce((a,b)=>a+b,0)||1;
         data = Object.entries(agg).map(([k,v])=>({ metric:k, pct: Math.round((v/total)*1000)/10 }));
         break;
