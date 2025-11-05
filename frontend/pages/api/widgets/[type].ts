@@ -39,28 +39,28 @@ export default async function handler(req: any, res: any) {
         break;
       }
       case 'deal-pipeline': {
-        // Aggregate opportunity values by stage
-        const { data: opps } = await supabase
-          .from('opportunities')
-          .select('stage,value,owner_id')
-          .eq('owner_id', user.id);
-        const sum = (st: string) => (opps||[]).filter(o => String(o.stage||'') === st).reduce((s,o:any)=> s + (Number(o.value)||0), 0);
-        const cnt = (st: string) => (opps||[]).filter(o => String(o.stage||'') === st).length;
-        const pipelineValue = sum('Pipeline');
-        const bestCaseValue = sum('Best Case');
-        const commitValue = sum('Commit');
-        const closedWonValue = sum('Close Won');
+        // Proxy to backend opportunity pipeline so numbers match /opportunities
+        const base = process.env.BACKEND_URL || process.env.VITE_BACKEND_URL || '';
+        if (!base) { data = []; break; }
+        const r = await fetch(`${base.replace(/\/$/, '')}/api/opportunity-pipeline`, { headers: token ? { Authorization: `Bearer ${token}` } : {} } as any);
+        const rows = r.ok ? await r.json() : [];
+        // Map to expected card summary
+        const get = (name: string) => rows.find((s:any)=>String(s.stage||'')===name) || { total: 0, items: [] };
+        const pipeline = get('Pipeline');
+        const best = get('Best Case');
+        const commit = get('Commit');
+        const won = get('Close Won') || get('Closed Won');
         data = [{
-          pipelineValue,
-          bestCaseValue,
-          commitValue,
-          closedWonValue,
-          pipelineDeals: cnt('Pipeline'),
-          bestCaseDeals: cnt('Best Case'),
-          commitDeals: cnt('Commit'),
-          closedWonDeals: cnt('Close Won'),
-          totalActiveDeals: (opps||[]).filter(o=>['Pipeline','Best Case','Commit'].includes(String(o.stage||''))).length,
-          totalValue: pipelineValue + bestCaseValue + commitValue + closedWonValue,
+          pipelineValue: Number(pipeline.total||0),
+          bestCaseValue: Number(best.total||0),
+          commitValue: Number(commit.total||0),
+          closedWonValue: Number(won.total||0),
+          pipelineDeals: (pipeline.items||[]).length,
+          bestCaseDeals: (best.items||[]).length,
+          commitDeals: (commit.items||[]).length,
+          closedWonDeals: (won.items||[]).length,
+          totalActiveDeals: ['Pipeline','Best Case','Commit'].reduce((s, k) => s + ((get(k).items||[]).length), 0),
+          totalValue: Number(pipeline.total||0) + Number(best.total||0) + Number(commit.total||0) + Number(won.total||0),
         }];
         break;
       }

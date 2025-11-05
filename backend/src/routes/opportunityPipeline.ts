@@ -60,10 +60,25 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       ? stages
       : Object.keys(defaultWeights).map((name, idx) => ({ id: `default_${idx}`, name, order_index: idx, weight_percent: defaultWeights[name] }));
 
-    // Fetch opportunities
-    const { data: opps } = await supabase
+    // Fetch opportunities with same scoping as opportunities page
+    const roleTeam = await getRoleTeam(userId);
+    const role = roleTeam.role;
+    const tId = roleTeam.team_id;
+    const isSuper = ['super_admin','superadmin'].includes(String(role||'').toLowerCase());
+    const isTeamAdmin = String(role||'').toLowerCase() === 'team_admin';
+    let base = supabase
       .from('opportunities')
       .select('id,title,value,stage,client_id,owner_id,created_at');
+    if (!isSuper) {
+      if (isTeamAdmin && tId) {
+        const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', tId);
+        const ids = (teamUsers || []).map((u: any) => u.id);
+        base = base.in('owner_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
+      } else {
+        base = base.eq('owner_id', userId);
+      }
+    }
+    const { data: opps } = await base;
 
     const clientIds = Array.from(new Set((opps || []).map((o: any) => o.client_id).filter(Boolean)));
     const [{ data: clients }] = await Promise.all([
@@ -74,9 +89,11 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     const byStage = new Map<string, any[]>();
     for (const st of stageList) byStage.set(st.name, []);
     for (const o of (opps || [])) {
-      const arr = byStage.get(o.stage) || byStage.get('Pipeline') || [];
+      const stageName = String((o as any).stage || 'Pipeline');
+      const normalized = ['Closed Won','Won'].includes(stageName) ? 'Close Won' : stageName;
+      const arr = byStage.get(normalized) || byStage.get('Pipeline') || [];
       arr.push({ ...o, client: clientMap.get(o.client_id) || null });
-      byStage.set(o.stage || 'Pipeline', arr);
+      byStage.set(normalized || 'Pipeline', arr);
     }
 
     const payload = stageList.map((st) => {
