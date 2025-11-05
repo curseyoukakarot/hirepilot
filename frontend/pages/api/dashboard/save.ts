@@ -14,11 +14,24 @@ export default async function handler(req: any, res: any) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
-    // Upsert by user
-    const { error } = await supabase
+    // Update-if-exists, else insert (table may not have a unique constraint on user_id)
+    const { data: existing } = await supabase
       .from('user_dashboards')
-      .upsert({ user_id: user.id, layout, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
-    if (error) return res.status(500).json({ error: error.message });
+      .select('user_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (existing) {
+      const { error } = await supabase
+        .from('user_dashboards')
+        .update({ layout, updated_at: new Date().toISOString() })
+        .eq('user_id', user.id);
+      if (error) return res.status(500).json({ error: error.message });
+    } else {
+      const { error } = await supabase
+        .from('user_dashboards')
+        .insert({ user_id: user.id, layout, updated_at: new Date().toISOString() });
+      if (error) return res.status(500).json({ error: error.message });
+    }
 
     return res.status(200).json({ ok: true });
   } catch (e: any) {

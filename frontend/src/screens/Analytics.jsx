@@ -108,11 +108,17 @@ export default function Analytics() {
       const layout = already ? existingLayout : [...existingLayout, { widget_id: widgetName, position: { x: 0, y: 0 }, config: {} }].slice(0,6);
       const saveResp = await fetch('/api/dashboard/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ layout }) });
       if (!saveResp.ok) {
-        // Fallback: save directly to Supabase with RLS
+        // Fallback: save directly to Supabase with RLS (update-if-exists, else insert)
         const { data: { user } } = await supabase.auth.getUser();
         if (user?.id) {
-          const { error } = await supabase.from('user_dashboards').upsert({ user_id: user.id, layout, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
-          if (error) throw new Error(error.message);
+          const { data: existing } = await supabase.from('user_dashboards').select('user_id').eq('user_id', user.id).maybeSingle();
+          if (existing) {
+            const { error } = await supabase.from('user_dashboards').update({ layout, updated_at: new Date().toISOString() }).eq('user_id', user.id);
+            if (error) throw new Error(error.message);
+          } else {
+            const { error } = await supabase.from('user_dashboards').insert({ user_id: user.id, layout, updated_at: new Date().toISOString() });
+            if (error) throw new Error(error.message);
+          }
         }
       }
       setIsModalOpen(false);
