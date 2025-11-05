@@ -7,7 +7,7 @@ export default async function handler(req: any, res: any) {
     const supabase = createSupabaseForRequest(req);
     const { type } = req.query as { type: string };
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser(token || undefined as any);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
     const qp = req.query || {};
