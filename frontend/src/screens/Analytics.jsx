@@ -709,7 +709,8 @@ export default function Analytics() {
 
         let payload = null;
         if (base) {
-          const r = await fetch(`${base}/api/campaigns/all/performance`, { headers: hdrs });
+          const uid = session?.user?.id || '';
+          const r = await fetch(`${base}/api/campaigns/all/performance?user_id=${encodeURIComponent(uid)}`, { headers: hdrs });
           const ct = r.headers?.get?.('content-type') || '';
           if (r.ok && ct.includes('application/json')) {
             const p = await r.json();
@@ -925,10 +926,21 @@ export default function Analytics() {
       <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
         <div className="bg-white p-6 rounded-lg border flex items-center justify-center"><canvas id="chart-engagement" width="260" height="260"></canvas></div>
         <div className="space-y-2">
-          <div className="flex items-center justify-between"><span className="text-indigo-700 font-medium">Opens</span><span className="text-gray-900 font-semibold">55%</span></div>
-          <div className="flex items-center justify-between"><span className="text-green-700 font-medium">Replies</span><span className="text-gray-900 font-semibold">25%</span></div>
-          <div className="flex items-center justify-between"><span className="text-amber-700 font-medium">Bounces</span><span className="text-gray-900 font-semibold">10%</span></div>
-          <div className="flex items-center justify-between"><span className="text-purple-700 font-medium">Clicks</span><span className="text-gray-900 font-semibold">10%</span></div>
+          {(() => {
+            const getPct = (k) => {
+              const row = (Array.isArray(modalData) ? modalData : []).find((d) => String(d && d.metric) === k);
+              const v = Number(row && row.pct) || 0;
+              return `${Math.round(v * 10) / 10}%`;
+            };
+            return (
+              <>
+                <div className="flex items-center justify-between"><span className="text-indigo-700 font-medium">Opens</span><span className="text-gray-900 font-semibold">{getPct('open')}</span></div>
+                <div className="flex items-center justify-between"><span className="text-green-700 font-medium">Replies</span><span className="text-gray-900 font-semibold">{getPct('reply')}</span></div>
+                <div className="flex items-center justify-between"><span className="text-amber-700 font-medium">Bounces</span><span className="text-gray-900 font-semibold">{getPct('bounce')}</span></div>
+                <div className="flex items-center justify-between"><span className="text-purple-700 font-medium">Clicks</span><span className="text-gray-900 font-semibold">{getPct('click')}</span></div>
+              </>
+            );
+          })()}
         </div>
       </div>
       <div className="p-6 border-t border-gray-200 flex justify-end gap-4">
