@@ -809,6 +809,43 @@ export default function Analytics() {
     };
     loadReplySummary();
   }, [isModalOpen, modalWidget]);
+
+  // Reply Rate Chart – compute series locally (fallback if API returns HTML)
+  useEffect(() => {
+    const loadReplySeries = async () => {
+      if (!(isModalOpen && modalWidget === 'Reply Rate Chart')) return;
+      try {
+        // Try API route first
+        try {
+          const r = await apiFetch('/api/widgets/reply-rate');
+          const j = await r.json();
+          if (Array.isArray(j.data)) { setModalData(j.data); return; }
+        } catch {}
+        // Fallback to Supabase email_events aggregation (last 4 weeks)
+        const { data: rows } = await supabase
+          .from('email_events')
+          .select('event_timestamp,event_type')
+          .gte('event_timestamp', new Date(Date.now() - 28*24*3600*1000).toISOString());
+        const labels = ['Week 1','Week 2','Week 3','Week 4'];
+        const sent = [0,0,0,0];
+        const replies = [0,0,0,0];
+        (rows||[]).forEach((r) => {
+          const ts = r && r.event_timestamp ? new Date(r.event_timestamp) : null;
+          if (!ts) return;
+          const diffDays = Math.floor((Date.now() - ts.getTime()) / (24*3600*1000));
+          const idxFromEnd = Math.min(3, Math.floor(diffDays/7));
+          const bucket = 3 - idxFromEnd; // 0..3 from oldest to newest
+          if (bucket < 0 || bucket > 3) return;
+          const et = r && r.event_type;
+          if (et === 'sent') sent[bucket]++;
+          if (et === 'reply') replies[bucket]++;
+        });
+        const series = labels.map((name, i) => ({ period: name, replyRate: sent[i] ? Math.round((replies[i]/sent[i])*1000)/10 : 0 }));
+        setModalData(series);
+      } catch { setModalData([]); }
+    };
+    loadReplySeries();
+  }, [isModalOpen, modalWidget]);
   // Deal Pipeline modal data loader – avoid /api/widgets route to prevent HTML responses
   useEffect(() => {
     const loadDealPipeline = async () => {
