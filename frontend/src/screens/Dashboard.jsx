@@ -149,17 +149,23 @@ export default function Dashboard() {
       }
       if (customWidgets.includes('Revenue Forecast')) {
         try {
-          const base = (import.meta?.env?.VITE_BACKEND_URL || '').replace(/\/$/, '');
+          const fromProcess = (typeof process !== 'undefined' && process.env) ? (process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL) : '';
+          const fromVite = (typeof import.meta !== 'undefined' && import.meta.env) ? (import.meta.env.VITE_BACKEND_URL) : '';
+          const fromWindow = (typeof window !== 'undefined' && window.__BACKEND_URL__) ? window.__BACKEND_URL__ : '';
+          const base = String(fromProcess || fromVite || fromWindow || '').replace(/\/$/, '');
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token;
+          const hdrs = token ? { Authorization: `Bearer ${token}` } : {};
           const [paidRes, projRes] = await Promise.all([
-            fetch(`${base}/api/revenue/monthly`),
-            fetch(`${base}/api/revenue/monthly-projected`),
+            fetch(`${base}/api/revenue/monthly`, { headers: hdrs }),
+            fetch(`${base}/api/revenue/monthly-projected`, { headers: hdrs }),
           ]);
           let actual = []; let projected = [];
           if (paidRes.ok) { const paid = await paidRes.json(); actual = (paid||[]).map(r=>({ month: r.month, revenue: Number(r.paid)||0 })); }
           if (projRes.ok) { const p = await projRes.json(); projected = (p||[]).map(r=>({ month: r.month, revenue: Number(r.forecasted)||0 })); }
           if (!actual.length || actual.reduce((s,r)=>s+r.revenue,0)===0) {
             // Fallback to Close Won monthly
-            const cw = await fetch(`${base}/api/revenue/closewon-monthly?range=1y`);
+            const cw = await fetch(`${base}/api/revenue/closewon-monthly?range=1y`, { headers: hdrs });
             const js = cw.ok ? await cw.json() : { series: [] };
             actual = (js.series||[]).map(r=>({ month:r.month, revenue:Number(r.revenue)||0 }));
           }
