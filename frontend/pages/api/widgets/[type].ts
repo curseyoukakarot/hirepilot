@@ -335,8 +335,22 @@ export default async function handler(req: any, res: any) {
           }
           data = stageOrder.map((st)=>({ stage: st, days: counts[st] ? Math.round((sums[st]/counts[st])*10)/10 : 0 }));
         } else {
-          // Fallback: zeros to avoid misleading random values
-          data = stageOrder.map((s)=>({ stage:s, days: 0 }));
+          // Fallback: approximate using opportunity age per current stage
+          const now = Date.now();
+          const { data: rows } = await supabase
+            .from('opportunities')
+            .select('created_at,stage,owner_id')
+            .eq('owner_id', user.id);
+          const mapStage: Record<string,string> = { 'Pipeline':'Applied', 'Best Case':'Screen', 'Commit':'Interview', 'Offer':'Offer', 'Close Won':'Hired', 'Closed Won':'Hired', 'Won':'Hired' };
+          const sums: Record<string, number> = { Applied:0, Screen:0, Interview:0, Offer:0, Hired:0 };
+          const counts: Record<string, number> = { Applied:0, Screen:0, Interview:0, Offer:0, Hired:0 };
+          (rows||[]).forEach((r:any) => {
+            const st = mapStage[String(r.stage||'')] || 'Applied';
+            const created = new Date(r.created_at || new Date()).getTime();
+            const days = Math.max(0, (now - created) / (24*3600*1000));
+            sums[st] += days; counts[st]++;
+          });
+          data = stageOrder.map((st)=>({ stage: st, days: counts[st] ? Math.round((sums[st]/counts[st])*10)/10 : 0 }));
         }
         break;
       }
