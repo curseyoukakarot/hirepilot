@@ -348,7 +348,7 @@ router.get('/closewon-monthly', (String(process.env.ENABLE_SESSION_COOKIE_AUTH |
     else start = new Date(now.getFullYear(), now.getMonth()-11, 1);
 
     // Scope opportunities
-    let base = supabase.from('opportunities').select('value,stage,owner_id,created_at,updated_at,closed_at');
+    let base = supabase.from('opportunities').select('value,stage,owner_id,created_at');
     if (!isSuper) {
       if (isTeamAdmin && team_id) {
         const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', team_id);
@@ -400,7 +400,7 @@ router.get('/closewon-projected', (String(process.env.ENABLE_SESSION_COOKIE_AUTH
     const now = new Date();
 
     // Actuals: last 12 months from Close Won
-    let base = supabase.from('opportunities').select('value,stage,owner_id,created_at,updated_at,closed_at,expected_close_date');
+    let base = supabase.from('opportunities').select('value,stage,owner_id,created_at');
     if (!isSuper) {
       if (isTeamAdmin && team_id) {
         const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', team_id);
