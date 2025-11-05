@@ -530,7 +530,15 @@ export default function Analytics() {
               <option>Custom Template</option>
             </select>
           )}
-          <input type="text" placeholder="Last 30 Days" className="border border-purple-300 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 rounded-md p-2" />
+          {modalWidget === 'Reply Rate Chart' ? (
+            <select value={replyRange} onChange={(e)=>setReplyRange(e.target.value)} className="border border-purple-300 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 rounded-md p-2">
+              <option value="30d">Last 30 Days</option>
+              <option value="90d">Last 90 Days</option>
+              <option value="6m">Last 6 Months</option>
+            </select>
+          ) : (
+            <input type="text" placeholder="Last 30 Days" className="border border-purple-300 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 rounded-md p-2" />
+          )}
           <button className="bg-purple-600 text-white hover:bg-purple-700 rounded-md px-4 py-2 transition-colors">Apply</button>
         </div>
       </div>
@@ -613,6 +621,7 @@ export default function Analytics() {
   const [revenueHorizon, setRevenueHorizon] = useState('eoy'); // 'eoy'|'12m'
   const [revenueSummary, setRevenueSummary] = useState({ nextMonth: 0, quarter: 0, ytd: 0 });
   const [replySummary, setReplySummary] = useState({ avgReplyRate: 0, openRate: 0, totalSent: 0 });
+  const [replyRange, setReplyRange] = useState('30d'); // '30d' | '90d' | '6m'
 
   useEffect(() => {
     const refetch = async () => {
@@ -786,29 +795,27 @@ export default function Analytics() {
     const loadReplySummary = async () => {
       if (!(isModalOpen && modalWidget === 'Reply Rate Chart')) return;
       try {
-        const fromProcess = (typeof process !== 'undefined' && process.env) ? (process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL) : '';
-        const fromVite = (typeof import.meta !== 'undefined' && import.meta.env) ? (import.meta.env.VITE_BACKEND_URL) : '';
-        const fromWindow = (typeof window !== 'undefined' && window.__BACKEND_URL__) ? window.__BACKEND_URL__ : '';
-        const base = String(fromProcess || fromVite || fromWindow || '').replace(/\/$/, '');
-        if (!base) return;
         const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token;
-        const uid = session?.user?.id || '';
-        const hdrs = token ? { Authorization: `Bearer ${token}` } : {};
-        const r = await fetch(`${base}/api/campaigns/all/performance?user_id=${encodeURIComponent(uid)}`, { headers: hdrs });
-        const ct = r.headers?.get?.('content-type') || '';
-        if (!r.ok || !ct.includes('application/json')) return;
-        const p = await r.json();
-        const sent = Number(p.sent||0);
-        const opens = Number(p.opens||0);
-        const replies = Number(p.replies||0);
+        const rangeDays = replyRange==='30d' ? 30 : replyRange==='90d' ? 90 : 180;
+        const { data: rows } = await supabase
+          .from('email_events')
+          .select('event_timestamp,event_type')
+          .eq('user_id', session?.user?.id)
+          .gte('event_timestamp', new Date(Date.now() - rangeDays*24*3600*1000).toISOString());
+        let sent = 0, opens = 0, replies = 0;
+        (rows||[]).forEach((r)=>{
+          const t = r && r.event_type;
+          if (t==='sent') sent++;
+          else if (t==='open') opens++;
+          else if (t==='reply') replies++;
+        });
         const avgReplyRate = sent ? (replies/sent)*100 : 0;
         const openRate = sent ? (opens/sent)*100 : 0;
         setReplySummary({ avgReplyRate, openRate, totalSent: sent });
       } catch {}
     };
     loadReplySummary();
-  }, [isModalOpen, modalWidget]);
+  }, [isModalOpen, modalWidget, replyRange]);
 
   // Reply Rate Chart – compute series locally (fallback if API returns HTML)
   useEffect(() => {
@@ -822,20 +829,23 @@ export default function Analytics() {
           if (Array.isArray(j.data)) { setModalData(j.data); return; }
         } catch {}
         // Fallback to Supabase email_events aggregation (last 4 weeks)
+        const rangeDays = replyRange==='30d' ? 30 : replyRange==='90d' ? 90 : 180;
         const { data: rows } = await supabase
           .from('email_events')
           .select('event_timestamp,event_type')
-          .gte('event_timestamp', new Date(Date.now() - 28*24*3600*1000).toISOString());
-        const labels = ['Week 1','Week 2','Week 3','Week 4'];
-        const sent = [0,0,0,0];
-        const replies = [0,0,0,0];
+          .gte('event_timestamp', new Date(Date.now() - rangeDays*24*3600*1000).toISOString());
+        const weekMs = 7*24*3600*1000;
+        const bucketCount = replyRange==='30d' ? 4 : replyRange==='90d' ? 12 : 24;
+        const labels = Array.from({ length: bucketCount }, (_, i) => `Week ${i+1}`);
+        const sent = Array.from({ length: bucketCount }, () => 0);
+        const replies = Array.from({ length: bucketCount }, () => 0);
         (rows||[]).forEach((r) => {
           const ts = r && r.event_timestamp ? new Date(r.event_timestamp) : null;
           if (!ts) return;
-          const diffDays = Math.floor((Date.now() - ts.getTime()) / (24*3600*1000));
-          const idxFromEnd = Math.min(3, Math.floor(diffDays/7));
-          const bucket = 3 - idxFromEnd; // 0..3 from oldest to newest
-          if (bucket < 0 || bucket > 3) return;
+          const diff = Date.now() - ts.getTime();
+          const idxFromEnd = Math.min(bucketCount-1, Math.floor(diff / weekMs));
+          const bucket = bucketCount - 1 - idxFromEnd; // oldest -> newest
+          if (bucket < 0 || bucket >= bucketCount) return;
           const et = r && r.event_type;
           if (et === 'sent') sent[bucket]++;
           if (et === 'reply') replies[bucket]++;
@@ -845,7 +855,7 @@ export default function Analytics() {
       } catch { setModalData([]); }
     };
     loadReplySeries();
-  }, [isModalOpen, modalWidget]);
+  }, [isModalOpen, modalWidget, replyRange]);
   // Deal Pipeline modal data loader – avoid /api/widgets route to prevent HTML responses
   useEffect(() => {
     const loadDealPipeline = async () => {
