@@ -22,6 +22,7 @@ export default function Dashboard() {
   const [campaignsLoading, setCampaignsLoading] = useState(true);
   const [rexEnabled, setRexEnabled] = useState(false);
   const [customWidgets, setCustomWidgets] = useState([]);
+  const [dealPipeline, setDealPipeline] = useState(null);
   const navigate = useNavigate();
   const { isFree } = usePlan();
 
@@ -129,6 +130,13 @@ export default function Dashboard() {
       return fetch(path, { headers: token ? { Authorization: `Bearer ${token}` } : {}, credentials: 'include' });
     };
     (async () => {
+      if (customWidgets.includes('Deal Pipeline')) {
+        try {
+          const r = await fetchWithAuth('/api/widgets/deal-pipeline');
+          const j = r.ok ? await r.json() : { data: [] };
+          setDealPipeline(Array.isArray(j.data) ? j.data[0] : null);
+        } catch {}
+      }
       if (customWidgets.includes('Reply Rate Chart')) {
         try {
           const r = await fetchWithAuth('/api/widgets/reply-rate'); const j = r.ok ? await r.json() : { data: [] };
@@ -364,10 +372,26 @@ export default function Dashboard() {
         <div className="bg-white rounded-2xl shadow-md p-6">
           <h3 className="text-lg font-semibold mb-4">Deal Pipeline</h3>
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-lg p-4 bg-blue-100"><div className="text-sm text-blue-700">Pipeline</div><div className="text-2xl font-bold text-blue-900">$45K</div><div className="text-xs text-blue-600">12 deals</div></div>
-            <div className="rounded-lg p-4 bg-purple-100"><div className="text-sm text-purple-700">Best Case</div><div className="text-2xl font-bold text-purple-900">$32K</div><div className="text-xs text-purple-600">8 deals</div></div>
-            <div className="rounded-lg p-4 bg-yellow-100"><div className="text-sm text-yellow-700">Commit</div><div className="text-2xl font-bold text-yellow-900">$20K</div><div className="text-xs text-yellow-700">5 deals</div></div>
-            <div className="rounded-lg p-4 bg-green-100"><div className="text-sm text-green-700">Closed Won</div><div className="text-2xl font-bold text-green-900">$15K</div><div className="text-xs text-green-700">3 deals</div></div>
+            <div className="rounded-lg p-4 bg-blue-100">
+              <div className="text-sm text-blue-700">Pipeline</div>
+              <div className="text-2xl font-bold text-blue-900">{(dealPipeline?.pipelineValue||0).toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0})}</div>
+              <div className="text-xs text-blue-600">{dealPipeline?.pipelineDeals||0} deals</div>
+            </div>
+            <div className="rounded-lg p-4 bg-purple-100">
+              <div className="text-sm text-purple-700">Best Case</div>
+              <div className="text-2xl font-bold text-purple-900">{(dealPipeline?.bestCaseValue||0).toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0})}</div>
+              <div className="text-xs text-purple-600">{dealPipeline?.bestCaseDeals||0} deals</div>
+            </div>
+            <div className="rounded-lg p-4 bg-yellow-100">
+              <div className="text-sm text-yellow-700">Commit</div>
+              <div className="text-2xl font-bold text-yellow-900">{(dealPipeline?.commitValue||0).toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0})}</div>
+              <div className="text-xs text-yellow-700">{dealPipeline?.commitDeals||0} deals</div>
+            </div>
+            <div className="rounded-lg p-4 bg-green-100">
+              <div className="text-sm text-green-700">Closed Won</div>
+              <div className="text-2xl font-bold text-green-900">{(dealPipeline?.closedWonValue||0).toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0})}</div>
+              <div className="text-xs text-green-700">{dealPipeline?.closedWonDeals||0} deals</div>
+            </div>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
             <select className="border rounded-md p-2 text-gray-600"><option>All Owners</option></select>
