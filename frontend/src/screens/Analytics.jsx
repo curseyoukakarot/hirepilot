@@ -769,6 +769,18 @@ export default function Analytics() {
     try { inst.update(); } catch {}
   }, [modalData, isModalOpen, modalWidget]);
 
+  // Update Reply Rate chart when data arrives
+  useEffect(() => {
+    if (!(isModalOpen && modalWidget === 'Reply Rate Chart')) return;
+    const inst = (chartInstancesRef.current || {}).reply;
+    if (!inst || !Array.isArray(modalData)) return;
+    const labels = (modalData || []).map((d) => String((d && d.period) || ''));
+    const vals = (modalData || []).map((d) => Number((d && d.replyRate) || 0));
+    inst.data.labels = labels;
+    if (inst.data.datasets && inst.data.datasets[0]) inst.data.datasets[0].data = vals;
+    try { inst.update(); } catch {}
+  }, [modalData, isModalOpen, modalWidget]);
+
   // Reply Rate Chart – fetch performance summary for tiles
   useEffect(() => {
     const loadReplySummary = async () => {
