@@ -132,10 +132,59 @@ export default function Dashboard() {
     (async () => {
       if (customWidgets.includes('Deal Pipeline')) {
         try {
-          const r = await fetchWithAuth('/api/widgets/deal-pipeline');
-          const j = r.ok ? await r.json() : { data: [] };
-          setDealPipeline(Array.isArray(j.data) ? j.data[0] : null);
-        } catch {}
+          const fromProcess = (typeof process !== 'undefined' && process.env) ? (process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL) : '';
+          const fromVite = (typeof import.meta !== 'undefined' && import.meta.env) ? (import.meta.env.VITE_BACKEND_URL) : '';
+          const fromWindow = (typeof window !== 'undefined' && window.__BACKEND_URL__) ? window.__BACKEND_URL__ : '';
+          const base = String(fromProcess || fromVite || fromWindow || '').replace(/\/$/, '');
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token;
+          const hdrs = token ? { Authorization: `Bearer ${token}` } : {};
+
+          let rows = [];
+          if (base) {
+            const r = await fetch(`${base}/api/opportunity-pipeline`, { headers: hdrs });
+            rows = r.ok ? await r.json() : [];
+          }
+          if (!Array.isArray(rows) || !rows.length) {
+            // Supabase fallback using same scope as Opportunities page
+            const { data: me } = await supabase.from('users').select('role, team_id').eq('id', session?.user?.id).maybeSingle();
+            const role = String((me||{}).role||'').toLowerCase();
+            const teamId = (me||{}).team_id || null;
+            const isSuper = ['super_admin','superadmin'].includes(role);
+            const isTeamAdmin = role === 'team_admin';
+            let baseQ = supabase.from('opportunities').select('stage,value,owner_id');
+            if (!isSuper) {
+              if (isTeamAdmin && teamId) {
+                const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', teamId);
+                const ids = (teamUsers||[]).map(u=>u.id);
+                baseQ = baseQ.in('owner_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
+              } else {
+                baseQ = baseQ.eq('owner_id', session?.user?.id);
+              }
+            }
+            const { data: opps } = await baseQ;
+            const stageOf = (o)=>{ const s=String(o.stage||''); return ['Closed Won','Won'].includes(s)?'Close Won':s; };
+            const agg = (st)=> (opps||[]).filter(o=>stageOf(o)===st);
+            rows = [
+              { stage:'Pipeline', items: agg('Pipeline'), total: agg('Pipeline').reduce((s,o)=>s+(Number(o.value)||0),0) },
+              { stage:'Best Case', items: agg('Best Case'), total: agg('Best Case').reduce((s,o)=>s+(Number(o.value)||0),0) },
+              { stage:'Commit', items: agg('Commit'), total: agg('Commit').reduce((s,o)=>s+(Number(o.value)||0),0) },
+              { stage:'Close Won', items: agg('Close Won'), total: agg('Close Won').reduce((s,o)=>s+(Number(o.value)||0),0) },
+            ];
+          }
+          const get = (name)=> rows.find(r=>String(r.stage||'')===name) || { total:0, items:[] };
+          const payload = {
+            pipelineValue: Number(get('Pipeline').total||0),
+            bestCaseValue: Number(get('Best Case').total||0),
+            commitValue: Number(get('Commit').total||0),
+            closedWonValue: Number((get('Close Won').total||0) || (get('Closed Won').total||0)),
+            pipelineDeals: (get('Pipeline').items||[]).length,
+            bestCaseDeals: (get('Best Case').items||[]).length,
+            commitDeals: (get('Commit').items||[]).length,
+            closedWonDeals: (get('Close Won').items||[]).length || (get('Closed Won').items||[]).length,
+          };
+          setDealPipeline(payload);
+        } catch { setDealPipeline({ pipelineValue:0,bestCaseValue:0,commitValue:0,closedWonValue:0,pipelineDeals:0,bestCaseDeals:0,commitDeals:0,closedWonDeals:0 }); }
       }
       if (customWidgets.includes('Reply Rate Chart')) {
         try {
