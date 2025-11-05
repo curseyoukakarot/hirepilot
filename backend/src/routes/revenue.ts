@@ -318,6 +318,150 @@ router.get('/engagement-types', (String(process.env.ENABLE_SESSION_COOKIE_AUTH |
   }
 });
 
+// Helpers for Close Won endpoints
+function monthKey(d: Date): string { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+function fillLastNMonths(n: number): string[] {
+  const now = new Date();
+  const out: string[] = [];
+  for (let i=n-1; i>=0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    out.push(monthKey(d));
+  }
+  return out;
+}
+
+// GET /api/revenue/closewon-monthly?range=90d|6m|1y|ytd
+router.get('/closewon-monthly', (String(process.env.ENABLE_SESSION_COOKIE_AUTH || 'false').toLowerCase() === 'true' ? (requireAuthUnified as any) : (requireAuth as any)), async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    const { role, team_id } = await getRoleTeam(userId);
+    const isSuper = ['super_admin','superadmin'].includes(String(role||'').toLowerCase());
+    const isTeamAdmin = String(role||'').toLowerCase() === 'team_admin';
+
+    const range = String((req.query as any)?.range || '1y');
+    const now = new Date();
+    let start: Date;
+    if (range === 'ytd') start = new Date(now.getFullYear(), 0, 1);
+    else if (range === '6m') start = new Date(now.getFullYear(), now.getMonth()-5, 1);
+    else if (range === '90d') start = new Date(now.getFullYear(), now.getMonth()-2, 1);
+    else start = new Date(now.getFullYear(), now.getMonth()-11, 1);
+
+    // Scope opportunities
+    let base = supabase.from('opportunities').select('value,stage,owner_id,created_at,updated_at,closed_at');
+    if (!isSuper) {
+      if (isTeamAdmin && team_id) {
+        const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', team_id);
+        const ids = (teamUsers || []).map((u: any) => u.id);
+        base = base.in('owner_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
+      } else {
+        base = base.eq('owner_id', userId);
+      }
+    }
+    const { data: rows, error } = await base.in('stage', ['Close Won','Closed Won','Won']);
+    if (error) { res.status(500).json({ error: error.message }); return; }
+
+    const nMonths = range === '90d' ? 3 : range === '6m' ? 6 : 12;
+    const months = fillLastNMonths(nMonths);
+    const series = months.map(m => ({ month: m, revenue: 0 }));
+    const idx = new Map(series.map((r, i) => [r.month, i]));
+
+    for (const r of (rows || [])) {
+      const dt = new Date((r as any).closed_at || (r as any).updated_at || (r as any).created_at || now);
+      if (dt < start) continue;
+      const k = monthKey(new Date(dt.getFullYear(), dt.getMonth(), 1));
+      const i = idx.get(k);
+      if (i === undefined) continue;
+      series[i].revenue += Number((r as any).value)||0;
+    }
+
+    const aggregates = {
+      total_revenue_closewon: series.reduce((s, r) => s + r.revenue, 0),
+      forecasted_closewon: 0,
+      unpaid_pipeline: 0,
+      overdue_invoices: 0,
+    };
+    res.json({ series, aggregates });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message || 'Internal server error' });
+  }
+});
+
+// GET /api/revenue/closewon-projected?horizon=eoy|12m
+router.get('/closewon-projected', (String(process.env.ENABLE_SESSION_COOKIE_AUTH || 'false').toLowerCase() === 'true' ? (requireAuthUnified as any) : (requireAuth as any)), async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    const { role, team_id } = await getRoleTeam(userId);
+    const isSuper = ['super_admin','superadmin'].includes(String(role||'').toLowerCase());
+    const isTeamAdmin = String(role||'').toLowerCase() === 'team_admin';
+
+    const horizon = String((req.query as any)?.horizon || 'eoy');
+    const now = new Date();
+
+    // Actuals: last 12 months from Close Won
+    let base = supabase.from('opportunities').select('value,stage,owner_id,created_at,updated_at,closed_at,expected_close_date');
+    if (!isSuper) {
+      if (isTeamAdmin && team_id) {
+        const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', team_id);
+        const ids = (teamUsers || []).map((u: any) => u.id);
+        base = base.in('owner_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
+      } else {
+        base = base.eq('owner_id', userId);
+      }
+    }
+    const { data: rows, error } = await base;
+    if (error) { res.status(500).json({ error: error.message }); return; }
+
+    const monthsA = fillLastNMonths(12);
+    const actual = monthsA.map(m => ({ month: m, revenue: 0 }));
+    const aIdx = new Map(actual.map((r, i) => [r.month, i]));
+    for (const r of (rows || [])) {
+      if (!['Close Won','Closed Won','Won'].includes(String((r as any).stage||''))) continue;
+      const dt = new Date((r as any).closed_at || (r as any).updated_at || (r as any).created_at || now);
+      const k = monthKey(new Date(dt.getFullYear(), dt.getMonth(), 1));
+      const i = aIdx.get(k); if (i===undefined) continue;
+      actual[i].revenue += Number((r as any).value)||0;
+    }
+
+    // YTD average
+    const monthsElapsed = now.getMonth()+1;
+    const curYear = now.getFullYear();
+    const ytd = actual.filter(r => Number(r.month.split('-')[0])===curYear && Number(r.month.split('-')[1])<= (now.getMonth()+1)).reduce((s,r)=>s+r.revenue,0);
+    const avg = monthsElapsed ? ytd / monthsElapsed : 0;
+
+    // Stage-weighted open pipeline projected by expected_close_date if available
+    const weights: Record<string, number> = { 'Pipeline': 0.25, 'Best Case': 0.5, 'Commit': 0.9, 'Close Won': 1, 'Closed Lost': 0 };
+    const future: Array<{ month: string; revenue: number; projected: boolean }> = [];
+    const endMonth = horizon === 'eoy' ? new Date(curYear, 11, 1) : new Date(now.getFullYear(), now.getMonth()+12, 1);
+    for (let d = new Date(now.getFullYear(), now.getMonth()+1, 1); d <= endMonth; d = new Date(d.getFullYear(), d.getMonth()+1, 1)) {
+      const k = monthKey(d);
+      // Sum expected weighted pipeline landing in this month
+      const weighted = (rows||[]).reduce((s, r:any) => {
+        const ec = r.expected_close_date ? new Date(r.expected_close_date) : null;
+        const stage = String(r.stage||'');
+        if (['Close Won','Closed Won','Won','Closed Lost'].includes(stage)) return s;
+        if (!ec) return s;
+        const kk = monthKey(new Date(ec.getFullYear(), ec.getMonth(), 1));
+        const w = weights[stage] || 0;
+        return s + (kk === k ? (Number(r.value)||0) * w : 0);
+      }, 0);
+      future.push({ month: k, revenue: weighted + avg, projected: true });
+    }
+
+    const series = [...actual, ...future];
+    const aggregates = {
+      total_revenue_closewon: actual.reduce((s,r)=>s+r.revenue,0),
+      forecasted_closewon: future.reduce((s,r)=>s+r.revenue,0),
+      unpaid_pipeline: 0,
+      overdue_invoices: 0,
+    };
+    res.json({ series, aggregates });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message || 'Internal server error' });
+  }
+});
+
 export default router;
 
 

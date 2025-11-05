@@ -47,6 +47,7 @@ export default function DealsPage() {
   const [revMonthlyMode, setRevMonthlyMode] = useState<'actual'|'projected'>('actual');
   const [revSource, setRevSource] = useState<'paid'|'closewon'>('paid');
   const [revMonthlyCloseWon, setRevMonthlyCloseWon] = useState<Array<{ month: string; revenue: number; projected?: boolean }>>([]);
+  const [revMonthlyCloseWonProjected, setRevMonthlyCloseWonProjected] = useState<Array<{ month: string; revenue: number; projected?: boolean }>>([]);
   const [revMonthlyPaidOut, setRevMonthlyPaidOut] = useState<Array<{ month: string; revenue: number; projected?: boolean }>>([]);
   const [revMonthlyRange, setRevMonthlyRange] = useState<'90d'|'6m'|'1y'|'ytd'>('1y');
   const [currentUserId, setCurrentUserId] = useState<string>('');
@@ -218,14 +219,16 @@ export default function DealsPage() {
       if (!access?.can_view_revenue) return;
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
-      const [sRes, mRes, cRes, pcRes, etRes, mpRes, cwRes, rfPaidRes, oppCWRes] = await Promise.all([
+      const rangeParam = revMonthlyRange==='90d' ? '90d' : revMonthlyRange==='6m' ? '6m' : revMonthlyRange==='ytd' ? 'ytd' : '1y';
+      const [sRes, mRes, cRes, pcRes, etRes, mpRes, cwRes, cwProjRes, rfPaidRes, oppCWRes] = await Promise.all([
         fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/summary`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
         fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/monthly`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
         fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/by-client`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
         fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/projected-by-client`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
         fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/engagement-types`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
         fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/monthly-projected`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
-        fetch(`/api/widgets/revenue-forecast?mode=closewon&horizon=12m&limit=12`, { headers: token ? { Authorization: `Bearer ${token}` } : {}, credentials: 'include' }),
+        fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/closewon-monthly?range=${rangeParam}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+        fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/closewon-projected?horizon=eoy`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
         fetch(`/api/widgets/revenue-forecast?mode=paid&horizon=eoy&limit=12`, { headers: token ? { Authorization: `Bearer ${token}` } : {}, credentials: 'include' }),
         fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities?status=Close%20Won`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
       ]);
@@ -238,8 +241,9 @@ export default function DealsPage() {
       const projClients = pcRes.ok ? await pcRes.json() : [];
       setRevByClient(prev => (prev && prev.length ? prev : projClients));
       setRevByType(etRes.ok ? await etRes.json() : []);
-      const cw = cwRes.ok ? await cwRes.json() : { data: [] };
-      let cwSeries: Array<{ month: string; revenue: number; projected?: boolean }> = Array.isArray(cw.data) ? cw.data : [];
+      const cw = cwRes.ok ? await cwRes.json() : { series: [], aggregates: {} };
+      const cwProj = cwProjRes.ok ? await cwProjRes.json() : { series: [], aggregates: {} };
+      let cwSeries: Array<{ month: string; revenue: number; projected?: boolean }> = Array.isArray(cw.series) ? cw.series : [];
       const sumRevenue = (rows: any[]) => rows.reduce((s:number,r:any)=>s+(Number(r.revenue)||0),0);
       if (!cwSeries.length || sumRevenue(cwSeries) === 0) {
         // Fallback: build from backend opportunities Close Won
@@ -307,6 +311,7 @@ export default function DealsPage() {
         }
       }
       setRevMonthlyCloseWon(cwSeries);
+      setRevMonthlyCloseWonProjected(Array.isArray(cwProj.series) ? cwProj.series : []);
       const rfPaid = rfPaidRes.ok ? await rfPaidRes.json() : { data: [] };
       setRevMonthlyPaidOut(Array.isArray(rfPaid.data) ? rfPaid.data : []);
 
@@ -1127,10 +1132,18 @@ export default function DealsPage() {
                   <BarChart data={(()=>{
                     let src = revMonthlyMode==='actual' ? revMonthly : revMonthlyProjected;
                     if (revSource==='closewon') {
-                      // Use Close Won series as primary source so months render even if invoices are empty
-                      const cw = Array.isArray(revMonthlyCloseWon) ? revMonthlyCloseWon : [];
-                      // normalize to chart shape
-                      src = cw.map((r:any)=>({ month: r.month, paid: Number(r.revenue)||0, forecasted: 0, outstanding: 0 }));
+                      if (revMonthlyMode==='projected' && Array.isArray(revMonthlyCloseWonProjected) && revMonthlyCloseWonProjected.length) {
+                        const cw = revMonthlyCloseWonProjected;
+                        src = cw.map((r:any)=>({
+                          month: r.month,
+                          paid: r.projected ? 0 : Number(r.revenue)||0,
+                          forecasted: r.projected ? Number(r.revenue)||0 : 0,
+                          outstanding: 0
+                        }));
+                      } else {
+                        const cw = Array.isArray(revMonthlyCloseWon) ? revMonthlyCloseWon : [];
+                        src = cw.map((r:any)=>({ month: r.month, paid: Number(r.revenue)||0, forecasted: 0, outstanding: 0 }));
+                      }
                     }
                     const now = new Date();
                     let start: Date;
