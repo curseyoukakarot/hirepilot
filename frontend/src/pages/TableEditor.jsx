@@ -458,7 +458,7 @@ export default function TableEditor() {
     const nextSchema = schema.map((c, i) => {
       if (i !== colIdx) return c;
       const updated = { ...c, type: newType };
-      if (newType === 'money') {
+      if (newType === 'money' || newType === 'formula') {
         updated.currency = newCurrency || c.currency || 'USD';
       } else if (updated.currency) {
         delete updated.currency;
@@ -534,6 +534,14 @@ export default function TableEditor() {
           {...common}
         />
       );
+    }
+    if (col.type === 'formula') {
+      const n = Number(val) || 0;
+      if (col.currency) {
+        const fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: col.currency || 'USD' });
+        return <span className="px-2 py-1 inline-block w-full text-right">{fmt.format(n)}</span>;
+      }
+      return <span className="px-2 py-1 inline-block w-full text-right">{numberFormatter.format(n)}</span>;
     }
     if (col.type === 'date') {
       const iso = val ? String(val).slice(0,10) : '';
@@ -767,6 +775,17 @@ export default function TableEditor() {
                               )}
                               {editColType === 'formula' && (
                                 <div className="mb-2">
+                                  <label className="block text-xs text-gray-500 mb-1">Currency (optional)</label>
+                                  <select value={editCurrency} onChange={(e)=>setEditCurrency(e.target.value)} className="w-full px-2 py-1 border rounded">
+                                    <option value="">None</option>
+                                    <option value="USD">USD</option>
+                                    <option value="EUR">EUR</option>
+                                    <option value="GBP">GBP</option>
+                                  </select>
+                                </div>
+                              )}
+                              {editColType === 'formula' && (
+                                <div className="mb-2">
                                   <button className="px-3 py-1 border rounded text-sm w-full" onClick={()=>{ openFormulaBuilder(ci); }}>Edit formula…</button>
                                 </div>
                               )}
@@ -774,7 +793,7 @@ export default function TableEditor() {
                                 <button className="px-3 py-1 border rounded text-sm" onClick={()=>setColumnMenuIdx(null)}>Cancel</button>
                                 <div className="flex items-center gap-2">
                                   <button className="px-3 py-1 text-red-600 border border-red-200 rounded text-sm hover:bg-red-50" onClick={()=>deleteColumnAt(ci)}>Delete</button>
-                                  <button className="px-3 py-1 bg-purple-600 text-white rounded text-sm" onClick={async()=>{ await renameColumnAt(ci, editColName); await changeColumnTypeAt(ci, editColType, editCurrency); }}>Save</button>
+                                  <button className="px-3 py-1 bg-purple-600 text-white rounded text-sm" onClick={async()=>{ await renameColumnAt(ci, editColName); await changeColumnTypeAt(ci, editColType, editCurrency || undefined); }}>Save</button>
                                 </div>
                               </div>
                             </div>
@@ -806,7 +825,7 @@ export default function TableEditor() {
                       {schema.map((col) => (
                         <td key={`total-${col.name}`} className="px-4 py-2 text-right font-semibold text-gray-900">
                           {['number','money','formula'].includes(col.type)
-                            ? (col.type === 'money'
+                            ? ((col.type === 'money' || (col.type==='formula' && col.currency))
                                 ? new Intl.NumberFormat('en-US', { style: 'currency', currency: (col && col.currency) ? col.currency : 'USD' }).format(Number(totals[col.name] || 0))
                                 : numberFormatter.format(Number(totals[col.name] || 0)))
                             : ''}
@@ -855,6 +874,15 @@ export default function TableEditor() {
                         <input className="flex-1 px-3 py-2 border rounded" value={schema[activeColIdx].formula || ''} onChange={(e)=> setSchema(s=> s.map((c,i)=> i===activeColIdx?{...c, formula:e.target.value}:c))} />
                         <button className="px-3 py-2 border rounded" onClick={()=> openFormulaBuilder(activeColIdx)}>Builder</button>
                         <button className="px-3 py-2 bg-purple-600 text-white rounded" onClick={()=> applyFormulaToColumn(activeColIdx, schema[activeColIdx].formula || '0')}>Apply</button>
+                      </div>
+                      <div className="mt-3">
+                        <label className="block text-sm text-gray-600 mb-1">Currency (optional)</label>
+                        <select className="w-full px-3 py-2 border rounded" value={schema[activeColIdx].currency || ''} onChange={(e)=> changeColumnTypeAt(activeColIdx, 'formula', e.target.value || undefined)}>
+                          <option value="">None</option>
+                          <option value="USD">USD</option>
+                          <option value="EUR">EUR</option>
+                          <option value="GBP">GBP</option>
+                        </select>
                       </div>
                     </div>
                   )}
