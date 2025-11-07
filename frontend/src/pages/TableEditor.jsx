@@ -17,6 +17,7 @@ export default function TableEditor() {
   const [canManageAccess, setCanManageAccess] = useState(false);
   const [addingUserId, setAddingUserId] = useState('');
   const [addingRole, setAddingRole] = useState('view');
+  const [columnMenuOpen, setColumnMenuOpen] = useState(false);
 
   const apiFetch = async (url, init = {}) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -53,7 +54,7 @@ export default function TableEditor() {
         const isTeamAdmin = roleLc === 'team_admin';
         setCanManageAccess(isSuper || isTeamAdmin);
         if (me?.team_id) {
-          const { data: members } = await supabase.from('users').select('id, full_name, email').eq('team_id', me.team_id);
+          const { data: members } = await supabase.from('users').select('id, email').eq('team_id', me.team_id);
           setTeamMembers(Array.isArray(members) ? members : []);
         } else {
           setTeamMembers([]);
@@ -116,11 +117,53 @@ export default function TableEditor() {
         method: 'POST',
         body: JSON.stringify({ source: '/deals' }),
       });
+      // reload after import
+      try {
+        const { data } = await apiFetch(`/api/tables/${encodeURIComponent(id)}`);
+        setSchema(Array.isArray(data?.schema_json) ? data.schema_json : []);
+        setRows(Array.isArray(data?.data_json) ? data.data_json : []);
+      } catch {}
     } catch {
       // ignore
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleAddColumn = async (type) => {
+    if (!id) return;
+    const existingNames = (schema || []).map((c) => String(c.name || ''));
+    let idx = existingNames.length + 1;
+    let name = `New Column ${idx}`;
+    while (existingNames.includes(name)) { idx += 1; name = `New Column ${idx}`; }
+    const newCol = type === 'formula' ? { name, type, formula: '=0' } : { name, type };
+    const nextSchema = [...schema, newCol];
+    try {
+      setSaving(true);
+      const { data } = await apiFetch(`/api/tables/${encodeURIComponent(id)}/update`, {
+        method: 'PATCH',
+        body: JSON.stringify({ schema_json: nextSchema, data_json: rows }),
+      });
+      setSchema(Array.isArray(data?.schema_json) ? data.schema_json : nextSchema);
+      setRows(Array.isArray(data?.data_json) ? data.data_json : rows);
+    } catch {}
+    finally { setSaving(false); setColumnMenuOpen(false); }
+  };
+
+  const handleAddRow = async () => {
+    if (!id) return;
+    const empty = {};
+    (schema || []).forEach((c) => { empty[c.name] = c.type === 'number' ? 0 : c.type === 'date' ? null : ''; });
+    const next = [...rows, empty];
+    try {
+      setSaving(true);
+      const { data } = await apiFetch(`/api/tables/${encodeURIComponent(id)}/update`, {
+        method: 'PATCH',
+        body: JSON.stringify({ data_json: next }),
+      });
+      setRows(Array.isArray(data?.data_json) ? data.data_json : next);
+    } catch {}
+    finally { setSaving(false); }
   };
 
   return (
@@ -148,20 +191,20 @@ export default function TableEditor() {
         <div id="toolbar" className="bg-white border-b border-gray-200 px-6 py-3">
           <div className="flex items-center gap-4">
             <div className="relative">
-              <button id="add-column-btn" className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+              <button id="add-column-btn" onClick={() => setColumnMenuOpen(v=>!v)} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
                 <i className="fas fa-plus text-sm"></i>
                 Add Column
                 <i className="fas fa-chevron-down text-xs"></i>
               </button>
-              <div id="column-dropdown" className="hidden absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+              <div id="column-dropdown" className={`${columnMenuOpen ? '' : 'hidden'} absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-50`}>
                 <div className="p-2">
                   <div className="text-xs font-medium text-gray-500 mb-2">COLUMN TYPES</div>
                   <div className="space-y-1">
-                    <button className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 flex items-center gap-2"><i className="fas fa-font text-gray-400"></i>Text</button>
-                    <button className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 flex items-center gap-2"><i className="fas fa-circle text-purple-400"></i>Status</button>
-                    <button className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 flex items-center gap-2"><i className="fas fa-hashtag text-gray-400"></i>Number</button>
-                    <button className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 flex items-center gap-2"><i className="fas fa-calendar text-gray-400"></i>Date</button>
-                    <button className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 flex items-center gap-2"><i className="fas fa-calculator text-gray-400"></i>Formula</button>
+                    <button onClick={()=>handleAddColumn('text')} className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 flex items-center gap-2"><i className="fas fa-font text-gray-400"></i>Text</button>
+                    <button onClick={()=>handleAddColumn('status')} className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 flex items-center gap-2"><i className="fas fa-circle text-purple-400"></i>Status</button>
+                    <button onClick={()=>handleAddColumn('number')} className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 flex items-center gap-2"><i className="fas fa-hashtag text-gray-400"></i>Number</button>
+                    <button onClick={()=>handleAddColumn('date')} className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 flex items-center gap-2"><i className="fas fa-calendar text-gray-400"></i>Date</button>
+                    <button onClick={()=>handleAddColumn('formula')} className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 flex items-center gap-2"><i className="fas fa-calculator text-gray-400"></i>Formula</button>
                   </div>
                   <div className="border-t mt-2 pt-2">
                     <div className="text-xs font-medium text-gray-500 mb-2">FROM APP SOURCES</div>
@@ -172,10 +215,10 @@ export default function TableEditor() {
                 </div>
               </div>
             </div>
-            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+            <button onClick={handleAddRow} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
               <i className="fas fa-plus text-sm"></i>Add Row
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+            <button onClick={onImportDeals} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
               <i className="fas fa-upload text-sm"></i>Import Data
             </button>
             <div className="flex items-center gap-2 ml-auto">

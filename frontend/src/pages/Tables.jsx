@@ -24,8 +24,21 @@ export default function Tables() {
         schema_json: [],
         initial_data: [],
       };
-      const { data } = await apiFetch('/api/tables', { method: 'POST', body: JSON.stringify(payload) });
-      if (data?.id) navigate(`/tables/${data.id}/edit`);
+      // Try API route first
+      try {
+        const { data } = await apiFetch('/api/tables', { method: 'POST', body: JSON.stringify(payload) });
+        if (data?.id) { navigate(`/tables/${data.id}/edit`); return; }
+      } catch {}
+      // Fallback: direct Supabase insert (RLS enforced)
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.id) throw new Error('unauthenticated');
+      const { data: inserted, error } = await supabase
+        .from('custom_tables')
+        .insert({ user_id: user.id, name: payload.name, schema_json: payload.schema_json, data_json: payload.initial_data })
+        .select('*')
+        .single();
+      if (error) throw new Error(error.message);
+      if (inserted?.id) navigate(`/tables/${inserted.id}/edit`);
     } catch {
       // fallback: just navigate to editor without id (no-op)
       navigate('/tables/new/edit');
