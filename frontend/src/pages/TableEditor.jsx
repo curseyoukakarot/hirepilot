@@ -22,6 +22,10 @@ export default function TableEditor() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [importSource, setImportSource] = useState('/leads');
   const [importFilters, setImportFilters] = useState({ status: '', startDate: '', endDate: '', limit: 1000, importAll: false });
+  const [columnMenuIdx, setColumnMenuIdx] = useState(null);
+  const [editColName, setEditColName] = useState('');
+  const [editColType, setEditColType] = useState('text');
+  const [selectedRowIdxSet, setSelectedRowIdxSet] = useState(new Set());
 
   const apiFetch = async (url, init = {}) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -292,6 +296,80 @@ export default function TableEditor() {
     scheduleSave(next);
   };
 
+  const persistSchemaRows = async (nextSchema, nextRows) => {
+    try {
+      await supabase
+        .from('custom_tables')
+        .update({ schema_json: nextSchema, data_json: nextRows, updated_at: new Date().toISOString() })
+        .eq('id', id);
+    } catch {}
+  };
+
+  const ensureUniqueColName = (base) => {
+    const taken = new Set((schema||[]).map(c => String(c.name)));
+    if (!taken.has(base)) return base;
+    let i = 2; let candidate = `${base} (${i})`;
+    while (taken.has(candidate)) { i += 1; candidate = `${base} (${i})`; }
+    return candidate;
+  };
+
+  const deleteColumnAt = async (colIdx) => {
+    const col = schema[colIdx]; if (!col) return;
+    const nextSchema = schema.filter((_, i) => i !== colIdx);
+    const nextRows = (rows||[]).map(r => { const { [col.name]: _drop, ...rest } = r || {}; return rest; });
+    setSchema(nextSchema); setRows(nextRows); setColumnMenuIdx(null);
+    await persistSchemaRows(nextSchema, nextRows);
+  };
+
+  const renameColumnAt = async (colIdx, name) => {
+    const col = schema[colIdx]; if (!col) return;
+    const newName = name && name.trim() ? name.trim() : col.name;
+    let final = newName === col.name ? col.name : ensureUniqueColName(newName);
+    const nextSchema = schema.map((c, i) => i===colIdx ? { ...c, name: final } : c);
+    const nextRows = (rows||[]).map(r => {
+      const value = (r||{})[col.name];
+      if (final === col.name) return r;
+      const { [col.name]: _old, ...rest } = r || {};
+      return { ...rest, [final]: value };
+    });
+    setSchema(nextSchema); setRows(nextRows); setColumnMenuIdx(null);
+    await persistSchemaRows(nextSchema, nextRows);
+  };
+
+  const changeColumnTypeAt = async (colIdx, newType) => {
+    const col = schema[colIdx]; if (!col) return;
+    const nextSchema = schema.map((c, i) => i===colIdx ? { ...c, type: newType } : c);
+    // Soft coercion for number
+    let nextRows = rows;
+    if (newType === 'number') {
+      nextRows = (rows||[]).map(r => ({ ...r, [col.name]: Number((r||{})[col.name]) || 0 }));
+    }
+    setSchema(nextSchema); setRows(nextRows); setColumnMenuIdx(null);
+    await persistSchemaRows(nextSchema, nextRows);
+  };
+
+  const toggleSelectRow = (idx, checked) => {
+    const set = new Set(selectedRowIdxSet);
+    if (checked) set.add(idx); else set.delete(idx);
+    setSelectedRowIdxSet(set);
+  };
+
+  const toggleSelectAll = (checked) => {
+    if (checked) {
+      const set = new Set((rows||[]).map((_, i)=>i));
+      setSelectedRowIdxSet(set);
+    } else {
+      setSelectedRowIdxSet(new Set());
+    }
+  };
+
+  const bulkDeleteSelected = async () => {
+    if (!selectedRowIdxSet.size) return;
+    const next = (rows||[]).filter((_, i) => !selectedRowIdxSet.has(i));
+    setRows(next); setSelectedRowIdxSet(new Set());
+    await persistRows(next);
+  };
+
   const renderEditableCell = (row, col, rowIdx) => {
     const val = row?.[col.name] ?? '';
     const common = {
@@ -424,6 +502,9 @@ export default function TableEditor() {
             <button onClick={handleAddRow} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
               <i className="fas fa-plus text-sm"></i>Add Row
             </button>
+            <button onClick={bulkDeleteSelected} disabled={!selectedRowIdxSet.size} className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors ${selectedRowIdxSet.size ? 'text-red-700 border-red-300 hover:bg-red-50' : 'text-gray-400 border-gray-200 cursor-not-allowed'}`}>
+              <i className="fas fa-trash"></i>Delete Selected
+            </button>
             <button onClick={()=>{ setImportSource('/leads'); setShowImportModal(true); }} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
               <i className="fas fa-upload text-sm"></i>Import Data
             </button>
@@ -443,14 +524,42 @@ export default function TableEditor() {
                 <table className="w-full">
                   <thead className="bg-gray-50 sticky top-0">
                     <tr>
-                      <th className="w-12 px-4 py-3 text-left"><input type="checkbox" className="rounded border-gray-300" /></th>
+                      <th className="w-12 px-4 py-3 text-left"><input type="checkbox" className="rounded border-gray-300" onChange={(e)=>toggleSelectAll(e.target.checked)} checked={selectedRowIdxSet.size>0 && selectedRowIdxSet.size===(rows||[]).length} /></th>
                       {schema.map((col) => (
-                        <th key={col.name} className="px-4 py-3 text-left text-sm font-medium text-gray-700 border-r border-gray-200 min-w-32">
+                        <th key={col.name} className="px-4 py-3 text-left text-sm font-medium text-gray-700 border-r border-gray-200 min-w-40 relative">
                           <div className="flex items-center gap-2">
                             {col.name}
                             {col.type === 'formula' && <i className="fas fa-calculator text-purple-400 text-xs"></i>}
                             <i className="fas fa-grip-vertical text-gray-400 cursor-move"></i>
+                            <button className="ml-1 text-gray-400 hover:text-gray-600" onClick={(e)=>{ e.stopPropagation(); setColumnMenuIdx(columnMenuIdx===schema.indexOf(col)?null:schema.indexOf(col)); setEditColName(col.name); setEditColType(col.type); }}>
+                              <i className="fas fa-ellipsis-h"></i>
+                            </button>
                           </div>
+                          {columnMenuIdx===schema.indexOf(col) && (
+                            <div className="absolute z-50 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg p-3">
+                              <div className="mb-2">
+                                <label className="block text-xs text-gray-500 mb-1">Column name</label>
+                                <input value={editColName} onChange={(e)=>setEditColName(e.target.value)} className="w-full px-2 py-1 border rounded" />
+                              </div>
+                              <div className="mb-2">
+                                <label className="block text-xs text-gray-500 mb-1">Column type</label>
+                                <select value={editColType} onChange={(e)=>setEditColType(e.target.value)} className="w-full px-2 py-1 border rounded">
+                                  <option value="text">Text</option>
+                                  <option value="number">Number</option>
+                                  <option value="status">Status</option>
+                                  <option value="date">Date</option>
+                                  <option value="formula">Formula</option>
+                                </select>
+                              </div>
+                              <div className="flex items-center justify-between pt-1">
+                                <button className="px-3 py-1 border rounded text-sm" onClick={()=>setColumnMenuIdx(null)}>Cancel</button>
+                                <div className="flex items-center gap-2">
+                                  <button className="px-3 py-1 text-red-600 border border-red-200 rounded text-sm hover:bg-red-50" onClick={()=>deleteColumnAt(schema.indexOf(col))}>Delete</button>
+                                  <button className="px-3 py-1 bg-purple-600 text-white rounded text-sm" onClick={async()=>{ await renameColumnAt(schema.indexOf(col), editColName); await changeColumnTypeAt(schema.indexOf(col), editColType); }}>Save</button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </th>
                       ))}
                     </tr>
@@ -463,7 +572,7 @@ export default function TableEditor() {
                     )}
                     {rows.map((r, idx) => (
                       <tr key={idx} className={`transition-colors border-b border-gray-100 ${selectedRowIndex === idx ? 'bg-purple-50' : 'hover:bg-purple-50'}`} onClick={()=>setSelectedRowIndex(idx)}>
-                        <td className="px-4 py-3"><input type="checkbox" className="rounded border-gray-300" /></td>
+                        <td className="px-4 py-3"><input type="checkbox" className="rounded border-gray-300" onChange={(e)=>toggleSelectRow(idx, e.target.checked)} checked={selectedRowIdxSet.has(idx)} /></td>
                         {schema.map((col) => (
                           <td key={`${idx}-${col.name}`} className="px-4 py-3 border-r border-gray-100">
                             {renderEditableCell(r, col, idx)}
