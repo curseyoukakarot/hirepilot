@@ -138,10 +138,63 @@ export default function TableEditor() {
         if (!createdId) throw new Error('Failed to create table');
         targetId = createdId;
       }
-      await apiFetch(`/api/tables/${encodeURIComponent(targetId)}/import`, {
-        method: 'POST',
-        body: JSON.stringify({ source: src }),
-      });
+      let usedApi = false;
+      try {
+        await apiFetch(`/api/tables/${encodeURIComponent(targetId)}/import`, {
+          method: 'POST',
+          body: JSON.stringify({ source: src }),
+        });
+        usedApi = true;
+      } catch {
+        // Fallback: perform import locally via Supabase (avoid Vercel APIs)
+        const ensure = (arr, name, type) => { if (!arr.some(c => String(c.name) === name)) arr.push({ name, type }); };
+        const { data: tableRow } = await supabase
+          .from('custom_tables')
+          .select('schema_json,data_json')
+          .eq('id', targetId)
+          .maybeSingle();
+        let schemaLocal = Array.isArray(tableRow?.schema_json) ? tableRow.schema_json : [];
+        let dataLocal = Array.isArray(tableRow?.data_json) ? tableRow.data_json : [];
+        if (src === '/deals' || src === 'deals' || src === '/opportunities' || src === 'opportunities') {
+          const { data: opps } = await supabase.from('opportunities').select('title,value,stage,created_at').limit(1000);
+          ensure(schemaLocal, 'Deal Title', 'text');
+          ensure(schemaLocal, 'Value', 'number');
+          ensure(schemaLocal, 'Status', 'status');
+          ensure(schemaLocal, 'Created', 'date');
+          const list = (opps || []).map(o => ({ 'Deal Title': o?.title || 'Deal', 'Value': Number(o?.value)||0, 'Status': o?.stage || 'Pipeline', 'Created': o?.created_at || null }));
+          dataLocal = [...dataLocal, ...list];
+        } else if (src === '/jobs' || src === 'jobs') {
+          const { data: jobs } = await supabase.from('job_requisitions').select('title,status,candidate_count,created_at').limit(1000);
+          ensure(schemaLocal, 'Position', 'text');
+          ensure(schemaLocal, 'Candidates', 'number');
+          ensure(schemaLocal, 'Status', 'status');
+          ensure(schemaLocal, 'Created', 'date');
+          const list = (jobs || []).map(j => ({ 'Position': j?.title || 'Job', 'Candidates': Number(j?.candidate_count)||0, 'Status': j?.status || 'Open', 'Created': j?.created_at || null }));
+          dataLocal = [...dataLocal, ...list];
+        } else if (src === '/leads' || src === 'leads') {
+          const { data: leads } = await supabase.from('leads').select('name,email,status,tags,location,source').limit(2000);
+          const list = (leads || []).map(l => ({ 'Name': l?.name||'', 'Email': l?.email||'', 'Status': l?.status||'', 'Tags': Array.isArray(l?.tags)?l.tags.join(', '):(l?.tags||''), 'Location': l?.location||'', 'Source': l?.source||'' }));
+          const keys = Array.from(new Set(list.flatMap(r=>Object.keys(r))));
+          keys.forEach(k => { if (!schemaLocal.some(c=>c.name===k)) schemaLocal.push({ name:k, type:'text' }); });
+          dataLocal = [...dataLocal, ...list];
+        } else if (src === '/candidates' || src === 'candidates') {
+          const { data: cands } = await supabase.from('candidates').select('name,email,status,job_assigned,location,source').limit(2000);
+          const list = (cands || []).map(c => ({ 'Name': c?.name||'', 'Email': c?.email||'', 'Status': c?.status||'', 'Job': c?.job_assigned||'', 'Location': c?.location||'', 'Source': c?.source||'' }));
+          const keys = Array.from(new Set(list.flatMap(r=>Object.keys(r))));
+          keys.forEach(k => { if (!schemaLocal.some(c=>c.name===k)) schemaLocal.push({ name:k, type:'text' }); });
+          dataLocal = [...dataLocal, ...list];
+        } else if (src === '/campaigns' || src === 'campaigns') {
+          const { data: camps } = await supabase.from('campaigns').select('name,status,leads_count,outreach_sent,reply_rate,conversion_rate,created_at').limit(2000);
+          const list = (camps || []).map(c => ({ 'Name': c?.name||'', 'Status': c?.status||'', 'Leads': Number((c as any)?.leads_count)||0, 'Sent': Number((c as any)?.outreach_sent)||0, 'ReplyRate': Number((c as any)?.reply_rate)||0, 'ConversionRate': Number((c as any)?.conversion_rate)||0, 'Created': (c as any)?.created_at || null }));
+          const keys = Array.from(new Set(list.flatMap(r=>Object.keys(r))));
+          keys.forEach(k => { if (!schemaLocal.some(c=>c.name===k)) schemaLocal.push({ name:k, type:'text' }); });
+          dataLocal = [...dataLocal, ...list];
+        }
+        await supabase
+          .from('custom_tables')
+          .update({ schema_json: schemaLocal, data_json: dataLocal, updated_at: new Date().toISOString() })
+          .eq('id', targetId);
+      }
       // reload after import
       try {
         const { data } = await apiFetch(`/api/tables/${encodeURIComponent(targetId)}`);

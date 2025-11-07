@@ -56,9 +56,21 @@ export default function Tables() {
     const load = async () => {
       try {
         setLoading(true);
-        const { data } = await apiFetch('/api/tables');
-        setTables(Array.isArray(data) ? data : []);
+        // Prefer direct Supabase to avoid Vercel 405s in production
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id) {
+          const { data: rows } = await supabase
+            .from('custom_tables')
+            .select('*')
+            .order('updated_at', { ascending: false });
+          setTables(Array.isArray(rows) ? rows : []);
+        } else {
+          // Fallback to API if user not resolved (should be rare)
+          const { data } = await apiFetch('/api/tables');
+          setTables(Array.isArray(data) ? data : []);
+        }
       } catch {
+        // Final fallback: empty
         setTables([]);
       } finally {
         setLoading(false);
