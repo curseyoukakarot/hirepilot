@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
+import { evaluate as mathEvaluate } from 'mathjs';
 
 export default function TableEditor() {
   const navigate = useNavigate();
@@ -29,6 +30,9 @@ export default function TableEditor() {
   const [editCurrency, setEditCurrency] = useState('USD');
   const [inlineEditIdx, setInlineEditIdx] = useState(null);
   const [inlineEditName, setInlineEditName] = useState('');
+  const [showFormulaModal, setShowFormulaModal] = useState(false);
+  const [formulaColIdx, setFormulaColIdx] = useState(null);
+  const [formulaExpr, setFormulaExpr] = useState('');
 
   const apiFetch = async (url, init = {}) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -37,6 +41,71 @@ export default function TableEditor() {
     const resp = await fetch(url, { ...init, headers, credentials: 'include' });
     if (!resp.ok) throw new Error(await resp.text());
     return resp.json();
+  };
+
+  const toVarName = (name) => {
+    const base = String(name || '').replace(/\W+/g, '_');
+    return base.length ? base : 'col';
+  };
+
+  const openFormulaBuilder = (colIdx) => {
+    const col = schema[colIdx];
+    if (!col) return;
+    setFormulaColIdx(colIdx);
+    setFormulaExpr(col.formula || '0');
+    setShowFormulaModal(true);
+  };
+
+  const applyFormulaToColumn = async (colIdx, expression) => {
+    const col = schema[colIdx]; if (!col) return;
+    // Build scope per row from current schema
+    const varMap = {};
+    schema.forEach((c, i) => { varMap[toVarName(c.name)] = c.name; });
+
+    const nextRows = (rows || []).map((r) => {
+      const scope = {};
+      for (const v in varMap) {
+        const colName = varMap[v];
+        const raw = r?.[colName];
+        const n = Number(String(raw ?? '').replace(/[^0-9.-]/g, ''));
+        scope[v] = isNaN(n) ? 0 : n;
+      }
+      // Inject helpers
+      scope.SUM = (...xs) => xs.reduce((t, x) => t + (Number(x) || 0), 0);
+      scope.AVG = (...xs) => {
+        if (!xs.length) return 0;
+        const arr = xs.map(x => Number(x) || 0);
+        return arr.reduce((a,b)=>a+b,0) / arr.length;
+      };
+      scope.MIN = (...xs) => {
+        if (!xs.length) return 0;
+        const arr = xs.map(x => Number(x) || 0);
+        return Math.min(...arr);
+      };
+      scope.MAX = (...xs) => {
+        if (!xs.length) return 0;
+        const arr = xs.map(x => Number(x) || 0);
+        return Math.max(...arr);
+      };
+      scope.ROUND = (x, nd = 0) => {
+        const n = Number(x) || 0;
+        const d = Number(nd) || 0;
+        return Number(n.toFixed(d));
+      };
+
+      let result = 0;
+      try {
+        result = Number(mathEvaluate(expression || '0', scope));
+        if (isNaN(result)) result = 0;
+      } catch {
+        result = 0;
+      }
+      return { ...r, [col.name]: result };
+    });
+
+    const nextSchema = schema.map((c, i) => i === colIdx ? { ...c, type: 'formula', formula: expression || '0' } : c);
+    setSchema(nextSchema); setRows(nextRows);
+    await persistSchemaRows(nextSchema, nextRows);
   };
 
   useEffect(() => {
@@ -60,8 +129,8 @@ export default function TableEditor() {
   // Open Share modal from query param (?share=1)
   useEffect(() => {
     try {
-      const sp = new URLSearchParams(window.location.search);
-      if (sp.get('share') === '1') setShowShare(true);
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('share') === '1') setShowShare(true);
     } catch {}
   }, []);
 
@@ -261,8 +330,13 @@ export default function TableEditor() {
         .select('*')
         .maybeSingle();
       if (!error) {
-        setSchema(Array.isArray(data?.schema_json) ? data.schema_json : nextSchema);
+        const updatedSchema = Array.isArray(data?.schema_json) ? data.schema_json : nextSchema;
+        setSchema(updatedSchema);
         setRows(Array.isArray(data?.data_json) ? data.data_json : rows);
+        if (type === 'formula') {
+          const idxInSchema = updatedSchema.findIndex(c => c.name === name);
+          if (idxInSchema >= 0) openFormulaBuilder(idxInSchema);
+        }
       }
     } catch {}
     finally { setSaving(false); setColumnMenuOpen(false); }
@@ -603,7 +677,11 @@ export default function TableEditor() {
                                 </button>
                               </>
                             )}
-                            {col.type === 'formula' && <i className="fas fa-calculator text-purple-400 text-xs"></i>}
+                            {col.type === 'formula' && (
+                              <button title="Edit formula" className="text-purple-500 hover:text-purple-700" onClick={()=>openFormulaBuilder(ci)}>
+                                <i className="fas fa-calculator text-xs"></i>
+                              </button>
+                            )}
                             <i className="fas fa-grip-vertical text-gray-400 cursor-move"></i>
                             <button className="ml-1 text-gray-400 hover:text-gray-600" onClick={(e)=>{ e.stopPropagation(); setColumnMenuIdx(columnMenuIdx===ci?null:ci); setEditColName(col.name); setEditColType(col.type); setEditCurrency((col && col.currency) ? col.currency : 'USD'); }}>
                               <i className="fas fa-ellipsis-h"></i>
@@ -634,6 +712,11 @@ export default function TableEditor() {
                                     <option value="EUR">EUR</option>
                                     <option value="GBP">GBP</option>
                                   </select>
+                                </div>
+                              )}
+                              {editColType === 'formula' && (
+                                <div className="mb-2">
+                                  <button className="px-3 py-1 border rounded text-sm w-full" onClick={()=>{ openFormulaBuilder(ci); }}>Edit formula…</button>
                                 </div>
                               )}
                               <div className="flex items-center justify-between pt-1">
@@ -885,6 +968,81 @@ export default function TableEditor() {
             <div className="mt-6 flex justify-end gap-3">
               <button onClick={()=>setShowImportModal(false)} className="px-4 py-2 border rounded-lg">Cancel</button>
               <button onClick={async()=>{ await importFrom(importSource, importFilters); setShowImportModal(false); }} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">Import</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Formula Builder Modal */}
+      {showFormulaModal && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+          <div className="bg-white w-full max-w-2xl rounded-lg shadow-xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Build formula</h3>
+              <button className="text-gray-500 hover:text-gray-700" onClick={()=>setShowFormulaModal(false)}><i className="fas fa-times"></i></button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-2">
+                <label className="block text-sm text-gray-600 mb-1">Expression</label>
+                <input
+                  className="w-full px-3 py-2 border rounded"
+                  placeholder="e.g., Monthly * 12"
+                  value={formulaExpr}
+                  onChange={(e)=>setFormulaExpr(e.target.value)}
+                />
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {['+','-','*','/','(',')'].map(op => (
+                    <button key={op} className="px-2 py-1 border rounded text-sm" onClick={()=>setFormulaExpr(f=>`${f}${op}`)}>{op}</button>
+                  ))}
+                  {['SUM','AVG','MIN','MAX','ROUND'].map(fn => (
+                    <button key={fn} className="px-2 py-1 border rounded text-sm" title={`${fn}(...)`} onClick={()=>setFormulaExpr(f=> f ? `${f} ${fn}()` : `${fn}()`) }>{fn}</button>
+                  ))}
+                </div>
+                {/* Quick Picks */}
+                <div className="mt-4">
+                  <div className="text-xs uppercase tracking-wide text-gray-500 mb-2">Quick picks</div>
+                  <div className="flex flex-wrap gap-2">
+                    {(() => {
+                      const numericCols = (schema || []).filter(c => ['number','money','formula'].includes(c?.type));
+                      const chips = [];
+                      if (numericCols.length) {
+                        const v0 = toVarName(numericCols[0].name);
+                        chips.push({ label: `${numericCols[0].name} × 12`, expr: `${v0} * 12` });
+                      }
+                      if (numericCols.length >= 2) {
+                        const vA = toVarName(numericCols[0].name);
+                        const vB = toVarName(numericCols[1].name);
+                        chips.push({ label: `${numericCols[0].name} + ${numericCols[1].name}`, expr: `${vA} + ${vB}` });
+                        chips.push({ label: `${numericCols[0].name} × ${numericCols[1].name}`, expr: `${vA} * ${vB}` });
+                      }
+                      if (numericCols.length >= 2) {
+                        const allVars = numericCols.map(c => toVarName(c.name)).join(', ');
+                        chips.push({ label: 'SUM(all numeric)', expr: `SUM(${allVars})` });
+                        chips.push({ label: 'AVG(all numeric)', expr: `AVG(${allVars})` });
+                      }
+                      return chips.map((c, i) => (
+                        <button key={i} className="px-2 py-1 border rounded text-sm hover:bg-gray-50" onClick={()=>setFormulaExpr(c.expr)}>{c.label}</button>
+                      ));
+                    })()}
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-2">Insert columns</label>
+                <div className="max-h-48 overflow-auto border rounded p-2">
+                  {schema.map((c, i) => (
+                    <button key={i} className="px-2 py-1 mr-2 mb-2 border rounded text-sm hover:bg-gray-50" onClick={()=>{
+                      const v = toVarName(c.name);
+                      setFormulaExpr(f => f ? `${f} ${v}` : v);
+                    }}>{toVarName(c.name)}</button>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 mt-2">Variables represent column values per row. Example: Monthly * 12. Functions supported: SUM, AVG, MIN, MAX, ROUND.</p>
+              </div>
+            </div>
+            <div className="mt-6 flex items-center justify-end gap-2">
+              <button className="px-4 py-2 border rounded" onClick={()=>setShowFormulaModal(false)}>Cancel</button>
+              <button className="px-4 py-2 bg-purple-600 text-white rounded" onClick={async()=>{ await applyFormulaToColumn(formulaColIdx, formulaExpr); setShowFormulaModal(false); }}>Save</button>
             </div>
           </div>
         </div>
