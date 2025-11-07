@@ -24,12 +24,7 @@ export default function Tables() {
         schema_json: [],
         initial_data: [],
       };
-      // Try API route first
-      try {
-        const { data } = await apiFetch('/api/tables', { method: 'POST', body: JSON.stringify(payload) });
-        if (data?.id) { navigate(`/tables/${data.id}/edit`); return; }
-      } catch {}
-      // Fallback: direct Supabase insert (RLS enforced)
+      // Direct Supabase insert (avoid Vercel routes entirely)
       const { data: { user } } = await supabase.auth.getUser();
       if (!user?.id) throw new Error('unauthenticated');
       const { data: inserted, error } = await supabase

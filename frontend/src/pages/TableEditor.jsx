@@ -33,7 +33,11 @@ export default function TableEditor() {
     const load = async () => {
       if (!id) return;
       try {
-        const { data } = await apiFetch(`/api/tables/${encodeURIComponent(id)}`);
+        const { data } = await supabase
+          .from('custom_tables')
+          .select('*')
+          .eq('id', id)
+          .maybeSingle();
         if (data?.name) { setTableName(String(data.name)); setLastSavedName(String(data.name)); }
         setSchema(Array.isArray(data?.schema_json) ? data.schema_json : []);
         setRows(Array.isArray(data?.data_json) ? data.data_json : []);
@@ -99,10 +103,10 @@ export default function TableEditor() {
     if (!id) return;
     try {
       setSaving(true);
-      await apiFetch(`/api/tables/${encodeURIComponent(id)}/update`, {
-        method: 'PATCH',
-        body: JSON.stringify({ name: tableName }),
-      });
+      await supabase
+        .from('custom_tables')
+        .update({ name: tableName, updated_at: new Date().toISOString() })
+        .eq('id', id);
       setLastSavedName(tableName);
     } catch {
       // ignore
@@ -138,15 +142,8 @@ export default function TableEditor() {
         if (!createdId) throw new Error('Failed to create table');
         targetId = createdId;
       }
-      let usedApi = false;
-      try {
-        await apiFetch(`/api/tables/${encodeURIComponent(targetId)}/import`, {
-          method: 'POST',
-          body: JSON.stringify({ source: src }),
-        });
-        usedApi = true;
-      } catch {
-        // Fallback: perform import locally via Supabase (avoid Vercel APIs)
+      {
+        // Perform import locally via Supabase (avoid Vercel APIs)
         const ensure = (arr, name, type) => { if (!arr.some(c => String(c.name) === name)) arr.push({ name, type }); };
         const { data: tableRow } = await supabase
           .from('custom_tables')
@@ -197,7 +194,11 @@ export default function TableEditor() {
       }
       // reload after import
       try {
-        const { data } = await apiFetch(`/api/tables/${encodeURIComponent(targetId)}`);
+        const { data } = await supabase
+          .from('custom_tables')
+          .select('*')
+          .eq('id', targetId)
+          .maybeSingle();
         setSchema(Array.isArray(data?.schema_json) ? data.schema_json : []);
         setRows(Array.isArray(data?.data_json) ? data.data_json : []);
         // Navigate to the real table route if we just created it
