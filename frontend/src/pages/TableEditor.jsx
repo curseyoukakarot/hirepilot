@@ -109,13 +109,13 @@ export default function TableEditor() {
     }
   };
 
-  const onImportDeals = async () => {
+  const importFrom = async (src) => {
     if (!id) return;
     try {
       setSaving(true);
       await apiFetch(`/api/tables/${encodeURIComponent(id)}/import`, {
         method: 'POST',
-        body: JSON.stringify({ source: '/deals' }),
+        body: JSON.stringify({ source: src }),
       });
       // reload after import
       try {
@@ -208,8 +208,20 @@ export default function TableEditor() {
                   </div>
                   <div className="border-t mt-2 pt-2">
                     <div className="text-xs font-medium text-gray-500 mb-2">FROM APP SOURCES</div>
-                    <button onClick={onImportDeals} className="w-full text-left px-3 py-2 rounded hover:bg-purple-50 text-purple-600 flex items-center gap-2">
+                    <button onClick={()=>importFrom('/deals')} className="w-full text-left px-3 py-2 rounded hover:bg-purple-50 text-purple-600 flex items-center gap-2">
                       <i className="fas fa-database text-purple-400"></i>Import from /deals
+                    </button>
+                    <button onClick={()=>importFrom('/leads')} className="w-full text-left px-3 py-2 rounded hover:bg-purple-50 text-purple-600 flex items-center gap-2">
+                      <i className="fas fa-database text-purple-400"></i>Import from /leads
+                    </button>
+                    <button onClick={()=>importFrom('/candidates')} className="w-full text-left px-3 py-2 rounded hover:bg-purple-50 text-purple-600 flex items-center gap-2">
+                      <i className="fas fa-database text-purple-400"></i>Import from /candidates
+                    </button>
+                    <button onClick={()=>importFrom('/campaigns')} className="w-full text-left px-3 py-2 rounded hover:bg-purple-50 text-purple-600 flex items-center gap-2">
+                      <i className="fas fa-database text-purple-400"></i>Import from /campaigns
+                    </button>
+                    <button onClick={()=>importFrom('/jobs')} className="w-full text-left px-3 py-2 rounded hover:bg-purple-50 text-purple-600 flex items-center gap-2">
+                      <i className="fas fa-database text-purple-400"></i>Import from /jobs
                     </button>
                   </div>
                 </div>
