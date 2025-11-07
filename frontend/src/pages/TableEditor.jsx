@@ -33,6 +33,9 @@ export default function TableEditor() {
   const [showFormulaModal, setShowFormulaModal] = useState(false);
   const [formulaColIdx, setFormulaColIdx] = useState(null);
   const [formulaExpr, setFormulaExpr] = useState('');
+  const [activeColIdx, setActiveColIdx] = useState(0);
+  const [activity, setActivity] = useState([]);
+  const addActivity = (msg) => setActivity((a)=>[{ msg, at: new Date() }, ...a].slice(0,50));
 
   const apiFetch = async (url, init = {}) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -337,6 +340,7 @@ export default function TableEditor() {
           const idxInSchema = updatedSchema.findIndex(c => c.name === name);
           if (idxInSchema >= 0) openFormulaBuilder(idxInSchema);
         }
+        addActivity(`Added ${type} column`);
       }
     } catch {}
     finally { setSaving(false); setColumnMenuOpen(false); }
@@ -358,6 +362,7 @@ export default function TableEditor() {
       if (!error) setRows(Array.isArray(data?.data_json) ? data.data_json : next);
     } catch {}
     finally { setSaving(false); }
+    addActivity('Added row');
   };
 
   const persistRows = async (next) => {
@@ -387,6 +392,7 @@ export default function TableEditor() {
     const next = rows.map((r, i) => (i === rowIdx ? { ...r, [col.name]: normalized } : r));
     setRows(next);
     scheduleSave(next);
+    addActivity(`Edited ${col.name}`);
   };
 
   const persistSchemaRows = async (nextSchema, nextRows) => {
@@ -412,6 +418,7 @@ export default function TableEditor() {
     const nextRows = (rows||[]).map(r => { const { [col.name]: _drop, ...rest } = r || {}; return rest; });
     setSchema(nextSchema); setRows(nextRows); setColumnMenuIdx(null);
     await persistSchemaRows(nextSchema, nextRows);
+    addActivity(`Deleted column ${col.name}`);
   };
 
   const renameColumnAt = async (colIdx, name) => {
@@ -427,6 +434,7 @@ export default function TableEditor() {
     });
     setSchema(nextSchema); setRows(nextRows); setColumnMenuIdx(null);
     await persistSchemaRows(nextSchema, nextRows);
+    addActivity(`Renamed column to ${final}`);
   };
 
   const changeColumnTypeAt = async (colIdx, newType, newCurrency) => {
@@ -448,6 +456,7 @@ export default function TableEditor() {
     }
     setSchema(nextSchema); setRows(nextRows); setColumnMenuIdx(null);
     await persistSchemaRows(nextSchema, nextRows);
+    addActivity(`Changed column type to ${newType}`);
   };
 
   const toggleSelectRow = (idx, checked) => {
@@ -474,6 +483,7 @@ export default function TableEditor() {
     const next = (rows || []).filter((_, i) => !selectedRowIdxSet.has(i));
     setRows(next); setSelectedRowIdxSet(new Set());
     await persistRows(next);
+    addActivity(`Deleted ${count} row${count>1?'s':''}`);
   };
 
   const renderEditableCell = (row, col, rowIdx) => {
@@ -482,11 +492,26 @@ export default function TableEditor() {
       className: "w-full bg-transparent border-none outline-none focus:bg-white focus:border focus:border-purple-300 rounded px-2 py-1",
       onBlur: () => persistRows(rows),
     };
+    const currencySymbol = (cur) => (cur === 'EUR' ? '€' : cur === 'GBP' ? '£' : '$');
     if (col.type === 'number' || col.type === 'money') {
+      if (col.type === 'money') {
+        return (
+          <div className="flex items-center">
+            <span className="text-gray-500 mr-1">{currencySymbol(col.currency || 'USD')}</span>
+            <input
+              type="number"
+              step="0.01"
+              value={val === '' || val === null ? '' : Number(val)}
+              onChange={(e)=> updateCell(rowIdx, col, e.target.value)}
+              {...common}
+            />
+          </div>
+        );
+      }
       return (
         <input
           type="number"
-          step={col.type === 'money' ? '0.01' : '1'}
+          step="1"
           value={val === '' || val === null ? '' : Number(val)}
           onChange={(e)=> updateCell(rowIdx, col, e.target.value)}
           {...common}
@@ -554,6 +579,15 @@ export default function TableEditor() {
     }
     return acc;
   }, [rows, schema]);
+
+  const updateColumnWidthAt = async (colIdx, widthPx) => {
+    const col = schema[colIdx]; if (!col) return;
+    const w = Math.max(60, Math.min(600, Number(widthPx) || 0));
+    const nextSchema = schema.map((c, i) => i===colIdx ? { ...c, width: w } : c);
+    setSchema(nextSchema);
+    await persistSchemaRows(nextSchema, rows);
+    addActivity(`Changed width of ${col.name} to ${w}px`);
+  };
 
   return (
     <div className="bg-gray-50 font-sans min-h-screen flex flex-col">
@@ -655,7 +689,7 @@ export default function TableEditor() {
                     <tr>
                       <th className="w-12 px-4 py-3 text-left"><input type="checkbox" className="rounded border-gray-300" onChange={(e)=>toggleSelectAll(e.target.checked)} checked={selectedRowIdxSet.size>0 && selectedRowIdxSet.size===(rows||[]).length} /></th>
                       {schema.map((col, ci) => (
-                        <th key={col.name} className="px-4 py-3 text-left text-sm font-medium text-gray-700 border-r border-gray-200 min-w-40 relative">
+                        <th key={col.name} className={`px-4 py-3 text-left text-sm font-medium border-r border-gray-200 min-w-40 relative ${activeColIdx===ci?'bg-purple-50/40':''}`} style={{ minWidth: col.width ? `${col.width}px` : undefined }} onClick={()=> setActiveColIdx(ci)}>
                           <div className="flex items-center gap-2">
                             {inlineEditIdx === ci ? (
                               <input
@@ -741,8 +775,8 @@ export default function TableEditor() {
                     {rows.map((r, idx) => (
                       <tr key={idx} className={`transition-colors border-b border-gray-100 ${selectedRowIndex === idx ? 'bg-purple-50' : 'hover:bg-purple-50'}`} onClick={()=>setSelectedRowIndex(idx)}>
                         <td className="px-4 py-3"><input type="checkbox" className="rounded border-gray-300" onChange={(e)=>toggleSelectRow(idx, e.target.checked)} checked={selectedRowIdxSet.has(idx)} /></td>
-                        {schema.map((col) => (
-                          <td key={`${idx}-${col.name}`} className="px-4 py-3 border-r border-gray-100">
+                        {schema.map((col, ci) => (
+                          <td key={`${idx}-${col.name}`} className="px-4 py-3 border-r border-gray-100" onClick={()=> setActiveColIdx(ci)}>
                             {renderEditableCell(r, col, idx)}
                           </td>
                         ))}
@@ -767,65 +801,68 @@ export default function TableEditor() {
               </div>
             </div>
           </main>
-          <aside id="sidebar" className="w-80 bg-white border-l border-gray-200 p-6">
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Column Settings</h3>
+          <aside id="sidebar" className="w-80 bg-white border-l border-gray-200 p-6 space-y-6">
+            <section>
+              <h3 className="text-lg font-semibold mb-4">Column Settings</h3>
+              {schema[activeColIdx] ? (
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Column Name</label>
-                    <input type="text" value={schema?.[0]?.name || ''} readOnly className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600" />
+                    <label className="block text-sm text-gray-600 mb-1">Column Name</label>
+                    <input className="w-full px-3 py-2 border rounded" value={schema[activeColIdx].name} onChange={(e)=> setSchema(s=> s.map((c,i)=> i===activeColIdx?{...c, name:e.target.value}:c))} onBlur={()=> renameColumnAt(activeColIdx, schema[activeColIdx].name)} />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Column Type</label>
-                    <input value={schema?.[0]?.type || ''} readOnly className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600" />
+                    <label className="block text-sm text-gray-600 mb-1">Column Type</label>
+                    <select className="w-full px-3 py-2 border rounded" value={schema[activeColIdx].type} onChange={(e)=> changeColumnTypeAt(activeColIdx, e.target.value, schema[activeColIdx].currency)}>
+                      <option value="text">text</option>
+                      <option value="number">number</option>
+                      <option value="money">money</option>
+                      <option value="status">status</option>
+                      <option value="date">date</option>
+                      <option value="formula">formula</option>
+                    </select>
                   </div>
+                  {schema[activeColIdx].type === 'money' && (
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">Currency</label>
+                      <select className="w-full px-3 py-2 border rounded" value={schema[activeColIdx].currency || 'USD'} onChange={(e)=> changeColumnTypeAt(activeColIdx, 'money', e.target.value)}>
+                        <option value="USD">USD</option>
+                        <option value="EUR">EUR</option>
+                        <option value="GBP">GBP</option>
+                      </select>
+                    </div>
+                  )}
+                  {schema[activeColIdx].type === 'formula' && (
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">Formula</label>
+                      <div className="flex gap-2">
+                        <input className="flex-1 px-3 py-2 border rounded" value={schema[activeColIdx].formula || ''} onChange={(e)=> setSchema(s=> s.map((c,i)=> i===activeColIdx?{...c, formula:e.target.value}:c))} />
+                        <button className="px-3 py-2 border rounded" onClick={()=> openFormulaBuilder(activeColIdx)}>Builder</button>
+                        <button className="px-3 py-2 bg-purple-600 text-white rounded" onClick={()=> applyFormulaToColumn(activeColIdx, schema[activeColIdx].formula || '0')}>Apply</button>
+                      </div>
+                    </div>
+                  )}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Width</label>
-                    <input type="number" placeholder="200" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
+                    <label className="block text-sm text-gray-600 mb-1">Width (px)</label>
+                    <input type="number" min="60" max="600" className="w-full px-3 py-2 border rounded" value={schema[activeColIdx].width || 200} onChange={(e)=> updateColumnWidthAt(activeColIdx, e.target.value)} />
                   </div>
                 </div>
+              ) : (
+                <div className="text-sm text-gray-500">Select a column</div>
+              )}
+            </section>
+
+            <section>
+              <h3 className="text-lg font-semibold mb-3">Activity</h3>
+              <div className="space-y-3 max-h-64 overflow-auto">
+                {activity.length === 0 && <div className="text-sm text-gray-500">No recent activity</div>}
+                {activity.map((a, i) => (
+                  <div key={i} className="text-sm">
+                    <div className="text-gray-900">{a.msg}</div>
+                    <div className="text-gray-500 text-xs">{new Date(a.at).toLocaleTimeString()}</div>
+                  </div>
+                ))}
               </div>
-              <div className="border-t pt-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Row Details</h3>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <div className="text-sm text-gray-600 mb-2">
-                    Selected: {selectedRowIndex >= 0 ? String(rows[selectedRowIndex]?.[schema?.[0]?.name] ?? 'Row') : 'None'}
-                  </div>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                      <textarea rows="3" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm" placeholder="Add notes..."></textarea>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Attachments</label>
-                      <button className="w-full px-3 py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-purple-300 hover:text-purple-600 transition-colors">
-                        <i className="fas fa-paperclip mr-2"></i>Add files
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="border-t pt-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Activity</h3>
-                <div className="space-y-3">
-                  <div className="flex items-start gap-3">
-                    <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" alt="User" className="w-8 h-8 rounded-full" />
-                    <div className="text-sm">
-                      <div className="font-medium text-gray-900">John edited Value</div>
-                      <div className="text-gray-500">2 minutes ago</div>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-5.jpg" alt="User" className="w-8 h-8 rounded-full" />
-                    <div className="text-sm">
-                      <div className="font-medium text-gray-900">Sarah added new row</div>
-                      <div className="text-gray-500">5 minutes ago</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            </section>
           </aside>
         </div>
         <footer id="footer" className="bg-white border-t border-gray-200 px-6 py-3">
