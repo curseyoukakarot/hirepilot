@@ -51,6 +51,61 @@ export default function TableEditor() {
     return base.length ? base : 'col';
   };
 
+  const buildScopeForRow = (row) => {
+    const varMap = {};
+    (schema || []).forEach((c) => { varMap[toVarName(c.name)] = c.name; });
+    const scope = {};
+    for (const v in varMap) {
+      const colName = varMap[v];
+      const raw = row?.[colName];
+      const n = Number(String(raw ?? '').replace(/[^0-9.-]/g, ''));
+      scope[v] = isNaN(n) ? 0 : n;
+    }
+    scope.SUM = (...xs) => xs.reduce((t, x) => t + (Number(x) || 0), 0);
+    scope.AVG = (...xs) => {
+      if (!xs.length) return 0;
+      const arr = xs.map(x => Number(x) || 0);
+      return arr.reduce((a,b)=>a+b,0) / arr.length;
+    };
+    scope.MIN = (...xs) => {
+      if (!xs.length) return 0;
+      const arr = xs.map(x => Number(x) || 0);
+      return Math.min(...arr);
+    };
+    scope.MAX = (...xs) => {
+      if (!xs.length) return 0;
+      const arr = xs.map(x => Number(x) || 0);
+      return Math.max(...arr);
+    };
+    scope.ROUND = (x, nd = 0) => {
+      const n = Number(x) || 0;
+      const d = Number(nd) || 0;
+      return Number(n.toFixed(d));
+    };
+    return scope;
+  };
+
+  const recomputeFormulasRows = (rowsIn) => {
+    const formulaCols = (schema || []).filter(c => c?.type === 'formula' && (c.formula || '').toString().trim().length > 0);
+    if (!formulaCols.length) return rowsIn;
+    const safeExpr = (expr) => {
+      const s = String(expr || '0').trim();
+      return s.startsWith('=') ? s.slice(1) : s;
+    };
+    return (rowsIn || []).map((r) => {
+      let next = r;
+      for (const c of formulaCols) {
+        let result = 0;
+        try {
+          result = Number(mathEvaluate(safeExpr(c.formula), buildScopeForRow(next)));
+          if (isNaN(result)) result = 0;
+        } catch { result = 0; }
+        next = { ...next, [c.name]: result };
+      }
+      return next;
+    });
+  };
+
   const openFormulaBuilder = (colIdx) => {
     const col = schema[colIdx];
     if (!col) return;
@@ -61,54 +116,11 @@ export default function TableEditor() {
 
   const applyFormulaToColumn = async (colIdx, expression) => {
     const col = schema[colIdx]; if (!col) return;
-    // Build scope per row from current schema
-    const varMap = {};
-    schema.forEach((c, i) => { varMap[toVarName(c.name)] = c.name; });
-
-    const nextRows = (rows || []).map((r) => {
-      const scope = {};
-      for (const v in varMap) {
-        const colName = varMap[v];
-        const raw = r?.[colName];
-        const n = Number(String(raw ?? '').replace(/[^0-9.-]/g, ''));
-        scope[v] = isNaN(n) ? 0 : n;
-      }
-      // Inject helpers
-      scope.SUM = (...xs) => xs.reduce((t, x) => t + (Number(x) || 0), 0);
-      scope.AVG = (...xs) => {
-        if (!xs.length) return 0;
-        const arr = xs.map(x => Number(x) || 0);
-        return arr.reduce((a,b)=>a+b,0) / arr.length;
-      };
-      scope.MIN = (...xs) => {
-        if (!xs.length) return 0;
-        const arr = xs.map(x => Number(x) || 0);
-        return Math.min(...arr);
-      };
-      scope.MAX = (...xs) => {
-        if (!xs.length) return 0;
-        const arr = xs.map(x => Number(x) || 0);
-        return Math.max(...arr);
-      };
-      scope.ROUND = (x, nd = 0) => {
-        const n = Number(x) || 0;
-        const d = Number(nd) || 0;
-        return Number(n.toFixed(d));
-      };
-
-      let result = 0;
-      try {
-        result = Number(mathEvaluate(expression || '0', scope));
-        if (isNaN(result)) result = 0;
-      } catch {
-        result = 0;
-      }
-      return { ...r, [col.name]: result };
-    });
-
     const nextSchema = schema.map((c, i) => i === colIdx ? { ...c, type: 'formula', formula: expression || '0' } : c);
-    setSchema(nextSchema); setRows(nextRows);
-    await persistSchemaRows(nextSchema, nextRows);
+    const recomputed = recomputeFormulasRows(rows);
+    setSchema(nextSchema); setRows(recomputed);
+    await persistSchemaRows(nextSchema, recomputed);
+    addActivity(`Updated formula for ${col.name}`);
   };
 
   useEffect(() => {
@@ -121,8 +133,10 @@ export default function TableEditor() {
           .eq('id', id)
           .maybeSingle();
         if (data?.name) { setTableName(String(data.name)); setLastSavedName(String(data.name)); }
-        setSchema(Array.isArray(data?.schema_json) ? data.schema_json : []);
-        setRows(Array.isArray(data?.data_json) ? data.data_json : []);
+        const loadedSchema = Array.isArray(data?.schema_json) ? data.schema_json : [];
+        const loadedRows = Array.isArray(data?.data_json) ? data.data_json : [];
+        setSchema(loadedSchema);
+        setRows(recomputeFormulasRows(loadedRows));
         setCollaborators(Array.isArray(data?.collaborators) ? data.collaborators : []);
       } catch {}
     };
@@ -335,7 +349,8 @@ export default function TableEditor() {
       if (!error) {
         const updatedSchema = Array.isArray(data?.schema_json) ? data.schema_json : nextSchema;
         setSchema(updatedSchema);
-        setRows(Array.isArray(data?.data_json) ? data.data_json : rows);
+        const backRows = Array.isArray(data?.data_json) ? data.data_json : rows;
+        setRows(recomputeFormulasRows(backRows));
         if (type === 'formula') {
           const idxInSchema = updatedSchema.findIndex(c => c.name === name);
           if (idxInSchema >= 0) openFormulaBuilder(idxInSchema);
@@ -350,7 +365,7 @@ export default function TableEditor() {
     if (!id) return;
     const empty = {};
     (schema || []).forEach((c) => { empty[c.name] = c.type === 'number' ? 0 : c.type === 'date' ? null : ''; });
-    const next = [...rows, empty];
+    const next = recomputeFormulasRows([...rows, empty]);
     try {
       setSaving(true);
       const { data, error } = await supabase
@@ -389,7 +404,8 @@ export default function TableEditor() {
       const num = Number(value);
       normalized = isNaN(num) ? 0 : num;
     }
-    const next = rows.map((r, i) => (i === rowIdx ? { ...r, [col.name]: normalized } : r));
+    const edited = rows.map((r, i) => (i === rowIdx ? { ...r, [col.name]: normalized } : r));
+    const next = recomputeFormulasRows(edited);
     setRows(next);
     scheduleSave(next);
     addActivity(`Edited ${col.name}`);
@@ -454,6 +470,7 @@ export default function TableEditor() {
     if (newType === 'number' || newType === 'money') {
       nextRows = (rows || []).map(r => ({ ...r, [col.name]: Number((r || {})[col.name]) || 0 }));
     }
+    nextRows = recomputeFormulasRows(nextRows);
     setSchema(nextSchema); setRows(nextRows); setColumnMenuIdx(null);
     await persistSchemaRows(nextSchema, nextRows);
     addActivity(`Changed column type to ${newType}`);
