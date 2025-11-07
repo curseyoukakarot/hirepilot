@@ -11,6 +11,12 @@ export default function TableEditor() {
   const [schema, setSchema] = useState([]);
   const [rows, setRows] = useState([]);
   const [selectedRowIndex, setSelectedRowIndex] = useState(-1);
+  const [showShare, setShowShare] = useState(false);
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [collaborators, setCollaborators] = useState([]);
+  const [canManageAccess, setCanManageAccess] = useState(false);
+  const [addingUserId, setAddingUserId] = useState('');
+  const [addingRole, setAddingRole] = useState('view');
 
   const apiFetch = async (url, init = {}) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -29,10 +35,32 @@ export default function TableEditor() {
         if (data?.name) setTableName(String(data.name));
         setSchema(Array.isArray(data?.schema_json) ? data.schema_json : []);
         setRows(Array.isArray(data?.data_json) ? data.data_json : []);
+        setCollaborators(Array.isArray(data?.collaborators) ? data.collaborators : []);
       } catch {}
     };
     load();
   }, [id]);
+
+  // Determine permission and load team members list
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { setCanManageAccess(false); return; }
+        const { data: me } = await supabase.from('users').select('role, team_id').eq('id', user.id).maybeSingle();
+        const roleLc = String(me?.role || '').toLowerCase();
+        const isSuper = ['super_admin','superadmin'].includes(roleLc);
+        const isTeamAdmin = roleLc === 'team_admin';
+        setCanManageAccess(isSuper || isTeamAdmin);
+        if (me?.team_id) {
+          const { data: members } = await supabase.from('users').select('id, full_name, email').eq('team_id', me.team_id);
+          setTeamMembers(Array.isArray(members) ? members : []);
+        } else {
+          setTeamMembers([]);
+        }
+      } catch { setCanManageAccess(false); }
+    })();
+  }, []);
 
   // Realtime presence stub
   useEffect(() => {
@@ -108,7 +136,7 @@ export default function TableEditor() {
               <input type="text" value={tableName} onChange={(e)=>setTableName(e.target.value)} className="text-2xl font-semibold text-gray-900 bg-transparent border-none outline-none focus:bg-gray-50 rounded px-2 py-1" />
             </div>
             <div className="flex items-center gap-3">
-              <button className="px-4 py-2 text-purple-600 border border-purple-600 rounded-lg hover:bg-purple-50 transition-colors">
+              <button onClick={() => { if (canManageAccess) setShowShare(true); else window.alert('Only team admins can manage access'); }} className="px-4 py-2 text-purple-600 border border-purple-600 rounded-lg hover:bg-purple-50 transition-colors disabled:opacity-60" disabled={!canManageAccess}>
                 <i className="fas fa-share-alt mr-2"></i>Share
               </button>
               <button onClick={onSave} disabled={saving} className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-70">
@@ -273,6 +301,78 @@ export default function TableEditor() {
         </footer>
       </div>
       {/* EXACT SOURCE END */}
+
+      {/* Team Access Modal */}
+      {showShare && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center" onClick={(e)=>{ if (e.target === e.currentTarget) setShowShare(false); }}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold text-gray-900">Team Access</h3>
+              <button onClick={()=>setShowShare(false)} className="text-gray-500 hover:text-gray-700"><i className="fas fa-times"></i></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Add teammate</label>
+                <div className="flex items-center gap-2">
+                  <select value={addingUserId} onChange={(e)=>setAddingUserId(e.target.value)} className="flex-1 px-3 py-2 border rounded-lg">
+                    <option value="">Select user</option>
+                    {teamMembers.filter(m => !(collaborators||[]).some(c => String(c.user_id) === String(m.id))).map((m)=>(
+                      <option key={m.id} value={m.id}>{m.full_name || m.email || m.id}</option>
+                    ))}
+                  </select>
+                  <select value={addingRole} onChange={(e)=>setAddingRole(e.target.value)} className="px-3 py-2 border rounded-lg">
+                    <option value="view">View</option>
+                    <option value="edit">Edit</option>
+                  </select>
+                  <button onClick={()=>{
+                    if (!addingUserId) return;
+                    setCollaborators(prev => [...prev, { user_id: addingUserId, role: addingRole }]);
+                    setAddingUserId('');
+                  }} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">Add</button>
+                </div>
+              </div>
+              <div>
+                <div className="text-sm font-medium text-gray-700 mb-2">People with access</div>
+                <div className="divide-y border rounded-lg">
+                  {(collaborators||[]).map((c, i) => {
+                    const member = teamMembers.find(m => String(m.id) === String(c.user_id));
+                    return (
+                      <div key={`${c.user_id}-${i}`} className="flex items-center justify-between p-3">
+                        <div className="min-w-0">
+                          <div className="text-gray-900 font-medium truncate">{member?.full_name || member?.email || c.user_id}</div>
+                          <div className="text-xs text-gray-500 truncate">{member?.email || ''}</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <select value={c.role} onChange={(e)=>{
+                            const val = e.target.value === 'edit' ? 'edit' : 'view';
+                            setCollaborators(prev => prev.map((x, idx) => idx===i ? { ...x, role: val } : x));
+                          }} className="px-2 py-1 border rounded">
+                            <option value="view">View</option>
+                            <option value="edit">Edit</option>
+                          </select>
+                          <button onClick={()=> setCollaborators(prev => prev.filter((_, idx)=> idx!==i))} className="text-gray-500 hover:text-red-600 p-2"><i className="fas fa-trash"></i></button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {(!collaborators || collaborators.length === 0) && <div className="p-3 text-sm text-gray-500">No collaborators yet.</div>}
+                </div>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button onClick={()=>setShowShare(false)} className="px-4 py-2 border rounded-lg">Cancel</button>
+              <button onClick={async()=>{
+                try {
+                  await apiFetch(`/api/tables/${encodeURIComponent(id)}/share`, { method: 'POST', body: JSON.stringify({ collaborators }) });
+                  setShowShare(false);
+                } catch (e) {
+                  window.alert('Failed to save access');
+                }
+              }} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">Save</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
