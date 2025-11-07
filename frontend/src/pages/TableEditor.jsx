@@ -5,7 +5,8 @@ import { supabase } from '../lib/supabaseClient';
 export default function TableEditor() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const [tableName, setTableName] = useState('Deals Tracker Table');
+  const [tableName, setTableName] = useState('Untitled Table');
+  const [lastSavedName, setLastSavedName] = useState('Untitled Table');
   const [saving, setSaving] = useState(false);
   const [presenceCount, setPresenceCount] = useState(1);
   const [schema, setSchema] = useState([]);
@@ -33,7 +34,7 @@ export default function TableEditor() {
       if (!id) return;
       try {
         const { data } = await apiFetch(`/api/tables/${encodeURIComponent(id)}`);
-        if (data?.name) setTableName(String(data.name));
+        if (data?.name) { setTableName(String(data.name)); setLastSavedName(String(data.name)); }
         setSchema(Array.isArray(data?.schema_json) ? data.schema_json : []);
         setRows(Array.isArray(data?.data_json) ? data.data_json : []);
         setCollaborators(Array.isArray(data?.collaborators) ? data.collaborators : []);
@@ -102,6 +103,7 @@ export default function TableEditor() {
         method: 'PATCH',
         body: JSON.stringify({ name: tableName }),
       });
+      setLastSavedName(tableName);
     } catch {
       // ignore
     } finally {
@@ -176,7 +178,18 @@ export default function TableEditor() {
               <button className="text-gray-600 hover:text-gray-800 transition-colors" onClick={() => navigate('/tables')}>
                 <i className="fas fa-arrow-left text-lg"></i>
               </button>
-              <input type="text" value={tableName} onChange={(e)=>setTableName(e.target.value)} className="text-2xl font-semibold text-gray-900 bg-transparent border-none outline-none focus:bg-gray-50 rounded px-2 py-1" />
+              <div className="relative">
+                <i className="fas fa-pen text-gray-400 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                <input
+                  type="text"
+                  value={tableName}
+                  onChange={(e)=>setTableName(e.target.value)}
+                  onBlur={() => { if (tableName && tableName.trim() !== lastSavedName) onSave(); }}
+                  placeholder="Name your table…"
+                  title="Click to rename your table"
+                  className="pl-7 pr-3 text-2xl font-semibold text-gray-900 bg-gray-50 border border-transparent outline-none focus:bg-white focus:border-purple-300 rounded px-2 py-1 transition-colors"
+                />
+              </div>
             </div>
             <div className="flex items-center gap-3">
               <button onClick={() => { if (canManageAccess) setShowShare(true); else window.alert('Only team admins can manage access'); }} className="px-4 py-2 text-purple-600 border border-purple-600 rounded-lg hover:bg-purple-50 transition-colors disabled:opacity-60" disabled={!canManageAccess}>
