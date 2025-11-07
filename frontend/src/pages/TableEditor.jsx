@@ -54,6 +54,14 @@ export default function TableEditor() {
     load();
   }, [id]);
 
+  // Open Share modal from query param (?share=1)
+  useEffect(() => {
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      if (sp.get('share') === '1') setShowShare(true);
+    } catch {}
+  }, []);
+
   // Determine permission and load team members list
   useEffect(() => {
     (async () => {

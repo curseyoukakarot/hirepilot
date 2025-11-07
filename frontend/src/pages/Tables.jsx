@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 
@@ -7,6 +7,7 @@ export default function Tables() {
   const location = useLocation();
   const [tables, setTables] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [menuOpenId, setMenuOpenId] = useState(null);
 
   const apiFetch = async (url, init = {}) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -70,6 +71,41 @@ export default function Tables() {
     load();
   }, []);
 
+  const numberFmt = useMemo(() => new Intl.NumberFormat('en-US'), []);
+  const toCSV = (rows) => {
+    const arr = Array.isArray(rows) ? rows : [];
+    const headers = Array.from(new Set(arr.flatMap(r => Object.keys(r || {}))));
+    const escape = (v) => {
+      if (v === null || v === undefined) return '';
+      const s = typeof v === 'string' ? v : JSON.stringify(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const lines = [headers.join(','), ...arr.map(r => headers.map(h => escape((r||{})[h])).join(','))];
+    return lines.join('\n');
+  };
+
+  const exportTable = (t) => {
+    try {
+      const csv = toCSV(t?.data_json || []);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${String(t?.name||'table').replace(/[^a-z0-9_\-]+/gi,'_')}.csv`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    } catch {}
+  };
+
+  const deleteTable = async (id) => {
+    if (!id) return;
+    const ok = window.confirm('Delete this table? This cannot be undone.');
+    if (!ok) return;
+    try {
+      await supabase.from('custom_tables').delete().eq('id', id);
+      setTables(prev => prev.filter(t => t.id !== id));
+    } catch {}
+  };
+
   return (
     <div className="bg-neutral min-h-screen">
       {/* EXACT SOURCE START (layout/content preserved as-is) */}
@@ -96,17 +132,60 @@ export default function Tables() {
             {!loading && tables.map((t) => {
               const cols = Array.isArray(t.schema_json) ? t.schema_json.length : 0;
               const rows = Array.isArray(t.data_json) ? t.data_json.length : 0;
+              const previewCols = (Array.isArray(t.schema_json) ? t.schema_json : []).slice(0,3);
+              const previewRows = (Array.isArray(t.data_json) ? t.data_json : []).slice(0,3);
               return (
-                <div key={t.id} className="bg-white rounded-lg shadow-md p-6 table-card-hover transition-all duration-300">
-                  <div className="flex items-center justify-between mb-2">
+                <div key={t.id} className="bg-white rounded-lg shadow-md p-6 table-card-hover transition-all duration-300 relative">
+                  <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-gray-900 truncate">{t.name || 'Untitled Table'}</h3>
-                    <button className="text-gray-400 hover:text-gray-600"><i className="fas fa-ellipsis-h"></i></button>
+                    <div className="relative">
+                      <button className="text-gray-400 hover:text-gray-600" onClick={()=> setMenuOpenId(menuOpenId===t.id?null:t.id)}>
+                        <i className="fas fa-ellipsis-h"></i>
+                      </button>
+                      {menuOpenId===t.id && (
+                        <div className="absolute right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-2 z-50 w-36">
+                          <button className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 text-sm" onClick={()=>navigate(`/tables/${t.id}/edit`)}>Edit</button>
+                          <button className="w-full text-left px-3 py-2 rounded hover:bg-red-50 text-sm text-red-600" onClick={()=>deleteTable(t.id)}>Delete</button>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-sm text-gray-500 mb-4">{rows} rows • {cols} columns</div>
+
+                  {/* Mini dynamic preview */}
+                  {previewCols.length>0 && (
+                    <div className="overflow-hidden rounded-lg border border-gray-200 mb-4">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            {previewCols.map(c => (
+                              <th key={c.name} className="px-3 py-2 text-left font-medium text-gray-700">{c.name}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {previewRows.map((r, i) => (
+                            <tr key={i} className="border-t">
+                              {previewCols.map(c => {
+                                const v = (r||{})[c.name];
+                                if (c.type === 'number') return <td key={c.name} className="px-3 py-2 text-gray-900">{numberFmt.format(Number(v)||0)}</td>;
+                                if (c.type === 'status') return <td key={c.name} className="px-3 py-2"><span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{String(v||'')}</span></td>;
+                                return <td key={c.name} className="px-3 py-2 text-gray-900">{String(v||'')}</td>;
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between mb-2 text-sm text-gray-500">
+                    <div>{rows} rows • {cols} columns</div>
+                    <div>{t.updated_at ? `Last edited ${new Date(t.updated_at).toLocaleString()}` : ''}</div>
+                  </div>
                   <div className="flex space-x-2">
                     <button onClick={() => navigate(`/tables/${t.id}/edit`)} className="flex-1 bg-primary text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-purple-700">Edit</button>
-                    <button className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">Share</button>
-                    <button onClick={() => navigate(`/api/tables/${t.id}/export?format=csv`)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">Export</button>
+                    <button className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50" onClick={()=>navigate(`/tables/${t.id}/edit?share=1`)}>Share</button>
+                    <button onClick={()=>exportTable(t)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">Export</button>
                   </div>
                 </div>
               );
