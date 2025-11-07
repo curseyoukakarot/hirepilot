@@ -59,10 +59,6 @@ export default function Tables() {
             .select('*')
             .order('updated_at', { ascending: false });
           setTables(Array.isArray(rows) ? rows : []);
-        } else {
-          // Fallback to API if user not resolved (should be rare)
-          const { data } = await apiFetch('/api/tables');
-          setTables(Array.isArray(data) ? data : []);
         }
       } catch {
         // Final fallback: empty

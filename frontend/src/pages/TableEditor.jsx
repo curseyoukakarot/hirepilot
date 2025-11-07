@@ -124,24 +124,18 @@ export default function TableEditor() {
       // Ensure we have a real table id (handle /tables/new/edit deep-link)
       let targetId = id;
       if (!targetId || targetId === 'new') {
-        // Create an empty table first (API route preferred; fallback to direct Supabase insert)
-        const payload = { name: tableName || 'Untitled Table', schema_json: [], initial_data: [] };
+        // Create an empty table first (direct Supabase)
+        const payload = { name: tableName || 'Untitled Table' };
         let createdId = '';
-        try {
-          const { data } = await apiFetch('/api/tables', { method: 'POST', body: JSON.stringify(payload) });
-          createdId = data?.id || '';
-        } catch {}
-        if (!createdId) {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (!user?.id) throw new Error('Unauthenticated');
-          const { data: inserted, error } = await supabase
-            .from('custom_tables')
-            .insert({ user_id: user.id, name: payload.name, schema_json: [], data_json: [] })
-            .select('*')
-            .single();
-          if (error) throw new Error(error.message);
-          createdId = inserted?.id || '';
-        }
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user?.id) throw new Error('Unauthenticated');
+        const { data: inserted, error } = await supabase
+          .from('custom_tables')
+          .insert({ user_id: user.id, name: payload.name, schema_json: [], data_json: [] })
+          .select('*')
+          .single();
+        if (error) throw new Error(error.message);
+        createdId = inserted?.id || '';
         if (!createdId) throw new Error('Failed to create table');
         targetId = createdId;
       }
@@ -243,12 +237,16 @@ export default function TableEditor() {
     const nextSchema = [...schema, newCol];
     try {
       setSaving(true);
-      const { data } = await apiFetch(`/api/tables/${encodeURIComponent(id)}/update`, {
-        method: 'PATCH',
-        body: JSON.stringify({ schema_json: nextSchema, data_json: rows }),
-      });
-      setSchema(Array.isArray(data?.schema_json) ? data.schema_json : nextSchema);
-      setRows(Array.isArray(data?.data_json) ? data.data_json : rows);
+      const { data, error } = await supabase
+        .from('custom_tables')
+        .update({ schema_json: nextSchema, data_json: rows, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .select('*')
+        .maybeSingle();
+      if (!error) {
+        setSchema(Array.isArray(data?.schema_json) ? data.schema_json : nextSchema);
+        setRows(Array.isArray(data?.data_json) ? data.data_json : rows);
+      }
     } catch {}
     finally { setSaving(false); setColumnMenuOpen(false); }
   };
@@ -260,11 +258,13 @@ export default function TableEditor() {
     const next = [...rows, empty];
     try {
       setSaving(true);
-      const { data } = await apiFetch(`/api/tables/${encodeURIComponent(id)}/update`, {
-        method: 'PATCH',
-        body: JSON.stringify({ data_json: next }),
-      });
-      setRows(Array.isArray(data?.data_json) ? data.data_json : next);
+      const { data, error } = await supabase
+        .from('custom_tables')
+        .update({ data_json: next, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .select('*')
+        .maybeSingle();
+      if (!error) setRows(Array.isArray(data?.data_json) ? data.data_json : next);
     } catch {}
     finally { setSaving(false); }
   };
@@ -532,7 +532,11 @@ export default function TableEditor() {
               <button onClick={()=>setShowShare(false)} className="px-4 py-2 border rounded-lg">Cancel</button>
               <button onClick={async()=>{
                 try {
-                  await apiFetch(`/api/tables/${encodeURIComponent(id)}/share`, { method: 'POST', body: JSON.stringify({ collaborators }) });
+                  // Update collaborators directly via Supabase; client enforces team-admin gating
+                  await supabase
+                    .from('custom_tables')
+                    .update({ collaborators, updated_at: new Date().toISOString() })
+                    .eq('id', id);
                   setShowShare(false);
                 } catch (e) {
                   window.alert('Failed to save access');
