@@ -182,7 +182,7 @@ export default function TableEditor() {
           dataLocal = [...dataLocal, ...list];
         } else if (src === '/campaigns' || src === 'campaigns') {
           const { data: camps } = await supabase.from('campaigns').select('name,status,leads_count,outreach_sent,reply_rate,conversion_rate,created_at').limit(2000);
-          const list = (camps || []).map(c => ({ 'Name': c?.name||'', 'Status': c?.status||'', 'Leads': Number((c as any)?.leads_count)||0, 'Sent': Number((c as any)?.outreach_sent)||0, 'ReplyRate': Number((c as any)?.reply_rate)||0, 'ConversionRate': Number((c as any)?.conversion_rate)||0, 'Created': (c as any)?.created_at || null }));
+          const list = (camps || []).map(c => ({ 'Name': c?.name||'', 'Status': c?.status||'', 'Leads': Number(c?.leads_count)||0, 'Sent': Number(c?.outreach_sent)||0, 'ReplyRate': Number(c?.reply_rate)||0, 'ConversionRate': Number(c?.conversion_rate)||0, 'Created': c?.created_at || null }));
           const keys = Array.from(new Set(list.flatMap(r=>Object.keys(r))));
           keys.forEach(k => { if (!schemaLocal.some(c=>c.name===k)) schemaLocal.push({ name:k, type:'text' }); });
           dataLocal = [...dataLocal, ...list];
