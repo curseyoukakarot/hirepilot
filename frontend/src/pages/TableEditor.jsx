@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 
@@ -269,6 +269,86 @@ export default function TableEditor() {
     finally { setSaving(false); }
   };
 
+  const persistRows = async (next) => {
+    try {
+      await supabase
+        .from('custom_tables')
+        .update({ data_json: next, updated_at: new Date().toISOString() })
+        .eq('id', id);
+    } catch {}
+  };
+
+  const saveTimerRef = useRef(null);
+  const scheduleSave = (next) => {
+    try { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); } catch {}
+    saveTimerRef.current = setTimeout(() => {
+      persistRows(next || rows);
+    }, 400);
+  };
+
+  const updateCell = (rowIdx, col, value) => {
+    const next = rows.map((r, i) => (i === rowIdx ? { ...r, [col.name]: value } : r));
+    setRows(next);
+    scheduleSave(next);
+  };
+
+  const renderEditableCell = (row, col, rowIdx) => {
+    const val = row?.[col.name] ?? '';
+    const common = {
+      className: "w-full bg-transparent border-none outline-none focus:bg-white focus:border focus:border-purple-300 rounded px-2 py-1",
+      onBlur: () => persistRows(rows),
+    };
+    if (col.type === 'number') {
+      return (
+        <input
+          type="number"
+          value={Number(val) || 0}
+          onChange={(e)=> updateCell(rowIdx, col, Number(e.target.value))}
+          {...common}
+        />
+      );
+    }
+    if (col.type === 'date') {
+      const iso = val ? String(val).slice(0,10) : '';
+      return (
+        <input
+          type="date"
+          value={iso}
+          onChange={(e)=> updateCell(rowIdx, col, e.target.value)}
+          {...common}
+        />
+      );
+    }
+    if (col.type === 'status') {
+      // Build options from existing values + sensible defaults
+      const defaults = ['Pipeline','Best Case','Commit','Close Won','Closed Lost','Open','Draft','Hired'];
+      const existing = Array.from(new Set((rows||[]).map(r => String((r||{})[col.name] ?? '')).filter(Boolean)));
+      const options = Array.from(new Set([...existing, ...defaults]));
+      return (
+        <select
+          value={String(val)}
+          onChange={(e)=> updateCell(rowIdx, col, e.target.value)}
+          className="w-full bg-transparent border-none outline-none focus:bg-white focus:border focus:border-purple-300 rounded px-2 py-1"
+          onBlur={() => persistRows(rows)}
+        >
+          <option value=""></option>
+          {options.map(opt => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
+      );
+    }
+    // status/text/formula fallback to text edit
+    return (
+      <input
+        type="text"
+        value={String(val)}
+        onChange={(e)=> updateCell(rowIdx, col, e.target.value)}
+        {...common}
+      />
+    );
+  };
+
   return (
     <div className="bg-gray-50 font-sans min-h-screen flex flex-col">
       {/* EXACT SOURCE START (layout/content preserved as-is) */}
@@ -386,7 +466,7 @@ export default function TableEditor() {
                         <td className="px-4 py-3"><input type="checkbox" className="rounded border-gray-300" /></td>
                         {schema.map((col) => (
                           <td key={`${idx}-${col.name}`} className="px-4 py-3 border-r border-gray-100">
-                            {String((r || {})[col.name] ?? '')}
+                            {renderEditableCell(r, col, idx)}
                           </td>
                         ))}
                       </tr>
