@@ -1,10 +1,12 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 
 export default function Tables() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [tables, setTables] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const apiFetch = async (url, init = {}) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -19,17 +21,8 @@ export default function Tables() {
     try {
       const payload = {
         name: 'Untitled Table',
-        schema_json: [
-          { name: 'Deal Title', type: 'text' },
-          { name: 'Value', type: 'number' },
-          { name: 'Status', type: 'status' },
-          { name: 'Projected', type: 'formula', formula: '=Value*0.9' }
-        ],
-        initial_data: [
-          { 'Deal Title': 'Enterprise Exec', 'Value': 20000, 'Status': 'Commit' },
-          { 'Deal Title': 'Tech Director', 'Value': 15000, 'Status': 'Pipeline' },
-          { 'Deal Title': 'Sales Manager', 'Value': 12000, 'Status': 'Won' }
-        ],
+        schema_json: [],
+        initial_data: [],
       };
       const { data } = await apiFetch('/api/tables', { method: 'POST', body: JSON.stringify(payload) });
       if (data?.id) navigate(`/tables/${data.id}/edit`);
@@ -45,6 +38,21 @@ export default function Tables() {
       createAndOpenEditor();
     }
   }, [location.search]);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true);
+        const { data } = await apiFetch('/api/tables');
+        setTables(Array.isArray(data) ? data : []);
+      } catch {
+        setTables([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
 
   return (
     <div className="bg-neutral min-h-screen">
@@ -68,147 +76,25 @@ export default function Tables() {
 
         <main id="tables-main" className="p-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Preserved example cards */}
-            <div id="deals-table-card" className="bg-white rounded-lg shadow-md p-6 table-card-hover transition-all duration-300">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Q4 Deals Tracker</h3>
-                <div className="flex space-x-2">
-                  <button className="text-gray-400 hover:text-gray-600"><i className="fas fa-share-alt"></i></button>
-                  <button className="text-gray-400 hover:text-gray-600"><i className="fas fa-ellipsis-h"></i></button>
+            {/* Dynamic user tables */}
+            {!loading && tables.map((t) => {
+              const cols = Array.isArray(t.schema_json) ? t.schema_json.length : 0;
+              const rows = Array.isArray(t.data_json) ? t.data_json.length : 0;
+              return (
+                <div key={t.id} className="bg-white rounded-lg shadow-md p-6 table-card-hover transition-all duration-300">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-lg font-semibold text-gray-900 truncate">{t.name || 'Untitled Table'}</h3>
+                    <button className="text-gray-400 hover:text-gray-600"><i className="fas fa-ellipsis-h"></i></button>
+                  </div>
+                  <div className="text-sm text-gray-500 mb-4">{rows} rows • {cols} columns</div>
+                  <div className="flex space-x-2">
+                    <button onClick={() => navigate(`/tables/${t.id}/edit`)} className="flex-1 bg-primary text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-purple-700">Edit</button>
+                    <button className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">Share</button>
+                    <button onClick={() => navigate(`/api/tables/${t.id}/export?format=csv`)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">Export</button>
+                  </div>
                 </div>
-              </div>
-              <div className="overflow-hidden rounded-lg border border-gray-200 mb-4">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium text-gray-700">Deal</th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-700">Value</th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-700">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="border-t">
-                      <td className="px-3 py-2 text-gray-900">Enterprise Exec</td>
-                      <td className="px-3 py-2 text-gray-900">$20,000</td>
-                      <td className="px-3 py-2"><span className="status-commit px-2 py-1 rounded-full text-xs font-medium">Commit</span></td>
-                    </tr>
-                    <tr className="border-t">
-                      <td className="px-3 py-2 text-gray-900">Tech Director</td>
-                      <td className="px-3 py-2 text-gray-900">$15,000</td>
-                      <td className="px-3 py-2"><span className="status-pipeline px-2 py-1 rounded-full text-xs font-medium">Pipeline</span></td>
-                    </tr>
-                    <tr className="border-t">
-                      <td className="px-3 py-2 text-gray-900">Sales Manager</td>
-                      <td className="px-3 py-2 text-gray-900">$12,000</td>
-                      <td className="px-3 py-2"><span className="status-won px-2 py-1 rounded-full text-xs font-medium">Won</span></td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <div className="flex items-center justify-between mb-4">
-                <div className="text-sm text-gray-500"><span className="font-medium">12 rows</span> • <span className="font-medium">5 columns</span></div>
-                <div className="text-sm text-gray-500">Last edited 2 hours ago</div>
-              </div>
-              <div className="flex space-x-2">
-                <button className="flex-1 bg-primary text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-purple-700" onClick={createAndOpenEditor}>Edit</button>
-                <button className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">Share</button>
-                <button className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">Export</button>
-              </div>
-            </div>
-
-            <div id="jobs-table-card" className="bg-white rounded-lg shadow-md p-6 table-card-hover transition-all duration-300">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Active Job Reqs</h3>
-                <div className="flex space-x-2">
-                  <button className="text-gray-400 hover:text-gray-600"><i className="fas fa-share-alt"></i></button>
-                  <button className="text-gray-400 hover:text-gray-600"><i className="fas fa-ellipsis-h"></i></button>
-                </div>
-              </div>
-              <div className="overflow-hidden rounded-lg border border-gray-200 mb-4">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium text-gray-700">Position</th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-700">Candidates</th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-700">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="border-t">
-                      <td className="px-3 py-2 text-gray-900">Regional VP Sales</td>
-                      <td className="px-3 py-2 text-gray-900">8</td>
-                      <td className="px-3 py-2"><span className="status-open px-2 py-1 rounded-full text-xs font-medium">Open</span></td>
-                    </tr>
-                    <tr className="border-t">
-                      <td className="px-3 py-2 text-gray-900">Product Manager</td>
-                      <td className="px-3 py-2 text-gray-900">12</td>
-                      <td className="px-3 py-2"><span className="status-open px-2 py-1 rounded-full text-xs font-medium">Open</span></td>
-                    </tr>
-                    <tr className="border-t">
-                      <td className="px-3 py-2 text-gray-900">Senior Engineer</td>
-                      <td className="px-3 py-2 text-gray-900">5</td>
-                      <td className="px-3 py-2"><span className="status-draft px-2 py-1 rounded-full text-xs font-medium">Draft</span></td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <div className="flex items-center justify-between mb-4">
-                <div className="text-sm text-gray-500"><span className="font-medium">8 rows</span> • <span className="font-medium">6 columns</span></div>
-                <div className="text-sm text-gray-500">Last edited 1 day ago</div>
-              </div>
-              <div className="flex space-x-2">
-                <button className="flex-1 bg-primary text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-purple-700" onClick={createAndOpenEditor}>Edit</button>
-                <button className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">Share</button>
-                <button className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">Export</button>
-              </div>
-            </div>
-
-            <div id="outreach-table-card" className="bg-white rounded-lg shadow-md p-6 table-card-hover transition-all duration-300">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Outreach Campaigns</h3>
-                <div className="flex space-x-2">
-                  <button className="text-gray-400 hover:text-gray-600"><i className="fas fa-share-alt"></i></button>
-                  <button className="text-gray-400 hover:text-gray-600"><i className="fas fa-ellipsis-h"></i></button>
-                </div>
-              </div>
-              <div className="overflow-hidden rounded-lg border border-gray-200 mb-4">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium text-gray-700">Campaign</th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-700">Sent</th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-700">Rate</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="border-t">
-                      <td className="px-3 py-2 text-gray-900">Recruiter Owners</td>
-                      <td className="px-3 py-2 text-gray-900">500</td>
-                      <td className="px-3 py-2 text-green-600 font-medium">10%</td>
-                    </tr>
-                    <tr className="border-t">
-                      <td className="px-3 py-2 text-gray-900">Tech Talent</td>
-                      <td className="px-3 py-2 text-gray-900">320</td>
-                      <td className="px-3 py-2 text-green-600 font-medium">15%</td>
-                    </tr>
-                    <tr className="border-t">
-                      <td className="px-3 py-2 text-gray-900">Sales Leaders</td>
-                      <td className="px-3 py-2 text-gray-900">280</td>
-                      <td className="px-3 py-2 text-green-600 font-medium">8%</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <div className="flex items-center justify-between mb-4">
-                <div className="text-sm text-gray-500"><span className="font-medium">15 rows</span> • <span className="font-medium">4 columns</span></div>
-                <div className="text-sm text-gray-500">Last edited 3 hours ago</div>
-              </div>
-              <div className="flex space-x-2">
-                <button className="flex-1 bg-primary text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-purple-700" onClick={createAndOpenEditor}>Edit</button>
-                <button className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">Share</button>
-                <button className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">Export</button>
-              </div>
-            </div>
+              );
+            })}
 
             <div id="create-table-card" className="bg-gradient-to-br from-purple-50 to-white rounded-lg border-2 border-dashed border-purple-300 p-6 flex flex-col items-center justify-center text-center min-h-[400px] hover:border-purple-400 transition-colors cursor-pointer">
               <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mb-4">

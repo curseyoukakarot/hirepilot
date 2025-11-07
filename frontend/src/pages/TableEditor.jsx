@@ -8,6 +8,9 @@ export default function TableEditor() {
   const [tableName, setTableName] = useState('Deals Tracker Table');
   const [saving, setSaving] = useState(false);
   const [presenceCount, setPresenceCount] = useState(1);
+  const [schema, setSchema] = useState([]);
+  const [rows, setRows] = useState([]);
+  const [selectedRowIndex, setSelectedRowIndex] = useState(-1);
 
   const apiFetch = async (url, init = {}) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -24,6 +27,8 @@ export default function TableEditor() {
       try {
         const { data } = await apiFetch(`/api/tables/${encodeURIComponent(id)}`);
         if (data?.name) setTableName(String(data.name));
+        setSchema(Array.isArray(data?.schema_json) ? data.schema_json : []);
+        setRows(Array.isArray(data?.data_json) ? data.data_json : []);
       } catch {}
     };
     load();
@@ -162,41 +167,33 @@ export default function TableEditor() {
                   <thead className="bg-gray-50 sticky top-0">
                     <tr>
                       <th className="w-12 px-4 py-3 text-left"><input type="checkbox" className="rounded border-gray-300" /></th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700 border-r border-gray-200 min-w-48"><div className="flex items-center gap-2">Deal Title<i className="fas fa-grip-vertical text-gray-400 cursor-move"></i></div></th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700 border-r border-gray-200 min-w-32"><div className="flex items-center gap-2">Value<i className="fas fa-grip-vertical text-gray-400 cursor-move"></i></div></th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700 border-r border-gray-200 min-w-32"><div className="flex items-center gap-2">Status<i className="fas fa-grip-vertical text-gray-400 cursor-move"></i></div></th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700 min-w-32"><div className="flex items-center gap-2">Projected<i className="fas fa-calculator text-purple-400 text-xs"></i><i className="fas fa-grip-vertical text-gray-400 cursor-move"></i></div></th>
+                      {schema.map((col) => (
+                        <th key={col.name} className="px-4 py-3 text-left text-sm font-medium text-gray-700 border-r border-gray-200 min-w-32">
+                          <div className="flex items-center gap-2">
+                            {col.name}
+                            {col.type === 'formula' && <i className="fas fa-calculator text-purple-400 text-xs"></i>}
+                            <i className="fas fa-grip-vertical text-gray-400 cursor-move"></i>
+                          </div>
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
-                    <tr className="hover:bg-purple-50 transition-colors border-b border-gray-100">
-                      <td className="px-4 py-3"><input type="checkbox" className="rounded border-gray-300" /></td>
-                      <td className="px-4 py-3 border-r border-gray-100"><input type="text" defaultValue="Enterprise Exec Search" className="w-full bg-transparent border-none outline-none focus:bg-white focus:border focus:border-purple-300 rounded px-2 py-1" /></td>
-                      <td className="px-4 py-3 border-r border-gray-100"><input type="text" defaultValue="$20,000" className="w-full bg-transparent border-none outline-none focus:bg-white focus:border focus:border-purple-300 rounded px-2 py-1" /></td>
-                      <td className="px-4 py-3 border-r border-gray-100"><span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800 cursor-pointer hover:bg-orange-200 transition-colors">Commit</span></td>
-                      <td className="px-4 py-3 text-gray-600">$18,000</td>
-                    </tr>
-                    <tr className="hover:bg-purple-50 transition-colors border-b border-gray-100">
-                      <td className="px-4 py-3"><input type="checkbox" className="rounded border-gray-300" /></td>
-                      <td className="px-4 py-3 border-r border-gray-100"><input type="text" defaultValue="VP Sales Regional" className="w-full bg-transparent border-none outline-none focus:bg-white focus:border focus:border-purple-300 rounded px-2 py-1" /></td>
-                      <td className="px-4 py-3 border-r border-gray-100"><input type="text" defaultValue="$35,000" className="w-full bg-transparent border-none outline-none focus:bg-white focus:border focus:border-purple-300 rounded px-2 py-1" /></td>
-                      <td className="px-4 py-3 border-r border-gray-100"><span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 cursor-pointer hover:bg-blue-200 transition-colors">Open</span></td>
-                      <td className="px-4 py-3 text-gray-600">$31,500</td>
-                    </tr>
-                    <tr className="hover:bg-purple-50 transition-colors border-b border-gray-100">
-                      <td className="px-4 py-3"><input type="checkbox" className="rounded border-gray-300" /></td>
-                      <td className="px-4 py-3 border-r border-gray-100"><input type="text" defaultValue="Director Marketing" className="w-full bg-transparent border-none outline-none focus:bg-white focus:border focus:border-purple-300 rounded px-2 py-1" /></td>
-                      <td className="px-4 py-3 border-r border-gray-100"><input type="text" defaultValue="$28,000" className="w-full bg-transparent border-none outline-none focus:bg-white focus:border focus:border-purple-300 rounded px-2 py-1" /></td>
-                      <td className="px-4 py-3 border-r border-gray-100"><span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 cursor-pointer hover:bg-green-200 transition-colors">Hired</span></td>
-                      <td className="px-4 py-3 text-gray-600">$25,200</td>
-                    </tr>
-                    <tr className="hover:bg-purple-50 transition-colors border-b border-gray-100">
-                      <td className="px-4 py-3"><input type="checkbox" className="rounded border-gray-300" /></td>
-                      <td className="px-4 py-3 border-r border-gray-100"><input type="text" defaultValue="Senior Developer" className="w-full bg-transparent border-none outline-none focus:bg-white focus:border focus:border-purple-300 rounded px-2 py-1" /></td>
-                      <td className="px-4 py-3 border-r border-gray-100"><input type="text" defaultValue="$15,000" className="w-full bg-transparent border-none outline-none focus:bg-white focus:border focus:border-purple-300 rounded px-2 py-1" /></td>
-                      <td className="px-4 py-3 border-r border-gray-100"><span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800 cursor-pointer hover:bg-gray-200 transition-colors">Draft</span></td>
-                      <td className="px-4 py-3 text-gray-600">$13,500</td>
-                    </tr>
+                    {rows.length === 0 && (
+                      <tr className="border-b border-gray-100">
+                        <td colSpan={schema.length + 1} className="px-4 py-6 text-center text-gray-500">No rows yet. Import or add rows to get started.</td>
+                      </tr>
+                    )}
+                    {rows.map((r, idx) => (
+                      <tr key={idx} className={`transition-colors border-b border-gray-100 ${selectedRowIndex === idx ? 'bg-purple-50' : 'hover:bg-purple-50'}`} onClick={()=>setSelectedRowIndex(idx)}>
+                        <td className="px-4 py-3"><input type="checkbox" className="rounded border-gray-300" /></td>
+                        {schema.map((col) => (
+                          <td key={`${idx}-${col.name}`} className="px-4 py-3 border-r border-gray-100">
+                            {String((r || {})[col.name] ?? '')}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -209,28 +206,24 @@ export default function TableEditor() {
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Column Name</label>
-                    <input type="text" defaultValue="Deal Title" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
+                    <input type="text" value={schema?.[0]?.name || ''} readOnly className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Column Type</label>
-                    <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                      <option>Text</option>
-                      <option>Number</option>
-                      <option>Status</option>
-                      <option>Date</option>
-                      <option>Formula</option>
-                    </select>
+                    <input value={schema?.[0]?.type || ''} readOnly className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Width</label>
-                    <input type="number" defaultValue="200" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
+                    <input type="number" placeholder="200" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
                   </div>
                 </div>
               </div>
               <div className="border-t pt-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Row Details</h3>
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <div className="text-sm text-gray-600 mb-2">Selected: Enterprise Exec Search</div>
+                  <div className="text-sm text-gray-600 mb-2">
+                    Selected: {selectedRowIndex >= 0 ? String(rows[selectedRowIndex]?.[schema?.[0]?.name] ?? 'Row') : 'None'}
+                  </div>
                   <div className="space-y-3">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
