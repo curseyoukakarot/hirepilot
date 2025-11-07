@@ -19,6 +19,9 @@ export default function TableEditor() {
   const [addingUserId, setAddingUserId] = useState('');
   const [addingRole, setAddingRole] = useState('view');
   const [columnMenuOpen, setColumnMenuOpen] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importSource, setImportSource] = useState('/leads');
+  const [importFilters, setImportFilters] = useState({ status: '', startDate: '', endDate: '', limit: 1000, importAll: false });
 
   const apiFetch = async (url, init = {}) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -115,7 +118,7 @@ export default function TableEditor() {
     }
   };
 
-  const importFrom = async (src) => {
+  const importFrom = async (src, filters) => {
     try {
       setSaving(true);
       // Ensure we have a real table id (handle /tables/new/edit deep-link)
@@ -153,7 +156,8 @@ export default function TableEditor() {
         let schemaLocal = Array.isArray(tableRow?.schema_json) ? tableRow.schema_json : [];
         let dataLocal = Array.isArray(tableRow?.data_json) ? tableRow.data_json : [];
         if (src === '/deals' || src === 'deals' || src === '/opportunities' || src === 'opportunities') {
-          const { data: opps } = await supabase.from('opportunities').select('title,value,stage,created_at').limit(1000);
+          const lim = Number(filters?.limit) || 1000;
+          const { data: opps } = await supabase.from('opportunities').select('title,value,stage,created_at').limit(lim);
           ensure(schemaLocal, 'Deal Title', 'text');
           ensure(schemaLocal, 'Value', 'number');
           ensure(schemaLocal, 'Status', 'status');
@@ -161,7 +165,8 @@ export default function TableEditor() {
           const list = (opps || []).map(o => ({ 'Deal Title': o?.title || 'Deal', 'Value': Number(o?.value)||0, 'Status': o?.stage || 'Pipeline', 'Created': o?.created_at || null }));
           dataLocal = [...dataLocal, ...list];
         } else if (src === '/jobs' || src === 'jobs') {
-          const { data: jobs } = await supabase.from('job_requisitions').select('title,status,candidate_count,created_at').limit(1000);
+          const lim = Number(filters?.limit) || 1000;
+          const { data: jobs } = await supabase.from('job_requisitions').select('title,status,candidate_count,created_at').limit(lim);
           ensure(schemaLocal, 'Position', 'text');
           ensure(schemaLocal, 'Candidates', 'number');
           ensure(schemaLocal, 'Status', 'status');
@@ -169,19 +174,34 @@ export default function TableEditor() {
           const list = (jobs || []).map(j => ({ 'Position': j?.title || 'Job', 'Candidates': Number(j?.candidate_count)||0, 'Status': j?.status || 'Open', 'Created': j?.created_at || null }));
           dataLocal = [...dataLocal, ...list];
         } else if (src === '/leads' || src === 'leads') {
-          const { data: leads } = await supabase.from('leads').select('name,email,status,tags,location,source').limit(2000);
+          const lim = filters?.importAll ? 100000 : (Number(filters?.limit) || 2000);
+          let q = supabase.from('leads').select('name,email,status,tags,location,source,created_at');
+          if (filters?.status) q = q.eq('status', filters.status);
+          if (filters?.startDate) q = q.gte('created_at', new Date(filters.startDate).toISOString());
+          if (filters?.endDate) q = q.lte('created_at', new Date(filters.endDate).toISOString());
+          const { data: leads } = await q.limit(lim);
           const list = (leads || []).map(l => ({ 'Name': l?.name||'', 'Email': l?.email||'', 'Status': l?.status||'', 'Tags': Array.isArray(l?.tags)?l.tags.join(', '):(l?.tags||''), 'Location': l?.location||'', 'Source': l?.source||'' }));
           const keys = Array.from(new Set(list.flatMap(r=>Object.keys(r))));
           keys.forEach(k => { if (!schemaLocal.some(c=>c.name===k)) schemaLocal.push({ name:k, type:'text' }); });
           dataLocal = [...dataLocal, ...list];
         } else if (src === '/candidates' || src === 'candidates') {
-          const { data: cands } = await supabase.from('candidates').select('name,email,status,job_assigned,location,source').limit(2000);
+          const lim = filters?.importAll ? 100000 : (Number(filters?.limit) || 2000);
+          let q = supabase.from('candidates').select('name,email,status,job_assigned,location,source,created_at');
+          if (filters?.status) q = q.eq('status', filters.status);
+          if (filters?.startDate) q = q.gte('created_at', new Date(filters.startDate).toISOString());
+          if (filters?.endDate) q = q.lte('created_at', new Date(filters.endDate).toISOString());
+          const { data: cands } = await q.limit(lim);
           const list = (cands || []).map(c => ({ 'Name': c?.name||'', 'Email': c?.email||'', 'Status': c?.status||'', 'Job': c?.job_assigned||'', 'Location': c?.location||'', 'Source': c?.source||'' }));
           const keys = Array.from(new Set(list.flatMap(r=>Object.keys(r))));
           keys.forEach(k => { if (!schemaLocal.some(c=>c.name===k)) schemaLocal.push({ name:k, type:'text' }); });
           dataLocal = [...dataLocal, ...list];
         } else if (src === '/campaigns' || src === 'campaigns') {
-          const { data: camps } = await supabase.from('campaigns').select('name,status,leads_count,outreach_sent,reply_rate,conversion_rate,created_at').limit(2000);
+          const lim = filters?.importAll ? 100000 : (Number(filters?.limit) || 2000);
+          let q = supabase.from('campaigns').select('name,status,leads_count,outreach_sent,reply_rate,conversion_rate,created_at');
+          if (filters?.status) q = q.eq('status', filters.status);
+          if (filters?.startDate) q = q.gte('created_at', new Date(filters.startDate).toISOString());
+          if (filters?.endDate) q = q.lte('created_at', new Date(filters.endDate).toISOString());
+          const { data: camps } = await q.limit(lim);
           const list = (camps || []).map(c => ({ 'Name': c?.name||'', 'Status': c?.status||'', 'Leads': Number(c?.leads_count)||0, 'Sent': Number(c?.outreach_sent)||0, 'ReplyRate': Number(c?.reply_rate)||0, 'ConversionRate': Number(c?.conversion_rate)||0, 'Created': c?.created_at || null }));
           const keys = Array.from(new Set(list.flatMap(r=>Object.keys(r))));
           keys.forEach(k => { if (!schemaLocal.some(c=>c.name===k)) schemaLocal.push({ name:k, type:'text' }); });
@@ -302,19 +322,19 @@ export default function TableEditor() {
                   </div>
                   <div className="border-t mt-2 pt-2">
                     <div className="text-xs font-medium text-gray-500 mb-2">FROM APP SOURCES</div>
-                    <button onClick={()=>importFrom('/deals')} className="w-full text-left px-3 py-2 rounded hover:bg-purple-50 text-purple-600 flex items-center gap-2">
+                    <button onClick={()=>{ setImportSource('/deals'); setShowImportModal(true); }} className="w-full text-left px-3 py-2 rounded hover:bg-purple-50 text-purple-600 flex items-center gap-2">
                       <i className="fas fa-database text-purple-400"></i>Import from /deals
                     </button>
-                    <button onClick={()=>importFrom('/leads')} className="w-full text-left px-3 py-2 rounded hover:bg-purple-50 text-purple-600 flex items-center gap-2">
+                    <button onClick={()=>{ setImportSource('/leads'); setShowImportModal(true); }} className="w-full text-left px-3 py-2 rounded hover:bg-purple-50 text-purple-600 flex items-center gap-2">
                       <i className="fas fa-database text-purple-400"></i>Import from /leads
                     </button>
-                    <button onClick={()=>importFrom('/candidates')} className="w-full text-left px-3 py-2 rounded hover:bg-purple-50 text-purple-600 flex items-center gap-2">
+                    <button onClick={()=>{ setImportSource('/candidates'); setShowImportModal(true); }} className="w-full text-left px-3 py-2 rounded hover:bg-purple-50 text-purple-600 flex items-center gap-2">
                       <i className="fas fa-database text-purple-400"></i>Import from /candidates
                     </button>
-                    <button onClick={()=>importFrom('/campaigns')} className="w-full text-left px-3 py-2 rounded hover:bg-purple-50 text-purple-600 flex items-center gap-2">
+                    <button onClick={()=>{ setImportSource('/campaigns'); setShowImportModal(true); }} className="w-full text-left px-3 py-2 rounded hover:bg-purple-50 text-purple-600 flex items-center gap-2">
                       <i className="fas fa-database text-purple-400"></i>Import from /campaigns
                     </button>
-                    <button onClick={()=>importFrom('/jobs')} className="w-full text-left px-3 py-2 rounded hover:bg-purple-50 text-purple-600 flex items-center gap-2">
+                    <button onClick={()=>{ setImportSource('/jobs'); setShowImportModal(true); }} className="w-full text-left px-3 py-2 rounded hover:bg-purple-50 text-purple-600 flex items-center gap-2">
                       <i className="fas fa-database text-purple-400"></i>Import from /jobs
                     </button>
                   </div>
@@ -324,7 +344,7 @@ export default function TableEditor() {
             <button onClick={handleAddRow} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
               <i className="fas fa-plus text-sm"></i>Add Row
             </button>
-            <button onClick={()=>importFrom('/deals')} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+            <button onClick={()=>{ setImportSource('/leads'); setShowImportModal(true); }} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
               <i className="fas fa-upload text-sm"></i>Import Data
             </button>
             <div className="flex items-center gap-2 ml-auto">
@@ -518,6 +538,61 @@ export default function TableEditor() {
                   window.alert('Failed to save access');
                 }
               }} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import Data Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center" onClick={(e)=>{ if (e.target === e.currentTarget) setShowImportModal(false); }}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold text-gray-900">Import Data</h3>
+              <button onClick={()=>setShowImportModal(false)} className="text-gray-500 hover:text-gray-700"><i className="fas fa-times"></i></button>
+            </div>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Source</label>
+                  <select value={importSource} onChange={(e)=>setImportSource(e.target.value)} className="w-full px-3 py-2 border rounded-lg">
+                    <option value="/leads">/leads</option>
+                    <option value="/candidates">/candidates</option>
+                    <option value="/deals">/deals</option>
+                    <option value="/jobs">/jobs</option>
+                    <option value="/campaigns">/campaigns</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status (optional)</label>
+                  <input value={importFilters.status} onChange={(e)=>setImportFilters(f=>({ ...f, status: e.target.value }))} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g. new, open, won" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Start date</label>
+                  <input type="date" value={importFilters.startDate} onChange={(e)=>setImportFilters(f=>({ ...f, startDate: e.target.value }))} className="w-full px-3 py-2 border rounded-lg" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">End date</label>
+                  <input type="date" value={importFilters.endDate} onChange={(e)=>setImportFilters(f=>({ ...f, endDate: e.target.value }))} className="w-full px-3 py-2 border rounded-lg" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-center">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Max rows</label>
+                  <input type="number" min="1" value={importFilters.limit} onChange={(e)=>setImportFilters(f=>({ ...f, limit: Number(e.target.value)||0 }))} className="w-full px-3 py-2 border rounded-lg" />
+                </div>
+                <label className="flex items-center gap-2 mt-6 md:mt-7 text-sm">
+                  <input type="checkbox" checked={importFilters.importAll} onChange={(e)=>setImportFilters(f=>({ ...f, importAll: e.target.checked }))} />
+                  Import all (ignore max rows)
+                </label>
+              </div>
+              <div className="text-xs text-gray-500">Tip: Filters apply to /leads and /candidates using their created_at and status fields. Others use only limit/import-all.</div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button onClick={()=>setShowImportModal(false)} className="px-4 py-2 border rounded-lg">Cancel</button>
+              <button onClick={async()=>{ await importFrom(importSource, importFilters); setShowImportModal(false); }} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">Import</button>
             </div>
           </div>
         </div>
