@@ -299,7 +299,13 @@ export default function TableEditor() {
   };
 
   const updateCell = (rowIdx, col, value) => {
-    const next = rows.map((r, i) => (i === rowIdx ? { ...r, [col.name]: value } : r));
+    // Normalize by type
+    let normalized = value;
+    if (col.type === 'number' || col.type === 'money') {
+      const num = Number(value);
+      normalized = isNaN(num) ? 0 : num;
+    }
+    const next = rows.map((r, i) => (i === rowIdx ? { ...r, [col.name]: normalized } : r));
     setRows(next);
     scheduleSave(next);
   };
@@ -384,12 +390,13 @@ export default function TableEditor() {
       className: "w-full bg-transparent border-none outline-none focus:bg-white focus:border focus:border-purple-300 rounded px-2 py-1",
       onBlur: () => persistRows(rows),
     };
-    if (col.type === 'number') {
+    if (col.type === 'number' || col.type === 'money') {
       return (
         <input
           type="number"
-          value={Number(val) || 0}
-          onChange={(e)=> updateCell(rowIdx, col, Number(e.target.value))}
+          step={col.type === 'money' ? '0.01' : '1'}
+          value={val === '' || val === null ? '' : Number(val)}
+          onChange={(e)=> updateCell(rowIdx, col, e.target.value)}
           {...common}
         />
       );
@@ -434,6 +441,27 @@ export default function TableEditor() {
       />
     );
   };
+
+  const numberFormatter = useMemo(()=> new Intl.NumberFormat('en-US'), []);
+  const currencyFormatter = useMemo(()=> new Intl.NumberFormat('en-US',{ style:'currency', currency:'USD' }), []);
+
+  const totals = useMemo(() => {
+    const acc = {} as Record<string, number>;
+    for (const c of (schema || [])) {
+      if ([ 'number','money','formula' ].includes(c?.type)) {
+        let sum = 0;
+        for (const r of (rows || [])) {
+          const raw = r?.[c.name];
+          let n = 0;
+          if (c.type === 'money') n = Number(String(raw ?? '').replace(/[^0-9.-]/g, '')) || 0;
+          else n = Number(raw) || 0;
+          sum += isNaN(n) ? 0 : n;
+        }
+        acc[c.name] = sum;
+      }
+    }
+    return acc;
+  }, [rows, schema]);
 
   return (
     <div className="bg-gray-50 font-sans min-h-screen flex flex-col">
@@ -483,6 +511,7 @@ export default function TableEditor() {
                     <button onClick={()=>handleAddColumn('text')} className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 flex items-center gap-2"><i className="fas fa-font text-gray-400"></i>Text</button>
                     <button onClick={()=>handleAddColumn('status')} className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 flex items-center gap-2"><i className="fas fa-circle text-purple-400"></i>Status</button>
                     <button onClick={()=>handleAddColumn('number')} className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 flex items-center gap-2"><i className="fas fa-hashtag text-gray-400"></i>Number</button>
+                    <button onClick={()=>handleAddColumn('money')} className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 flex items-center gap-2"><i className="fas fa-dollar-sign text-green-600"></i>Money</button>
                     <button onClick={()=>handleAddColumn('date')} className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 flex items-center gap-2"><i className="fas fa-calendar text-gray-400"></i>Date</button>
                     <button onClick={()=>handleAddColumn('formula')} className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 flex items-center gap-2"><i className="fas fa-calculator text-gray-400"></i>Formula</button>
                   </div>
@@ -589,6 +618,20 @@ export default function TableEditor() {
                       </tr>
                     ))}
                   </tbody>
+                  <tfoot className="bg-gray-50">
+                    <tr>
+                      <td className="px-4 py-2 text-right font-semibold text-gray-700">Total</td>
+                      {schema.map((col) => (
+                        <td key={`total-${col.name}`} className="px-4 py-2 text-right font-semibold text-gray-900">
+                          {['number','money','formula'].includes(col.type)
+                            ? (col.type === 'money'
+                                ? currencyFormatter.format(Number(totals[col.name] || 0))
+                                : numberFormatter.format(Number(totals[col.name] || 0)))
+                            : ''}
+                        </td>
+                      ))}
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             </div>
