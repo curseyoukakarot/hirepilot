@@ -132,6 +132,8 @@ const AcceptGuest = lazy(() => import('./screens/AcceptGuest'));
 const SettingsGuest = lazy(() => import('./screens/SettingsGuest'));
 const Campaigns = lazy(() => import("./screens/Campaigns"));
 const Analytics = lazy(() => import("./screens/Analytics"));
+const Tables = lazy(() => import("./pages/Tables"));
+const TableEditor = lazy(() => import("./pages/TableEditor"));
 const BillingScreen = lazy(() => import("./screens/BillingScreen"));
 const DealsPage = lazy(() => import("./pages/DealsPage"));
 const OpportunityDetail = lazy(() => import("./pages/OpportunityDetail"));
@@ -574,6 +576,8 @@ function InnerApp() {
               <Route path="/job/:id" element={isGuestUser ? <GuestLayout><JobRequisitionPage /></GuestLayout> : <JobRequisitionPage />} />
               <Route path="/job/:id/pipeline" element={<JobPipeline />} />
               <Route path="/analytics" element={<Analytics />} />
+              <Route path="/tables" element={<Tables />} />
+              <Route path="/tables/:id/edit" element={<TableEditor />} />
               <Route path="/deals" element={<DealsPage />} />
               <Route path="/deals/opportunities/:id" element={<OpportunityDetail />} />
               <Route path="/phantom-monitor" element={<PhantomMonitor />} />

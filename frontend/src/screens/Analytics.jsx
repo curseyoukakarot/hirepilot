@@ -1211,7 +1211,7 @@ export default function Analytics() {
                 <input type="text" placeholder="Search widgets..." className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" />
                 <i className="fa-solid fa-search absolute left-3 top-3 text-gray-400"></i>
                         </div>
-              <button className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors">
+              <button onClick={() => navigate('/tables?create=1')} className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors">
                 <i className="fa-solid fa-plus mr-2"></i>Create Custom
               </button>
           </div>

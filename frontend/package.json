@@ -16,6 +16,7 @@
     "@hello-pangea/dnd": "^18.0.1",
     "@heroicons/react": "^1.0.6",
     "@radix-ui/react-toast": "^1.2.14",
+    "mathjs": "^13.0.1",
     "@remix-run/router": "^1.15.0",
     "@sentry/react": "^7.120.4",
     "@stripe/stripe-js": "^7.3.1",
