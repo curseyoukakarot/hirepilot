@@ -47,46 +47,9 @@ export default function Tables() {
   }, [location.search]);
 
   return (
-    <div className="bg-neutral">
+    <div className="bg-neutral min-h-screen">
       {/* EXACT SOURCE START (layout/content preserved as-is) */}
-      <div id="sidebar" className="fixed left-0 top-0 h-full w-64 bg-white shadow-lg z-40">
-        <div className="p-6">
-          <div className="flex items-center space-x-3 mb-8">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <i className="fas fa-rocket text-white text-sm"></i>
-            </div>
-            <span className="text-xl font-bold text-gray-900">HirePilot</span>
-          </div>
-          <nav className="space-y-2">
-            <a href="/dashboard" className="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50">
-              <i className="fas fa-home w-5"></i>
-              <span>Dashboard</span>
-            </a>
-            <a href="/jobs" className="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50">
-              <i className="fas fa-briefcase w-5"></i>
-              <span>Jobs</span>
-            </a>
-            <a href="/candidates" className="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50">
-              <i className="fas fa-users w-5"></i>
-              <span>Candidates</span>
-            </a>
-            <a href="/analytics" className="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50">
-              <i className="fas fa-chart-line w-5"></i>
-              <span>Analytics</span>
-            </a>
-            <a href="/tables" className="flex items-center space-x-3 px-3 py-2 rounded-lg bg-primary text-white">
-              <i className="fas fa-table w-5"></i>
-              <span>Tables</span>
-            </a>
-            <a href="/settings" className="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50">
-              <i className="fas fa-cog w-5"></i>
-              <span>Settings</span>
-            </a>
-          </nav>
-        </div>
-      </div>
-
-      <div id="main-content" className="ml-64 min-h-screen">
+      <div id="main-content" className="min-h-screen">
         <header id="header" className="bg-white border-b border-gray-200 px-8 py-6">
           <div className="flex items-center justify-between">
             <div>
