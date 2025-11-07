@@ -166,10 +166,14 @@ export default function Tables() {
                           {previewRows.map((r, i) => (
                             <tr key={i} className="border-t">
                               {previewCols.map(c => {
-                                const v = (r||{})[c.name];
-                                if (c.type === 'number') return <td key={c.name} className="px-3 py-2 text-gray-900">{numberFmt.format(Number(v)||0)}</td>;
-                                if (c.type === 'status') return <td key={c.name} className="px-3 py-2"><span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{String(v||'')}</span></td>;
-                                return <td key={c.name} className="px-3 py-2 text-gray-900">{String(v||'')}</td>;
+                                const v = (r || {})[c.name];
+                                if (c.type === 'money') {
+                                  const fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: (c && c.currency) ? c.currency : 'USD' });
+                                  return <td key={c.name} className="px-3 py-2 text-gray-900">{fmt.format(Number(v) || 0)}</td>;
+                                }
+                                if (c.type === 'number') return <td key={c.name} className="px-3 py-2 text-gray-900">{numberFmt.format(Number(v) || 0)}</td>;
+                                if (c.type === 'status') return <td key={c.name} className="px-3 py-2"><span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{String(v || '')}</span></td>;
+                                return <td key={c.name} className="px-3 py-2 text-gray-900">{String(v || '')}</td>;
                               })}
                             </tr>
                           ))}

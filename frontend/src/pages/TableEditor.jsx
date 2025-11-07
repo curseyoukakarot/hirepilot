@@ -26,6 +26,9 @@ export default function TableEditor() {
   const [editColName, setEditColName] = useState('');
   const [editColType, setEditColType] = useState('text');
   const [selectedRowIdxSet, setSelectedRowIdxSet] = useState(new Set());
+  const [editCurrency, setEditCurrency] = useState('USD');
+  const [inlineEditIdx, setInlineEditIdx] = useState(null);
+  const [inlineEditName, setInlineEditName] = useState('');
 
   const apiFetch = async (url, init = {}) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -245,7 +248,9 @@ export default function TableEditor() {
     let idx = existingNames.length + 1;
     let name = `New Column ${idx}`;
     while (existingNames.includes(name)) { idx += 1; name = `New Column ${idx}`; }
-    const newCol = type === 'formula' ? { name, type, formula: '=0' } : { name, type };
+    let newCol = { name, type };
+    if (type === 'formula') newCol = { name, type, formula: '=0' };
+    if (type === 'money') newCol = { name, type, currency: 'USD' };
     const nextSchema = [...schema, newCol];
     try {
       setSaving(true);
@@ -314,7 +319,7 @@ export default function TableEditor() {
     try {
       await supabase
         .from('custom_tables')
-        .update({ schema_json: nextSchema, data_json: nextRows, updated_at: new Date().toISOString() })
+        .update({ data_json: nextRows, schema_json: nextSchema, updated_at: new Date().toISOString() })
         .eq('id', id);
     } catch {}
   };
@@ -350,13 +355,22 @@ export default function TableEditor() {
     await persistSchemaRows(nextSchema, nextRows);
   };
 
-  const changeColumnTypeAt = async (colIdx, newType) => {
+  const changeColumnTypeAt = async (colIdx, newType, newCurrency) => {
     const col = schema[colIdx]; if (!col) return;
-    const nextSchema = schema.map((c, i) => i===colIdx ? { ...c, type: newType } : c);
-    // Soft coercion for number
+    const nextSchema = schema.map((c, i) => {
+      if (i !== colIdx) return c;
+      const updated = { ...c, type: newType };
+      if (newType === 'money') {
+        updated.currency = newCurrency || c.currency || 'USD';
+      } else if (updated.currency) {
+        delete updated.currency;
+      }
+      if (newType === 'formula' && !updated.formula) updated.formula = '=0';
+      return updated;
+    });
     let nextRows = rows;
-    if (newType === 'number') {
-      nextRows = (rows||[]).map(r => ({ ...r, [col.name]: Number((r||{})[col.name]) || 0 }));
+    if (newType === 'number' || newType === 'money') {
+      nextRows = (rows || []).map(r => ({ ...r, [col.name]: Number((r || {})[col.name]) || 0 }));
     }
     setSchema(nextSchema); setRows(nextRows); setColumnMenuIdx(null);
     await persistSchemaRows(nextSchema, nextRows);
@@ -379,7 +393,11 @@ export default function TableEditor() {
 
   const bulkDeleteSelected = async () => {
     if (!selectedRowIdxSet.size) return;
-    const next = (rows||[]).filter((_, i) => !selectedRowIdxSet.has(i));
+    const count = selectedRowIdxSet.size;
+    let proceed = true;
+    try { proceed = window.confirm(`Delete ${count} selected row${count > 1 ? 's' : ''}? This cannot be undone.`); } catch {}
+    if (!proceed) return;
+    const next = (rows || []).filter((_, i) => !selectedRowIdxSet.has(i));
     setRows(next); setSelectedRowIdxSet(new Set());
     await persistRows(next);
   };
@@ -446,7 +464,7 @@ export default function TableEditor() {
   const currencyFormatter = useMemo(()=> new Intl.NumberFormat('en-US',{ style:'currency', currency:'USD' }), []);
 
   const totals = useMemo(() => {
-    const acc = {} as Record<string, number>;
+    const acc = {};
     for (const c of (schema || [])) {
       if ([ 'number','money','formula' ].includes(c?.type)) {
         let sum = 0;
@@ -548,7 +566,7 @@ export default function TableEditor() {
             <div className="flex items-center gap-2 ml-auto">
               <button className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"><i className="fas fa-filter"></i></button>
               <button className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"><i className="fas fa-sort"></i></button>
-              <button className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+              <button className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
                 <i className="fas fa-robot mr-2"></i>Ask REX
               </button>
             </div>
@@ -562,17 +580,36 @@ export default function TableEditor() {
                   <thead className="bg-gray-50 sticky top-0">
                     <tr>
                       <th className="w-12 px-4 py-3 text-left"><input type="checkbox" className="rounded border-gray-300" onChange={(e)=>toggleSelectAll(e.target.checked)} checked={selectedRowIdxSet.size>0 && selectedRowIdxSet.size===(rows||[]).length} /></th>
-                      {schema.map((col) => (
+                      {schema.map((col, ci) => (
                         <th key={col.name} className="px-4 py-3 text-left text-sm font-medium text-gray-700 border-r border-gray-200 min-w-40 relative">
                           <div className="flex items-center gap-2">
-                            {col.name}
+                            {inlineEditIdx === ci ? (
+                              <input
+                                className="px-2 py-1 border rounded bg-white"
+                                value={inlineEditName}
+                                autoFocus
+                                onChange={(e)=>setInlineEditName(e.target.value)}
+                                onBlur={async()=>{ await renameColumnAt(ci, inlineEditName); setInlineEditIdx(null); }}
+                                onKeyDown={async(e)=>{
+                                  if (e.key === 'Enter') { await renameColumnAt(ci, inlineEditName); setInlineEditIdx(null); }
+                                  if (e.key === 'Escape') { setInlineEditIdx(null); }
+                                }}
+                              />
+                            ) : (
+                              <>
+                                <span>{col.name}</span>
+                                <button title="Rename column" className="text-gray-400 hover:text-gray-600" onClick={(e)=>{ e.stopPropagation(); setInlineEditIdx(ci); setInlineEditName(col.name); }}>
+                                  <i className="fas fa-pencil-alt text-xs"></i>
+                                </button>
+                              </>
+                            )}
                             {col.type === 'formula' && <i className="fas fa-calculator text-purple-400 text-xs"></i>}
                             <i className="fas fa-grip-vertical text-gray-400 cursor-move"></i>
-                            <button className="ml-1 text-gray-400 hover:text-gray-600" onClick={(e)=>{ e.stopPropagation(); setColumnMenuIdx(columnMenuIdx===schema.indexOf(col)?null:schema.indexOf(col)); setEditColName(col.name); setEditColType(col.type); }}>
+                            <button className="ml-1 text-gray-400 hover:text-gray-600" onClick={(e)=>{ e.stopPropagation(); setColumnMenuIdx(columnMenuIdx===ci?null:ci); setEditColName(col.name); setEditColType(col.type); setEditCurrency((col && col.currency) ? col.currency : 'USD'); }}>
                               <i className="fas fa-ellipsis-h"></i>
                             </button>
                           </div>
-                          {columnMenuIdx===schema.indexOf(col) && (
+                          {columnMenuIdx===ci && (
                             <div className="absolute z-50 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg p-3">
                               <div className="mb-2">
                                 <label className="block text-xs text-gray-500 mb-1">Column name</label>
@@ -583,16 +620,27 @@ export default function TableEditor() {
                                 <select value={editColType} onChange={(e)=>setEditColType(e.target.value)} className="w-full px-2 py-1 border rounded">
                                   <option value="text">Text</option>
                                   <option value="number">Number</option>
+                                  <option value="money">Money</option>
                                   <option value="status">Status</option>
                                   <option value="date">Date</option>
                                   <option value="formula">Formula</option>
                                 </select>
                               </div>
+                              {editColType === 'money' && (
+                                <div className="mb-2">
+                                  <label className="block text-xs text-gray-500 mb-1">Currency</label>
+                                  <select value={editCurrency} onChange={(e)=>setEditCurrency(e.target.value)} className="w-full px-2 py-1 border rounded">
+                                    <option value="USD">USD</option>
+                                    <option value="EUR">EUR</option>
+                                    <option value="GBP">GBP</option>
+                                  </select>
+                                </div>
+                              )}
                               <div className="flex items-center justify-between pt-1">
                                 <button className="px-3 py-1 border rounded text-sm" onClick={()=>setColumnMenuIdx(null)}>Cancel</button>
                                 <div className="flex items-center gap-2">
-                                  <button className="px-3 py-1 text-red-600 border border-red-200 rounded text-sm hover:bg-red-50" onClick={()=>deleteColumnAt(schema.indexOf(col))}>Delete</button>
-                                  <button className="px-3 py-1 bg-purple-600 text-white rounded text-sm" onClick={async()=>{ await renameColumnAt(schema.indexOf(col), editColName); await changeColumnTypeAt(schema.indexOf(col), editColType); }}>Save</button>
+                                  <button className="px-3 py-1 text-red-600 border border-red-200 rounded text-sm hover:bg-red-50" onClick={()=>deleteColumnAt(ci)}>Delete</button>
+                                  <button className="px-3 py-1 bg-purple-600 text-white rounded text-sm" onClick={async()=>{ await renameColumnAt(ci, editColName); await changeColumnTypeAt(ci, editColType, editCurrency); }}>Save</button>
                                 </div>
                               </div>
                             </div>
@@ -625,7 +673,7 @@ export default function TableEditor() {
                         <td key={`total-${col.name}`} className="px-4 py-2 text-right font-semibold text-gray-900">
                           {['number','money','formula'].includes(col.type)
                             ? (col.type === 'money'
-                                ? currencyFormatter.format(Number(totals[col.name] || 0))
+                                ? new Intl.NumberFormat('en-US', { style: 'currency', currency: (col && col.currency) ? col.currency : 'USD' }).format(Number(totals[col.name] || 0))
                                 : numberFormatter.format(Number(totals[col.name] || 0)))
                             : ''}
                         </td>
