@@ -112,18 +112,45 @@ export default function TableEditor() {
   };
 
   const importFrom = async (src) => {
-    if (!id) return;
     try {
       setSaving(true);
-      await apiFetch(`/api/tables/${encodeURIComponent(id)}/import`, {
+      // Ensure we have a real table id (handle /tables/new/edit deep-link)
+      let targetId = id;
+      if (!targetId || targetId === 'new') {
+        // Create an empty table first (API route preferred; fallback to direct Supabase insert)
+        const payload = { name: tableName || 'Untitled Table', schema_json: [], initial_data: [] };
+        let createdId = '';
+        try {
+          const { data } = await apiFetch('/api/tables', { method: 'POST', body: JSON.stringify(payload) });
+          createdId = data?.id || '';
+        } catch {}
+        if (!createdId) {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user?.id) throw new Error('Unauthenticated');
+          const { data: inserted, error } = await supabase
+            .from('custom_tables')
+            .insert({ user_id: user.id, name: payload.name, schema_json: [], data_json: [] })
+            .select('*')
+            .single();
+          if (error) throw new Error(error.message);
+          createdId = inserted?.id || '';
+        }
+        if (!createdId) throw new Error('Failed to create table');
+        targetId = createdId;
+      }
+      await apiFetch(`/api/tables/${encodeURIComponent(targetId)}/import`, {
         method: 'POST',
         body: JSON.stringify({ source: src }),
       });
       // reload after import
       try {
-        const { data } = await apiFetch(`/api/tables/${encodeURIComponent(id)}`);
+        const { data } = await apiFetch(`/api/tables/${encodeURIComponent(targetId)}`);
         setSchema(Array.isArray(data?.schema_json) ? data.schema_json : []);
         setRows(Array.isArray(data?.data_json) ? data.data_json : []);
+        // Navigate to the real table route if we just created it
+        if (id === 'new' && targetId && targetId !== id) {
+          navigate(`/tables/${targetId}/edit`, { replace: true });
+        }
       } catch {}
     } catch {
       // ignore
