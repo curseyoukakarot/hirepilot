@@ -373,26 +373,70 @@ export default function Dashboard() {
           const fromVite = (typeof import.meta !== 'undefined' && import.meta.env) ? (import.meta.env.VITE_BACKEND_URL) : '';
           const fromWindow = (typeof window !== 'undefined' && window.__BACKEND_URL__) ? window.__BACKEND_URL__ : '';
           const base = String(fromProcess || fromVite || fromWindow || '').replace(/\/$/, '');
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token; const hdrs = token ? { Authorization: `Bearer ${token}` } : {};
           let actual = [];
           let projected = [];
           if (base) {
             const [paidRes, projRes] = await Promise.all([
-              fetch(`${base}/api/revenue/monthly`),
-              fetch(`${base}/api/revenue/monthly-projected`),
+              fetch(`${base}/api/revenue/monthly`, { headers: hdrs }),
+              fetch(`${base}/api/revenue/monthly-projected`, { headers: hdrs }),
             ]);
-            try { actual = (await paidRes.json() || []).map(r => ({ month: r.month, revenue: Number(r.paid) || 0 })); } catch { actual = []; }
-            try { projected = (await projRes.json() || []).map(r => ({ month: r.month, revenue: Number(r.forecasted) || 0, projected: true })); } catch { projected = []; }
+            const paidCt = paidRes.headers?.get?.('content-type') || '';
+            const projCt = projRes.headers?.get?.('content-type') || '';
+            if (paidRes.ok && paidCt.includes('application/json')) {
+              const paid = await paidRes.json();
+              actual = (paid || []).map((r) => ({ month: r.month, revenue: Number(r.paid) || 0 }));
+            }
+            if (projRes.ok && projCt.includes('application/json')) {
+              const pr = await projRes.json();
+              projected = (pr || []).map((r) => ({ month: r.month, revenue: Number(r.forecasted) || 0, projected: true }));
+            }
             if (!actual.length || actual.reduce((s,r)=>s+r.revenue,0) === 0) {
               // fallback to Close Won series
               const [cwRes, cwProj] = await Promise.all([
-                fetch(`${base}/api/revenue/closewon-monthly?range=1y`),
-                fetch(`${base}/api/revenue/closewon-projected?horizon=eoy`),
+                fetch(`${base}/api/revenue/closewon-monthly?range=1y`, { headers: hdrs }),
+                fetch(`${base}/api/revenue/closewon-projected?horizon=eoy`, { headers: hdrs }),
               ]);
-              const m = await cwRes.json();
-              const p = await cwProj.json();
-              actual = (m.series||[]).map(r=>({ month: r.month, revenue: Number(r.revenue)||0 }));
-              projected = (p.series||[]).filter(r=>r.projected).map(r=>({ month: r.month, revenue: Number(r.revenue)||0, projected: true }));
+              const mCt = cwRes.headers?.get?.('content-type') || '';
+              const pCt = cwProj.headers?.get?.('content-type') || '';
+              if (cwRes.ok && mCt.includes('application/json')) {
+                const m = await cwRes.json();
+                actual = (m.series||[]).map((r)=>({ month: r.month, revenue: Number(r.revenue)||0 }));
+              }
+              if (cwProj.ok && pCt.includes('application/json')) {
+                const p = await cwProj.json();
+                projected = (p.series||[]).filter((r)=>r.projected).map((r)=>({ month: r.month, revenue: Number(r.revenue)||0, projected: true }));
+              }
             }
+          }
+          // Final fallback: derive from Supabase opportunities (Close Won) scoped to user/team
+          if ((!actual.length || actual.every(r=>!r.revenue)) && session?.user?.id) {
+            try {
+              const { data: me } = await supabase.from('users').select('role, team_id').eq('id', session.user.id).maybeSingle();
+              const role = String((me||{}).role||'').toLowerCase();
+              const isTeamAdmin = role === 'team_admin';
+              const teamId = (me||{}).team_id || null;
+              let q = supabase.from('opportunities').select('created_at,stage,value,owner_id');
+              if (!['super_admin','superadmin'].includes(role)) {
+                if (isTeamAdmin && teamId) {
+                  const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', teamId);
+                  const ids = (teamUsers||[]).map(u=>u.id);
+                  q = q.in('owner_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
+                } else {
+                  q = q.eq('owner_id', session.user.id);
+                }
+              }
+              const { data: opps } = await q;
+              const closeWon = (opps||[]).filter((o)=> ['Close Won','Closed Won','Won'].includes(String(o.stage||'')));
+              const byMonth = {};
+              (closeWon||[]).forEach((o)=>{
+                const key = new Date(o.created_at||Date.now()).toISOString().slice(0,7);
+                byMonth[key] = (byMonth[key]||0) + (Number(o.value)||0);
+              });
+              actual = Object.entries(byMonth).map(([month, revenue]) => ({ month, revenue }));
+              projected = [];
+            } catch {}
           }
           const byMonth = new Map();
           actual.forEach(r=>byMonth.set(r.month, { month: r.month, actual: r.revenue, projected: 0 }));
@@ -400,7 +444,9 @@ export default function Dashboard() {
             const v = byMonth.get(r.month) || { month: r.month, actual: 0, projected: 0 };
             v.projected = r.revenue; byMonth.set(r.month, v);
           });
-          const rows = Array.from(byMonth.values()).sort((a,b)=> a.month.localeCompare(b.month));
+          // Keep only last 6 months for snapshot clarity
+          const rowsAll = Array.from(byMonth.values()).sort((a,b)=> a.month.localeCompare(b.month));
+          const rows = rowsAll.slice(-6);
           const labels = rows.map(r=>r.month);
           const aData = rows.map(r=>r.actual);
           const pData = rows.map(r=>r.projected);
@@ -416,7 +462,7 @@ export default function Dashboard() {
                   { label: 'Forecasted', data: pData, borderColor: '#6B46C1', backgroundColor: 'rgba(107,70,193,0.08)', fill: true, tension: 0.3, borderDash: [6,4] },
                 ],
               },
-              options: { plugins: { legend: { display: true, position: 'bottom' } }, scales: { y: { beginAtZero: true }, x: { grid: { color: '#f3f4f6' } } }, responsive: true, maintainAspectRatio: false },
+              options: { plugins: { legend: { display: true, position: 'bottom' } }, scales: { y: { beginAtZero: true, ticks: { color: '#9CA3AF', callback: (v)=> `$${Number(v).toLocaleString('en-US')}` } }, x: { grid: { color: '#f3f4f6' } } }, responsive: true, maintainAspectRatio: false },
             });
           }
         } catch {}
@@ -529,8 +575,8 @@ export default function Dashboard() {
         </div>
       )}
       {customWidgets.includes('Revenue Forecast') && (
-        <div className="bg-white rounded-2xl shadow-md p-6">
-          <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-semibold">Revenue Forecast</h3><span className="text-gray-400">⋯</span></div>
+        <div className="bg-white rounded-2xl shadow-md p-6 relative">
+          {headerWithMenu('Revenue Forecast','Revenue Forecast')}
           <div className="h-56"><canvas id="dash-revenue"></canvas></div>
           <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
             <select className="border rounded-md p-2 text-gray-600"><option>All Clients</option></select>
