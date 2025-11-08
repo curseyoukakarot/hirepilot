@@ -389,7 +389,7 @@ export default function Dashboard() {
   );
 
   const renderCustom = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:flex lg:flex-wrap gap-6">
+    <>
       {customWidgets.includes('Reply Rate Chart') && (
         <div className="bg-white rounded-2xl shadow-md p-6 relative">
           {headerWithMenu('Reply Rate Chart','Reply Rate Chart')}
@@ -462,28 +462,32 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 
   return (
     <div className="min-h-screen bg-gray-50" onClick={()=> setMenuOpenFor(null)}>
       {/* Main Content */}
-      <main className="bg-white px-8 py-6">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
-          <button onClick={() => navigate('/analytics')} className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Customize Dashboard</button>
+      <main className="bg-gray-50 py-6">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
+            <button onClick={() => navigate('/analytics')} className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Customize Dashboard</button>
+          </div>
+          {customWidgets.length > 0 ? (
+            <div id="widgets-grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {renderCustom()}
+            </div>
+          ) : (
+            <>
+              {isFree && (
+                <div className="mb-4 px-4 py-3 rounded-lg bg-blue-50 border border-gray-200 text-gray-800">
+                  You are an on the Free plan. Upgrade anytime to unlock more features.
+                </div>
+              )}
+            </>
+          )}
         </div>
-        {customWidgets.length > 0 ? (
-          renderCustom()
-        ) : (
-          <>
-            {isFree && (
-              <div className="mb-4 px-4 py-3 rounded-lg bg-blue-50 border border-gray-200 text-gray-800">
-                You are on the Free plan. Upgrade anytime from Billing to unlock more features.
-              </div>
-            )}
-          </>
-        )}
       </main>
     </div>
   );
