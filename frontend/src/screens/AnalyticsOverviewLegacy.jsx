@@ -75,6 +75,42 @@ export default function AnalyticsOverviewLegacy() {
             }
           } catch {}
         }
+        // If a specific campaign is selected, always ensure campaign-scoped metrics using Supabase as source of truth
+        if (campaignId !== 'all' && uid) {
+          try {
+            const { data: evCounts } = await supabase
+              .from('email_events')
+              .select('event_type', { count: 'exact', head: false })
+              .eq('user_id', uid)
+              .eq('campaign_id', campaignId)
+              .gte('event_timestamp', sinceIso);
+            // Supabase doesn't aggregate here; do a second query to fetch rows to aggregate reliably
+            const { data: evRows } = await supabase
+              .from('email_events')
+              .select('event_type')
+              .eq('user_id', uid)
+              .eq('campaign_id', campaignId)
+              .gte('event_timestamp', sinceIso);
+            let s=0,o=0,rp=0,cv=0;
+            (evRows||[]).forEach(e=>{
+              if (e.event_type==='sent') s++;
+              else if (e.event_type==='open') o++;
+              else if (e.event_type==='reply') rp++;
+              else if (e.event_type==='conversion') cv++;
+            });
+            sent = s; opens = o; replies = rp; conversions = cv;
+          } catch {}
+          try {
+            const { data: hires } = await supabase
+              .from('candidates')
+              .select('id, created_at, status, campaign_id')
+              .eq('status','hired')
+              .eq('campaign_id', campaignId)
+              .gte('created_at', sinceIso);
+            convertedCandidates = (hires||[]).length;
+          } catch {}
+          totalLeads = sent || totalLeads;
+        }
         if (!sent && uid) {
           const { data: rows } = await supabase.from('email_events').select('event_type,event_timestamp,campaign_id').eq('user_id', uid).gte('event_timestamp', sinceIso);
           (rows||[]).forEach((r) => {
