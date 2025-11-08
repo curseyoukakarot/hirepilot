@@ -111,17 +111,24 @@ export default function Dashboard() {
       try {
         const { data: sessionData } = await supabase.auth.getSession();
         const token = sessionData?.access_token;
-        // One-time seed: if present, apply immediately
+        // One-time seed: if present, apply immediately (handle auth race by checking both anon and uid)
         try {
-          const uid = sessionData?.user?.id || 'anon';
-          const seedKey = `dashboard_seed_${uid}`;
-          const raw = localStorage.getItem(seedKey);
+          const candidates = [];
+          const uid = sessionData?.user?.id || '';
+          if (uid) candidates.push(`dashboard_seed_${uid}`);
+          candidates.push(`dashboard_seed_${'anon'}`);
+          let raw = null, keyUsed = '';
+          for (const k of candidates) {
+            const v = localStorage.getItem(k);
+            if (v) { raw = v; keyUsed = k; break; }
+          }
           if (raw) {
             const names = JSON.parse(raw);
             if (Array.isArray(names) && names.length) {
-              await persistLayout(names);
               setCustomWidgets(names.slice(0,6));
-              try { localStorage.removeItem(seedKey); } catch {}
+              // Persist in background; if no uid yet, persistLayout will fallback to localStorage
+              try { await persistLayout(names); } catch (_) {}
+              try { if (keyUsed) localStorage.removeItem(keyUsed); } catch {}
               return; // show seeded layout immediately
             }
           }
