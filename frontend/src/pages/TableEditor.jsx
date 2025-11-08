@@ -36,6 +36,8 @@ export default function TableEditor() {
   const [activeColIdx, setActiveColIdx] = useState(0);
   const [activity, setActivity] = useState([]);
   const addActivity = (msg) => setActivity((a)=>[{ msg, at: new Date() }, ...a].slice(0,50));
+  const [dragColIdx, setDragColIdx] = useState(null);
+  const [resizing, setResizing] = useState(null); // { idx, startX, startW }
 
   const apiFetch = async (url, init = {}) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -614,6 +616,49 @@ export default function TableEditor() {
     addActivity(`Changed width of ${col.name} to ${w}px`);
   };
 
+  // Handle drag-and-drop reorder
+  const handleHeaderDragStart = (ci) => (e) => {
+    try { e.dataTransfer.effectAllowed = 'move'; } catch {}
+    setDragColIdx(ci);
+  };
+  const handleHeaderDragOver = (targetIdx) => (e) => {
+    e.preventDefault();
+    e.dataTransfer && (e.dataTransfer.dropEffect = 'move');
+  };
+  const handleHeaderDrop = (targetIdx) => async (e) => {
+    e.preventDefault();
+    const from = dragColIdx;
+    setDragColIdx(null);
+    if (from == null || from === targetIdx) return;
+    const next = [...schema];
+    const [moved] = next.splice(from, 1);
+    next.splice(targetIdx, 0, moved);
+    setSchema(next);
+    await persistSchemaRows(next, rows);
+    addActivity(`Moved column to position ${targetIdx + 1}`);
+  };
+
+  // Resizer
+  useEffect(() => {
+    if (!resizing) return;
+    const onMove = (e) => {
+      const dx = (e.clientX || 0) - resizing.startX;
+      const w = Math.max(60, Math.min(800, (resizing.startW || 200) + dx));
+      setSchema((s) => s.map((c, i) => (i === resizing.idx ? { ...c, width: w } : c)));
+    };
+    const onUp = async () => {
+      const finalW = (schema[resizing.idx]?.width) || resizing.startW || 200;
+      setResizing(null);
+      await updateColumnWidthAt(resizing.idx, finalW);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp, { once: true });
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, [resizing, schema]);
+
   return (
     <div className="bg-gray-50 font-sans min-h-screen flex flex-col">
       {/* EXACT SOURCE START (layout/content preserved as-is) */}
@@ -714,7 +759,16 @@ export default function TableEditor() {
                     <tr>
                       <th className="w-12 px-4 py-3 text-left"><input type="checkbox" className="rounded border-gray-300" onChange={(e)=>toggleSelectAll(e.target.checked)} checked={selectedRowIdxSet.size>0 && selectedRowIdxSet.size===(rows||[]).length} /></th>
                       {schema.map((col, ci) => (
-                        <th key={col.name} className={`px-4 py-3 text-left text-sm font-medium border-r border-gray-200 min-w-40 relative ${activeColIdx===ci?'bg-purple-50/40':''}`} style={{ minWidth: col.width ? `${col.width}px` : undefined }} onClick={()=> setActiveColIdx(ci)}>
+                        <th
+                          key={col.name}
+                          className={`px-4 py-3 text-left text-sm font-medium border-r border-gray-300 min-w-40 relative select-none ${activeColIdx===ci?'bg-purple-50/40':''}`}
+                          style={{ width: col.width ? `${col.width}px` : undefined, minWidth: col.width ? `${col.width}px` : undefined }}
+                          onClick={()=> setActiveColIdx(ci)}
+                          draggable={true}
+                          onDragStart={handleHeaderDragStart(ci)}
+                          onDragOver={handleHeaderDragOver(ci)}
+                          onDrop={handleHeaderDrop(ci)}
+                        >
                           <div className="flex items-center gap-2">
                             {inlineEditIdx === ci ? (
                               <input
@@ -741,63 +795,16 @@ export default function TableEditor() {
                                 <i className="fas fa-calculator text-xs"></i>
                               </button>
                             )}
-                            <i className="fas fa-grip-vertical text-gray-400 cursor-move"></i>
+                            <i className="fas fa-grip-vertical text-gray-500 cursor-move" title="Drag to reorder"></i>
                             <button className="ml-1 text-gray-400 hover:text-gray-600" onClick={(e)=>{ e.stopPropagation(); setColumnMenuIdx(columnMenuIdx===ci?null:ci); setEditColName(col.name); setEditColType(col.type); setEditCurrency((col && col.currency) ? col.currency : 'USD'); }}>
                               <i className="fas fa-ellipsis-h"></i>
                             </button>
                           </div>
-                          {columnMenuIdx===ci && (
-                            <div className="absolute z-50 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg p-3">
-                              <div className="mb-2">
-                                <label className="block text-xs text-gray-500 mb-1">Column name</label>
-                                <input value={editColName} onChange={(e)=>setEditColName(e.target.value)} className="w-full px-2 py-1 border rounded" />
-                              </div>
-                              <div className="mb-2">
-                                <label className="block text-xs text-gray-500 mb-1">Column type</label>
-                                <select value={editColType} onChange={(e)=>setEditColType(e.target.value)} className="w-full px-2 py-1 border rounded">
-                                  <option value="text">Text</option>
-                                  <option value="number">Number</option>
-                                  <option value="money">Money</option>
-                                  <option value="status">Status</option>
-                                  <option value="date">Date</option>
-                                  <option value="formula">Formula</option>
-                                </select>
-                              </div>
-                              {editColType === 'money' && (
-                                <div className="mb-2">
-                                  <label className="block text-xs text-gray-500 mb-1">Currency</label>
-                                  <select value={editCurrency} onChange={(e)=>setEditCurrency(e.target.value)} className="w-full px-2 py-1 border rounded">
-                                    <option value="USD">USD</option>
-                                    <option value="EUR">EUR</option>
-                                    <option value="GBP">GBP</option>
-                                  </select>
-                                </div>
-                              )}
-                              {editColType === 'formula' && (
-                                <div className="mb-2">
-                                  <label className="block text-xs text-gray-500 mb-1">Currency (optional)</label>
-                                  <select value={editCurrency} onChange={(e)=>setEditCurrency(e.target.value)} className="w-full px-2 py-1 border rounded">
-                                    <option value="">None</option>
-                                    <option value="USD">USD</option>
-                                    <option value="EUR">EUR</option>
-                                    <option value="GBP">GBP</option>
-                                  </select>
-                                </div>
-                              )}
-                              {editColType === 'formula' && (
-                                <div className="mb-2">
-                                  <button className="px-3 py-1 border rounded text-sm w-full" onClick={()=>{ openFormulaBuilder(ci); }}>Edit formula…</button>
-                                </div>
-                              )}
-                              <div className="flex items-center justify-between pt-1">
-                                <button className="px-3 py-1 border rounded text-sm" onClick={()=>setColumnMenuIdx(null)}>Cancel</button>
-                                <div className="flex items-center gap-2">
-                                  <button className="px-3 py-1 text-red-600 border border-red-200 rounded text-sm hover:bg-red-50" onClick={()=>deleteColumnAt(ci)}>Delete</button>
-                                  <button className="px-3 py-1 bg-purple-600 text-white rounded text-sm" onClick={async()=>{ await renameColumnAt(ci, editColName); await changeColumnTypeAt(ci, editColType, editCurrency || undefined); }}>Save</button>
-                                </div>
-                              </div>
-                            </div>
-                          )}
+                          {/* Resizer */}
+                          <span
+                            className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-transparent"
+                            onMouseDown={(e)=> setResizing({ idx: ci, startX: e.clientX || 0, startW: Number(col.width) || 200 })}
+                          />
                         </th>
                       ))}
                     </tr>
@@ -809,10 +816,10 @@ export default function TableEditor() {
                       </tr>
                     )}
                     {rows.map((r, idx) => (
-                      <tr key={idx} className={`transition-colors border-b border-gray-100 ${selectedRowIndex === idx ? 'bg-purple-50' : 'hover:bg-purple-50'}`} onClick={()=>setSelectedRowIndex(idx)}>
+                      <tr key={idx} className={`transition-colors border-b border-gray-300 ${selectedRowIndex === idx ? 'bg-purple-50' : 'hover:bg-purple-50'}`} onClick={()=>setSelectedRowIndex(idx)}>
                         <td className="px-4 py-3"><input type="checkbox" className="rounded border-gray-300" onChange={(e)=>toggleSelectRow(idx, e.target.checked)} checked={selectedRowIdxSet.has(idx)} /></td>
                         {schema.map((col, ci) => (
-                          <td key={`${idx}-${col.name}`} className="px-4 py-3 border-r border-gray-100" onClick={()=> setActiveColIdx(ci)}>
+                          <td key={`${idx}-${col.name}`} className="px-4 py-3 border-r border-gray-300" style={{ width: col.width ? `${col.width}px` : undefined }} onClick={()=> setActiveColIdx(ci)}>
                             {renderEditableCell(r, col, idx)}
                           </td>
                         ))}
@@ -823,7 +830,7 @@ export default function TableEditor() {
                     <tr>
                       <td className="px-4 py-2 text-right font-semibold text-gray-700">Total</td>
                       {schema.map((col) => (
-                        <td key={`total-${col.name}`} className="px-4 py-2 text-right font-semibold text-gray-900">
+                        <td key={`total-${col.name}`} className="px-4 py-2 text-right font-semibold text-gray-900 border-r border-gray-300">
                           {['number','money','formula'].includes(col.type)
                             ? ((col.type === 'money' || (col.type==='formula' && col.currency))
                                 ? new Intl.NumberFormat('en-US', { style: 'currency', currency: (col && col.currency) ? col.currency : 'USD' }).format(Number(totals[col.name] || 0))
