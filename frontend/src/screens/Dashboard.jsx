@@ -159,14 +159,19 @@ export default function Dashboard() {
             setCustomWidgets(names);
             return;
           }
-        }
+          }
       } catch (_) {}
-      // Default for new accounts / no local layout
-      const key = `dashboard_widgets_${(await supabase.auth.getUser()).data?.user?.id || 'name'}`;
-      const local = JSON.parse(localStorage.getItem(key) || '[]');
+      // Default for new accounts / no remote layout – check per-user and legacy keys
+      const uid = (await supabase.auth.getUser()).data?.user?.id || 'anon';
+      const key = `dashboard_widgets_${uid}`;
+      let local = [];
+      try { local = JSON.parse(localStorage.getItem(key) || '[]'); } catch {}
+      if (!Array.isArray(local) || !local.length) {
+        try { local = JSON.parse(localStorage.getItem('dashboard_widgets_local') || '[]'); } catch {}
+      }
       const fallback = Array.isArray(local) && local.length ? local.slice(0, 6) : DEFAULT_WIDGETS;
       setCustomWidgets(fallback);
-      try { localStorage.setItem('dashboard_widgets_' + ((await supabase.auth.getUser()).data?.user?.id || 'name'), JSON.stringify(fallback)); } catch (_) {}
+      try { localStorage.setItem('dashboard_widgets_' + uid, JSON.stringify(fallback)); } catch (_) {}
     };
     load();
   }, []);
@@ -211,7 +216,7 @@ export default function Dashboard() {
                 const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', teamId);
                 const ids = (teamUsers||[]).map(u=>u.id);
                 baseQ = baseQ.in('owner_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
-              } else {
+        } else {
                 baseQ = baseQ.eq('owner_id', session?.user?.id);
               }
             }
@@ -330,7 +335,7 @@ export default function Dashboard() {
             vals = labels.map((_, i) => (sent[i] ? Math.round((replies[i] / sent[i]) * 1000) / 10 : 0));
           }
           const ctx = document.getElementById('dash-reply-rate');
-          if (ctx) {
+    if (ctx) {
             const Chart = await getChartLib();
             dashCharts.current.reply = new Chart(ctx, {
               type: 'line',
@@ -360,7 +365,7 @@ export default function Dashboard() {
           const ctx = document.getElementById('dash-open-rate'); if (ctx) {
             const Chart = await getChartLib();
             dashCharts.current.open = new Chart(ctx, {
-              type: 'line',
+        type: 'line',
               data: { labels, datasets: [{ label: 'Open %', data: vals, borderColor: '#7C3AED', backgroundColor: 'rgba(124,58,237,0.12)', fill: true, tension: 0.3 }] },
               options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 100, ticks: { color: '#9CA3AF', callback: (v) => `${v}%` } }, x: { grid: { color: '#f3f4f6' } } }, responsive: true, maintainAspectRatio: false },
             });
@@ -463,8 +468,8 @@ export default function Dashboard() {
                 ],
               },
               options: { plugins: { legend: { display: true, position: 'bottom' } }, scales: { y: { beginAtZero: true, ticks: { color: '#9CA3AF', callback: (v)=> `$${Number(v).toLocaleString('en-US')}` } }, x: { grid: { color: '#f3f4f6' } } }, responsive: true, maintainAspectRatio: false },
-            });
-          }
+      });
+    }
         } catch {}
       }
     })();
@@ -496,9 +501,9 @@ export default function Dashboard() {
           <button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={()=>{ setMenuOpenFor(null); navigate(`/analytics?${`tab=${encodeURIComponent(WIDGET_TAB[widgetName]||'deals')}&open=${encodeURIComponent(widgetName)}${extraQuery?`&${extraQuery}`:''}`}`); }}>View details</button>
           <button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={()=>{ setMenuOpenFor(null); navigate(`/analytics?${`tab=${encodeURIComponent(WIDGET_TAB[widgetName]||'deals')}&open=${encodeURIComponent(widgetName)}&edit=1${extraQuery?`&${extraQuery}`:''}`}`); }}>Edit</button>
           <button className="w-full text-left px-3 py-2 text-red-600 hover:bg-gray-100" onClick={()=> removeWidget(widgetName)}>Remove from dashboard</button>
-        </div>
-      )}
-    </div>
+          </div>
+        )}
+            </div>
   );
 
   const renderCustom = () => (
@@ -510,8 +515,8 @@ export default function Dashboard() {
           <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
             <select className="border rounded-md p-2 text-gray-600"><option>By Template</option></select>
             <button className="bg-purple-600 text-white px-3 py-2 rounded-md text-sm">Export</button>
-          </div>
-        </div>
+              </div>
+            </div>
       )}
       {customWidgets.includes('Open Rate Widget') && (
         <div className="bg-white rounded-2xl shadow-md p-6 relative">
@@ -532,7 +537,7 @@ export default function Dashboard() {
               <option value="6m">Last 6 Months</option>
             </select>
           </div>
-        </div>
+            </div>
       )}
       {customWidgets.includes('Engagement Breakdown') && (
         <div className="bg-white rounded-2xl shadow-md p-6 relative">
@@ -554,9 +559,9 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
-          </div>
+            </div>
           <div className="space-y-2 text-sm">
-            {(() => {
+                          {(() => {
               const pct = (k) => {
                 const row = (engagement || []).find((d) => String(d.metric) === k);
                 const v = Number(row && row.pct) || 0;
@@ -570,9 +575,9 @@ export default function Dashboard() {
                   <div className="flex items-center justify_between"><span className="text-purple-700">Clicks</span><span className="font-semibold">{pct('click')}</span></div>
                 </>
               );
-            })()}
+                          })()}
           </div>
-        </div>
+                  </div>
       )}
       {customWidgets.includes('Revenue Forecast') && (
         <div className="bg-white rounded-2xl shadow-md p-6 relative">
@@ -581,8 +586,8 @@ export default function Dashboard() {
           <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
             <select className="border rounded-md p-2 text-gray-600"><option>All Clients</option></select>
             <div className="flex items-center gap-4 text-gray-600"><label className="flex items-center gap-2 text-sm"><input type="radio" defaultChecked /> Quarter</label><label className="flex items-center gap-2 text-sm"><input type="radio" /> Year</label></div>
-          </div>
-        </div>
+              </div>
+                  </div>
       )}
     </>
   );
@@ -595,7 +600,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
             <button onClick={() => navigate('/analytics')} className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Customize Dashboard</button>
-          </div>
+            </div>
         </div>
         {isFree && (
           <div className="max-w-7xl mx-auto px-6 mb-4">

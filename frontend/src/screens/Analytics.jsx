@@ -209,10 +209,13 @@ export default function Analytics() {
       // Force a refresh shortly after navigation to ensure fresh layout is read
       setTimeout(() => { try { window.location.replace('/dashboard'); } catch {} }, 150);
     } catch (_) {
-      // fallback local only
-      const key = 'dashboard_widgets_local';
-      const existing = JSON.parse(localStorage.getItem(key) || '[]');
-      if (!existing.includes(widgetName)) localStorage.setItem(key, JSON.stringify([...existing, widgetName].slice(0,6)));
+      // fallback local only — persist to the same key the dashboard loader reads
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        const k = `dashboard_widgets_${user?.id || 'anon'}`;
+        const existing = JSON.parse(localStorage.getItem(k) || '[]');
+        if (!existing.includes(widgetName)) localStorage.setItem(k, JSON.stringify([...existing, widgetName].slice(0,6)));
+      } catch {}
       setIsModalOpen(false);
       navigate('/dashboard');
     }
