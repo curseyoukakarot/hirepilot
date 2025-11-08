@@ -174,10 +174,14 @@ export default function Analytics() {
   };
 
   const addWidgetToDashboard = async (widgetName) => {
+    const debugAdd = (() => {
+      try { return new URLSearchParams(window.location.search).get('debugAdd') === '1'; } catch { return false; }
+    })();
     try {
       // Prefer direct Supabase save to avoid 405 on deployed /api routes
       let existingLayout = [];
       let savedRemote = false;
+      const errors = [];
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user?.id) {
@@ -202,7 +206,9 @@ export default function Analytics() {
           try { localStorage.setItem(`dashboard_widgets_${user.id}`, JSON.stringify(layout.map(w=>w.widget_id||w))); } catch {}
           savedRemote = true;
         }
-      } catch {
+      } catch (e) {
+        try { localStorage.setItem('dashboard_add_error', JSON.stringify({ at: new Date().toISOString(), step: 'supabase_upsert', message: String(e?.message || e) })); } catch {}
+        errors.push({ step: 'supabase_upsert', error: e });
         // Final fallback: call API route if present
         try {
           const r = await fetch('/api/dashboard/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ layout }) });
@@ -211,7 +217,10 @@ export default function Analytics() {
             try { localStorage.setItem(`dashboard_widgets_${user?.id || 'anon'}`, JSON.stringify(layout.map(w=>w.widget_id||w))); } catch {}
             savedRemote = true;
           }
-        } catch {}
+        } catch (e2) {
+          try { localStorage.setItem('dashboard_add_error', JSON.stringify({ at: new Date().toISOString(), step: 'api_save', message: String(e2?.message || e2) })); } catch {}
+          errors.push({ step: 'api_save', error: e2 });
+        }
       }
       // If nothing saved remotely, ensure local fallback is written
       if (!savedRemote) {
@@ -225,9 +234,13 @@ export default function Analytics() {
         } catch {}
       }
       setIsModalOpen(false);
+      if (debugAdd) {
+        // In debug, do not navigate away so error is visible
+        try { console.log('Add to Dashboard debug:', { savedRemote, widgetName, errors }); } catch {}
+        return;
+      }
+      // Navigate without hard reload; Dashboard seed loader will render immediately
       navigate('/dashboard');
-      // Force a refresh shortly after navigation to ensure fresh layout is read
-      setTimeout(() => { try { window.location.replace('/dashboard'); } catch {} }, 150);
     } catch (_) {
       // fallback local only — persist to the same key the dashboard loader reads
       try {
