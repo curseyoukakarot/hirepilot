@@ -203,7 +203,12 @@ export default function Analytics() {
             if (error) throw new Error(error.message);
           }
           // Also persist locally for instant fallback
-          try { localStorage.setItem(`dashboard_widgets_${user.id}`, JSON.stringify(layout.map(w=>w.widget_id||w))); } catch {}
+          try {
+            const names = layout.map(w=>w.widget_id||w);
+            localStorage.setItem(`dashboard_widgets_${user.id}`, JSON.stringify(names));
+            // Always set seed so Dashboard shows it immediately after nav
+            localStorage.setItem(`dashboard_seed_${user.id}`, JSON.stringify(names));
+          } catch {}
           savedRemote = true;
         }
       } catch (e) {
