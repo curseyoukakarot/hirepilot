@@ -69,6 +69,8 @@ export default function DealsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [logModal, setLogModal] = useState<{ type: 'client'|'decision_maker'|'opportunity'; id: string } | null>(null);
   // Removed modal caret refs
+  const [editingTagId, setEditingTagId] = useState<string | null>(null);
+  const [tagDraft, setTagDraft] = useState<string>('');
 
   useEffect(() => {
     (async () => {
@@ -538,6 +540,42 @@ export default function DealsPage() {
     fetchOpps();
   }, [access?.can_view_opportunities, oppFilters.status, oppFilters.client, oppFilters.search, oppView]);
 
+  const refreshOpps = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (oppView === 'table') {
+      const qs = new URLSearchParams();
+      if (oppFilters.status) qs.set('status', oppFilters.status);
+      if (oppFilters.client) qs.set('client', oppFilters.client);
+      if (oppFilters.search) qs.set('search', oppFilters.search);
+      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities?${qs.toString()}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const js = resp.ok ? await resp.json() : [];
+      setOpps(js || []);
+    } else {
+      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunity-pipeline`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const js = resp.ok ? await resp.json() : [];
+      setBoard(js || []);
+    }
+  };
+
+  const saveOppTag = async (id: string, tag: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ tag })
+      });
+      if (resp.ok) {
+        setOpps(prev => prev.map((row: any) => row.id === id ? { ...row, tag } : row));
+      }
+    } finally {
+      setEditingTagId(null);
+      setTagDraft('');
+    }
+  };
+
   const refetchBoard = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
@@ -915,6 +953,7 @@ export default function DealsPage() {
                   <th className="p-4 w-12"><input type="checkbox" /></th>
                   <th className="p-4 text-left">Opportunity Title</th>
                   <th className="p-4 text-left">Client</th>
+                  <th className="p-4 text-left">Tag</th>
                   <th className="p-4 text-left">Status</th>
                   <th className="p-4 text-right">Value ($)</th>
                   <th className="p-4 text-left">Job REQ(s)</th>
@@ -925,15 +964,29 @@ export default function DealsPage() {
               </thead>
               <tbody className="divide-y">
                 {oppLoading ? (
-                  <tr><td colSpan={9} className="p-6 text-center text-gray-500">Loading…</td></tr>
+                  <tr><td colSpan={10} className="p-6 text-center text-gray-500">Loading…</td></tr>
                 ) : opps.length === 0 ? (
-                  <tr><td colSpan={9} className="p-6 text-center text-gray-500">No opportunities</td></tr>
+                  <tr><td colSpan={10} className="p-6 text-center text-gray-500">No opportunities</td></tr>
                 ) : (
                   opps.map((o) => (
                     <tr key={o.id} className="hover:bg-gray-50">
                       <td className="p-4"><input type="checkbox" /></td>
                       <td className="p-4 font-medium text-gray-900">{o.title}</td>
                       <td className="p-4"><div className="flex items-center gap-2">{(() => { const u = o.client && clientsLogoMap.get(String(o.client.id || o.client_id)); return u ? <img src={u} alt="logo" className="w-6 h-6 rounded" /> : <div className="w-6 h-6 rounded bg-gray-200" />; })()} <span className="font-medium">{o.client?.name || o.client?.domain || '—'}</span></div></td>
+                      <td className="p-4">
+                        {editingTagId === o.id ? (
+                          <div className="flex items-center gap-2" data-no-row-toggle>
+                            <input className="border rounded px-2 py-1 text-sm" value={tagDraft} onChange={e=>setTagDraft(e.target.value)} placeholder="e.g. Job Seeker" />
+                            <button className="px-2 py-1 text-xs bg-gray-200 rounded" onClick={()=>saveOppTag(o.id, tagDraft)}>Save</button>
+                            <button className="px-2 py-1 text-xs" onClick={()=>{ setEditingTagId(null); setTagDraft(''); }}>Cancel</button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs ${o.tag ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}`}>{o.tag || '—'}</span>
+                            <button className="text-xs text-blue-600" onClick={()=>{ setEditingTagId(o.id); setTagDraft(o.tag || ''); }}>Edit</button>
+                          </div>
+                        )}
+                      </td>
                       <td className="p-4"><span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">{o.stage || 'Pipeline'}</span></td>
                       <td className="p-4 text-right font-medium">{currency(Number(o.value)||0)}</td>
                       <td className="p-4">
@@ -1056,7 +1109,7 @@ export default function DealsPage() {
       ) : (
         <>
           {activeTab==='clients' && (canSee('clients') ? <ClientsSection /> : renderAccessDenied())}
-          {activeTab==='opportunities' && (canSee('opportunities') ? <><OpportunitiesSection /><AddOpportunityModal open={addOpen} clients={clients} onClose={()=>setAddOpen(false)} onCreated={async ()=>{ await refetchBoard(); }} /></> : renderAccessDenied())}
+          {activeTab==='opportunities' && (canSee('opportunities') ? <><OpportunitiesSection /><AddOpportunityModal open={addOpen} clients={clients} onClose={()=>setAddOpen(false)} onCreated={async ()=>{ await refreshOpps(); }} /></> : renderAccessDenied())}
           {activeTab==='billing' && (canSee('billing') ? <><BillingSection /><InvoiceModal /></> : renderAccessDenied())}
           {activeTab==='revenue' && (canSee('revenue') ? (
             <div className="space-y-6">

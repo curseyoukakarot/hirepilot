@@ -15,6 +15,7 @@ function AddOpportunityModal({ open, clients, onClose, onCreated }: AddOpportuni
   const [value, setValue] = useState<string>('');
   const [billingType, setBillingType] = useState<string>('');
   const [stage, setStage] = useState<string>('Pipeline');
+  const [tag, setTag] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
 
   const handleCreate = useCallback(async () => {
@@ -25,7 +26,7 @@ function AddOpportunityModal({ open, clients, onClose, onCreated }: AddOpportuni
       const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ title, client_id: clientId, value: Number(value)||0, billing_type: billingType, stage })
+        body: JSON.stringify({ title, client_id: clientId, value: Number(value)||0, billing_type: billingType, stage, tag: tag || null })
       });
       if (resp.ok) {
         toast.success('Opportunity created');
@@ -45,11 +46,11 @@ function AddOpportunityModal({ open, clients, onClose, onCreated }: AddOpportuni
         toast.error('Failed to create opportunity');
       }
       onClose();
-      setTitle(''); setClientId(''); setValue(''); setBillingType(''); setStage('Pipeline');
+      setTitle(''); setClientId(''); setValue(''); setBillingType(''); setStage('Pipeline'); setTag('');
     } finally {
       setSubmitting(false);
     }
-  }, [title, clientId, value, billingType, stage, onCreated, onClose]);
+  }, [title, clientId, value, billingType, stage, tag, onCreated, onClose]);
 
   if (!open) return null;
 
@@ -96,6 +97,11 @@ function AddOpportunityModal({ open, clients, onClose, onCreated }: AddOpportuni
               <option>Close Won</option>
               <option>Closed Lost</option>
             </select>
+          </div>
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">Tag</label>
+            <input className="w-full border rounded-md px-3 py-2" value={tag} onChange={e=>setTag(e.target.value)} placeholder='e.g. Job Seeker' />
+            <div className="mt-1 text-xs text-gray-500">Use “Job Seeker” to enable job seeker workflow automations.</div>
           </div>
         </div>
         <div className="mt-5 flex justify-end gap-3">
