@@ -11,7 +11,7 @@ let __chartConstructor = null;
 async function getChartLib() {
   if (__chartConstructor) return __chartConstructor;
   const mod = await import('chart.js/auto');
-  __chartConstructor = mod.Chart;
+  __chartConstructor = mod.Chart || mod.default;
   return __chartConstructor;
 }
 
