@@ -336,18 +336,22 @@ export default function Analytics() {
     }
     const el = document.getElementById('overview-chart');
     if (el && !chartInstancesRef.current.overview) {
-      chartInstancesRef.current.overview = new Chart(el, {
-        type: 'line',
-        data: {
-          labels: [],
-          datasets: [
-            { label: 'Open Rate', data: [], borderColor: '#3B82F6', backgroundColor: 'rgba(59,130,246,0.10)', tension: 0.35, fill: true, borderWidth: 3 },
-            { label: 'Reply Rate', data: [], borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,0.10)', tension: 0.35, fill: true, borderWidth: 3 },
-            { label: 'Conversion Rate', data: [], borderColor: '#8B5CF6', backgroundColor: 'rgba(139,92,246,0.08)', tension: 0.35, fill: true, borderWidth: 3 }
-          ]
-        },
-        options: { plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true, max: 100 } } }
-      });
+      try {
+        chartInstancesRef.current.overview = new Chart(el, {
+          type: 'line',
+          data: {
+            labels: [],
+            datasets: [
+              { label: 'Open Rate', data: [], borderColor: '#3B82F6', backgroundColor: 'rgba(59,130,246,0.10)', tension: 0.35, fill: true, borderWidth: 3 },
+              { label: 'Reply Rate', data: [], borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,0.10)', tension: 0.35, fill: true, borderWidth: 3 },
+              { label: 'Conversion Rate', data: [], borderColor: '#8B5CF6', backgroundColor: 'rgba(139,92,246,0.08)', tension: 0.35, fill: true, borderWidth: 3 }
+            ]
+          },
+          options: { plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true, max: 100 } } }
+        });
+      } catch (e) {
+        console.error('Overview chart init error', e);
+      }
     }
     const inst = chartInstancesRef.current.overview;
     if (inst && overviewSeries && Array.isArray(overviewSeries.labels)) {
