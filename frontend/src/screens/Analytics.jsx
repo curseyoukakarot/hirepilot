@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Chart } from 'chart.js/auto';
 import { supabase } from '../lib/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 
@@ -12,8 +11,16 @@ export default function Analytics() {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const chartRef = useRef(null);
   const chartInstancesRef = useRef({});
+  const chartLibRef = useRef(null); // lazy-loaded Chart.js constructor
   const navigate = useNavigate();
   const [modalData, setModalData] = useState(null);
+
+  const getChart = async () => {
+    if (chartLibRef.current) return chartLibRef.current;
+    const mod = await import('chart.js/auto');
+    chartLibRef.current = mod.Chart;
+    return chartLibRef.current;
+  };
 
   const widgetTypeMap = useMemo(() => ({
     'Reply Rate Chart': 'reply-rate',
@@ -197,12 +204,13 @@ export default function Analytics() {
 
     if (isModalOpen) {
       // wait for DOM
-      const init = () => {
+      const init = async () => {
         destroyAll();
         // Initialize charts per modalWidget
         if (modalWidget === 'Reply Rate Chart') {
           const ctx = document.getElementById('chart-reply');
           if (ctx) {
+            const Chart = await getChart();
             chartInstancesRef.current.reply = new Chart(ctx, {
         type: 'line',
         data: {
@@ -216,6 +224,7 @@ export default function Analytics() {
         if (modalWidget === 'Revenue Forecast') {
           const ctx = document.getElementById('chart-revenue');
           if (ctx) {
+            const Chart = await getChart();
             chartInstancesRef.current.revenue = new Chart(ctx, {
               type: 'line',
               data: { labels: [], datasets: [
@@ -230,6 +239,7 @@ export default function Analytics() {
           const ctx = document.getElementById('chart-winrate');
           if (ctx) {
             const wr = Math.round(((modalData?.[0]?.win_rate ?? 68) + Number.EPSILON)*10)/10;
+            const Chart = await getChart();
             chartInstancesRef.current.winrate = new Chart(ctx, {
               type: 'doughnut',
               data: { labels: ['Won', 'Lost'], datasets: [{ data: [wr, Math.max(0, 100-wr)], backgroundColor: ['#10B981', '#E5E7EB'], borderWidth: 0 }] },
@@ -240,6 +250,7 @@ export default function Analytics() {
         if (modalWidget === 'Engagement Breakdown') {
           const ctx = document.getElementById('chart-engagement');
           if (ctx) {
+            const Chart = await getChart();
             chartInstancesRef.current.engagement = new Chart(ctx, {
               type: 'pie',
               data: { labels: (modalData||[{metric:'open'},{metric:'reply'},{metric:'bounce'},{metric:'click'}]).map(d=>String(d.metric||'').toUpperCase()), datasets: [{ data: (modalData||[]).map(d=>d.pct||0), backgroundColor: ['#6366F1', '#10B981', '#F59E0B', '#6B46C1'] }] },
@@ -250,6 +261,7 @@ export default function Analytics() {
         if (modalWidget === 'Pipeline Velocity') {
           const ctx = document.getElementById('chart-velocity');
           if (ctx) {
+            const Chart = await getChart();
             chartInstancesRef.current.velocity = new Chart(ctx, {
               type: 'bar',
               data: { labels: (modalData||[{stage:'Applied'},{stage:'Screen'},{stage:'Interview'},{stage:'Offer'},{stage:'Hired'}]).map(d=>d.stage||''), datasets: [{ label: 'Days in Stage', data: (modalData||[]).map(d=>d.days||0), backgroundColor: '#6B46C1' }] },
@@ -260,6 +272,7 @@ export default function Analytics() {
         if (modalWidget === 'Open Rate Widget') {
           const ctx = document.getElementById('chart-openrate');
           if (ctx) {
+            const Chart = await getChart();
             chartInstancesRef.current.openrate = new Chart(ctx, {
               type: 'line',
               data: { labels: (modalData||[{bucket:'1'},{bucket:'2'},{bucket:'3'},{bucket:'4'}]).map(d=>d.bucket||''), datasets: [{ label: 'Open %', data: (modalData||[]).map(d=>d.openRate||0), borderColor: '#3B82F6', backgroundColor: 'rgba(59,130,246,0.12)', fill: true, tension: 0.35 }] },
@@ -270,6 +283,7 @@ export default function Analytics() {
         if (modalWidget === 'Conversion Trends') {
           const ctx = document.getElementById('chart-conversion');
           if (ctx) {
+            const Chart = await getChart();
             chartInstancesRef.current.conversion = new Chart(ctx, {
               type: 'line',
               data: { labels: (modalData||[{quarter:'Q1'},{quarter:'Q2'},{quarter:'Q3'},{quarter:'Q4'}]).map(d=>d.quarter||''), datasets: [{ label: 'Conversion %', data: (modalData||[]).map(d=>d.conversion||0), borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,0.1)', fill: true, tension: 0.35 }] },
@@ -280,6 +294,7 @@ export default function Analytics() {
         if (modalWidget === 'Activity Overview') {
           const ctx = document.getElementById('chart-activity');
           if (ctx) {
+            const Chart = await getChart();
             chartInstancesRef.current.activity = new Chart(ctx, {
               type: 'bar',
               data: { labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'], datasets: [{ label: 'Activities', data: [120, 150, 90, 180, 130], backgroundColor: '#14B8A6' }] },
@@ -288,7 +303,7 @@ export default function Analytics() {
           }
         }
       };
-      const id = requestAnimationFrame(init);
+      const id = requestAnimationFrame(() => { init().catch(()=>{}); });
       return () => cancelAnimationFrame(id);
     }
     // cleanup when closing
@@ -337,7 +352,9 @@ export default function Analytics() {
     const el = document.getElementById('overview-chart');
     if (el && !chartInstancesRef.current.overview) {
       try {
-        chartInstancesRef.current.overview = new Chart(el, {
+        (async () => {
+          const Chart = await getChart();
+          chartInstancesRef.current.overview = new Chart(el, {
           type: 'line',
           data: {
             labels: [],
@@ -348,7 +365,8 @@ export default function Analytics() {
             ]
           },
           options: { plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true, max: 100 } } }
-        });
+          });
+        })().catch((e) => console.error('Overview chart init error', e));
       } catch (e) {
         console.error('Overview chart init error', e);
       }
