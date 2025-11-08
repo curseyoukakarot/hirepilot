@@ -2,6 +2,15 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 
+// Lazy-load Chart.js at module scope to avoid TDZ/circular init in minified builds
+let __chartConstructor = null;
+async function getChartLib() {
+  if (__chartConstructor) return __chartConstructor;
+  const mod = await import('chart.js/auto');
+  __chartConstructor = mod.Chart;
+  return __chartConstructor;
+}
+
 export default function Analytics() {
   const [activeTab, setActiveTab] = useState('overview');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -11,16 +20,9 @@ export default function Analytics() {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const chartRef = useRef(null);
   const chartInstancesRef = useRef({});
-  const chartLibRef = useRef(null); // lazy-loaded Chart.js constructor
   const navigate = useNavigate();
   const [modalData, setModalData] = useState(null);
 
-  const getChart = async () => {
-    if (chartLibRef.current) return chartLibRef.current;
-    const mod = await import('chart.js/auto');
-    chartLibRef.current = mod.Chart;
-    return chartLibRef.current;
-  };
 
   const widgetTypeMap = useMemo(() => ({
     'Reply Rate Chart': 'reply-rate',
@@ -210,7 +212,7 @@ export default function Analytics() {
         if (modalWidget === 'Reply Rate Chart') {
           const ctx = document.getElementById('chart-reply');
           if (ctx) {
-            const Chart = await getChart();
+            const Chart = await getChartLib();
             chartInstancesRef.current.reply = new Chart(ctx, {
         type: 'line',
         data: {
@@ -224,7 +226,7 @@ export default function Analytics() {
         if (modalWidget === 'Revenue Forecast') {
           const ctx = document.getElementById('chart-revenue');
           if (ctx) {
-            const Chart = await getChart();
+            const Chart = await getChartLib();
             chartInstancesRef.current.revenue = new Chart(ctx, {
               type: 'line',
               data: { labels: [], datasets: [
@@ -239,7 +241,7 @@ export default function Analytics() {
           const ctx = document.getElementById('chart-winrate');
           if (ctx) {
             const wr = Math.round(((modalData?.[0]?.win_rate ?? 68) + Number.EPSILON)*10)/10;
-            const Chart = await getChart();
+            const Chart = await getChartLib();
             chartInstancesRef.current.winrate = new Chart(ctx, {
               type: 'doughnut',
               data: { labels: ['Won', 'Lost'], datasets: [{ data: [wr, Math.max(0, 100-wr)], backgroundColor: ['#10B981', '#E5E7EB'], borderWidth: 0 }] },
@@ -250,7 +252,7 @@ export default function Analytics() {
         if (modalWidget === 'Engagement Breakdown') {
           const ctx = document.getElementById('chart-engagement');
           if (ctx) {
-            const Chart = await getChart();
+            const Chart = await getChartLib();
             chartInstancesRef.current.engagement = new Chart(ctx, {
               type: 'pie',
               data: { labels: (modalData||[{metric:'open'},{metric:'reply'},{metric:'bounce'},{metric:'click'}]).map(d=>String(d.metric||'').toUpperCase()), datasets: [{ data: (modalData||[]).map(d=>d.pct||0), backgroundColor: ['#6366F1', '#10B981', '#F59E0B', '#6B46C1'] }] },
@@ -261,7 +263,7 @@ export default function Analytics() {
         if (modalWidget === 'Pipeline Velocity') {
           const ctx = document.getElementById('chart-velocity');
           if (ctx) {
-            const Chart = await getChart();
+            const Chart = await getChartLib();
             chartInstancesRef.current.velocity = new Chart(ctx, {
               type: 'bar',
               data: { labels: (modalData||[{stage:'Applied'},{stage:'Screen'},{stage:'Interview'},{stage:'Offer'},{stage:'Hired'}]).map(d=>d.stage||''), datasets: [{ label: 'Days in Stage', data: (modalData||[]).map(d=>d.days||0), backgroundColor: '#6B46C1' }] },
@@ -272,7 +274,7 @@ export default function Analytics() {
         if (modalWidget === 'Open Rate Widget') {
           const ctx = document.getElementById('chart-openrate');
           if (ctx) {
-            const Chart = await getChart();
+            const Chart = await getChartLib();
             chartInstancesRef.current.openrate = new Chart(ctx, {
               type: 'line',
               data: { labels: (modalData||[{bucket:'1'},{bucket:'2'},{bucket:'3'},{bucket:'4'}]).map(d=>d.bucket||''), datasets: [{ label: 'Open %', data: (modalData||[]).map(d=>d.openRate||0), borderColor: '#3B82F6', backgroundColor: 'rgba(59,130,246,0.12)', fill: true, tension: 0.35 }] },
@@ -283,7 +285,7 @@ export default function Analytics() {
         if (modalWidget === 'Conversion Trends') {
           const ctx = document.getElementById('chart-conversion');
           if (ctx) {
-            const Chart = await getChart();
+            const Chart = await getChartLib();
             chartInstancesRef.current.conversion = new Chart(ctx, {
               type: 'line',
               data: { labels: (modalData||[{quarter:'Q1'},{quarter:'Q2'},{quarter:'Q3'},{quarter:'Q4'}]).map(d=>d.quarter||''), datasets: [{ label: 'Conversion %', data: (modalData||[]).map(d=>d.conversion||0), borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,0.1)', fill: true, tension: 0.35 }] },
@@ -353,7 +355,7 @@ export default function Analytics() {
     if (el && !chartInstancesRef.current.overview) {
       try {
         (async () => {
-          const Chart = await getChart();
+          const Chart = await getChartLib();
           chartInstancesRef.current.overview = new Chart(el, {
           type: 'line',
           data: {
