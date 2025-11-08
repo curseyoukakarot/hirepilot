@@ -55,7 +55,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
 
     let base = supabase
       .from('opportunities')
-      .select('id,title,value,billing_type,stage,status,owner_id,client_id,created_at');
+      .select('id,title,value,billing_type,stage,status,owner_id,client_id,created_at,tag');
 
     if (isSuper) {
       // no filter
@@ -859,8 +859,9 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
     const allowed = await canViewOpportunities(userId);
     if (!allowed) { res.status(403).json({ error: 'access_denied' }); return; }
 
-    const { title, client_id, stage, value, billing_type } = req.body || {};
-    const insert = { title, client_id, stage, value, billing_type, status: 'open', owner_id: userId, created_at: new Date().toISOString() };
+    const { title, client_id, stage, value, billing_type, tag } = req.body || {};
+    const nowIso = new Date().toISOString();
+    const insert = { title, client_id, stage, value, billing_type, tag: tag ?? null, status: 'open', owner_id: userId, created_at: nowIso, updated_at: nowIso as any };
     const { data, error } = await supabase.from('opportunities').insert(insert).select('*').single();
     if (error) { res.status(500).json({ error: error.message }); return; }
     res.status(201).json(data);
@@ -878,9 +879,14 @@ router.patch('/:id', requireAuth, async (req: Request, res: Response) => {
     if (!allowed) { res.status(403).json({ error: 'access_denied' }); return; }
 
     const { id } = req.params;
+    // Fetch current to compare for workflow events
+    const { data: beforeRow, error: beforeErr } = await supabase.from('opportunities').select('id,stage,status,tag').eq('id', id).maybeSingle();
+    if (beforeErr) { res.status(500).json({ error: beforeErr.message }); return; }
+
     const up: any = {};
-    const fields = ['title','client_id','stage','value','billing_type','status','owner_id'];
+    const fields = ['title','client_id','stage','value','billing_type','status','owner_id','tag'];
     for (const f of fields) if (req.body?.[f] !== undefined) up[f] = req.body[f];
+    up.updated_at = new Date().toISOString() as any;
     const { data, error } = await supabase.from('opportunities').update(up).eq('id', id).select('*').maybeSingle();
     if (error) { res.status(500).json({ error: error.message }); return; }
 
@@ -891,6 +897,24 @@ router.patch('/:id', requireAuth, async (req: Request, res: Response) => {
       const rows = (req.body.req_ids as string[]).map((reqId) => ({ opportunity_id: id, req_id: reqId }));
       if (rows.length) await supabase.from('opportunity_job_reqs').insert(rows);
     }
+
+    // Emit workflow event if moved to Close Won with tag Job Seeker
+    try {
+      const afterStage = String((data as any)?.stage || up.stage || beforeRow?.stage || '').toLowerCase();
+      const afterStatus = String((data as any)?.status || up.status || beforeRow?.status || '').toLowerCase();
+      const afterTag = String((data as any)?.tag ?? up.tag ?? beforeRow?.tag ?? '').toLowerCase();
+      const isCloseWon = /close\s*won/.test(afterStage) || ['close_won','closed_won','won'].includes(afterStatus);
+      const isJobSeeker = afterTag === 'job seeker' || afterTag === 'job_seeker';
+      if (isCloseWon && isJobSeeker) {
+        await createZapEvent({
+          event_type: EVENT_TYPES.opportunity_closed_won as any,
+          user_id: userId,
+          entity: 'opportunity',
+          entity_id: id,
+          payload: { id, stage: (data as any)?.stage || up.stage || beforeRow?.stage || null, status: (data as any)?.status || up.status || beforeRow?.status || null, tag: (data as any)?.tag ?? up.tag ?? beforeRow?.tag ?? null }
+        });
+      }
+    } catch {}
 
     res.json(data || {});
   } catch (e: any) {

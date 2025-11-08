@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { verifyZapier } from '../middleware/verifyZapier';
 import { supabase } from '../lib/supabase';
 import { logger } from '../lib/logger';
+import { createZapEvent, EVENT_TYPES } from '../lib/events';
 
 const router = express.Router();
 
@@ -41,6 +42,88 @@ router.post('/actions/updateDeal', verifyZapier, async (req: Request, res: Respo
   if (error) { res.status(500).json({ error: error.message }); return; }
   logger.info({ route: '/api/zapier/actions/updateDeal', action: 'update', ok: true, id: data?.id });
   res.json({ ok: true, id: data?.id });
+});
+
+// createOpportunity (external)
+const createOpportunitySchema = z.object({
+  idempotency_key: z.string(),
+  userId: z.string().uuid(),
+  title: z.string(),
+  clientId: z.string().uuid().optional(),
+  value: z.number().optional(),
+  billingType: z.string().optional(),
+  stage: z.string().optional(),
+  status: z.string().optional(),
+  tag: z.string().optional()
+});
+router.post('/actions/createOpportunity', verifyZapier, async (req: Request, res: Response) => {
+  const parse = createOpportunitySchema.safeParse(req.body || {});
+  if (!parse.success) { res.status(400).json({ error: 'invalid_payload', details: parse.error.flatten() }); return; }
+  const { idempotency_key, userId, title, clientId, value, billingType, stage, status, tag } = parse.data;
+  if (!(await ensureIdempotent(idempotency_key))) { res.json({ deduped: true }); return; }
+  const nowIso = new Date().toISOString();
+  const { data, error } = await supabase
+    .from('opportunities')
+    .insert({
+      title,
+      client_id: clientId ?? null,
+      value: value ?? null,
+      billing_type: billingType ?? null,
+      stage: stage ?? null,
+      status: status ?? 'open',
+      tag: tag ?? null,
+      owner_id: userId,
+      created_at: nowIso,
+      updated_at: nowIso as any
+    })
+    .select('id')
+    .single();
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  logger.info({ route: '/api/zapier/actions/createOpportunity', action: 'create', ok: true, id: data?.id, owner_id: userId });
+  res.json({ ok: true, id: data?.id });
+});
+
+// updateOpportunityStatusTag (external) — update stage/status/tag and emit workflow event when applicable
+const updateOpportunityStatusTagSchema = z.object({
+  idempotency_key: z.string(),
+  userId: z.string().uuid(),
+  opportunityId: z.string().uuid(),
+  stage: z.string().optional(),
+  status: z.string().optional(),
+  tag: z.string().optional()
+});
+router.post('/actions/updateOpportunityStatusTag', verifyZapier, async (req: Request, res: Response) => {
+  const parse = updateOpportunityStatusTagSchema.safeParse(req.body || {});
+  if (!parse.success) { res.status(400).json({ error: 'invalid_payload', details: parse.error.flatten() }); return; }
+  const { idempotency_key, userId, opportunityId, stage, status, tag } = parse.data;
+  if (!(await ensureIdempotent(idempotency_key))) { res.json({ deduped: true }); return; }
+  const patch: any = { updated_at: new Date().toISOString() as any };
+  if (stage !== undefined) patch.stage = stage;
+  if (status !== undefined) patch.status = status;
+  if (tag !== undefined) patch.tag = tag;
+  const { error } = await supabase.from('opportunities').update(patch).eq('id', opportunityId);
+  if (error) { res.status(500).json({ error: error.message }); return; }
+
+  try {
+    const { data: row } = await supabase.from('opportunities').select('id,stage,status,tag').eq('id', opportunityId).maybeSingle();
+    const afterStage = String(row?.stage || stage || '').toLowerCase();
+    const afterStatus = String(row?.status || status || '').toLowerCase();
+    const afterTag = String(row?.tag ?? tag ?? '').toLowerCase();
+    const isCloseWon = /close\s*won/.test(afterStage) || ['close_won','closed_won','won'].includes(afterStatus);
+    const isJobSeeker = afterTag === 'job seeker' || afterTag === 'job_seeker';
+    if (isCloseWon && isJobSeeker) {
+      await createZapEvent({
+        event_type: EVENT_TYPES.opportunity_closed_won as any,
+        user_id: userId,
+        entity: 'opportunity',
+        entity_id: opportunityId,
+        payload: { id: opportunityId, stage: row?.stage || stage || null, status: row?.status || status || null, tag: row?.tag ?? tag ?? null }
+      });
+    }
+  } catch {}
+
+  logger.info({ route: '/api/zapier/actions/updateOpportunityStatusTag', action: 'update', ok: true, id: opportunityId });
+  res.json({ ok: true, id: opportunityId });
 });
 
 // addOrUpdateNote for lead/candidate/decision_maker/opportunity

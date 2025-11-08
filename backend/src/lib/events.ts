@@ -28,6 +28,7 @@ export const EVENT_TYPES = {
   opportunity_application_created: 'opportunity_application_created',
   opportunity_note_added: 'opportunity_note_added',
   opportunity_collaborator_added: 'opportunity_collaborator_added',
+  opportunity_closed_won: 'opportunity_closed_won',
   deal_activity_logged: 'deal_activity_logged',
 
   // --- Campaigns & Sourcing ---
