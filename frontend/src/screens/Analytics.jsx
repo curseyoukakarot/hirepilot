@@ -211,11 +211,31 @@ export default function Analytics() {
         errors.push({ step: 'supabase_upsert', error: e });
         // Final fallback: call API route if present
         try {
-          const r = await fetch('/api/dashboard/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ layout }) });
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token || '';
+          const r = await fetch('/api/dashboard/save', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({ layout }),
+          });
           if (r && r.ok) {
             const { data: { user } } = await supabase.auth.getUser();
             try { localStorage.setItem(`dashboard_widgets_${user?.id || 'anon'}`, JSON.stringify(layout.map(w=>w.widget_id||w))); } catch {}
             savedRemote = true;
+          } else {
+            try {
+              const bodyText = await r.text();
+              localStorage.setItem('dashboard_add_error', JSON.stringify({
+                at: new Date().toISOString(),
+                step: 'api_save_non_ok',
+                status: r.status,
+                statusText: r.statusText,
+                body: bodyText?.slice(0, 500),
+              }));
+            } catch {}
           }
         } catch (e2) {
           try { localStorage.setItem('dashboard_add_error', JSON.stringify({ at: new Date().toISOString(), step: 'api_save', message: String(e2?.message || e2) })); } catch {}
