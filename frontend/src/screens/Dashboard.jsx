@@ -89,21 +89,8 @@ export default function Dashboard() {
       setLoading(true);
       const { data } = await supabase.auth.getUser();
       if (data?.user) {
-        // If this is a guest collaborator, redirect to their most recent invited job
-        try {
-          const { data: guest } = await supabase
-            .from('job_guest_animlators')
-            .select('job_id, created_at')
-            .eq('email', data.user.email)
-            .order('created_at', { ascending: false })
-            .limit(1);
-          const target = (guest || [])[0]?.job_id;
-          if (target) {
-            navigate(`/job/${target}`, { replace: true });
-            return;
-          }
-        } catch {}
         setUser(data.user);
+        // Avoid noisy 404s: skip legacy tables in production
         try {
           const response = await fetch(`${BACKEND_URL}/api/campaigns/all/performance?user_id=${data.user.id}`);
           const result = await response.json();
@@ -111,18 +98,7 @@ export default function Dashboard() {
         } catch (_) {
           setMetrics(null);
         }
-        try {
-          const { data: integ } = await supabase
-            .from('simple_integrations')
-            .select('status')
-            .eq('user_id', data.user.id)
-            .eq('provider', 'rex')
-            .maybeSingle();
-          const enabled = ['enabled', 'connected', 'on', 'true'].includes(String(integ?.status || '').toLowerCase());
-          setRexEnabled(enabled);
-        } catch (_) {
-          setRexEnabled(false);
-        }
+        setRexEnabled(false);
       }
       setLoading(false);
     };
