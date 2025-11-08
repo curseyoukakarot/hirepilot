@@ -47,6 +47,7 @@ export default function Dashboard() {
   const [engageCampaignId, setEngageCampaignId] = useState('all');
   const [openProvider, setOpenProvider] = useState('all'); // 'all' | 'google' | 'outlook' | 'sendgrid'
   const [openRateDisplay, setOpenRateDisplay] = useState(null);
+  const [openRange, setOpenRange] = useState('90d'); // '30d' | '90d' | '6m'
   const [menuOpenFor, setMenuOpenFor] = useState(null);
   const navigate = useNavigate();
   const { isFree } = usePlan();
@@ -366,6 +367,60 @@ export default function Dashboard() {
           }
         } catch {}
       }
+      if (customWidgets.includes('Revenue Forecast')) {
+        try {
+          const fromProcess = (typeof process !== 'undefined' && process.env) ? (process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL) : '';
+          const fromVite = (typeof import.meta !== 'undefined' && import.meta.env) ? (import.meta.env.VITE_BACKEND_URL) : '';
+          const fromWindow = (typeof window !== 'undefined' && window.__BACKEND_URL__) ? window.__BACKEND_URL__ : '';
+          const base = String(fromProcess || fromVite || fromWindow || '').replace(/\/$/, '');
+          let actual = [];
+          let projected = [];
+          if (base) {
+            const [paidRes, projRes] = await Promise.all([
+              fetch(`${base}/api/revenue/monthly`),
+              fetch(`${base}/api/revenue/monthly-projected`),
+            ]);
+            try { actual = (await paidRes.json() || []).map(r => ({ month: r.month, revenue: Number(r.paid) || 0 })); } catch { actual = []; }
+            try { projected = (await projRes.json() || []).map(r => ({ month: r.month, revenue: Number(r.forecasted) || 0, projected: true })); } catch { projected = []; }
+            if (!actual.length || actual.reduce((s,r)=>s+r.revenue,0) === 0) {
+              // fallback to Close Won series
+              const [cwRes, cwProj] = await Promise.all([
+                fetch(`${base}/api/revenue/closewon-monthly?range=1y`),
+                fetch(`${base}/api/revenue/closewon-projected?horizon=eoy`),
+              ]);
+              const m = await cwRes.json();
+              const p = await cwProj.json();
+              actual = (m.series||[]).map(r=>({ month: r.month, revenue: Number(r.revenue)||0 }));
+              projected = (p.series||[]).filter(r=>r.projected).map(r=>({ month: r.month, revenue: Number(r.revenue)||0, projected: true }));
+            }
+          }
+          const byMonth = new Map();
+          actual.forEach(r=>byMonth.set(r.month, { month: r.month, actual: r.revenue, projected: 0 }));
+          projected.forEach(r=>{
+            const v = byMonth.get(r.month) || { month: r.month, actual: 0, projected: 0 };
+            v.projected = r.revenue; byMonth.set(r.month, v);
+          });
+          const rows = Array.from(byMonth.values()).sort((a,b)=> a.month.localeCompare(b.month));
+          const labels = rows.map(r=>r.month);
+          const aData = rows.map(r=>r.actual);
+          const pData = rows.map(r=>r.projected);
+          const ctx = document.getElementById('dash-revenue');
+          if (ctx) {
+            const Chart = await getChartLib();
+            dashCharts.current.revenue = new Chart(ctx, {
+              type: 'line',
+              data: {
+                labels,
+                datasets: [
+                  { label: 'Revenue', data: aData, borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,0.10)', fill: true, tension: 0.3 },
+                  { label: 'Forecasted', data: pData, borderColor: '#6B46C1', backgroundColor: 'rgba(107,70,193,0.08)', fill: true, tension: 0.3, borderDash: [6,4] },
+                ],
+              },
+              options: { plugins: { legend: { display: true, position: 'bottom' } }, scales: { y: { beginAtZero: true }, x: { grid: { color: '#f3f4f6' } } }, responsive: true, maintainAspectRatio: false },
+            });
+          }
+        } catch {}
+      }
     })();
 
     return () => {
@@ -374,7 +429,7 @@ export default function Dashboard() {
       });
       dashCharts.current = {};
     };
-  }, [customWidgets, engageCampaignId, openProvider]);
+  }, [customWidgets, engageCampaignId, openProvider, openRange]);
 
   // Calculate reply rate & conversion
   const replyRate = metrics && metrics.sent ? (metrics.replies / metrics.sent) * 100 : 0;
