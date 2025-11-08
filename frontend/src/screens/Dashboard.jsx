@@ -1,12 +1,12 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useNavigate } from 'react-router-dom';
-import QuickActionsRexCard from '../components/QuickActionsRexCard';
+import QuickActions from '../components/QuickActions';
 import { usePlan } from '../context/PlanContext';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
-// Lazy Chart.js singleton to avoid TDZ/circular init in production builds
+// Lazy Chart.js singleton to avoid TDZ/cross-bundle issues
 let __chartConstructor = null;
 async function getChartLib() {
   if (__chartConstructor) return __chartConstructor;
@@ -15,12 +15,25 @@ async function getChartLib() {
   return __chartConstructor;
 }
 
+// Helper to build default dashboard widgets
+const DEFAULT_WIDGETS = ['Reply Rate Chart', 'Open Rate Widget', 'Engagement Breakdown'];
+
+// Map widget name to corresponding Analytics tab for "View" action
+const WIDGET_TAB = {
+  'Reply Rate Chart': 'outreach',
+  'Open Rate Widget': 'outreach',
+  'Engagement Breakdown': 'deals',
+  'Revenue Forecast': 'deals',
+  'Deal Pipeline': 'deals',
+  'Win Rate KPI': 'deals',
+};
+
 // Helper function to generate avatar URL
-const getAvatarUrl = (name) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
+const getAvatarUrl = (name) => `https://app.thehirepilot.com/api/avatar?name=${encodeURIComponent(name)}`;
 
 export default function Dashboard() {
   const chartRef = useRef(null);
-  const dashChartsRef = useRef({});
+  const dashCharts = useRef({});
   const [user, setUser] = useState(null);
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -32,8 +45,42 @@ export default function Dashboard() {
   const [customWidgets, setCustomWidgets] = useState([]);
   const [dealPipeline, setDealPipeline] = useState(null);
   const [engagement, setEngagement] = useState(null);
+  const [engageCampaignId, setEngageCampaignId] = useState('all');
+  const [menuOpenFor, setMenuOpenFor] = useState(null);
   const navigate = useNavigate();
   const { isFree } = usePlan();
+
+  // Persist layout helper
+  const persistLayout = async (names) => {
+    setCustomWidgets(names);
+    try {
+      const { data: sessionData } = await supabase.auth.getUser();
+      const uid = sessionData?.user?.id;
+      if (uid) {
+        const { data: existing } = await supabase
+          .from('user_dashboards')
+          .select('user_id, layout')
+          .eq('user_id', uid)
+          .maybeSingle();
+        const layout = (names || []).slice(0, 6).map((w, i) => ({
+          widget_id: w,
+          position: { x: 0, y: 0 },
+          config: {},
+        }));
+        if (existing) {
+          await supabase.from('user_dashboards').update({ layout, updated_at: new Date().toISOString() }).eq('user_id', uid);
+        } else {
+          await supabase.from('user_dashboards').insert({ user_id: uid, layout, updated_at: new Date().toISOString() });
+        }
+      } else {
+        const key = `dashboard_widgets_${'anon'}`;
+        localStorage.setItem(key, JSON.stringify(names));
+      }
+    } catch (_) {
+      const key = `dashboard_widgets_${user?.id || 'anon'}`;
+      try { localStorage.setItem(key, JSON.stringify(names)); } catch {}
+    }
+  };
 
   useEffect(() => {
     const fetchUserAndMetrics = async () => {
@@ -42,102 +89,98 @@ export default function Dashboard() {
       if (data?.user) {
         // If this is a guest collaborator, redirect to their most recent invited job
         try {
-          const { data: guestJobs } = await supabase
-            .from('job_guest_collaborators')
+          const { data: guest } = await supabase
+            .from('job_guest_animlators')
             .select('job_id, created_at')
             .eq('email', data.user.email)
             .order('created_at', { ascending: false })
             .limit(1);
-          const target = (guestJobs || [])[0]?.job_id;
+          const target = (guest || [])[0]?.job_id;
           if (target) {
             navigate(`/job/${target}`, { replace: true });
-            return; // Skip rest of dashboard load
+            return;
           }
         } catch {}
         setUser(data.user);
         try {
-          // Fetch overall metrics for all messages to leads
           const response = await fetch(`${BACKEND_URL}/api/campaigns/all/performance?user_id=${data.user.id}`);
           const result = await response.json();
           setMetrics(result);
-        } catch (err) {
+        } catch (_) {
           setMetrics(null);
         }
         try {
-          // Determine REX enabled from integrations
           const { data: integ } = await supabase
-            .from('integrations')
+            .from('simple_integrations')
             .select('status')
             .eq('user_id', data.user.id)
             .eq('provider', 'rex')
             .maybeSingle();
-          const integEnabled = ['enabled','connected','on','true'].includes(String(integ?.status || '').toLowerCase());
-          // Also enable for privileged roles (Team Admin and above)
-          let roleEnabled = false;
-          try {
-            const { data: userRow } = await supabase
-              .from('users')
-              .select('role')
-              .eq('id', data.user.id)
-              .maybeSingle();
-            const roleLc = String(userRow?.role || data.user.user_metadata?.role || '').toLowerCase();
-            roleEnabled = ['teamadmin','team_admin','superadmin','super_admin','admin','recruitpro','member'].includes(roleLc);
-          } catch {}
-          setRexEnabled(integEnabled || roleEnabled);
-        } catch {
+          const enabled = ['enabled', 'connected', 'on', 'true'].includes(String(integ?.status || '').toLowerCase());
+          setRexEnabled(enabled);
+        } catch (_) {
           setRexEnabled(false);
         }
       }
       setLoading(false);
     };
     fetchUserAndMetrics();
-  }, []);
+  }, [navigate]);
 
-  // Load per-user dashboard widgets from API (fallback to localStorage)
+  // Load per-user dashboard widgets from API (fallback to localStorage -> defaults)
   useEffect(() => {
     const load = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token;
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.access_token;
         const r = await fetch('/api/dashboard/layout', { headers: token ? { Authorization: `Bearer ${token}` } : {}, credentials: 'include' });
         if (r.ok) {
           const j = await r.json();
-          const names = (Array.isArray(j.layout) ? j.layout : []).map(w => w.widget_id || w).slice(0,6);
-          setCustomWidgets(names);
-          return;
-        }
-      } catch {}
-      // Supabase fallback under RLS
-      try {
-        const { data: u } = await supabase.auth.getUser();
-        const uid = u?.user?.id;
-        if (uid) {
-          const { data: row } = await supabase.from('user_dashboards').select('layout').eq('user_id', uid).maybeSingle();
-          if (row?.layout) {
-            const names = (Array.isArray(row.layout) ? row.layout : []).map(w => w.widget_id || w).slice(0,6);
+          const names = (Array.isArray(j.layout) ? j.layout : []).map((w) => w.widget_id || w).slice(0, 6);
+          if (names.length) {
             setCustomWidgets(names);
             return;
           }
         }
-      } catch {}
-      const { data } = await supabase.auth.getUser();
-      const key = `dashboard_widgets_${data?.user?.id || 'anon'}`;
-      const localKey = 'dashboard_widgets_local';
-      const arr = JSON.parse(localStorage.getItem(key) || localStorage.getItem(localKey) || '[]');
-      setCustomWidgets(Array.isArray(arr) ? arr.slice(0, 6) : []);
+      } catch (_) {}
+      try {
+        const { data: u } = await supabase.auth.getUser();
+        const uid = u?.user?.id;
+        if (uid) {
+          const { data: row } = await supabase
+            .from('user_dashboards')
+            .select('layout')
+            .eq('user_id', uid)
+            .maybeSingle();
+          if (row?.layout && row.layout.length) {
+            const names = (Array.isArray(row.layout) ? row.layout : []).map((w) => w?.widget_id || w).slice(0, 6);
+            setCustomWidgets(names);
+            return;
+          }
+        }
+      } catch (_) {}
+      // Default for new accounts / no local layout
+      const key = `dashboard_widgets_${(await supabase.auth.getUser()).data?.user?.id || 'name'}`;
+      const local = JSON.parse(localStorage.getItem(key) || '[]');
+      const fallback = Array.isArray(local) && local.length ? local.slice(0, 6) : DEFAULT_WIDGETS;
+      setCustomWidgets(fallback);
+      try { localStorage.setItem('dashboard_widgets_' + ((await supabase.auth.getUser()).data?.user?.id || 'name'), JSON.stringify(fallback)); } catch (_) {}
     };
     load();
   }, []);
 
-  // Initialize snapshot charts with real data when widgets change
+  // Initialize snapshot charts with real data when widgets or filters change
   useEffect(() => {
-    Object.values(dashChartsRef.current || {}).forEach((c) => { try { c.destroy(); } catch (_) {} });
-    dashChartsRef.current = {};
+    Object.values(dashCharts.current || {}).forEach((c) => {
+      try { c.destroy(); } catch (_) {}
+    });
+    dashCharts.current = {};
     const fetchWithAuth = async (path) => {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
       return fetch(path, { headers: token ? { Authorization: `Bearer ${token}` } : {}, credentials: 'include' });
     };
+
     (async () => {
       const Chart = await getChartLib();
       if (customWidgets.includes('Deal Pipeline')) {
@@ -156,14 +199,12 @@ export default function Dashboard() {
             rows = r.ok ? await r.json() : [];
           }
           if (!Array.isArray(rows) || !rows.length) {
-            // Supabase fallback using same scope as Opportunities page
             const { data: me } = await supabase.from('users').select('role, team_id').eq('id', session?.user?.id).maybeSingle();
             const role = String((me||{}).role||'').toLowerCase();
             const teamId = (me||{}).team_id || null;
-            const isSuper = ['super_admin','superadmin'].includes(role);
             const isTeamAdmin = role === 'team_admin';
             let baseQ = supabase.from('opportunities').select('stage,value,owner_id');
-            if (!isSuper) {
+            if (!['super_admin','superadmin'].includes(role)) {
               if (isTeamAdmin && teamId) {
                 const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', teamId);
                 const ids = (teamUsers||[]).map(u=>u.id);
@@ -208,270 +249,151 @@ export default function Dashboard() {
           const hdrs = token ? { Authorization: `Bearer ${token}` } : {};
           let payload = null;
           if (base) {
-            const r = await fetch(`${base}/api/campaigns/all/performance?user_id=${encodeURIComponent(uid)}`, { headers: hdrs });
+            const qs = new URLSearchParams({ user_id: String(uid) });
+            if (engageCampaignId && engageCampaignId !== 'clin') {
+              qs.set('campaign_id', String(engageCampaignId));
+            }
+            const r = await fetch(`${base}/api/campaigns/all/performance?${qs.toString()}`, { headers: hdrs });
             const ct = r.headers?.get?.('content-type') || '';
             if (r.ok && ct.includes('application/json')) {
               const p = await r.json();
-              const sent = Number(p.sent||0);
-              const opens = Number(p.opens||0);
-              const replies = Number(p.replies||0);
-              const conversions = Number(p.conversions||0);
-              const openPct = sent ? (opens/sent)*100 : 0;
-              const replyPct = sent ? (replies/sent)*100 : 0;
-              const bouncePct = sent ? (Math.max(0, sent - opens)/sent)*100 : 0;
-              const clickPct = sent ? (conversions/sent)*100 : 0;
+              const sent = Number(p.sent || 0);
+              const opens = Number(p.opens || 0);
+              const replies = Number(p.replies || 0);
+              const conversions = Number(p.conversions || 0);
+              const openPct = sent ? (opens / sent) * 100 : 0;
+              const replyPct = sent ? (replies / sent) * 100 : 0;
+              const bouncePct = sent ? ((sent - opens) / sent) * 100 : 0;
+              const clickPct = sent ? (conversions / sent) * 100 : 0;
               payload = [
-                { metric: 'open', pct: Math.round(openPct*10)/10 },
-                { metric: 'reply', pct: Math.round(replyPct*10)/10 },
-                { metric: 'bounce', pct: Math.round(bouncePct*10)/10 },
-                { metric: 'click', pct: Math.round(clickPct*10)/10 },
+                { metric: 'open', pct: Math.round(openPct * 10) / 10 },
+                { metric: 'reply', pct: Math.round(replyPct * 10) / 10 },
+                { metric: 'bounce', pct: Math.round(bouncePct * 10) / 10 },
+                { metric: 'click', pct: Math.round(clickPct * 10) / 10 },
               ];
             }
           }
           if (!payload) {
-            const { data: rows } = await supabase
+            let q = supabase
               .from('email_events')
-              .select('event_type,event_timestamp')
+              .select('event_timestamp,event_type')
               .eq('user_id', uid)
-              .gte('event_timestamp', new Date(Date.now() - 30*24*3600*1000).toISOString());
-            const agg = { open:0, reply:0, bounce:0, click:0 };
-            (rows||[]).forEach(r=>{ const ev = r && r.event_type; if (ev && (ev in agg)) agg[ev] = (agg[ev]||0)+1; });
-            const total = Object.values(agg).reduce((a,b)=>a+b,0)||1;
-            payload = Object.entries(agg).map(([k,v])=>({ metric:k, pct: Math.round(((v/total)*1000))/10 }));
+              .gte('event_timestamp', new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString());
+            if (engageCampaignId && engageCampaignId !== 'all') {
+              q = q.eq('campaign_id', engageCampaignId);
+            }
+            const { data: rows } = await q;
+            const agg = { open: 0, reply: 0, bounce: 0, click: 0 };
+            (rows || []).forEach((r) => { const ev = r && r.event_timestamp ? r.event_type : null; if (ev && (ev in agg)) agg[ev] = (agg[ev] || 0) + 1; });
+            const total = Object.values(agg).reduce((a, b) => a + b, 0) || 1;
+            payload = Object.entries(agg).map(([k, v]) => ({ metric: k, pct: Math.round(((v / total) * 1000)) / 10 }));
           }
           setEngagement(payload);
-        } catch { setEngagement([{metric:'open',pct:0},{metric:'reply',pct:0},{metric:'bounce',pct:0},{metric:'click',pct:0}]); }
+        } catch {
+          setEngagement([{ metric: 'open', pct: 0 }, { metric: 'reply', pct: 0 }, { metric: 'bounce', pct: 0 }, { metric: 'click', pct: 0 }]);
+        }
       }
       if (customWidgets.includes('Reply Rate Chart')) {
         try {
-          let labels = []; let vals = [];
+          let labels = [];
+          let vals = [];
           try {
             const r = await fetchWithAuth('/api/widgets/reply-rate');
             const j = r.ok ? await r.json() : { data: [] };
             if (Array.isArray(j.data) && j.data.length) {
-              labels = j.data.map((d)=>d.period||'');
-              vals = j.data.map((d)=>d.replyRate||0);
+              labels = j.data.map((d) => d.period || '');
+              vals = j.data.map((d) => d.replyRate || 0);
             }
           } catch {}
           if (!vals.length) {
-            // Fallback to Supabase: last 90 days weekly buckets
             const { data: rows } = await supabase
               .from('email_events')
               .select('event_timestamp,event_type');
-            const bucketCount = 12; const weekMs = 7*24*3600*1000;
-            labels = Array.from({ length: bucketCount }, (_, i) => `W${i+1}`);
+            const bucketCount = 12;
+            const weekMs = 7 * 24 * 3600 * 1000;
+            labels = Array.from({ length: bucketCount }, (_, i) => `W${i + 1}`);
             const sent = Array.from({ length: bucketCount }, () => 0);
             const replies = Array.from({ length: bucketCount }, () => 0);
-            (rows||[]).forEach((r)=>{
-              const ts = r?.event_timestamp ? new Date(r.event_timestamp) : null; if (!ts) return;
-              const diff = Date.now() - ts.getTime();
-              const idxFromEnd = Math.min(bucketCount-1, Math.floor(diff/weekMs));
-              const bucket = bucketCount - 1 - idxFromEnd; if (bucket<0 || bucket>=bucketCount) return;
-              if (r.event_type==='sent') sent[bucket]++; else if (r.event_type==='reply') replies[bucket]++;
+            (rows || []).forEach((r) => {
+              const ts = r && r.event_timestamp ? new Date(r.event_timestamp).getTime() : null;
+              if (!ts) return;
+              const diff = Date.now() - ts;
+              const idxFromEnd = Math.min(bucketCount - 1, Math.floor(diff / (7 * 24 * 3600 * 1000)));
+              const bucket = bucketCount - 1 - idxFromEnd;
+              if (bucket < 0 || bucket >= bucketCount) return;
+              const et = r && r.event_type;
+              if (et === 'sent') sent[bucket]++;
+              if (et === 'reply') replies[bucket]++;
             });
-            vals = sent.map((s,i)=> s ? Math.round((replies[i]/s)*1000)/10 : 0);
+            vals = labels.map((_, i) => (sent[i] ? Math.round((replies[i] / sent[i]) * 1000) / 10 : 0));
           }
-          const ctx = document.getElementById('dash-reply-rate'); if (ctx) {
-            dashChartsRef.current.reply = new Chart(ctx, { type: 'line', data: { labels, datasets: [{ data: vals, borderColor: '#6B46C1', backgroundColor: 'rgba(107,70,193,0.08)', fill:true, tension:0.35, borderWidth:2 }] }, options: { plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ display:false } }, x:{ ticks:{ display:false } } }, responsive:true, maintainAspectRatio:false } });
+          const ctx = document.getElementById('dash-reply-rate');
+          if (ctx) {
+            const Chart = await getChartLib();
+            dashCharts.current.reply = new Chart(ctx, {
+              type: 'line',
+              data: { labels, datasets: [{ label: 'Reply %', data: vals, borderColor: '#6B46C1', backgroundColor: 'rgba(107,70,193,0.10)', fill: true, tension: 0.3 }] },
+              options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 100, ticks: { color: '#9CA3AF', callback: (v) => `${v}%` } }, x: { grid: { color: '#f3f4f6' } } }, maintainFrame: false },
+            });
           }
         } catch {}
       }
       if (customWidgets.includes('Open Rate Widget')) {
         try {
-          const r = await fetchWithAuth('/api/widgets/open-rate'); const j = r.ok ? await r.json() : { data: [] };
-          const labels = (j.data||[]).map(d=>d.bucket||''); const vals = (j.data||[]).map(d=>d.openRate||0);
-          const ctx = document.getElementById('dash-open-rate'); if (ctx) {
-            dashChartsRef.current.open = new Chart(ctx, { type:'bar', data:{ labels, datasets:[{ data: vals, backgroundColor:'#6B46C1' }] }, options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ display:false }, x:{ display:false } }, responsive:true, maintainAspectRatio:false } });
-          }
-        } catch {}
-      }
-      if (customWidgets.includes('Revenue Forecast')) {
-        try {
-          const fromProcess = (typeof process !== 'undefined' && process.env) ? (process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL) : '';
-          const fromVite = (typeof import.meta !== 'undefined' && import.meta.env) ? (import.meta.env.VITE_BACKEND_URL) : '';
-          const fromWindow = (typeof window !== 'undefined' && window.__BACKEND_URL__) ? window.__BACKEND_URL__ : '';
-          const base = String(fromProcess || fromVite || fromWindow || '').replace(/\/$/, '');
-          const { data: { session } } = await supabase.auth.getSession();
-          const token = session?.access_token;
-          const hdrs = token ? { Authorization: `Bearer ${token}` } : {};
-          const [paidRes, projRes] = await Promise.all([
-            fetch(`${base}/api/revenue/monthly`, { headers: hdrs }),
-            fetch(`${base}/api/revenue/monthly-projected`, { headers: hdrs }),
-          ]);
-          let actual = []; let projected = [];
-          if (paidRes.ok) { const paid = await paidRes.json(); actual = (paid||[]).map(r=>({ month: r.month, revenue: Number(r.paid)||0 })); }
-          if (projRes.ok) { const p = await projRes.json(); projected = (p||[]).map(r=>({ month: r.month, revenue: Number(r.forecasted)||0 })); }
-          if (!actual.length || actual.reduce((s,r)=>s+r.revenue,0)===0) {
-            // Fallback to Close Won monthly
-            const cw = await fetch(`${base}/api/revenue/closewon-monthly?range=1y`, { headers: hdrs });
-            const js = cw.ok ? await cw.json() : { series: [] };
-            actual = (js.series||[]).map(r=>({ month:r.month, revenue:Number(r.revenue)||0 }));
-          }
-          const months = (actual.concat(projected)).map(r=>r.month);
-          const uniqueMonths = Array.from(new Set(months)).slice(-6); // last 6 for snapshot
-          const idx = new Map(uniqueMonths.map((m,i)=>[m,i]));
-          const valsArr = new Array(uniqueMonths.length).fill(0);
-          actual.forEach(r=>{ const i = idx.get(r.month); if (i!==undefined) valsArr[i] += r.revenue; });
-          projected.forEach(r=>{ const i = idx.get(r.month); if (i!==undefined) valsArr[i] += r.revenue; });
-          const ctx = document.getElementById('dash-revenue'); if (ctx) {
-            dashChartsRef.current.revenue = new Chart(ctx, { type:'bar', data:{ labels: uniqueMonths, datasets:[{ data: valsArr, backgroundColor:'#3B82F6' }] }, options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ ticks:{ color:'#6b7280' } }, x:{ ticks:{ color:'#6b7280' } } }, responsive:true, maintainAspectRatio:false } });
+          const r = await fetchWithAuth('/api/widgets/open-rate');
+          const j = r.ok ? await r.json() : { data: [] };
+          const labels = (j.data || []).map((d) => d.period || d.bucket || '');
+          const vals = (j.data || []).map((d) => d.openRate || 0);
+          const ctx = document.getElementById('dash-open-rate');
+          if (ctx) {
+            const Chart = await getChartLib();
+            dashCharts.current.open = new Chart(ctx, {
+              type: 'line',
+              data: { labels, datasets: [{ label: 'Open %', data: vals, borderColor: '#7C3AED', backgroundColor: 'rgba(124,58,237,0.12)', fill: true, tension: 0.3 }] },
+              options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 100, ticks: { color: '#9CA3AF', callback: (v) => `${v}%` } }, x: { grid: { color: '#f3f4f6' } } }, responsive: true, maintainFrame: false },
+            });
           }
         } catch {}
       }
     })();
-    return () => { Object.values(dashChartsRef.current || {}).forEach((c) => { try { c.destroy(); } catch (_) {} }); dashChartsRef.current = {}; };
-  }, [customWidgets]);
 
-  useEffect(() => {
-    const fetchJobs = async () => {
-      setJobsLoading(true);
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('Not authenticated');
-        const { data: jobsData, error } = await supabase
-          .from('job_requisitions')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(3);
-        if (error) throw error;
-        const jobs = jobsData || [];
-        // Fetch candidate counts for these jobs
-        const jobIds = jobs.map(j => j.id);
-        let countsMap = {};
-        if (jobIds.length > 0) {
-          const { data: candidateRows, error: candidateError } = await supabase
-            .from('candidate_jobs')
-            .select('job_id')
-            .in('job_id', jobIds);
-          if (!candidateError && candidateRows) {
-            countsMap = jobIds.reduce((acc, jobId) => {
-              acc[jobId] = (candidateRows || []).filter(row => row.job_id === jobId).length;
-              return acc;
-            }, {});
-          }
-        }
-        // Map counts into jobs
-        const jobsWithCounts = jobs.map(j => ({ ...j, candidates_count: countsMap[j.id] || 0 }));
-        setJobs(jobsWithCounts);
-      } catch (err) {
-        setJobs([]);
-      } finally {
-        setJobsLoading(false);
-      }
-    };
-    fetchJobs();
-  }, []);
-
-  useEffect(() => {
-    const fetchCampaigns = async () => {
-      setCampaignsLoading(true);
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('Not authenticated');
-        const response = await fetch(`${BACKEND_URL}/api/getCampaigns?user_id=${user.id}`);
-        const result = await response.json();
-        if (response.ok && result.campaigns) {
-          // Show latest 3 (active or inactive)
-          setCampaigns(result.campaigns.slice(0, 3));
-        } else {
-          setCampaigns([]);
-        }
-      } catch (err) {
-        setCampaigns([]);
-      } finally {
-        setCampaignsLoading(false);
-      }
-    };
-    fetchCampaigns();
-  }, []);
-
-  React.useEffect(() => {
-    // Initialize chart
-    const ctx = document.getElementById('replyTrendChart')?.getContext('2d');
-    if (ctx) {
-      // Destroy existing chart if it exists
-      if (chartRef.current) {
-        chartRef.current.destroy();
-      }
-
-      // Create new chart instance
-      (async () => {
-        const Chart = await getChartLib();
-        chartRef.current = new Chart(ctx, {
-          type: 'line',
-          data: {
-            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-            datasets: [{
-              label: 'Replies',
-              data: [65, 59, 80, 81, 56, 55, 40],
-              fill: false,
-              borderColor: 'rgb(59, 130, 246)',
-              tension: 0.1
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                display: false
-              }
-            },
-            scales: {
-              y: {
-                beginAtZero: true,
-                display: false
-              },
-              x: {
-                display: false
-              }
-            }
-          }
-        });
-      })();
-    }
-
-    // Cleanup function
     return () => {
-      if (chartRef.current) {
-        chartRef.current.destroy();
-      }
+      Object.values(dashCharts.current || {}).forEach((c) => {
+        try { c.destroy(); } catch (_) {}
+      });
+      dashCharts.current = {};
     };
-  }, []);
+  }, [customWidgets, engageCampaignId]);
 
-  // Calculate reply rate and conversion rate
+  // Calculate reply rate & conversion
   const replyRate = metrics && metrics.sent ? (metrics.replies / metrics.sent) * 100 : 0;
-  const conversionRate = metrics && metrics.total_leads ? (metrics.converted_candidates / metrics.total_leads) * 100 : 0;
+  const conversionRate = metrics && metrics.total_leads ? (metrics.converted || metrics.converted_candidates || 0) / (metrics.sent || 1) * 100 : 0;
 
-  const renderCustomSnapshots = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {customWidgets.includes('Hiring Funnel') && (
-        <div className="bg-white rounded-2xl shadow-md p-6">
-          <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-semibold">Hiring Pipeline</h3><span className="text-gray-400">⋯</span></div>
-          <div className="space-y-3">
-            {[
-              { label:'Applied', val:342, from:'from-purple-600', to:'to-purple-400', text:'text-white' },
-              { label:'Screened', val:256, from:'from-purple-500', to:'to-purple-300', text:'text-white' },
-              { label:'Interview', val:154, from:'from-purple-300', to:'to-purple-100', text:'text-purple-900' },
-              { label:'Offer', val:86, from:'from-green-400', to:'to-green-300', text:'text-white' },
-              { label:'Hired', val:52, from:'from-green-500', to:'to-green-400', text:'text-white' },
-            ].map(s => (
-              <div key={s.label} className="flex items-center justify-between">
-                <span className="text-sm text-gray-700 w-24">{s.label}</span>
-                <div className={`flex-1 ml-3 h-6 bg-gradient-to-r ${s.from} ${s.to} ${s.text} rounded-full px-3 flex items-center justify-end text-xs font-semibold`}>{s.val}</div>
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-            <select className="border rounded-md p-2 text-gray-600"><option>All Job Reqs</option></select>
-            <select className="border rounded-md p-2 text-gray-600"><option>Last 30 Days</option></select>
-          </div>
+  const removeWidget = async (name) => {
+    const names = customWidgets.filter((w) => w !== name);
+    await persistLayout(names);
+    setMenuOpenFor(null);
+  };
+
+  const headerWithMenu = (title, widgetName) => (
+    <div className="flex justify-between items-center mb-4 relative">
+      <h3 className="text-lg font-semibold">{title}</h3>
+      <button className="text-gray-400 hover:text-gray-600" onClick={(e)=>{e.stopPropagation(); setMenuOpenFor(menuOpenFor===widgetName? null : widgetName);}}>⚙️</button>
+      {menuOpenFor===widgetName && (
+        <div className="absolute right-0 top-8 z-20 w-44 bg-white border rounded-lg shadow">
+          <button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={()=>{ setMenuOpenFor(null); navigate(`/analytics?tab=${encodeURIComponent(WIDGET_TAB[widgetName]||'deals')}&open=${encodeURIComponent(widgetName)}`); }}>View details</button>
+          <button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={()=>{ setMenuOpenFor(null); navigate(`/analytics?tab=${encodeURIComponent(WIDGET_TAB[widgetName]||'deals')}&open=${encodeURIComponent(widgetName)}&edit=1`); }}>Edit</button>
+          <button className="w-full text-left px-3 py-2 text-red-600 hover:bg-gray-100" onClick={()=> removeWidget(widgetName)}>Remove from dashboard</button>
         </div>
       )}
+    </div>
+  );
+
+  const renderCustom = () => (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:flex lg:flex-wrap gap-6">
       {customWidgets.includes('Reply Rate Chart') && (
-        <div className="bg-white rounded-2xl shadow-md p-6">
-          <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-semibold">Reply Rate Chart</h3><span className="text-gray-400">⚙️</span></div>
+        <div className="bg-white rounded-2xl shadow-md p-6 relative">
+          {headerWithMenu('Reply Rate Chart','Reply Rate Chart')}
           <div className="h-32"><canvas id="dash-reply-rate"></canvas></div>
           <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
             <select className="border rounded-md p-2 text-gray-600"><option>By Template</option></select>
@@ -480,9 +402,9 @@ export default function Dashboard() {
         </div>
       )}
       {customWidgets.includes('Open Rate Widget') && (
-        <div className="bg-white rounded-2xl shadow-md p-6">
-          <div className="flex justify-between items-center mb-1"><h3 className="text-lg font-semibold">Open Rate</h3><span className="text-gray-400">⚙️</span></div>
-          <div className="text-4xl font-bold text-purple-700">54.5%</div>
+        <div className="bg-white rounded-2xl shadow-md p-6 relative">
+          {headerWithMenu('Open Rate','Open Rate Widget')}
+          <div className="text-4xl font-bold text-purple-700">{metrics?.sent ? `${((metrics.opens/Math.max(1,metrics.sent))*100).toFixed(1)}%` : '0%'}</div>
           <div className="text-green-600 text-sm mt-1">↑ +2.3% vs last week</div>
           <div className="h-16 mt-3"><canvas id="dash-open-rate"></canvas></div>
           <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
@@ -491,9 +413,49 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+      {customWidgets.includes('Engagement Breakdown') && (
+        <div className="bg-white rounded-2xl shadow-md p-6 relative">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold">Engagement Breakdown</h3>
+            <div className="flex items-center gap-2">
+              <select value={engageCampaignId} onChange={(e)=>setEngageCampaignId(e.target.value)} className="border rounded-md p-2 text-sm">
+                <option value="">All Campaigns</option>
+                {Array.isArray(campaigns) && campaigns.map((c)=> (
+                  <option key={c.id} value={c.id}>{c.name || c.title}</option>
+                ))}
+              </select>
+              <button className="text-gray-400 hover:text-gray-600" onClick={(e)=>{e.stopPropagation(); setMenuOpenFor(menuOpenFor==='Engagement Breakdown'? null : 'Engagement Breakdown');}}>⚙️</button>
+              {menuOpenFor==='Engagement Breakdown' && (
+                <div className="absolute right-0 top-10 z-20 w-44 bg-white border rounded-lg shadow">
+                  <button className="w-full text-left px=3 py=2 hover:bg-gray-100" onClick={()=>{ setMenuOpenFor(null); navigate(`/analytics?tab=${encodeURIComponent(WIDGET_TAB['Engagement Breakdown'])}&open=${encodeURIComponent('Engagement Breakdown')}`); }}>View details</button>
+                  <button className="w-full text-left px=3 py=2 hover:bg-gray-100" onClick={()=>{ setMenuOpenFor(null); navigate(`/analytics?tab=${encodeURIComponent(WIDGET_TAB['Engagement Breakdown'])}& open=${encodeURIComponent('Engagement Breakdown')}&edit=1`); }}>Edit</button>
+                  <button className="w-full text-left px=3 py=2 text-red-600 hover:bg-gray-100" onClick={()=>{ removeWidget('Engagement Breakdown'); }}>Remove from dashboard</button>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="space-y-2 text-sm">
+            {(() => {
+              const pct = (k) => {
+                const row = (engagement || []).find((d) => String(d.metric) === k);
+                const v = Number(row && row.pct) || 0;
+                return `${Math.round(v * 10) / 10}%`;
+              };
+              return (
+                <>
+                  <div className="flex items-center justify-between"><span className="text-indigo-700">Opens</span><span className="font-semibold">{pct('open')}</span></div>
+                  <div className="flex items-center justify_between"><span className="text-green-700">Replies</span><span className="font-semibold">{pct('reply')}</span></div>
+                  <div className="flex items-center justify_between"><span className="text-amber-700">Bounces</span><span className="font-semibold">{pct('bounce')}</span></div>
+                  <div className="flex items-center justify_between"><span className="text-purple-700">Clicks</span><span className="font-semibold">{pct('click')}</span></div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
       {customWidgets.includes('Revenue Forecast') && (
         <div className="bg-white rounded-2xl shadow-md p-6">
-          <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-semibold">Revenue Forecast</h3><span className="text-gray-400">⚙️</span></div>
+          <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-semibold">Revenue Forecast</h3><span className="text-gray-400">⋯</span></div>
           <div className="h-40"><canvas id="dash-revenue"></canvas></div>
           <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
             <select className="border rounded-md p-2 text-gray-600"><option>All Clients</option></select>
@@ -501,223 +463,27 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-      {customWidgets.includes('Deal Pipeline') && (
-        <div className="bg-white rounded-2xl shadow-md p-6">
-          <h3 className="text-lg font-semibold mb-4">Deal Pipeline</h3>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-lg p-4 bg-blue-100">
-              <div className="text-sm text-blue-700">Pipeline</div>
-              <div className="text-2xl font-bold text-blue-900">{(dealPipeline?.pipelineValue||0).toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0})}</div>
-              <div className="text-xs text-blue-600">{dealPipeline?.pipelineDeals||0} deals</div>
-            </div>
-            <div className="rounded-lg p-4 bg-purple-100">
-              <div className="text-sm text-purple-700">Best Case</div>
-              <div className="text-2xl font-bold text-purple-900">{(dealPipeline?.bestCaseValue||0).toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0})}</div>
-              <div className="text-xs text-purple-600">{dealPipeline?.bestCaseDeals||0} deals</div>
-            </div>
-            <div className="rounded-lg p-4 bg-yellow-100">
-              <div className="text-sm text-yellow-700">Commit</div>
-              <div className="text-2xl font-bold text-yellow-900">{(dealPipeline?.commitValue||0).toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0})}</div>
-              <div className="text-xs text-yellow-700">{dealPipeline?.commitDeals||0} deals</div>
-            </div>
-            <div className="rounded-lg p-4 bg-green-100">
-              <div className="text-sm text-green-700">Closed Won</div>
-              <div className="text-2xl font-bold text-green-900">{(dealPipeline?.closedWonValue||0).toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0})}</div>
-              <div className="text-xs text-green-700">{dealPipeline?.closedWonDeals||0} deals</div>
-            </div>
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-            <select className="border rounded-md p-2 text-gray-600"><option>All Owners</option></select>
-            <select className="border rounded-md p-2 text-gray-600"><option>Sort by Value</option></select>
-          </div>
-        </div>
-      )}
-      {customWidgets.includes('Engagement Breakdown') && (
-        <div className="bg-white rounded-2xl shadow-md p-6">
-          <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-semibold">Engagement Breakdown</h3><span className="text-gray-400">⚙️</span></div>
-          <div className="space-y-2 text-sm">
-            {(() => {
-              const pct = (k) => {
-                const row = (engagement||[]).find(d => String(d.metric) === k);
-                const v = Number(row && row.pct) || 0;
-                return `${Math.round(v*10)/10}%`;
-              };
-              return (
-                <>
-                  <div className="flex items-center justify-between"><span className="text-indigo-700">Opens</span><span className="font-semibold">{pct('open')}</span></div>
-                  <div className="flex items-center justify-between"><span className="text-green-700">Replies</span><span className="font-semibold">{pct('reply')}</span></div>
-                  <div className="flex items-center justify-between"><span className="text-amber-700">Bounces</span><span className="font-semibold">{pct('bounce')}</span></div>
-                  <div className="flex items-center justify-between"><span className="text-purple-700">Clicks</span><span className="font-semibold">{pct('click')}</span></div>
-                </>
-              );
-            })()}
-          </div>
-        </div>
-      )}
-      {customWidgets.includes('Team Performance') && (
-        <div className="bg-white rounded-2xl shadow-md p-6">
-          <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-semibold">Team Performance</h3><span className="text-gray-400">⚙️</span></div>
-          <div className="space-y-3">
-            {[
-              { name:'Sarah Chen', pct: '94%', hires:'23 hires', avatar:'https://i.pravatar.cc/40?img=5' },
-              { name:'Mike Rodriguez', pct: '87%', hires:'19 hires', avatar:'https://i.pravatar.cc/40?img=12' },
-              { name:'Alex Kumar', pct: '81%', hires:'15 hires', avatar:'https://i.pravatar.cc/40?img=30' },
-            ].map(r => (
-              <div key={r.name} className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
-                <div className="flex items-center gap-3">
-                  <img src={r.avatar} className="w-8 h-8 rounded-full" />
-                  <span className="font-medium text-gray-800">{r.name}</span>
-                </div>
-                <div className="text-right"><div className="text-green-600 font-semibold">{r.pct}</div><div className="text-xs text-gray-500">{r.hires}</div></div>
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-            <select className="border rounded-md p-2 text-gray-600"><option>This Month</option></select>
-            <button onClick={()=>navigate('/rex')} className="bg-purple-600 text-white px-3 py-2 rounded-md text-sm">REX Insights</button>
-          </div>
-        </div>
-      )}
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50" onClick={()=> setMenuOpenFor(null)}>
       {/* Main Content */}
-      <main className="bg-gray-50 px-8 py-6">
+      <main className="bg-white px-8 py-6">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
-          <button className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700" onClick={() => navigate('/analytics')}>Customize Dashboard</button>
+          <button onClick={() => navigate('/analytics')} className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Customize Dashboard</button>
         </div>
         {customWidgets.length > 0 ? (
-          renderCustomSnapshots()
+          renderCustom()
         ) : (
-        <>
-        {isFree && (
-          <div className="mb-4 px-4 py-3 rounded-lg bg-blue-50 border border-blue-200 text-blue-900">
-            You are on the Free plan. Upgrade anytime from Billing to unlock premium features and higher limits.
-          </div>
-        )}
-        {/* Sourcing Snapshot Section - hidden on small screens */}
-        <section className="mb-6 hidden sm:block">
-          <div className="bg-white rounded-2xl shadow-md p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">Sourcing Snapshot</h2>
-              <span className="text-sm text-gray-500">Last 7 days</span>
-            </div>
-            <div className="grid grid-cols-3 gap-8 mb-6">
-              {/* Leads Contacted */}
-              <div className="text-center">
-                <div className="text-3xl font-semibold text-gray-900">{loading ? <span className="animate-pulse">...</span> : metrics?.sent ?? 0}</div>
-                <div className="text-sm text-gray-500">Leads Contacted</div>
+          <>
+            {isFree && (
+              <div className="mb-4 px-4 py-3 rounded-lg bg-blue-50 border border-gray-200 text-gray-800">
+                You are on the Free plan. Upgrade anytime from Billing to unlock more features.
               </div>
-              {/* Replies Received */}
-              <div className="text-center">
-                <div className="text-3xl font-semibold text-gray-900">{loading ? <span className="animate-pulse">...</span> : metrics?.replies ?? 0}</div>
-                <div className="text-sm text-gray-500">Replies Received</div>
-                <div className="text-xs text-blue-500">{loading ? <span className="animate-pulse">...</span> : `${replyRate.toFixed(1)}% Reply Rate`}</div>
-              </div>
-              {/* Conversions */}
-              <div className="text-center">
-                <div className="text-3xl font-semibold text-gray-900">{loading ? <span className="animate-pulse">...</span> : metrics?.converted_candidates ?? 0}</div>
-                <div className="text-sm text-gray-500">Converted to Candidates</div>
-                <div className="text-xs text-green-500">{loading ? <span className="animate-pulse">...</span> : `${conversionRate.toFixed(1)}% Conversion Rate`}</div>
-              </div>
-            </div>
-            {/* Chart */}
-            <div className="h-[100px] mb-4">
-              <canvas id="replyTrendChart"></canvas>
-            </div>
-            <div className="flex justify-end">
-              <span
-                className="text-sm text-blue-600 hover:underline cursor-pointer"
-                onClick={() => navigate('/leads')}
-              >
-                View All Leads →
-              </span>
-            </div>
-          </div>
-        </section>
-        {/* Second Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Active Job Requisitions */}
-          <section className="bg-white rounded-2xl shadow-md p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">Active Job Requisitions</h2>
-              <span
-                className="text-sm text-blue-600 hover:underline cursor-pointer"
-                onClick={() => navigate('/jobs')}
-              >
-                View All Jobs →
-              </span>
-            </div>
-            <div className="space-y-4">
-              {jobsLoading ? (
-                <div className="text-gray-400">Loading jobs...</div>
-              ) : jobs.length === 0 ? (
-                <div className="text-gray-400">No jobs found.</div>
-              ) : (
-                jobs.map((job) => (
-                  <div key={job.id} className="p-4 border border-gray-100 rounded-lg">
-                <div className="flex justify-between items-start">
-                  <div>
-                        <h3 className="font-medium text-gray-900">{job.title}</h3>
-                        <p className="text-sm text-gray-500">{job.department || '-'}</p>
-                  </div>
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${job.status === 'open' ? 'bg-green-100 text-green-800' : job.status === 'closed' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>{job.status ? job.status.charAt(0).toUpperCase() + job.status.slice(1) : '-'}</span>
-                </div>
-                    <div className="mt-2 text-sm text-gray-600">{job.candidates_count ?? 0} candidates</div>
-                  </div>
-                ))
-              )}
-            </div>
-          </section>
-          {/* Campaigns */}
-          <section className="bg-white rounded-2xl shadow-md p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">Campaigns</h2>
-              <span
-                className="text-sm text-blue-600 hover:underline cursor-pointer"
-                onClick={() => navigate('/campaigns')}
-              >
-                View All Campaigns →
-              </span>
-            </div>
-            <div className="space-y-4">
-              {campaignsLoading ? (
-                <div className="text-gray-400">Loading campaigns...</div>
-              ) : campaigns.length === 0 ? (
-                <div className="text-gray-400">No campaigns found.</div>
-              ) : (
-                campaigns.map((campaign) => (
-                  <div key={campaign.id} className="p-4 border border-gray-100 rounded-lg">
-                <div className="flex justify-between items-start">
-                  <div>
-                        <h3 className="font-medium text-gray-900">{campaign.name || campaign.title || 'Untitled Campaign'}</h3>
-                        <p className="text-sm text-gray-500">
-                          {(() => {
-                            const desc = campaign.role || campaign.description || '';
-                            if (desc.length > 100) return desc.slice(0, 100) + '...';
-                            return desc;
-                          })()}
-                        </p>
-                  </div>
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${campaign.status === 'active' || campaign.status === 'live' ? 'bg-blue-100 text-blue-800' : campaign.status === 'paused' ? 'bg-yellow-100 text-yellow-800' : campaign.status === 'draft' ? 'bg-gray-100 text-gray-800' : 'bg-gray-100 text-gray-800'}`}>{campaign.status}</span>
-              </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </section>
-        </div>
-
-        {/* REX Quick Actions - visible only if REX enabled */}
-        {rexEnabled && (
-          <div className="mt-6">
-            <QuickActionsRexCard />
-          </div>
-        )}
-        </>
+            )}
+          </>
         )}
       </main>
     </div>

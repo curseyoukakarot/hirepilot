@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 // Lazy-load Chart.js at module scope to avoid TDZ/circular init in minified builds
 let __chartConstructor = null;
@@ -83,6 +83,27 @@ export default function Analytics() {
     window.addEventListener('keydown', onEsc);
     return () => window.removeEventListener('keydown', onEsc);
   }, []);
+
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    const open = searchParams.get('open');
+    const tab = searchParams.get('tab') || undefined;
+    if (tab && (['deals','jobs','outreach','rex'].includes(tab))) {
+      setActiveTab(tab as any);
+      setModalType(tab as any);
+    }
+    if (open && (open in (widgetTypeMap as any))) {
+      setModalTitle(open);
+      setModalWidget(open);
+      if (!tab) {
+        // derive tab from widget name using widgetData
+        const found = Object.entries(widgetData).find(([k, arr]: any) => (arr as any[]).some((it: any) => it.name === open));
+        if (found) setActiveTag(found[0] as any);
+      }
+      setIsModalOpen(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const openModal = async (title) => {
     setModalTitle(title);

@@ -84,19 +84,31 @@ export default async function handler(req: any, res: any) {
         break;
       }
       case 'open-rate': {
+        // Last N days, bucket into weeks (default 4 weeks) and compute open rate %
+        const rangeDays = time_range === '90d' ? 90 : (time_range === '6m' ? 180 : 30);
         const { data: rows } = await supabase
           .from('email_events')
-          .select('timestamp,event_type')
+          .select('event_timestamp,event_type')
           .eq('user_id', user.id)
-          .gte('timestamp', new Date(Date.now() - 30*24*3600*1000).toISOString());
-        const buckets = [1,2,3,4,5];
-        const opens = buckets.map(()=>0);
-        const sent = buckets.map(()=>0);
-        (rows||[]).forEach(r => {
-          const dayIdx = Math.floor(Math.random()*5); // placeholder bucketing
-          if (r.event_type==='open') opens[dayIdx]++; if (r.event_type==='sent') sent[dayIdx]++;
+          .gte('event_timestamp', new Date(Date.now() - rangeDays*24*3600*1000).toISOString());
+        const bucketCount = time_range === '90d' ? 12 : (time_range === '6m' ? 24 : 4);
+        const labels = Array.from({ length: bucketCount }, (_, i) => `Week ${i+1}`);
+        const sent: number[] = Array.from({ length: bucketCount }, () => 0);
+        const opens: number[] = Array.from({ length: bucketCount }, () => 0);
+        const weekMs = 7 * 24 * 3600 * 1000;
+        (rows || []).forEach((r:any) => {
+          const ts = new Date(r.event_timestamp).getTime();
+          const diff = Date.now() - ts;
+          const idxFromEnd = Math.min(bucketCount - 1, Math.floor(diff / (weekMs)));
+          const bucket = bucketCount - 1 - idxFromEnd;
+          if (bucket >= 0 && bucket < bucketCount) {
+            if (r.event_type === 'sent') sent[bucket]++; else if (r.event_type === 'open') opens[bucket]++;
+          }
         });
-        data = buckets.map((b,i)=>({ bucket: b, openRate: sent[i] ? Math.round((opens[i]/sent[i])*1000)/10 : 0 }));
+        data = labels.map((label, i) => ({
+          period: label,
+          openRate: sent[i] ? Math.round((opens[i] / sent[i]) * 1000) / 10 : 0
+        }));
         break;
       }
       case 'conversion-trends': {
