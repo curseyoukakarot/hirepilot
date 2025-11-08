@@ -10,7 +10,8 @@ const BACKEND = import.meta.env.VITE_BACKEND_URL;
 
 export function ZapierModalFrame({ onClose, apiKey }) {
   const iframeRef = useRef(null);
-  const keyText = apiKey || '66879c7f-a888-410a-9a86-2ff77388c8ce';
+  // Never fall back to a shared/static key; if no key, leave empty and prefer not to open this frame
+  const keyText = apiKey || '';
   const srcDoc = `<!DOCTYPE html>
 <html>
   <head>
@@ -643,7 +644,12 @@ export default function SettingsIntegrations() {
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card iconSrc="/zapier-icon.png" name="Zapier" status={zapierApiKey ? 'Connected' : 'Not Connected'} onConnect={()=>requirePaid(()=>setShowZapier(true),'Zapier integration')} />
+                <Card
+                  iconSrc="/zapier-icon.png"
+                  name="Zapier"
+                  status={zapierApiKey ? 'Connected' : 'Not Connected'}
+                  onConnect={()=>requirePaid(()=> (zapierApiKey ? setShowZapier(true) : setShowZapierWizard(true)),'Zapier integration')}
+                />
                 <Card iconClass="fa-brands fa-slack text-purple-600" name="Connect REX to Slack" status={slackConnected ? 'Connected' : 'Not Connected'} onConnect={()=>requirePaid(connectSlack,'REX Slack integration')} onDisconnect={disconnectSlack} connectLabel={slackConnected ? 'Connected' : 'Connect to Slack'} />
                 <Card iconClass="fa-brands fa-stripe-s text-indigo-600" name="Stripe Billing" status={(stripeConnected.hasKeys || stripeConnected.accountId) ? 'Connected' : 'Not Connected'} onConnect={()=>requirePaid(()=>setShowStripeModal(true),'Stripe Billing')} onDisconnect={()=>setShowStripeModal(true)} connectLabel={(stripeConnected.hasKeys || stripeConnected.accountId) ? 'Manage' : 'Connect'} />
               </div>

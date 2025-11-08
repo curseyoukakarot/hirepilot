@@ -332,7 +332,7 @@ export default function WorkflowsPage() {
   };
 
   const openZapierDocs = async () => {
-    setShowZapierModal(true);
+    // Fetch the current user's API key; only open modal if a key exists
     try {
       const base = import.meta.env.VITE_BACKEND_URL || '';
       const { data: { session } } = await supabase.auth.getSession();
@@ -342,10 +342,19 @@ export default function WorkflowsPage() {
       });
       if (res.ok) {
         const js = await res.json().catch(() => ({}));
-        if (typeof js?.apiKey === 'string' && js.apiKey) setZapierApiKey(js.apiKey);
+        if (typeof js?.apiKey === 'string' && js.apiKey) {
+          setZapierApiKey(js.apiKey);
+          setShowZapierModal(true);
+          return;
+        }
         const keys = Array.isArray(js?.keys) ? js.keys : [];
-        if (!js?.apiKey && keys.length > 0 && keys[0]?.key) setZapierApiKey(keys[0].key);
+        if (!js?.apiKey && keys.length > 0 && keys[0]?.key) {
+          setZapierApiKey(keys[0].key);
+          setShowZapierModal(true);
+          return;
+        }
       }
+      alert('No API key found. Please go to Settings → Integrations → Automations and Generate API Key first.');
     } catch {}
   };
 
