@@ -89,16 +89,16 @@ export default function Analytics() {
     const open = searchParams.get('open');
     const tab = searchParams.get('tab') || undefined;
     if (tab && (['deals','jobs','outreach','rex'].includes(tab))) {
-      setActiveTab(tab as any);
-      setModalType(tab as any);
+      setActiveTab(tab);
+      setModalType(tab);
     }
-    if (open && (open in (widgetTypeMap as any))) {
+    if (open && (widgetTypeMap && Object.prototype.hasOwnProperty.call(widgetTypeMap, open))) {
       setModalTitle(open);
       setModalWidget(open);
       if (!tab) {
         // derive tab from widget name using widgetData
-        const found = Object.entries(widgetData).find(([k, arr]: any) => (arr as any[]).some((it: any) => it.name === open));
-        if (found) setActiveTag(found[0] as any);
+        const found = Object.entries(widgetData).find(([k, arr]) => (arr || []).some((it) => it.name === open));
+        if (found) setActiveTab(found[0]);
       }
       setIsModalOpen(true);
     }

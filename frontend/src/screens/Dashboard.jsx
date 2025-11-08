@@ -1,18 +1,17 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useNavigate } from 'react-router-dom';
-import QuickActions from '../components/QuickActions';
 import { usePlan } from '../context/PlanContext';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 // Lazy Chart.js singleton to avoid TDZ/cross-bundle issues
-let __chartConstructor = null;
+let __wrap0 = null;
 async function getChartLib() {
-  if (__chartConstructor) return __chartConstructor;
+  if (__wrap0) return __wrap0;
   const mod = await import('chart.js/auto');
-  __chartConstructor = mod.Chart || mod.default;
-  return __chartConstructor;
+  __wrap0 = mod.Chart || mod.default;
+  return __wrap0;
 }
 
 // Helper to build default dashboard widgets
@@ -250,7 +249,7 @@ export default function Dashboard() {
           let payload = null;
           if (base) {
             const qs = new URLSearchParams({ user_id: String(uid) });
-            if (engageCampaignId && engageCampaignId !== 'clin') {
+            if (engageCampaignId && engageCampaignId !== 'all') {
               qs.set('campaign_id', String(engageCampaignId));
             }
             const r = await fetch(`${base}/api/campaigns/all/performance?${qs.toString()}`, { headers: hdrs });
