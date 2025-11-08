@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 
 export default function Analytics() {
-  const [activeTab, setActiveTab] = useState('deals');
+  const [activeTab, setActiveTab] = useState('overview');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalTitle, setModalTitle] = useState('Widget Details');
   const [modalType, setModalType] = useState('deals'); // category fallback
@@ -325,6 +325,116 @@ export default function Analytics() {
     try { inst.update(); } catch (_) {}
   }, [modalData, isModalOpen, modalWidget]);
 
+  // Initialize and update Overview chart (legacy dashboard)
+  useEffect(() => {
+    if (activeTab !== 'overview') {
+      if (chartInstancesRef.current.overview) {
+        try { chartInstancesRef.current.overview.destroy(); } catch (_) {}
+        delete chartInstancesRef.current.overview;
+      }
+      return;
+    }
+    const el = document.getElementById('overview-chart');
+    if (el && !chartInstancesRef.current.overview) {
+      chartInstancesRef.current.overview = new Chart(el, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [
+            { label: 'Open Rate', data: [], borderColor: '#3B82F6', backgroundColor: 'rgba(59,130,246,0.10)', tension: 0.35, fill: true, borderWidth: 3 },
+            { label: 'Reply Rate', data: [], borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,0.10)', tension: 0.35, fill: true, borderWidth: 3 },
+            { label: 'Conversion Rate', data: [], borderColor: '#8B5CF6', backgroundColor: 'rgba(139,92,246,0.08)', tension: 0.35, fill: true, borderWidth: 3 }
+          ]
+        },
+        options: { plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true, max: 100 } } }
+      });
+    }
+    const inst = chartInstancesRef.current.overview;
+    if (inst && overviewSeries && Array.isArray(overviewSeries.labels)) {
+      inst.data.labels = overviewSeries.labels;
+      inst.data.datasets[0].data = overviewSeries.open || [];
+      inst.data.datasets[1].data = overviewSeries.reply || [];
+      inst.data.datasets[2].data = overviewSeries.conv || [];
+      try { inst.update(); } catch (_) {}
+    }
+  }, [activeTab, overviewSeries]);
+
+  // Load Overview data (summary and series)
+  useEffect(() => {
+    const loadOverview = async () => {
+      if (activeTab !== 'overview') return;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const uid = session?.user?.id || '';
+        const days = overviewRange === '30d' ? 30 : overviewRange === '90d' ? 90 : 180;
+        const sinceIso = new Date(Date.now() - days*24*3600*1000).toISOString();
+        const fromProcess = (typeof process !== 'undefined' && process.env) ? (process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL) : '';
+        const fromVite = (typeof import.meta !== 'undefined' && import.meta.env) ? (import.meta.env.VITE_BACKEND_URL) : '';
+        const fromWindow = (typeof window !== 'undefined' && window.__BACKEND_URL__) ? window.__BACKEND_URL__ : '';
+        const base = String(fromProcess || fromVite || fromWindow || '').replace(/\/$/, '');
+
+        // Summary via backend performance endpoint
+        let sent = 0, opens = 0, replies = 0, conversions = 0;
+        if (base && uid) {
+          try {
+            const token = session?.access_token;
+            const r = await fetch(`${base}/api/campaigns/all/performance?user_id=${encodeURIComponent(uid)}&since=${encodeURIComponent(sinceIso)}`, { headers: token ? { Authorization: 'Bearer ' + token } : {} });
+            if (r.ok && (r.headers.get('content-type')||'').includes('application/json')) {
+              const j = await r.json();
+              sent = Number(j.sent||0); opens = Number(j.opens||0); replies = Number(j.replies||0); conversions = Number(j.conversions||0);
+            }
+          } catch {}
+        }
+        if (!sent && uid) {
+          // Fallback: compute from email_events
+          const { data: rows } = await supabase.from('email_events').select('event_type,event_timestamp').eq('user_id', uid).gte('event_timestamp', sinceIso);
+          (rows||[]).forEach((r) => {
+            const t = r && r.event_type;
+            if (t === 'sent') sent++;
+            else if (t === 'open') opens++;
+            else if (t === 'reply') replies++;
+            else if (t === 'conversion') conversions++;
+          });
+        }
+        // Converted candidates count
+        let converted = 0;
+        try {
+          const { data: hires } = await supabase.from('candidates').select('id,created_at,status,user_id').eq('user_id', uid).eq('status','hired').gte('created_at', sinceIso);
+          converted = (hires||[]).length;
+        } catch {}
+        const openRate = sent ? (opens/sent)*100 : 0;
+        const replyRate = sent ? (replies/sent)*100 : 0;
+        const conversionRate = sent ? (conversions/sent)*100 : 0;
+        setOverviewSummary({ sent, openRate, replyRate, conversionRate, converted });
+
+        // Weekly series
+        const { data: evs } = await supabase.from('email_events').select('event_type,event_timestamp').eq('user_id', uid).gte('event_timestamp', sinceIso);
+        const weekMs = 7*24*3600*1000;
+        const bucketCount = overviewRange==='30d' ? 4 : overviewRange==='90d' ? 12 : 24;
+        const labels = Array.from({ length: bucketCount }, (_, i) => 'Week ' + (i+1));
+        const sentA = Array.from({ length: bucketCount }, () => 0);
+        const openA = Array.from({ length: bucketCount }, () => 0);
+        const replyA = Array.from({ length: bucketCount }, () => 0);
+        const convA = Array.from({ length: bucketCount }, () => 0);
+        (evs||[]).forEach((r) => {
+          const ts = r && r.event_timestamp ? new Date(r.event_timestamp).getTime() : null; if (!ts) return;
+          const idxFromEnd = Math.min(bucketCount-1, Math.floor((Date.now() - ts) / weekMs));
+          const b = bucketCount - 1 - idxFromEnd; if (b < 0 || b >= bucketCount) return;
+          const t = r && r.event_type;
+          if (t === 'sent') sentA[b]++; else if (t === 'open') openA[b]++; else if (t === 'reply') replyA[b]++; else if (t === 'conversion') convA[b]++;
+        });
+        const openS = labels.map((_,i)=> sentA[i] ? Math.round((openA[i]/sentA[i])*1000)/10 : 0);
+        const replyS = labels.map((_,i)=> sentA[i] ? Math.round((replyA[i]/sentA[i])*1000)/10 : 0);
+        const convS = labels.map((_,i)=> sentA[i] ? Math.round((convA[i]/sentA[i])*1000)/10 : 0);
+        setOverviewSeries({ labels, open: openS, reply: replyS, conv: convS });
+      } catch {
+        setOverviewSummary({ sent: 0, openRate: 0, replyRate: 0, conversionRate: 0, converted: 0 });
+        setOverviewSeries({ labels: [], open: [], reply: [], conv: [] });
+      }
+    };
+    loadOverview();
+  }, [activeTab, overviewRange]);
+
   const renderDealsVariant = () => (
     <div id="deals-modal" className="modal-variant">
       <div id="deals-header" className="flex justify-between items-start p-6 border-b border-gray-200">
@@ -622,6 +732,10 @@ export default function Analytics() {
   const [revenueSummary, setRevenueSummary] = useState({ nextMonth: 0, quarter: 0, ytd: 0 });
   const [replySummary, setReplySummary] = useState({ avgReplyRate: 0, openRate: 0, totalSent: 0 });
   const [replyRange, setReplyRange] = useState('30d'); // '30d' | '90d' | '6m'
+  // Overview (legacy) state
+  const [overviewRange, setOverviewRange] = useState('30d'); // '30d'|'90d'|'6m'
+  const [overviewSummary, setOverviewSummary] = useState({ sent: 0, openRate: 0, replyRate: 0, conversionRate: 0, converted: 0 });
+  const [overviewSeries, setOverviewSeries] = useState({ labels: [], open: [], reply: [], conv: [] });
 
   useEffect(() => {
     const refetch = async () => {
@@ -1202,9 +1316,13 @@ export default function Analytics() {
         <header id="header" className="bg-white border-b border-gray-200 p-6">
             <div className="flex items-center justify-between">
                           <div>
-              <h1 className="text-3xl font-bold text-gray-900">Analytics & Widgets</h1>
-              <p className="text-gray-600 mt-1">Browse and add insights to your dashboard</p>
-              <p className="text-purple-600 text-sm mt-2 font-medium">Unlock insights with widgets—customize or let REX build for you!</p>
+              <h1 className="text-3xl font-bold text-gray-900">{activeTab==='overview' ? 'Campaign Performance' : 'Analytics & Widgets'}</h1>
+              {activeTab!=='overview' && (
+                <>
+                  <p className="text-gray-600 mt-1">Browse and add insights to your dashboard</p>
+                  <p className="text-purple-600 text-sm mt-2 font-medium">Unlock insights with widgets—customize or let REX build for you!</p>
+                </>
+              )}
                           </div>
             <div className="flex items-center space-x-4">
               <div className="relative">
@@ -1221,6 +1339,13 @@ export default function Analytics() {
         <div id="content-area" className="flex-1 overflow-y-auto p-6">
           <div id="tabs-container" className="mb-8">
             <nav className="flex space-x-8 border-b border-gray-200">
+              <button
+                className={`pb-4 px-1 font-semibold text-sm border-b-2 ${activeTab === 'overview' ? 'text-purple-700 border-purple-600' : 'text-gray-500 hover:text-gray-700 border-transparent hover:border-gray-300'}`}
+                onClick={() => setActiveTab('overview')}
+                data-tab="overview"
+              >
+                <i className="fa-solid fa-chart-line mr-2"></i>Overview
+              </button>
               <button
                 className={`pb-4 px-1 font-semibold text-sm border-b-2 ${activeTab === 'deals' ? 'text-purple-700 border-purple-600' : 'text-gray-500 hover:text-gray-700 border-transparent hover:border-gray-300'}`}
                 onClick={() => setActiveTab('deals')}
@@ -1252,32 +1377,63 @@ export default function Analytics() {
             </nav>
             </div>
 
-          <div id="widgets-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {widgets.map((widget) => (
-              <div key={widget.name} className="widget-card bg-white rounded-lg shadow-md p-6 cursor-pointer" data-widget={widget.name}>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-purple-900">{widget.name}</h3>
-                  <button className="text-gray-400 hover:text-gray-600 hover:rotate-90 transition-transform">
-                    <i className="fa-solid fa-cog"></i>
-                  </button>
-                </div>
-                <div className={`h-32 bg-gradient-to-r from-${widget.color}-100 to-${widget.color}-200 rounded-lg mb-4 flex items-center justify-center`}>
-                  <i className={`fa-solid ${widget.icon} text-4xl text-${widget.color}-600`}></i>
-                </div>
-                <div className="flex space-x-2">
-                  <button onClick={() => addWidgetToDashboard(widget.name)} className="flex-1 bg-purple-600 text-white py-2 px-3 rounded-lg text-sm hover:bg-purple-700 transition-colors">
-                    <i className="fa-solid fa-plus mr-1"></i>Add to Dashboard
-                  </button>
-                  <button
-                    className="px-3 py-2 border border-purple-300 text-purple-600 rounded-lg text-sm hover:bg-purple-50 transition-colors"
-                    onClick={(e) => { e.stopPropagation(); openModal(widget.name); }}
-                  >
-                    <i className="fa-solid fa-expand mr-1"></i>View
-                  </button>
-                </div>
+          {activeTab === 'overview' ? (
+            <div id="legacy-overview" className="space-y-6">
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center text-sm text-green-700 bg-green-100 px-2 py-1 rounded-full">Active</span>
+                <select value={overviewRange} onChange={(e)=>setOverviewRange(e.target.value)} className="border rounded-md p-2 text-sm">
+                  <option value="30d">Last 30 days</option>
+                  <option value="90d">Last 90 days</option>
+                  <option value="6m">Last 6 months</option>
+                </select>
               </div>
-            ))}
-          </div>
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div className="bg-white border rounded-lg p-4 text-center"><div className="text-xs text-gray-500 mb-1">Leads Messaged</div><div className="text-2xl font-bold">{overviewSummary.sent.toLocaleString('en-US')}</div></div>
+                <div className="bg-white border rounded-lg p-4 text-center"><div className="text-xs text-gray-500 mb-1">Open Rate</div><div className="text-2xl font-bold">{overviewSummary.openRate.toFixed(1)}%</div></div>
+                <div className="bg-white border rounded-lg p-4 text-center"><div className="text-xs text-gray-500 mb-1">Reply Rate</div><div className="text-2xl font-bold">{overviewSummary.replyRate.toFixed(1)}%</div></div>
+                <div className="bg-white border rounded-lg p-4 text-center"><div className="text-xs text-gray-500 mb-1">Conversion Rate</div><div className="text-2xl font-bold">{overviewSummary.conversionRate.toFixed(1)}%</div></div>
+                <div className="bg-white border rounded-lg p-4 text-center"><div className="text-xs text-gray-500 mb-1">Converted Candidates</div><div className="text-2xl font-bold text-green-700">{overviewSummary.converted.toLocaleString('en-US')}</div></div>
+              </div>
+              <div className="bg-white p-6 rounded-lg border">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="font-semibold text-gray-800">Performance Overview</div>
+                  <div className="flex items-center gap-4 text-xs text-gray-500">
+                    <span className="inline-flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-blue-500"></span>Open Rate</span>
+                    <span className="inline-flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-emerald-500"></span>Reply Rate</span>
+                    <span className="inline-flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-purple-500"></span>Conversion Rate</span>
+                  </div>
+                </div>
+                <canvas id="overview-chart" height="220"></canvas>
+              </div>
+            </div>
+          ) : (
+            <div id="widgets-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {widgets.map((widget) => (
+                <div key={widget.name} className="widget-card bg-white rounded-lg shadow-md p-6 cursor-pointer" data-widget={widget.name}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-purple-900">{widget.name}</h3>
+                    <button className="text-gray-400 hover:text-gray-600 hover:rotate-90 transition-transform">
+                      <i className="fa-solid fa-cog"></i>
+                    </button>
+                  </div>
+                  <div className={`h-32 bg-gradient-to-r from-${widget.color}-100 to-${widget.color}-200 rounded-lg mb-4 flex items-center justify-center`}>
+                    <i className={`fa-solid ${widget.icon} text-4xl text-${widget.color}-600`}></i>
+                  </div>
+                  <div className="flex space-x-2">
+                    <button onClick={() => addWidgetToDashboard(widget.name)} className="flex-1 bg-purple-600 text-white py-2 px-3 rounded-lg text-sm hover:bg-purple-700 transition-colors">
+                      <i className="fa-solid fa-plus mr-1"></i>Add to Dashboard
+                    </button>
+                    <button
+                      className="px-3 py-2 border border-purple-300 text-purple-600 rounded-lg text-sm hover:bg-purple-50 transition-colors"
+                      onClick={(e) => { e.stopPropagation(); openModal(widget.name); }}
+                    >
+                      <i className="fa-solid fa-expand mr-1"></i>View
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </main>
 
