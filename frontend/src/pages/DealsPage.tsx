@@ -10,7 +10,13 @@ import DealsActivityList from '../components/deals/DealsActivityList';
 import ClientActivities from '../components/deals/ClientActivities';
 
 declare global {
-  interface ImportMeta { env: any }
+  interface ImportMeta {
+    env: {
+      VITE_SUPABASE_URL: string;
+      VITE_SUPABASE_ANON_KEY: string;
+      VITE_BACKEND_URL: string;
+    }
+  }
 }
 
 type ViewTab = 'clients' | 'opportunities' | 'billing' | 'revenue';
@@ -54,6 +60,7 @@ export default function DealsPage() {
   const [currentUserAvatar, setCurrentUserAvatar] = useState<string>('');
   const [revByClient, setRevByClient] = useState<Array<{ client_id: string; client_name: string; total: number; paid: number; unpaid: number }>>([]);
   const [revByType, setRevByType] = useState<Array<{ type: string; total: number }>>([]);
+  const [closeWonOpps, setCloseWonOpps] = useState<any[]>([]);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [invoiceSubmitting, setInvoiceSubmitting] = useState(false);
   const [invoiceBillingType, setInvoiceBillingType] = useState<'contingency'|'retainer'|'rpo'|'staffing'>('contingency');
@@ -243,13 +250,15 @@ export default function DealsPage() {
       const projClients = pcRes.ok ? await pcRes.json() : [];
       setRevByClient(prev => (prev && prev.length ? prev : projClients));
       setRevByType(etRes.ok ? await etRes.json() : []);
+      const oppCwList = oppCWRes.ok ? await oppCWRes.json() : [];
+      setCloseWonOpps(Array.isArray(oppCwList) ? oppCwList : []);
       const cw = cwRes.ok ? await cwRes.json() : { series: [], aggregates: {} };
       const cwProj = cwProjRes.ok ? await cwProjRes.json() : { series: [], aggregates: {} };
       let cwSeries: Array<{ month: string; revenue: number; projected?: boolean }> = Array.isArray(cw.series) ? cw.series : [];
       const sumRevenue = (rows: any[]) => rows.reduce((s:number,r:any)=>s+(Number(r.revenue)||0),0);
       if (!cwSeries.length || sumRevenue(cwSeries) === 0) {
         // Fallback: build from backend opportunities Close Won
-        const opps = oppCWRes.ok ? await oppCWRes.json() : [];
+        const opps = oppCwList || [];
         const now = new Date();
         const keyFor = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
         const months12: Array<{ month: string; revenue: number; projected?: boolean }> = [];
@@ -905,6 +914,27 @@ export default function DealsPage() {
 
   const currency = (n: number) => (isFinite(n as any) ? n.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }) : '$0');
   const totalPipeline = opps.reduce((s, o) => s + (Number(o.value) || 0), 0);
+  const engagementTypesData = useMemo(() => {
+    if (revSource !== 'closewon') return revByType;
+    const now = new Date();
+    let start: Date;
+    if (revMonthlyRange === 'ytd') {
+      start = new Date(now.getFullYear(), 0, 1);
+    } else {
+      const monthsBack = revMonthlyRange === '90d' ? 3 : revMonthlyRange === '6m' ? 6 : 12;
+      start = new Date(now.getFullYear(), now.getMonth() - monthsBack + 1, 1);
+    }
+    const sums = new Map<string, number>();
+    (closeWonOpps || []).forEach((o: any) => {
+      const ts = new Date(o.created_at || now);
+      if (ts >= start) {
+        const key = String(o.billing_type || 'unknown');
+        const cur = sums.get(key) || 0;
+        sums.set(key, cur + (Number(o.value) || 0));
+      }
+    });
+    return Array.from(sums.entries()).map(([type, total]) => ({ type, total }));
+  }, [revSource, revByType, closeWonOpps, revMonthlyRange]);
 
   const OpportunitiesSection = () => (
     <div className="w-full">
@@ -1247,8 +1277,8 @@ export default function DealsPage() {
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie data={revByType} dataKey="total" nameKey="type" innerRadius={50} outerRadius={80} label>
-                        {revByType.map((entry, idx) => (
+                      <Pie data={engagementTypesData} dataKey="total" nameKey="type" innerRadius={50} outerRadius={80} label>
+                        {engagementTypesData.map((entry, idx) => (
                           <Cell key={`cell-${idx}`} fill={["#8b5cf6","#3b82f6","#10b981","#f59e0b"][idx % 4]} />
                         ))}
                       </Pie>
