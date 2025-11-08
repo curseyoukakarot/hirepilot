@@ -341,13 +341,15 @@ export default function Dashboard() {
       }
       if (customWidgets.includes('Open Rate Widget')) {
         try {
-          // Fetch series filtered by provider
-          const r = await fetchWithAuth(`/api/widgets/open-rate?time_range=90d&provider=${encodeURIComponent(openProvider)}`); const j = r.ok ? await r.json() : { data: [] };
+          // Fetch series filtered by provider and range
+          const r = await fetchWithAuth(`/api/widgets/open-rate?time_range=${encodeURIComponent(openRange)}&provider=${encodeURIComponent(openProvider)}`);
+          const j = r.ok ? await r.json() : { data: [] };
           const labels = (j.data||[]).map(d=>d.period||''); const vals = (j.data||[]).map(d=>d.openRate||0);
-          // Compute top-level open rate for this provider (last 90d)
+          // Compute top-level open rate for this provider within selected window
           try {
-            const sinceIso = new Date(Date.now() - 90*24*3600*1000).toISOString();
-            let q = supabase.from('email_events').select('event_type, event_timestamp, provider').gte('event_timestamp', sinceIso);
+            const days = openRange==='90d' ? 90 : (openRange==='6m' ? 180 : 30);
+            const sinceIso = new Date(Date.now() - days*24*3600*1000).toISOString();
+            let q = supabase.from('email_events').select('event_timestamp,event_type,provider').gte('event_timestamp', sinceIso).eq('user_id', (await supabase.auth.getUser()).data?.user?.id);
             if (openProvider !== 'all') q = q.eq('provider', openProvider);
             const { data: evs } = await q;
             let sentAll = 0, opensAll = 0;
@@ -359,7 +361,7 @@ export default function Dashboard() {
             dashCharts.current.open = new Chart(ctx, {
               type: 'line',
               data: { labels, datasets: [{ label: 'Open %', data: vals, borderColor: '#7C3AED', backgroundColor: 'rgba(124,58,237,0.12)', fill: true, tension: 0.3 }] },
-              options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 100, ticks: { color: '#9CA3AF', callback: (v) => `${v}%` } }, x: { grid: { color: '#f3f4f6' } } }, responsive: true, maintainFrame: false },
+              options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 100, ticks: { color: '#9CA3AF', callback: (v) => `${v}%` } }, x: { grid: { color: '#f3f4f6' } } }, responsive: true, maintainAspectRatio: false },
             });
           }
         } catch {}
@@ -384,14 +386,14 @@ export default function Dashboard() {
     setMenuOpenFor(null);
   };
 
-  const headerWithMenu = (title, widgetName) => (
+  const headerWithMenu = (title, widgetName, extraQuery='') => (
     <div className="flex justify-between items-center mb-4 relative">
       <h3 className="text-lg font-semibold">{title}</h3>
-      <button className="text-gray-400 hover:text-gray-600" onClick={(e)=>{e.stopPropagation(); setMenuOpenFor(menuOpenFor===widgetName? null : widgetName);}}>⚙️</button>
+      <button className="text-gray-400 hover:text-purple-600" onClick={(e)=>{e.stopPropagation(); setMenuOpenFor(menuOpenFor===widgetName? null : widgetName);}}>⚙️</button>
       {menuOpenFor===widgetName && (
         <div className="absolute right-0 top-8 z-20 w-44 bg-white border rounded-lg shadow">
-          <button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={()=>{ setMenuOpenFor(null); navigate(`/analytics?tab=${encodeURIComponent(WIDGET_TAB[widgetName]||'deals')}&open=${encodeURIComponent(widgetName)}`); }}>View details</button>
-          <button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={()=>{ setMenuOpenFor(null); navigate(`/analytics?tab=${encodeURIComponent(WIDGET_TAB[widgetName]||'deals')}&open=${encodeURIComponent(widgetName)}&edit=1`); }}>Edit</button>
+          <button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={()=>{ setMenuOpenFor(null); navigate(`/analytics?${`tab=${encodeURIComponent(WIDGET_TAB[widgetName]||'deals')}&open=${encodeURIComponent(widgetName)}${extraQuery?`&${extraQuery}`:''}`}`); }}>View details</button>
+          <button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={()=>{ setMenuOpenFor(null); navigate(`/analytics?${`tab=${encodeURIComponent(WIDGET_TAB[widgetName]||'deals')}&open=${encodeURIComponent(widgetName)}&edit=1${extraQuery?`&${extraQuery}`:''}`}`); }}>Edit</button>
           <button className="w-full text-left px-3 py-2 text-red-600 hover:bg-gray-100" onClick={()=> removeWidget(widgetName)}>Remove from dashboard</button>
         </div>
       )}
@@ -412,8 +414,8 @@ export default function Dashboard() {
       )}
       {customWidgets.includes('Open Rate Widget') && (
         <div className="bg-white rounded-2xl shadow-md p-6 relative">
-          {headerWithMenu('Open Rate','Open Rate Widget')}
-          <div className="text-4xl font-bold text-purple-700">{(openRateDisplay ?? (metrics?.sent ? ((metrics.opens/Math.max(1,metrics.sent))*100).toFixed(1) : '0')).toString()}%</div>
+          {headerWithMenu('Open Rate','Open Rate Widget', `provider=${encodeURIComponent(openProvider)}&time_range=${encodeURIComponent(openRange)}`)}
+          <div className="text-4xl font-bold text-purple-700">{(openRateDisplay ?? (metrics?.sent ? Math.round((metrics.opens/Math.max(1,metrics.sent))*1000)/10 : 0)).toString()}%</div>
           <div className="text-green-600 text-sm mt-1">↑ +2.3% vs last week</div>
           <div className="h-24 mt-3"><canvas id="dash-open-rate"></canvas></div>
           <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
@@ -423,7 +425,11 @@ export default function Dashboard() {
               <option value="outlook">Outlook</option>
               <option value="sendgrid">SendGrid</option>
             </select>
-            <select className="border rounded-md p-2 text-gray-600"><option>3</option></select>
+            <select className="border rounded-md p-2 text-gray-600" value={openRange} onChange={(e)=>setOpenRange(e.target.value)}>
+              <option value="30d">Last 30 Days</option>
+              <option value="90d">Last 90 Days</option>
+              <option value="6m">Last 6 Months</option>
+            </select>
           </div>
         </div>
       )}
@@ -440,9 +446,9 @@ export default function Dashboard() {
               </select>
               <button className="text-gray-400 hover:text-gray-600" onClick={(e)=>{e.stopPropagation(); setMenuOpenFor(menuOpenFor==='Engagement Breakdown'? null : 'Engagement Breakdown');}}>⚙️</button>
               {menuOpenFor==='Engagement Breakdown' && (
-                <div className="absolute right-0 top-10 z-20 w-44 bg-white border rounded-lg shadow">
-                  <button className="w-full text-left px=3 py=2 hover:bg-gray-100" onClick={()=>{ setMenuOpenFor(null); navigate(`/analytics?tab=${encodeURIComponent(WIDGET_TAB['Engagement Breakdown'])}&open=${encodeURIComponent('Engagement Breakdown')}`); }}>View details</button>
-                  <button className="w-full text-left px=3 py=2 hover:bg-gray-100" onClick={()=>{ setMenuOpenFor(null); navigate(`/analytics?tab=${encodeURIComponent(WIDGET_TAB['Engagement Breakdown'])}& open=${encodeURIComponent('Engagement Breakdown')}&edit=1`); }}>Edit</button>
+                <div className="absolute right-0 top-10 z-20 w-64 bg-white border rounded-lg shadow">
+                  <button className="w-full text-left px=3 py=2 hover:bg-gray-100" onClick={()=>{ const extra = (engageCampaignId && engageCampaignId!=='all') ? `&campaign_id=${encodeURIComponent(engageCampaignId)}` : ''; setMenuOpenFor(null); navigate(`/analytics?tab=${encodeURIComponent(WIDGET_TAB['Engagement Breakdown'])}&open=${encodeURIComponent('Engagement Breakdown')}${extra}`); }}>View details</button>
+                  <button className="w-full text-left px=3 py=2 hover:bg-gray-100" onClick={()=>{ const extra = (engageCampaignId && engageCampaignId!=='all') ? `&campaign_id=${encodeURIComponent(engageCampaignId)}` : ''; setMenuOpenFor(null); navigate(`/analytics?tab=${encodeURIComponent(WIDGET_TAB['Engagement Breakdown'])}&open=${encodeURIComponent('Engagement Breakdown')}&edit=1${extra}`); }}>Edit</button>
                   <button className="w-full text-left px=3 py=2 text-red-600 hover:bg-gray-100" onClick={()=>{ removeWidget('Engagement Breakdown'); }}>Remove from dashboard</button>
                 </div>
               )}
