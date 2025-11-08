@@ -1,11 +1,19 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Chart } from 'chart.js/auto';
 import { supabase } from '../lib/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import QuickActionsRexCard from '../components/QuickActionsRexCard';
 import { usePlan } from '../context/PlanContext';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+
+// Lazy Chart.js singleton to avoid TDZ/circular init in production builds
+let __chartConstructor = null;
+async function getChartLib() {
+  if (__chartConstructor) return __chartConstructor;
+  const mod = await import('chart.js/auto');
+  __chartConstructor = mod.Chart;
+  return __chartConstructor;
+}
 
 // Helper function to generate avatar URL
 const getAvatarUrl = (name) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
@@ -131,6 +139,7 @@ export default function Dashboard() {
       return fetch(path, { headers: token ? { Authorization: `Bearer ${token}` } : {}, credentials: 'include' });
     };
     (async () => {
+      const Chart = await getChartLib();
       if (customWidgets.includes('Deal Pipeline')) {
         try {
           const fromProcess = (typeof process !== 'undefined' && process.env) ? (process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL) : '';
@@ -387,37 +396,40 @@ export default function Dashboard() {
       }
 
       // Create new chart instance
-      chartRef.current = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-          datasets: [{
-            label: 'Replies',
-            data: [65, 59, 80, 81, 56, 55, 40],
-            fill: false,
-            borderColor: 'rgb(59, 130, 246)',
-            tension: 0.1
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              display: false
-            }
+      (async () => {
+        const Chart = await getChartLib();
+        chartRef.current = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            datasets: [{
+              label: 'Replies',
+              data: [65, 59, 80, 81, 56, 55, 40],
+              fill: false,
+              borderColor: 'rgb(59, 130, 246)',
+              tension: 0.1
+            }]
           },
-          scales: {
-            y: {
-              beginAtZero: true,
-              display: false
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                display: false
+              }
             },
-            x: {
-              display: false
+            scales: {
+              y: {
+                beginAtZero: true,
+                display: false
+              },
+              x: {
+                display: false
+              }
             }
           }
-        }
-      });
+        });
+      })();
     }
 
     // Cleanup function
