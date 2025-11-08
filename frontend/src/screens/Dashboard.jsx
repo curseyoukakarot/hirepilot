@@ -107,6 +107,36 @@ export default function Dashboard() {
 
   // Load per-user dashboard widgets from API (fallback to localStorage -> defaults)
   useEffect(() => {
+    // Immediate render from seed/local (no awaits, no network) to avoid any race
+    (async () => {
+      try {
+        const { data: u } = await supabase.auth.getUser();
+        const uid = u?.user?.id || 'anon';
+        const seed = localStorage.getItem(`dashboard_seed_${uid}`) || localStorage.getItem('dashboard_seed_anon');
+        if (seed) {
+          try {
+            const names = JSON.parse(seed);
+            if (Array.isArray(names) && names.length) {
+              setCustomWidgets(names.slice(0, 6));
+              return;
+            }
+          } catch {}
+        }
+        const local = localStorage.getItem(`dashboard_widgets_${uid}`);
+        if (local) {
+          try {
+            const names = JSON.parse(local);
+            if (Array.isArray(names) && names.length) {
+              setCustomWidgets(names.slice(0, 6));
+              return;
+            }
+          } catch {}
+        }
+      } catch {}
+    })();
+  }, []);
+
+  useEffect(() => {
     const load = async () => {
       try {
         const { data: sessionData } = await supabase.auth.getSession();
