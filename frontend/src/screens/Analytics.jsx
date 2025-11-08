@@ -217,7 +217,11 @@ export default function Analytics() {
       if (!savedRemote) {
         try {
           const { data: { user } } = await supabase.auth.getUser();
-          localStorage.setItem(`dashboard_widgets_${user?.id || 'anon'}`, JSON.stringify(layout.map(w=>w.widget_id||w)));
+          const uid = user?.id || 'anon';
+          const names = layout.map(w=>w.widget_id||w);
+          localStorage.setItem(`dashboard_widgets_${uid}`, JSON.stringify(names));
+          // One-time seed for next Dashboard load
+          localStorage.setItem(`dashboard_seed_${uid}`, JSON.stringify(names));
         } catch {}
       }
       setIsModalOpen(false);

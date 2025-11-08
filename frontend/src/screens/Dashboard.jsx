@@ -135,6 +135,22 @@ export default function Dashboard() {
       try {
         const { data: sessionData } = await supabase.auth.getSession();
         const token = sessionData?.access_token;
+        // One-time seed: if present, apply immediately
+        try {
+          const uid = sessionData?.user?.id || 'anon';
+          const seedKey = `dashboard_seed_${uid}`;
+          const raw = localStorage.getItem(seedKey);
+          if (raw) {
+            const names = JSON.parse(raw);
+            if (Array.isArray(names) && names.length) {
+              await persistLayout(names);
+              setCustomWidgets(names.slice(0,6));
+              try { localStorage.removeItem(seedKey); } catch {}
+              return; // show seeded layout immediately
+            }
+          }
+        } catch (_) {}
+
         const r = await fetch('/api/dashboard/layout', { headers: token ? { Authorization: `Bearer ${token}` } : {}, credentials: 'include' });
         if (r.ok) {
           const j = await r.json();
