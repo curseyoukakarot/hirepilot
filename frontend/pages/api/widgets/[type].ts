@@ -85,13 +85,16 @@ export default async function handler(req: any, res: any) {
       }
       case 'open-rate': {
         // Last N days, bucket into weeks (default 4 weeks) and compute open rate %
-        const rangeDays = time_range === '90d' ? 90 : (time_range === '6m' ? 180 : 30);
-        const { data: rows } = await supabase
+        const rangeDays = timeRange === '90d' ? 90 : (timeRange === '6m' ? 180 : 30);
+        const provider = String((qp as any)?.provider || '').toLowerCase() || 'all';
+        let q = supabase
           .from('email_events')
-          .select('event_timestamp,event_type')
+          .select('event_timestamp,event_type,provider')
           .eq('user_id', user.id)
           .gte('event_timestamp', new Date(Date.now() - rangeDays*24*3600*1000).toISOString());
-        const bucketCount = time_range === '90d' ? 12 : (time_range === '6m' ? 24 : 4);
+        if (provider && provider !== 'all') q = q.eq('provider', provider);
+        const { data: rows } = await q;
+        const bucketCount = timeRange === '90d' ? 12 : (timeRange === '6m' ? 24 : 4);
         const labels = Array.from({ length: bucketCount }, (_, i) => `Week ${i+1}`);
         const sent: number[] = Array.from({ length: bucketCount }, () => 0);
         const opens: number[] = Array.from({ length: bucketCount }, () => 0);

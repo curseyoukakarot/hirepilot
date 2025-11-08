@@ -45,6 +45,8 @@ export default function Dashboard() {
   const [dealPipeline, setDealPipeline] = useState(null);
   const [engagement, setEngagement] = useState(null);
   const [engageCampaignId, setEngageCampaignId] = useState('all');
+  const [openProvider, setOpenProvider] = useState('all'); // 'all' | 'google' | 'outlook' | 'sendgrid'
+  const [openRateDisplay, setOpenRateDisplay] = useState(null);
   const [menuOpenFor, setMenuOpenFor] = useState(null);
   const navigate = useNavigate();
   const { isFree } = usePlan();
@@ -339,12 +341,20 @@ export default function Dashboard() {
       }
       if (customWidgets.includes('Open Rate Widget')) {
         try {
-          const r = await fetchWithAuth('/api/widgets/open-rate');
-          const j = r.ok ? await r.json() : { data: [] };
-          const labels = (j.data || []).map((d) => d.period || d.bucket || '');
-          const vals = (j.data || []).map((d) => d.openRate || 0);
-          const ctx = document.getElementById('dash-open-rate');
-          if (ctx) {
+          // Fetch series filtered by provider
+          const r = await fetchWithAuth(`/api/widgets/open-rate?time_range=90d&provider=${encodeURIComponent(openProvider)}`); const j = r.ok ? await r.json() : { data: [] };
+          const labels = (j.data||[]).map(d=>d.period||''); const vals = (j.data||[]).map(d=>d.openRate||0);
+          // Compute top-level open rate for this provider (last 90d)
+          try {
+            const sinceIso = new Date(Date.now() - 90*24*3600*1000).toISOString();
+            let q = supabase.from('email_events').select('event_type, event_timestamp, provider').gte('event_timestamp', sinceIso);
+            if (openProvider !== 'all') q = q.eq('provider', openProvider);
+            const { data: evs } = await q;
+            let sentAll = 0, opensAll = 0;
+            (evs||[]).forEach(e=>{ if (e.event_type==='sent') sentAll++; else if (e.event_type==='open') opensAll++; });
+            setOpenRateDisplay(sentAll ? Math.round((opensAll/sentAll)*1000)/10 : 0);
+          } catch { setOpenRateDisplay(null); }
+          const ctx = document.getElementById('dash-open-rate'); if (ctx) {
             const Chart = await getChartLib();
             dashCharts.current.open = new Chart(ctx, {
               type: 'line',
@@ -362,7 +372,7 @@ export default function Dashboard() {
       });
       dashCharts.current = {};
     };
-  }, [customWidgets, engageCampaignId]);
+  }, [customWidgets, engageCampaignId, openProvider]);
 
   // Calculate reply rate & conversion
   const replyRate = metrics && metrics.sent ? (metrics.replies / metrics.sent) * 100 : 0;
@@ -403,11 +413,16 @@ export default function Dashboard() {
       {customWidgets.includes('Open Rate Widget') && (
         <div className="bg-white rounded-2xl shadow-md p-6 relative">
           {headerWithMenu('Open Rate','Open Rate Widget')}
-          <div className="text-4xl font-bold text-purple-700">{metrics?.sent ? `${((metrics.opens/Math.max(1,metrics.sent))*100).toFixed(1)}%` : '0%'}</div>
+          <div className="text-4xl font-bold text-purple-700">{(openRateDisplay ?? (metrics?.sent ? ((metrics.opens/Math.max(1,metrics.sent))*100).toFixed(1) : '0')).toString()}%</div>
           <div className="text-green-600 text-sm mt-1">↑ +2.3% vs last week</div>
           <div className="h-24 mt-3"><canvas id="dash-open-rate"></canvas></div>
           <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-            <select className="border rounded-md p-2 text-gray-600"><option>All Providers</option></select>
+            <select className="border rounded-md p-2 text-gray-600" value={openProvider} onChange={(e)=>setOpenProvider(e.target.value)}>
+              <option value="all">All Providers</option>
+              <option value="google">Google</option>
+              <option value="outlook">Outlook</option>
+              <option value="sendgrid">SendGrid</option>
+            </select>
             <select className="border rounded-md p-2 text-gray-600"><option>3</option></select>
           </div>
         </div>
