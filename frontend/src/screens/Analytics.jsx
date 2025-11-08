@@ -185,7 +185,7 @@ export default function Analytics() {
       }
       } catch {}
       const already = existingLayout.some(w => (w.widget_id || w) === widgetName);
-      const layout = already ? existingLayout : [...existingLayout, { widget_id: widgetName, position: { x: 0, y: 0 }, config: {} }].slice(0,6);
+      const layout = (already ? existingLayout : [...existingLayout, { widget_id: widgetName, position: { x: 0, y: 0 }, config: {} }]).slice(0,6);
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user?.id) {
@@ -197,6 +197,8 @@ export default function Analytics() {
             const { error } = await supabase.from('user_dashboards').insert({ user_id: user.id, layout, updated_at: new Date().toISOString() });
             if (error) throw new Error(error.message);
           }
+          // Also persist locally for instant fallback
+          try { localStorage.setItem(`dashboard_widgets_${user.id}`, JSON.stringify(layout.map(w=>w.widget_id||w))); } catch {}
         }
       } catch {
         // Final fallback: call API route if present
@@ -204,6 +206,8 @@ export default function Analytics() {
       }
       setIsModalOpen(false);
       navigate('/dashboard');
+      // Force a refresh shortly after navigation to ensure fresh layout is read
+      setTimeout(() => { try { window.location.replace('/dashboard'); } catch {} }, 150);
     } catch (_) {
       // fallback local only
       const key = 'dashboard_widgets_local';
