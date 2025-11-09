@@ -83,6 +83,7 @@ import opportunitiesRouter from './src/routes/opportunities';
 import submitCandidateRouter from './src/routes/submitCandidate';
 import searchRouter from './src/routes/search';
 import activitiesRouter from './src/routes/activities';
+import featureEventsRouter from './src/routes/events.feature';
 import zapierActionsRouter from './src/routes/zapierActions';
 import opportunityPipelineRouter from './src/routes/opportunityPipeline';
 import invoicesRouter from './src/routes/invoices';
@@ -392,6 +393,8 @@ app.use('/api/sendgrid', sendgridSaveRouter);
   app.use('/api', analyticsSummaryRouter);
   app.use('/api', sendgridInboundRouter);
 app.use('/api/message', messageRouter);
+// Feature-first-use events (lifecycle emails)
+app.use('/api', featureEventsRouter);
 app.use('/api/phantombuster', phantombusterValidateRouter);
 app.use('/api/email', emailTemplatesRouter);
 app.use('/api/auth/google', googleAuthRouter);

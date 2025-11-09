@@ -21,6 +21,20 @@ export async function handleLifecycleEvent(input: {
 }) {
   const { userId, to, eventKey, tokens } = input;
   try {
+    // Idempotency: if we've ever sent this lifecycle event for the user, skip
+    try {
+      const { data: existing } = await supabase
+        .from('email_events')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('event_key', eventKey)
+        .limit(1);
+      if ((existing || []).length > 0) {
+        logger.info({ at: 'featureTriggers.already_sent', userId, eventKey });
+        return { skipped: 'already-sent' } as const;
+      }
+    } catch {}
+
     if (!(await canSendLifecycleEmail(userId))) {
       logger.info({ at: 'featureTriggers.suppressed', userId, eventKey });
       return { suppressed: true } as const;
