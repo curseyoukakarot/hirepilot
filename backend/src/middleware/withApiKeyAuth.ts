@@ -21,34 +21,66 @@ export async function withApiKeyAuth(req: Request): Promise<ApiKeyAuthContext | 
     const keyValue = (headerVal || queryVal || bodyVal || '').toString().trim();
     if (!keyValue) return null;
 
-    // Validate key in api_keys table; prefer active keys
-    // Attempt flexible lookup: key, api_key, token, or id
+    // Validate key in api_keys table; prefer active keys.
+    // Resilient lookup across common column names. Avoid .or() to handle missing columns cleanly.
+    const candidateColumns = ['key','api_key','token','id'];
     let keyRow: any = null;
-    try {
-      const resp = await supabaseDb
-        .from('api_keys')
-        .select('id,key,user_id,is_active')
-        .or([
-          `key.eq.${keyValue}`,
-          `api_key.eq.${keyValue}`,
-          `token.eq.${keyValue}`,
-          `id.eq.${keyValue}`
-        ].join(','))
-        .limit(1)
-        .maybeSingle();
-      keyRow = resp.data || null;
-    } catch (e) {
-      // Fallback to strict key match if .or fails in this environment
-      const { data } = await supabaseDb
-        .from('api_keys')
-        .select('id,key,user_id,is_active')
-        .eq('key', keyValue)
-        .maybeSingle();
-      keyRow = data || null;
+    const checked: string[] = [];
+    for (const col of candidateColumns) {
+      try {
+        checked.push(col);
+        const { data, error } = await (supabaseDb as any)
+          .from('api_keys')
+          .select('id,key,user_id,is_active')
+          .eq(col as any, keyValue)
+          .maybeSingle();
+        if (error) {
+          // Column may not exist in this environment; skip with a soft log
+          console.log(`[Auth] api_keys lookup skipped column '${col}': ${error.message}`);
+          continue;
+        }
+        if (data) {
+          keyRow = data;
+          console.log(`[Auth] API key matched via column '${col}'`);
+          break;
+        }
+      } catch (e: any) {
+        console.log(`[Auth] api_keys lookup exception on column '${col}': ${e?.message || String(e)}`);
+      }
     }
+
+    // Fallback: allow env-provided key to authenticate (maps to a specific user via env)
     if (!keyRow || (keyRow as any).is_active === false) {
-      console.warn('[Auth] X-API-Key provided but not valid/active');
-      return null;
+      const envKey = process.env.HIREPILOT_API_KEY;
+      const envUserId = process.env.HIREPILOT_API_USER_ID || process.env.SUPER_ADMIN_USER_ID;
+      if (envKey && keyValue === envKey && envUserId) {
+        // Best-effort fetch of user profile
+        let user: any = null;
+        try {
+          const { data: userRow } = await supabaseDb
+            .from('users')
+            .select('id,email,first_name,last_name,role,team_id,plan')
+            .eq('id', envUserId)
+            .maybeSingle();
+          user = userRow || null;
+        } catch {}
+        console.log('[Auth] API key matched via HIREPILOT_API_KEY (env fallback)');
+        return {
+          userId: envUserId,
+          user,
+          keyId: 'env_fallback',
+          source: 'api_key'
+        };
+      }
+      if (!keyRow) {
+        console.warn(`[Auth] X-API-Key not found; columns checked: ${checked.join(', ')}`);
+        return null;
+      }
+      // is_active present and false → reject
+      if ((keyRow as any).is_active === false) {
+        console.warn('[Auth] API key found but inactive (is_active=false)');
+        return null;
+      }
     }
 
     // Fetch minimal user profile (best-effort)
