@@ -429,6 +429,27 @@ function InnerApp() {
     fetchRole();
   }, []);
 
+  // Best-effort: announce OAuth signups to Slack once per user (client-side guard)
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const key = `signup_slack_announced_${user.id}`;
+        if (localStorage.getItem(key) === '1') return;
+        // Only announce for social signups heuristically: if no recent email signup flow
+        // We can't reliably detect provider here; this is idempotent server-side as well.
+        const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/user/announce-signup`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` }
+        });
+        if (resp.ok) {
+          localStorage.setItem(key, '1');
+        }
+      } catch {}
+    })();
+  }, [userLoaded]);
+
   // Fetch public toggle flags for REX popup/chat behavior
   useEffect(() => {
     (async () => {

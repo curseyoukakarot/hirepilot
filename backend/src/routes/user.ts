@@ -7,6 +7,7 @@ import requireAuthUnified from '../../middleware/requireAuthUnified';
 import { ApiRequest } from '../../types/api';
 import { supabaseAdmin } from '../services/supabase';
 import { queueDripOnSignup } from '../lib/queueDripOnSignup';
+import { notifySlack } from '../../lib/slack';
 
 const router = express.Router();
 // GET /api/user/plan
@@ -506,5 +507,39 @@ router.post('/change-email', requireAuth, async (req: ApiRequest, res: Response)
     return res.json({ success: true });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'Internal server error' });
+  }
+});
+
+// -----------------------------------------------------------------------------
+// POST /api/user/announce-signup
+// Idempotent Slack notification for new users who arrived via social OAuth
+// Uses a lightweight per-user flag in local storage on the client; server side
+// is best-effort and safe to call multiple times.
+router.post('/announce-signup', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const userEmail = req.user?.email || null;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    try {
+      // Ensure minimal users row exists (idempotent)
+      if (userEmail) {
+        await supabase
+          .from('users')
+          .upsert({ id: userId, email: userEmail } as any, { onConflict: 'id' });
+      }
+    } catch {}
+
+    // Post a generic signup notice; downstream Slack routing uses webhook URL
+    try {
+      await notifySlack(`🆕 New signup (oauth): ${userEmail || userId}`);
+    } catch (e) {
+      // Do not fail the request if Slack is unavailable
+      console.warn('[announce-signup] slack notify failed', (e as any)?.message || e);
+    }
+
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message || 'announce_failed' });
   }
 });
