@@ -150,19 +150,64 @@ router.post('/actions/updateOpportunityStatusTag', async (req: Request, res: Res
   if (error) { res.status(500).json({ error: error.message }); return; }
 
   try {
-    const { data: row } = await supabase.from('opportunities').select('id,stage,status,tag').eq('id', opportunityId).maybeSingle();
-    const afterStage = String(row?.stage || stage || '').toLowerCase();
-    const afterStatus = String(row?.status || status || '').toLowerCase();
-    const afterTag = String(row?.tag ?? tag ?? '').toLowerCase();
+    // Re-fetch current opportunity state for accurate checks and enrichment
+    const { data: opp } = await supabase
+      .from('opportunities')
+      .select('id,title,value,stage,status,tag,client_id,owner_id')
+      .eq('id', opportunityId)
+      .maybeSingle();
+
+    const afterStage = String(opp?.stage || stage || '').toLowerCase();
+    const afterStatus = String(opp?.status || status || '').toLowerCase();
+    const afterTagLc = String((opp?.tag ?? tag ?? '')).toLowerCase();
     const isCloseWon = /close\s*won/.test(afterStage) || ['close_won','closed_won','won'].includes(afterStatus);
-    const isJobSeeker = afterTag === 'job seeker' || afterTag === 'job_seeker';
+    const isJobSeeker = afterTagLc === 'job seeker' || afterTagLc === 'job_seeker';
+
     if (isCloseWon && isJobSeeker) {
+      // Enrich with client and primary contact (decision maker) if available
+      let client: any = null;
+      let contact: any = null;
+      if (opp?.client_id) {
+        const [{ data: clientRow }, { data: contactRow }] = await Promise.all([
+          supabase.from('clients').select('id,name,domain').eq('id', opp.client_id as any).maybeSingle(),
+          supabase.from('contacts').select('id,name,email').eq('client_id', opp.client_id as any).limit(1).maybeSingle()
+        ] as any);
+        client = clientRow || null;
+        contact = contactRow || null;
+      }
+
+      const payload = {
+        id: opp?.id || opportunityId,
+        name: opp?.title || 'Unknown Opportunity',
+        amount: opp?.value ?? null,
+        tag: opp?.tag ?? tag ?? null,
+        stage: opp?.stage || stage || null,
+        status: opp?.status || 'won',
+        company_name: client?.name || null,
+        decision_maker_name: contact?.name || null,
+        decision_maker_email: contact?.email || null,
+        owner_user_id: userId
+      };
+
+      // Log for debugging visibility
+      console.log('[Zapier] opportunity_closed_won enriched payload', {
+        id: payload.id,
+        name: payload.name,
+        amount: payload.amount,
+        company_name: payload.company_name,
+        decision_maker_name: payload.decision_maker_name,
+        decision_maker_email: payload.decision_maker_email,
+        stage: payload.stage,
+        status: payload.status,
+        tag: payload.tag
+      });
+
       await createZapEvent({
         event_type: EVENT_TYPES.opportunity_closed_won as any,
         user_id: userId,
         entity: 'opportunity',
         entity_id: opportunityId,
-        payload: { id: opportunityId, stage: row?.stage || stage || null, status: row?.status || status || null, tag: row?.tag ?? tag ?? null }
+        payload
       });
     }
   } catch {}
