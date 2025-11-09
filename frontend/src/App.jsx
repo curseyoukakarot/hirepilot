@@ -593,6 +593,7 @@ function InnerApp() {
               <Route path="/super-admin/sourcing/campaigns/:id" element={<RequireSuperAdmin><CampaignDetailPage /></RequireSuperAdmin>} />
               <Route path="/super-admin/sourcing/campaigns/:id/replies" element={<RequireSuperAdmin><RepliesPage /></RequireSuperAdmin>} />
               <Route path="/admin/users" element={<AdminUserManagement />} />
+              <Route path="/super-admin/users" element={<RequireSuperAdmin><AdminUserManagement /></RequireSuperAdmin>} />
               <Route path="/admin/puppet-health" element={<AdminPuppetHealth />} />
               <Route path="/admin/proxy-management" element={<AdminProxyManagement />} />
               <Route path="/admin/affiliates" element={<AdminAffiliatesManager />} />
