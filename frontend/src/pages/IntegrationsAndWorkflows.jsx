@@ -351,6 +351,23 @@ export default function IntegrationsAndWorkflows() {
 
   const [filter, setFilter] = useState("All");
   const [selected, setSelected] = useState(null);
+  const copyToClipboard = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text || "");
+      alert("Copied to clipboard");
+    } catch {
+      try {
+        // Fallback
+        const ta = document.createElement('textarea');
+        ta.value = text || "";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        alert("Copied to clipboard");
+      } catch {}
+    }
+  };
   const [showLoginModal, setShowLoginModal] = useState(false);
 
   const filtered = useMemo(
@@ -552,6 +569,20 @@ export default function IntegrationsAndWorkflows() {
                     {(selected.zap || []).map((step, idx) => <li key={idx}>{step}</li>)}
                   </ol>
                 </div>
+              </div>
+              <div className="mt-6 flex items-center gap-3 flex-wrap">
+                <button
+                  onClick={() => copyToClipboard(Array.isArray(selected?.zap) ? selected.zap.join('\n') : '')}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-900 rounded-lg font-semibold hover:bg-white"
+                >
+                  <span className="inline-block">⚡</span> Copy Zap
+                </button>
+                <button
+                  onClick={() => copyToClipboard('MAKE.COM BLUEPRINT — ' + (selected?.title || '') + '\n\nModules\n1) Webhooks → Custom webhook\n2) HTTP / Formatter steps\n3) Destination app (Slack/SendGrid/Notion)\n\nNotes: Map fields based on your account setup.')}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-slate-700 text-white rounded-lg font-semibold hover:bg-slate-600"
+                >
+                  <span className="inline-block">🧩</span> Copy Make Blueprint
+                </button>
               </div>
             </motion.div>
           </motion.div>
