@@ -15,6 +15,8 @@ const supabase = createClient(
  */
 export async function requireAuthUnified(req: Request, res: Response, next: NextFunction) {
   try {
+    // Short-circuit if an upstream middleware (e.g., API key) already attached a user
+    if ((req as any).user?.id) return next();
     // Allowlist: public/alternate-auth endpoints that handle their own auth (e.g., x-user-id)
     // Avoid blocking LinkedIn remote session bootstrap and streaming endpoints
     const path = String(req.path || '');

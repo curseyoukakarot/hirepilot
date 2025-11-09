@@ -158,6 +158,7 @@ import { sniperJobsWorker } from './src/workers/sniper.jobs.worker';
 import agentTokenRoute from './src/routes/agentToken';
 import supportTools from './src/routes/support';
 import externalInvoiceRouter from './src/routes/externalInvoice';
+import { attachApiKeyAuth } from './src/middleware/withApiKeyAuth';
 // Defer MCP SSE server initialization to runtime with a safe try/catch
 
 declare module 'express-list-endpoints';
@@ -296,6 +297,8 @@ app.get('/api/slack-events/ping', (_req, res) => res.json({ ok: true }));
 // Parse JSON bodies for all other routes (increase limit for bulk operations)
 // IMPORTANT: JSON parser must not swallow raw bodies needed by some transports; safe for our routes
 app.use(express.json({ limit: '25mb' }));
+// Attempt API Key auth early (safe no-op if absent or invalid)
+app.use(attachApiKeyAuth);
 // Lightweight request log for production debugging of 405/edge issues
 app.use((req, _res, next) => {
   try {

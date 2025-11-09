@@ -10,6 +10,10 @@ const supabase = createClient(
 
 export const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    // Short-circuit if an upstream middleware (e.g., API key) already attached a user
+    if ((req as any).user?.id) {
+      return next();
+    }
     const useUnified = String(process.env.ENABLE_SESSION_COOKIE_AUTH || 'false').toLowerCase() === 'true';
     if (useUnified) {
       // Delegate to unified middleware (supports Bearer or hp_session cookie)
