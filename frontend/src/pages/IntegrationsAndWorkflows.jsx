@@ -1,7 +1,7 @@
 // src/pages/IntegrationsAndWorkflows.jsx
 import React, { useMemo, useState } from "react";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
-import { FaStripeS, FaLinkedin } from "react-icons/fa6";
+import { FaStripeS, FaLinkedin, FaMagnifyingGlass, FaDiagramProject, FaBrain } from "react-icons/fa6";
 import PublicNavbar from "../components/PublicNavbar";
 import PublicFooter from "../components/PublicFooter";
 
@@ -44,6 +44,21 @@ export default function IntegrationsAndWorkflows() {
     { name: "Skrapp", icon: "/skrapp.png", desc: "Enrich lead emails & company data." },
     { name: "Decodo", icon: "/decodo.png", desc: "Reliable proxy layer for LinkedIn scraping." },
   ];
+
+  // Category icons (public /workflows)
+  const categoryIcon = (cat) => {
+    const base = "w-3.5 h-3.5";
+    switch (cat) {
+      case "Discovery + Lead Intelligence":
+        return <FaMagnifyingGlass className={`${base}`} aria-hidden />;
+      case "CRM, Pipeline, Client Activation":
+        return <FaDiagramProject className={`${base}`} aria-hidden />;
+      case "REX Intelligence Engine":
+        return <FaBrain className={`${base}`} aria-hidden />;
+      default:
+        return null;
+    }
+  };
 
   // ---------- Public Workflow Library (exact 18) ----------
   const workflows = [
@@ -433,7 +448,14 @@ export default function IntegrationsAndWorkflows() {
                 }`}
                 whileTap={{ scale: 0.98 }}
               >
-                {cat}
+                <span className="inline-flex items-center gap-2">
+                  {cat !== "All" && (
+                    <span className="inline-flex items-center justify-center w-4 h-4">
+                      {categoryIcon(cat)}
+                    </span>
+                  )}
+                  <span>{cat}</span>
+                </span>
               </motion.button>
             ))}
           </LayoutGroup>
@@ -457,6 +479,12 @@ export default function IntegrationsAndWorkflows() {
                   className="bg-slate-800 rounded-2xl p-6 flex flex-col justify-between hover:shadow-xl transition"
                 >
                   <div>
+                    <div className="mb-2">
+                      <span className="inline-flex items-center gap-2 text-[11px] px-2 py-1 rounded-full bg-slate-700 text-slate-200">
+                        {categoryIcon(w.category)}
+                        <span>{w.category}</span>
+                      </span>
+                    </div>
                     <h3 className="text-xl font-semibold mb-3">{w.title}</h3>
                     <ul className="list-disc list-inside space-y-1 text-slate-300 text-sm">
                       {(w.light || []).map((li, idx) => (
