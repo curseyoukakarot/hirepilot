@@ -14,14 +14,18 @@ export type ApiKeyAuthContext = {
  */
 export async function withApiKeyAuth(req: Request): Promise<ApiKeyAuthContext | null> {
   try {
+    // Try multiple sources for resilience: header (preferred), query, then body (for tools)
     const headerVal = req.headers['x-api-key'] as string | undefined;
-    if (!headerVal) return null;
+    const queryVal = (req as any)?.query?.['x-api-key'] || (req as any)?.query?.api_key as string | undefined;
+    const bodyVal = (req as any)?.body?.['x-api-key'] || (req as any)?.body?.api_key as string | undefined;
+    const keyValue = (headerVal || queryVal || bodyVal || '').toString().trim();
+    if (!keyValue) return null;
 
     // Validate key in api_keys table; prefer active keys
     const { data: keyRow } = await supabase
       .from('api_keys')
       .select('id,key,user_id,is_active')
-      .eq('key', headerVal)
+      .eq('key', keyValue)
       .maybeSingle();
     if (!keyRow || (keyRow as any).is_active === false) {
       console.warn('[Auth] X-API-Key provided but not valid/active');
