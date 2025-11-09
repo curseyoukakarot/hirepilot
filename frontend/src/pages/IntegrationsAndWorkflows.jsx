@@ -4,13 +4,12 @@ import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { FaStripeS, FaLinkedin } from "react-icons/fa6";
 import PublicNavbar from "../components/PublicNavbar";
 import PublicFooter from "../components/PublicFooter";
-import { INTENT_WORKFLOWS, INTENT_CATEGORY, estimateDiscoveryCredits } from "../data/intentWorkflows";
 
 /**
  * Integrations & Workflows — HirePilot
  * - Hero
  * - Integrations Grid
- * - Filterable Workflow Library (25 recipes)
+ * - Filterable Workflow Library (Public 18 recipes)
  * - Animated Recipe Modal
  * - Final CTA
  *
@@ -20,14 +19,9 @@ import { INTENT_WORKFLOWS, INTENT_CATEGORY, estimateDiscoveryCredits } from "../
 export default function IntegrationsAndWorkflows() {
   const categories = [
     "All",
-    "Sourcing",
-    "Messaging",
-    "Pipeline",
-    "Billing",
-    "REX Intelligence",
-    "Client Experience",
-    "Team",
-    INTENT_CATEGORY,
+    "Discovery + Lead Intelligence",
+    "CRM, Pipeline, Client Activation",
+    "REX Intelligence Engine",
   ];
 
   const integrations = [
@@ -51,76 +45,301 @@ export default function IntegrationsAndWorkflows() {
     { name: "Decodo", icon: "/decodo.png", desc: "Reliable proxy layer for LinkedIn scraping." },
   ];
 
-  // ---------- Base Workflow Library ----------
+  // ---------- Public Workflow Library (exact 18) ----------
   const workflows = [
-    // Lead & Prospecting (Sourcing)
-    { id: 1, title: "Apollo → Smart Enrichment & Warm Tagging", category: "Sourcing", trigger: "Lead arrives from Apollo", action: "Auto-enrich, score, and tag 'Warm'", tools: ["Apollo", "Hunter", "Skrapp", "HirePilot"], desc: "When a lead arrives from Apollo, HirePilot enriches, scores interest, and tags them 'Warm'." },
-    { id: 2, title: "LinkedIn Connect → Slack Introduction", category: "Sourcing", trigger: "New LinkedIn connection (Chrome Extension)", action: "Post Slack summary to #new-prospects", tools: ["Chrome Extension", "Slack", "HirePilot"], desc: "Instantly post a prospect intro in Slack when a LI connection is made." },
-    { id: 3, title: "Hunter Verified → Send Intro Email via SendGrid", category: "Sourcing", trigger: "Email verified by Hunter", action: "Send personalized intro using SendGrid template", tools: ["Hunter", "SendGrid", "HirePilot"], desc: "Auto-send a personalized intro once a verified email is found." },
-    { id: 4, title: "Sales Navigator Saved Lead → Create Job Target", category: "Sourcing", trigger: "Saved lead on Sales Navigator", action: "Add to Sniper Target list", tools: ["LinkedIn Sales Navigator", "HirePilot"], desc: "Saving a lead on Sales Navigator automatically creates a Sniper target." },
-    { id: 5, title: "Lead Tagged “Hiring Manager” → Create Client in CRM", category: "Sourcing", trigger: "Lead tagged 'Hiring Manager'", action: "Create client record in Monday.com", tools: ["HirePilot", "Monday.com"], desc: "Tag leads as 'Hiring Manager' to auto-create a client in your CRM." },
+    // Tranche 1 — Discovery + Lead Intelligence (6)
+    {
+      id: 1,
+      title: "Website Visitor → Auto-Enrich → Auto Email",
+      category: "Discovery + Lead Intelligence",
+      light: [
+        "Capture website visitor data automatically",
+        "Auto-enrich: name, title, company, verified email, LinkedIn",
+        "Send a personalized email instantly",
+      ],
+      zap: [
+        "Trigger: RB2B New Visitor → Webhook (POST)",
+        "Action: POST /api/leads/:id/enrich",
+        "Action (Code): JSON Flattening → extract first_name, company, email, title",
+        "Action: SendGrid → Send Personalized Intro Email",
+      ],
+    },
+    {
+      id: 2,
+      title: "LinkedIn Sales Navigator Scraper → Enrich → Queue Outreach",
+      category: "Discovery + Lead Intelligence",
+      light: [
+        "Paste Sales Navigator search URL",
+        "AI extracts profiles + enriches with contact info",
+        "Add directly to your outreach queue or campaign",
+      ],
+      zap: [
+        "Trigger: Chrome Extension → “Scrape SalesNav Search”",
+        "Action: POST scraped leads to /api/leads/bulk-create",
+        "Action: For each lead → /api/leads/:id/enrich",
+        "Action: Add to campaign via /api/campaigns/:id/addLead",
+      ],
+    },
+    {
+      id: 3,
+      title: "Sniper Target Captured → Convert to Candidate + Enrich",
+      category: "Discovery + Lead Intelligence",
+      light: [
+        "When a Sniper search returns a promising lead",
+        "Auto-create candidate profile",
+        "Run enrichment + attach to an open job req",
+      ],
+      zap: [
+        "Trigger: sniper_target_captured event (HirePilot Zap Trigger)",
+        "Action: POST /api/candidates/createFromLead",
+        "Action: POST /api/candidates/:id/enrich",
+        "Action: Add candidate to Job REQ via /api/pipeline/addCandidate",
+      ],
+    },
+    {
+      id: 4,
+      title: "Lead Replied → Slack Alert",
+      category: "Discovery + Lead Intelligence",
+      light: [
+        "When a lead replies",
+        "See message instantly in Slack",
+        "Includes name, email, and the full reply",
+      ],
+      zap: [
+        "Trigger: HirePilot → message_reply",
+        "Action: Slack → Send message to channel",
+        "Action: Optionally tag in CRM via /api/leads/:id/tag",
+      ],
+    },
+    {
+      id: 5,
+      title: "Hunter Verified → Send Intro Email",
+      category: "Discovery + Lead Intelligence",
+      light: [
+        "When Hunter finds a working email",
+        "Send your intro automatically",
+        "Track delivery + open events",
+      ],
+      zap: [
+        "Trigger: Hunter.io → Email Verified",
+        "Action: Create or update lead in HP via /api/leads/create",
+        "Action: SendGrid → Send welcome/intro template",
+      ],
+    },
+    {
+      id: 6,
+      title: "Sales Nav Saved Lead → Create Sniper Target",
+      category: "Discovery + Lead Intelligence",
+      light: [
+        "Save a lead in Sales Navigator",
+        "HirePilot instantly adds it to Sniper targets",
+        "Auto-enrich optional",
+      ],
+      zap: [
+        "Trigger: Chrome Extension → “Saved Lead Detected”",
+        "Action: POST /api/sniper/targets/create",
+        "Optional: POST /api/leads/:id/enrich",
+      ],
+    },
 
-    // Messaging & Campaigns
-    { id: 6, title: "Lead Replied → Notify Recruiter in Slack", category: "Messaging", trigger: "Reply detected", action: "Post Slack alert with message text", tools: ["HirePilot", "Slack"], desc: "Real-time Slack alerts when prospects or candidates reply." },
-    { id: 7, title: "Lead Source: Skrapp → Launch Warm-Up Sequence", category: "Messaging", trigger: "Lead from Skrapp", action: "Start 'Intro + Reminder' sequence with SendGrid tracking", tools: ["Skrapp", "SendGrid", "HirePilot"], desc: "Warm up Skrapp leads with a gentle sequence and tracking." },
-    { id: 8, title: "Campaign Relaunched → Team Announcement + Stats", category: "Messaging", trigger: "Campaign relaunched", action: "Push stats summary to Slack", tools: ["HirePilot", "Slack"], desc: "Announce relaunch with fresh send/reply/open metrics." },
-    { id: 9, title: "High-Performing Template → Clone to New Campaign", category: "Messaging", trigger: ">45% open rate detected", action: "Clone template to 'Top Performers' folder", tools: ["HirePilot"], desc: "Automatically surface winning templates for reuse." },
-    { id: 10, title: "Reply Detected → Update Candidate Profile in Notion", category: "Messaging", trigger: "Reply received", action: "Append last message to candidate's Notion timeline", tools: ["Notion", "HirePilot"], desc: "Keep Notion profiles updated with latest replies." },
+    // Tranche 2 — CRM, Pipeline, Client Activation (6)
+    {
+      id: 7,
+      title: "Lead Tagged ‘Hiring Manager’ → Create Client in CRM",
+      category: "CRM, Pipeline, Client Activation",
+      light: [
+        "Tag ANY lead as “Hiring Manager”",
+        "HirePilot auto-creates a Client record",
+        "Pushes into your CRM or project system",
+      ],
+      zap: [
+        "Trigger: HirePilot → lead_tagged event (Filter: tag = “Hiring Manager”)",
+        "Action: POST /api/clients/create",
+        "Action: Create Monday.com record (or Notion card)",
+      ],
+    },
+    {
+      id: 8,
+      title: "Client Created → Auto-Enrich + Slack Welcome",
+      category: "CRM, Pipeline, Client Activation",
+      light: [
+        "New client is detected",
+        "HirePilot enriches the company",
+        "Slack announces with logo, team size, funding",
+      ],
+      zap: [
+        "Trigger: HirePilot → client_created",
+        "Action: /api/clients/:id/enrich",
+        "Action: Slack → Post “New client added” summary",
+        "Optional: Add to Deals pipeline via /api/deals/create",
+      ],
+    },
+    {
+      id: 9,
+      title: "Client Updated → Sync to Notion CRM",
+      category: "CRM, Pipeline, Client Activation",
+      light: [
+        "Anytime a client is updated (status/notes/owner)",
+        "Automagically keep Notion in sync (no duplicates!)",
+      ],
+      zap: [
+        "Trigger: HirePilot → client_updated",
+        "Action: Notion → Find Page",
+        "Action: Notion → Update Page",
+        "Optional: Add date-stamped timeline entry",
+      ],
+    },
+    {
+      id: 10,
+      title: "Candidate Rejected → Send “Keep Warm” Message",
+      category: "CRM, Pipeline, Client Activation",
+      light: [
+        "When a hiring manager rejects a candidate",
+        "HirePilot sends a soft, relationship-preserving message",
+        "Keeps candidate in loop & warm",
+      ],
+      zap: [
+        "Trigger: HirePilot → candidate_rejected",
+        "Action: SendGrid → Send “Keep Warm” template",
+        "Action: /api/candidates/:id/addTag “Keep Warm”",
+        "Optional: Log note in Job REQ timeline",
+      ],
+    },
+    {
+      id: 11,
+      title: "Candidate Hired → Create Stripe Invoice + Win Alert",
+      category: "CRM, Pipeline, Client Activation",
+      light: [
+        "Auto-create a Stripe invoice",
+        "Announce hiring win in Slack with 🎉 emojis",
+        "Update your revenue dashboard",
+      ],
+      zap: [
+        "Trigger: HirePilot → candidate_hired",
+        "Action: /api/invoices/create with correct billing_type",
+        "Action: Stripe → Create invoice object",
+        "Action: Slack → “WIN! Candidate hired!”",
+      ],
+    },
+    {
+      id: 12,
+      title: "Candidate Submitted → Create DocuSign Offer Letter",
+      category: "CRM, Pipeline, Client Activation",
+      light: [
+        "When candidate is submitted to hiring manager",
+        "Auto-generate offer letter",
+        "Send via DocuSign to candidate & client",
+      ],
+      zap: [
+        "Trigger: HirePilot → candidate_submitted",
+        "Action: DocuSign → Create envelope",
+        "Action: Fill fields dynamically (salary, start date, role)",
+        "Action: Update candidate timeline via POST /api/candidates/:id/log",
+      ],
+    },
 
-    // Client & CRM
-    { id: 11, title: "Client Created → Auto-Enrich + Slack Welcome", category: "Client Experience", trigger: "client_created", action: "Enrich company + send Slack 'Client added'", tools: ["HirePilot", "Slack"], desc: "New clients are enriched and announced instantly." },
-    { id: 12, title: "Client Updated → Send Snapshot to Notion CRM", category: "Client Experience", trigger: "client_updated", action: "Update Notion CRM card via Make.com", tools: ["Make.com", "Notion", "HirePilot"], desc: "Sync client updates to your Notion CRM automatically." },
-    { id: 13, title: "Contact Added → Schedule Intro Email", category: "Client Experience", trigger: "Contact created", action: "Send intro email via SendGrid after 15 minutes", tools: ["SendGrid", "HirePilot"], desc: "New contacts get a timely intro email queued by HirePilot." },
-    { id: 14, title: "New Client → Create Monday Board + Slack Channel", category: "Client Experience", trigger: "client_created", action: "Create Monday board + dedicated Slack channel", tools: ["Monday.com", "Slack", "HirePilot"], desc: "Kick off client projects with auto-created boards and channels." },
-    { id: 15, title: "Client Synced → Generate Stripe Invoice Draft", category: "Billing", trigger: "Client enrichment completed", action: "Draft Stripe invoice (Pro)", tools: ["Stripe", "HirePilot"], desc: "Automate invoice drafts once enrichment finishes." },
-
-    // Deals & Placements
-    { id: 16, title: "Candidate Hired → Create Stripe Invoice + Slack Win Alert", category: "Billing", trigger: "candidate_hired", action: "Create invoice + confetti Slack alert", tools: ["Stripe", "Slack", "HirePilot"], desc: "Celebrate wins and bill instantly on hire." },
-    { id: 17, title: "Candidate Submitted → Create DocuSign Offer Letter", category: "Pipeline", trigger: "candidate_submitted", action: "Generate & send DocuSign offer", tools: ["DocuSign", "HirePilot"], desc: "Streamline offer letter creation and delivery." },
-    { id: 18, title: "Pipeline Stage Updated → Update Google Sheet Tracker", category: "Pipeline", trigger: "pipeline_stage_updated", action: "Append change to master Google Sheet", tools: ["Google Sheets", "HirePilot"], desc: "Keep your master pipeline spreadsheet in sync." },
-    { id: 19, title: "Candidate Rejected → Send “Keep Warm” Message", category: "Messaging", trigger: "candidate_rejected", action: "Send follow-up to keep candidate engaged", tools: ["SendGrid", "HirePilot"], desc: "Maintain relationships even when candidates are not a fit." },
-    { id: 20, title: "New Application → Create Task in Monday.com", category: "Pipeline", trigger: "application_created", action: "Add task card to client's Monday board", tools: ["Monday.com", "HirePilot"], desc: "Ensure new applications create actionable tasks." },
-
-    // Team & Collaboration
-    { id: 21, title: "Collaborator Added → Send Slack Welcome", category: "Team", trigger: "collaborator_added", action: "Send Slack intro with links & next steps", tools: ["Slack", "HirePilot"], desc: "Welcome new collaborators with helpful context." },
-    { id: 22, title: "Role Changed → Sync Permissions + Notion Access", category: "Team", trigger: "role_updated", action: "Sync access across Notion and Slack", tools: ["Notion", "Slack", "HirePilot"], desc: "Keep team permissions consistent across tools." },
-    { id: 23, title: "Invite Sent → Trigger Onboarding Sequence", category: "Team", trigger: "invite_sent", action: "Send onboarding email series via SendGrid", tools: ["SendGrid", "HirePilot"], desc: "Automate onboarding for new team invites." },
-
-    // Sniper & REX Automation
-    { id: 24, title: "Sniper Target Captured → Create Candidate + Enrich Profile", category: "REX Intelligence", trigger: "sniper_target_captured", action: "Create candidate + run enrichment", tools: ["Sniper", "HirePilot"], desc: "Convert captured targets into enriched candidates automatically." },
-    { id: 25, title: "REX Chat → Generate Daily Summary in Notion", category: "REX Intelligence", trigger: "Daily at 6:00 PM", action: "Create a Notion 'Recruiting Summary' page", tools: ["REX", "Notion", "HirePilot"], desc: "REX writes a daily summary of hires, campaigns, and conversations." },
-
-    // AI-Enhanced Automations (REX Intelligence)
-    { id: 26, title: "REX Detects Unresponsive Campaign → Suggest A/B Test", category: "REX Intelligence", trigger: "Low reply rate detected", action: "Draft alternate subject line", tools: ["REX", "HirePilot"], desc: "REX proposes A/B test ideas when performance drops." },
-    { id: 27, title: "REX Detects Hiring Gap → Build Outreach Sequence", category: "REX Intelligence", trigger: "Open role without candidates", action: "Draft and launch new outreach campaign", tools: ["REX", "HirePilot"], desc: "Fill role gaps by auto-building a fresh outreach sequence." },
+    // Tranche 3 — REX Intelligence Engine (6)
+    {
+      id: 13,
+      title: "REX Chat → Generate Daily Summary in Notion",
+      category: "REX Intelligence Engine",
+      light: [
+        "Daily end-of-day summary: leads, replies, candidates, campaigns, deal movement, red flags",
+        "REX writes and ships to Notion automatically",
+      ],
+      zap: [
+        "Trigger: Schedule → Every day at 6 PM",
+        "Action: HirePilot → /rex/summarize_day",
+        "Action: Notion → Create Page in “Daily Recruiting Summary” database",
+        "Action: Notion → Append campaign stats & candidate notes",
+      ],
+    },
+    {
+      id: 14,
+      title: "REX Detects Unresponsive Campaign → Suggest A/B Test",
+      category: "REX Intelligence Engine",
+      light: [
+        "Detects low performance (open/reply rates)",
+        "Analyzes subject, timing, personalization",
+        "Drafts improved variant for A/B test",
+      ],
+      zap: [
+        "Trigger: HirePilot Event → campaign_low_reply_rate (reply rate < 3% after 2+ sends)",
+        "Action: HirePilot → /rex/optimizeSubjectLine",
+        "Action: HirePilot → /rex/buildABTestVariant",
+        "Action: Slack/Email → Send recommended A/B variant",
+      ],
+    },
+    {
+      id: 15,
+      title: "REX Detects Hiring Gap → Build Outreach Sequence",
+      category: "REX Intelligence Engine",
+      light: [
+        "Detects candidate gap on a Job REQ",
+        "Builds fresh outreach sequence + message copy",
+        "Suggests sourcing tactics; can auto-launch",
+      ],
+      zap: [
+        "Trigger: HirePilot → jobreq_needs_candidates (0 candidates or >7 days inactivity)",
+        "Action: HirePilot → /rex/generateOutreachSequence",
+        "Action: HirePilot → /api/campaigns/create",
+        "Action: Slack → “New sequence drafted for {Role}”",
+      ],
+    },
+    {
+      id: 16,
+      title: "Sales Navigator Saved Lead → Create Sniper Target",
+      category: "REX Intelligence Engine",
+      light: [
+        "User clicks “Save Lead” on Sales Navigator",
+        "Chrome extension captures event",
+        "HirePilot creates Sniper Target + starts enrichment",
+      ],
+      zap: [
+        "Trigger: Chrome Extension Event → sales_nav_saved_lead",
+        "Action: HirePilot → /sniper/targets/create",
+        "Action: HirePilot → /sniper/enrich",
+        "Optional: Add to “Role Fit” folder",
+      ],
+    },
+    {
+      id: 17,
+      title: "Lead Replied → Update Candidate Profile in Notion",
+      category: "REX Intelligence Engine",
+      light: [
+        "REX detects reply with NLP and summarizes",
+        "Appends reply + summary to candidate profile",
+        "Keeps Notion CRM timeline synced",
+      ],
+      zap: [
+        "Trigger: HirePilot → lead_replied",
+        "Action: Notion → Search for candidate page",
+        "Action: Notion → Append reply + timestamp to timeline",
+        "Action: HirePilot → /api/leads/:id/update (status = “Replied”)",
+      ],
+    },
+    {
+      id: 18,
+      title: "Reply Detected → Notify Recruiter in Slack",
+      category: "REX Intelligence Engine",
+      light: [
+        "Real-time reply alerts for recruiters and founders",
+        "Shows sender, snippet, campaign, next step",
+      ],
+      zap: [
+        "Trigger: HirePilot → lead_replied",
+        "Action: Slack → Send Block Kit message (Name, Company, Reply text, Deep link)",
+        "Action: HirePilot → /api/messages/markRead",
+      ],
+    },
   ];
 
   const [filter, setFilter] = useState("All");
   const [selected, setSelected] = useState(null);
 
-  // Map Intent (public-only) to marketing workflows shape
-  const intentPublic = useMemo(
-    () => INTENT_WORKFLOWS.filter((w) => w.visibility === 'public'),
-    []
-  );
-
-  const intentMapped = useMemo(() => intentPublic.map((w) => ({
-    id: `intent-${w.slug}`,
-    title: w.title,
-    category: INTENT_CATEGORY,
-    trigger: 'Discovery',
-    action: 'Add to Library | Add to Session',
-    tools: w.badges || ['Sniper'],
-    desc: w.description,
-    _intent: w,
-    _isIntent: true
-  })), [intentPublic]);
-
-  const allWorkflows = useMemo(() => ([...intentMapped, ...workflows]), [intentMapped]);
-
   const filtered = useMemo(
-    () => (filter === "All" ? allWorkflows : allWorkflows.filter((w) => w.category === filter)),
-    [filter, allWorkflows]
+    () => (filter === "All" ? workflows : workflows.filter((w) => w.category === filter)),
+    [filter, workflows]
   );
 
   // Small component: pill list of tool logos (fallback to text if icon missing)
@@ -238,60 +457,21 @@ export default function IntegrationsAndWorkflows() {
                   className="bg-slate-800 rounded-2xl p-6 flex flex-col justify-between hover:shadow-xl transition"
                 >
                   <div>
-                    <div className="flex items-start justify-between gap-3">
-                      <h3 className="text-xl font-semibold mb-1">{w.title}</h3>
-                      {w._isIntent && (
-                        <span
-                          className="text-[11px] px-2 py-1 rounded bg-slate-700 text-slate-200"
-                          title={(() => {
-                            const est = estimateDiscoveryCredits(w._intent);
-                            return est ? `Estimated credits (preview): ~${est}` : 'Estimated credits not available';
-                          })()}
-                        >
-                          Intent
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-slate-400 text-sm mb-3">{w.desc}</p>
-                    <div className="text-slate-500 text-xs space-y-1">
-                      <p><strong>Trigger:</strong> {w.trigger}</p>
-                      <p><strong>Action:</strong> {w.action}</p>
-                    </div>
-                    <ToolPills tools={w.tools} />
+                    <h3 className="text-xl font-semibold mb-3">{w.title}</h3>
+                    <ul className="list-disc list-inside space-y-1 text-slate-300 text-sm">
+                      {(w.light || []).map((li, idx) => (
+                        <li key={idx}>{li}</li>
+                      ))}
+                    </ul>
                   </div>
 
                   <div className="mt-5 flex items-center gap-3">
-                    {w._isIntent ? (
-                      <>
-                        <button
-                          onClick={() => alert('Added to Library (preview). Create an account to run.')}
-                          className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 rounded-lg text-white text-sm font-semibold"
-                        >
-                          Add to Library
-                        </button>
-                        <button
-                          onClick={() => alert('Start a session in-app to run this workflow.')}
-                          className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white text-sm font-semibold"
-                        >
-                          Add to Session
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => setSelected(w)}
-                          className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 rounded-lg text-white text-sm font-semibold"
-                        >
-                          View Recipe
-                        </button>
-                        <button
-                          className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white text-sm font-semibold"
-                          onClick={() => alert('Login required to add workflows.')}
-                        >
-                          Add to My Workflows
-                        </button>
-                      </>
-                    )}
+                    <button
+                      onClick={() => setSelected(w)}
+                      className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 rounded-lg text-white text-sm font-semibold"
+                    >
+                      View Zap Recipe
+                    </button>
                   </div>
                 </motion.div>
               ))}
@@ -323,45 +503,20 @@ export default function IntegrationsAndWorkflows() {
                 ✕
               </button>
 
-              <div className="flex items-center gap-3 mb-3">
-                <img
-                  src={`/icons/${slugify((selected.tools?.[0] || "workflow"))}.svg`}
-                  alt=""
-                  className="w-6 h-6"
-                  onError={(e) => (e.currentTarget.style.display = "none")}
-                />
-                <h2 className="text-2xl font-bold">{selected.title}</h2>
-              </div>
-              <p className="text-slate-300 mb-6">{selected.desc}</p>
-
-              <div className="bg-slate-800 rounded-xl p-4 mb-6 text-sm space-y-2">
-                <p className="text-slate-400">
-                  <strong>Trigger:</strong> {selected.trigger}
-                </p>
-                <p className="text-slate-400">
-                  <strong>Action:</strong> {selected.action}
-                </p>
-                <div className="pt-2">
-                  <p className="text-slate-400 mb-2"><strong>Tools:</strong></p>
-                  <ToolPills tools={selected.tools || []} />
+              <h2 className="text-2xl font-bold mb-4">{selected.title}</h2>
+              <div className="grid gap-4">
+                <div className="bg-slate-800 rounded-xl p-4">
+                  <h3 className="font-semibold mb-2">What it does</h3>
+                  <ul className="list-disc list-inside text-slate-300 text-sm space-y-1">
+                    {(selected.light || []).map((li, idx) => <li key={idx}>{li}</li>)}
+                  </ul>
                 </div>
-              </div>
-
-              <div className="flex gap-3 flex-wrap">
-                <a
-                  href="#"
-                  onClick={(e) => e.preventDefault()}
-                  className="px-4 py-2 bg-indigo-500 rounded-lg text-white font-semibold hover:bg-indigo-600"
-                >
-                  Deploy via Zapier
-                </a>
-                <a
-                  href="#"
-                  onClick={(e) => e.preventDefault()}
-                  className="px-4 py-2 bg-slate-700 rounded-lg text-white font-semibold hover:bg-slate-600"
-                >
-                  Trigger via REX
-                </a>
+                <div className="bg-slate-800 rounded-xl p-4">
+                  <h3 className="font-semibold mb-2">Zap Recipe</h3>
+                  <ol className="list-decimal list-inside text-slate-300 text-sm space-y-1">
+                    {(selected.zap || []).map((step, idx) => <li key={idx}>{step}</li>)}
+                  </ol>
+                </div>
               </div>
             </motion.div>
           </motion.div>
