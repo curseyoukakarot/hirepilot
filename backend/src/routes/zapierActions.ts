@@ -4,6 +4,7 @@ import { verifyZapier } from '../middleware/verifyZapier';
 import { supabase } from '../lib/supabase';
 import { logger } from '../lib/logger';
 import { createZapEvent, EVENT_TYPES } from '../lib/events';
+import crypto from 'crypto';
 
 const router = express.Router();
 
@@ -92,7 +93,51 @@ const updateOpportunityStatusTagSchema = z.object({
   status: z.string().optional(),
   tag: z.string().optional()
 });
-router.post('/actions/updateOpportunityStatusTag', verifyZapier, async (req: Request, res: Response) => {
+router.post('/actions/updateOpportunityStatusTag', async (req: Request, res: Response) => {
+  // Allow dev or valid API key to bypass signature; otherwise verify HMAC
+  try {
+    const apiKey = req.headers['x-api-key'] as string | undefined;
+    const env = process.env.NODE_ENV;
+    let skipVerification = false;
+
+    if (env === 'development') {
+      skipVerification = true;
+      console.log('[Zapier] Skipping signature verification (development mode)');
+    } else if (apiKey) {
+      const { data: apiKeyRow } = await supabase
+        .from('api_keys')
+        .select('id')
+        .eq('key', apiKey)
+        .maybeSingle();
+      if (apiKeyRow) {
+        skipVerification = true;
+        console.log('[Zapier] Skipping signature verification (valid API key)');
+      }
+    }
+
+    if (!skipVerification) {
+      const secret = process.env.ZAPIER_HMAC_SECRET;
+      if (!secret) { res.status(500).json({ error: 'Zapier secret not configured' }); return; }
+
+      const signature = String(req.headers['x-hp-signature'] || '');
+      const timestamp = String(req.headers['x-hp-timestamp'] || '');
+      if (!signature || !timestamp) { res.status(401).json({ error: 'Missing signature headers' }); return; }
+
+      // Replay guard: 5 minutes
+      const now = Math.floor(Date.now() / 1000);
+      if (Math.abs(now - Number(timestamp)) > 300) { res.status(401).json({ error: 'stale request' }); return; }
+
+      const rawBody = typeof (req as any).rawBody === 'string' ? (req as any).rawBody : JSON.stringify(req.body || {});
+      const base = `${timestamp}.${rawBody}`;
+      const expected = crypto.createHmac('sha256', secret).update(base).digest('hex');
+      const ok = crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+      if (!ok) { res.status(401).json({ error: 'bad signature' }); return; }
+    }
+  } catch (e) {
+    res.status(401).json({ error: 'verification_failed' });
+    return;
+  }
+
   const parse = updateOpportunityStatusTagSchema.safeParse(req.body || {});
   if (!parse.success) { res.status(400).json({ error: 'invalid_payload', details: parse.error.flatten() }); return; }
   const { idempotency_key, userId, opportunityId, stage, status, tag } = parse.data;
