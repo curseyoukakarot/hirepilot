@@ -152,6 +152,18 @@ export default function Dashboard() {
 
   useEffect(() => {
     const load = async () => {
+      // If we already have widgets from the immediate render, don't override them here.
+      if (Array.isArray(customWidgets) && customWidgets.length > 0) {
+        try {
+          const { data: u } = await supabase.auth.getUser();
+          const uid = u?.user?.id || 'anon';
+          const seedKey = `dashboard_seed_${uid}`;
+          if (localStorage.getItem(seedKey)) {
+            try { localStorage.removeItem(seedKey); } catch {}
+          }
+        } catch {}
+        return;
+      }
       try {
         const { data: sessionData } = await supabase.auth.getSession();
         const token = sessionData?.access_token;
