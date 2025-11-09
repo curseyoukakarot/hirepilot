@@ -351,6 +351,7 @@ export default function IntegrationsAndWorkflows() {
 
   const [filter, setFilter] = useState("All");
   const [selected, setSelected] = useState(null);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   const filtered = useMemo(
     () => (filter === "All" ? workflows : workflows.filter((w) => w.category === filter)),
@@ -500,6 +501,12 @@ export default function IntegrationsAndWorkflows() {
                     >
                       View Zap Recipe
                     </button>
+                    <button
+                      onClick={() => setShowLoginModal(true)}
+                      className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white text-sm font-semibold"
+                    >
+                      Add to Library
+                    </button>
                   </div>
                 </motion.div>
               ))}
@@ -545,6 +552,51 @@ export default function IntegrationsAndWorkflows() {
                     {(selected.zap || []).map((step, idx) => <li key={idx}>{step}</li>)}
                   </ol>
                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL — Login Required */}
+      <AnimatePresence>
+        {showLoginModal && (
+          <motion.div
+            className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="bg-slate-900 rounded-3xl max-w-md w-full p-8 shadow-2xl relative"
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+            >
+              <button
+                onClick={() => setShowLoginModal(false)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-white"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+              <h2 className="text-2xl font-bold mb-2">Sign in to add workflows</h2>
+              <p className="text-slate-300 mb-6">
+                You need to be logged in to save workflows to your Library.
+              </p>
+              <div className="flex gap-3 flex-wrap">
+                <a
+                  href="/login"
+                  className="px-4 py-2 bg-indigo-600 rounded-lg text-white font-semibold hover:bg-indigo-500"
+                >
+                  Log In
+                </a>
+                <a
+                  href="/signup"
+                  className="px-4 py-2 bg-slate-700 rounded-lg text-white font-semibold hover:bg-slate-600"
+                >
+                  Create Account
+                </a>
               </div>
             </motion.div>
           </motion.div>
