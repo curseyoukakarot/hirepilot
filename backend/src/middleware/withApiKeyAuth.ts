@@ -22,11 +22,30 @@ export async function withApiKeyAuth(req: Request): Promise<ApiKeyAuthContext | 
     if (!keyValue) return null;
 
     // Validate key in api_keys table; prefer active keys
-    const { data: keyRow } = await supabaseDb
-      .from('api_keys')
-      .select('id,key,user_id,is_active')
-      .eq('key', keyValue)
-      .maybeSingle();
+    // Attempt flexible lookup: key, api_key, token, or id
+    let keyRow: any = null;
+    try {
+      const resp = await supabaseDb
+        .from('api_keys')
+        .select('id,key,user_id,is_active')
+        .or([
+          `key.eq.${keyValue}`,
+          `api_key.eq.${keyValue}`,
+          `token.eq.${keyValue}`,
+          `id.eq.${keyValue}`
+        ].join(','))
+        .limit(1)
+        .maybeSingle();
+      keyRow = resp.data || null;
+    } catch (e) {
+      // Fallback to strict key match if .or fails in this environment
+      const { data } = await supabaseDb
+        .from('api_keys')
+        .select('id,key,user_id,is_active')
+        .eq('key', keyValue)
+        .maybeSingle();
+      keyRow = data || null;
+    }
     if (!keyRow || (keyRow as any).is_active === false) {
       console.warn('[Auth] X-API-Key provided but not valid/active');
       return null;
