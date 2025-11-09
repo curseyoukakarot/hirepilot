@@ -635,6 +635,33 @@ export default function Dashboard() {
           </div>
                   </div>
       )}
+      {customWidgets.includes('Deal Pipeline') && (
+        <div className="bg-white rounded-2xl shadow-md p-6 relative">
+          {headerWithMenu('Deal Pipeline','Deal Pipeline')}
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="p-3 rounded-lg bg-violet-50 border">
+              <div className="text-gray-600">Pipeline</div>
+              <div className="text-lg font-semibold">${Number(dealPipeline?.pipelineValue||0).toLocaleString()}</div>
+              <div className="text-xs text-gray-500">{Number(dealPipeline?.pipelineDeals||0)} deals</div>
+            </div>
+            <div className="p-3 rounded-lg bg-purple-50 border">
+              <div className="text-gray-600">Best Case</div>
+              <div className="text-lg font-semibold">${Number(dealPipeline?.bestCaseValue||0).toLocaleString()}</div>
+              <div className="text-xs text-gray-500">{Number(dealPipeline?.bestCaseDeals||0)} deals</div>
+            </div>
+            <div className="p-3 rounded-lg bg-amber-50 border">
+              <div className="text-gray-600">Commit</div>
+              <div className="text-lg font-semibold">${Number(dealPipeline?.commitValue||0).toLocaleString()}</div>
+              <div className="text-xs text-gray-500">{Number(dealPipeline?.commitDeals||0)} deals</div>
+            </div>
+            <div className="p-3 rounded-lg bg-emerald-50 border">
+              <div className="text-gray-600">Close Won</div>
+              <div className="text-lg font-semibold">${Number(dealPipeline?.closedWonValue||0).toLocaleString()}</div>
+              <div className="text-xs text-gray-500">{Number(dealPipeline?.closedWonDeals||0)} deals</div>
+            </div>
+          </div>
+        </div>
+      )}
       {customWidgets.includes('Revenue Forecast') && (
         <div className="bg-white rounded-2xl shadow-md p-6 relative">
           {headerWithMenu('Revenue Forecast','Revenue Forecast')}
