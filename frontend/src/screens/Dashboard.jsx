@@ -35,6 +35,18 @@ export default function Dashboard() {
   const dashCharts = useRef({});
   const [user, setUser] = useState(null);
   const [metrics, setMetrics] = useState(null);
+  // helper: robustly turn stored layout (objects or names) into names[]
+  const toNames = (val) => {
+    try {
+      const arr = typeof val === 'string' ? JSON.parse(val) : val;
+      if (Array.isArray(arr)) {
+        return arr.map((it) => (typeof it === 'string' ? it : (it && it.widget_id) || null)).filter(Boolean);
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  };
   const [loading, setLoading] = useState(true);
   const [jobs, setJobs] = useState([]);
   const [jobsLoading, setJobsLoading] = useState(true);
