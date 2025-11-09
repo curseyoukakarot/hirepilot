@@ -204,10 +204,10 @@ export default function Analytics() {
           }
           // Also persist locally for instant fallback
           try {
-            const names = layout.map(w=>w.widget_id||w);
-            localStorage.setItem(`dashboard_widgets_${user.id}`, JSON.stringify(names));
+            const fullLayoutJSON = JSON.stringify(layout);
+            localStorage.setItem(`dashboard_widgets_${user.id}`, fullLayoutJSON);
             // Always set seed so Dashboard shows it immediately after nav
-            localStorage.setItem(`dashboard_seed_${user.id}`, JSON.stringify(names));
+            localStorage.setItem(`dashboard_seed_${user.id}`, fullLayoutJSON);
           } catch {}
           savedRemote = true;
         }
@@ -228,7 +228,11 @@ export default function Analytics() {
           });
           if (r && r.ok) {
             const { data: { user } } = await supabase.auth.getUser();
-            try { localStorage.setItem(`dashboard_widgets_${user?.id || 'anon'}`, JSON.stringify(layout.map(w=>w.widget_id||w))); } catch {}
+            try {
+              const fullLayoutJSON = JSON.stringify(layout);
+              localStorage.setItem(`dashboard_widgets_${user?.id || 'anon'}`, fullLayoutJSON);
+              localStorage.setItem(`dashboard_seed_${user?.id || 'anon'}`, fullLayoutJSON);
+            } catch {}
             savedRemote = true;
           } else {
             try {
@@ -252,10 +256,10 @@ export default function Analytics() {
         try {
           const { data: { user } } = await supabase.auth.getUser();
           const uid = user?.id || 'anon';
-          const names = layout.map(w=>w.widget_id||w);
-          localStorage.setItem(`dashboard_widgets_${uid}`, JSON.stringify(names));
+          const fullLayoutJSON = JSON.stringify(layout);
+          localStorage.setItem(`dashboard_widgets_${uid}`, fullLayoutJSON);
           // One-time seed for next Dashboard load
-          localStorage.setItem(`dashboard_seed_${uid}`, JSON.stringify(names));
+          localStorage.setItem(`dashboard_seed_${uid}`, fullLayoutJSON);
         } catch {}
       }
       setIsModalOpen(false);

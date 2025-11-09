@@ -115,8 +115,9 @@ export default function Dashboard() {
         const seed = localStorage.getItem(`dashboard_seed_${uid}`) || localStorage.getItem('dashboard_seed_anon');
         if (seed) {
           try {
-            const names = JSON.parse(seed);
-            if (Array.isArray(names) && names.length) {
+            const arr = JSON.parse(seed);
+            const names = Array.isArray(arr) ? arr.map((it)=> (typeof it === 'string' ? it : (it?.widget_id || it))) : [];
+            if (names.length) {
               setCustomWidgets(names.slice(0, 6));
               return;
             }
@@ -125,8 +126,9 @@ export default function Dashboard() {
         const local = localStorage.getItem(`dashboard_widgets_${uid}`);
         if (local) {
           try {
-            const names = JSON.parse(local);
-            if (Array.isArray(names) && names.length) {
+            const arr = JSON.parse(local);
+            const names = Array.isArray(arr) ? arr.map((it)=> (typeof it === 'string' ? it : (it?.widget_id || it))) : [];
+            if (names.length) {
               setCustomWidgets(names.slice(0, 6));
               return;
             }
@@ -153,8 +155,9 @@ export default function Dashboard() {
             if (v) { raw = v; keyUsed = k; break; }
           }
           if (raw) {
-            const names = JSON.parse(raw);
-            if (Array.isArray(names) && names.length) {
+            const arr = JSON.parse(raw);
+            const names = Array.isArray(arr) ? arr.map((it)=> (typeof it === 'string' ? it : (it?.widget_id || it))) : [];
+            if (names.length) {
               setCustomWidgets(names.slice(0,6));
               // Persist in background; if no uid yet, persistLayout will fallback to localStorage
               try { await persistLayout(names); } catch (_) {}
