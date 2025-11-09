@@ -582,6 +582,105 @@ Filters
       ].join('\n')
     },
     {
+      id: 20,
+      title: 'Lead Source: Skrapp → Launch Warm-Up Sequence',
+      category: 'Discovery + Lead Intelligence',
+      tools: ['Skrapp','SendGrid','HirePilot'],
+      description: 'Skrapp lead captured → create in HirePilot → enrich → send intro via SendGrid → schedule follow-up.',
+      setupTime: '6–10 min',
+      difficulty: 'Beginner',
+      setupSteps: [
+        'Create a Zap with Webhooks → Catch Hook to receive Skrapp payloads.',
+        'POST the lead into HirePilot using /api/leads/import and capture lead.id.',
+        'POST to /api/leads/{id}/enrich, then send intro via SendGrid and add a 2‑day follow-up.'
+      ],
+      copyZap: `🚀 WORKFLOW — Lead Source: Skrapp → Launch Warm‑Up Email Sequence
+
+Purpose
+Skrapp → Lead enters HirePilot → HirePilot enriches → Zap triggers → Intro email is automatically sent → Follow‑up scheduled.
+
+⸻
+✅ PART 1 — Trigger (Skrapp → HirePilot Ingest)
+Step 1: Trigger — Webhooks by Zapier → Catch Hook
+Example payload:
+{
+  "source": "skrapp",
+  "name": "Chris Doe",
+  "email": "chris@startup.com",
+  "company": "Startup Labs",
+  "job_title": "VP Marketing",
+  "location": "Austin, TX"
+}
+
+Step 2: Store in HirePilot using API
+Action: Webhooks by Zapier → Custom Request
+• Method: POST
+• URL: https://api.thehirepilot.com/api/leads/import
+• Headers: Content-Type: application/json, X-API-Key: {{your_api_key}}
+• Body:
+{
+  "name": "{{name}}",
+  "email": "{{email}}",
+  "title": "{{job_title}}",
+  "company": "{{company}}",
+  "location": "{{location}}",
+  "source": "skrapp"
+}
+✅ This writes a new lead row.
+
+Step 3: Extract Lead ID from Response
+Zapier output:
+{ "id": "lead_123", "status": "created" }
+
+⸻
+✅ PART 2 — Enrich the Lead Automatically
+Step 4: Webhooks → Custom Request
+• Method: POST
+• URL: https://api.thehirepilot.com/api/leads/{{id}}/enrich
+• Headers: X-API-Key: {{your_api_key}}
+• Body: {}
+Expected enriched fields include apollo first_name/last_name, title, org, etc.
+
+⸻
+✅ PART 3 — Prepare Email Variables
+Step 5: Formatter → Text / Utilities
+Extract email and first_name from the enriched response (or default from Skrapp if missing).
+
+⸻
+✅ PART 4 — Send Intro Email via SendGrid
+Step 6: SendGrid → Send Email
+From: your verified sender
+To: {{email from enrichment}}
+HTML:
+<p>Hi {{first_name}},</p>
+<p>I saw you’re leading {{title}} at {{company}} and thought I’d introduce myself quickly.</p>
+<p>I run <strong>HirePilot</strong> — we help teams scale outbound recruiting without adding headcount. If you’re evaluating tools for hiring, sourcing, or pipeline visibility, I can share ideas that have worked for teams like yours.</p>
+<p>Worth a quick chat?</p>
+<p>— Brandon</p>
+
+⸻
+✅ PART 5 — Add 2‑Day Follow‑Up Reminder
+Step 7: Delay For → 2 days
+Step 8: Filter
+• Only continue if replied == false OR status != engaged  
+• (Optionally GET /api/leads/{{id}}/status to check.)
+Step 9: Send Follow‑Up Email (light variation).`,
+      copyMake: `MAKE.COM BLUEPRINT — Skrapp → Warm‑Up Sequence
+Modules
+1) Webhooks → Custom webhook (Skrapp payload)
+2) HTTP → POST /api/leads/import (store lead)
+3) HTTP → POST /api/leads/{{id}}/enrich
+4) Tools → JSON/Functions to pick email, first_name, title, company
+5) SendGrid → Send Email (intro)
+6) Tools → Sleep/Flow control → 2 days
+7) (Optional) HTTP GET /api/leads/{{id}}/status → branch
+8) SendGrid → Send Email (follow‑up)
+
+Filters
+• Skip email if no valid email present after enrichment.
+• Branch based on status/replied fields.`
+    },
+    {
       id: 4,
       title: 'Lead Replied → Slack Alert',
       category: 'Discovery + Lead Intelligence',
@@ -794,19 +893,84 @@ Details
       title: 'Client Created → Auto-Enrich + Slack Welcome',
       category: 'CRM, Pipeline, Client Activation',
       tools: ['HirePilot','Slack'],
-      description: 'Auto-enrich a new client (size, industry, website) then post a Slack “client added” summary.',
+      description: 'Auto-enrich a new client (size, industry, website, funding) then post a Slack “client added” summary.',
       setupTime: '5 min',
       difficulty: 'Beginner',
       setupSteps: [
         'Enable trigger: client_created.',
-        'Enable Client Enrichment action.',
-        'Connect Slack and pick a channel.'
+        'POST /api/clients/{id}/enrich to fetch company website, industry, team size, funding.',
+        'Connect Slack and pick a channel to post new client summaries.'
       ],
-      copyZap: [
-        'Trigger: HirePilot → client_created',
-        'Action: /api/clients/:id/enrich',
-        'Action: Slack “New client added”'
-      ].join('\n')
+      copyZap: `🚀 WORKFLOW — Client Created → Auto-Enrich + Slack Welcome
+
+Purpose
+When you add a client in HirePilot, the system enriches their company and posts a beautiful Slack intro summary.
+
+⸻
+✅ PART 1 — Trigger (HirePilot → client_created Event)
+Step 1: Trigger
+• App: Webhooks → Catch Hook (or HirePilot Webhooks)
+
+Payload example:
+{
+  "event_type": "client_created",
+  "client": {
+    "id": "client_789",
+    "company": "Startup Labs",
+    "contact_name": "Chris Loper",
+    "contact_email": "chris@startup.com"
+  }
+}
+
+⸻
+✅ PART 2 — Enrich Company Info
+Step 2: Custom Request
+• URL: https://api.thehirepilot.com/api/clients/{{client.id}}/enrich
+• Method: POST
+• Headers: X-API-Key: {{api_key}}
+• Body: {}
+
+Enriched response contains fields like:
+{
+  "website": "https://startuplabs.com",
+  "industry": "Software",
+  "size": "100-250",
+  "funding": "$12.5M"
+}
+
+⸻
+✅ PART 3 — Format for Slack
+Step 3: Formatter → Text → Replace/Trim
+Clean any odd characters in industry/size if needed.
+
+⸻
+✅ PART 4 — Send Slack Summary
+Step 4: Slack → Send Channel Message
+Message:
+🎉 *New Client Added!*  
+*Company:* {{company}}  
+*Primary Contact:* {{contact_name}}  
+*Email:* {{contact_email}}  
+*Industry:* {{industry}}  
+*Team Size:* {{size}}  
+*Funding:* {{funding}}  
+*Website:* {{website}}  
+
+⸻
+✅ PART 5 — Optional Notion Sync
+Step 5: Notion → Create/Update Page with the same fields.
+
+✅ DONE`,
+      copyMake: `MAKE.COM BLUEPRINT — Client Created → Auto‑Enrich + Slack Welcome
+Modules
+1) Webhooks → Custom webhook (client_created)
+2) HTTP → POST /api/clients/{{client.id}}/enrich
+3) Tools → Text functions to format industry/size
+4) Slack → Create a message with enriched fields
+5) (Optional) Notion → Create/Update Page
+
+Notes
+• Include website, industry, size, funding in the Slack message for a polished team announcement.`
     },
     {
       id: 9,
@@ -832,19 +996,78 @@ Details
       title: 'Candidate Rejected → Send “Keep Warm” Message',
       category: 'CRM, Pipeline, Client Activation',
       tools: ['HirePilot','SendGrid'],
-      description: 'When a candidate is rejected, automatically send a thoughtful “keep warm” email.',
+      description: 'When a candidate is rejected, automatically send a courteous “keep warm” email and optionally follow-up later.',
       setupTime: '5 min',
       difficulty: 'Beginner',
       setupSteps: [
-        'Enable trigger: candidate_rejected.',
-        'Connect SendGrid and select your Keep Warm template.',
-        'Optionally tag candidate “Keep Warm”.'
+        'Trigger on candidate_rejected (pipeline update).',
+        'Connect SendGrid and map candidate variables.',
+        'Optional: Delay and send a second message after 7 days.'
       ],
-      copyZap: [
-        'Trigger: HirePilot → candidate_rejected',
-        'Action: SendGrid → Send template',
-        'Action: /api/candidates/:id/addTag “Keep Warm”'
-      ].join('\n')
+      copyZap: `🚀 WORKFLOW — Candidate Rejected → Send “Keep Warm” Message
+
+Purpose
+When a candidate gets rejected in your pipeline, send a professional keep‑warm email automatically.
+
+⸻
+✅ PART 1 — Trigger (pipeline_stage_updated)
+Step 1: Trigger
+• Webhooks → Catch Hook
+
+Payload:
+{
+  "event_type": "candidate_rejected",
+  "candidate": {
+    "id": "cand_123",
+    "name": "Alex Brown",
+    "email": "alex.brown@example.com",
+    "job_applied": "Senior AE"
+  }
+}
+
+⸻
+✅ PART 2 — Filter for Rejected Stage
+Step 2: Filter
+• Only continue if event_type == candidate_rejected
+
+⸻
+✅ PART 3 — Extra Context Pull (Optional)
+Step 3: HTTP GET
+• URL: https://api.thehirepilot.com/api/candidates/{{candidate.id}}
+• Headers: X-API-Key: {{your_key}}
+• Use this for recruiter, previous stages, etc.
+
+⸻
+✅ PART 4 — Build HTML Email
+Step 4: SendGrid → Send Email
+• To: {{candidate.email}}
+• HTML:
+<p>Hi {{candidate.name}},</p>
+<p>Thank you again for taking the time to interview for the {{job_applied}} role.</p>
+<p>While we’re moving forward with a different candidate for this specific opening, we were genuinely impressed with your background and want to stay connected as more roles come in.</p>
+<p>If you’re open to it, I’d love to keep you on our radar and reach out the moment something aligned appears.</p>
+<p>Warm regards,<br><br>
+<strong>Brandon Omoregie</strong><br>
+Founder & CEO @ HirePilot<br>
+<a href="https://www.thehirepilot.com">www.thehirepilot.com</a><br>
+<a href="https://calendly.com/hirepilot/30min">Schedule a call with me</a>
+</p>
+
+⸻
+✅ PART 5 — Optional Follow‑Up
+Step 5: Delay → 7 days; send a short follow‑up if appropriate.
+
+✅ DONE`,
+      copyMake: `MAKE.COM BLUEPRINT — Candidate Rejected → Keep Warm
+Modules
+1) Webhooks → Custom webhook (candidate_rejected)
+2) (Optional) HTTP GET → /api/candidates/{{id}} for extra context
+3) SendGrid → Send Email (HTML from above)
+4) Tools → Sleep → 7 days
+5) (Optional) SendGrid → Send follow‑up
+
+Filters
+• Ensure candidate.email exists before sending.`
     },
     {
       id: 11,
