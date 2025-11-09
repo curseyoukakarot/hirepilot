@@ -17,17 +17,16 @@ export async function withApiKeyAuth(req: Request): Promise<ApiKeyAuthContext | 
     const headerVal = req.headers['x-api-key'] as string | undefined;
     if (!headerVal) return null;
 
-    // Optional global enable flag; if provided and not 'true', skip silently
-    const allow = String(process.env.ALLOW_API_KEY_BYPASS || 'true').toLowerCase() === 'true';
-    if (!allow) return null;
-
     // Validate key in api_keys table; prefer active keys
     const { data: keyRow } = await supabase
       .from('api_keys')
       .select('id,key,user_id,is_active')
       .eq('key', headerVal)
       .maybeSingle();
-    if (!keyRow || (keyRow as any).is_active === false) return null;
+    if (!keyRow || (keyRow as any).is_active === false) {
+      console.warn('[Auth] X-API-Key provided but not valid/active');
+      return null;
+    }
 
     // Fetch minimal user profile (best-effort)
     let user: any = null;

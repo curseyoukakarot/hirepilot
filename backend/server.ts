@@ -304,6 +304,7 @@ app.use(async (req, _res, next) => {
     if (!(req as any).user?.id) {
       const auth = await authenticate(req as any);
       if (auth?.userId) {
+        console.log(`[Auth] Global auth resolved via ${auth.source} for user_id ${auth.userId}`);
         const existing = (req as any).user || {};
         (req as any).user = {
           id: auth.userId,
