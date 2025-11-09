@@ -49,38 +49,14 @@ export async function withApiKeyAuth(req: Request): Promise<ApiKeyAuthContext | 
       }
     }
 
-    // Fallback: allow env-provided key to authenticate (maps to a specific user via env)
-    if (!keyRow || (keyRow as any).is_active === false) {
-      const envKey = process.env.HIREPILOT_API_KEY;
-      const envUserId = process.env.HIREPILOT_API_USER_ID || process.env.SUPER_ADMIN_USER_ID;
-      if (envKey && keyValue === envKey && envUserId) {
-        // Best-effort fetch of user profile
-        let user: any = null;
-        try {
-          const { data: userRow } = await supabaseDb
-            .from('users')
-            .select('id,email,first_name,last_name,role,team_id,plan')
-            .eq('id', envUserId)
-            .maybeSingle();
-          user = userRow || null;
-        } catch {}
-        console.log('[Auth] API key matched via HIREPILOT_API_KEY (env fallback)');
-        return {
-          userId: envUserId,
-          user,
-          keyId: 'env_fallback',
-          source: 'api_key'
-        };
-      }
-      if (!keyRow) {
-        console.warn(`[Auth] X-API-Key not found; columns checked: ${checked.join(', ')}`);
-        return null;
-      }
-      // is_active present and false → reject
-      if ((keyRow as any).is_active === false) {
-        console.warn('[Auth] API key found but inactive (is_active=false)');
-        return null;
-      }
+    // If still not found or inactive, reject (no env fallback to avoid cross-tenant access)
+    if (!keyRow) {
+      console.warn(`[Auth] X-API-Key not found; columns checked: ${checked.join(', ')}`);
+      return null;
+    }
+    if ((keyRow as any).is_active === false) {
+      console.warn('[Auth] API key found but inactive (is_active=false)');
+      return null;
     }
 
     // Fetch minimal user profile (best-effort)
