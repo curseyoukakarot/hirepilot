@@ -791,11 +791,229 @@ Filters
         'Auto-create Sniper target on save.',
         'Toggle auto-enrichment as needed.'
       ],
-      copyZap: [
-        'Trigger: Chrome Extension → “Saved Lead Detected”',
-        'Action: POST /api/sniper/targets/create',
-        'Optional: POST /api/leads/:id/enrich'
-      ].join('\n')
+      copyZap: `🚀 WORKFLOW — Sales Navigator Saved Lead → Create Sniper Target
+
+Purpose
+Automatically convert any manually saved Sales Navigator lead into a Sniper Target inside HirePilot — turning normal browsing into pipeline building.
+
+⸻
+✅ PART 1 — Trigger: Chrome Extension Event
+Step 1: Webhooks by Zapier → Catch Hook (from HirePilot Chrome Extension)
+Example payload:
+{
+  "event_type": "sales_navigator_saved_lead",
+  "lead": {
+    "name": "Chris Loper",
+    "title": "VP Operations",
+    "company": "SportClips",
+    "linkedin_url": "https://www.linkedin.com/in/chris-loper-3a40284"
+  }
+}
+
+⸻
+✅ PART 2 — Validate the Lead Exists in HirePilot (optional)
+Step 2: Custom Request
+• Method: GET  
+• URL: https://api.thehirepilot.com/api/leads/lookup?linkedin_url={{lead.linkedin_url}}  
+• Headers: X-API-Key: {{api_key}}
+If not found → continue to create target.
+
+⸻
+✅ PART 3 — Create Sniper Target
+Step 3: Custom Request
+• Method: POST  
+• URL: https://api.thehirepilot.com/api/sniper/targets/create  
+• Headers: X-API-Key: {{api_key}}, Content-Type: application/json  
+• Body:
+{
+  "name": "{{lead.name}}",
+  "title": "{{lead.title}}",
+  "company": "{{lead.company}}",
+  "linkedin_url": "{{lead.linkedin_url}}",
+  "source": "Sales Navigator Saved Lead"
+}
+Expected response:
+{ "target_id": "sniper_457", "status": "created" }
+
+⸻
+✅ PART 4 — Enrich Target Automatically
+Step 4: Custom Request
+• Method: POST  
+• URL: https://api.thehirepilot.com/api/sniper/targets/{{target_id}}/enrich  
+• Headers: X-API-Key: {{api_key}}
+
+⸻
+✅ PART 5 — Slack Announcement
+Step 5: Slack → Send Channel Message
+Message:
+🎯 *New Sniper Target Added!*  
+{{lead.name}} — {{lead.title}} @ {{lead.company}}  
+📎 {{lead.linkedin_url}}  
+Enrichment in progress…`,
+      copyMake: `MAKE.COM BLUEPRINT — Sales Nav Saved Lead → Sniper Target
+Modules
+1) Webhooks → Custom webhook (sales_navigator_saved_lead)
+2) (Optional) HTTP GET → /api/leads/lookup?linkedin_url={{...}}
+3) HTTP POST → /api/sniper/targets/create
+4) HTTP POST → /api/sniper/targets/{{target_id}}/enrich
+5) Slack → Create a message
+
+Notes
+• Include LinkedIn URL and title/company in the Slack message.
+• If lookup finds an existing lead, you can branch to skip duplicate creation.`
+    },
+    // Tranche 4 — Advanced Messaging Workflows
+    {
+      id: 21,
+      title: 'Campaign Relaunched → Team Announcement + Stats',
+      category: 'Messaging',
+      tools: ['HirePilot','Slack'],
+      description: 'On each campaign relaunch, post fresh metrics (sent, opens, replies, warm leads, bounces) to Slack.',
+      setupTime: '4–6 min',
+      difficulty: 'Beginner',
+      setupSteps: [
+        'Trigger on campaign_relaunched from HirePilot.',
+        'GET /api/campaigns/{id}/stats to retrieve latest metrics.',
+        'Send a formatted Slack message and optionally alert on low reply rate.'
+      ],
+      copyZap: `🚀 WORKFLOW — Campaign Relaunched → Team Announcement + Stats (Slack)
+
+Purpose
+Every time a user relaunches a campaign, send current metrics to Slack.
+
+⸻
+✅ PART 1 — Trigger: HirePilot → campaign_relaunched
+Step 1: Webhooks by Zapier → Catch Hook
+Payload:
+{
+  "event_type": "campaign_relaunched",
+  "campaign_id": "c123",
+  "campaign": { "id": "c123", "name": "Outbound SDR Push — October", "owner_id": "user_789" }
+}
+Grab campaign_id.
+
+⸻
+✅ PART 2 — Fetch Campaign Stats
+Step 2: Custom Request
+• Method: GET  
+• URL: https://api.thehirepilot.com/api/campaigns/{{campaign_id}}/stats  
+• Headers: X-API-Key: {{api_key}}
+Expected:
+{ "sent": 288, "open_rate": 43, "reply_rate": 11, "positive_replies": 18, "negative_replies": 3, "bounce_rate": 2, "warm_leads": 24 }
+
+⸻
+✅ PART 3 — Format Values
+Step 3: Formatter → Numbers → Format Percent
+• open_rate → “43%”  
+• reply_rate → “11%”
+
+⸻
+✅ PART 4 — Post Slack Update
+Step 4: Slack → Send Channel Message
+Channel: #team-leads (or user-selected)
+Message:
+🚀 *Campaign Relaunched!*  
+Campaign: *{{campaign.name}}*
+Here are the latest metrics:
+- 📤 Sent: {{sent}}
+- 👀 Open Rate: {{open_rate}}%
+- 💬 Reply Rate: {{reply_rate}}%
+- 🔥 Warm Leads: {{warm_leads}}
+- ✅ Positive Replies: {{positive_replies}}
+- ❌ Negative Replies: {{negative_replies}}
+- 🛑 Bounce Rate: {{bounce_rate}}%
+Keep up the momentum!
+
+⸻
+✅ PART 5 — Optional Condition
+Step 5: Filter → Only continue if reply_rate < 5  
+Then Slack message:
+⚠️ Low reply rate detected for {{campaign.name}} — consider A/B testing subject lines.
+
+✅ DONE`,
+      copyMake: `MAKE.COM BLUEPRINT — Campaign Relaunched → Stats to Slack
+Modules
+1) Webhooks → Custom webhook (campaign_relaunched)
+2) HTTP GET → /api/campaigns/{{id}}/stats
+3) Tools → Numbers/Text to format percentages
+4) Slack → Create a message
+5) (Optional) Router: low reply rate branch → Slack warning
+
+Tip
+• Convert rates to friendly strings before posting.`
+    },
+    {
+      id: 22,
+      title: 'High-Performing Template → Clone to Top Performers',
+      category: 'Messaging',
+      tools: ['HirePilot','Slack','Notion'],
+      description: 'When a template exceeds performance thresholds, auto-clone it into “Top Performers” and notify the team.',
+      setupTime: '4–6 min',
+      difficulty: 'Beginner',
+      setupSteps: [
+        'Trigger on template_metrics_updated.',
+        'Filter for open_rate > 45 or reply_rate > 15.',
+        'POST /api/templates/{id}/clone to Top Performers and alert Slack; optionally log to Notion.'
+      ],
+      copyZap: `🚀 WORKFLOW — High‑Performing Template → Clone to Top Performers Folder
+
+Purpose
+Surface winning templates automatically and store them in “Top Performers” for reuse.
+
+⸻
+✅ PART 1 — Trigger: Template Metrics Updated
+Step 1: Webhooks by Zapier → Catch Hook
+Payload:
+{
+  "event_type": "template_metrics_updated",
+  "template": {
+    "id": "temp_005",
+    "name": "Q4 Executive Outreach",
+    "open_rate": 56,
+    "reply_rate": 22,
+    "campaign_id": "c123"
+  }
+}
+
+⸻
+✅ PART 2 — Conditional Filter
+Step 2: Filter
+• Continue if template.open_rate > 45 OR template.reply_rate > 15
+
+⸻
+✅ PART 3 — Clone Template
+Step 3: Custom Request
+• Method: POST  
+• URL: https://api.thehirepilot.com/api/templates/{{template.id}}/clone  
+• Headers: X-API-Key: {{api_key}}, Content-Type: application/json  
+• Body: { "target_folder": "Top Performers" }
+Expected: { "new_template_id": "temp_239", "status": "cloned" }
+
+⸻
+✅ PART 4 — Notify Team
+Step 4: Slack → Send Message
+🌟 *New High‑Performer Identified!*  
+Template: {{template.name}}  
+Open Rate: {{template.open_rate}}%  
+Reply Rate: {{template.reply_rate}}%  
+✅ Automatically cloned into *Top Performers*.
+
+⸻
+✅ PART 5 — Optional Add to Notion Library
+Step 5: Notion → Create Page with:
+• Template Name • Link to HirePilot template • Open Rate • Reply Rate • Date Added
+
+✅ DONE`,
+      copyMake: `MAKE.COM BLUEPRINT — High‑Performer → Clone & Announce
+Modules
+1) Webhooks → Custom webhook (template_metrics_updated)
+2) Flow Control → Filter thresholds
+3) HTTP POST → /api/templates/{{id}}/clone (target_folder = Top Performers)
+4) Slack → Create a message
+5) (Optional) Notion → Create Page
+
+Notes
+• Consider storing the new_template_id in a Data Store for later reuse.`
     },
 
     // Tranche 2 — CRM, Pipeline, Client Activation
