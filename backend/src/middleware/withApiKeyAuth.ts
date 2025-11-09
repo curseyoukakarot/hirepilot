@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
-import { supabase } from '../lib/supabase';
+import { supabaseDb } from '../../lib/supabase';
 
 export type ApiKeyAuthContext = {
   userId: string;
@@ -22,7 +22,7 @@ export async function withApiKeyAuth(req: Request): Promise<ApiKeyAuthContext | 
     if (!keyValue) return null;
 
     // Validate key in api_keys table; prefer active keys
-    const { data: keyRow } = await supabase
+    const { data: keyRow } = await supabaseDb
       .from('api_keys')
       .select('id,key,user_id,is_active')
       .eq('key', keyValue)
@@ -35,7 +35,7 @@ export async function withApiKeyAuth(req: Request): Promise<ApiKeyAuthContext | 
     // Fetch minimal user profile (best-effort)
     let user: any = null;
     try {
-      const { data: userRow } = await supabase
+      const { data: userRow } = await supabaseDb
         .from('users')
         .select('id,email,first_name,last_name,role,team_id,plan')
         .eq('id', (keyRow as any).user_id)
