@@ -58,9 +58,24 @@ router.post('/send-free-welcome', async (req, res) => {
       try {
         await sendEmail(email, '🎉 Your Free HirePilot Account is Live!', 'welcome.html', { first_name });
         // Mark as sent if we can resolve the user
-        const userId = (r as any)?.id;
+        let userId = (r as any)?.id as string | undefined;
+        if (!userId) {
+          try {
+            const { data: byEmail } = await supabaseDb.from('users').select('id').eq('email', email).maybeSingle();
+            userId = byEmail?.id;
+          } catch {}
+        }
         if (userId) {
           await supabaseDb.from('users').update({ free_welcome_sent_at: new Date().toISOString() }).eq('id', userId);
+          // Store email event for unified status view
+          try {
+            await supabaseDb.from('email_events').insert({
+              user_id: userId,
+              event_type: 'welcome.free',
+              provider: 'sendgrid',
+              metadata: { template: 'welcome' }
+            } as any);
+          } catch {}
         } else {
           // Fallback: update by email if unique
           await supabaseDb.from('users').update({ free_welcome_sent_at: new Date().toISOString() }).eq('email', email);
@@ -770,5 +785,178 @@ router.post('/users/backfill-drips', requireAuth, requireSuperAdmin, async (req:
     res.json({ success: true, plan: planFilter || 'all', enqueued, total_candidates: list.length });
   } catch (e: any) {
     res.status(500).json({ error: e?.message || 'backfill_failed' });
+  }
+});
+
+// NEW: GET /api/admin/users/:id/drip-status – show queued and sent drip info for a user
+router.get('/users/:id/drip-status', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
+  try {
+    const userId = req.params.id;
+    // Inspect BullMQ queue for this user's jobs
+    const jobs = await dripQueue.getJobs(['waiting','delayed','active','completed','failed'], 0, 200);
+    const mine = jobs.filter((j: any) => (j?.data?.user_id || '') === userId);
+    const now = Date.now();
+    const stateOf = (j: any) => (j.state || (typeof j.getState === 'function' ? j.getState() : '')) || 'unknown';
+
+    const queued = mine
+      .filter((j: any) => ['waiting','delayed','active'].includes(stateOf(j)))
+      .map((j: any) => ({
+        id: j.id,
+        template: j.data?.template,
+        event_key: j.data?.event_key,
+        state: stateOf(j),
+        scheduled_at: j.timestamp ? new Date(j.timestamp).toISOString() : null,
+        delay_ms: j.delay ?? 0,
+        next_run_at: j.timestamp ? new Date(j.timestamp + (j.delay || 0)).toISOString() : null,
+        eta_ms: j.timestamp ? Math.max(0, (j.timestamp + (j.delay || 0)) - now) : null,
+      }));
+
+    const failed = mine
+      .filter((j: any) => (j as any).failedReason || stateOf(j) === 'failed')
+      .map((j: any) => ({
+        id: j.id,
+        template: j.data?.template,
+        event_key: j.data?.event_key,
+        failed_reason: (j as any).failedReason || 'failed',
+      }));
+
+    const completed = mine
+      .filter((j: any) => stateOf(j) === 'completed')
+      .map((j: any) => ({
+        id: j.id,
+        template: j.data?.template,
+        event_key: j.data?.event_key,
+        finished_on: (j as any).finishedOn ? new Date((j as any).finishedOn).toISOString() : null,
+      }));
+
+    // Query email_events for sent drips
+    const dripKeys = [
+      'drip.free.campaign','drip.free.rex','drip.free.csv','drip.free.extension','drip.free.requests','drip.free.leads',
+      'drip.paid.agent','drip.paid.rex','drip.paid.deals','drip.paid.leads','drip.paid.candidates','drip.paid.reqs'
+    ];
+    const { data: sentRows } = await supabaseDb
+      .from('email_events')
+      .select('id,event_key,template,event_timestamp,created_at')
+      .eq('user_id', userId)
+      .in('event_key', dripKeys as any)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    res.json({ user_id: userId, queued, failed, completed, sent: sentRows || [] });
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message || 'status_failed' });
+  }
+});
+
+// Admin Email Status – unified view across drips & lifecycle
+// GET /api/admin/email/status?user=<email-or-id>&plan=free|paid&limit=<N>
+router.get('/email/status', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
+  try {
+    const q = String(req.query.user || '').trim();
+    const plan = String(req.query.plan || '').trim().toLowerCase();
+    const limit = Math.max(1, Math.min(500, Number(req.query.limit) || 100));
+
+    // 1) Users
+    let usersQ = supabaseDb
+      .from('users')
+      .select('id,email,plan,firstName,lastName')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (plan && (plan === 'free' || plan === 'paid')) {
+      usersQ = usersQ.eq('plan', plan);
+    }
+    let usersRes;
+    if (q) {
+      usersRes = await supabaseDb
+        .from('users')
+        .select('id,email,plan,firstName,lastName')
+        .or(`id.eq.${q},email.ilike.%${q}%`)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+    } else {
+      usersRes = await usersQ;
+    }
+    const { data: users, error: usersErr } = usersRes as any;
+    if (usersErr) return res.status(500).json({ error: usersErr.message });
+    if (!users || users.length === 0) return res.json({ users: [] });
+
+    const userIds = users.map((u: any) => u.id);
+
+    // 2) Sent events (all types)
+    const { data: sentRows, error: sentErr } = await supabaseDb
+      .from('email_events')
+      .select('user_id,event_type,provider,created_at,metadata')
+      .in('user_id', userIds)
+      .order('created_at', { ascending: false })
+      .limit(1000);
+    if (sentErr) return res.status(500).json({ error: sentErr.message });
+
+    // 3) Queued jobs – Drips (BullMQ)
+    const jobStates = ['waiting','delayed','active','completed','failed'] as any;
+    const dripJobs = await dripQueue.getJobs(jobStates, 0, 2000);
+
+    const mapQueued = (jobs: any[]) => jobs.map((j: any) => {
+      const state = j.state || (typeof j.getState === 'function' ? j.getState() : 'unknown');
+      const data = (j as any).data || {};
+      const uid = data.user_id || data.userId || '';
+      const ts = (j as any).timestamp || null;
+      const delay = (j as any).delay || 0;
+      const next = ts ? new Date(ts + delay).toISOString() : null;
+      return {
+        kind: 'drip',
+        job_id: j.id,
+        user_id: uid,
+        state,
+        event_key: data.event_key || data.eventKey || null,
+        template: data.template || null,
+        scheduled_at: ts ? new Date(ts).toISOString() : null,
+        next_run_at: next,
+        failed_reason: (j as any).failedReason || null,
+        finished_on: (j as any).finishedOn ? new Date((j as any).finishedOn).toISOString() : null,
+      };
+    });
+
+    const allJobs = mapQueued(dripJobs as any);
+    const jobsByUser: Record<string, any[]> = {};
+    for (const j of allJobs) {
+      if (!j.user_id) continue;
+      if (!jobsByUser[j.user_id]) jobsByUser[j.user_id] = [];
+      jobsByUser[j.user_id].push(j);
+    }
+
+    // 4) Build response per user
+    const sentByUser: Record<string, any[]> = {};
+    for (const row of (sentRows || [])) {
+      const uid = row.user_id;
+      if (!sentByUser[uid]) sentByUser[uid] = [];
+      sentByUser[uid].push({
+        event_type: row.event_type,
+        provider: row.provider,
+        template: (row.metadata && (row.metadata as any).template) || undefined,
+        created_at: row.created_at,
+      });
+    }
+
+    const results = (users || []).map((u: any) => {
+      const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
+      const jobs = jobsByUser[u.id] || [];
+      const queued = jobs.filter(j => ['waiting','delayed','active'].includes(j.state));
+      const failed = jobs.filter(j => j.failed_reason);
+      const completed = jobs.filter(j => j.state === 'completed');
+      return {
+        id: u.id,
+        email: u.email,
+        plan: u.plan,
+        name,
+        sent: (sentByUser[u.id] || []).slice(0, 100),
+        queued,
+        completed,
+        failed
+      };
+    });
+
+    res.json({ users: results });
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message || 'email_status_failed' });
   }
 });

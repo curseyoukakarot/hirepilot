@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { FaUserPlus, FaEdit, FaTrash, FaCoins, FaKey, FaCog, FaEye, FaUserSecret, FaEnvelope, FaPaperPlane } from 'react-icons/fa';
+import { FaUserPlus, FaEdit, FaTrash, FaCoins, FaKey, FaCog, FaEye, FaUserSecret, FaEnvelope, FaPaperPlane, FaListAlt } from 'react-icons/fa';
 import { supabase } from '../lib/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import UserDetailDrawer from '../components/UserDetailDrawer';
@@ -34,6 +34,14 @@ export default function AdminUserManagement() {
   const [featuresLoading, setFeaturesLoading] = useState(false);
   const [viewUserId, setViewUserId] = useState(null);
   const [impersonating, setImpersonating] = useState(false);
+
+  // Email Status modal state
+  const [emailStatusOpen, setEmailStatusOpen] = useState(false);
+  const [emailStatusLoading, setEmailStatusLoading] = useState(false);
+  const [emailStatusPlan, setEmailStatusPlan] = useState('all'); // all | free | paid
+  const [emailStatusQuery, setEmailStatusQuery] = useState('');
+  const [emailStatusData, setEmailStatusData] = useState([]); // [{ id,email,plan,name,sent,queued,completed,failed }]
+
   const navigate = useNavigate();
 
   /* ----------------------------------------------
@@ -61,6 +69,26 @@ export default function AdminUserManagement() {
     };
     fetchUsers();
   }, [success]);
+
+  const fetchEmailStatus = async () => {
+    setEmailStatusLoading(true);
+    setError('');
+    try {
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const params = new URLSearchParams();
+      if (emailStatusQuery) params.set('user', emailStatusQuery);
+      if (emailStatusPlan !== 'all') params.set('plan', emailStatusPlan);
+      const res = await fetch(`${BACKEND_URL}/api/admin/email/status?${params.toString()}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Failed to load email status');
+      const json = await res.json();
+      setEmailStatusData(json.users || []);
+    } catch (e) {
+      setError('Failed to load email status');
+    }
+    setEmailStatusLoading(false);
+  };
 
   // Invite user
   const handleInvite = async (e) => {
@@ -396,6 +424,12 @@ export default function AdminUserManagement() {
             <FaPaperPlane /> Backfill Drips
           </button>
           <button
+            className="flex items-center gap-2 bg-rose-600 text-white px-4 py-2 rounded hover:bg-rose-700"
+            onClick={() => { setEmailStatusOpen(true); fetchEmailStatus(); }}
+          >
+            <FaListAlt /> Email Status
+          </button>
+          <button
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
             onClick={() => setShowInvite(true)}
           >
@@ -491,6 +525,96 @@ export default function AdminUserManagement() {
               {dripSubmitting ? 'Enqueuing…' : 'Enqueue'}
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+  )}
+
+  {/* Email Status Modal */}
+  {emailStatusOpen && (
+    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-white rounded-2xl p-6 w-full max-w-5xl shadow-2xl border border-gray-200">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-extrabold text-gray-900 tracking-tight">Email Status</h2>
+          <button onClick={() => setEmailStatusOpen(false)} className="text-gray-500 hover:text-gray-700 transition">✕</button>
+        </div>
+
+        {/* Controls */}
+        <div className="flex flex-col md:flex-row md:items-end gap-3 mb-4">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Filter by user</label>
+            <input className="w-full border border-gray-300 px-3 py-2 rounded-lg text-gray-800 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-rose-400 transition" placeholder="Search by email or id" value={emailStatusQuery} onChange={(e)=>setEmailStatusQuery(e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Plan</label>
+            <select className="border border-gray-300 px-3 py-2 rounded-lg text-gray-800 bg-gray-50 focus:outline-none" value={emailStatusPlan} onChange={(e)=>setEmailStatusPlan(e.target.value)}>
+              <option value="all">All</option>
+              <option value="free">Free</option>
+              <option value="paid">Paid</option>
+            </select>
+          </div>
+          <button onClick={fetchEmailStatus} className="px-4 py-2 rounded-lg bg-rose-600 text-white font-semibold hover:bg-rose-700 transition">Refresh</button>
+        </div>
+
+        {/* Content */}
+        <div className="min-h-[200px]">
+          {emailStatusLoading ? (
+            <div className="flex items-center justify-center py-16 text-gray-500 animate-pulse">Loading…</div>
+          ) : (emailStatusData || []).length === 0 ? (
+            <div className="text-center py-16 text-gray-500">No matching users.</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {emailStatusData.map((u) => (
+                <div key={u.id} className="rounded-xl border border-gray-200 p-4 bg-white/80 hover:shadow-md transition">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <div className="text-sm font-semibold text-gray-900">{u.name || '—'}</div>
+                      <div className="text-xs text-gray-500">{u.email}</div>
+                    </div>
+                    <span className={`text-xs px-2 py-1 rounded-full ${String(u.plan).toLowerCase() === 'paid' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-sky-50 text-sky-700 border border-sky-200'}`}>{String(u.plan || '').toUpperCase() || '—'}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <div className="text-xs font-semibold text-gray-700 mb-1">Queued</div>
+                      <div className="space-y-1 max-h-28 overflow-auto pr-1">
+                        {(u.queued || []).map((q, idx) => (
+                          <div key={idx} className="text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded px-2 py-1">
+                            <div className="truncate font-medium">{q.event_key || q.template || '—'}</div>
+                            <div className="text-[10px] text-gray-500">next: {q.next_run_at || '—'}</div>
+                          </div>
+                        ))}
+                        {(u.queued || []).length === 0 && <div className="text-xs text-gray-400">None</div>}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold text-gray-700 mb-1">Sent</div>
+                      <div className="space-y-1 max-h-28 overflow-auto pr-1">
+                        {(u.sent || []).slice(0,6).map((s, idx) => (
+                          <div key={idx} className="text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded px-2 py-1">
+                            <div className="truncate font-medium">{s.event_type}</div>
+                            <div className="text-[10px] text-gray-500">at: {s.created_at}</div>
+                          </div>
+                        ))}
+                        {(u.sent || []).length === 0 && <div className="text-xs text-gray-400">None</div>}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold text-gray-700 mb-1">Failed</div>
+                      <div className="space-y-1 max-h-28 overflow-auto pr-1">
+                        {(u.failed || []).map((f, idx) => (
+                          <div key={idx} className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">
+                            <div className="truncate font-medium">{f.event_key || f.template || '—'}</div>
+                            <div className="text-[10px] text-red-600">{f.failed_reason || 'failed'}</div>
+                          </div>
+                        ))}
+                        {(u.failed || []).length === 0 && <div className="text-xs text-gray-400">None</div>}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
