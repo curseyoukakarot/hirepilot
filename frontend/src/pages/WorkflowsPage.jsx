@@ -144,12 +144,304 @@ export default function WorkflowsPage() {
         'Enable auto-enrichment for new visitors.',
         'Select a SendGrid template for the first-touch email.'
       ],
-      copyZap: [
-        'Trigger: RB2B New Visitor → Webhook (POST)',
-        'Action: POST /api/leads/:id/enrich',
-        'Action (Code): Extract first_name, company, email, title',
-        'Action: SendGrid → Send Personalized Intro Email'
-      ].join('\n')
+      copyZap: `✅ WORKFLOW 1: Website Visitor → Auto-Enrich → Auto Email (RB2B Pattern)
+
+Purpose
+Automatically detect anonymous website visitors from RB2B, create them as leads in HirePilot, enrich them using HirePilot’s enrichment endpoint, and then send a personalized email using SendGrid.
+
+⸻
+
+✅ PART 1 — Trigger Step Setup in Zapier
+
+Step 1: Choose App
+• Click “Create Zap”
+• Search for Webhooks by Zapier
+• Select Trigger: Catch Hook
+
+Step 2: Copy the Webhook URL
+Zapier will generate a URL like:
+https://hooks.zapier.com/hooks/catch/1234567/abcdef/
+
+Step 3: Paste this URL in RB2B
+• Go to RB2B settings → Webhooks
+• Add new webhook
+• Paste your Zapier URL
+• Choose “Website Visitor Identified” (or equivalent event)
+
+Step 4: Test Trigger
+• Visit your website
+• RB2B should send test data
+• Zapier will show raw JSON payload from RB2B
+
+You MUST confirm you can see fields like:
+• visitor_name
+• email
+• company
+• location
+• linkedin
+• raw_payload
+
+If fields are nested, Zapier will show them as:
+• data__visitor_name
+• data__email
+• data__company
+
+✅ If you see the data — click Continue.
+
+⸻
+
+✅ PART 2 — Create Lead in HirePilot
+
+Step 5: Add Action
+• Click “+”
+• Choose Webhooks by Zapier
+• Choose POST
+
+Step 6: Configure POST
+URL:
+https://api.thehirepilot.com/api/leads/create
+
+Payload Type: JSON
+
+Headers:
+• Key: X-API-Key
+  Value: <YOUR_API_KEY>
+• Key: Content-Type
+  Value: application/json
+
+Data (Body): Click JSON editor and paste:
+{
+  "name": "{{visitor_name}}",
+  "email": "{{visitor_email}}",
+  "company": "{{visitor_company}}",
+  "linkedin_url": "{{visitor_linkedin}}",
+  "source": "RB2B",
+  "location": "{{visitor_location}}",
+  "source_payload": {{raw_json_from_rB2B}}
+}
+
+⚠️ Important Notes
+• If the RB2B payload is nested under data__visitor_email, use that instead.
+• For source_payload, choose Custom → Raw Body to capture entire JSON.
+
+Step 7: Test
+Zapier should return a JSON response with:
+{
+  "id": "lead_123",
+  "email": "example@example.com"
+}
+
+✅ Save the Lead ID — you will need it.
+
+⸻
+
+✅ PART 3 — Enrich the Lead
+
+Step 8: Add New Action
+• Choose “Webhooks by Zapier”
+• Method: POST
+
+URL:
+https://api.thehirepilot.com/api/leads/{{id_from_step7}}/enrich
+
+Headers Again:
+• X-API-Key: <YOUR_API_KEY>
+• Content-Type: application/json
+
+Body: leave empty
+
+Step 9: Test
+You should receive a full enriched object with Apollo/Hunter/Skrapp fields.
+If enrichment fails, response will still succeed with: "errors": []
+
+⸻
+
+✅ PART 4 — Flatten the Enrichment Response
+
+Zapier struggles with nested JSON objects.
+So we fix it with a Code by Zapier – JavaScript step.
+
+Step 10: Add Action
+• Choose Code by Zapier
+• Choose Run JavaScript
+
+Paste:
+let raw = inputData.data;
+let obj = JSON.parse(raw);
+let apollo = obj.enrichment_data?.apollo || {};
+return {
+  first_name: apollo.first_name || obj.first_name || "",
+  last_name: apollo.last_name || obj.last_name || "",
+  title: apollo.title || obj.title || "",
+  email: obj.email || apollo.email || "",
+  company: apollo.organization?.name || obj.company || "",
+  linkedin: apollo.linkedin_url || obj.linkedin_url || "",
+  city: apollo.city || "",
+  state: apollo.state || "",
+  country: apollo.country || ""
+};
+
+Input → “data”
+Select Step 9 → Raw Body.
+
+Step 11: Test
+Should produce:
+• first_name
+• last_name
+• title
+• email
+• company
+• linkedin
+
+✅ These are now clean, easy-to-use fields.
+
+⸻
+
+✅ PART 5 — Send Personalized Email (EXAMPLE EMAIL)
+
+Step 12: Add Action
+• Choose SendGrid
+• Choose Send Email
+
+Step 13: Configure Email
+• To: {{Step10.email}}
+• From: your SendGrid sender
+• Subject: Quick question {{Step10.first_name}}
+
+HTML Body Template (use this)
+<p>Hey {{first_name}},</p>
+<p>Brandon here from HirePilot — I noticed you were on our site today exploring how AI can improve outbound hiring.</p>
+<p>Before I send anything else your way, let me ask something simple:</p>
+<p><strong>Are you currently hiring for any roles right now?</strong></p>
+<p>If yes, I can get you 30–50 enriched candidates in under 10 minutes (no pitch, just results).</p>
+<br/>
+<p>
+<strong>Brandon Omoregie</strong><br/>
+<strong>Founder and CEO @ HirePilot</strong><br/>
+<a href="https://www.thehirepilot.com">www.thehirepilot.com</a><br/>
+<a href="https://calendly.com/hirepilot/30min">Schedule a call with me!</a>
+</p>
+
+Be sure to replace variables with Zapier dynamic fields.
+
+⸻
+
+✅ PART 6 — Optional Branching: Change Message Based on Job Title
+
+You MUST add a Zap Filter.
+
+Step 14: Add Filter
+• Add a Filter step between enrichment + email.
+
+Example:
+Title contains “CEO” or “Founder”
+• Choose Step 10 → title
+• Condition: “Text Contains”
+• Value: “Founder”
+
+✅ This sends founder-specific messaging.
+Repeat the Zap with variations.
+
+⸻
+
+✅ PART 7 — Error Handling
+
+Add Path A / Path B
+If enrichment email missing:
+• Add Filter Step
+• Condition: Step10 email “Exists”
+• Path B = send fallback message or skip.`,
+      copyMake: `MAKE.COM BLUEPRINT — Website Visitor → Auto-Enrich → Auto Email
+
+Goal
+Detect website visitors via webhook, create a lead, enrich it, flatten the JSON, and send a personalized email — all inside Make.com.
+
+Modules (high-level)
+1) Webhooks → Custom webhook (RB2B)
+2) Tools → JSON > Create JSON / Parse JSON (optional, to inspect payload)
+3) HTTP → Make a request (POST /api/leads/create)
+4) HTTP → Make a request (POST /api/leads/{{id}}/enrich)
+5) Tools → Functions / JSON → Parse to flatten fields
+6) SendGrid → Send an email (or HTTP if using API)
+7) Filters (diamond steps) for branching and error handling
+
+Detailed Steps
+1) Webhooks → Custom webhook
+• Add a new webhook: “rb2b_visitor”
+• Copy the webhook URL and paste into RB2B → Webhooks → “Website Visitor Identified”
+• Click “Redetermine data structure” and send a test visitor from RB2B
+• Confirm fields like visitor_name, email, company, location, linkedin; if nested, you’ll see them under data.*
+
+2) (Optional) Tools → JSON module
+• Use “Parse JSON” to store the entire body if you need to pass a raw payload downstream.
+
+3) HTTP → Make a request (create lead)
+• Method: POST
+• URL: https://api.thehirepilot.com/api/leads/create
+• Headers:
+  - X-API-Key: <YOUR_API_KEY>
+  - Content-Type: application/json
+• Body (Raw, JSON):
+{
+  "name": "{{visitor_name}}",
+  "email": "{{visitor_email}}",
+  "company": "{{visitor_company}}",
+  "linkedin_url": "{{visitor_linkedin}}",
+  "source": "RB2B",
+  "location": "{{visitor_location}}",
+  "source_payload": {{bundle.wholePayload}}
+}
+• Map fields from the Webhook output. For source_payload, you can map the entire raw webhook body if desired.
+• Save; run once to get a sample output. Capture lead.id for next step.
+
+4) HTTP → Make a request (enrich lead)
+• Method: POST
+• URL: https://api.thehirepilot.com/api/leads/{{lead.id}}/enrich
+• Headers: same as above
+• Body: leave empty
+• Run once, confirm enriched response fields (apollo, hunter, etc.)
+
+5) Flatten enrichment
+Option A: Tools → JSON → Parse JSON and map nested fields.
+Option B: Tools → Function (JavaScript) to normalize:
+/*
+  Input: raw enrichment JSON
+  Output: first_name, last_name, title, email, company, linkedin, city, state, country
+*/
+var obj = JSON.parse(input.enrichment_json || '{}');
+var apollo = (obj.enrichment_data && obj.enrichment_data.apollo) || {};
+return {
+  first_name: apollo.first_name || obj.first_name || '',
+  last_name: apollo.last_name || obj.last_name || '',
+  title: apollo.title || obj.title || '',
+  email: obj.email || apollo.email || '',
+  company: (apollo.organization && apollo.organization.name) || obj.company || '',
+  linkedin: apollo.linkedin_url || obj.linkedin_url || '',
+  city: apollo.city || '',
+  state: apollo.state || '',
+  country: apollo.country || ''
+};
+
+6) SendGrid → Send an email (or HTTP)
+Option A: Use Make’s SendGrid module (Send a dynamic template email or Send email)
+• To: {{flattened.email}}
+• Subject: Quick question {{flattened.first_name}}
+• Body (HTML):
+  Use the same HTML template from the Zapier step and map Make variables.
+
+Option B: HTTP to SendGrid API
+• POST https://api.sendgrid.com/v3/mail/send
+• Header: Authorization: Bearer <SG_API_KEY>, Content-Type: application/json
+• JSON body maps “to”, “from”, “subject”, and “content” with your variables.
+
+7) Filters / Branching
+• Add a filter before email: only continue if flattened.email exists.
+• Add additional filters for title contains “Founder” or “CEO” to personalize copy.
+
+Testing
+• Send a live RB2B visitor event
+• Verify: lead created → enriched → email sent
+• Add error paths for missing email or failed enrichment (route to a Slack module or Data Store for review).`
     },
     {
       id: 2,
@@ -170,6 +462,104 @@ export default function WorkflowsPage() {
         'Action: For each lead → /api/leads/:id/enrich',
         'Action: /api/campaigns/:id/addLead'
       ].join('\n')
+    },
+    {
+      id: 19,
+      title: 'LinkedIn Connect → Slack Introduction',
+      category: 'Discovery + Lead Intelligence',
+      tools: ['Chrome Extension','Slack','HirePilot'],
+      description: 'When someone connects with you on LinkedIn, automatically post a formatted intro into Slack.',
+      setupTime: '3–5 min',
+      difficulty: 'Beginner',
+      setupSteps: [
+        'Install the HirePilot Chrome Extension and log in.',
+        'Add a Zapier Catch Hook URL to the extension under Settings → Webhooks.',
+        'Choose event “linkedin_connection_accepted” and select a Slack channel.'
+      ],
+      copyZap: `🚀 WORKFLOW — LinkedIn Connect → Slack Introduction
+
+Purpose
+When someone connects with you on LinkedIn (tracked via the Chrome Extension), HirePilot automatically pushes a formatted “new prospect” intro into Slack.
+
+⸻
+✅ PART 1 — Trigger Setup (Chrome Extension Event)
+Step 1: Create New Zap → Trigger
+• App: Webhooks by Zapier
+• Event: Catch Hook
+
+Step 2: Copy Webhook URL
+Zapier generates something like:
+https://hooks.zapier.com/hooks/catch/1234567/abc123/
+
+Step 3: Add to Chrome Extension Settings
+HirePilot Chrome Extension → Settings → Webhooks:
+• Paste the webhook URL
+• Choose event: “linkedin_connection_accepted”
+
+Step 4: Test Trigger
+Send a test event from the extension (test button). You should see:
+{
+  "event": "linkedin_connection_accepted",
+  "connection": {
+    "name": "Chris Doe",
+    "title": "VP Growth",
+    "company": "X Corp",
+    "profile_url": "https://linkedin.com/in/chris",
+    "location": "Austin, TX",
+    "timestamp": "2025-11-09T06:52:11.129Z"
+  },
+  "user_id": "02a42..."
+}
+✅ Continue.
+
+⸻
+✅ PART 2 — (Optional) Formatter Safety
+Step 5: Add “Formatter → Text → Replace”
+• Input: {{connection.name}}
+• If empty → replace with “Unknown Visitor”
+Repeat for title/company if desired.
+
+⸻
+✅ PART 3 — Send Slack Message
+Step 6: Add Action
+• App: Slack
+• Event: Send Channel Message
+
+Step 7: Map fields
+• Channel: #new-prospects
+• Message (Block-style text):
+*🚀 New LinkedIn Connection!*
+*Name:* {{connection.name}}
+*Title:* {{connection.title}}
+*Company:* {{connection.company}}
+*Location:* {{connection.location}}
+🔗 Profile: {{connection.profile_url}}
+🕒 Connected: {{connection.timestamp}}
+
+⚠️ If sending as a bot, toggle “Send As Bot”.
+
+⸻
+✅ PART 4 — Error Handling
+Step 8: Add Filter Before Slack
+• Field: connection.name
+• Rule: “Exists”
+This avoids blank alerts.
+
+✅ DONE — Workflow ready.`,
+      copyMake: `MAKE.COM BLUEPRINT — LinkedIn Connect → Slack Introduction
+Modules
+1) Webhooks → Custom webhook (from Chrome Extension “linkedin_connection_accepted”)
+2) Tools → Text functions (optional replace if fields missing)
+3) Slack → Create a message (channel: #new-prospects)
+
+Steps
+1) Webhooks: Create a new webhook and paste URL into the Chrome Extension settings under Webhooks (event: linkedin_connection_accepted). Click “Redetermine data structure” and send a test.
+2) (Optional) Tools: Replace empty name/title/company with defaults (e.g., “Unknown Visitor”).
+3) Slack: Post message using mapped fields:
+  • Name, Title, Company, Location, Profile URL, Timestamp.
+
+Filters
+• Add a filter to require connection.name exists before posting.`
     },
     {
       id: 3,
@@ -204,11 +594,71 @@ export default function WorkflowsPage() {
         'Select a channel for reply alerts.',
         'Enable reply notifications in Notifications.'
       ],
-      copyZap: [
-        'Trigger: HirePilot → message_reply',
-        'Action: Slack → Send message to channel',
-        'Action: Optional /api/leads/:id/tag'
-      ].join('\n')
+      copyZap: `🚀 WORKFLOW — Lead Replied → Slack Alert
+
+Purpose
+When a lead replies through any HirePilot channel, notify Slack with message content, lead info, and campaign name.
+
+⸻
+✅ PART 1 — Trigger Setup (HirePilot Reply Event)
+Step 1: Trigger
+• App: Webhooks by Zapier (Catch Hook) or HirePilot Webhooks
+• Event: lead_replied (reply_detected)
+
+Payload Example:
+{
+  "event_type": "lead_replied",
+  "lead": {
+    "id": "lead_123",
+    "name": "Jessica Ray",
+    "email": "jessica@startup.com",
+    "company": "Startup Labs"
+  },
+  "reply": {
+    "message": "Hey Brandon — yes we’re hiring!",
+    "timestamp": "2025-11-09T10:32:15Z",
+    "campaign": "AE Hiring 2025"
+  }
+}
+
+⸻
+✅ PART 2 — Clean the Message Body
+Step 2: Formatter → Text → Replace
+• Replace: <br> → \\n
+• Replace: double spaces → single space
+
+⸻
+✅ PART 3 — Send Slack Notification
+Step 3: Slack → Send Channel Message
+Message:
+💬 *New Reply Detected!*
+*Lead:* {{lead.name}} — {{lead.email}}
+*Company:* {{lead.company}}
+*Campaign:* {{reply.campaign}}
+*Time:* {{reply.timestamp}}
+*Message:* 
+“{{reply.message}}”
+
+⸻
+✅ PART 4 — Add Context from HirePilot (Optional)
+Step 4: HTTP GET to fetch more history
+URL: https://api.thehirepilot.com/api/leads/{{lead.id}}
+Headers:
+• X-API-Key: <YOUR_API_KEY>
+
+Append to Slack:
+*Past Messages:* {{history_snippet}}
+
+✅ DONE`,
+      copyMake: `MAKE.COM BLUEPRINT — Lead Replied → Slack
+Modules
+1) Webhooks → Custom webhook (lead_replied)
+2) Tools → Text functions for cleaning body (optional)
+3) Slack → Create a message
+4) (Optional) HTTP GET → /api/leads/{{lead.id}} to include context
+
+Filters
+• Ensure reply.message exists before sending.`
     },
     {
       id: 5,
@@ -263,11 +713,81 @@ export default function WorkflowsPage() {
         'Connect Monday.com or Notion.',
         'Map fields (Name, Email, Status) to your CRM.'
       ],
-      copyZap: [
-        'Trigger: HirePilot → lead_tagged (tag = “Hiring Manager”)',
-        'Action: POST /api/clients/create',
-        'Action: Create Monday/Notion record'
-      ].join('\n')
+      copyZap: `🚀 WORKFLOW — Lead Tagged “Hiring Manager” → Create Client in CRM
+
+Purpose
+When a lead in HirePilot gets the tag “Hiring Manager,” automatically create a CRM client record (e.g., Monday.com).
+
+⸻
+✅ PART 1 — Trigger (HirePilot → Zapier)
+Step 1: Create Zap → Trigger
+• App: HirePilot (Webhooks) or Webhooks by Zapier → Catch Hook
+• Event: lead_tagged
+
+Payload Example:
+{
+  "event_type": "lead_tagged",
+  "lead": {
+    "id": "lead_123",
+    "name": "Chris Loper",
+    "email": "chris@company.com",
+    "title": "COO",
+    "company": "Kickboxing Fitness",
+    "tags": ["Hiring Manager"]
+  }
+}
+
+⸻
+✅ PART 2 — Filter (Only Hiring Manager Tag)
+Step 2: Add Filter
+• Field: lead.tags[]
+• Condition: “Text Contains”
+• Value: Hiring Manager
+
+⸻
+✅ PART 3 — Create Client in Monday.com
+Step 3: Add Action
+• App: Monday.com
+• Event: Create Item
+
+Step 4: Map Fields
+• Board: your client CRM board
+• Item Name: {{lead.company}} — {{lead.name}}
+• Column Values (example JSON if required by your board):
+{
+  "client_name": "{{lead.company}}",
+  "contact_name": "{{lead.name}}",
+  "email": "{{lead.email}}",
+  "title": "{{lead.title}}",
+  "stage": "New"
+}
+
+⸻
+✅ PART 4 — Optional Slack Confirmation
+Step 5: Slack → Send message
+Message:
+✅ New CRM client created:
+Company: {{lead.company}}
+Contact: {{lead.name}} ({{lead.email}})
+Title: {{lead.title}}
+
+✅ DONE`,
+      copyMake: `MAKE.COM BLUEPRINT — Lead Tagged “Hiring Manager” → Create Client
+Modules
+1) Webhooks → Custom webhook (lead_tagged)
+2) Flow Control → Filter (tags contains “Hiring Manager”)
+3) Monday.com → Create Item
+4) (Optional) Slack → Post message
+
+Details
+1) Webhook: Receive HirePilot event with lead object.
+2) Filter: Proceed only if array tags contains “Hiring Manager”.
+3) Monday Create Item:
+  • Board: your CRM board
+  • Name: {{lead.company}} — {{lead.name}}
+  • Column JSON mapping similar to:
+    {"client_name":"{{lead.company}}","contact_name":"{{lead.name}}","email":"{{lead.email}}","title":"{{lead.title}}","stage":"New"}
+4) Slack: Notify team a new CRM client was created.`
     },
     {
       id: 8,
