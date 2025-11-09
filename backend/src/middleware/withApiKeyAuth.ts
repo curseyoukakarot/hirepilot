@@ -31,12 +31,11 @@ export async function withApiKeyAuth(req: Request): Promise<ApiKeyAuthContext | 
         checked.push(col);
         const { data, error } = await (supabaseDb as any)
           .from('api_keys')
-          .select('id,key,user_id,is_active')
+          .select('*')
           .eq(col as any, keyValue)
           .maybeSingle();
         if (error) {
-          // Column may not exist in this environment; skip with a soft log
-          console.log(`[Auth] api_keys lookup skipped column '${col}': ${error.message}`);
+          console.log(`[Auth] api_keys lookup error on column '${col}': ${error.message}`);
           continue;
         }
         if (data) {
