@@ -888,18 +888,18 @@ Notes
       title: 'Campaign Relaunched → Team Announcement + Stats',
       category: 'Messaging',
       tools: ['HirePilot','Slack'],
-      description: 'On each campaign relaunch, post fresh metrics (sent, opens, replies, warm leads, bounces) to Slack.',
+      description: 'On each campaign relaunch, post fresh metrics (sends/opens/replies/clicks/bounces) with owner and timestamp to Slack.',
       setupTime: '4–6 min',
       difficulty: 'Beginner',
       setupSteps: [
         'Trigger on campaign_relaunched from HirePilot.',
-        'GET /api/campaigns/{id}/stats to retrieve latest metrics.',
-        'Send a formatted Slack message and optionally alert on low reply rate.'
+        'GET /api/campaigns/{id} for metadata and /stats for metrics.',
+        'Format rates; send Slack summary; optionally warn if reply rate < 5%.'
       ],
-      copyZap: `🚀 WORKFLOW — Campaign Relaunched → Team Announcement + Stats (Slack)
+      copyZap: `🚀 WORKFLOW — Campaign Relaunched → Team Announcement + Stats
 
 Purpose
-Every time a user relaunches a campaign, send current metrics to Slack.
+Every time a campaign is re‑launched inside HirePilot, send a detailed Slack summary with campaign name, sends/opens/replies, reply rate, owner, and timestamp.
 
 ⸻
 ✅ PART 1 — Trigger: HirePilot → campaign_relaunched
@@ -908,45 +908,58 @@ Payload:
 {
   "event_type": "campaign_relaunched",
   "campaign_id": "c123",
-  "campaign": { "id": "c123", "name": "Outbound SDR Push — October", "owner_id": "user_789" }
+  "user_id": "user_45",
+  "timestamp": "2025-11-09T14:31:09Z"
 }
-Grab campaign_id.
+Grab campaign_id and timestamp.
 
 ⸻
 ✅ PART 2 — Fetch Campaign Stats
-Step 2: Custom Request
+Step 2: Custom Request (GET)
 • Method: GET  
-• URL: https://api.thehirepilot.com/api/campaigns/{{campaign_id}}/stats  
+• URL: https://api.thehirepilot.com/api/campaigns/{{campaign_id}}  
 • Headers: X-API-Key: {{api_key}}
 Expected:
-{ "sent": 288, "open_rate": 43, "reply_rate": 11, "positive_replies": 18, "negative_replies": 3, "bounce_rate": 2, "warm_leads": 24 }
+{ "id":"cmp_123","name":"Outbound SDR — Q4 Refresh","owner_user_id":"user_45" }
+
+Step 2b: Custom Request (GET) — Stats Snapshot
+• URL: https://api.thehirepilot.com/api/campaigns/{{campaign_id}}/stats
+• Headers: X-API-Key: {{api_key}}
+Sample:
+{ "sent":330,"opens":197,"open_rate":"59.7","replies":22,"reply_rate":"6.6","bounces":4,"clicks":18 }
 
 ⸻
 ✅ PART 3 — Format Values
 Step 3: Formatter → Numbers → Format Percent
-• open_rate → “43%”  
-• reply_rate → “11%”
+• open_rate → “59.7%”  
+• reply_rate → “6.6%”
+
+⸻
+✅ PART 4 — (Optional) Fetch Owner Info
+Step 4: Custom Request (GET)
+• URL: https://api.thehirepilot.com/api/users/{{owner_user_id}}
+• Headers: X-API-Key: {{api_key}}
+Response:
+{ "id":"user_45","name":"Megan Cole","email":"megan@thehirepilot.com" }
+Set campaign_owner_name = response.name (fallback to user_id).
 
 ⸻
 ✅ PART 4 — Post Slack Update
-Step 4: Slack → Send Channel Message
+Step 5: Slack → Send Channel Message
 Channel: #team-leads (or user-selected)
 Message:
-🚀 *Campaign Relaunched!*  
-Campaign: *{{campaign.name}}*
-Here are the latest metrics:
-- 📤 Sent: {{sent}}
-- 👀 Open Rate: {{open_rate}}%
-- 💬 Reply Rate: {{reply_rate}}%
-- 🔥 Warm Leads: {{warm_leads}}
-- ✅ Positive Replies: {{positive_replies}}
-- ❌ Negative Replies: {{negative_replies}}
-- 🛑 Bounce Rate: {{bounce_rate}}%
-Keep up the momentum!
+📣 *Campaign Relaunched!*
+*Campaign:* {{campaign.name}}
+*Sent:* {{sent}}
+*Opens:* {{opens}} ({{open_rate}}%)
+*Replies:* {{replies}} ({{reply_rate}}%)
+*Clicks:* {{clicks}}
+Owner: {{campaign_owner_name}}
+Time: {{timestamp}}
 
 ⸻
 ✅ PART 5 — Optional Condition
-Step 5: Filter → Only continue if reply_rate < 5  
+Step 6: Filter → Only continue if reply_rate < 5  
 Then Slack message:
 ⚠️ Low reply rate detected for {{campaign.name}} — consider A/B testing subject lines.
 
@@ -975,7 +988,7 @@ Tip
         'Filter for open_rate > 45 or reply_rate > 15.',
         'POST /api/templates/{id}/clone to Top Performers and alert Slack; optionally log to Notion.'
       ],
-      copyZap: `🚀 WORKFLOW — High‑Performing Template → Clone to Top Performers Folder
+      copyZap: `🚀 WORKFLOW — High‑Performing Template → Clone to Top Performers Folder (and optionally New Campaign)
 
 Purpose
 Surface winning templates automatically and store them in “Top Performers” for reuse.
@@ -1008,6 +1021,18 @@ Step 3: Custom Request
 • Headers: X-API-Key: {{api_key}}, Content-Type: application/json  
 • Body: { "target_folder": "Top Performers" }
 Expected: { "new_template_id": "temp_239", "status": "cloned" }
+
+⸻
+✅ PART 4.5 — Optional: Attach to New Campaign
+Step 3b: Create Fresh Campaign
+• Method: POST  
+• URL: https://api.thehirepilot.com/api/campaigns  
+• Headers: X-API-Key: {{api_key}}, Content-Type: application/json  
+• Body:
+{
+  "name": "Top Performer — {{template.name}}",
+  "template_id": "{{new_template_id}}"
+}
 
 ⸻
 ✅ PART 4 — Notify Team
@@ -1417,7 +1442,7 @@ Filters
       title: 'Lead Replied → Update Candidate Profile in Notion',
       category: 'REX Intelligence Engine',
       tools: ['HirePilot','Notion'],
-      description: 'When a lead replies, summarize and append to the candidate profile in Notion.',
+      description: 'When a candidate/lead replies, append the latest message to their Notion timeline for perfect CRM sync.',
       setupTime: '5 min',
       difficulty: 'Beginner',
       setupSteps: [
@@ -1425,12 +1450,86 @@ Filters
         'Enable trigger: lead_replied.',
         'Append reply + timestamp into Notion.'
       ],
-      copyZap: [
-        'Trigger: HirePilot → lead_replied',
-        'Action: Notion → Search for page',
-        'Action: Notion → Append reply',
-        'Action: /api/leads/:id/update (status = “Replied”)'
-      ].join('\n')
+      copyZap: `🚀 WORKFLOW — Reply Detected → Update Candidate Profile in Notion
+
+Purpose
+When a candidate replies (email, LI, SMS), append the latest message to their Notion timeline.
+
+⸻
+✅ PART 1 — Trigger: Reply Event
+Step 1: Webhooks by Zapier → Catch Hook
+Payload:
+{
+  "event_type": "candidate_replied",
+  "candidate_id": "cand_987",
+  "reply_text": "Hey! I'm available this Friday at 2pm.",
+  "timestamp": "2025-11-09T15:59:11"
+}
+
+⸻
+✅ PART 2 — Fetch Candidate Details
+Step 2: Custom Request (GET)
+• URL: https://api.thehirepilot.com/api/candidates/{{candidate_id}}
+• Headers: X-API-Key: {{api_key}}
+Response:
+{
+  "id": "cand_987",
+  "name": "Heather Martinez",
+  "email": "heather.martinez@example.com",
+  "title": "Product Designer",
+  "notion_page_id": "f34f4452-9327-4823-8921-901af51f82f3"
+}
+
+⸻
+✅ PART 3 — Format the Reply Text
+Step 3: Formatter → Text Template
+Template:
+**{{timestamp}}**
+{{reply_text}}
+Output: formatted_reply
+
+⸻
+✅ PART 4 — Append to Notion Timeline
+Step 4: Webhooks by Zapier → Custom Request
+• Method: PATCH
+• URL: https://api.notion.com/v1/blocks/{{notion_page_id}}/children
+• Headers:
+  - Authorization: Bearer {{notion_api_key}}
+  - Content-Type: application/json
+  - Notion-Version: 2021-08-16
+• Body:
+{
+  "children": [
+    {
+      "object": "block",
+      "type": "callout",
+      "callout": {
+        "rich_text": [
+          { "type": "text", "text": { "content": "{{formatted_reply}}" } }
+        ],
+        "icon": { "emoji": "💬" }
+      }
+    }
+  ]
+}
+
+⸻
+✅ PART 5 — Optional: Slack Confirmation
+Message:
+✅ Notion updated for {{candidate.name}}  
+Reply synced: "{{reply_text}}"`,
+      copyMake: `MAKE.COM BLUEPRINT — Reply Detected → Update Candidate in Notion
+Modules
+1) Webhooks → Custom webhook (candidate_replied)
+2) HTTP GET → /api/candidates/{{candidate_id}}
+3) Tools → Template → "**{{timestamp}}**\\n{{reply_text}}"
+4) HTTP PATCH → https://api.notion.com/v1/blocks/{{notion_page_id}}/children (append callout)
+5) (Optional) Slack → Create a message
+
+Headers for Notion
+• Authorization: Bearer {{notion_api_key}}
+• Content-Type: application/json
+• Notion-Version: 2021-08-16`
     },
     {
       id: 18,
