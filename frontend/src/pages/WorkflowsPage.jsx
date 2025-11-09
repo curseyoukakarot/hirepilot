@@ -601,7 +601,8 @@ Skrapp → Lead enters HirePilot → HirePilot enriches → Zap triggers → Int
 
 ⸻
 ✅ PART 1 — Trigger (Skrapp → HirePilot Ingest)
-Step 1: Trigger — Webhooks by Zapier → Catch Hook
+Option A (direct payload):
+• Webhooks by Zapier → Catch Hook
 Example payload:
 {
   "source": "skrapp",
@@ -631,6 +632,19 @@ Action: Webhooks by Zapier → Custom Request
 Step 3: Extract Lead ID from Response
 Zapier output:
 { "id": "lead_123", "status": "created" }
+
+⸻
+⸻
+Option B (event-driven):
+• Webhooks by Zapier → Catch Hook (HirePilot event)
+Payload:
+{
+  "event_type": "lead_created",
+  "source": "Skrapp",
+  "lead_id": "abc123456"
+}
+Add Filter: source == "Skrapp"
+Then GET https://api.thehirepilot.com/api/leads/{{lead_id}} (X-API-Key) to hydrate fields before sending or enrichment.
 
 ⸻
 ✅ PART 2 — Enrich the Lead Automatically
@@ -693,71 +707,77 @@ Filters
         'Select a channel for reply alerts.',
         'Enable reply notifications in Notifications.'
       ],
-      copyZap: `🚀 WORKFLOW — Lead Replied → Slack Alert
+      copyZap: `🚀 WORKFLOW — Lead Replied → Notify Recruiter in Slack
 
 Purpose
-When a lead replies through any HirePilot channel, notify Slack with message content, lead info, and campaign name.
+Instant Slack alerts when any prospect replies. Includes message excerpt, lead profile, campaign name, and supports optional auto‑enrich if the email is missing.
 
 ⸻
-✅ PART 1 — Trigger Setup (HirePilot Reply Event)
-Step 1: Trigger
-• App: Webhooks by Zapier (Catch Hook) or HirePilot Webhooks
-• Event: lead_replied (reply_detected)
-
-Payload Example:
+✅ PART 1 — Trigger: HirePilot Reply Event
+Step 1: Trigger — Webhooks by Zapier → Catch Hook
+Expected payload:
 {
   "event_type": "lead_replied",
-  "lead": {
-    "id": "lead_123",
-    "name": "Jessica Ray",
-    "email": "jessica@startup.com",
-    "company": "Startup Labs"
-  },
-  "reply": {
-    "message": "Hey Brandon — yes we’re hiring!",
-    "timestamp": "2025-11-09T10:32:15Z",
-    "campaign": "AE Hiring 2025"
-  }
+  "lead_id": "dc621ef8-337c-4c5a-a1ec-c074f487db17",
+  "campaign_id": "cmp_123",
+  "message_id": "msg_778",
+  "reply_text": "Hey, yes I'm interested. Let's talk.",
+  "timestamp": "2025-11-09T12:55:23.111Z"
 }
+Grab lead_id, campaign_id, reply_text.
 
 ⸻
-✅ PART 2 — Clean the Message Body
-Step 2: Formatter → Text → Replace
-• Replace: <br> → \\n
-• Replace: double spaces → single space
+✅ PART 2 — Get Lead Info
+Step 2: Custom Request (GET)
+• URL: https://api.thehirepilot.com/api/leads/{{lead_id}}
+• Headers: X-API-Key: {{your_api_key}}
+Response includes: name, title, company, email, linkedin_url.
 
 ⸻
-✅ PART 3 — Send Slack Notification
-Step 3: Slack → Send Channel Message
+✅ PART 3 — Get Campaign Name
+Step 3: Custom Request (GET)
+• URL: https://api.thehirepilot.com/api/campaigns/{{campaign_id}}
+• Headers: X-API-Key: {{your_api_key}}
+Response includes: { "id":"cmp_123","name":"SDR Outbound — Q4" }
+
+⸻
+✅ PART 4 — Format Reply Snippet Safely
+Step 4: Formatter → Text → Truncate
+• Input: {{reply_text}}  
+• Length: 200 chars → output “reply_snippet”
+Also (optional) Formatter → Text → Replace to normalize line breaks.
+
+⸻
+✅ PART 5 — Send Slack Notification
+Step 5: Slack → Send Channel Message
 Message:
-💬 *New Reply Detected!*
-*Lead:* {{lead.name}} — {{lead.email}}
-*Company:* {{lead.company}}
-*Campaign:* {{reply.campaign}}
-*Time:* {{reply.timestamp}}
-*Message:* 
-“{{reply.message}}”
+💬 *New Reply Received!*
+*Lead:* {{lead.name}} — {{lead.title}} @ {{lead.company}}  
+*Email:* {{lead.email}}  
+*Campaign:* {{campaign.name}}
+Reply:
+> "{{reply_snippet}}"
+🔗 LinkedIn: {{lead.linkedin_url}}
 
 ⸻
-✅ PART 4 — Add Context from HirePilot (Optional)
-Step 4: HTTP GET to fetch more history
-URL: https://api.thehirepilot.com/api/leads/{{lead.id}}
-Headers:
-• X-API-Key: <YOUR_API_KEY>
-
-Append to Slack:
-*Past Messages:* {{history_snippet}}
+✅ OPTIONAL — Auto‑Enrich if Email Missing
+If {{lead.email}} empty:
+• POST https://api.thehirepilot.com/api/leads/{{lead_id}}/enrich  
+  Headers: X-API-Key: {{api_key}}
+Then re‑post Slack with the updated email if found.
 
 ✅ DONE`,
-      copyMake: `MAKE.COM BLUEPRINT — Lead Replied → Slack
+      copyMake: `MAKE.COM BLUEPRINT — Lead Replied → Notify Recruiter in Slack
 Modules
 1) Webhooks → Custom webhook (lead_replied)
-2) Tools → Text functions for cleaning body (optional)
-3) Slack → Create a message
-4) (Optional) HTTP GET → /api/leads/{{lead.id}} to include context
+2) HTTP GET → /api/leads/{{lead_id}}
+3) HTTP GET → /api/campaigns/{{campaign_id}}
+4) Tools → Text → Truncate reply to 200 chars
+5) Slack → Create a message
+6) (Optional) HTTP POST → /api/leads/{{lead_id}}/enrich if email missing → Slack again
 
-Filters
-• Ensure reply.message exists before sending.`
+Notes
+• Add a filter to ensure reply_text exists before posting.`
     },
     {
       id: 5,
@@ -1030,81 +1050,66 @@ Notes
         'Connect Monday.com or Notion.',
         'Map fields (Name, Email, Status) to your CRM.'
       ],
-      copyZap: `🚀 WORKFLOW — Lead Tagged “Hiring Manager” → Create Client in CRM
+      copyZap: `🚀 WORKFLOW — Lead Tagged “Hiring Manager” → Create Client in CRM (Monday.com)
 
 Purpose
-When a lead in HirePilot gets the tag “Hiring Manager,” automatically create a CRM client record (e.g., Monday.com).
+Auto‑create a client record in Monday when a user tags someone “Hiring Manager” in HirePilot.
 
 ⸻
-✅ PART 1 — Trigger (HirePilot → Zapier)
-Step 1: Create Zap → Trigger
-• App: HirePilot (Webhooks) or Webhooks by Zapier → Catch Hook
-• Event: lead_tagged
-
-Payload Example:
+✅ PART 1 — Trigger: Hiring Manager Tag Added
+Step 1: Webhooks by Zapier → Catch Hook
+Payload:
 {
-  "event_type": "lead_tagged",
-  "lead": {
-    "id": "lead_123",
-    "name": "Chris Loper",
-    "email": "chris@company.com",
-    "title": "COO",
-    "company": "Kickboxing Fitness",
-    "tags": ["Hiring Manager"]
-  }
+  "event_type": "lead_tag_added",
+  "lead_id": "dc621ef8-337c-4c5a-a1ec-c074f487db17",
+  "tag": "Hiring Manager"
 }
 
 ⸻
-✅ PART 2 — Filter (Only Hiring Manager Tag)
-Step 2: Add Filter
-• Field: lead.tags[]
-• Condition: “Text Contains”
-• Value: Hiring Manager
+✅ PART 2 — Filter
+Step 2: Filter by Zapier
+• Continue only if tag == "Hiring Manager"
 
 ⸻
-✅ PART 3 — Create Client in Monday.com
-Step 3: Add Action
-• App: Monday.com
-• Event: Create Item
-
-Step 4: Map Fields
-• Board: your client CRM board
-• Item Name: {{lead.company}} — {{lead.name}}
-• Column Values (example JSON if required by your board):
-{
-  "client_name": "{{lead.company}}",
-  "contact_name": "{{lead.name}}",
-  "email": "{{lead.email}}",
-  "title": "{{lead.title}}",
-  "stage": "New"
-}
+✅ PART 3 — Get Full Lead Profile
+Step 3: Custom Request (GET)
+• URL: https://api.thehirepilot.com/api/leads/{{lead_id}}
+• Headers: X-API-Key: {{api_key}}
+Response includes name, title, company, email, location.
 
 ⸻
-✅ PART 4 — Optional Slack Confirmation
-Step 5: Slack → Send message
+✅ PART 4 — Check if Client Already Exists (Optional Safety)
+Step 4: Monday GraphQL Query
+• POST https://api.monday.com/v2
+• Headers: Authorization: {{monday_api_key}}, Content-Type: application/json
+• Body:
+{ "query": "query { items_by_column_values(board_id: 123456, column_id: \\"email\\", column_value: \\"{{email}}\\") { id } }" }
+If items found → STOP (client exists).
+
+⸻
+✅ PART 5 — Create Client in Monday
+Step 5: Monday GraphQL Mutation
+• POST https://api.monday.com/v2
+• Body:
+{ "query": "mutation { create_item(board_id: 123456, item_name: \\"{{lead.company}}\\", column_values: \\"{\\\\\\"email\\\\\\": \\\\\\"{{lead.email}}\\\\\\", \\\\\\"text\\\\\\": \\\\\\"{{lead.name}} — {{lead.title}}\\\\\\", \\\\\\"location\\\\\\": \\\\\\"{{lead.location}}\\\\\\"}\\" ) { id } }" }
+
+⸻
+✅ PART 6 — Push Confirmation to Slack (Optional)
 Message:
-✅ New CRM client created:
-Company: {{lead.company}}
-Contact: {{lead.name}} ({{lead.email}})
-Title: {{lead.title}}
-
-✅ DONE`,
-      copyMake: `MAKE.COM BLUEPRINT — Lead Tagged “Hiring Manager” → Create Client
+🤝 New CRM Client added:
+{{lead.company}}
+Contact: {{lead.name}}, {{lead.title}}`,
+      copyMake: `MAKE.COM BLUEPRINT — Lead Tagged “Hiring Manager” → Create Client (Monday)
 Modules
-1) Webhooks → Custom webhook (lead_tagged)
-2) Flow Control → Filter (tags contains “Hiring Manager”)
-3) Monday.com → Create Item
-4) (Optional) Slack → Post message
+1) Webhooks → Custom webhook (lead_tag_added)
+2) Filter → tag == "Hiring Manager"
+3) HTTP GET → /api/leads/{{lead_id}}
+4) HTTP POST → monday.com/v2 (GraphQL) items_by_column_values (email) to dedupe
+5) HTTP POST → monday.com/v2 (GraphQL) create_item with mapped columns
+6) (Optional) Slack → Create a message
 
-Details
-1) Webhook: Receive HirePilot event with lead object.
-2) Filter: Proceed only if array tags contains “Hiring Manager”.
-3) Monday Create Item:
-  • Board: your CRM board
-  • Name: {{lead.company}} — {{lead.name}}
-  • Column JSON mapping similar to:
-    {"client_name":"{{lead.company}}","contact_name":"{{lead.name}}","email":"{{lead.email}}","title":"{{lead.title}}","stage":"New"}
-4) Slack: Notify team a new CRM client was created.`
+Notes
+• Use board_id/column_ids appropriate for the user’s Monday board.`
     },
     {
       id: 8,
