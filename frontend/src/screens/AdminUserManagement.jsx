@@ -442,8 +442,8 @@ export default function AdminUserManagement() {
 
   {/* Backfill Drips Modal */}
   {dripModalOpen && (
-    <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-3xl shadow-lg border border-gray-200">
+    <div className="fixed inset-0 bg-black bg-opacity-20 z-50 overflow-y-auto">
+      <div className="mx-auto my-8 bg-white rounded-lg p-6 w-[calc(100%-2rem)] max-w-3xl shadow-lg border border-gray-200 max-h-[85vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-gray-800">Backfill Drip Emails</h2>
           <button onClick={() => setDripModalOpen(false)} className="text-gray-500 hover:text-gray-700">✕</button>
@@ -532,8 +532,8 @@ export default function AdminUserManagement() {
 
   {/* Email Status Modal */}
   {emailStatusOpen && (
-    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl p-6 w-full max-w-5xl shadow-2xl border border-gray-200">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/30 backdrop-blur-sm">
+      <div className="mx-auto my-6 sm:my-10 bg-white rounded-2xl p-6 w-[calc(100%-2rem)] max-w-5xl shadow-2xl border border-gray-200">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-extrabold text-gray-900 tracking-tight">Email Status</h2>
           <button onClick={() => setEmailStatusOpen(false)} className="text-gray-500 hover:text-gray-700 transition">✕</button>
@@ -557,7 +557,7 @@ export default function AdminUserManagement() {
         </div>
 
         {/* Content */}
-        <div className="min-h-[200px]">
+        <div className="min-h-[160px] max-h-[75vh] overflow-y-auto pr-1">
           {emailStatusLoading ? (
             <div className="flex items-center justify-center py-16 text-gray-500 animate-pulse">Loading…</div>
           ) : (emailStatusData || []).length === 0 ? (
