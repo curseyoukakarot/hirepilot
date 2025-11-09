@@ -157,6 +157,7 @@ import { sniperJobsWorker } from './src/workers/sniper.jobs.worker';
 // MCP Support Agent routes
 import agentTokenRoute from './src/routes/agentToken';
 import supportTools from './src/routes/support';
+import externalInvoiceRouter from './src/routes/externalInvoice';
 // Defer MCP SSE server initialization to runtime with a safe try/catch
 
 declare module 'express-list-endpoints';
@@ -469,6 +470,8 @@ app.use('/api/stripe', stripeIntegrationRouter);
   app.use('/api/cron', cronProcessorRouter);
   app.use('/api/admin', adminUsersRouter);
   app.use('/api/admin', adminRouter);
+  // External integrations test endpoint (accepts optional X-API-Key)
+  app.use('/api', externalInvoiceRouter);
 // Advanced Agent Mode (Personas & Schedules)
 // NOTE: Mount AFTER public OAuth callbacks (e.g., /api/slack/callback) to avoid intercepting with auth
 // We'll attach this later in the file after Slack routes are declared.
