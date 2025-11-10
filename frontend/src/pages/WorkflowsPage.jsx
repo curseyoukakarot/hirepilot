@@ -36,10 +36,15 @@ export default function WorkflowsPage() {
             if (Array.isArray(scoped) && scoped.length) {
               initial = scoped;
             } else {
-              const legacy = JSON.parse(localStorage.getItem('hp_my_workflows_v1') || '[]');
+              const legacyKey = 'hp_my_workflows_v1';
+              const legacy = JSON.parse(localStorage.getItem(legacyKey) || '[]');
               if (Array.isArray(legacy) && legacy.length) {
                 initial = legacy;
-                try { localStorage.setItem(key, JSON.stringify(initial)); } catch {}
+                try { 
+                  localStorage.setItem(key, JSON.stringify(initial)); 
+                  // Remove legacy global key to prevent cross-account bleed on this browser
+                  localStorage.removeItem(legacyKey); 
+                } catch {}
               }
             }
           } catch {}
