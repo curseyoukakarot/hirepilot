@@ -42,7 +42,9 @@ export default function SalesAgentSettingsCard(){
   const [policy, setPolicy] = useState<any|null>(null);
   const [needs, setNeeds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
-  const [preview, setPreview] = useState('');
+  const [previewText, setPreviewText] = useState('');
+  const [editingPreview, setEditingPreview] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [testTo, setTestTo] = useState('');
 
   useEffect(() => { (async()=>{
@@ -82,6 +84,29 @@ export default function SalesAgentSettingsCard(){
     lines.push('— {{yourName}}');
     return lines.join('\n\n');
   }, [policy]);
+
+  // Initialize preview text when policy changes
+  useEffect(() => {
+    if (!editingPreview) setPreviewText(previewBody);
+  }, [previewBody, editingPreview]);
+
+  async function refreshWithRex(instructions?: string){
+    try {
+      setRefreshing(true);
+      const res = await apiPost('/api/rex/tools', {
+        tool: 'sales_preview_reply',
+        args: {
+          policy,
+          previous_text: previewText || previewBody,
+          instructions: instructions || 'new variation'
+        }
+      });
+      const next = res?.text || '';
+      if (next && typeof next === 'string') setPreviewText(next);
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   if (!policy) return <div className="text-sm text-gray-300">Loading settings…</div>;
 
@@ -148,8 +173,70 @@ export default function SalesAgentSettingsCard(){
 
       <div>
         <div className="text-sm font-medium text-gray-200 mb-1">Live preview</div>
-        <pre className="rounded border border-slate-700 bg-slate-900 p-3 text-sm text-gray-200 whitespace-pre-wrap">{previewBody}</pre>
-        <button className="mt-2 rounded bg-slate-700 hover:bg-slate-600 px-3 py-1.5 text-xs text-white" onClick={()=> setPreview(previewBody)}>Refresh preview</button>
+        {!editingPreview ? (
+          <pre className="rounded border border-slate-700 bg-slate-900 p-3 text-sm text-gray-200 whitespace-pre-wrap">{previewText || previewBody}</pre>
+        ) : (
+          <textarea
+            className="w-full rounded border border-slate-700 bg-slate-950 p-3 text-sm text-white min-h-[180px]"
+            value={previewText}
+            onChange={(e)=> setPreviewText(e.target.value)}
+          />
+        )}
+        <div className="mt-2 flex items-center gap-2">
+          <button
+            className="rounded bg-slate-700 hover:bg-slate-600 px-3 py-1.5 text-xs text-white"
+            onClick={()=> refreshWithRex()}
+            disabled={refreshing}
+            title="Ask REX to generate a fresh variation"
+          >
+            {refreshing ? 'Refreshing…' : 'Refresh preview (REX)'}
+          </button>
+          {!editingPreview ? (
+            <button
+              className="rounded bg-slate-800 hover:bg-slate-700 px-3 py-1.5 text-xs text-white"
+              onClick={()=> setEditingPreview(true)}
+              title="Edit this draft directly"
+            >
+              Edit
+            </button>
+          ) : (
+            <button
+              className="rounded bg-emerald-700 hover:bg-emerald-600 px-3 py-1.5 text-xs text-white"
+              onClick={()=> setEditingPreview(false)}
+              title="Save your edited draft"
+            >
+              Save draft
+            </button>
+          )}
+          <button
+            className="rounded bg-purple-700 hover:bg-purple-600 px-3 py-1.5 text-xs text-white"
+            onClick={async ()=>{
+              try {
+                const msg = [
+                  'Help me tune my Sales Agent reply parameters. Consider tone, length, format, and CTAs.',
+                  'Current policy JSON:',
+                  '```json',
+                  JSON.stringify(policy || {}, null, 2),
+                  '```',
+                  'Current preview text:',
+                  '```',
+                  (previewText || previewBody || ''),
+                  '```'
+                ].join('\n');
+                await fetch('/api/rex/chat', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ userId: undefined, messages: [{ role: 'user', content: msg }] })
+                }).catch(()=>{});
+              } finally {
+                window.open('/rex-chat', '_blank');
+              }
+            }}
+            title="Open REX to adjust reply style and parameters"
+          >
+            Tune with REX
+          </button>
+        </div>
       </div>
 
       {/* Test tools */}

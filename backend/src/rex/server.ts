@@ -1815,6 +1815,68 @@ server.registerCapabilities({
         return { ok:true };
       }
     },
+    // --- Sales Agent: generate a preview reply from current policy (no thread required) ---
+    sales_preview_reply: {
+      parameters: { 
+        userId: { type:'string', optional: true },
+        policy: { type:'object', optional: true },
+        instructions: { type:'string', optional: true },
+        previous_text: { type:'string', optional: true }
+      },
+      // Heuristic generator; avoids model dependency for low-latency preview
+      handler: async ({ policy, instructions, previous_text }: any) => {
+        const safe = policy || {};
+        const assets = safe.assets || {};
+        const scheduling = safe.scheduling || {};
+        const event = scheduling.event_type ? `https://calendly.com/${scheduling.event_type}` : null;
+        const greetings = [
+          'Hey {{firstName}} — appreciate the reply!',
+          'Hi {{firstName}}, thanks for getting back to me.',
+          'Hey {{firstName}}, great to hear from you.',
+          'Hi {{firstName}} — really appreciate the quick response.'
+        ];
+        // Pick a different greeting than previous_text if possible
+        let greeting = greetings[0];
+        for (const g of greetings) {
+          if (!previous_text || !String(previous_text).startsWith(g)) { greeting = g; break; }
+        }
+        const lines: string[] = [];
+        lines.push(greeting);
+        if (assets.demo_video_url) lines.push(`Here’s a quick demo: ${assets.demo_video_url}`);
+        if (assets.pricing_url) lines.push(`Pricing details: ${assets.pricing_url}`);
+        if (assets.one_pager_url) lines.push(`One-pager: ${assets.one_pager_url}`);
+        if (assets.deck_url) lines.push(`Deck: ${assets.deck_url}`);
+        if (event) {
+          lines.push(`Grab a time here: ${event}`);
+        } else {
+          lines.push('If helpful, I can share a quick link to book a time.');
+        }
+        lines.push('— {{yourName}}');
+        let text = lines.filter(Boolean).join('\n\n');
+        // Lightweight instruction transforms
+        const ix = String(instructions || '').toLowerCase();
+        if (ix.includes('short')) {
+          const shortLines = [greeting, event ? `Grab a time here: ${event}` : 'Happy to share a quick scheduling link.','— {{yourName}}'];
+          text = shortLines.join('\n\n');
+        } else if (ix.includes('bullet')) {
+          const main: string[] = [];
+          if (assets.demo_video_url) main.push(`• Demo: ${assets.demo_video_url}`);
+          if (assets.pricing_url) main.push(`• Pricing: ${assets.pricing_url}`);
+          if (assets.one_pager_url) main.push(`• One-pager: ${assets.one_pager_url}`);
+          if (assets.deck_url) main.push(`• Deck: ${assets.deck_url}`);
+          if (event) main.push(`• Book: ${event}`);
+          text = [greeting, ...main, '— {{yourName}}'].join('\n');
+        } else if (ix.includes('warmer') || ix.includes('friend') || ix.includes('casual')) {
+          text = text.replace('appreciate the reply','really appreciate you responding').replace('Grab a time here','Would you like to grab a quick time here');
+        }
+        // Minor rewrite if previous_text provided (avoid exact duplicate)
+        if (previous_text && text.trim() === String(previous_text).trim()) {
+          text = text.replace('Grab a time here', 'Here’s my calendar');
+          if (!ix) text += '\n\nP.S. I can tailor a quick walkthrough to your use case.';
+        }
+        return { text };
+      }
+    },
     rex_widget_support_get_ctas: {
       parameters: {},
       handler: async () => {

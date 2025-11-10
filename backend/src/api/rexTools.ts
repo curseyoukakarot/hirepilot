@@ -18,6 +18,24 @@ export default async function rexToolsHandler(req: Request, res: Response) {
       return res.status(400).json({ error: 'Tool name is required' });
     }
 
+    // Lightweight bridge to registered MCP tool capabilities
+    if (tool === 'sales_preview_reply') {
+      try {
+        const { server: rexServer } = await import('../rex/server');
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const caps: any = (rexServer as any).getCapabilities?.();
+        const t = caps?.tools?.['sales_preview_reply'];
+        if (!t?.handler) {
+          return res.status(404).json({ error: 'sales_preview_reply tool not available' });
+        }
+        const result = await t.handler({ userId, ...(args || {}) });
+        return res.status(200).json(result);
+      } catch (e: any) {
+        console.error('[rexTools] sales_preview_reply error', e?.message || e);
+        return res.status(500).json({ error: 'tool_error', message: e?.message || String(e) });
+      }
+    }
+
     // Handle the linkedin_connect tool
     if (tool === 'linkedin_connect') {
       const { linkedin_urls, message, scheduled_at } = args || {};
