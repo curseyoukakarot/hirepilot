@@ -2,6 +2,11 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { supabase } from '../../lib/supabase';
 
+// Treat empty strings as undefined for optional URL fields
+const emptyToUndefined = (v: unknown) =>
+  typeof v === 'string' && v.trim() === '' ? undefined : v;
+const urlOptional = z.preprocess(emptyToUndefined, z.string().url().optional());
+
 const PolicySchema = z.object({
   mode: z.enum(['share','handle']).default('handle'),
   reply_style: z.object({
@@ -22,7 +27,7 @@ const PolicySchema = z.object({
     time_window_days: z.number().int().min(1).max(30).default(10),
     work_hours: z.string().default('9-5'),
     timezone: z.string().default('America/Chicago'),
-    fallback_link: z.string().url().optional()
+    fallback_link: urlOptional
   }).default({}),
   sender: z.object({
     behavior: z.enum(['single','rotate']).default('single'),
@@ -32,13 +37,13 @@ const PolicySchema = z.object({
     sku: z.string(),
     name: z.string(),
     price: z.string().optional(),
-    url: z.string().url().optional()
+    url: urlOptional
   })).default([]),
   assets: z.object({
-    demo_video_url: z.string().url().optional(),
-    deck_url: z.string().url().optional(),
-    pricing_url: z.string().url().optional(),
-    one_pager_url: z.string().url().optional()
+    demo_video_url: urlOptional,
+    deck_url: urlOptional,
+    pricing_url: urlOptional,
+    one_pager_url: urlOptional
   }).default({}),
   limits: z.object({
     per_thread_daily: z.number().int().min(1).max(3).default(1),
