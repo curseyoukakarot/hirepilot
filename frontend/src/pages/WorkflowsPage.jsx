@@ -1697,7 +1697,7 @@ Headers for Notion
             <i className="fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
           </div>
         </div>
-        <button className="bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-2 rounded-lg font-semibold hover:scale-105 transition">
+        <button onClick={() => window.open('/sandbox','_self')} className="bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-2 rounded-lg font-semibold hover:scale-105 transition">
           <i className="fa-solid fa-plus mr-2"></i>
           Add Workflow
         </button>
