@@ -682,15 +682,22 @@ export default function SandboxPage() {
       });
       if (res.ok) {
         try {
-          // When activated, persist to My Workflows list used by /workflows
+          // When activated, persist to My Workflows list used by /workflows (scoped per user)
           const titleEl = document.querySelector('#workflow-node-1 h3') as HTMLElement | null;
           const title = (titleEl?.textContent || 'Activated Workflow').trim();
           const description = 'Workflow activated from Sandbox';
-          const stored = JSON.parse(localStorage.getItem('hp_my_workflows_v1') || '[]');
+          // Determine per-user storage key
+          let key = 'hp_my_workflows_v1';
+          try {
+            const { data: { user } } = await supabase.auth.getUser();
+            const uid = user?.id || 'anon';
+            key = `hp_my_workflows_v2_${uid}`;
+          } catch {}
+          const stored = JSON.parse(localStorage.getItem(key) || '[]');
           const exists = Array.isArray(stored) && stored.some((w:any) => w.title === title);
           const wf = { id: Date.now(), title, description, tools: [], category: 'Custom' };
           const next = exists ? stored : [...stored, wf];
-          localStorage.setItem('hp_my_workflows_v1', JSON.stringify(next));
+          localStorage.setItem(key, JSON.stringify(next));
         } catch {}
         alert('Workflow activated');
       } else {

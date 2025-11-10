@@ -10,9 +10,8 @@ export default function WorkflowsPage() {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [activeTab, setActiveTab] = useState('library'); // 'library' | 'mine'
-  const [savedWorkflows, setSavedWorkflows] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('hp_my_workflows_v1') || '[]'); } catch { return []; }
-  });
+  const [savedWorkflows, setSavedWorkflows] = useState(() => []);
+  const [storageKey, setStorageKey] = useState('hp_my_workflows_v1'); // will be namespaced per-user once user is known
   const [integrationStatus, setIntegrationStatus] = useState({ slack:false, zapier:false, sendgrid:false, stripe:false, linkedin:false });
   const [showAddedToast, setShowAddedToast] = useState(false);
   const [isFree, setIsFree] = useState(false);
@@ -24,6 +23,28 @@ export default function WorkflowsPage() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
+        // Set per-user storage key and hydrate saved workflows
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          const uid = user?.id || 'anon';
+          const key = `hp_my_workflows_v2_${uid}`;
+          setStorageKey(key);
+          // Migrate legacy global list once for this user if needed
+          let initial = [];
+          try {
+            const scoped = JSON.parse(localStorage.getItem(key) || '[]');
+            if (Array.isArray(scoped) && scoped.length) {
+              initial = scoped;
+            } else {
+              const legacy = JSON.parse(localStorage.getItem('hp_my_workflows_v1') || '[]');
+              if (Array.isArray(legacy) && legacy.length) {
+                initial = legacy;
+                try { localStorage.setItem(key, JSON.stringify(initial)); } catch {}
+              }
+            }
+          } catch {}
+          setSavedWorkflows(Array.isArray(initial) ? initial : []);
+        } catch {}
         const base = import.meta.env.VITE_BACKEND_URL || '';
         // 1) Best-effort consolidated settings (may not include Zapier)
         try {
@@ -1596,7 +1617,7 @@ Headers for Notion
     setSavedWorkflows(prev => {
       const exists = prev.some((x) => x.title === wf.title);
       const next = exists ? prev : [...prev, { id: Date.now(), ...wf }];
-      try { localStorage.setItem('hp_my_workflows_v1', JSON.stringify(next)); } catch {}
+      try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch {}
       return next;
     });
     setShowAddedToast(true);
@@ -1605,7 +1626,7 @@ Headers for Notion
   const removeWorkflow = (id) => {
     setSavedWorkflows(prev => {
       const next = prev.filter(w => w.id !== id);
-      try { localStorage.setItem('hp_my_workflows_v1', JSON.stringify(next)); } catch {}
+      try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch {}
       return next;
     });
   };
