@@ -490,7 +490,7 @@ export default function SettingsIntegrations() {
   };
 
   const Card = ({ iconClass, iconSrc, name, status, onConnect, onDisconnect, connectLabel = 'Connect', disableActions = false }) => (
-    <div className="p-4 bg-white rounded-xl shadow-sm flex justify-between items-center border hover:shadow-md transition-shadow">
+    <div className="p-4 bg-white dark:bg-gray-900 rounded-xl shadow-sm flex justify-between items-center border border-gray-200 dark:border-gray-800 hover:shadow-md transition-shadow">
       <div className="flex items-center gap-3">
         <div className="w-8 h-8 rounded-md flex items-center justify-center bg-transparent">
           {iconSrc ? (
@@ -500,15 +500,15 @@ export default function SettingsIntegrations() {
           )}
         </div>
         <div>
-          <p className="font-medium text-gray-900">{name}</p>
-          <p className={`text-xs ${status === 'Connected' ? 'text-green-600' : status === 'Pending' ? 'text-yellow-600' : 'text-gray-500'}`}>{status}</p>
+          <p className="font-medium text-gray-900 dark:text-gray-100">{name}</p>
+          <p className={`text-xs ${status === 'Connected' ? 'text-green-600' : status === 'Pending' ? 'text-yellow-600' : 'text-gray-500 dark:text-gray-400'}`}>{status}</p>
         </div>
       </div>
       <div className="flex items-center gap-2">
         {status === 'Connected' ? (
-          <button disabled={disableActions} onClick={onDisconnect} className="px-3 py-1 text-sm bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50">Disconnect</button>
+          <button disabled={disableActions} onClick={onDisconnect} className="px-3 py-1 text-sm bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50">Disconnect</button>
         ) : (
-          <button disabled={disableActions} onClick={onConnect} className="px-3 py-1 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50">{connectLabel}</button>
+          <button disabled={disableActions} onClick={onConnect} className="px-3 py-1 text-sm bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors disabled:opacity-50">{connectLabel}</button>
         )}
       </div>
     </div>
@@ -525,15 +525,15 @@ export default function SettingsIntegrations() {
   if (loading) return <div className="p-6">Loading integrations...</div>;
 
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
       <div className="max-w-6xl mx-auto p-6">
-        <div className="bg-gradient-to-r from-indigo-600/10 to-purple-600/10 p-6 rounded-2xl flex justify-between items-center border border-indigo-100 mb-8 shadow-sm">
+        <div className="bg-gradient-to-r from-indigo-600/10 to-purple-600/10 p-6 rounded-2xl flex justify-between items-center border border-indigo-100 dark:border-indigo-900/30 mb-8 shadow-sm">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Integrations Hub</h1>
-            <p className="text-gray-600">Manage all your connected apps and automation keys</p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Integrations Hub</h1>
+            <p className="text-gray-600 dark:text-gray-400">Manage all your connected apps and automation keys</p>
           </div>
           <div className="flex items-center gap-4">
-            <span className="px-4 py-2 bg-green-100 text-green-700 font-semibold rounded-full">
+            <span className="px-4 py-2 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-300 font-semibold rounded-full">
               <i className="fa-solid fa-plug mr-2"></i>
               {activeConnections} Active Connections
             </span>
@@ -543,26 +543,26 @@ export default function SettingsIntegrations() {
         <div className="mb-8">
           <div className="relative max-w-md">
             <i className="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
-            <input type="text" placeholder="Find Integration..." className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none" />
+            <input type="text" placeholder="Find Integration..." className="w-full pl-10 pr-4 py-3 border border-gray-200 dark:border-gray-800 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white dark:bg-gray-900 dark:text-gray-100" />
           </div>
         </div>
 
         {/* Messaging & Email */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-6">
-          <div className="flex justify-between items-center p-6 cursor-pointer hover:bg-gray-50" onClick={()=>setOpen(s=>({...s, messaging:!s.messaging}))}>
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden mb-6">
+          <div className="flex justify-between items-center p-6 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800" onClick={()=>setOpen(s=>({...s, messaging:!s.messaging}))}>
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+              <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
                 <i className="fa-solid fa-envelope text-blue-600"></i>
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Messaging & Email</h3>
-                <p className="text-sm text-gray-500">3 integrations</p>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Messaging & Email</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">3 integrations</p>
               </div>
             </div>
             <i className={`fa-solid fa-chevron-down text-gray-400 transition-transform duration-300 ${open.messaging ? 'rotate-180' : ''}`}></i>
           </div>
           {open.messaging && (
-            <div className="border-t border-gray-100 bg-gray-50 p-6">
+            <div className="border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Card
                   iconClass="fa-brands fa-google text-red-600"
@@ -591,21 +591,21 @@ export default function SettingsIntegrations() {
         </div>
 
         {/* Sourcing & Enrichment */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-6">
-          <div className="flex justify-between items-center p-6 cursor-pointer hover:bg-gray-50" onClick={()=>setOpen(s=>({...s, sourcing:!s.sourcing}))}>
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden mb-6">
+          <div className="flex justify-between items-center p-6 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800" onClick={()=>setOpen(s=>({...s, sourcing:!s.sourcing}))}>
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+              <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
                 <i className="fa-solid fa-search text-purple-600"></i>
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Sourcing & Enrichment</h3>
-                <p className="text-sm text-gray-500">3 integrations</p>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Sourcing & Enrichment</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">3 integrations</p>
               </div>
             </div>
             <i className={`fa-solid fa-chevron-down text-gray-400 transition-transform duration-300 ${open.sourcing ? 'rotate-180' : ''}`}></i>
           </div>
           {open.sourcing && (
-            <div className="border-t border-gray-100 bg-gray-50 p-6">
+            <div className="border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Card
                   iconSrc="/apollo-logo-v2.png"
@@ -623,21 +623,21 @@ export default function SettingsIntegrations() {
         </div>
 
         {/* Automations (Zapier modal enabled) */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-6">
-          <div className="flex justify-between items-center p-6 cursor-pointer hover:bg-gray-50" onClick={()=>setOpen(s=>({...s, automation:!s.automation}))}>
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden mb-6">
+          <div className="flex justify-between items-center p-6 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800" onClick={()=>setOpen(s=>({...s, automation:!s.automation}))}>
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
+              <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 rounded-lg flex items-center justify-center">
                 <i className="fa-solid fa-bolt text-amber-600"></i>
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Automations</h3>
-                <p className="text-sm text-gray-500">2 integrations</p>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Automations</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">2 integrations</p>
               </div>
             </div>
             <i className={`fa-solid fa-chevron-down text-gray-400 transition-transform duration-300 ${open.automation ? 'rotate-180' : ''}`}></i>
           </div>
           {open.automation && (
-            <div className="border-t border-gray-100 bg-gray-50 p-6">
+            <div className="border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 p-6">
               <div className="flex justify-end mb-3">
                 <button onClick={()=>requirePaid(()=>setShowZapierWizard(true),'Generate API Key')} className="px-3 py-1.5 rounded-lg text-sm bg-gray-800 text-white hover:bg-gray-700">
                   Generate API Key
@@ -658,21 +658,21 @@ export default function SettingsIntegrations() {
         </div>
 
         {/* Collaboration */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="flex justify-between items-center p-6 cursor-pointer hover:bg-gray-50" onClick={()=>setOpen(s=>({...s, collaboration:!s.collaboration}))}>
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+          <div className="flex justify-between items-center p-6 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800" onClick={()=>setOpen(s=>({...s, collaboration:!s.collaboration}))}>
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-pink-100 rounded-lg flex items-center justify-center">
+              <div className="w-10 h-10 bg-pink-100 dark:bg-pink-900/30 rounded-lg flex items-center justify-center">
                 <i className="fa-solid fa-users text-pink-600"></i>
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Collaboration</h3>
-                <p className="text-sm text-gray-500">2 integrations</p>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Collaboration</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">2 integrations</p>
               </div>
             </div>
             <i className={`fa-solid fa-chevron-down text-gray-400 transition-transform duration-300 ${open.collaboration ? 'rotate-180' : ''}`}></i>
           </div>
           {open.collaboration && (
-            <div className="border-t border-gray-100 bg-gray-50 p-6">
+            <div className="border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Card
                   iconClass="fa-solid fa-terminal text-blue-600"

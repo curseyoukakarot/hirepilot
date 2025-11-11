@@ -821,7 +821,7 @@ export default function MessagingCenter() {
   }, [showComposer, selectedMessage]);
 
   return (
-    <div className="flex h-screen bg-base-50 font-inter">
+    <div className="flex h-screen bg-base-50 dark:bg-gray-900 font-inter">
       {/* Prompt Modal */}
       {showPrompt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
@@ -1090,7 +1090,7 @@ export default function MessagingCenter() {
         </div>
       )}
       {/* Sidebar */}
-      <aside className="w-64 border-r border-gray-200 bg-gray-50 flex flex-col shadow-md">
+      <aside className="w-64 border-r border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 flex flex-col shadow-md">
         <div className="p-4">
           <button className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2 px-4 w-full flex items-center justify-center gap-2 transition-colors shadow" onClick={handleCompose}>
             <FaPenToSquare />
@@ -1102,7 +1102,7 @@ export default function MessagingCenter() {
             {folders.map((folder, idx) => (
               <li key={folder.name}>
                 <span
-                  className={`flex items-center px-3 py-2 text-sm rounded-md cursor-pointer transition-colors ${activeFolder === folder.name ? 'bg-blue-50 text-blue-700 font-semibold shadow' : 'text-gray-700 hover:bg-gray-100'}`}
+                  className={`flex items-center px-3 py-2 text-sm rounded-md cursor-pointer transition-colors ${activeFolder === folder.name ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-semibold shadow' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
                   onClick={() => {
                     if (folder.name === 'Replies') {
                       window.location.href = '/agent/inbox';
@@ -1124,8 +1124,8 @@ export default function MessagingCenter() {
       </aside>
 
       {/* Message List */}
-      <section className="w-1/3 border-r border-gray-200 overflow-y-auto flex flex-col bg-white shadow-md">
-        <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex justify-between items-center z-10">
+      <section className="w-1/3 border-r border-gray-200 dark:border-gray-800 overflow-y-auto flex flex-col bg-white dark:bg-gray-900 shadow-md">
+        <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 p-4 flex justify-between items-center z-10">
           <div className="flex items-center gap-3">
             {activeFolder !== 'Templates' && (
               <input
@@ -1168,18 +1168,18 @@ export default function MessagingCenter() {
             <button className="text-gray-500 hover:text-gray-700"><FaSort /></button>
           </div>
         </div>
-        <div className="divide-y divide-gray-200 flex-1 overflow-y-auto">
+        <div className="divide-y divide-gray-200 dark:divide-gray-800 flex-1 overflow-y-auto">
           {messageList.length === 0 ? (
             <div className="p-8 text-center text-gray-400">No messages in this folder.</div>
           ) : (
             messageList.map(msg => (
               <div
                 key={msg.id}
-                className={`p-4 hover:bg-blue-50 cursor-pointer transition-colors ${
+                className={`p-4 hover:bg-blue-50 dark:hover:bg-gray-800 cursor-pointer transition-colors ${
                   selectedMessage && selectedMessage.id === msg.id && !showComposer 
-                    ? 'bg-blue-100 border-l-4 border-blue-500 shadow' 
+                    ? 'bg-blue-100 dark:bg-blue-900/30 border-l-4 border-blue-500 shadow' 
                     : ''
-                } ${msg.isTrashed ? 'opacity-60 bg-gray-50' : ''}`}
+                } ${msg.isTrashed ? 'opacity-60 bg-gray-50 dark:bg-gray-900' : ''}`}
                 onClick={() => handleInboxClick(msg)}
               >
                 <div className="flex items-start space-x-3">
@@ -1193,7 +1193,7 @@ export default function MessagingCenter() {
                   <img src={msg.avatar} alt="Sender" className="w-10 h-10 rounded-full flex-shrink-0 shadow" />
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-center">
-                      <h3 className={`text-sm font-bold truncate ${msg.isTrashed ? 'text-gray-500' : 'text-gray-900'}`}>
+                      <h3 className={`text-sm font-bold truncate ${msg.isTrashed ? 'text-gray-500' : 'text-gray-900 dark:text-gray-100'}`}>
                         {msg.sender}
                       </h3>
                       <div className="flex items-center gap-2">
@@ -1205,10 +1205,10 @@ export default function MessagingCenter() {
                         )}
                       </div>
                     </div>
-                    <p className={`text-sm font-semibold mt-1 ${msg.isTrashed ? 'text-gray-500' : 'text-gray-900'}`}>
+                    <p className={`text-sm font-semibold mt-1 ${msg.isTrashed ? 'text-gray-500' : 'text-gray-900 dark:text-gray-100'}`}>
                       {msg.subject}
                     </p>
-                    <p className={`text-sm mt-1 truncate ${msg.isTrashed ? 'text-gray-400' : 'text-gray-600'}`}>
+                    <p className={`text-sm mt-1 truncate ${msg.isTrashed ? 'text-gray-400' : 'text-gray-600 dark:text-gray-300'}`}>
                       {msg.preview}
                     </p>
                     {msg.unread && !msg.isTrashed && (
@@ -1225,10 +1225,10 @@ export default function MessagingCenter() {
       </section>
 
       {/* Right Pane: Composer or Message View */}
-      <section className="flex-1 bg-white flex flex-col shadow-md">
+      <section className="flex-1 bg-white dark:bg-gray-900 flex flex-col shadow-md">
         {/* Composer Header */}
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-800">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
             {activeFolder === 'Templates' 
               ? (activeSubtab === 'Sequences' ? 'Sequences' : 'Templates')
               : showComposer 
@@ -1240,8 +1240,8 @@ export default function MessagingCenter() {
           </h2>
           {activeFolder !== 'Templates' && (
             <div className="flex items-center space-x-3">
-              <button className="text-gray-500 hover:text-blue-600" onClick={handleSaveDraft}><FaSave /></button>
-              <button className="text-gray-500 hover:text-blue-600" onClick={() => setShowComposer(true)}><FaTimes /></button>
+              <button className="text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400" onClick={handleSaveDraft}><FaSave /></button>
+              <button className="text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400" onClick={() => setShowComposer(true)}><FaTimes /></button>
             </div>
           )}
         </div>
