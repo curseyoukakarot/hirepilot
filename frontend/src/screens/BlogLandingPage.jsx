@@ -296,12 +296,12 @@ export default function BlogLandingPage() {
       {/* Main */}
       <main id="blog-main" className="min-h-screen">
         {/* Hero */}
-        <section id="blog-hero" className="bg-gradient-to-br from-gray-50 via-white to-gray-50 py-20">
+        <section id="blog-hero" className="bg-gradient-to-br from-gray-900 via-gray-900 to-black py-20">
           <div className="max-w-6xl mx-auto px-6 text-center">
-            <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-blue-600 to-violet-600 bg-clip-text text-transparent">
+            <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-blue-400 to-violet-400 bg-clip-text text-transparent">
               The HirePilot Blog
             </h1>
-            <p className="text-xl text-gray-600 mb-12 max-w-3xl mx-auto">
+            <p className="text-xl text-gray-300 mb-12 max-w-3xl mx-auto">
               Tips, tools, and automation insights for modern recruiters
             </p>
 
@@ -313,9 +313,9 @@ export default function BlogLandingPage() {
                   placeholder="Search articles..."
                   value={search}
                   onChange={e=>{setSearch(e.target.value);setVisible(6);}}
-                  className="w-full px-6 py-4 bg-white border-2 border-violet-200 rounded-2xl text-gray-900 placeholder-gray-500 focus:outline-none focus:border-violet-500 search-glow text-lg shadow-sm"
+                  className="w-full px-6 py-4 bg-gray-900/60 border-2 border-gray-700 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:border-violet-500 search-glow text-lg shadow-sm"
                 />
-                <i className="fa-solid fa-search absolute right-6 top-1/2 -translate-y-1/2 text-violet-500 text-xl" />
+                <i className="fa-solid fa-search absolute right-6 top-1/2 -translate-y-1/2 text-violet-400 text-xl" />
               </div>
             </div>
 
@@ -325,7 +325,7 @@ export default function BlogLandingPage() {
                 <button
                   key={t}
                   onClick={()=>{setActiveTag(t);setVisible(6);}}
-                  className={`px-6 py-2 rounded-xl font-medium transition ${activeTag===t? 'bg-violet-600 text-white':'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                  className={`px-6 py-2 rounded-xl font-medium transition ${activeTag===t? 'bg-violet-600 text-white':'bg-gray-800 text-gray-200 hover:bg-gray-700'}`}
                 >{t}</button>
               ))}
             </div>

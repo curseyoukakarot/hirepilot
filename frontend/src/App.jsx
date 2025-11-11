@@ -355,11 +355,18 @@ function InnerApp() {
     const root = document.documentElement;
     const path = location.pathname;
     const isAuthScreen = path === '/login' || path === '/signup' || path === '/reset-password';
+    const isBlogArticle = path.startsWith('/blog/') && path !== '/blog';
     try {
       if (isAuthPage && !isAuthScreen) {
         root.classList.remove('dark');
       } else {
         if (theme === 'dark') root.classList.add('dark'); else root.classList.remove('dark');
+      }
+      // Mark blog article pages so we can style .prose text color to white
+      if (isBlogArticle) {
+        root.classList.add('blog-article');
+      } else {
+        root.classList.remove('blog-article');
       }
     } catch {}
   }, [isAuthPage, theme, location.pathname]);

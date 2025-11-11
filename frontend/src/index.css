@@ -14,6 +14,7 @@ html, body, #root {
 
 /* Blog article base text color */
 .prose * { color: #111827 !important; }
+html.blog-article .prose * { color: #ffffff !important; }
 
 /* Table of Contents link styling */
 #toc-sidebar a, #toc-sidebar span { color: #4B5563 !important; transition:color .2s; }
