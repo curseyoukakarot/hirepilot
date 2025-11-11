@@ -2325,7 +2325,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                             Unlock Enhanced Company Insights (revenue, funding, technologies, keywords)
                           </div>
                           <button
-                            className="ml-3 inline-flex items-center px-3 py-1.5 rounded text-sm bg-amber-500 hover:bg-amber-400 text-black font-medium shadow border border-amber-400"
+                            className="ml-3 inline-flex items-center px-3 py-1.5 rounded text-sm bg-amber-500 hover:bg-amber-400 text-black font-medium shadow border border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-300"
                             onClick={async () => {
                               try {
                                 const { data: { session } } = await supabase.auth.getSession();
