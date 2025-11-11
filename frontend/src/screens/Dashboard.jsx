@@ -60,6 +60,7 @@ export default function Dashboard() {
   const [openProvider, setOpenProvider] = useState('all'); // 'all' | 'google' | 'outlook' | 'sendgrid'
   const [openRateDisplay, setOpenRateDisplay] = useState(null);
   const [openRange, setOpenRange] = useState('90d'); // '30d' | '90d' | '6m'
+  const [replyRange, setReplyRange] = useState('6m'); // '90d' | '6m'
   const [menuOpenFor, setMenuOpenFor] = useState(null);
   const navigate = useNavigate();
   const { isFree } = usePlan();
@@ -414,35 +415,63 @@ export default function Dashboard() {
         try {
           let labels = [];
           let vals = [];
+          // Try API with time range
           try {
-            const r = await fetchWithAuth('/api/widgets/reply-rate');
+            const r = await fetchWithAuth(`/api/widgets/reply-rate?time_range=${encodeURIComponent(replyRange)}`);
             const j = r.ok ? await r.json() : { data: [] };
             if (Array.isArray(j.data) && j.data.length) {
               labels = j.data.map((d) => d.period || '');
               vals = j.data.map((d) => d.replyRate || 0);
             }
           } catch {}
+          // Fallback to Supabase aggregation
           if (!vals.length) {
+            const days = replyRange === '6m' ? 180 : 90;
+            const sinceIso = new Date(Date.now() - days * 24 * 3600 * 1000).toISOString();
             const { data: rows } = await supabase
               .from('email_events')
-              .select('event_timestamp,event_type');
-            const bucketCount = 12;
-            const weekMs = 7 * 24 * 3600 * 1000;
-            labels = Array.from({ length: bucketCount }, (_, i) => `W${i + 1}`);
-            const sent = Array.from({ length: bucketCount }, () => 0);
-            const replies = Array.from({ length: bucketCount }, () => 0);
-            (rows || []).forEach((r) => {
-              const ts = r && r.event_timestamp ? new Date(r.event_timestamp).getTime() : null;
-              if (!ts) return;
-              const diff = Date.now() - ts;
-              const idxFromEnd = Math.min(bucketCount - 1, Math.floor(diff / (7 * 24 * 3600 * 1000)));
-              const bucket = bucketCount - 1 - idxFromEnd;
-              if (bucket < 0 || bucket >= bucketCount) return;
-              const et = r && r.event_type;
-              if (et === 'sent') sent[bucket]++;
-              if (et === 'reply') replies[bucket]++;
-            });
-            vals = labels.map((_, i) => (sent[i] ? Math.round((replies[i] / sent[i]) * 1000) / 10 : 0));
+              .select('event_timestamp,event_type')
+              .gte('event_timestamp', sinceIso);
+
+            if (replyRange === '6m') {
+              // Last 6 months, bucket by month
+              const now = new Date();
+              const buckets = Array.from({ length: 6 }, (_, i) => {
+                const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+                return { key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, label: d.toLocaleString('en-US', { month: 'short' }) };
+              });
+              labels = buckets.map(b => b.label);
+              const sent = Array(6).fill(0);
+              const replies = Array(6).fill(0);
+              (rows || []).forEach((r) => {
+                const ts = r && r.event_timestamp ? new Date(r.event_timestamp) : null;
+                if (!ts) return;
+                const key = `${ts.getFullYear()}-${String(ts.getMonth() + 1).padStart(2, '0')}`;
+                const idx = buckets.findIndex(b => b.key === key);
+                if (idx === -1) return;
+                if (r.event_type === 'sent') sent[idx] += 1;
+                if (r.event_type === 'reply') replies[idx] += 1;
+              });
+              vals = sent.map((s, i) => (s ? Math.round((replies[i] / s) * 1000) / 10 : 0));
+            } else {
+              // 90d -> 12 weeks
+              const bucketCount = 12;
+              labels = Array.from({ length: bucketCount }, (_, i) => `W${i + 1}`);
+              const sent = Array.from({ length: bucketCount }, () => 0);
+              const replies = Array.from({ length: bucketCount }, () => 0);
+              (rows || []).forEach((r) => {
+                const ts = r && r.event_timestamp ? new Date(r.event_timestamp).getTime() : null;
+                if (!ts) return;
+                const diff = Date.now() - ts;
+                const idxFromEnd = Math.min(bucketCount - 1, Math.floor(diff / (7 * 24 * 3600 * 1000)));
+                const bucket = bucketCount - 1 - idxFromEnd;
+                if (bucket < 0 || bucket >= bucketCount) return;
+                const et = r && r.event_type;
+                if (et === 'sent') sent[bucket]++;
+                if (et === 'reply') replies[bucket]++;
+              });
+              vals = labels.map((_, i) => (sent[i] ? Math.round((replies[i] / sent[i]) * 1000) / 10 : 0));
+            }
           }
           const ctx = document.getElementById('dash-reply-rate');
     if (ctx) {
@@ -623,7 +652,10 @@ export default function Dashboard() {
           {headerWithMenu('Reply Rate Chart','Reply Rate Chart')}
           <div className="h-40"><canvas id="dash-reply-rate"></canvas></div>
           <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-            <select className="border rounded-md p-2 text-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700"><option>By Template</option></select>
+            <select className="border rounded-md p-2 text-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700" value={replyRange} onChange={(e)=>setReplyRange(e.target.value)}>
+              <option value="6m">Last 6 Months</option>
+              <option value="90d">Last 90 Days</option>
+            </select>
             <button className="bg-purple-600 text-white px-3 py-2 rounded-md text-sm">Export</button>
               </div>
             </div>
