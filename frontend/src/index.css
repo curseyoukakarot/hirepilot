@@ -97,6 +97,8 @@ html.dark #app-main { background-color: #0b0f17; }
 .dark .bg-amber-50 { background-color: rgba(120, 53, 15, 0.28) !important; }
 .dark .bg-emerald-50 { background-color: rgba(6, 78, 59, 0.28) !important; }
 .dark .bg-red-50 { background-color: rgba(127, 29, 29, 0.28) !important; }
+.dark .bg-indigo-50 { background-color: rgba(49, 46, 129, 0.35) !important; }
+.dark .bg-green-50 { background-color: rgba(6, 95, 70, 0.28) !important; }
 
 /* Accent text color tuning for dark */
 .dark .text-indigo-600 { color: #a5b4fc !important; }

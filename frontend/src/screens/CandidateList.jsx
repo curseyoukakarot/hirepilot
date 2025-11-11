@@ -509,7 +509,7 @@ export default function CandidateList() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white pb-16">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0b0f17] pb-16">
       {/* --- Header --- */}
       <div className="max-w-7xl mx-auto px-4 pt-10 pb-6 flex flex-col md:flex-row md:items-center md:justify-between">
         <div>
@@ -530,13 +530,13 @@ export default function CandidateList() {
           )}
           <button
             onClick={() => setShowImportDialog(true)}
-            className="bg-white hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg text-sm flex items-center shadow border transition-all duration-150"
+            className="bg-white dark:bg-gray-900/60 dark:text-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 px-4 py-2 rounded-lg text-sm flex items-center shadow border transition-all duration-150"
           >
             <FaUpload className="mr-2" /> Import CSV
           </button>
           <button
             onClick={handleExportCandidates}
-            className="bg-white hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg text-sm flex items-center shadow border transition-all duration-150"
+            className="bg-white dark:bg-gray-900/60 dark:text-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 px-4 py-2 rounded-lg text-sm flex items-center shadow border transition-all duration-150"
           >
             <FaDownload className="mr-2" /> Export CSV
           </button>
@@ -567,7 +567,7 @@ export default function CandidateList() {
 
       {/* --- Filters --- */}
       <div className="max-w-7xl mx-auto px-4 mb-6">
-        <div className="bg-white p-4 rounded-lg shadow flex flex-col md:flex-row gap-4">
+        <div className="bg-white dark:bg-gray-900/60 dark:border dark:border-white/10 p-4 rounded-lg shadow flex flex-col md:flex-row gap-4">
           {/* Search */}
           <div className="flex-1">
             <div className="relative">
@@ -603,7 +603,7 @@ export default function CandidateList() {
 
       {/* --- Super Search --- */}
       <div className="max-w-7xl mx-auto px-4 mb-8">
-        <div className="bg-white rounded-xl shadow-sm border p-4">
+        <div className="bg-white dark:bg-gray-900/60 rounded-xl shadow-sm border dark:border-white/10 p-4">
           <div className="flex items-center justify-between">
             <div className="text-lg font-semibold flex items-center"><FaSearch className="mr-2 text-gray-500"/>Candidate Super Search</div>
             <button className="text-sm text-blue-600" onClick={()=>setSuperOpen(o=>!o)}>{superOpen ? 'Hide Advanced Filters' : 'Show Advanced Filters'}</button>
@@ -612,7 +612,7 @@ export default function CandidateList() {
             <input className="border rounded px-3 py-2" placeholder="Search keywords" value={ssQ} onChange={e=>setSsQ(e.target.value)} />
             <input className="border rounded px-3 py-2" placeholder="Location" value={ssLocation} onChange={e=>setSsLocation(e.target.value)} />
             <div className="flex items-center gap-2">
-              <button className={`px-4 py-2 rounded ${ssLoading?'bg-gray-200 text-gray-500':'bg-blue-600 text-white'}`} onClick={async ()=>{
+              <button className={`px-4 py-2 rounded ${ssLoading?'bg-gray-200 text-gray-500 dark:bg-gray-800 dark:text-gray-400':'bg-blue-600 text-white'}`} onClick={async ()=>{
                 setSsLoading(true);
                 try {
                   const { data: { session } } = await supabase.auth.getSession();
@@ -640,8 +640,8 @@ export default function CandidateList() {
                   setSsLoading(false);
                 }
               }}>{ssLoading?'Searching…':'Search'}</button>
-              <button className="px-3 py-2 rounded bg-gray-100" onClick={()=>{ setSsOffset(o=>Math.max(0, o-ssLimit)); }}>Prev</button>
-              <button className="px-3 py-2 rounded bg-gray-100" onClick={()=>{ setSsOffset(o=>o+ssLimit); }}>Next</button>
+              <button className="px-3 py-2 rounded bg-gray-100 dark:bg-gray-800" onClick={()=>{ setSsOffset(o=>Math.max(0, o-ssLimit)); }}>Prev</button>
+              <button className="px-3 py-2 rounded bg-gray-100 dark:bg-gray-800" onClick={()=>{ setSsOffset(o=>o+ssLimit); }}>Next</button>
             </div>
           </div>
           {superOpen && (
@@ -663,7 +663,7 @@ export default function CandidateList() {
                 <div className="text-sm text-gray-500 mb-2">{ssCount} result(s)</div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {ssResults.map(r => (
-                    <div key={r.id} className="border rounded-lg p-3 bg-gray-50">
+                    <div key={r.id} className="border dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-900/40">
                       <div className="font-medium text-gray-900">{(r.first_name||'') + ' ' + (r.last_name||'')}</div>
                       <div className="text-sm text-gray-600">{r.title || '—'}</div>
                       <div className="text-sm text-gray-500">{r.email || '—'}</div>
@@ -718,9 +718,9 @@ export default function CandidateList() {
             </div>
           </div>
         )}
-        <div className="bg-white shadow rounded-lg overflow-visible">
-          <table className="min-w-full divide-y divide-gray-200 table-fixed">
-            <thead className="bg-gray-50">
+        <div className="bg-white dark:bg-gray-900/60 dark:border dark:border-white/10 shadow rounded-lg overflow-visible">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800 table-fixed">
+            <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>
                 <th className="px-6 py-3">
                   <input 
@@ -749,7 +749,7 @@ export default function CandidateList() {
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white dark:bg-gray-900/40 divide-y divide-gray-200 dark:divide-gray-800">
               {currentPageCandidates.map((candidate) => {
                   // Parse enrichment_data if it's a string
                   let location = '';
@@ -765,7 +765,7 @@ export default function CandidateList() {
                   }
 
                   return (
-                    <tr key={candidate.id} className="cursor-pointer hover:bg-gray-50" onClick={(e) => {
+                    <tr key={candidate.id} className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800" onClick={(e) => {
                       const tag = (e.target.tagName || '').toLowerCase();
                       if (['button','svg','path','input','select'].includes(tag)) return;
                       openDrawerFor(candidate);
@@ -781,8 +781,8 @@ export default function CandidateList() {
                                 alt=""
                               />
                             ) : (
-                              <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                                <span className="text-gray-500 font-medium">
+                              <div className="h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                                <span className="text-gray-500 dark:text-gray-300 font-medium">
                                   {candidate.first_name?.[0]}
                                   {candidate.last_name?.[0]}
                                 </span>
@@ -790,10 +790,10 @@ export default function CandidateList() {
                             )}
                           </div>
                           <div className="ml-4 min-w-0">
-                            <div className="text-sm font-medium text-gray-900 max-w-[220px] truncate" title={`${candidate.first_name || ''} ${candidate.last_name || ''}`.trim()}>
+                            <div className="text-sm font-medium text-gray-900 dark:text-gray-100 max-w-[220px] truncate" title={`${candidate.first_name || ''} ${candidate.last_name || ''}`.trim()}>
                               {candidate.first_name} {candidate.last_name}
                             </div>
-                            <div className="text-sm text-gray-500 max-w-[240px] truncate" title={candidate.title || (typeof candidate.enrichment_data === 'string' ? parseEnrichmentTitle(candidate.enrichment_data) : candidate.enrichment_data?.current_title) || 'No title'}>
+                            <div className="text-sm text-gray-500 dark:text-gray-400 max-w-[240px] truncate" title={candidate.title || (typeof candidate.enrichment_data === 'string' ? parseEnrichmentTitle(candidate.enrichment_data) : candidate.enrichment_data?.current_title) || 'No title'}>
                               {candidate.title ||
                                 (typeof candidate.enrichment_data === 'string'
                                   ? parseEnrichmentTitle(candidate.enrichment_data)
@@ -804,25 +804,25 @@ export default function CandidateList() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900 max-w-[260px] truncate" title={candidate.email}>{candidate.email}</div>
+                        <div className="text-sm text-gray-900 dark:text-gray-100 max-w-[260px] truncate" title={candidate.email}>{candidate.email}</div>
                       </td>
                       <td className="px-6 py-4">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                          ${candidate.status === 'sourced' ? 'bg-yellow-100 text-yellow-800' :
-                            candidate.status === 'contacted' ? 'bg-blue-100 text-blue-800' :
-                            candidate.status === 'responded' ? 'bg-green-100 text-green-800' :
-                            candidate.status === 'interviewing' ? 'bg-purple-100 text-purple-800' :
-                            candidate.status === 'hired' ? 'bg-green-100 text-green-800' :
-                            'bg-gray-100 text-gray-800'}`}>
+                          ${candidate.status === 'sourced' ? 'bg-yellow-100 text-yellow-800 dark:bg-amber-500/20 dark:text-amber-200' :
+                            candidate.status === 'contacted' ? 'bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-200' :
+                            candidate.status === 'responded' ? 'bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-200' :
+                            candidate.status === 'interviewing' ? 'bg-purple-100 text-purple-800 dark:bg-purple-500/20 dark:text-purple-200' :
+                            candidate.status === 'hired' ? 'bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-200' :
+                            'bg-gray-100 text-gray-800 dark:bg-gray-500/20 dark:text-gray-200'}`}>
                           {candidate.status || 'Unknown'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
+                      <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                         <div className="max-w-[240px] truncate" title={candidate.candidate_jobs?.[0]?.job_requisitions?.title || 'No job assigned'}>
                           {candidate.candidate_jobs?.[0]?.job_requisitions?.title || 'No job assigned'}
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
+                      <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                         <div className="max-w-[240px] truncate" title={location || 'Unknown'}>
                           {location || 'Unknown'}
                         </div>
@@ -837,18 +837,18 @@ export default function CandidateList() {
                           </button>
                           
                           {showActionsMenu === candidate.id && (
-                            <div className="absolute right-0 mt-2 min-w-[220px] rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-[1000]">
+                            <div className="absolute right-0 mt-2 min-w-[220px] rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 dark:ring-0 border dark:border-gray-700 z-[1000]">
                               <div className="py-1 space-y-0" role="menu">
                                 <button
                                   onClick={() => handleMessageCandidate(candidate)}
-                                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 whitespace-nowrap"
+                                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 whitespace-nowrap"
                                   role="menuitem"
                                 >
                                   Message
                                 </button>
                                 <button
                                   onClick={() => { setShowActionsMenu(null); handleEditCandidate(candidate); }}
-                                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 whitespace-nowrap"
+                                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 whitespace-nowrap"
                                   role="menuitem"
                                 >
                                   Edit

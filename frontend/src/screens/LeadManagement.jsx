@@ -1246,7 +1246,7 @@ function LeadManagement() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0b0f17]">
       <ToastContainer
         position="top-right"
         autoClose={3000}
@@ -1260,9 +1260,9 @@ function LeadManagement() {
         theme="light"
       />
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4">
+      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
         <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-semibold text-gray-900">Lead Management</h1>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Lead Management</h1>
           <div className="flex gap-2">
             <button className="bg-purple-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-purple-700" onClick={() => setShowAddLeadModal(true)}>
               <FaPlus /> Add Lead
@@ -1279,7 +1279,7 @@ function LeadManagement() {
         ) : (
         <>
         {/* Search and Filters */}
-        <div className="bg-white rounded-lg shadow-sm border p-4 mb-4">
+        <div className="bg-white dark:bg-gray-900/60 rounded-lg shadow-sm border dark:border-white/10 p-4 mb-4">
           <div className="flex flex-col gap-4">
             {/* Search Bar */}
             <div className="relative">
@@ -1288,7 +1288,7 @@ function LeadManagement() {
               </div>
               <input
                 type="text"
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-gray-200"
                 placeholder="Search by name, title, email, tags, or location..."
                 value={searchQuery}
                 onChange={handleSearch}
@@ -1298,7 +1298,7 @@ function LeadManagement() {
             {/* Filters */}
             <div className="flex gap-4">
               <select 
-                className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                className="border dark:border-gray-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-gray-200"
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
               >
@@ -1309,7 +1309,7 @@ function LeadManagement() {
                 <option value="Not Interested">Not Interested</option>
               </select>
               <select 
-                className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                className="border dark:border-gray-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-gray-200"
                 value={selectedCampaign}
                 onChange={(e) => handleCampaignChange(e.target.value)}
                 disabled={campaignsLoading}
@@ -1332,7 +1332,7 @@ function LeadManagement() {
                 </p>
               )}
               <select 
-                className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                className="border dark:border-gray-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-gray-200"
                 value={selectedTags}
                 onChange={(e) => setSelectedTags(e.target.value)}
               >
@@ -1346,22 +1346,22 @@ function LeadManagement() {
         </div>
 
         {/* Leads Super Search */}
-        <div className="bg-white rounded-lg shadow-sm border p-4 mb-4">
+        <div className="bg-white dark:bg-gray-900/60 rounded-lg shadow-sm border dark:border-white/10 p-4 mb-4">
           <div className="flex items-center justify-between">
             <div className="text-lg font-semibold">Leads Super Search</div>
             <button className="text-sm text-purple-600" onClick={()=>setLsOpen(o=>!o)}>{lsOpen?'Hide Filters':'Show Filters'}</button>
           </div>
           <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
-            <input className="border rounded px-3 py-2" placeholder="Search keywords" value={lsQ} onChange={e=>setLsQ(e.target.value)} />
-            <input className="border rounded px-3 py-2" placeholder="Title" value={lsTitle} onChange={e=>setLsTitle(e.target.value)} />
-            <input className="border rounded px-3 py-2" placeholder="Company" value={lsCompany} onChange={e=>setLsCompany(e.target.value)} />
+            <input className="border dark:border-gray-700 rounded px-3 py-2 dark:bg-gray-800 dark:text-gray-200" placeholder="Search keywords" value={lsQ} onChange={e=>setLsQ(e.target.value)} />
+            <input className="border dark:border-gray-700 rounded px-3 py-2 dark:bg-gray-800 dark:text-gray-200" placeholder="Title" value={lsTitle} onChange={e=>setLsTitle(e.target.value)} />
+            <input className="border dark:border-gray-700 rounded px-3 py-2 dark:bg-gray-800 dark:text-gray-200" placeholder="Company" value={lsCompany} onChange={e=>setLsCompany(e.target.value)} />
           </div>
           {lsOpen && (
             <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
-              <input className="border rounded px-3 py-2" placeholder="Sources (comma)" value={lsSources} onChange={e=>setLsSources(e.target.value)} />
-              <input className="border rounded px-3 py-2" placeholder="Tags (comma)" value={lsTags} onChange={e=>setLsTags(e.target.value)} />
+              <input className="border dark:border-gray-700 rounded px-3 py-2 dark:bg-gray-800 dark:text-gray-200" placeholder="Sources (comma)" value={lsSources} onChange={e=>setLsSources(e.target.value)} />
+              <input className="border dark:border-gray-700 rounded px-3 py-2 dark:bg-gray-800 dark:text-gray-200" placeholder="Tags (comma)" value={lsTags} onChange={e=>setLsTags(e.target.value)} />
               <div className="flex items-center gap-2">
-                <button className={`px-4 py-2 rounded ${lsLoading?'bg-gray-200 text-gray-500':'bg-purple-600 text-white'}`} onClick={async()=>{
+                <button className={`px-4 py-2 rounded ${lsLoading?'bg-gray-200 text-gray-500 dark:bg-gray-800 dark:text-gray-400':'bg-purple-600 text-white'}`} onClick={async()=>{
                   setLsLoading(true);
                   try{
                     const { data: { session } } = await supabase.auth.getSession();
@@ -1381,8 +1381,8 @@ function LeadManagement() {
                     setLsCount(js?.count || 0);
                   } finally { setLsLoading(false); }
                 }}>{lsLoading?'Searching…':'Search'}</button>
-                <button className="px-3 py-2 rounded bg-gray-100" onClick={()=>setLsOffset(o=>Math.max(0,o-lsLimit))}>Prev</button>
-                <button className="px-3 py-2 rounded bg-gray-100" onClick={()=>setLsOffset(o=>o+lsLimit)}>Next</button>
+                <button className="px-3 py-2 rounded bg-gray-100 dark:bg-gray-800" onClick={()=>setLsOffset(o=>Math.max(0,o-lsLimit))}>Prev</button>
+                <button className="px-3 py-2 rounded bg-gray-100 dark:bg-gray-800" onClick={()=>setLsOffset(o=>o+lsLimit)}>Next</button>
               </div>
             </div>
           )}
@@ -1391,12 +1391,12 @@ function LeadManagement() {
               <div className="text-sm text-gray-500 mb-2">{lsCount} result(s)</div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {lsRows.map(r => (
-                  <div key={r.id} className="border rounded-lg p-3 bg-gray-50">
+                  <div key={r.id} className="border dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-900/40">
                     <div className="font-medium text-gray-900">{r.name || `${r.first_name||''} ${r.last_name||''}`.trim()}</div>
                     <div className="text-sm text-gray-600">{r.title || '—'} {r.company ? `@ ${r.company}` : ''}</div>
                     <div className="text-sm text-gray-500">{r.email || '—'}</div>
                     <div className="mt-2 flex gap-2">
-                      <button className="px-3 py-1.5 bg-white border rounded text-sm" onClick={()=>{ setSelectedLead(r); setShowDrawer(true); }}>Open</button>
+                      <button className="px-3 py-1.5 bg-white dark:bg-gray-900/60 border dark:border-gray-700 rounded text-sm" onClick={()=>{ setSelectedLead(r); setShowDrawer(true); }}>Open</button>
                     </div>
                   </div>
                 ))}
@@ -1484,9 +1484,9 @@ function LeadManagement() {
         </div>
 
         {/* Leads Table */}
-        <div className="bg-white rounded-lg shadow-sm border overflow-visible">
-          <table className="min-w-full divide-y divide-gray-200 table-fixed">
-            <thead className="bg-gray-50">
+        <div className="bg-white dark:bg-gray-900/60 rounded-lg shadow-sm border dark:border-white/10 overflow-visible">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800 table-fixed">
+            <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   <div className="relative inline-flex items-center gap-2">
@@ -1512,10 +1512,10 @@ function LeadManagement() {
                       Select ▾
                     </button>
                     {showSelectMenu && (
-                      <div className="absolute z-20 mt-32 left-0 w-64 bg-white border border-gray-200 rounded-md shadow-lg" onMouseLeave={() => setShowSelectMenu(false)}>
+                      <div className="absolute z-20 mt-32 left-0 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg" onMouseLeave={() => setShowSelectMenu(false)}>
                         <div className="py-1 text-sm">
                           <button
-                            className="w-full text-left px-3 py-2 hover:bg-gray-50"
+                            className="w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700"
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedLeadIds(paginatedLeads.map(l => l.id));
@@ -1525,7 +1525,7 @@ function LeadManagement() {
                             Select this page ({paginatedLeads.length})
                           </button>
                           <button
-                            className="w-full text-left px-3 py-2 hover:bg-gray-50"
+                            className="w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700"
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedLeadIds(filteredLeads.map(l => l.id));
@@ -1535,7 +1535,7 @@ function LeadManagement() {
                             Select all in view (filtered) ({filteredLeads.length})
                           </button>
                           <button
-                            className="w-full text-left px-3 py-2 hover:bg-gray-50"
+                            className="w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700"
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedLeadIds(leads.map(l => l.id));
@@ -1546,7 +1546,7 @@ function LeadManagement() {
                           </button>
                           <div className="my-1 border-t border-gray-200" />
                           <button
-                            className="w-full text-left px-3 py-2 hover:bg-gray-50"
+                            className="w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700"
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedLeadIds([]);
@@ -1586,11 +1586,11 @@ function LeadManagement() {
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white dark:bg-gray-900/40 divide-y divide-gray-200 dark:divide-gray-800">
               {paginatedLeads.map((lead) => (
                 <tr 
                   key={lead.id} 
-                  className="hover:bg-gray-50 cursor-pointer"
+                className="hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
                   onClick={(e) => handleLeadClick(lead, e)}
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -1616,22 +1616,22 @@ function LeadManagement() {
                         className="h-10 w-10 rounded-full"
                       />
                       <div className="ml-4 min-w-0">
-                        <div className="text-sm font-medium text-gray-900 max-w-[220px] truncate" title={lead.name}>{lead.name}</div>
-                        <div className="text-sm text-gray-500 max-w-[240px] truncate" title={lead.title}>{lead.title}</div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 max-w-[220px] truncate" title={lead.name}>{lead.name}</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400 max-w-[240px] truncate" title={lead.title}>{lead.title}</div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900 max-w-[260px] truncate" title={lead.email}>{lead.email}</div>
-                    <div className="text-sm text-gray-500 max-w-[200px] truncate" title={lead.phone}>{lead.phone}</div>
+                    <div className="text-sm text-gray-900 dark:text-gray-100 max-w-[260px] truncate" title={lead.email}>{lead.email}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400 max-w-[200px] truncate" title={lead.phone}>{lead.phone}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                       lead.status === 'Interested'
-                        ? 'bg-green-100 text-green-800'
+                        ? 'bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-200'
                         : lead.status === 'Not Interested'
-                        ? 'bg-red-100 text-red-800'
-                        : 'bg-yellow-100 text-yellow-800'
+                        ? 'bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-200'
+                        : 'bg-yellow-100 text-yellow-800 dark:bg-amber-500/20 dark:text-amber-200'
                     }`}>
                       {lead.status}
                     </span>
@@ -1641,7 +1641,7 @@ function LeadManagement() {
                       {(lead.tags || []).map((tag) => (
                         <span
                           key={tag}
-                          className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs flex items-center gap-1"
+                          className="bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-200 px-2 py-0.5 rounded text-xs flex items-center gap-1"
                         >
                           {tag}
                           <button
