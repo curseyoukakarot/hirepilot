@@ -161,37 +161,37 @@ const handleMicrosoftSignin = async () => {
 };
 
   return (
-    <div className="min-h-screen flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8" style={{ background: 'linear-gradient(135deg, #e0e7ff 0%, #f0f7ff 100%)' }}>
+    <div className="min-h-screen flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#0b0f17] via-[#0e1420] to-[#0b0f17]">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
           <div className="flex items-center space-x-2">
             <img src="/logo.png" className="w-8 h-8" alt="HirePilot" />
-            <h1 className="text-3xl font-bold text-gray-900">HirePilot</h1>
+            <h1 className="text-3xl font-bold text-gray-100">HirePilot</h1>
           </div>
         </div>
-        <h2 className="mt-6 text-center text-2xl font-bold leading-9 text-gray-900">Sign in to your account</h2>
+        <h2 className="mt-6 text-center text-2xl font-bold leading-9 text-gray-100">Sign in to your account</h2>
         {/* Sign-up link removed to direct users through pricing page */}
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white px-8 py-10 shadow-lg sm:rounded-2xl sm:px-10 flex flex-col items-center">
+        <div className="bg-gray-900/80 border border-gray-700 px-8 py-10 shadow-2xl sm:rounded-2xl sm:px-10 flex flex-col items-center">
           {/* OAuth Buttons (visible by default; can disable with VITE_ENABLE_OAUTH=false) */}
           {String((import.meta?.env && import.meta.env.VITE_ENABLE_OAUTH) || 'true').toLowerCase() === 'true' && (
             <div className="space-y-4 mb-6 w-full">
-              <button type="button" onClick={handleGoogleSignin} disabled={oauthLoading} className="w-full flex justify-center items-center gap-3 bg-white px-4 py-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60">
+              <button type="button" onClick={handleGoogleSignin} disabled={oauthLoading} className="w-full flex justify-center items-center gap-3 bg-gray-800 px-4 py-3 border border-gray-700 rounded-md shadow-sm text-sm font-medium text-gray-200 hover:bg-gray-700 disabled:opacity-60">
                 <FaGoogle className="text-[20px]" /> {oauthLoading ? 'Redirecting…' : 'Sign in with Google'}
               </button>
-              <button type="button" onClick={handleMicrosoftSignin} disabled={oauthLoading} className="w-full flex justify-center items-center gap-3 bg-white px-4 py-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60">
+              <button type="button" onClick={handleMicrosoftSignin} disabled={oauthLoading} className="w-full flex justify-center items-center gap-3 bg-gray-800 px-4 py-3 border border-gray-700 rounded-md shadow-sm text-sm font-medium text-gray-200 hover:bg-gray-700 disabled:opacity-60">
                 <FaMicrosoft className="text-[20px] text-blue-600" /> {oauthLoading ? 'Redirecting…' : 'Sign in with Outlook/365'}
               </button>
             </div>
           )}
           <div className="relative my-6 w-full">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300"></div>
+              <div className="w-full border-t border-gray-700"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="bg-white px-2 text-gray-500">Or sign in with email</span>
+              <span className="bg-gray-900/80 px-2 text-gray-400">Or sign in with email</span>
             </div>
           </div>
 
@@ -217,8 +217,8 @@ const handleMicrosoftSignin = async () => {
 
               {/* Divider */}
               <div className="relative">
-                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200" /></div>
-                <div className="relative flex justify-center text-xs"><span className="bg-white px-2 text-gray-400">or</span></div>
+                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-800" /></div>
+                <div className="relative flex justify-center text-xs"><span className="bg-gray-900/80 px-2 text-gray-500">or</span></div>
               </div>
 
               {/* OTP Code Sign-in */}
@@ -244,7 +244,7 @@ const handleMicrosoftSignin = async () => {
                     value={otpCode}
                     onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0,6))}
                     placeholder="Enter 6‑digit code"
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition text-sm bg-gray-50 tracking-widest"
+                    className="flex-1 px-4 py-2 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition text-sm bg-gray-800 text-gray-200 placeholder-gray-400 tracking-widest"
                   />
                   <button
                     type="button"
@@ -264,18 +264,18 @@ const handleMicrosoftSignin = async () => {
 
           <form onSubmit={handleSubmit} className="space-y-6 w-full">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email address</label>
-              <input id="email" name="email" type="email" required placeholder="you@company.com" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition text-sm bg-gray-50" />
+              <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1">Email address</label>
+              <input id="email" name="email" type="email" required placeholder="you@company.com" className="w-full px-4 py-2 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition text-sm bg-gray-800 text-gray-200 placeholder-gray-400" />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-              <input id="password" name="password" type="password" required placeholder="••••••••" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition text-sm bg-gray-50" />
+              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">Password</label>
+              <input id="password" name="password" type="password" required placeholder="••••••••" className="w-full px-4 py-2 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition text-sm bg-gray-800 text-gray-200 placeholder-gray-400" />
               <div className="mt-2 text-right">
                 <button
                   type="button"
                   onClick={() => setShowResetModal(true)}
-                  className="text-sm text-indigo-600 hover:text-indigo-500 underline"
+                  className="text-sm text-indigo-400 hover:text-indigo-300 underline"
                 >
                   Forgot password?
                 </button>
@@ -312,9 +312,9 @@ const handleMicrosoftSignin = async () => {
           )}
 
           {/* Affiliate partners CTA */}
-          <div className="mt-6 text-center text-sm text-gray-600">
+          <div className="mt-6 text-center text-sm text-gray-400">
             <span>Affiliate Partners: </span>
-            <a href="/partners/login" className="text-indigo-600 hover:text-indigo-500 underline">Sign in here</a>
+            <a href="/partners/login" className="text-indigo-400 hover:text-indigo-300 underline">Sign in here</a>
           </div>
         </div>
       </div>
@@ -322,9 +322,9 @@ const handleMicrosoftSignin = async () => {
       {showResetModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowResetModal(false)} />
-          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-            <h3 className="text-lg font-semibold text-gray-900">Reset your password</h3>
-            <p className="mt-1 text-sm text-gray-600">Enter your account email. We'll send a secure link to reset your password.</p>
+          <div className="relative bg-gray-900 rounded-2xl shadow-xl w-full max-w-md p-6 border border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-100">Reset your password</h3>
+            <p className="mt-1 text-sm text-gray-400">Enter your account email. We'll send a secure link to reset your password.</p>
 
             {!resetSent ? (
               <form
@@ -348,7 +348,7 @@ const handleMicrosoftSignin = async () => {
                 }}
               >
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="reset-email">Email</label>
+                  <label className="block text-sm font-medium text-gray-300 mb-1" htmlFor="reset-email">Email</label>
                   <input
                     id="reset-email"
                     type="email"
@@ -356,14 +356,14 @@ const handleMicrosoftSignin = async () => {
                     value={resetEmail}
                     onChange={(e) => setResetEmail(e.target.value)}
                     placeholder="you@company.com"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition text-sm bg-gray-50"
+                    className="w-full px-4 py-2 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition text-sm bg-gray-800 text-gray-200 placeholder-gray-400"
                   />
                 </div>
                 {resetError && (
-                  <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{resetError}</div>
+                  <div className="rounded-md bg-red-900/30 border border-red-800 p-3 text-sm text-red-300">{resetError}</div>
                 )}
                 <div className="flex items-center justify-end gap-3 pt-2">
-                  <button type="button" className="text-sm text-gray-600 hover:text-gray-800" onClick={() => setShowResetModal(false)}>Cancel</button>
+                  <button type="button" className="text-sm text-gray-300 hover:text-gray-200" onClick={() => setShowResetModal(false)}>Cancel</button>
                   <button
                     type="submit"
                     disabled={resetLoading}
@@ -375,7 +375,7 @@ const handleMicrosoftSignin = async () => {
               </form>
             ) : (
               <div className="mt-4 space-y-4">
-                <div className="rounded-md bg-green-50 p-3 text-sm text-green-700">
+                <div className="rounded-md bg-green-900/30 border border-green-800 p-3 text-sm text-green-300">
                   We sent a password reset link to {resetEmail}. Check your inbox.
                 </div>
                 <div className="flex items-center justify-end">
