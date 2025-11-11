@@ -364,8 +364,34 @@ async function requireAdmin(req: Request, res: Response): Promise<{ ok: boolean,
     const token = auth.split(' ')[1];
     const { data, error } = await admin.auth.getUser(token);
     if (error || !data?.user) { res.status(401).json({ error: 'Invalid or expired token' }); return { ok: false, admin: null }; }
-    const role = String((data.user.user_metadata as any)?.role || '').toLowerCase().replace(/\s|-/g, '_');
-    const isAdmin = ['admin','super_admin','owner','account_owner','team_admin','org_admin'].includes(role);
+
+    // 1) Role derived from user_metadata (legacy)
+    const roleFromMetadata = String((data.user.user_metadata as any)?.role || '').toLowerCase().replace(/\s|-/g, '_');
+
+    // 2) Allowed roles from app_metadata (preferred for JWT-gated apps)
+    const allowedRolesRaw = ((data.user.app_metadata as any)?.allowed_roles || []) as string[];
+    const allowedRoles = Array.isArray(allowedRolesRaw)
+      ? allowedRolesRaw.map(r => String(r || '').toLowerCase().replace(/\s|-/g, '_'))
+      : [];
+
+    // 3) Role from database users table
+    let roleFromDb: string | null = null;
+    try {
+      const { data: dbUser } = await admin
+        .from('users')
+        .select('role')
+        .eq('id', data.user.id)
+        .maybeSingle();
+      roleFromDb = dbUser?.role ? String(dbUser.role).toLowerCase().replace(/\s|-/g, '_') : null;
+    } catch {}
+
+    const adminRoles = ['admin','super_admin','owner','account_owner','team_admin','org_admin'];
+    const isAdmin =
+      allowedRoles.includes('super_admin') ||
+      allowedRoles.includes('admin') ||
+      (roleFromDb ? adminRoles.includes(roleFromDb) : false) ||
+      adminRoles.includes(roleFromMetadata);
+
     if (!isAdmin) { res.status(403).json({ error: 'Admin only' }); return { ok: false, admin: null }; }
     return { ok: true, admin };
   } catch {
