@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { listForms } from '../../lib/api/forms';
 import { supabase } from '../../lib/supabaseClient';
 
@@ -7,6 +7,7 @@ export default function FormsHome() {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState<string>('');
   const apiBase = (import.meta as any)?.env?.VITE_BACKEND_URL || '';
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
     // Parent listener to support iframe postMessage navigation requests
@@ -15,6 +16,45 @@ export default function FormsHome() {
         const data = e.data || {};
         if (data && data.type === 'hp_nav' && typeof data.path === 'string') {
           window.location.href = data.path;
+        }
+        if (data && data.type === 'hp_forms_action') {
+          const action = data.action;
+          if (action === 'edit' && data.id) {
+            window.location.href = `/forms/${data.id}`;
+          } else if (action === 'responses' && data.id) {
+            window.location.href = `/forms/${data.id}/responses`;
+          } else if (action === 'copy' && data.slug) {
+            const url = window.location.origin + '/f/' + data.slug;
+            try { navigator.clipboard.writeText(url); } catch {}
+          } else if (action === 'create') {
+            (async () => {
+              try {
+                const resp = await fetch(apiBase + '/api/forms', {
+                  method: 'POST',
+                  headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                  credentials: 'include',
+                  body: JSON.stringify({ title: 'Untitled Form', is_public: false }),
+                });
+                if (resp.ok) {
+                  const f = await resp.json();
+                  window.location.href = `/forms/${f?.id || ''}`;
+                }
+              } catch {}
+            })();
+          } else if (action === 'delete' && data.id) {
+            (async () => {
+              try {
+                const resp = await fetch(apiBase + '/api/forms/' + data.id, {
+                  method: 'DELETE',
+                  headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                  credentials: 'include',
+                });
+                if (resp.ok) {
+                  setItems(prev => prev.filter(x => x.id !== data.id));
+                }
+              } catch {}
+            })();
+          }
         }
       } catch {}
     };
@@ -70,10 +110,10 @@ export default function FormsHome() {
                 <i class="fa-solid fa-ellipsis-vertical text-hp-text-muted"></i>
               </button>
               <div class="dropdown-menu">
-                <a class="dropdown-item" href="/forms/${id}" target="_top"><i class="fa-solid fa-pen mr-2"></i>Edit Form</a>
+                <div class="dropdown-item" onclick="window.__HP_FORMS__.edit('${id}')"><i class="fa-solid fa-pen mr-2"></i>Edit Form</div>
                 <div class="dropdown-item" onclick="window.__HP_FORMS__.share('${slug}')"><i class="fa-solid fa-share-nodes mr-2"></i>Share Form</div>
                 <div class="dropdown-item" onclick="window.__HP_FORMS__.copy('${slug}')"><i class="fa-solid fa-link mr-2"></i>Copy Link</div>
-                <a class="dropdown-item" href="/forms/${id}/responses" target="_top"><i class="fa-solid fa-chart-simple mr-2"></i>View Responses</a>
+                <div class="dropdown-item" onclick="window.__HP_FORMS__.responses('${id}')"><i class="fa-solid fa-chart-simple mr-2"></i>View Responses</div>
                 <div class="border-t border-white/5 my-1"></div>
                 <div class="dropdown-item danger" onclick="window.__HP_FORMS__.remove('${id}', this)"><i class="fa-solid fa-trash mr-2"></i>Delete</div>
               </div>
@@ -212,20 +252,12 @@ export default function FormsHome() {
             }
         });
         window.__HP_FORMS__ = {
-          API_BASE: ${JSON.stringify(apiBase)},
-          TOKEN: ${JSON.stringify(token)},
-          _nav: function(path){
-            try { window.top.location.href = path; return; } catch (_) {}
-            try { window.parent.location.href = path; return; } catch (_) {}
-            try { window.location.href = path; return; } catch (_) {}
-            try { window.parent.postMessage({ type: 'hp_nav', path: path }, '*'); } catch(_) {}
-          },
-          edit: function(id){ this._nav('/forms/' + id); },
-          responses: function(id){ this._nav('/forms/' + id + '/responses'); },
-          copy: function(slug){ const url = window.location.origin + '/f/' + slug; try { navigator.clipboard.writeText(url); } catch {} },
-          share: function(slug){ this.copy(slug); },
-          remove: async function(id, el){ try { const resp = await fetch(this.API_BASE + '/api/forms/' + id, { method:'DELETE', headers: { 'Authorization': 'Bearer ' + this.TOKEN, 'Content-Type':'application/json' }, credentials:'include' }); if (resp.ok) { const card = el && el.closest('[data-id]'); if (card) card.remove(); const headerCount = document.querySelector('#header span'); try { const n = document.querySelectorAll('[data-id]').length; headerCount && (headerCount.textContent = '(' + n + ')'); } catch {} } } catch {} },
-          create: async function(){ try { const resp = await fetch(this.API_BASE + '/api/forms', { method:'POST', headers: { 'Authorization':'Bearer ' + this.TOKEN, 'Content-Type':'application/json' }, credentials:'include', body: JSON.stringify({ title: 'Untitled Form', is_public: false }) }); if (resp.ok) { const f = await resp.json(); this._nav('/forms/' + (f?.id || '')); } } catch {} },
+          edit: function(id){ try { window.parent.postMessage({ type: 'hp_forms_action', action: 'edit', id: id }, '*'); } catch(_) {} },
+          responses: function(id){ try { window.parent.postMessage({ type: 'hp_forms_action', action: 'responses', id: id }, '*'); } catch(_) {} },
+          copy: function(slug){ try { window.parent.postMessage({ type: 'hp_forms_action', action: 'copy', slug: slug }, '*'); } catch(_) {} },
+          share: function(slug){ try { window.parent.postMessage({ type: 'hp_forms_action', action: 'copy', slug: slug }, '*'); } catch(_) {} },
+          remove: function(id){ try { window.parent.postMessage({ type: 'hp_forms_action', action: 'delete', id: id }, '*'); } catch(_) {} },
+          create: function(){ try { window.parent.postMessage({ type: 'hp_forms_action', action: 'create' }, '*'); } catch(_) {} },
           toggleDropdown,
           toggleSort: function(e){ e.stopPropagation(); const m = document.querySelector('#sort-menu .dropdown-menu'); if (m) m.classList.toggle('active'); },
           toggleFilter: function(e){ e.stopPropagation(); const m = document.querySelector('#filter-menu .dropdown-menu'); if (m) m.classList.toggle('active'); },
@@ -245,6 +277,7 @@ export default function FormsHome() {
   return (
     <div style={{ width: '100%', height: '100%' }}>
       <iframe
+        ref={iframeRef}
         title="Forms"
         srcDoc={html as any}
         style={{ width: '100%', height: 'calc(100vh - 0px)', border: '0', background: 'transparent' }}
