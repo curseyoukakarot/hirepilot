@@ -9,6 +9,16 @@ export default function FormsHome() {
   const apiBase = (import.meta as any)?.env?.VITE_BACKEND_URL || '';
 
   useEffect(() => {
+    // Parent listener to support iframe postMessage navigation requests
+    const onMsg = (e: MessageEvent) => {
+      try {
+        const data = e.data || {};
+        if (data && data.type === 'hp_nav' && typeof data.path === 'string') {
+          window.location.href = data.path;
+        }
+      } catch {}
+    };
+    window.addEventListener('message', onMsg);
     let mounted = true;
     (async () => {
       try {
@@ -24,7 +34,7 @@ export default function FormsHome() {
         if (mounted) setLoading(false);
       }
     })();
-    return () => { mounted = false; };
+    return () => { mounted = false; window.removeEventListener('message', onMsg); };
   }, []);
 
   const html = useMemo(() => {
@@ -204,7 +214,12 @@ export default function FormsHome() {
         window.__HP_FORMS__ = {
           API_BASE: ${JSON.stringify(apiBase)},
           TOKEN: ${JSON.stringify(token)},
-          _nav: function(path){ try { window.top.location.href = path; } catch (_) { try { window.parent.location.href = path; } catch { window.location.href = path; } } },
+          _nav: function(path){
+            try { window.top.location.href = path; return; } catch (_) {}
+            try { window.parent.location.href = path; return; } catch (_) {}
+            try { window.location.href = path; return; } catch (_) {}
+            try { window.parent.postMessage({ type: 'hp_nav', path: path }, '*'); } catch(_) {}
+          },
           edit: function(id){ this._nav('/forms/' + id); },
           responses: function(id){ this._nav('/forms/' + id + '/responses'); },
           copy: function(slug){ const url = window.location.origin + '/f/' + slug; try { navigator.clipboard.writeText(url); } catch {} },
