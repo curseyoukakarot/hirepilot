@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useState, useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation, useParams } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AuthQuerySync from './auth/AuthQuerySync';
 import Navbar from "./components/Navbar";
@@ -137,6 +137,11 @@ const TableEditor = lazy(() => import("./pages/TableEditor"));
 const BillingScreen = lazy(() => import("./screens/BillingScreen"));
 const DealsPage = lazy(() => import("./pages/DealsPage"));
 const OpportunityDetail = lazy(() => import("./pages/OpportunityDetail"));
+// Forms system (lazy for consistency)
+const FormsHome = lazy(() => import("./pages/forms/FormsHome"));
+const FormBuilderPage = lazy(() => import("./pages/forms/FormBuilderPage"));
+const FormResponsesPage = lazy(() => import("./pages/forms/FormResponsesPage"));
+const PublicForm = lazy(() => import("./components/forms/runtime/PublicForm"));
 
 // Campaign Wizard Component
 function CampaignWizard() {
@@ -320,8 +325,9 @@ function InnerApp() {
   // Public dynamic pages (e.g., share/apply) should not be gated by auth
   const isPublicShare = location.pathname.includes('/jobs/share');
   const isPublicApply = location.pathname.includes('/apply');
+  const isPublicForm = location.pathname.startsWith('/f/');
   // Only the marketing page "/rex" should be treated as public; do NOT blanket-match all "/rex*" paths
-  let isAuthPage = landingPages.includes(location.pathname) || location.pathname.startsWith('/blog') || isPartnerArea || isPublicShare || isPublicApply;
+  let isAuthPage = landingPages.includes(location.pathname) || location.pathname.startsWith('/blog') || isPartnerArea || isPublicShare || isPublicApply || isPublicForm;
   const isBlog = location.pathname.startsWith('/blog');
   // Whether the current authenticated user is a guest collaborator (computed below)
   const [isGuestUser, setIsGuestUser] = useState(false);
@@ -548,6 +554,8 @@ function InnerApp() {
           }>
             <Routes>
               <Route path="/" element={<HomePage />} />
+              {/* Public Forms runtime */}
+              <Route path="/f/:slug" element={<PublicFormRoute />} />
               <Route path="/signup" element={<SignupScreen />} />
               <Route path="/login" element={<SigninScreen />} />
               <Route path="/reset-password" element={<ResetPassword />} />
@@ -599,6 +607,10 @@ function InnerApp() {
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/tables" element={<Tables />} />
               <Route path="/tables/:id/edit" element={<TableEditor />} />
+              {/* Forms system (authenticated app area) */}
+              <Route path="/forms" element={<FormsHome />} />
+              <Route path="/forms/:id" element={<FormBuilderPage />} />
+              <Route path="/forms/:id/responses" element={<FormResponsesPage />} />
               <Route path="/deals" element={<DealsPage />} />
               <Route path="/deals/opportunities/:id" element={<OpportunityDetail />} />
               <Route path="/phantom-monitor" element={<PhantomMonitor />} />
@@ -693,6 +705,11 @@ function SignOutRedirect() {
     (async () => { await supabase.auth.signOut(); sessionStorage.removeItem('guest_mode'); navigate('/accept-guest'); })();
   }, [navigate]);
   return null;
+}
+
+function PublicFormRoute() {
+  const { slug } = useParams();
+  return <PublicForm slug={slug || ''} />;
 }
 
 // Create a query client for React Query
