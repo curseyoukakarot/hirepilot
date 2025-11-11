@@ -221,16 +221,15 @@ export function PublicForm({ slug }: Props) {
             Array.from(files).forEach(file => {
                 const fileItem = document.createElement('div');
                 fileItem.className = 'flex items-center justify-between bg-black/20 rounded-lg p-3 border border-white/10';
-                fileItem.innerHTML = `
-                    <div class=\"flex items-center space-x-3\">
-                        <i class=\"fa-solid fa-file-pdf text-hp-primary\"></i>
-                        <span class=\"text-sm\">${file.name}</span>
-                        <span class=\"text-xs text-hp-text-muted\">${(file.size / 1024 / 1024).toFixed(2)} MB</span>
-                    </div>
-                    <button type=\"button\" class=\"text-red-400 hover:text-red-300 transition-colors\">
-                        <i class=\"fa-solid fa-times\"></i>
-                    </button>
-                `;
+                fileItem.innerHTML =
+                  '<div class="flex items-center space-x-3">' +
+                  '<i class="fa-solid fa-file-pdf text-hp-primary"></i>' +
+                  '<span class="text-sm">' + file.name + '</span>' +
+                  '<span class="text-xs text-hp-text-muted">' + (file.size / 1024 / 1024).toFixed(2) + ' MB</span>' +
+                  '</div>' +
+                  '<button type="button" class="text-red-400 hover:text-red-300 transition-colors">' +
+                  '<i class="fa-solid fa-times"></i>' +
+                  '</button>';
                 fileList.appendChild(fileItem);
             });
         }
