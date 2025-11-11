@@ -237,7 +237,7 @@ export default function FormsHome() {
     <div id="search-filters" class="px-8 py-4 flex items-center justify-between border-b border-white/5">
         <div class="relative">
             <i class="fa-solid fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-hp-text-muted text-sm"></i>
-            <input type="text" placeholder="Search forms…" class="w-[300px] h-11 pl-10 pr-4 bg-hp-surface border border-hp-border rounded-xl text-sm placeholder:text-hp-text-muted focus:outline-none focus:border-hp-primary/50 focus:ring-4 focus:ring-hp-primary/10 transition-all">
+            <input id="js-search" type="text" placeholder="Search forms…" class="w-[300px] h-11 pl-10 pr-4 bg-hp-surface border border-hp-border rounded-xl text-sm placeholder:text-hp-text-muted focus:outline-none focus:border-hp-primary/50 focus:ring-4 focus:ring-hp-primary/10 transition-all">
         </div>
         <div class="flex items-center gap-3">
             <div class="relative" id="sort-menu">
@@ -287,6 +287,17 @@ export default function FormsHome() {
     doc.addEventListener('click', (e: any) => {
       const target = e.target as HTMLElement;
       if (!target) return;
+      // card click -> open editor unless interacting with menu
+      const isMenuToggle = !!target.closest('.js-menu-toggle');
+      const isMenu = !!target.closest('.dropdown-menu');
+      const cardEl = target.closest('[data-id]') as HTMLElement | null;
+      if (cardEl && !isMenuToggle && !isMenu) {
+        const editId = cardEl.getAttribute('data-id');
+        if (editId) {
+          window.location.href = `/forms/${editId}`;
+          return;
+        }
+      }
       // open/close menu
       const toggleBtn = target.closest('.js-menu-toggle') as HTMLElement | null;
       if (toggleBtn) {
@@ -353,6 +364,18 @@ export default function FormsHome() {
         window.postMessage({ type: 'hp_forms_action', action: 'create' }, '*');
       }
     });
+    // Search input handler
+    const searchEl = doc.getElementById('js-search') as HTMLInputElement | null;
+    if (searchEl) {
+      const apply = () => {
+        const q = (searchEl.value || '').toLowerCase();
+        doc.querySelectorAll('[data-id]').forEach((el: Element) => {
+          const title = (el.getAttribute('data-title') || '').toLowerCase();
+          (el as HTMLElement).style.display = !q || title.includes(q) ? '' : 'none';
+        });
+      };
+      searchEl.addEventListener('input', apply);
+    }
   }
 
   if (loading) {
