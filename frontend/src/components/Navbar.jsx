@@ -49,10 +49,10 @@ export default function Navbar() {
     })();
   }, []);
   return (
-    <header className="bg-white border-b shadow-sm px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center">
+    <header className="bg-white dark:bg-gray-900 border-b dark:border-transparent shadow-sm dark:shadow-[0_-1px_0_0_rgba(255,255,255,0.04)_inset] px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center">
       <NavLink to="/dashboard" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
         <img src="/logo.png" alt="HirePilot Logo" className="h-10 w-10" />
-        <span className="text-2xl font-bold text-indigo-600">HirePilot</span>
+        <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">HirePilot</span>
       </NavLink>
       {/* Desktop nav */}
       <nav className="hidden md:flex items-center space-x-6">
@@ -61,7 +61,7 @@ export default function Navbar() {
             <NavLink
               to="/deals"
               className={({ isActive }) =>
-                isActive ? 'text-indigo-600 font-semibold' : 'text-gray-600 hover:text-indigo-600'
+                isActive ? 'text-indigo-600 dark:text-indigo-400 font-semibold' : 'text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400'
               }
             >
               Deals
@@ -69,7 +69,7 @@ export default function Navbar() {
             <NavLink
               to="/campaigns"
               className={({ isActive }) =>
-                isActive ? 'text-indigo-600 font-semibold' : 'text-gray-600 hover:text-indigo-600'
+                isActive ? 'text-indigo-600 dark:text-indigo-400 font-semibold' : 'text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400'
               }
             >
               Campaigns
@@ -77,7 +77,7 @@ export default function Navbar() {
             <NavLink
               to="/leads"
               className={({ isActive }) =>
-                isActive ? 'text-indigo-600 font-semibold' : 'text-gray-600 hover:text-indigo-600'
+                isActive ? 'text-indigo-600 dark:text-indigo-400 font-semibold' : 'text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400'
               }
             >
               Leads
@@ -85,7 +85,7 @@ export default function Navbar() {
             <NavLink
               to="/candidates"
               className={({ isActive }) =>
-                isActive ? 'text-indigo-600 font-semibold' : 'text-gray-600 hover:text-indigo-600'
+                isActive ? 'text-indigo-600 dark:text-indigo-400 font-semibold' : 'text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400'
               }
             >
               Candidates
@@ -95,7 +95,7 @@ export default function Navbar() {
         <NavLink
           to="/jobs"
           className={({ isActive }) =>
-            isActive ? 'text-indigo-600 font-semibold' : 'text-gray-600 hover:text-indigo-600'
+            isActive ? 'text-indigo-600 dark:text-indigo-400 font-semibold' : 'text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400'
           }
         >
           Jobs
@@ -103,7 +103,7 @@ export default function Navbar() {
         <NavLink
           to="/dashboard"
           className={({ isActive }) =>
-            isActive ? 'text-indigo-600 font-semibold' : 'text-gray-600 hover:text-indigo-600'
+            isActive ? 'text-indigo-600 dark:text-indigo-400 font-semibold' : 'text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400'
           }
         >
           Dashboard
@@ -117,32 +117,32 @@ export default function Navbar() {
         </NavLink>
       </nav>
       {/* Mobile hamburger */}
-      <button type="button" className="md:hidden inline-flex items-center justify-center p-2 rounded hover:bg-gray-100" onClick={()=>setMobileOpen(v=>!v)} aria-label="Toggle menu">
+      <button type="button" className="md:hidden inline-flex items-center justify-center p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800" onClick={()=>setMobileOpen(v=>!v)} aria-label="Toggle menu">
         <span className="sr-only">Open menu</span>
         <span className="flex flex-col justify-between w-6 h-4">
-          <span className="block w-full h-0.5 bg-gray-800"></span>
-          <span className="block w-full h-0.5 bg-gray-800"></span>
-          <span className="block w-full h-0.5 bg-gray-800"></span>
+          <span className="block w-full h-0.5 bg-gray-800 dark:bg-gray-200"></span>
+          <span className="block w-full h-0.5 bg-gray-800 dark:bg-gray-200"></span>
+          <span className="block w-full h-0.5 bg-gray-800 dark:bg-gray-200"></span>
         </span>
       </button>
       {/* Mobile drawer */}
       {mobileOpen && (
         <div className="fixed inset-0 z-40 md:hidden" onClick={()=>setMobileOpen(false)}>
           <div className="absolute inset-0 bg-black bg-opacity-30"></div>
-          <div className="absolute right-0 top-0 h-full w-64 bg-white shadow-lg p-4" onClick={(e)=>e.stopPropagation()}>
+          <div className="absolute right-0 top-0 h-full w-64 bg-white dark:bg-gray-900 shadow-lg p-4" onClick={(e)=>e.stopPropagation()}>
             <nav className="flex flex-col space-y-3">
               {!isGuest && (
                 <>
-                  <NavLink to="/deals" onClick={()=>setMobileOpen(false)} className="text-gray-700">Deals</NavLink>
-                  <NavLink to="/campaigns" onClick={()=>setMobileOpen(false)} className="text-gray-700">Campaigns</NavLink>
-                  <NavLink to="/leads" onClick={()=>setMobileOpen(false)} className="text-gray-700">Leads</NavLink>
-                  <NavLink to="/candidates" onClick={()=>setMobileOpen(false)} className="text-gray-700">Candidates</NavLink>
+                  <NavLink to="/deals" onClick={()=>setMobileOpen(false)} className="text-gray-700 dark:text-gray-200">Deals</NavLink>
+                  <NavLink to="/campaigns" onClick={()=>setMobileOpen(false)} className="text-gray-700 dark:text-gray-200">Campaigns</NavLink>
+                  <NavLink to="/leads" onClick={()=>setMobileOpen(false)} className="text-gray-700 dark:text-gray-200">Leads</NavLink>
+                  <NavLink to="/candidates" onClick={()=>setMobileOpen(false)} className="text-gray-700 dark:text-gray-200">Candidates</NavLink>
                 </>
               )}
-              <NavLink to="/jobs" onClick={()=>setMobileOpen(false)} className="text-gray-700">Jobs</NavLink>
-              <NavLink to="/dashboard" onClick={()=>setMobileOpen(false)} className="text-gray-700">Dashboard</NavLink>
-              <NavLink to="/settings" onClick={()=>setMobileOpen(false)} className="flex items-center gap-2 text-gray-700">
-                {avatarUrl ? (<img src={avatarUrl} alt="avatar" className="w-6 h-6 rounded-full object-cover" />) : (<div className="w-6 h-6 rounded-full bg-gray-200" />)}
+              <NavLink to="/jobs" onClick={()=>setMobileOpen(false)} className="text-gray-700 dark:text-gray-200">Jobs</NavLink>
+              <NavLink to="/dashboard" onClick={()=>setMobileOpen(false)} className="text-gray-700 dark:text-gray-200">Dashboard</NavLink>
+              <NavLink to="/settings" onClick={()=>setMobileOpen(false)} className="flex items-center gap-2 text-gray-700 dark:text-gray-200">
+                {avatarUrl ? (<img src={avatarUrl} alt="avatar" className="w-6 h-6 rounded-full object-cover" />) : (<div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700" />)}
                 <span>Settings</span>
               </NavLink>
             </nav>
