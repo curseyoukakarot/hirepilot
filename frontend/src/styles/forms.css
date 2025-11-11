@@ -1,0 +1,70 @@
+/* Forms theme variables and utility classes */
+::-webkit-scrollbar { display: none; }
+
+:root {
+  --hp-bg: #f8fafc;
+  --hp-surface: #ffffff;
+  --hp-surface-2: #f1f5f9;
+  --hp-border: #e2e8f0;
+  --hp-text: #0f172a;
+  --hp-text-muted: #64748b;
+  --hp-primary: #5b8cff;
+  --hp-primary-2: #4a7de8;
+  --hp-success: #22c55e;
+  --hp-warning: #f59e0b;
+  --hp-danger: #ef4444;
+  --hp-focus: 0 0 0 3px rgba(91,140,255,.2);
+  --hp-ring: rgba(91,140,255,.3);
+}
+
+.hp-card {
+  background: var(--hp-surface);
+  border: 1px solid var(--hp-border);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+}
+
+.hp-button-primary {
+  background: var(--hp-primary);
+  color: #fff;
+}
+
+.hp-button-primary:hover {
+  background: var(--hp-primary-2);
+}
+
+.hp-input {
+  background: var(--hp-surface);
+  border: 1px solid var(--hp-border);
+  color: var(--hp-text);
+}
+
+.hp-input:focus {
+  outline: none;
+  box-shadow: var(--hp-focus);
+  border-color: var(--hp-primary);
+}
+
+.field-chip {
+  transition: all 0.15s ease;
+}
+.field-chip:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.drop-zone {
+  border: 2px dashed var(--hp-border);
+  transition: all 0.2s ease;
+  background: var(--hp-surface-2);
+}
+.drop-zone.active {
+  border-color: var(--hp-primary);
+  background: rgba(91, 140, 255, 0.08);
+}
+
+.progress-bar {
+  background: linear-gradient(90deg, var(--hp-primary) 0%, var(--hp-primary-2) 100%);
+  transition: width 0.3s ease;
+}
+
+

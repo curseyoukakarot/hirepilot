@@ -12,34 +12,93 @@ type Props = {
 
 export function Inspector({ field, onChange, form, onFormChange, tables = [], jobReqs = [] }: Props) {
   return (
-    <div className="p-3 border-l min-w-[280px] space-y-6">
-      <div>
-        <div className="font-semibold mb-3">Field</div>
-        {!field ? (
-          <div className="text-sm text-muted-foreground">Select a field to edit</div>
-        ) : (
-          <>
-            <label className="block text-xs mb-1">Label</label>
+    <div className="space-y-6">
+      <div id="inspector-header" className="mb-2">
+        <h3 className="text-lg font-semibold mb-4">Field Settings</h3>
+        <div className="flex border border-[var(--hp-border)] rounded-xl p-1">
+          <button className="flex-1 h-8 rounded-lg bg-[var(--hp-primary)] text-white text-sm font-medium">Field</button>
+          <button className="flex-1 h-8 rounded-lg text-sm font-medium text-[var(--hp-text-muted)] hover:bg-white/5">Validation</button>
+          <button className="flex-1 h-8 rounded-lg text-sm font-medium text-[var(--hp-text-muted)] hover:bg-white/5">Logic</button>
+        </div>
+      </div>
+
+      {/* Field panel */}
+      {!field ? (
+        <div className="text-sm text-[var(--hp-text-muted)]">Select a field to edit</div>
+      ) : (
+        <div className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium mb-2">Label</label>
             <input
-              className="w-full border rounded px-2 py-1 mb-3"
+              type="text"
+              className="hp-input w-full h-10 px-3 rounded-xl"
               value={field.label}
               onChange={(e) => onChange({ label: e.target.value })}
             />
-            <label className="block text-xs mb-1">Required</label>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Placeholder</label>
             <input
-              type="checkbox"
-              checked={field.required}
-              onChange={(e) => onChange({ required: e.target.checked })}
+              type="text"
+              className="hp-input w-full h-10 px-3 rounded-xl"
+              value={field.placeholder || ''}
+              onChange={(e) => onChange({ placeholder: e.target.value })}
             />
-          </>
-        )}
-      </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Help Text</label>
+            <input
+              type="text"
+              className="hp-input w-full h-10 px-3 rounded-xl"
+              value={field.help_text || ''}
+              onChange={(e) => onChange({ help_text: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                checked={!!field.required}
+                onChange={(e) => onChange({ required: e.target.checked })}
+                className="rounded border-[var(--hp-border)]"
+              />
+              <span className="text-sm font-medium">Required field</span>
+            </label>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Field Width</label>
+            <select
+              className="hp-input w-full h-10 px-3 rounded-xl"
+              value={field.width}
+              onChange={(e) => onChange({ width: (e.target.value as any) })}
+            >
+              <option value="full">Full width</option>
+              <option value="half">Half width</option>
+              <option value="third">One third</option>
+            </select>
+          </div>
+          <div className="pt-4 border-t border-[var(--hp-border)]">
+            <h4 className="text-sm font-medium mb-3 text-[var(--hp-text-muted)]">Actions</h4>
+            <div className="space-y-2">
+              <button className="w-full h-9 px-3 rounded-xl text-sm font-medium text-[var(--hp-text-muted)] hover:bg-white/5 text-left" onClick={() => onChange({})}>
+                <i className="fa-solid fa-copy w-4 h-4 mr-2"></i>
+                Duplicate Field
+              </button>
+              <button className="w-full h-9 px-3 rounded-xl text-sm font-medium text-[var(--hp-danger)] hover:bg-red-500/10 text-left">
+                <i className="fa-solid fa-trash w-4 h-4 mr-2"></i>
+                Delete Field
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
-      <div>
-        <div className="font-semibold mb-3">Submission Settings</div>
-        <label className="block text-xs mb-1">Destination Type</label>
+      {/* Submission settings */}
+      <div className="pt-4 border-t border-[var(--hp-border)]">
+        <h4 className="text-sm font-medium mb-3">Submission Settings</h4>
+        <label className="block text-sm font-medium mb-2">Destination Type</label>
         <select
-          className="w-full border rounded px-2 py-1 mb-3"
+          className="hp-input w-full h-10 px-3 rounded-xl mb-3"
           value={form?.destination_type || 'table'}
           onChange={(e) => onFormChange && onFormChange({ destination_type: e.target.value })}
         >
@@ -50,9 +109,9 @@ export function Inspector({ field, onChange, form, onFormChange, tables = [], jo
 
         {form?.destination_type === 'table' && (
           <>
-            <label className="block text-xs mb-1">Table</label>
+            <label className="block text-sm font-medium mb-2">Table</label>
             <select
-              className="w-full border rounded px-2 py-1 mb-3"
+              className="hp-input w-full h-10 px-3 rounded-xl mb-3"
               value={form?.destination_target_id || ''}
               onChange={(e) => onFormChange && onFormChange({ destination_target_id: e.target.value || null })}
             >
@@ -64,9 +123,9 @@ export function Inspector({ field, onChange, form, onFormChange, tables = [], jo
 
         {form?.destination_type === 'candidate' && (
           <>
-            <label className="block text-xs mb-1">Job Requisition (optional)</label>
+            <label className="block text-sm font-medium mb-2">Job Requisition (optional)</label>
             <select
-              className="w-full border rounded px-2 py-1 mb-3"
+              className="hp-input w-full h-10 px-3 rounded-xl mb-3"
               value={form?.job_req_id || ''}
               onChange={(e) => onFormChange && onFormChange({ job_req_id: e.target.value || null })}
             >
