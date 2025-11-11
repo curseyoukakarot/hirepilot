@@ -352,6 +352,60 @@ export default function Dashboard() {
             payload = Object.entries(agg).map(([k, v]) => ({ metric: k, pct: Math.round(((v / total) * 1000)) / 10 }));
           }
           setEngagement(payload);
+          const ctxEng = document.getElementById('dash-engagement');
+          if (ctxEng) {
+            const Chart = await getChartLib();
+            const order = ['open','reply','bounce','click'];
+            const labels = ['Opens','Replies','Bounces','Clicks'];
+            const colorMap = { open: '#7C3AED', reply: '#10B981', bounce: '#F59E0B', click: '#8B5CF6' };
+            const dataArr = order.map((k) => {
+              const row = (payload || []).find((r) => r.metric === k);
+              return Number(row ? row.pct : 0);
+            });
+            if (dashCharts.current.engagement) { try { dashCharts.current.engagement.destroy(); } catch {} }
+            const centerText = {
+              id: 'centerText',
+              afterDraw(chart) {
+                const { ctx, chartArea: { left, right, top, bottom } } = chart;
+                const maxVal = Math.max(...dataArr);
+                const idx = dataArr.indexOf(maxVal);
+                const txt = `${labels[idx]} ${maxVal.toFixed(1)}%`;
+                ctx.save();
+                ctx.font = '600 16px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial';
+                ctx.fillStyle = document.documentElement.classList.contains('dark') ? '#e5e7eb' : '#111827';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(txt, (left + right) / 2, (top + bottom) / 2);
+                ctx.restore();
+              }
+            };
+            dashCharts.current.engagement = new Chart(ctxEng, {
+              type: 'doughnut',
+              data: {
+                labels,
+                datasets: [{
+                  data: dataArr,
+                  backgroundColor: order.map(k => colorMap[k]),
+                  borderWidth: 0,
+                  hoverOffset: 6
+                }]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '65%',
+                plugins: {
+                  legend: { display: false },
+                  tooltip: {
+                    callbacks: {
+                      label: (c) => `${c.label}: ${Number(c.parsed).toFixed(1)}%`
+                    }
+                  }
+                }
+              },
+              plugins: [centerText]
+            });
+          }
         } catch {
           setEngagement([{ metric: 'open', pct: 0 }, { metric: 'reply', pct: 0 }, { metric: 'bounce', pct: 0 }, { metric: 'click', pct: 0 }]);
         }
@@ -601,7 +655,7 @@ export default function Dashboard() {
             <h3 className="text-lg font-semibold">Engagement Breakdown</h3>
             <div className="flex items-center gap-2">
               <select value={engageCampaignId} onChange={(e)=>setEngageCampaignId(e.target.value)} className="border rounded-md p-2 text-sm dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700">
-                <option value="">All Campaigns</option>
+                <option value="all">All Campaigns</option>
                 {Array.isArray(campaigns) && campaigns.map((c)=> (
                   <option key={c.id} value={c.id}>{c.name || c.title}</option>
                 ))}
@@ -609,31 +663,39 @@ export default function Dashboard() {
               <button className="text-gray-400 hover:text-gray-600" onClick={(e)=>{e.stopPropagation(); setMenuOpenFor(menuOpenFor==='Engagement Breakdown'? null : 'Engagement Breakdown');}}>⚙️</button>
               {menuOpenFor==='Engagement Breakdown' && (
                 <div className="absolute right-0 top-10 z-20 w-64 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg shadow">
-                  <button className="w-full text-left px=3 py=2 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={()=>{ const extra = (engageCampaignId && engageCampaignId!=='all') ? `&campaign_id=${encodeURIComponent(engageCampaignId)}` : ''; setMenuOpenFor(null); navigate(`/analytics?tab=${encodeURIComponent(WIDGET_TAB['Engagement Breakdown'])}&open=${encodeURIComponent('Engagement Breakdown')}${extra}`); }}>View details</button>
-                  <button className="w-full text-left px=3 py=2 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={()=>{ const extra = (engageCampaignId && engageCampaignId!=='all') ? `&campaign_id=${encodeURIComponent(engageCampaignId)}` : ''; setMenuOpenFor(null); navigate(`/analytics?tab=${encodeURIComponent(WIDGET_TAB['Engagement Breakdown'])}&open=${encodeURIComponent('Engagement Breakdown')}&edit=1${extra}`); }}>Edit</button>
-                  <button className="w-full text-left px=3 py=2 text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={()=>{ removeWidget('Engagement Breakdown'); }}>Remove from dashboard</button>
+                  <button className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={()=>{ const extra = (engageCampaignId && engageCampaignId!=='all') ? `&campaign_id=${encodeURIComponent(engageCampaignId)}` : ''; setMenuOpenFor(null); navigate(`/analytics?tab=${encodeURIComponent(WIDGET_TAB['Engagement Breakdown'])}&open=${encodeURIComponent('Engagement Breakdown')}${extra}`); }}>View details</button>
+                  <button className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={()=>{ const extra = (engageCampaignId && engageCampaignId!=='all') ? `&campaign_id=${encodeURIComponent(engageCampaignId)}` : ''; setMenuOpenFor(null); navigate(`/analytics?tab=${encodeURIComponent(WIDGET_TAB['Engagement Breakdown'])}&open=${encodeURIComponent('Engagement Breakdown')}&edit=1${extra}`); }}>Edit</button>
+                  <button className="w-full text-left px-3 py-2 text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={()=>{ removeWidget('Engagement Breakdown'); }}>Remove from dashboard</button>
                 </div>
               )}
             </div>
-            </div>
-          <div className="space-y-2 text-sm">
-                          {(() => {
-              const pct = (k) => {
-                const row = (engagement || []).find((d) => String(d.metric) === k);
-                const v = Number(row && row.pct) || 0;
-                return `${Math.round(v * 10) / 10}%`;
-              };
-              return (
-                <>
-                  <div className="flex items-center justify-between"><span className="text-indigo-700">Opens</span><span className="font-semibold">{pct('open')}</span></div>
-                  <div className="flex items-center justify_between"><span className="text-green-700">Replies</span><span className="font-semibold">{pct('reply')}</span></div>
-                  <div className="flex items-center justify_between"><span className="text-amber-700">Bounces</span><span className="font-semibold">{pct('bounce')}</span></div>
-                  <div className="flex items-center justify_between"><span className="text-purple-700">Clicks</span><span className="font-semibold">{pct('click')}</span></div>
-                </>
-              );
-                          })()}
           </div>
-                  </div>
+          <div className="grid grid-cols-2 gap-4 items-center">
+            <div className="h-40">
+              <canvas id="dash-engagement"></canvas>
+            </div>
+            <div className="space-y-3 text-sm">
+              {(() => {
+                const rows = engagement || [];
+                const colorMap = { open: 'text-indigo-500', reply: 'text-emerald-500', bounce: 'text-amber-500', click: 'text-violet-500' };
+                const labelMap = { open: 'Opens', reply: 'Replies', bounce: 'Bounces', click: 'Clicks' };
+                return ['open','reply','bounce','click'].map((key) => {
+                  const row = rows.find((r) => r.metric === key) || { pct: 0 };
+                  const pct = `${Math.round(Number((row).pct || 0) * 10) / 10}%`;
+                  return (
+                    <div key={key} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-block w-2.5 h-2.5 rounded-full ${colorMap[key]} bg-current`}></span>
+                        <span className={`font-medium ${colorMap[key]}`}>{labelMap[key]}</span>
+                      </div>
+                      <span className="font-semibold">{pct}</span>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+        </div>
       )}
       {customWidgets.includes('Deal Pipeline') && (
         <div className="bg-white dark:bg-gray-900/60 dark:border dark:border-white/10 rounded-2xl shadow-md dark:shadow-none p-6 relative">
