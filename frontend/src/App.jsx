@@ -325,7 +325,7 @@ function InnerApp() {
   // Public dynamic pages (e.g., share/apply) should not be gated by auth
   const isPublicShare = location.pathname.includes('/jobs/share');
   const isPublicApply = location.pathname.includes('/apply');
-  const isPublicForm = location.pathname.startsWith('/f/');
+  const isPublicForm = location.pathname.startsWith('/f/') || location.pathname.startsWith('/forms/public/');
   // Only the marketing page "/rex" should be treated as public; do NOT blanket-match all "/rex*" paths
   let isAuthPage = landingPages.includes(location.pathname) || location.pathname.startsWith('/blog') || isPartnerArea || isPublicShare || isPublicApply || isPublicForm;
   const isBlog = location.pathname.startsWith('/blog');
@@ -556,6 +556,7 @@ function InnerApp() {
               <Route path="/" element={<HomePage />} />
               {/* Public Forms runtime */}
               <Route path="/f/:slug" element={<PublicFormRoute />} />
+              <Route path="/forms/public/:slug" element={<PublicFormRoute />} />
               <Route path="/signup" element={<SignupScreen />} />
               <Route path="/login" element={<SigninScreen />} />
               <Route path="/reset-password" element={<ResetPassword />} />
