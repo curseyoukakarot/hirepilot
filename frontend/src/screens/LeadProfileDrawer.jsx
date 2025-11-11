@@ -2320,12 +2320,12 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                     const canShowData = hasEnhancedOrgData(localLead);
                     if (!unlocked) {
                       return (
-                        <div className="p-3 border rounded-lg bg-yellow-50 border-yellow-200 flex items-center justify-between">
-                          <div className="text-sm text-gray-700">
+                        <div className="p-3 border rounded-lg bg-amber-900/20 border-amber-500/30 flex items-center justify-between">
+                          <div className="text-sm text-amber-200">
                             Unlock Enhanced Company Insights (revenue, funding, technologies, keywords)
                           </div>
                           <button
-                            className="ml-3 inline-flex items-center px-3 py-1.5 rounded border border-yellow-500 text-yellow-700 bg-white hover:bg-yellow-100 text-sm"
+                            className="ml-3 inline-flex items-center px-3 py-1.5 rounded text-sm bg-amber-500 hover:bg-amber-400 text-black font-medium shadow border border-amber-400"
                             onClick={async () => {
                               try {
                                 const { data: { session } } = await supabase.auth.getSession();
