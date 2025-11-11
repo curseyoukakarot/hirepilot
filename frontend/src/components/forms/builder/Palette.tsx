@@ -25,7 +25,7 @@ export function Palette({ onAddField }: Props) {
       {PALETTE.map(p => (
         <div
           key={p.type}
-          className="field-chip hp-card rounded-xl p-3 cursor-grab hover:bg-slate-50 transition-all duration-150"
+          className="field-chip hp-card rounded-xl p-3 cursor-grab hover:bg-slate-50 dark:hover:bg-gray-800 transition-all duration-150"
           draggable={false}
           onClick={() => onAddField(p.type)}
           role="button"

@@ -14,8 +14,8 @@ export function Canvas({ fields, selectedId, onSelect, onDuplicate, onDelete }: 
   return (
     <div className="space-y-6">
       <div id="form-header" className="mb-2">
-        <input type="text" placeholder="Form Title" className="hp-input w-full h-12 px-4 rounded-xl text-2xl font-semibold bg-white border-dashed" />
-        <textarea placeholder="Form description (optional)" className="hp-input w-full mt-4 p-4 rounded-xl bg-white border-dashed resize-none" rows={2}></textarea>
+        <input type="text" placeholder="Form Title" className="hp-input w-full h-12 px-4 rounded-xl text-2xl font-semibold border-dashed" />
+        <textarea placeholder="Form description (optional)" className="hp-input w-full mt-4 p-4 rounded-xl border-dashed resize-none" rows={2}></textarea>
       </div>
 
       {fields.length === 0 && (

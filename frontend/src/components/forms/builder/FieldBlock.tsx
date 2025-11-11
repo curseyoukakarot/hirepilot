@@ -106,10 +106,10 @@ export function FieldBlock({ field, isSelected, onSelect, onDuplicate, onDelete 
           {renderPreview()}
         </div>
         <div className="flex items-center gap-2 ml-4">
-          <button className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-[var(--hp-text-muted)]" onClick={(e) => { e.stopPropagation(); onDuplicate(); }} title="Duplicate">
+          <button className="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-800 flex items-center justify-center text-[var(--hp-text-muted)]" onClick={(e) => { e.stopPropagation(); onDuplicate(); }} title="Duplicate">
             <i className="fa-solid fa-copy w-4 h-4"></i>
           </button>
-          <button className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-[var(--hp-text-muted)]" onClick={(e) => { e.stopPropagation(); onDelete(); }} title="Delete">
+          <button className="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-800 flex items-center justify-center text-[var(--hp-text-muted)]" onClick={(e) => { e.stopPropagation(); onDelete(); }} title="Delete">
             <i className="fa-solid fa-trash w-4 h-4"></i>
           </button>
         </div>

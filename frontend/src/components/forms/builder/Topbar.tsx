@@ -24,11 +24,11 @@ export function Topbar({ title, status, onTitleChange, onPreview, onShare, onPub
         </span>
       </div>
       <div className="flex items-center gap-3">
-        <button className="inline-flex items-center gap-2 h-9 px-3 rounded-xl text-sm font-medium text-[var(--hp-text-muted)] hover:bg-slate-100 transition-colors" onClick={onPreview}>
+        <button className="inline-flex items-center gap-2 h-9 px-3 rounded-xl text-sm font-medium text-[var(--hp-text-muted)] hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors" onClick={onPreview}>
           <i className="fa-solid fa-eye w-4 h-4"></i>
           Preview
         </button>
-        <button className="inline-flex items-center gap-2 h-9 px-3 rounded-xl text-sm font-medium text-[var(--hp-text-muted)] hover:bg-slate-100 transition-colors" onClick={onShare}>
+        <button className="inline-flex items-center gap-2 h-9 px-3 rounded-xl text-sm font-medium text-[var(--hp-text-muted)] hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors" onClick={onShare}>
           <i className="fa-solid fa-share w-4 h-4"></i>
           Share
         </button>

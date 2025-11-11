@@ -17,6 +17,23 @@
   --hp-ring: rgba(91,140,255,.3);
 }
 
+/* Dark mode overrides (class-based) */
+html.dark {
+  --hp-bg: #0b0f17;
+  --hp-surface: #0f172a;
+  --hp-surface-2: #0e1420;
+  --hp-border: #374151;
+  --hp-text: #e5e7eb;
+  --hp-text-muted: #9ca3af;
+  --hp-primary: #5b8cff;
+  --hp-primary-2: #4a7de8;
+  --hp-success: #22c55e;
+  --hp-warning: #f59e0b;
+  --hp-danger: #ef4444;
+  --hp-focus: 0 0 0 3px rgba(91,140,255,.25);
+  --hp-ring: rgba(91,140,255,.35);
+}
+
 .hp-card {
   background: var(--hp-surface);
   border: 1px solid var(--hp-border);

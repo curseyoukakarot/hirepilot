@@ -309,10 +309,10 @@ export default function App() {
         <QueryClientProvider client={queryClient}>
           <BrowserRouter>
             <ThemeProvider>
-              <PlanProvider>
-                <AuthQuerySync />
-                <InnerApp />
-              </PlanProvider>
+            <PlanProvider>
+              <AuthQuerySync />
+              <InnerApp />
+            </PlanProvider>
             </ThemeProvider>
           </BrowserRouter>
         </QueryClientProvider>
