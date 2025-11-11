@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabaseClient';
+import { supabase } from '../supabaseClient';
 
 const API_BASE = (import.meta as any).env?.VITE_BACKEND_URL || '';
 
