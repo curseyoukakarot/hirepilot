@@ -70,10 +70,10 @@ export default function FormsHome() {
                 <i class="fa-solid fa-ellipsis-vertical text-hp-text-muted"></i>
               </button>
               <div class="dropdown-menu">
-                <div class="dropdown-item" onclick="window.__HP_FORMS__.edit('${id}')"><i class="fa-solid fa-pen mr-2"></i>Edit Form</div>
+                <a class="dropdown-item" href="/forms/${id}" target="_top"><i class="fa-solid fa-pen mr-2"></i>Edit Form</a>
                 <div class="dropdown-item" onclick="window.__HP_FORMS__.share('${slug}')"><i class="fa-solid fa-share-nodes mr-2"></i>Share Form</div>
                 <div class="dropdown-item" onclick="window.__HP_FORMS__.copy('${slug}')"><i class="fa-solid fa-link mr-2"></i>Copy Link</div>
-                <div class="dropdown-item" onclick="window.__HP_FORMS__.responses('${id}')"><i class="fa-solid fa-chart-simple mr-2"></i>View Responses</div>
+                <a class="dropdown-item" href="/forms/${id}/responses" target="_top"><i class="fa-solid fa-chart-simple mr-2"></i>View Responses</a>
                 <div class="border-t border-white/5 my-1"></div>
                 <div class="dropdown-item danger" onclick="window.__HP_FORMS__.remove('${id}', this)"><i class="fa-solid fa-trash mr-2"></i>Delete</div>
               </div>
@@ -248,7 +248,6 @@ export default function FormsHome() {
         title="Forms"
         srcDoc={html as any}
         style={{ width: '100%', height: 'calc(100vh - 0px)', border: '0', background: 'transparent' }}
-        sandbox="allow-scripts allow-same-origin allow-popups allow-top-navigation-by-user-activation"
       />
     </div>
   );
