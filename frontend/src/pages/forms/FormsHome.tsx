@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { createForm, listForms } from '../../lib/api/forms';
+import { createForm, listForms, deleteForm as apiDeleteForm } from '../../lib/api/forms';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import '../../styles/forms.css';
@@ -8,6 +8,7 @@ export default function FormsHome() {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<any[]>([]);
   const [q, setQ] = useState('');
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -37,6 +38,42 @@ export default function FormsHome() {
     return items.filter((f) => String(f.title || '').toLowerCase().includes(t) || String(f.slug || '').toLowerCase().includes(t));
   }, [items, q]);
 
+  const allIds = useMemo(() => filtered.map(f => String(f.id)), [filtered]);
+  const isAllSelected = selected.size > 0 && allIds.every(id => selected.has(id));
+  const toggleSelectAll = () => {
+    setSelected(prev => {
+      if (isAllSelected) return new Set();
+      const next = new Set<string>();
+      allIds.forEach(id => next.add(id));
+      return next;
+    });
+  };
+  const toggleSelect = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const deleteOne = async (id: string) => {
+    const ok = typeof window !== 'undefined' ? window.confirm('Delete this form? This cannot be undone.') : true;
+    if (!ok) return;
+    await apiDeleteForm(id);
+    setItems(prev => prev.filter(f => f.id !== id));
+    setSelected(prev => { const n = new Set(prev); n.delete(id); return n; });
+  };
+  const deleteSelected = async () => {
+    if (!selected.size) return;
+    const ok = typeof window !== 'undefined' ? window.confirm(`Delete ${selected.size} selected form${selected.size > 1 ? 's' : ''}? This cannot be undone.`) : true;
+    if (!ok) return;
+    const ids = Array.from(selected);
+    for (const id of ids) {
+      try { await apiDeleteForm(id); } catch {}
+    }
+    setItems(prev => prev.filter(f => !selected.has(f.id)));
+    setSelected(new Set());
+  };
+
   if (loading) return <div className="p-4">Loading…</div>;
   return (
     <div className="p-6 bg-[var(--hp-bg)] min-h-screen">
@@ -53,6 +90,19 @@ export default function FormsHome() {
               onChange={(e) => setQ(e.target.value)}
             />
           </div>
+          <label className="flex items-center gap-2 text-sm px-2 py-1 rounded-lg hover:bg-white/40">
+            <input type="checkbox" checked={isAllSelected} onChange={toggleSelectAll} />
+            Select all
+          </label>
+          <button
+            className={`h-9 px-3 rounded-xl text-sm font-medium ${selected.size ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-gray-200 text-gray-500 cursor-not-allowed'}`}
+            onClick={deleteSelected}
+            disabled={!selected.size}
+            title="Delete selected"
+          >
+            <i className="fa-solid fa-trash mr-2"></i>
+            Delete {selected.size ? `(${selected.size})` : ''}
+          </button>
           <button className="hp-button-primary h-9 px-4 rounded-xl text-sm font-medium" onClick={handleCreate}>
             <i className="fa-solid fa-plus mr-2"></i>
             New Form
@@ -68,9 +118,17 @@ export default function FormsHome() {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0, transition: { duration: 0.2 } }}
             whileHover={{ y: -2, transition: { duration: 0.15 } }}
-            className="hp-card rounded-2xl p-4 cursor-pointer group"
+            className="hp-card rounded-2xl p-4 cursor-pointer group relative"
             onClick={() => navigate(`/forms/${f.id}`)}
           >
+            <div className="absolute top-3 left-3">
+              <input
+                type="checkbox"
+                checked={selected.has(String(f.id))}
+                onChange={(e) => { e.stopPropagation(); toggleSelect(String(f.id)); }}
+                title="Select form"
+              />
+            </div>
             <div className="flex items-start justify-between">
               <div>
                 <div className="text-base font-semibold truncate max-w-[16rem]">{f.title || 'Untitled Form'}</div>
@@ -105,6 +163,13 @@ export default function FormsHome() {
               >
                 <i className="fa-solid fa-up-right-from-square mr-2"></i>Open
               </a>
+              <button
+                className="ml-auto h-8 w-8 rounded-lg text-[var(--hp-danger)] hover:bg-red-500/10 flex items-center justify-center"
+                title="Delete form"
+                onClick={(e) => { e.stopPropagation(); deleteOne(String(f.id)); }}
+              >
+                <i className="fa-solid fa-trash"></i>
+              </button>
             </div>
           </motion.div>
         ))}

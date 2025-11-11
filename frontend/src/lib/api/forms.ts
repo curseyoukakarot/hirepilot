@@ -48,6 +48,10 @@ export async function updateForm(id: string, patch: Record<string, any>) {
   return fetchJson<any>(`/forms/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
 }
 
+export async function deleteForm(id: string) {
+  return fetchJson<{ ok: boolean }>(`/forms/${id}`, { method: 'DELETE' });
+}
+
 export async function upsertFields(id: string, fields: any[]) {
   return fetchJson<{ fields: any[] }>(`/forms/${id}/fields`, { method: 'POST', body: JSON.stringify(fields) });
 }
