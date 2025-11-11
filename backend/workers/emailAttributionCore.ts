@@ -41,19 +41,62 @@ export async function fetchUnattributedEventsPage(afterTs?: string | null): Prom
 export async function attributeEvent(ev: EmailEventRow): Promise<boolean> {
   try {
     let { sg_message_id, message_id, metadata } = ev;
-    let email: string | undefined = metadata?.email;
+    // Prefer explicit recipient email if present in various known locations
+    let email: string | undefined =
+      (metadata && (metadata as any).email) ||
+      (metadata && (metadata as any).to_email) ||
+      (metadata && (metadata as any).recipient) ||
+      (metadata && (metadata as any).raw && (metadata as any).raw.email) ||
+      (metadata && (metadata as any).raw && (metadata as any).raw.to_email);
     let user_id: string | null = ev.user_id;
     let campaign_id: string | null = ev.campaign_id;
     let lead_id: string | null = ev.lead_id;
 
     // Step 1: Extract from metadata.raw (primary source)
     if (metadata?.raw) {
-      user_id = user_id || metadata.raw.user_id || metadata.raw.hp_user_id || null;
-      campaign_id = campaign_id || metadata.raw.campaign_id || metadata.raw.hp_campaign_id || null;
-      lead_id = lead_id || metadata.raw.lead_id || metadata.raw.hp_lead_id || null;
+      // Custom args (preferred when available)
+      const rawCustomArgs: any = (metadata as any).raw?.custom_args || {};
+      user_id =
+        user_id ||
+        rawCustomArgs.user_id ||
+        rawCustomArgs.hp_user_id ||
+        (metadata as any).raw.user_id ||
+        (metadata as any).raw.hp_user_id ||
+        null;
+      campaign_id =
+        campaign_id ||
+        rawCustomArgs.campaign_id ||
+        rawCustomArgs.hp_campaign_id ||
+        (metadata as any).raw.campaign_id ||
+        (metadata as any).raw.hp_campaign_id ||
+        null;
+      lead_id =
+        lead_id ||
+        rawCustomArgs.lead_id ||
+        rawCustomArgs.hp_lead_id ||
+        (metadata as any).raw.lead_id ||
+        (metadata as any).raw.hp_lead_id ||
+        null;
       
       // Also extract email if not already present
-      email = email || metadata.raw.email || null;
+      email =
+        email ||
+        (metadata as any).raw.email ||
+        (metadata as any).raw.to_email ||
+        null;
+    }
+
+    // Step 1B: Fallback — parse reply_to (often encodes u_/c_/l_/m_ identifiers)
+    const replyTo: string | undefined =
+      (metadata && (metadata as any).reply_to) ||
+      (metadata && (metadata as any).raw && (metadata as any).raw.reply_to) ||
+      (metadata && (metadata as any).raw && (metadata as any).raw.headers && (metadata as any).raw.headers.reply_to);
+    if (!user_id || !campaign_id || !lead_id) {
+      const idsFromReplyTo = replyTo ? parseIdsFromReplyTo(replyTo) : {};
+      user_id = user_id || idsFromReplyTo.userId || null;
+      campaign_id = campaign_id || idsFromReplyTo.campaignId || null;
+      lead_id = lead_id || idsFromReplyTo.leadId || null;
+      // messageId not used in updates here; kept for future matching if needed
     }
 
     // Step 2A: Fallback - match by recipient email if still missing data
@@ -218,4 +261,25 @@ function sleep(ms: number) {
 function escapeOrVal(v: string) {
   // very light-touch sanitation for OR builder values
   return v.replace(/,/g, '\\,');
+}
+
+function parseIdsFromReplyTo(replyTo: string): {
+  userId?: string;
+  campaignId?: string;
+  leadId?: string;
+  messageId?: string;
+} {
+  const results: { userId?: string; campaignId?: string; leadId?: string; messageId?: string } = {};
+  if (!replyTo) return results;
+  // Common pattern: something like "... u_<uuid>.c_<uuid>.l_<uuid>.m_<uuid> ..."
+  const uuid = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
+  const userMatch = new RegExp(`u_(${uuid})`).exec(replyTo);
+  const campaignMatch = new RegExp(`c_(${uuid})`).exec(replyTo);
+  const leadMatch = new RegExp(`l_(${uuid})`).exec(replyTo);
+  const msgMatch = new RegExp(`m_(${uuid})`).exec(replyTo);
+  if (userMatch) results.userId = userMatch[1];
+  if (campaignMatch) results.campaignId = campaignMatch[1];
+  if (leadMatch) results.leadId = leadMatch[1];
+  if (msgMatch) results.messageId = msgMatch[1];
+  return results;
 }
