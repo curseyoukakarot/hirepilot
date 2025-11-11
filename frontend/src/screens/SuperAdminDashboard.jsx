@@ -15,6 +15,8 @@ export default function SuperAdminDashboard() {
   const [loading, setLoading] = useState(true);
   const { data: health } = useAppHealth();
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+  const [attribStatus, setAttribStatus] = useState(null);
+  const [attribLoading, setAttribLoading] = useState(false);
 
   useEffect(() => {
     const fetchLatestUsers = async () => {
@@ -57,6 +59,61 @@ export default function SuperAdminDashboard() {
     };
     fetchOverview();
   }, []);
+
+  // Email Attribution mini-widget data
+  const fetchAttribStatus = async () => {
+    try {
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const res = await fetch(`${BACKEND_URL}/api/admin/email-attribution/status`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const json = await res.json();
+      setAttribStatus(json);
+    } catch (e) {
+      // Best-effort; keep silent on dashboard
+      setAttribStatus({ running: false, remainingUnattributed: null, lastPass: null, mode: null });
+    }
+  };
+
+  useEffect(() => {
+    fetchAttribStatus();
+    const id = setInterval(fetchAttribStatus, 10000);
+    return () => clearInterval(id);
+  }, []);
+
+  const runAttribPass = async () => {
+    if (attribLoading) return;
+    setAttribLoading(true);
+    try {
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const res = await fetch(`${BACKEND_URL}/api/admin/email-attribution/run-pass`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error(await res.text());
+      await fetchAttribStatus();
+    } catch {}
+    setAttribLoading(false);
+  };
+
+  const runAttribBackfill = async () => {
+    if (attribLoading) return;
+    setAttribLoading(true);
+    try {
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const res = await fetch(`${BACKEND_URL}/api/admin/email-attribution/run-backfill`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error(await res.text());
+      await fetchAttribStatus();
+    } catch {}
+    setAttribLoading(false);
+  };
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-gradient-to-br from-gray-800 to-black min-h-screen">
@@ -181,6 +238,61 @@ export default function SuperAdminDashboard() {
                 <i className="fa-solid fa-power-off text-red-500 text-xl mb-2"></i>
                 <span className="text-sm text-gray-200">Emergency Stop</span>
               </button>
+            </div>
+          </div>
+          {/* Email Attribution Widget (next to Quick Actions) */}
+          <div className="bg-gray-800 p-4 rounded-lg shadow-md">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-100">Email Attribution</h2>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={runAttribPass}
+                  disabled={attribLoading || attribStatus?.running}
+                  className={`px-3 py-1.5 rounded text-white text-sm ${attribLoading || attribStatus?.running ? 'bg-gray-500' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                >
+                  Run Pass
+                </button>
+                <button
+                  onClick={runAttribBackfill}
+                  disabled={attribLoading || attribStatus?.running}
+                  className={`px-3 py-1.5 rounded text-white text-sm ${attribLoading || attribStatus?.running ? 'bg-gray-500' : 'bg-purple-600 hover:bg-purple-700'}`}
+                >
+                  Backfill
+                </button>
+                <button
+                  onClick={() => navigate('/super-admin/email-attribution')}
+                  className="px-3 py-1.5 rounded text-sm bg-gray-700 hover:bg-gray-600 text-gray-100"
+                >
+                  Open
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="p-3 rounded-md border border-gray-700">
+                <div className="text-xs text-gray-400">Remaining Unattributed</div>
+                <div className="text-2xl font-bold text-gray-100">
+                  {attribStatus?.remainingUnattributed ?? '—'}
+                </div>
+              </div>
+              <div className="p-3 rounded-md border border-gray-700">
+                <div className="text-xs text-gray-400">Worker Health</div>
+                <div className="mt-1 text-sm text-gray-200">
+                  <div>Status: <span className={`${attribStatus?.running ? 'text-green-400' : 'text-gray-300'}`}>{attribStatus?.running ? 'Running' : 'Idle'}</span></div>
+                  <div>Mode: <span className="font-mono">{attribStatus?.mode || '—'}</span></div>
+                </div>
+              </div>
+              <div className="p-3 rounded-md border border-gray-700">
+                <div className="text-xs text-gray-400">Last Pass</div>
+                {attribStatus?.lastPass ? (
+                  <div className="mt-1 text-sm text-gray-200">
+                    <div>Scanned: <span className="font-semibold">{attribStatus.lastPass.scanned}</span></div>
+                    <div>Updated: <span className="font-semibold">{attribStatus.lastPass.updated}</span></div>
+                    <div>At: <span className="font-mono">{new Date(attribStatus.lastPass.at).toLocaleTimeString()}</span></div>
+                  </div>
+                ) : (
+                  <div className="mt-1 text-sm text-gray-500">No recent data</div>
+                )}
+              </div>
             </div>
           </div>
         </div>
