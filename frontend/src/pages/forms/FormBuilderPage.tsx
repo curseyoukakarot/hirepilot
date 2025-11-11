@@ -7,6 +7,7 @@ import Topbar from '../../components/forms/builder/Topbar';
 import EmbedModal from '../../components/forms/builder/EmbedModal';
 import { listCustomTables, listJobReqs, publishForm, updateForm } from '../../lib/api/forms';
 import '../../styles/forms.css';
+import { toast } from 'react-hot-toast';
 
 export default function FormBuilderPage() {
   const id = useMemo(() => {
@@ -56,7 +57,18 @@ export default function FormBuilderPage() {
             }}
             onPreview={() => window.open(`/f/${form?.slug}`, '_blank')}
             onShare={() => setEmbedOpen(true)}
-            onPublish={async () => { if (form?.id) { const upd = await publishForm(form.id, true); setForm(upd); } }}
+            onPublish={async () => {
+              if (!form?.id) return;
+              try {
+                const upd = await publishForm(form.id, true);
+                setForm(upd);
+                const url = `${window.location.origin}/f/${upd.slug}`;
+                try { await navigator.clipboard.writeText(url); } catch {}
+                toast.success('Form published! Public link copied to clipboard.');
+              } catch (e: any) {
+                toast.error(e?.message || 'Failed to publish form');
+              }
+            }}
           />
         </div>
 
