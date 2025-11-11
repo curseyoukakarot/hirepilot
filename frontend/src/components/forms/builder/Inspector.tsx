@@ -54,6 +54,61 @@ export function Inspector({ field, onChange, form, onFormChange, tables = [], jo
               onChange={(e) => onChange({ help_text: e.target.value })}
             />
           </div>
+          {/* Type-specific editors */}
+          {['dropdown','multi_select'].includes(field.type) && (
+            <TypeChoicesEditor
+              value={Array.isArray((field as any).options?.choices) ? (field as any).options.choices : []}
+              onChange={(choices) => onChange({ options: { ...(field.options || {}), choices } as any })}
+            />
+          )}
+          {field.type === 'checkbox' && (
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                className="rounded border-[var(--hp-border)]"
+                checked={!!(field as any).options?.defaultChecked}
+                onChange={(e) => onChange({ options: { ...(field.options || {}), defaultChecked: e.target.checked } as any })}
+              />
+              <span className="text-sm">Default checked</span>
+            </div>
+          )}
+          {field.type === 'rating' && (
+            <div>
+              <label className="block text-sm font-medium mb-2">Max stars</label>
+              <input
+                type="number"
+                min={1}
+                max={10}
+                className="hp-input w-full h-10 px-3 rounded-xl"
+                value={Number((field as any).options?.max || 5)}
+                onChange={(e) => onChange({ options: { ...(field.options || {}), max: Math.max(1, Math.min(Number(e.target.value) || 5, 10)) } as any })}
+              />
+            </div>
+          )}
+          {field.type === 'file_upload' && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium mb-2">Allowed types (comma separated)</label>
+                <input
+                  type="text"
+                  className="hp-input w-full h-10 px-3 rounded-xl"
+                  placeholder="e.g., application/pdf,image/png"
+                  value={String((field as any).options?.accept || '')}
+                  onChange={(e) => onChange({ options: { ...(field.options || {}), accept: e.target.value } as any })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Max size (MB)</label>
+                <input
+                  type="number"
+                  min={1}
+                  className="hp-input w-full h-10 px-3 rounded-xl"
+                  value={Number((field as any).options?.maxSizeMB || 10)}
+                  onChange={(e) => onChange({ options: { ...(field.options || {}), maxSizeMB: Math.max(1, Number(e.target.value) || 10) } as any })}
+                />
+              </div>
+            </div>
+          )}
           <div>
             <label className="flex items-center gap-3">
               <input
@@ -134,6 +189,51 @@ export function Inspector({ field, onChange, form, onFormChange, tables = [], jo
             </select>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+function TypeChoicesEditor({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  const [input, setInput] = React.useState('');
+  const list = Array.isArray(value) ? value : [];
+  return (
+    <div>
+      <label className="block text-sm font-medium mb-2">Choices</label>
+      <div className="flex gap-2 mb-2">
+        <input
+          className="hp-input flex-1 h-10 px-3 rounded-xl"
+          placeholder="Add choice"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && input.trim()) {
+              onChange([...list, input.trim()]);
+              setInput('');
+            }
+          }}
+        />
+        <button
+          className="h-10 px-3 rounded-xl bg-[var(--hp-surface-2)] hover:bg-slate-100"
+          onClick={() => { if (input.trim()) { onChange([...list, input.trim()]); setInput(''); } }}
+        >
+          Add
+        </button>
+      </div>
+      <div className="space-y-2">
+        {list.map((c, idx) => (
+          <div key={`${c}-${idx}`} className="flex items-center justify-between hp-card rounded-lg px-3 py-2">
+            <span className="text-sm">{c}</span>
+            <button
+              className="text-[var(--hp-danger)] hover:bg-red-500/10 rounded px-2 py-1 text-sm"
+              onClick={() => onChange(list.filter((_, i) => i !== idx))}
+              title="Remove"
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+        {!list.length && <div className="text-xs text-[var(--hp-text-muted)]">No choices yet.</div>}
       </div>
     </div>
   );
