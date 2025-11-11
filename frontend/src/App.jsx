@@ -31,6 +31,7 @@ import AdminUserManagement from './screens/AdminUserManagement';
 import AdminPuppetHealth from './screens/AdminPuppetHealth';
 import AdminProxyManagement from './screens/AdminProxyManagement';
 import AdminAffiliatesManager from './pages/admin/AdminAffiliatesManager';
+import EmailAttributionController from './pages/admin/EmailAttributionController';
 import LeadSyncFailures from './screens/LeadSyncFailures';
 import PhantomConfig from './screens/PhantomConfig';
 import WebhookLogs from './screens/WebhookLogs';
@@ -658,6 +659,7 @@ function InnerApp() {
               <Route path="/admin/proxy-management" element={<AdminProxyManagement />} />
               <Route path="/admin/affiliates" element={<AdminAffiliatesManager />} />
               <Route path="/super-admin/affiliates" element={<RequireSuperAdmin><AdminAffiliatesManager /></RequireSuperAdmin>} />
+              <Route path="/super-admin/email-attribution" element={<RequireSuperAdmin><EmailAttributionController /></RequireSuperAdmin>} />
               <Route path="/blog" element={<BlogLandingPage />} />
               <Route path="/chromeextension" element={<ChromeExtension />} />
               <Route path="/chromeextension/privacy" element={<ChromeExtensionPrivacy />} />

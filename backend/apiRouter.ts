@@ -76,6 +76,9 @@ import linkedInCookieRouter from './src/routes/cookies/storeLinkedInCookie';
 import adminUsersRouter from './src/routes/adminUsers';
 import { slack as slackClient } from './src/services/slack';
 import fieldsHandler from './api/fields';
+import { supabaseAdmin } from './lib/supabaseAdmin';
+import { notifySlack } from './lib/slack';
+import { runFullBackfillLoop, processBatchSoftTimed } from './workers/emailAttributionCore';
 
 // LinkedIn session admin router
 const linkedinSessionAdmin = require('./api/linkedinSessionAdmin');
@@ -463,5 +466,184 @@ router.use('/activities', requireAuth, activitiesRouter);
 // Candidate Activities (create-only) endpoint for candidates without linked leads
 import candidateActivitiesRouter from './api/candidateActivities';
 router.use('/candidate-activities', requireAuth, candidateActivitiesRouter);
+
+// ----------------------
+// Admin: Email Attribution Controls
+// ----------------------
+
+// In-memory job state (single-process)
+let attribJobState: {
+  running: boolean;
+  mode: 'backfill' | 'timed' | null;
+  startedAt: number | null;
+  finishedAt: number | null;
+  lastPass?: { scanned: number; updated: number; ms: number; at: number } | null;
+  lastError?: string | null;
+} = {
+  running: false,
+  mode: null,
+  startedAt: null,
+  finishedAt: null,
+  lastPass: null,
+  lastError: null,
+};
+
+router.get('/admin/email-attribution/status', async (req: Request, res: Response) => {
+  const gate = await requireAdmin(req, res);
+  if (!gate.ok) return;
+  try {
+    const { data: remainingCount } = await supabaseAdmin
+      .from('email_events')
+      .select('id', { count: 'exact', head: true })
+      .is('user_id', null);
+
+    return res.json({
+      running: attribJobState.running,
+      mode: attribJobState.mode,
+      startedAt: attribJobState.startedAt,
+      finishedAt: attribJobState.finishedAt,
+      lastPass: attribJobState.lastPass || null,
+      lastError: attribJobState.lastError || null,
+      remainingUnattributed: typeof remainingCount === 'number' ? remainingCount : null,
+    });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'status failed' });
+  }
+});
+
+router.post('/admin/email-attribution/run-pass', async (req: Request, res: Response) => {
+  const gate = await requireAdmin(req, res);
+  if (!gate.ok) return;
+  try {
+    if (attribJobState.running) return res.status(409).json({ error: 'Job already running' });
+    attribJobState.running = true;
+    attribJobState.mode = 'timed';
+    attribJobState.startedAt = Date.now();
+    attribJobState.finishedAt = null;
+    attribJobState.lastError = null;
+    // Fire-and-forget
+    (async () => {
+      try {
+        const start = Date.now();
+        const { scanned, updated } = await processBatchSoftTimed();
+        attribJobState.lastPass = { scanned, updated, ms: Date.now() - start, at: Date.now() };
+        attribJobState.finishedAt = Date.now();
+        attribJobState.running = false;
+        // Slack notify
+        await notifySlack(`Email attribution timed pass completed: scanned ${scanned}, updated ${updated}.`);
+      } catch (err: any) {
+        attribJobState.lastError = err?.message || String(err);
+        attribJobState.finishedAt = Date.now();
+        attribJobState.running = false;
+        try { await notifySlack(`Email attribution timed pass failed: ${attribJobState.lastError}`); } catch {}
+      }
+    })();
+    return res.json({ ok: true, startedAt: attribJobState.startedAt });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'run-pass failed' });
+  }
+});
+
+router.post('/admin/email-attribution/run-backfill', async (req: Request, res: Response) => {
+  const gate = await requireAdmin(req, res);
+  if (!gate.ok) return;
+  try {
+    if (attribJobState.running) return res.status(409).json({ error: 'Job already running' });
+    attribJobState.running = true;
+    attribJobState.mode = 'backfill';
+    attribJobState.startedAt = Date.now();
+    attribJobState.finishedAt = null;
+    attribJobState.lastError = null;
+
+    // Capture baseline remaining
+    const { data: beforeCount } = await supabaseAdmin
+      .from('email_events')
+      .select('id', { count: 'exact', head: true })
+      .is('user_id', null);
+    const before = typeof beforeCount === 'number' ? beforeCount : null;
+
+    // Fire-and-forget
+    (async () => {
+      try {
+        await runFullBackfillLoop();
+        // After run
+        const { data: afterCount } = await supabaseAdmin
+          .from('email_events')
+          .select('id', { count: 'exact', head: true })
+          .is('user_id', null);
+        const after = typeof afterCount === 'number' ? afterCount : null;
+        attribJobState.finishedAt = Date.now();
+        attribJobState.running = false;
+        attribJobState.lastPass = {
+          scanned: (before || 0) - (after || 0),
+          updated: (before || 0) - (after || 0),
+          ms: attribJobState.finishedAt - (attribJobState.startedAt || attribJobState.finishedAt),
+          at: Date.now(),
+        };
+        await notifySlack(`Email attribution backfill completed: remaining ${after}, updated ~${(before || 0) - (after || 0)}.`);
+      } catch (err: any) {
+        attribJobState.lastError = err?.message || String(err);
+        attribJobState.finishedAt = Date.now();
+        attribJobState.running = false;
+        try { await notifySlack(`Email attribution backfill failed: ${attribJobState.lastError}`); } catch {}
+      }
+    })();
+
+    return res.json({ ok: true, startedAt: attribJobState.startedAt, baselineRemaining: before });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'run-backfill failed' });
+  }
+});
+
+router.get('/admin/email-attribution/logs', async (req: Request, res: Response) => {
+  const gate = await requireAdmin(req, res);
+  if (!gate.ok) return;
+  try {
+    const limit = Math.min(parseInt(String(req.query.limit || '50'), 10) || 50, 200);
+    const sinceMins = Math.min(parseInt(String(req.query.since_mins || '1440'), 10) || 1440, 7 * 24 * 60);
+    const sinceIso = new Date(Date.now() - sinceMins * 60 * 1000).toISOString();
+    const { data, error } = await supabaseAdmin
+      .from('email_events')
+      .select('id,event_type,message_id,user_id,campaign_id,lead_id,provider,event_timestamp,created_at,updated_at,metadata')
+      .gte('updated_at', sinceIso)
+      .order('updated_at', { ascending: false })
+      .limit(limit);
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ logs: data || [] });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'logs failed' });
+  }
+});
+
+router.get('/admin/email-attribution/event/:id', async (req: Request, res: Response) => {
+  const gate = await requireAdmin(req, res);
+  if (!gate.ok) return;
+  try {
+    const id = req.params.id;
+    const { data: event, error } = await supabaseAdmin
+      .from('email_events')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) return res.status(500).json({ error: error.message });
+    if (!event) return res.status(404).json({ error: 'Not found' });
+
+    let message: any = null;
+    try {
+      if (event?.message_id) {
+        const mid = String(event.message_id);
+        const { data: msg } = await supabaseAdmin
+          .from('messages')
+          .select('*')
+          .eq('id', mid)
+          .maybeSingle();
+        message = msg || null;
+      }
+    } catch {}
+    return res.json({ event, message });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'event fetch failed' });
+  }
+});
 
 export default router;
