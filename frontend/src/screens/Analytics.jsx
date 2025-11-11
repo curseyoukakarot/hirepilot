@@ -1308,23 +1308,23 @@ export default function Analytics() {
   );
 
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
       <main id="main-content" className="flex-1 flex flex-col overflow-hidden">
-        <header id="header" className="bg-white border-b border-gray-200 p-6">
+        <header id="header" className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 p-6">
             <div className="flex items-center justify-between">
                           <div>
-              <h1 className="text-3xl font-bold text-gray-900">{activeTab==='overview' ? 'Campaign Performance' : 'Analytics & Widgets'}</h1>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{activeTab==='overview' ? 'Campaign Performance' : 'Analytics & Widgets'}</h1>
               {activeTab!=='overview' && (
                 <>
-                  <p className="text-gray-600 mt-1">Browse and add insights to your dashboard</p>
-                  <p className="text-purple-600 text-sm mt-2 font-medium">Unlock insights with widgets—customize or let REX build for you!</p>
+                  <p className="text-gray-600 dark:text-gray-400 mt-1">Browse and add insights to your dashboard</p>
+                  <p className="text-purple-600 dark:text-purple-400 text-sm mt-2 font-medium">Unlock insights with widgets—customize or let REX build for you!</p>
                 </>
               )}
                           </div>
             <div className="flex items-center space-x-4">
               <div className="relative">
-                <input type="text" placeholder="Search widgets..." className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" />
-                <i className="fa-solid fa-search absolute left-3 top-3 text-gray-400"></i>
+                <input type="text" placeholder="Search widgets..." className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400" />
+                <i className="fa-solid fa-search absolute left-3 top-3 text-gray-400 dark:text-gray-500"></i>
                         </div>
               <button onClick={() => navigate('/tables?create=1')} className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors">
                 <i className="fa-solid fa-plus mr-2"></i>Create Custom
@@ -1335,37 +1335,37 @@ export default function Analytics() {
 
         <div id="content-area" className="flex-1 overflow-y-auto p-6">
           <div id="tabs-container" className="mb-8">
-            <nav className="flex space-x-8 border-b border-gray-200">
+            <nav className="flex space-x-8 border-b border-gray-200 dark:border-gray-800">
               <button
-                className={`pb-4 px-1 font-semibold text-sm border-b-2 ${activeTab === 'overview' ? 'text-purple-700 border-purple-600' : 'text-gray-500 hover:text-gray-700 border-transparent hover:border-gray-300'}`}
+                className={`pb-4 px-1 font-semibold text-sm border-b-2 ${activeTab === 'overview' ? 'text-purple-700 dark:text-purple-400 border-purple-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border-transparent hover:border-gray-300 dark:hover:border-gray-700'}`}
                 onClick={() => setActiveTab('overview')}
                 data-tab="overview"
               >
                 <i className="fa-solid fa-chart-line mr-2"></i>Overview
               </button>
               <button
-                className={`pb-4 px-1 font-semibold text-sm border-b-2 ${activeTab === 'deals' ? 'text-purple-700 border-purple-600' : 'text-gray-500 hover:text-gray-700 border-transparent hover:border-gray-300'}`}
+                className={`pb-4 px-1 font-semibold text-sm border-b-2 ${activeTab === 'deals' ? 'text-purple-700 dark:text-purple-400 border-purple-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border-transparent hover:border-gray-300 dark:hover:border-gray-700'}`}
                 onClick={() => setActiveTab('deals')}
                 data-tab="deals"
               >
                 <i className="fa-solid fa-dollar-sign mr-2"></i>Deals
               </button>
               <button
-                className={`pb-4 px-1 font-semibold text-sm border-b-2 ${activeTab === 'jobs' ? 'text-purple-700 border-purple-600' : 'text-gray-500 hover:text-gray-700 border-transparent hover:border-gray-300'}`}
+                className={`pb-4 px-1 font-semibold text-sm border-b-2 ${activeTab === 'jobs' ? 'text-purple-700 dark:text-purple-400 border-purple-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border-transparent hover:border-gray-300 dark:hover:border-gray-700'}`}
                 onClick={() => setActiveTab('jobs')}
                 data-tab="jobs"
               >
                 <i className="fa-solid fa-briefcase mr-2"></i>Jobs
               </button>
               <button
-                className={`pb-4 px-1 font-semibold text-sm border-b-2 ${activeTab === 'outreach' ? 'text-purple-700 border-purple-600' : 'text-gray-500 hover:text-gray-700 border-transparent hover:border-gray-300'}`}
+                className={`pb-4 px-1 font-semibold text-sm border-b-2 ${activeTab === 'outreach' ? 'text-purple-700 dark:text-purple-400 border-purple-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border-transparent hover:border-gray-300 dark:hover:border-gray-700'}`}
                 onClick={() => setActiveTab('outreach')}
                 data-tab="outreach"
               >
                 <i className="fa-solid fa-paper-plane mr-2"></i>Outreach
               </button>
               <button
-                className={`pb-4 px-1 font-semibold text-sm border-b-2 ${activeTab === 'rex' ? 'text-purple-700 border-purple-600' : 'text-purple-600 hover:text-purple-700 border-transparent hover:border-purple-300'}`}
+                className={`pb-4 px-1 font-semibold text-sm border-b-2 ${activeTab === 'rex' ? 'text-purple-700 dark:text-purple-400 border-purple-600' : 'text-purple-600 dark:text-purple-400 hover:text-purple-700 border-transparent hover:border-purple-300 dark:hover:border-purple-700'}`}
                 onClick={() => setActiveTab('rex')}
                 data-tab="rex"
               >
@@ -1381,22 +1381,22 @@ export default function Analytics() {
           ) : (
             <div id="widgets-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {widgets.map((widget) => (
-                <div key={widget.name} className="widget-card bg-white rounded-lg shadow-md p-6 cursor-pointer" data-widget={widget.name}>
+                <div key={widget.name} className="widget-card bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg shadow-md p-6 cursor-pointer" data-widget={widget.name}>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-purple-900">{widget.name}</h3>
-                    <button className="text-gray-400 hover:text-gray-600 hover:rotate-90 transition-transform">
+                    <h3 className="text-lg font-semibold text-purple-900 dark:text-purple-300">{widget.name}</h3>
+                    <button className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:rotate-90 transition-transform">
                       <i className="fa-solid fa-cog"></i>
                     </button>
                   </div>
-                  <div className={`h-32 bg-gradient-to-r from-${widget.color}-100 to-${widget.color}-200 rounded-lg mb-4 flex items-center justify-center`}>
-                    <i className={`fa-solid ${widget.icon} text-4xl text-${widget.color}-600`}></i>
+                  <div className={`h-32 bg-gradient-to-r from-${widget.color}-100 to-${widget.color}-200 dark:from-gray-800 dark:to-gray-700 rounded-lg mb-4 flex items-center justify-center`}>
+                    <i className={`fa-solid ${widget.icon} text-4xl text-${widget.color}-600 dark:text-gray-200`}></i>
                   </div>
                   <div className="flex space-x-2">
                     <button onClick={() => addWidgetToDashboard(widget.name)} className="flex-1 bg-purple-600 text-white py-2 px-3 rounded-lg text-sm hover:bg-purple-700 transition-colors">
                       <i className="fa-solid fa-plus mr-1"></i>Add to Dashboard
                     </button>
                     <button
-                      className="px-3 py-2 border border-purple-300 text-purple-600 rounded-lg text-sm hover:bg-purple-50 transition-colors"
+                      className="px-3 py-2 border border-purple-300 text-purple-600 rounded-lg text-sm hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
                       onClick={(e) => { e.stopPropagation(); openModal(widget.name); }}
                     >
                       <i className="fa-solid fa-expand mr-1"></i>View
@@ -1416,7 +1416,7 @@ export default function Analytics() {
       {isModalOpen && (
         <div id="modal-overlay" className="fixed inset-0 bg-black/50 modal z-40" onClick={(e) => { if (e.target === e.currentTarget) { setIsModalOpen(false); setShowExportMenu(false); } }}>
           <div className="flex items-center justify-center min-h-screen p-4">
-            <div id="modal-content" className={`bg-white rounded-xl shadow-2xl w-full md:w-3/4 lg:w-2/3 max-w-6xl max-h-[90vh] overflow-auto transform transition-transform duration-300 ${isModalOpen ? 'scale-100' : 'scale-95'}`}>
+            <div id="modal-content" className={`bg-white dark:bg-gray-900 border dark:border-gray-700 rounded-xl shadow-2xl w-full md:w-3/4 lg:w-2/3 max-w-6xl max-h-[90vh] overflow-auto transform transition-transform duration-300 ${isModalOpen ? 'scale-100' : 'scale-95'}`}>
               {/* Render per-widget redesigns */}
               {modalWidget === 'Deal Pipeline' && renderDealsVariant()}
               {modalWidget === 'Hiring Funnel' && renderJobsVariant()}
