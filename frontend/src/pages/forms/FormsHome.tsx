@@ -48,10 +48,11 @@ export default function FormsHome() {
       const title = esc(f.title || 'Untitled Form');
       const desc = esc(f.description || '');
       const updated = timeAgo(f.updated_at);
+      const updatedTs = Number(new Date(f.updated_at || f.created_at || Date.now()).getTime() || 0);
       const slug = esc(f.slug);
       const id = esc(f.id);
       return `
-        <div class="rounded-2xl border border-white/5 bg-hp-surface/80 backdrop-blur p-6 card-hover cursor-pointer opacity-0 animate-fade-in ${stagger}" data-id="${id}">
+        <div class="rounded-2xl border border-white/5 bg-hp-surface/80 backdrop-blur p-6 card-hover cursor-pointer opacity-0 animate-fade-in ${stagger}" data-id="${id}" data-status="${f.is_public ? 'published' : 'draft'}" data-title="${title.toLowerCase()}" data-updated="${updatedTs}">
           <div class="flex items-start justify-between mb-3">
             <h3 class="text-xl font-semibold text-white line-clamp-1 flex-1">${title}</h3>
             <div class="relative">
@@ -157,17 +158,27 @@ export default function FormsHome() {
             <input type="text" placeholder="Search forms…" class="w-[300px] h-11 pl-10 pr-4 bg-hp-surface border border-hp-border rounded-xl text-sm placeholder:text-hp-text-muted focus:outline-none focus:border-hp-primary/50 focus:ring-4 focus:ring-hp-primary/10 transition-all">
         </div>
         <div class="flex items-center gap-3">
-            <div class="relative">
-                <button class="h-11 px-4 bg-hp-surface border border-hp-border rounded-xl text-sm font-medium hover:border-white/10 transition-all flex items-center gap-2">
-                    Sort by: Updated Recently
+            <div class="relative" id="sort-menu">
+                <button class="h-11 px-4 bg-hp-surface border border-hp-border rounded-xl text-sm font-medium hover:border-white/10 transition-all flex items-center gap-2" onclick="window.__HP_FORMS__.toggleSort(event)">
+                    <span id="sort-label">Sort by: Updated Recently</span>
                     <i class="fa-solid fa-chevron-down text-xs text-hp-text-muted"></i>
                 </button>
+                <div class="dropdown-menu">
+                  <div class="dropdown-item" onclick="window.__HP_FORMS__.applySort('updated_desc')">Updated Recently</div>
+                  <div class="dropdown-item" onclick="window.__HP_FORMS__.applySort('title_asc')">Title A–Z</div>
+                  <div class="dropdown-item" onclick="window.__HP_FORMS__.applySort('title_desc')">Title Z–A</div>
+                </div>
             </div>
-            <div class="relative">
-                <button class="h-11 px-4 bg-hp-surface border border-hp-border rounded-xl text-sm font-medium hover:border-white/10 transition-all flex items-center gap-2">
-                    Filter: All Forms
+            <div class="relative" id="filter-menu">
+                <button class="h-11 px-4 bg-hp-surface border border-hp-border rounded-xl text-sm font-medium hover:border-white/10 transition-all flex items-center gap-2" onclick="window.__HP_FORMS__.toggleFilter(event)">
+                    <span id="filter-label">Filter: All Forms</span>
                     <i class="fa-solid fa-chevron-down text-xs text-hp-text-muted"></i>
                 </button>
+                <div class="dropdown-menu">
+                  <div class="dropdown-item" onclick="window.__HP_FORMS__.applyFilter('all')">All Forms</div>
+                  <div class="dropdown-item" onclick="window.__HP_FORMS__.applyFilter('published')">Published</div>
+                  <div class="dropdown-item" onclick="window.__HP_FORMS__.applyFilter('draft')">Drafts</div>
+                </div>
             </div>
         </div>
     </div>
@@ -197,9 +208,13 @@ export default function FormsHome() {
           responses: function(id){ window.top.location.href = '/forms/' + id + '/responses'; },
           copy: function(slug){ const url = window.location.origin + '/f/' + slug; try { navigator.clipboard.writeText(url); } catch {} },
           share: function(slug){ this.copy(slug); },
-          remove: async function(id, el){ try { const resp = await fetch(this.API_BASE + '/api/forms/' + id, { method:'DELETE', headers: { 'Authorization': 'Bearer ' + this.TOKEN, 'Content-Type':'application/json' }, credentials:'include' }); if (resp.ok) { const card = el && el.closest('[data-id]'); if (card) card.remove(); } } catch {} },
+          remove: async function(id, el){ try { const resp = await fetch(this.API_BASE + '/api/forms/' + id, { method:'DELETE', headers: { 'Authorization': 'Bearer ' + this.TOKEN, 'Content-Type':'application/json' }, credentials:'include' }); if (resp.ok) { const card = el && el.closest('[data-id]'); if (card) card.remove(); const headerCount = document.querySelector('#header span'); try { const n = document.querySelectorAll('[data-id]').length; headerCount && (headerCount.textContent = '(' + n + ')'); } catch {} } } catch {} },
           create: async function(){ try { const resp = await fetch(this.API_BASE + '/api/forms', { method:'POST', headers: { 'Authorization':'Bearer ' + this.TOKEN, 'Content-Type':'application/json' }, credentials:'include', body: JSON.stringify({ title: 'Untitled Form', is_public: false }) }); if (resp.ok) { const f = await resp.json(); window.top.location.href = '/forms/' + (f?.id || ''); } } catch {} },
-          toggleDropdown
+          toggleDropdown,
+          toggleSort: function(e){ e.stopPropagation(); const m = document.querySelector('#sort-menu .dropdown-menu'); if (m) m.classList.toggle('active'); },
+          toggleFilter: function(e){ e.stopPropagation(); const m = document.querySelector('#filter-menu .dropdown-menu'); if (m) m.classList.toggle('active'); },
+          applyFilter: function(mode){ const label = document.getElementById('filter-label'); if (label) label.textContent = 'Filter: ' + (mode==='all'?'All Forms': mode==='published'?'Published':'Drafts'); document.querySelectorAll('[data-id]').forEach(el => { const status = el.getAttribute('data-status') || 'draft'; (el as any).style.display = (mode==='all' || status===mode) ? '' : 'none'; }); },
+          applySort: function(mode){ const label = document.getElementById('sort-label'); if (label) label.textContent = 'Sort by: ' + (mode==='updated_desc'?'Updated Recently': mode==='title_asc'?'Title A–Z':'Title Z–A'); const grid = document.querySelector('#forms-grid .grid'); if (!grid) return; const cards = Array.from(grid.children); const sorted = cards.sort((a,b)=>{ if (mode==='updated_desc') { return Number(b.getAttribute('data-updated')||'0') - Number(a.getAttribute('data-updated')||'0'); } if (mode==='title_asc') { return String(a.getAttribute('data-title')||'').localeCompare(String(b.getAttribute('data-title')||'')); } if (mode==='title_desc') { return String(b.getAttribute('data-title')||'').localeCompare(String(a.getAttribute('data-title')||'')); } return 0; }); sorted.forEach(el => grid.appendChild(el)); }
         };
     </script>
 </body>
