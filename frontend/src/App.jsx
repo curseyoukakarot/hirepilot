@@ -71,6 +71,7 @@ import PromoBanner from './components/PromoBanner';
 import { PlanProvider } from './context/PlanContext';
 import { startSessionCookieSync } from './auth/sessionSync';
 import { ThemeProvider } from './context/ThemeContext';
+import { useTheme } from './context/ThemeContext';
 import PublicJobPage from './screens/PublicJobPage.jsx';
 import ApplyForm from './screens/ApplyForm.jsx';
 import ApplySuccess from './screens/ApplySuccess.jsx';
@@ -336,6 +337,7 @@ function InnerApp() {
   const [isGuestUser, setIsGuestUser] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const { theme } = useTheme();
 
   useEffect(() => {
     // Detect mobile viewport (tailwind md breakpoint ~768px)
@@ -347,6 +349,20 @@ function InnerApp() {
     apply();
     return () => { try { if (mq.removeEventListener) mq.removeEventListener('change', apply); else mq.removeListener(apply); } catch {} };
   }, []);
+
+  // Force public (marketing/blog) pages to stay in light mode; in-app follows user theme
+  useEffect(() => {
+    const root = document.documentElement;
+    const path = location.pathname;
+    const isAuthScreen = path === '/login' || path === '/signup' || path === '/reset-password';
+    try {
+      if (isAuthPage && !isAuthScreen) {
+        root.classList.remove('dark');
+      } else {
+        if (theme === 'dark') root.classList.add('dark'); else root.classList.remove('dark');
+      }
+    } catch {}
+  }, [isAuthPage, theme, location.pathname]);
 
   // Initialize sidebar collapsed state from localStorage and keep it in sync via events
   useEffect(() => {
