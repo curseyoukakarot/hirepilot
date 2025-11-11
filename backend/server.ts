@@ -160,6 +160,7 @@ import supportTools from './src/routes/support';
 import externalInvoiceRouter from './src/routes/externalInvoice';
 import { attachApiKeyAuth } from './src/middleware/withApiKeyAuth';
 import { authenticate } from './src/middleware/authenticate';
+import formsRouter from './forms/routes';
 // Defer MCP SSE server initialization to runtime with a safe try/catch
 
 declare module 'express-list-endpoints';
@@ -498,6 +499,8 @@ app.use('/api/stripe', stripeIntegrationRouter);
   app.use('/api/admin', adminRouter);
   // External integrations test endpoint (accepts optional X-API-Key)
   app.use('/api', externalInvoiceRouter);
+  // Forms API
+  app.use('/api/forms', formsRouter);
 // Advanced Agent Mode (Personas & Schedules)
 // NOTE: Mount AFTER public OAuth callbacks (e.g., /api/slack/callback) to avoid intercepting with auth
 // We'll attach this later in the file after Slack routes are declared.
