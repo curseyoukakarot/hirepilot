@@ -110,12 +110,27 @@ export default function FormsHome() {
                 <i class="fa-solid fa-ellipsis-vertical text-hp-text-muted"></i>
               </button>
               <div class="dropdown-menu" role="menu">
-                <a class="dropdown-item" data-action="edit" data-id="${id}"><i class="fa-solid fa-pen mr-2"></i>Edit Form</a>
-                <a class="dropdown-item" data-action="share" data-slug="${slug}"><i class="fa-solid fa-share-nodes mr-2"></i>Share Form</a>
-                <a class="dropdown-item" data-action="copy" data-slug="${slug}"><i class="fa-solid fa-link mr-2"></i>Copy Link</a>
-                <a class="dropdown-item" data-action="responses" data-id="${id}"><i class="fa-solid fa-chart-simple mr-2"></i>View Responses</a>
-                <div class="border-t border-white/5 my-1"></div>
-                <a class="dropdown-item danger" data-action="delete" data-id="${id}"><i class="fa-solid fa-trash mr-2"></i>Delete</a>
+                <a class="dropdown-item" data-action="edit" data-id="${id}">
+                  <span class="icon"><i class="fa-solid fa-pen"></i></span>
+                  <span class="label">Edit Form</span>
+                </a>
+                <a class="dropdown-item" data-action="share" data-slug="${slug}">
+                  <span class="icon"><i class="fa-solid fa-share-nodes"></i></span>
+                  <span class="label">Share Form</span>
+                </a>
+                <a class="dropdown-item" data-action="copy" data-slug="${slug}">
+                  <span class="icon"><i class="fa-solid fa-link"></i></span>
+                  <span class="label">Copy Link</span>
+                </a>
+                <a class="dropdown-item" data-action="responses" data-id="${id}">
+                  <span class="icon"><i class="fa-solid fa-chart-simple"></i></span>
+                  <span class="label">View Responses</span>
+                </a>
+                <div class="dropdown-sep"></div>
+                <a class="dropdown-item danger" data-action="delete" data-id="${id}">
+                  <span class="icon"><i class="fa-solid fa-trash"></i></span>
+                  <span class="label">Delete</span>
+                </a>
               </div>
             </div>
           </div>
@@ -178,11 +193,26 @@ export default function FormsHome() {
             transform: translateY(-1px);
             box-shadow: 0 0 0 1px rgba(91, 140, 255, 0.2), 0 20px 25px -5px rgba(0, 0, 0, 0.3);
         }
-        .dropdown-menu { display: none; position: absolute; right: 0; top: 100%; margin-top: 0.5rem; background: #13131a; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 0.75rem; padding: 0.5rem; min-width: 180px; z-index: 50; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3); }
+        .dropdown-menu { 
+            display: none; position: absolute; right: 0; top: 100%; margin-top: 0.5rem; 
+            background: rgba(19, 19, 26, 0.95); backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 0.75rem; 
+            padding: 0.4rem; min-width: 220px; z-index: 50; 
+            box-shadow: 0 12px 28px -8px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255,255,255,0.04) inset;
+        }
         .dropdown-menu.active { display: block; }
-        .dropdown-item { padding: 0.625rem 0.875rem; border-radius: 0.5rem; cursor: pointer; transition: all 0.15s; color: #e5e7eb; font-size: 0.875rem; }
-        .dropdown-item:hover { background: rgba(91, 140, 255, 0.1); color: #5b8cff; }
-        .dropdown-item.danger:hover { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+        .dropdown-item { 
+            display: flex; align-items: center; gap: 0.625rem; 
+            padding: 0.55rem 0.7rem; border-radius: 0.6rem; 
+            cursor: pointer; transition: background 0.15s, color 0.15s, transform 0.1s;
+            color: #e5e7eb; font-size: 0.9rem; line-height: 1.2;
+        }
+        .dropdown-item .icon { width: 1rem; display: inline-flex; justify-content: center; color: #9ca3af; }
+        .dropdown-item:hover { background: rgba(255, 255, 255, 0.06); color: #ffffff; }
+        .dropdown-item:hover .icon { color: #ffffff; }
+        .dropdown-item.danger { color: #fca5a5; }
+        .dropdown-item.danger:hover { background: rgba(239, 68, 68, 0.12); color: #fecaca; }
+        .dropdown-sep { height: 1px; background: rgba(255,255,255,0.06); margin: 0.35rem 0; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
         .stagger-1 { animation-delay: 0.05s; }
