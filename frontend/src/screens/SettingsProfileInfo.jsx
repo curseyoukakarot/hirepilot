@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import AdvancedInfoCard from '../components/settings/AdvancedInfoCard';
+import ThemeToggle from '../components/settings/ThemeToggle';
 
 export default function SettingsProfileInfo() {
   const [formData, setFormData] = useState({
@@ -180,6 +181,10 @@ export default function SettingsProfileInfo() {
       <div className="max-w-3xl mx-auto">
         <h2 className="text-xl font-semibold mb-6">Profile Information</h2>
         <div className="space-y-6">
+          {/* Appearance */}
+          <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+            <ThemeToggle />
+          </div>
           <div className="flex items-center space-x-6">
             <img 
               src={avatarUrl}

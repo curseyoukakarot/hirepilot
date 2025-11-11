@@ -70,6 +70,7 @@ import RexWidget from './widgets/rex/RexWidget';
 import PromoBanner from './components/PromoBanner';
 import { PlanProvider } from './context/PlanContext';
 import { startSessionCookieSync } from './auth/sessionSync';
+import { ThemeProvider } from './context/ThemeContext';
 import PublicJobPage from './screens/PublicJobPage.jsx';
 import ApplyForm from './screens/ApplyForm.jsx';
 import ApplySuccess from './screens/ApplySuccess.jsx';
@@ -306,10 +307,12 @@ export default function App() {
       <WizardProvider>
         <QueryClientProvider client={queryClient}>
           <BrowserRouter>
-            <PlanProvider>
-              <AuthQuerySync />
-              <InnerApp />
-            </PlanProvider>
+            <ThemeProvider>
+              <PlanProvider>
+                <AuthQuerySync />
+                <InnerApp />
+              </PlanProvider>
+            </ThemeProvider>
           </BrowserRouter>
         </QueryClientProvider>
       </WizardProvider>

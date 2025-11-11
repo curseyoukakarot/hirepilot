@@ -94,10 +94,10 @@ export async function attributeEvent(ev: EmailEventRow): Promise<boolean> {
       if (!user_id || !campaign_id || !lead_id) {
         try {
           // Only attempt sg_message_id where the column exists; if not, the error is caught and ignored
-          const { data: msgBySg } = await supabaseAdmin
-            .from('messages' as any)
+          const { data: msgBySg } = await (supabaseAdmin as any)
+            .from('messages')
             .select('user_id,campaign_id,lead_id')
-            .eq('sg_message_id' as any, sg_message_id || '')
+            .eq('sg_message_id', sg_message_id || '')
             .order('sent_at', { ascending: false })
             .limit(1)
             .maybeSingle();
