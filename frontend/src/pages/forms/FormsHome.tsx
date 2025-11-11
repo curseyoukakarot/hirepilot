@@ -204,12 +204,13 @@ export default function FormsHome() {
         window.__HP_FORMS__ = {
           API_BASE: ${JSON.stringify(apiBase)},
           TOKEN: ${JSON.stringify(token)},
-          edit: function(id){ window.top.location.href = '/forms/' + id; },
-          responses: function(id){ window.top.location.href = '/forms/' + id + '/responses'; },
+          _nav: function(path){ try { window.top.location.href = path; } catch (_) { try { window.parent.location.href = path; } catch { window.location.href = path; } } },
+          edit: function(id){ this._nav('/forms/' + id); },
+          responses: function(id){ this._nav('/forms/' + id + '/responses'); },
           copy: function(slug){ const url = window.location.origin + '/f/' + slug; try { navigator.clipboard.writeText(url); } catch {} },
           share: function(slug){ this.copy(slug); },
           remove: async function(id, el){ try { const resp = await fetch(this.API_BASE + '/api/forms/' + id, { method:'DELETE', headers: { 'Authorization': 'Bearer ' + this.TOKEN, 'Content-Type':'application/json' }, credentials:'include' }); if (resp.ok) { const card = el && el.closest('[data-id]'); if (card) card.remove(); const headerCount = document.querySelector('#header span'); try { const n = document.querySelectorAll('[data-id]').length; headerCount && (headerCount.textContent = '(' + n + ')'); } catch {} } } catch {} },
-          create: async function(){ try { const resp = await fetch(this.API_BASE + '/api/forms', { method:'POST', headers: { 'Authorization':'Bearer ' + this.TOKEN, 'Content-Type':'application/json' }, credentials:'include', body: JSON.stringify({ title: 'Untitled Form', is_public: false }) }); if (resp.ok) { const f = await resp.json(); window.top.location.href = '/forms/' + (f?.id || ''); } } catch {} },
+          create: async function(){ try { const resp = await fetch(this.API_BASE + '/api/forms', { method:'POST', headers: { 'Authorization':'Bearer ' + this.TOKEN, 'Content-Type':'application/json' }, credentials:'include', body: JSON.stringify({ title: 'Untitled Form', is_public: false }) }); if (resp.ok) { const f = await resp.json(); this._nav('/forms/' + (f?.id || '')); } } catch {} },
           toggleDropdown,
           toggleSort: function(e){ e.stopPropagation(); const m = document.querySelector('#sort-menu .dropdown-menu'); if (m) m.classList.toggle('active'); },
           toggleFilter: function(e){ e.stopPropagation(); const m = document.querySelector('#filter-menu .dropdown-menu'); if (m) m.classList.toggle('active'); },
@@ -232,7 +233,7 @@ export default function FormsHome() {
         title="Forms"
         srcDoc={html as any}
         style={{ width: '100%', height: 'calc(100vh - 0px)', border: '0', background: 'transparent' }}
-        sandbox="allow-scripts allow-same-origin allow-popups"
+        sandbox="allow-scripts allow-same-origin allow-popups allow-top-navigation-by-user-activation"
       />
     </div>
   );
