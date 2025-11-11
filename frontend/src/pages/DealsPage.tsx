@@ -719,9 +719,9 @@ export default function DealsPage() {
   const ClientsSection = () => (
     <div className="w-full">
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center space-x-2 bg-gray-200 rounded-full p-1">
-          <button onClick={() => setClientsView('companies')} className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${clientsView==='companies'?'bg-white text-blue-600 shadow-sm':'bg-transparent text-gray-600'}`}>Companies</button>
-          <button onClick={() => setClientsView('decisionMakers')} className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${clientsView==='decisionMakers'?'bg-white text-blue-600 shadow-sm':'bg-transparent text-gray-600'}`}>Decision Makers</button>
+        <div className="flex items-center space-x-2 bg-gray-200 dark:bg-gray-800 rounded-full p-1">
+          <button onClick={() => setClientsView('companies')} className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${clientsView==='companies'?'bg-white dark:bg-gray-900 text-blue-600 shadow-sm':'bg-transparent text-gray-600 dark:text-gray-300'}`}>Companies</button>
+          <button onClick={() => setClientsView('decisionMakers')} className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${clientsView==='decisionMakers'?'bg-white dark:bg-gray-900 text-blue-600 shadow-sm':'bg-transparent text-gray-600 dark:text-gray-300'}`}>Decision Makers</button>
         </div>
         <div className="flex items-center space-x-3">
           <button className="bg-purple-500 hover:bg-purple-600 text-white text-sm font-semibold py-2 px-4 rounded-lg">Import CSV</button>
@@ -731,18 +731,18 @@ export default function DealsPage() {
       <div className="flex items-center justify-between mb-4">
         <div className="relative w-72">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔎</span>
-          <input value={clientsSearch} onChange={e=>setClientsSearch(e.target.value)} className="w-full pl-8 pr-3 py-2 bg-white border rounded-lg text-sm" placeholder="Search clients..." />
+          <input value={clientsSearch} onChange={e=>setClientsSearch(e.target.value)} className="w-full pl-8 pr-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg text-sm dark:text-gray-200" placeholder="Search clients..." />
         </div>
-        <button className="text-sm text-gray-600">Filters</button>
+        <button className="text-sm text-gray-600 dark:text-gray-300">Filters</button>
       </div>
       {clientsView === 'decisionMakers' ? (
-        <div className="bg-white border rounded-xl overflow-hidden">
+        <div className="bg-white dark:bg-gray-900/60 border dark:border-white/10 rounded-xl overflow-hidden">
           {contactsLoading ? (
             <div className="p-6 text-gray-500 text-sm">Loading…</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b">
+                <thead className="bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700">
                   <tr>
                     <th className="p-4 text-left w-8"><input type="checkbox" onChange={(e)=>{
                       if (e.target.checked) setSelectedContactIds(new Set(contacts.map((d:any)=>d.id)));
@@ -758,31 +758,31 @@ export default function DealsPage() {
                     <th className="p-4 text-left w-10"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y">
+                <tbody className="divide-y dark:divide-gray-800">
                   {contacts.length === 0 ? (
                     <tr><td colSpan={7} className="p-6 text-gray-500">No decision makers yet</td></tr>
                   ) : contacts.map((dm: any) => {
                     const client = clients.find((c: any) => c.id === dm.client_id);
                     return (
-                      <tr key={dm.id} className="hover:bg-gray-50">
+                      <tr key={dm.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
                         <td className="p-4 w-8"><input type="checkbox" checked={selectedContactIds.has(dm.id)} onChange={(e)=>{
                           const next = new Set(selectedContactIds);
                           if (e.target.checked) next.add(dm.id); else next.delete(dm.id);
                           setSelectedContactIds(next);
                         }} /></td>
-                        <td className="p-4 font-medium text-gray-900">
+                        <td className="p-4 font-medium text-gray-900 dark:text-gray-100">
                           {editingContactId === dm.id ? (
-                            <input className="border rounded px-2 py-1 w-full" defaultValue={dm.name || ''} onChange={(e)=>setContactDraft((s:any)=>({ ...s, name: e.target.value }))} />
+                            <input className="border dark:border-gray-700 rounded px-2 py-1 w-full dark:bg-gray-800 dark:text-gray-200" defaultValue={dm.name || ''} onChange={(e)=>setContactDraft((s:any)=>({ ...s, name: e.target.value }))} />
                           ) : (dm.name || '—')}
                         </td>
                         <td className="p-4">
                           {editingContactId === dm.id ? (
-                            <input className="border rounded px-2 py-1 w-full" defaultValue={dm.title || ''} onChange={(e)=>setContactDraft((s:any)=>({ ...s, title: e.target.value }))} />
+                            <input className="border dark:border-gray-700 rounded px-2 py-1 w-full dark:bg-gray-800 dark:text-gray-200" defaultValue={dm.title || ''} onChange={(e)=>setContactDraft((s:any)=>({ ...s, title: e.target.value }))} />
                           ) : (dm.title || '—')}
                         </td>
                         <td className="p-4">
                           {editingContactId === dm.id ? (
-                            <input className="border rounded px-2 py-1 w-full" defaultValue={dm.email || ''} onChange={(e)=>setContactDraft((s:any)=>({ ...s, email: e.target.value }))} />
+                            <input className="border dark:border-gray-700 rounded px-2 py-1 w-full dark:bg-gray-800 dark:text-gray-200" defaultValue={dm.email || ''} onChange={(e)=>setContactDraft((s:any)=>({ ...s, email: e.target.value }))} />
                           ) : (dm.email || '—')}
                         </td>
                         <td className="p-4">{client?.name || '—'}</td>
@@ -798,15 +798,15 @@ export default function DealsPage() {
                           }} clients={clients} />
                         </td>
                         <td className="p-4">{dm.owner_id ? dm.owner_id.slice(0,6) : '—'}</td>
-                        <td className="p-4 text-gray-500 flex items-center gap-2">
+                        <td className="p-4 text-gray-500 dark:text-gray-400 flex items-center gap-2">
                           <span>{dm.created_at ? new Date(dm.created_at).toLocaleDateString() : '—'}</span>
                           {editingContactId === dm.id ? (
                             <>
-                              <button className="px-2 py-1 text-xs bg-gray-200 rounded" onClick={()=>saveContactEdits(dm.id)}>Save</button>
-                              <button className="px-2 py-1 text-xs" onClick={()=>{ setEditingContactId(null); setContactDraft({}); }}>Cancel</button>
+                              <button className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded" onClick={()=>saveContactEdits(dm.id)}>Save</button>
+                              <button className="px-2 py-1 text-xs dark:text-gray-300" onClick={()=>{ setEditingContactId(null); setContactDraft({}); }}>Cancel</button>
                             </>
                           ) : (
-                            <button className="px-2 py-1 text-xs bg-gray-100 rounded" onClick={()=>{ setEditingContactId(dm.id); setContactDraft({}); }}>Edit</button>
+                          <button className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-800 rounded" onClick={()=>{ setEditingContactId(dm.id); setContactDraft({}); }}>Edit</button>
                           )}
                         </td>
                         <td className="p-4">
@@ -824,13 +824,13 @@ export default function DealsPage() {
           )}
         </div>
       ) : (
-        <div className="bg-white border rounded-xl overflow-hidden">
+        <div className="bg-white dark:bg-gray-900/60 border dark:border-white/10 rounded-xl overflow-hidden">
         {clientsLoading ? (
           <div className="p-6 text-gray-500 text-sm">Loading…</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b">
+              <thead className="bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700">
                 <tr>
                   <th className="p-4 text-left">Company</th>
                   <th className="p-4 text-left">Logo</th>
@@ -843,13 +843,13 @@ export default function DealsPage() {
                   <th className="p-4 text-left w-10"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y">
+              <tbody className="divide-y dark:divide-gray-800">
                 {filteredClients.length === 0 ? (
                   <tr><td colSpan={8} className="p-6 text-gray-500">No clients yet</td></tr>
                 ) : filteredClients.map((c: any) => (
                   <React.Fragment key={c.id}>
                     <tr
-                      className="hover:bg-gray-50 cursor-pointer"
+                      className="hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
                       onClick={(e)=>{
                         // Do not toggle when interacting with inputs/controls or while editing this client
                         if (editingClientId === c.id) return;
@@ -858,15 +858,15 @@ export default function DealsPage() {
                         setExpandedClientId(prev => prev===c.id? null : c.id);
                       }}
                     >
-                      <td className="p-4 font-medium text-gray-900">{c.name || c.domain || '—'}</td>
+                      <td className="p-4 font-medium text-gray-900 dark:text-gray-100">{c.name || c.domain || '—'}</td>
                       <td className="p-4">
                         {(() => { const u = getClientLogo(c); return u ? <img src={u} alt="logo" className="w-6 h-6 rounded" /> : <div className="w-6 h-6 rounded bg-gray-200" />; })()}
                       </td>
                       <td className="p-4">
                         <div className="flex items-center gap-2">
-                          <span className={`px-2 py-0.5 text-xs rounded-full ${String(c.stage).toLowerCase()==='active' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{String(c.stage).toLowerCase()==='active' ? 'Active' : 'Prospect'}</span>
+                          <span className={`px-2 py-0.5 text-xs rounded-full ${String(c.stage).toLowerCase()==='active' ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-200' : 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-200'}`}>{String(c.stage).toLowerCase()==='active' ? 'Active' : 'Prospect'}</span>
                           <select
-                            className="border rounded px-1 py-0.5 text-xs text-gray-700"
+                            className="border dark:border-gray-700 rounded px-1 py-0.5 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-200"
                             value={String(c.stage || 'prospect')}
                             onChange={(e)=>updateClientStage(c.id, e.target.value === 'active' ? 'active' : 'prospect')}
                             disabled={savingStageId===c.id}
@@ -880,12 +880,12 @@ export default function DealsPage() {
                       <td className="p-4">{c.revenue != null ? Number(c.revenue).toLocaleString('en-US',{style:'currency',currency:'USD'}) : '—'}</td>
                       <td className="p-4">{c.location || '—'}</td>
                       <td className="p-4">{c.contact_count != null ? c.contact_count : '—'}</td>
-                      <td className="p-4 text-gray-500">{c.created_at ? new Date(c.created_at).toLocaleDateString() : '—'}</td>
-                      <td className="p-4"><button title="Delete" onClick={()=>confirmDelete('client', c.id)} className="text-red-500 hover:text-red-600">🗑️</button></td>
+                      <td className="p-4 text-gray-500 dark:text-gray-400">{c.created_at ? new Date(c.created_at).toLocaleDateString() : '—'}</td>
+                      <td className="p-4"><button title="Delete" onClick={()=>confirmDelete('client', c.id)} className="text-red-500 hover:text-red-600 dark:text-red-400">🗑️</button></td>
                     </tr>
                     {expandedClientId === c.id && (
                       <tr>
-                        <td colSpan={8} className="p-5 bg-gray-50">
+                        <td colSpan={8} className="p-5 bg-gray-50 dark:bg-gray-900/40">
                           <ClientRowEditor
                             client={c}
                             onSave={async ()=>{ const { data: { session } } = await supabase.auth.getSession(); const token = session?.access_token; const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }); const js = resp.ok ? await resp.json() : []; setClients(js||[]); setExpandedClientId(null); }}
@@ -938,17 +938,17 @@ export default function DealsPage() {
 
   const OpportunitiesSection = () => (
     <div className="w-full">
-      <div className="bg-white rounded-xl shadow-sm border p-6 mb-4 flex items-center justify-between">
+      <div className="bg-white dark:bg-gray-900/60 rounded-xl shadow-sm border dark:border-white/10 p-6 mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex items-center bg-gray-200 rounded-full p-1">
-            <button onClick={() => setOppView('table')} className={`px-4 py-1.5 rounded-full text-sm font-semibold ${oppView==='table'?'bg-white text-blue-600 shadow-sm':'text-gray-600'}`}>Table</button>
-            <button onClick={() => setOppView('pipeline')} className={`px-4 py-1.5 rounded-full text-sm font-semibold ${oppView==='pipeline'?'bg-white text-blue-600 shadow-sm':'text-gray-600'}`}>Pipeline</button>
+          <div className="flex items-center bg-gray-200 dark:bg-gray-800 rounded-full p-1">
+            <button onClick={() => setOppView('table')} className={`px-4 py-1.5 rounded-full text-sm font-semibold ${oppView==='table'?'bg-white dark:bg-gray-900 text-blue-600 shadow-sm':'text-gray-600 dark:text-gray-300'}`}>Table</button>
+            <button onClick={() => setOppView('pipeline')} className={`px-4 py-1.5 rounded-full text-sm font-semibold ${oppView==='pipeline'?'bg-white dark:bg-gray-900 text-blue-600 shadow-sm':'text-gray-600 dark:text-gray-300'}`}>Pipeline</button>
           </div>
           <div className="relative w-72">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔎</span>
-            <input value={oppFilters.search} onChange={e=>setOppFilters(p=>({ ...p, search: e.target.value }))} className="w-full pl-8 pr-3 py-2 bg-white border rounded-lg text-sm" placeholder="Search opportunities..." />
+            <input value={oppFilters.search} onChange={e=>setOppFilters(p=>({ ...p, search: e.target.value }))} className="w-full pl-8 pr-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg text-sm dark:text-gray-200" placeholder="Search opportunities..." />
           </div>
-          <select value={oppFilters.status} onChange={e=>setOppFilters(p=>({ ...p, status: e.target.value }))} className="border rounded-lg text-sm py-2 px-3">
+          <select value={oppFilters.status} onChange={e=>setOppFilters(p=>({ ...p, status: e.target.value }))} className="border dark:border-gray-700 rounded-lg text-sm py-2 px-3 dark:bg-gray-800 dark:text-gray-200">
             <option value="">All Statuses</option>
             <option>Pipeline</option>
             <option>Best Case</option>
@@ -956,7 +956,7 @@ export default function DealsPage() {
             <option>Close Won</option>
             <option>Closed Lost</option>
           </select>
-          <input value={oppFilters.client} onChange={e=>setOppFilters(p=>({ ...p, client: e.target.value }))} className="border rounded-lg text-sm py-2 px-3" placeholder="Client ID" />
+          <input value={oppFilters.client} onChange={e=>setOppFilters(p=>({ ...p, client: e.target.value }))} className="border dark:border-gray-700 rounded-lg text-sm py-2 px-3 dark:bg-gray-800 dark:text-gray-200" placeholder="Client ID" />
         </div>
         <div className="flex items-center gap-4 text-gray-700">
           {oppView==='table' ? (
@@ -975,10 +975,10 @@ export default function DealsPage() {
         </div>
       </div>
       {oppView==='table' ? (
-        <div className="bg-white border rounded-xl overflow-hidden">
+        <div className="bg-white dark:bg-gray-900/60 border dark:border-white/10 rounded-xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b">
+              <thead className="bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700">
                 <tr>
                   <th className="p-4 w-12"><input type="checkbox" /></th>
                   <th className="p-4 text-left">Opportunity Title</th>
@@ -992,51 +992,51 @@ export default function DealsPage() {
                   <th className="p-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y">
+              <tbody className="divide-y dark:divide-gray-800">
                 {oppLoading ? (
                   <tr><td colSpan={10} className="p-6 text-center text-gray-500">Loading…</td></tr>
                 ) : opps.length === 0 ? (
                   <tr><td colSpan={10} className="p-6 text-center text-gray-500">No opportunities</td></tr>
                 ) : (
                   opps.map((o) => (
-                    <tr key={o.id} className="hover:bg-gray-50">
+                    <tr key={o.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
                       <td className="p-4"><input type="checkbox" /></td>
-                      <td className="p-4 font-medium text-gray-900">{o.title}</td>
+                      <td className="p-4 font-medium text-gray-900 dark:text-gray-100">{o.title}</td>
                       <td className="p-4"><div className="flex items-center gap-2">{(() => { const u = o.client && clientsLogoMap.get(String(o.client.id || o.client_id)); return u ? <img src={u} alt="logo" className="w-6 h-6 rounded" /> : <div className="w-6 h-6 rounded bg-gray-200" />; })()} <span className="font-medium">{o.client?.name || o.client?.domain || '—'}</span></div></td>
                       <td className="p-4">
                         {editingTagId === o.id ? (
                           <div className="flex items-center gap-2" data-no-row-toggle>
-                            <input className="border rounded px-2 py-1 text-sm" value={tagDraft} onChange={e=>setTagDraft(e.target.value)} placeholder="e.g. Job Seeker" />
-                            <button className="px-2 py-1 text-xs bg-gray-200 rounded" onClick={()=>saveOppTag(o.id, tagDraft)}>Save</button>
-                            <button className="px-2 py-1 text-xs" onClick={()=>{ setEditingTagId(null); setTagDraft(''); }}>Cancel</button>
+                            <input className="border dark:border-gray-700 rounded px-2 py-1 text-sm dark:bg-gray-800 dark:text-gray-200" value={tagDraft} onChange={e=>setTagDraft(e.target.value)} placeholder="e.g. Job Seeker" />
+                            <button className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded" onClick={()=>saveOppTag(o.id, tagDraft)}>Save</button>
+                            <button className="px-2 py-1 text-xs dark:text-gray-300" onClick={()=>{ setEditingTagId(null); setTagDraft(''); }}>Cancel</button>
                           </div>
                         ) : (
                           <div className="flex items-center gap-2">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs ${o.tag ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}`}>{o.tag || '—'}</span>
-                            <button className="text-xs text-blue-600" onClick={()=>{ setEditingTagId(o.id); setTagDraft(o.tag || ''); }}>Edit</button>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs ${o.tag ? 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-200' : 'bg-gray-100 text-gray-600 dark:bg-gray-500/20 dark:text-gray-200'}`}>{o.tag || '—'}</span>
+                            <button className="text-xs text-blue-600 dark:text-blue-400" onClick={()=>{ setEditingTagId(o.id); setTagDraft(o.tag || ''); }}>Edit</button>
                           </div>
                         )}
                       </td>
-                      <td className="p-4"><span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">{o.stage || 'Pipeline'}</span></td>
+                      <td className="p-4"><span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-500/20 dark:text-gray-200">{o.stage || 'Pipeline'}</span></td>
                       <td className="p-4 text-right font-medium">{currency(Number(o.value)||0)}</td>
                       <td className="p-4">
                         <div className="flex flex-wrap gap-1">
                           {(o.reqs || []).map((rid: string) => (
-                            <span key={rid} className="bg-gray-100 text-xs text-gray-600 px-2 py-1 rounded-md">{rid.slice(0,6)}</span>
+                            <span key={rid} className="bg-gray-100 dark:bg-gray-500/20 text-xs text-gray-600 dark:text-gray-200 px-2 py-1 rounded-md">{rid.slice(0,6)}</span>
                           ))}
                         </div>
                       </td>
                       <td className="p-4">
-                        <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden">
+                        <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
                           {(() => {
                             const src = o.owner?.avatar_url || (o.owner_id===currentUserId ? currentUserAvatar : '');
                             return src ? <img src={src} alt="owner" className="w-8 h-8 object-cover" /> : null;
                           })()}
                         </div>
                       </td>
-                      <td className="p-4 text-gray-500">{new Date(o.created_at).toLocaleDateString()}</td>
+                      <td className="p-4 text-gray-500 dark:text-gray-400">{new Date(o.created_at).toLocaleDateString()}</td>
                       <td className="p-4 text-right space-x-3">
-                        <a className="text-blue-600 font-semibold" href={`/deals/opportunities/${o.id}`}>View</a>
+                        <a className="text-blue-600 dark:text-blue-400 font-semibold" href={`/deals/opportunities/${o.id}`}>View</a>
                         <button
                           className="text-red-600"
                           onClick={async ()=>{
@@ -1127,12 +1127,12 @@ export default function DealsPage() {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Deals</h1>
-      <div className="flex items-center space-x-2 bg-gray-200 rounded-full p-1 mb-6">
-        <button onClick={() => setActiveTab('clients')} className={`px-4 py-1.5 rounded-full text-sm font-semibold ${activeTab==='clients'?'bg-white text-blue-600 shadow-sm':'text-gray-600'}`}>Clients</button>
-        <button onClick={() => setActiveTab('opportunities')} className={`px-4 py-1.5 rounded-full text-sm font-semibold ${activeTab==='opportunities'?'bg-white text-blue-600 shadow-sm':'text-gray-600'}`}>Opportunities</button>
-        <button onClick={() => setActiveTab('billing')} className={`px-4 py-1.5 rounded-full text-sm font-semibold ${activeTab==='billing'?'bg-white text-blue-600 shadow-sm':'text-gray-600'}`}>Billing</button>
-        <button onClick={() => setActiveTab('revenue')} className={`px-4 py-1.5 rounded-full text-sm font-semibold ${activeTab==='revenue'?'bg-white text-blue-600 shadow-sm':'text-gray-600'}`}>Revenue</button>
+      <h1 className="text-2xl font-bold mb-4 dark:text-gray-100">Deals</h1>
+      <div className="flex items-center space-x-2 bg-gray-200 dark:bg-gray-800 rounded-full p-1 mb-6">
+        <button onClick={() => setActiveTab('clients')} className={`px-4 py-1.5 rounded-full text-sm font-semibold ${activeTab==='clients'?'bg-white dark:bg-gray-900 text-blue-600 shadow-sm':'text-gray-600 dark:text-gray-300'}`}>Clients</button>
+        <button onClick={() => setActiveTab('opportunities')} className={`px-4 py-1.5 rounded-full text-sm font-semibold ${activeTab==='opportunities'?'bg-white dark:bg-gray-900 text-blue-600 shadow-sm':'text-gray-600 dark:text-gray-300'}`}>Opportunities</button>
+        <button onClick={() => setActiveTab('billing')} className={`px-4 py-1.5 rounded-full text-sm font-semibold ${activeTab==='billing'?'bg-white dark:bg-gray-900 text-blue-600 shadow-sm':'text-gray-600 dark:text-gray-300'}`}>Billing</button>
+        <button onClick={() => setActiveTab('revenue')} className={`px-4 py-1.5 rounded-full text-sm font-semibold ${activeTab==='revenue'?'bg-white dark:bg-gray-900 text-blue-600 shadow-sm':'text-gray-600 dark:text-gray-300'}`}>Revenue</button>
       </div>
       {loading ? (
         <div className="animate-pulse text-gray-500">Loading…</div>
@@ -1272,8 +1272,8 @@ export default function DealsPage() {
                   </div>
                 </div>
               </div>
-              <div className="rounded-xl border bg-white p-4 shadow-sm">
-                <h3 className="text-sm font-medium text-gray-500 mb-3">Engagement Types</h3>
+                <div className="rounded-xl border dark:border-white/10 bg-white dark:bg-gray-900/60 p-4 shadow-sm">
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">Engagement Types</h3>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
