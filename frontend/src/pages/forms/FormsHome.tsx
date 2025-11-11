@@ -146,6 +146,25 @@ export default function FormsHome() {
     <title>Forms</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>window.FontAwesomeConfig = { autoReplaceSvg: 'nest'};</script>
+    <script>
+      try {
+        tailwind.config = {
+          theme: {
+            extend: {
+              colors: {
+                'hp-bg': '#0a0a0f',
+                'hp-surface': '#13131a',
+                'hp-border': '#1f1f28',
+                'hp-primary': '#5b8cff',
+                'hp-primary-2': '#4a7ae8',
+                'hp-text-muted': '#9ca3af',
+                'hp-success': '#10b981'
+              }
+            }
+          }
+        };
+      } catch (e) {}
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -180,7 +199,7 @@ export default function FormsHome() {
             <h1 class="text-2xl font-semibold">Forms</h1>
             <span class="px-2.5 py-1 rounded-lg bg-white/5 text-hp-text-muted text-sm font-medium">(${count})</span>
         </div>
-        <button class="bg-hp-primary hover:bg-hp-primary-2 text-white px-4 h-11 rounded-xl font-medium flex items-center gap-2 shadow-sm transition-all" onclick="window.__HP_FORMS__.create()">
+        <button id="js-new-form" class="bg-hp-primary hover:bg-hp-primary-2 text-white px-4 h-11 rounded-xl font-medium flex items-center gap-2 shadow-sm transition-all">
             <i class="fa-solid fa-plus"></i>
             New Form
         </button>
