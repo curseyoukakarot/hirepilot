@@ -518,10 +518,13 @@ router.get('/admin/email-attribution/status', async (req: Request, res: Response
   const gate = await requireAdmin(req, res);
   if (!gate.ok) return;
   try {
-    const { data: remainingCount } = await supabaseAdmin
+    const { count } = await supabaseAdmin
       .from('email_events')
-      .select('id', { count: 'exact', head: true })
+      .select('*', { count: 'exact', head: true })
       .is('user_id', null);
+
+    // Avoid client/proxy caching confusing the UI
+    res.setHeader('Cache-Control', 'no-store');
 
     return res.json({
       running: attribJobState.running,
@@ -530,7 +533,7 @@ router.get('/admin/email-attribution/status', async (req: Request, res: Response
       finishedAt: attribJobState.finishedAt,
       lastPass: attribJobState.lastPass || null,
       lastError: attribJobState.lastError || null,
-      remainingUnattributed: typeof remainingCount === 'number' ? remainingCount : null,
+      remainingUnattributed: typeof count === 'number' ? count : null,
     });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'status failed' });
@@ -582,22 +585,20 @@ router.post('/admin/email-attribution/run-backfill', async (req: Request, res: R
     attribJobState.lastError = null;
 
     // Capture baseline remaining
-    const { data: beforeCount } = await supabaseAdmin
+    const { count: before } = await supabaseAdmin
       .from('email_events')
-      .select('id', { count: 'exact', head: true })
+      .select('*', { count: 'exact', head: true })
       .is('user_id', null);
-    const before = typeof beforeCount === 'number' ? beforeCount : null;
 
     // Fire-and-forget
     (async () => {
       try {
         await runFullBackfillLoop();
         // After run
-        const { data: afterCount } = await supabaseAdmin
+        const { count: after } = await supabaseAdmin
           .from('email_events')
-          .select('id', { count: 'exact', head: true })
+          .select('*', { count: 'exact', head: true })
           .is('user_id', null);
-        const after = typeof afterCount === 'number' ? afterCount : null;
         attribJobState.finishedAt = Date.now();
         attribJobState.running = false;
         attribJobState.lastPass = {
@@ -630,9 +631,9 @@ router.get('/admin/email-attribution/logs', async (req: Request, res: Response) 
     const sinceIso = new Date(Date.now() - sinceMins * 60 * 1000).toISOString();
     const { data, error } = await supabaseAdmin
       .from('email_events')
-      .select('id,event_type,message_id,user_id,campaign_id,lead_id,provider,event_timestamp,created_at,updated_at,metadata')
-      .gte('updated_at', sinceIso)
-      .order('updated_at', { ascending: false })
+      .select('id,event_type,message_id,user_id,campaign_id,lead_id,provider,event_timestamp,created_at,metadata')
+      .gte('created_at', sinceIso)
+      .order('created_at', { ascending: false })
       .limit(limit);
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ logs: data || [] });
