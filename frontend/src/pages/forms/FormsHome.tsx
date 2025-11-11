@@ -106,16 +106,16 @@ export default function FormsHome() {
           <div class="flex items-start justify-between mb-3">
             <h3 class="text-xl font-semibold text-white line-clamp-1 flex-1">${title}</h3>
             <div class="relative">
-              <button class="w-8 h-8 rounded-lg hover:bg-white/5 flex items-center justify-center transition-all" onclick="window.__HP_FORMS__.toggleDropdown(event)">
+              <button class="w-8 h-8 rounded-lg hover:bg-white/5 flex items-center justify-center transition-all js-menu-toggle" aria-haspopup="menu" aria-expanded="false">
                 <i class="fa-solid fa-ellipsis-vertical text-hp-text-muted"></i>
               </button>
-              <div class="dropdown-menu">
-                <div class="dropdown-item" onclick="window.__HP_FORMS__.edit('${id}')"><i class="fa-solid fa-pen mr-2"></i>Edit Form</div>
-                <div class="dropdown-item" onclick="window.__HP_FORMS__.share('${slug}')"><i class="fa-solid fa-share-nodes mr-2"></i>Share Form</div>
-                <div class="dropdown-item" onclick="window.__HP_FORMS__.copy('${slug}')"><i class="fa-solid fa-link mr-2"></i>Copy Link</div>
-                <div class="dropdown-item" onclick="window.__HP_FORMS__.responses('${id}')"><i class="fa-solid fa-chart-simple mr-2"></i>View Responses</div>
+              <div class="dropdown-menu" role="menu">
+                <a class="dropdown-item" data-action="edit" data-id="${id}"><i class="fa-solid fa-pen mr-2"></i>Edit Form</a>
+                <a class="dropdown-item" data-action="share" data-slug="${slug}"><i class="fa-solid fa-share-nodes mr-2"></i>Share Form</a>
+                <a class="dropdown-item" data-action="copy" data-slug="${slug}"><i class="fa-solid fa-link mr-2"></i>Copy Link</a>
+                <a class="dropdown-item" data-action="responses" data-id="${id}"><i class="fa-solid fa-chart-simple mr-2"></i>View Responses</a>
                 <div class="border-t border-white/5 my-1"></div>
-                <div class="dropdown-item danger" onclick="window.__HP_FORMS__.remove('${id}', this)"><i class="fa-solid fa-trash mr-2"></i>Delete</div>
+                <a class="dropdown-item danger" data-action="delete" data-id="${id}"><i class="fa-solid fa-trash mr-2"></i>Delete</a>
               </div>
             </div>
           </div>
@@ -145,24 +145,7 @@ export default function FormsHome() {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Forms</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        window.FontAwesomeConfig = { autoReplaceSvg: 'nest'};
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'hp-bg': '#0a0a0f',
-                        'hp-surface': '#13131a',
-                        'hp-border': '#1f1f28',
-                        'hp-primary': '#5b8cff',
-                        'hp-primary-2': '#4a7ae8',
-                        'hp-text-muted': '#9ca3af',
-                        'hp-success': '#10b981'
-                    }
-                }
-            }
-        }
-    </script>
+    <script>window.FontAwesomeConfig = { autoReplaceSvg: 'nest'};</script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -209,25 +192,25 @@ export default function FormsHome() {
         </div>
         <div class="flex items-center gap-3">
             <div class="relative" id="sort-menu">
-                <button class="h-11 px-4 bg-hp-surface border border-hp-border rounded-xl text-sm font-medium hover:border-white/10 transition-all flex items-center gap-2" onclick="window.__HP_FORMS__.toggleSort(event)">
+                <button class="h-11 px-4 bg-hp-surface border border-hp-border rounded-xl text-sm font-medium hover:border-white/10 transition-all flex items-center gap-2 js-sort-toggle">
                     <span id="sort-label">Sort by: Updated Recently</span>
                     <i class="fa-solid fa-chevron-down text-xs text-hp-text-muted"></i>
                 </button>
                 <div class="dropdown-menu">
-                  <div class="dropdown-item" onclick="window.__HP_FORMS__.applySort('updated_desc')">Updated Recently</div>
-                  <div class="dropdown-item" onclick="window.__HP_FORMS__.applySort('title_asc')">Title A–Z</div>
-                  <div class="dropdown-item" onclick="window.__HP_FORMS__.applySort('title_desc')">Title Z–A</div>
+                  <div class="dropdown-item" data-action="sort" data-mode="updated_desc">Updated Recently</div>
+                  <div class="dropdown-item" data-action="sort" data-mode="title_asc">Title A–Z</div>
+                  <div class="dropdown-item" data-action="sort" data-mode="title_desc">Title Z–A</div>
                 </div>
             </div>
             <div class="relative" id="filter-menu">
-                <button class="h-11 px-4 bg-hp-surface border border-hp-border rounded-xl text-sm font-medium hover:border-white/10 transition-all flex items-center gap-2" onclick="window.__HP_FORMS__.toggleFilter(event)">
+                <button class="h-11 px-4 bg-hp-surface border border-hp-border rounded-xl text-sm font-medium hover:border-white/10 transition-all flex items-center gap-2 js-filter-toggle">
                     <span id="filter-label">Filter: All Forms</span>
                     <i class="fa-solid fa-chevron-down text-xs text-hp-text-muted"></i>
                 </button>
                 <div class="dropdown-menu">
-                  <div class="dropdown-item" onclick="window.__HP_FORMS__.applyFilter('all')">All Forms</div>
-                  <div class="dropdown-item" onclick="window.__HP_FORMS__.applyFilter('published')">Published</div>
-                  <div class="dropdown-item" onclick="window.__HP_FORMS__.applyFilter('draft')">Drafts</div>
+                  <div class="dropdown-item" data-action="filter" data-mode="all">All Forms</div>
+                  <div class="dropdown-item" data-action="filter" data-mode="published">Published</div>
+                  <div class="dropdown-item" data-action="filter" data-mode="draft">Drafts</div>
                 </div>
             </div>
         </div>
@@ -237,38 +220,91 @@ export default function FormsHome() {
           ${cards || '<div class="text-sm text-hp-text-muted">No forms yet.</div>'}
         </div>
     </main>
-    <script>
-        function toggleDropdown(event) {
-            event.stopPropagation();
-            const button = event.currentTarget;
-            const dropdown = button.nextElementSibling;
-            const allDropdowns = document.querySelectorAll('.dropdown-menu');
-            allDropdowns.forEach(d => { if (d !== dropdown) d.classList.remove('active'); });
-            dropdown.classList.toggle('active');
-        }
-        document.addEventListener('click', function(event) {
-            if (!event.target.closest('.relative')) {
-                document.querySelectorAll('.dropdown-menu').forEach(d => { d.classList.remove('active'); });
-            }
-        });
-        window.__HP_FORMS__ = {
-          edit: function(id){ try { window.parent.postMessage({ type: 'hp_forms_action', action: 'edit', id: id }, '*'); } catch(_) {} },
-          responses: function(id){ try { window.parent.postMessage({ type: 'hp_forms_action', action: 'responses', id: id }, '*'); } catch(_) {} },
-          copy: function(slug){ try { window.parent.postMessage({ type: 'hp_forms_action', action: 'copy', slug: slug }, '*'); } catch(_) {} },
-          share: function(slug){ try { window.parent.postMessage({ type: 'hp_forms_action', action: 'copy', slug: slug }, '*'); } catch(_) {} },
-          remove: function(id){ try { window.parent.postMessage({ type: 'hp_forms_action', action: 'delete', id: id }, '*'); } catch(_) {} },
-          create: function(){ try { window.parent.postMessage({ type: 'hp_forms_action', action: 'create' }, '*'); } catch(_) {} },
-          toggleDropdown,
-          toggleSort: function(e){ e.stopPropagation(); const m = document.querySelector('#sort-menu .dropdown-menu'); if (m) m.classList.toggle('active'); },
-          toggleFilter: function(e){ e.stopPropagation(); const m = document.querySelector('#filter-menu .dropdown-menu'); if (m) m.classList.toggle('active'); },
-          applyFilter: function(mode){ const label = document.getElementById('filter-label'); if (label) label.textContent = 'Filter: ' + (mode==='all'?'All Forms': mode==='published'?'Published':'Drafts'); document.querySelectorAll('[data-id]').forEach(el => { const status = el.getAttribute('data-status') || 'draft'; (el as any).style.display = (mode==='all' || status===mode) ? '' : 'none'; }); },
-          applySort: function(mode){ const label = document.getElementById('sort-label'); if (label) label.textContent = 'Sort by: ' + (mode==='updated_desc'?'Updated Recently': mode==='title_asc'?'Title A–Z':'Title Z–A'); const grid = document.querySelector('#forms-grid .grid'); if (!grid) return; const cards = Array.from(grid.children); const sorted = cards.sort((a,b)=>{ if (mode==='updated_desc') { return Number(b.getAttribute('data-updated')||'0') - Number(a.getAttribute('data-updated')||'0'); } if (mode==='title_asc') { return String(a.getAttribute('data-title')||'').localeCompare(String(b.getAttribute('data-title')||'')); } if (mode==='title_desc') { return String(b.getAttribute('data-title')||'').localeCompare(String(a.getAttribute('data-title')||'')); } return 0; }); sorted.forEach(el => grid.appendChild(el)); }
-        };
-    </script>
+    <!-- No inline scripts; interactions are delegated from parent via onLoad -->
 </body>
 </html>`;
     return html;
   }, [items, token, apiBase]);
+
+  // Attach delegated event handlers inside the iframe after it loads
+  function attachIframeHandlers() {
+    const doc = iframeRef.current?.contentDocument;
+    if (!doc) return;
+    // Toggle menus
+    function closeAll() {
+      doc.querySelectorAll('.dropdown-menu').forEach(d => d.classList.remove('active'));
+      doc.querySelectorAll('.js-menu-toggle').forEach(b => b.setAttribute('aria-expanded', 'false'));
+    }
+    doc.addEventListener('click', (e: any) => {
+      const target = e.target as HTMLElement;
+      if (!target) return;
+      // open/close menu
+      const toggleBtn = target.closest('.js-menu-toggle') as HTMLElement | null;
+      if (toggleBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        const menu = toggleBtn.nextElementSibling as HTMLElement | null;
+        if (!menu) return;
+        const isActive = menu.classList.contains('active');
+        closeAll();
+        if (!isActive) {
+          menu.classList.add('active');
+          toggleBtn.setAttribute('aria-expanded', 'true');
+        }
+        return;
+      }
+      // click outside to close
+      if (!target.closest('.relative')) {
+        closeAll();
+      }
+      // action items
+      const actionItem = target.closest('[data-action]') as HTMLElement | null;
+      if (actionItem) {
+        const action = actionItem.getAttribute('data-action') || '';
+        const id = actionItem.getAttribute('data-id') || '';
+        const slug = actionItem.getAttribute('data-slug') || '';
+        if (action === 'edit') {
+          window.location.href = `/forms/${id}`;
+        } else if (action === 'responses') {
+          window.location.href = `/forms/${id}/responses`;
+        } else if (action === 'copy' || action === 'share') {
+          const url = window.location.origin + '/f/' + slug;
+          try { navigator.clipboard.writeText(url); } catch {}
+          closeAll();
+        } else if (action === 'delete') {
+          // Notify parent to perform deletion (auth in parent)
+          window.postMessage({ type: 'hp_forms_action', action: 'delete', id }, '*');
+        } else if (action === 'sort') {
+          const mode = actionItem.getAttribute('data-mode') || 'updated_desc';
+          const label = doc.getElementById('sort-label'); if (label) label.textContent = 'Sort by: ' + (mode==='updated_desc'?'Updated Recently': mode==='title_asc'?'Title A–Z':'Title Z–A');
+          const grid = doc.querySelector('#forms-grid .grid'); if (!grid) return;
+          const cards = Array.from(grid.children) as HTMLElement[];
+          const sorted = cards.sort((a,b) => {
+            if (mode==='updated_desc') return Number(b.getAttribute('data-updated')||'0') - Number(a.getAttribute('data-updated')||'0');
+            if (mode==='title_asc') return String(a.getAttribute('data-title')||'').localeCompare(String(b.getAttribute('data-title')||''));
+            if (mode==='title_desc') return String(b.getAttribute('data-title')||'').localeCompare(String(a.getAttribute('data-title')||''));
+            return 0;
+          });
+          sorted.forEach(el => grid.appendChild(el));
+          closeAll();
+        } else if (action === 'filter') {
+          const mode = actionItem.getAttribute('data-mode') || 'all';
+          const label = doc.getElementById('filter-label'); if (label) label.textContent = 'Filter: ' + (mode==='all'?'All Forms': mode==='published'?'Published':'Drafts');
+          doc.querySelectorAll('[data-id]').forEach((el: any) => {
+            const status = el.getAttribute('data-status') || 'draft';
+            el.style.display = (mode==='all' || status===mode) ? '' : 'none';
+          });
+          closeAll();
+        }
+      }
+      // New form button
+      const newBtn = target.closest('#js-new-form') as HTMLElement | null;
+      if (newBtn) {
+        e.preventDefault();
+        window.postMessage({ type: 'hp_forms_action', action: 'create' }, '*');
+      }
+    });
+  }
 
   if (loading) {
     return <div className="p-4">Loading…</div>;
@@ -280,6 +316,7 @@ export default function FormsHome() {
         ref={iframeRef}
         title="Forms"
         srcDoc={html as any}
+        onLoad={attachIframeHandlers}
         style={{ width: '100%', height: 'calc(100vh - 0px)', border: '0', background: 'transparent' }}
       />
     </div>
