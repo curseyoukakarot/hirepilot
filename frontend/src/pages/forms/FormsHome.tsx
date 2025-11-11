@@ -27,7 +27,7 @@ export default function FormsHome() {
   }, []);
 
   async function handleCreate() {
-    const f = await createForm({ title: 'Untitled Form', is_public: true });
+    const f = await createForm({ title: 'Untitled Form', is_public: false });
     setItems(prev => [f, ...prev]);
     try { navigate(`/forms/${f.id}`); } catch {}
   }

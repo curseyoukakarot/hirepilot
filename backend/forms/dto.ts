@@ -5,7 +5,7 @@ export const formCreateDto = z.object({
   title: z.string().min(1),
   description: z.string().optional(),
   slug: z.string().optional(), // server will generate if missing
-  is_public: z.boolean().optional().default(true),
+  is_public: z.boolean().optional().default(false),
   theme: z.record(z.any()).optional(),
   destination_type: z.custom<FormDestinationType>().optional().default('table'),
   destination_target_id: z.string().uuid().nullable().optional(),

@@ -51,7 +51,7 @@ export async function createFormRepo(userId: string, workspaceId: string, params
     title: params.title || 'Untitled Form',
     description: params.description || null,
     slug,
-    is_public: params.is_public ?? true,
+    is_public: params.is_public ?? false,
     theme: params.theme || {},
     destination_type: (params as any).destination_type || 'table',
     destination_target_id: (params as any).destination_target_id || null,
