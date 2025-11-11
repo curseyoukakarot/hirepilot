@@ -110,7 +110,7 @@ export default function Tables() {
     <div className="bg-neutral min-h-screen">
       {/* EXACT SOURCE START (layout/content preserved as-is) */}
       <div id="main-content" className="min-h-screen">
-        <header id="header" className="bg-white border-b border-gray-200 px-8 py-6">
+        <header id="header" className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-8 py-6">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Custom Tables</h1>
@@ -135,7 +135,7 @@ export default function Tables() {
               const previewCols = (Array.isArray(t.schema_json) ? t.schema_json : []).slice(0,3);
               const previewRows = (Array.isArray(t.data_json) ? t.data_json : []).slice(0,3);
               return (
-                <div key={t.id} className="bg-white rounded-lg shadow-md p-6 table-card-hover transition-all duration-300 relative">
+                <div key={t.id} className="bg-white dark:bg-gray-900 rounded-lg shadow-md p-6 table-card-hover transition-all duration-300 relative border border-gray-200 dark:border-gray-800">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-gray-900 truncate">{t.name || 'Untitled Table'}</h3>
                     <div className="relative">
@@ -143,8 +143,8 @@ export default function Tables() {
                         <i className="fas fa-ellipsis-h"></i>
                       </button>
                       {menuOpenId===t.id && (
-                        <div className="absolute right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-2 z-50 w-36">
-                          <button className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 text-sm" onClick={()=>navigate(`/tables/${t.id}/edit`)}>Edit</button>
+                        <div className="absolute right-0 mt-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-2 z-50 w-36">
+                          <button className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800 text-sm" onClick={()=>navigate(`/tables/${t.id}/edit`)}>Edit</button>
                           <button className="w-full text-left px-3 py-2 rounded hover:bg-red-50 text-sm text-red-600" onClick={()=>deleteTable(t.id)}>Delete</button>
                         </div>
                       )}
@@ -153,12 +153,12 @@ export default function Tables() {
 
                   {/* Mini dynamic preview */}
                   {previewCols.length>0 && (
-                    <div className="overflow-hidden rounded-lg border border-gray-200 mb-4">
+                    <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-800 mb-4">
                       <table className="w-full text-sm">
-                        <thead className="bg-gray-50">
+                        <thead className="bg-gray-50 dark:bg-gray-800">
                           <tr>
                             {previewCols.map(c => (
-                              <th key={c.name} className="px-3 py-2 text-left font-medium text-gray-700">{c.name}</th>
+                              <th key={c.name} className="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300">{c.name}</th>
                             ))}
                           </tr>
                         </thead>
@@ -169,11 +169,11 @@ export default function Tables() {
                                 const v = (r || {})[c.name];
                                 if (c.type === 'money') {
                                   const fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: (c && c.currency) ? c.currency : 'USD' });
-                                  return <td key={c.name} className="px-3 py-2 text-gray-900">{fmt.format(Number(v) || 0)}</td>;
+                                  return <td key={c.name} className="px-3 py-2 text-gray-900 dark:text-gray-100">{fmt.format(Number(v) || 0)}</td>;
                                 }
-                                if (c.type === 'number') return <td key={c.name} className="px-3 py-2 text-gray-900">{numberFmt.format(Number(v) || 0)}</td>;
-                                if (c.type === 'status') return <td key={c.name} className="px-3 py-2"><span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{String(v || '')}</span></td>;
-                                return <td key={c.name} className="px-3 py-2 text-gray-900">{String(v || '')}</td>;
+                                if (c.type === 'number') return <td key={c.name} className="px-3 py-2 text-gray-900 dark:text-gray-100">{numberFmt.format(Number(v) || 0)}</td>;
+                                if (c.type === 'status') return <td key={c.name} className="px-3 py-2"><span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">{String(v || '')}</span></td>;
+                                return <td key={c.name} className="px-3 py-2 text-gray-900 dark:text-gray-100">{String(v || '')}</td>;
                               })}
                             </tr>
                           ))}
@@ -182,25 +182,25 @@ export default function Tables() {
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between mb-2 text-sm text-gray-500">
+                  <div className="flex items-center justify-between mb-2 text-sm text-gray-500 dark:text-gray-400">
                     <div>{rows} rows • {cols} columns</div>
                     <div>{t.updated_at ? `Last edited ${new Date(t.updated_at).toLocaleString()}` : ''}</div>
                   </div>
                   <div className="flex space-x-2">
                     <button onClick={() => navigate(`/tables/${t.id}/edit`)} className="flex-1 bg-primary text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-purple-700">Edit</button>
-                    <button className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50" onClick={()=>navigate(`/tables/${t.id}/edit?share=1`)}>Share</button>
-                    <button onClick={()=>exportTable(t)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">Export</button>
+                    <button className="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-200" onClick={()=>navigate(`/tables/${t.id}/edit?share=1`)}>Share</button>
+                    <button onClick={()=>exportTable(t)} className="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-200">Export</button>
                   </div>
                 </div>
               );
             })}
 
-            <div id="create-table-card" className="bg-gradient-to-br from-purple-50 to-white rounded-lg border-2 border-dashed border-purple-300 p-6 flex flex-col items-center justify-center text-center min-h-[400px] hover:border-purple-400 transition-colors cursor-pointer">
+            <div id="create-table-card" className="bg-gradient-to-br from-purple-50 to-white dark:from-gray-900 dark:to-gray-900 rounded-lg border-2 border-dashed border-purple-300 dark:border-white/10 p-6 flex flex-col items-center justify-center text-center min-h-[400px] hover:border-purple-400 transition-colors cursor-pointer">
               <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mb-4">
                 <i className="fas fa-plus text-white text-2xl"></i>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Create New Table</h3>
-              <p className="text-gray-600 mb-4">Start building your custom recruiting data table</p>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Create New Table</h3>
+              <p className="text-gray-600 dark:text-gray-300 mb-4">Start building your custom recruiting data table</p>
               <button className="bg-primary text-white px-6 py-2 rounded-lg font-medium hover:bg-purple-700" onClick={createAndOpenEditor}>
                 Get Started
               </button>

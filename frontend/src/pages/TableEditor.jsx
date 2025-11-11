@@ -508,7 +508,7 @@ export default function TableEditor() {
   const renderEditableCell = (row, col, rowIdx) => {
     const val = row?.[col.name] ?? '';
     const common = {
-      className: "w-full bg-transparent border-none outline-none focus:bg-white focus:border focus:border-purple-300 rounded px-2 py-1",
+      className: "w-full bg-transparent border-none outline-none focus:bg-white dark:focus:bg-gray-800 focus:border focus:border-purple-300 dark:focus:border-gray-600 rounded px-2 py-1 dark:text-gray-200 dark:placeholder-gray-400",
       onBlur: () => persistRows(rows),
     };
     const currencySymbol = (cur) => (cur === 'EUR' ? '€' : cur === 'GBP' ? '£' : '$');
@@ -565,7 +565,7 @@ export default function TableEditor() {
         <select
           value={String(val)}
           onChange={(e)=> updateCell(rowIdx, col, e.target.value)}
-          className="w-full bg-transparent border-none outline-none focus:bg-white focus:border focus:border-purple-300 rounded px-2 py-1"
+          className="w-full bg-transparent border-none outline-none focus:bg-white dark:focus:bg-gray-800 focus:border focus:border-purple-300 dark:focus:border-gray-600 rounded px-2 py-1 dark:text-gray-200"
           onBlur={() => persistRows(rows)}
         >
           <option value=""></option>
@@ -816,7 +816,7 @@ export default function TableEditor() {
                       </tr>
                     )}
                     {rows.map((r, idx) => (
-                      <tr key={idx} className={`transition-colors border-b border-gray-300 ${selectedRowIndex === idx ? 'bg-purple-50' : 'hover:bg-purple-50'}`} onClick={()=>setSelectedRowIndex(idx)}>
+                      <tr key={idx} className={`transition-colors border-b border-gray-300 ${selectedRowIndex === idx ? 'bg-purple-50 dark:bg-gray-800' : 'hover:bg-purple-50 dark:hover:bg-gray-800'}`} onClick={()=>setSelectedRowIndex(idx)}>
                         <td className="px-4 py-3"><input type="checkbox" className="rounded border-gray-300" onChange={(e)=>toggleSelectRow(idx, e.target.checked)} checked={selectedRowIdxSet.has(idx)} /></td>
                         {schema.map((col, ci) => (
                           <td key={`${idx}-${col.name}`} className="px-4 py-3 border-r border-gray-300" style={{ width: col.width ? `${col.width}px` : undefined }} onClick={()=> setActiveColIdx(ci)}>

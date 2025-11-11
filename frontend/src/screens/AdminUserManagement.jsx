@@ -647,14 +647,14 @@ export default function AdminUserManagement() {
                 <td className="px-4 py-2 text-gray-800">{user.balance ?? 0}</td>
                 <td className="px-4 py-2 flex gap-2">
                   <button 
-                    className="p-2 bg-green-100 hover:bg-green-200 rounded" 
+                    className="p-2 bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 rounded" 
                     onClick={() => setViewUserId(user.id)}
                     title="View User Details"
                   >
                     <FaEye />
                   </button>
                   <button
-                    className="p-2 bg-indigo-100 hover:bg-indigo-200 rounded"
+                    className="p-2 bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded"
                     title="Backfill Drips for this user"
                     onClick={() => {
                       setSelectedTemplates(new Set());
@@ -666,18 +666,18 @@ export default function AdminUserManagement() {
                     <FaPaperPlane />
                   </button>
                   <button 
-                    className="p-2 bg-indigo-100 hover:bg-indigo-200 rounded" 
+                    className="p-2 bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded" 
                     onClick={() => handleImpersonate(user.id, user.email)}
                     disabled={impersonating}
                     title="Impersonate User"
                   >
                     <FaUserSecret />
                   </button>
-                  <button className="p-2 bg-yellow-100 hover:bg-yellow-200 rounded" onClick={() => { setEditUser(user); setEditForm({ firstName: user.firstName, lastName: user.lastName, role: user.role }); }}><FaEdit /></button>
-                  <button className="p-2 bg-blue-100 hover:bg-blue-200 rounded" onClick={() => { setCreditUser(user); setCreditAmount(1000); }}><FaCoins /></button>
-                  <button className="p-2 bg-purple-100 hover:bg-purple-200 rounded" onClick={() => { setPasswordUser(user); setNewPassword(''); }}><FaKey /></button>
-                  <button className="p-2 bg-purple-100 hover:bg-purple-200 rounded" title="Send Welcome Email" onClick={() => handleSendWelcomeSingle(user)}><FaEnvelope /></button>
-                  <button className="p-2 bg-gray-100 hover:bg-gray-200 rounded" onClick={async () => {
+                  <button className="p-2 bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-900/30 dark:hover:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300 rounded" onClick={() => { setEditUser(user); setEditForm({ firstName: user.firstName, lastName: user.lastName, role: user.role }); }}><FaEdit /></button>
+                  <button className="p-2 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded" onClick={() => { setCreditUser(user); setCreditAmount(1000); }}><FaCoins /></button>
+                  <button className="p-2 bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded" onClick={() => { setPasswordUser(user); setNewPassword(''); }}><FaKey /></button>
+                  <button className="p-2 bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded" title="Send Welcome Email" onClick={() => handleSendWelcomeSingle(user)}><FaEnvelope /></button>
+                  <button className="p-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 rounded" onClick={async () => {
                     const token = (await supabase.auth.getSession()).data.session?.access_token;
                     const res = await fetch(`${BACKEND_URL}/api/admin/users/${user.id}/features`, { headers: { 'Authorization': `Bearer ${token}` }});
                     if (res.ok) {
@@ -686,7 +686,7 @@ export default function AdminUserManagement() {
                       setFeatureUser(user);
                     }
                   }} title="Features"><FaCog /></button>
-                  <button className="p-2 bg-red-100 hover:bg-red-200 rounded" onClick={() => handleDelete(user.id)}><FaTrash /></button>
+                  <button className="p-2 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 rounded" onClick={() => handleDelete(user.id)}><FaTrash /></button>
                 </td>
               </tr>
             ))}
