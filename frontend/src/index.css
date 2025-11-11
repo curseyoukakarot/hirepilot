@@ -39,17 +39,69 @@ html, body, #root {
 .dark .bg-white { background-color: #111827 !important; }
 .dark .bg-gray-50 { background-color: #0f172a !important; }
 .dark .bg-gray-100 { background-color: #111827 !important; }
+.dark .bg-gray-200 { background-color: #1f2937 !important; }
 .dark .border-gray-100 { border-color: #1f2937 !important; }
 .dark .border-gray-200 { border-color: #374151 !important; }
+.dark .border-gray-300 { border-color: #475569 !important; }
+.dark .border { border-color: rgba(255,255,255,0.08) !important; }
 .dark .shadow { box-shadow: 0 1px 3px 0 rgba(0,0,0,0.6), 0 1px 2px -1px rgba(0,0,0,0.6) !important; }
+.dark .shadow-sm,
+.dark .shadow-md,
+.dark .shadow-lg { box-shadow: 0 0 0 1px rgba(255,255,255,0.06) inset, 0 12px 28px rgba(0,0,0,0.45) !important; }
 .dark .text-gray-900 { color: #f9fafb !important; }
 .dark .text-gray-800 { color: #f3f4f6 !important; }
 .dark .text-gray-700 { color: #e5e7eb !important; }
 .dark .text-gray-600 { color: #d1d5db !important; }
 .dark .text-gray-500 { color: #9ca3af !important; }
+.dark .text-gray-400 { color: #94a3b8 !important; }
 .dark .hover\\:bg-gray-100:hover { background-color: #1f2937 !important; }
 .dark .hover\\:text-gray-900:hover { color: #f9fafb !important; }
 
 /* App shell defaults */
 html.dark #app-sidebar { background-color: #1f2937; }
 html.dark #app-main { background-color: #0b0f17; }
+
+/* Inputs, selects, textareas across app */
+.dark input:not([type="checkbox"]):not([type="radio"]),
+.dark select,
+.dark textarea {
+  background-color: #0f172a !important;
+  color: #e5e7eb !important;
+  border-color: #273449 !important;
+}
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* Tables */
+.dark table { color: #e5e7eb; }
+.dark thead th { background-color: #111827; color: #f3f4f6; border-color: #273449; }
+.dark tbody td { border-color: #1f2937; }
+.dark tbody tr:nth-child(even) { background-color: rgba(255,255,255,0.02); }
+
+/* Dropdown/menu/popover surfaces seen across pages */
+.dark .dropdown-menu {
+  background: rgba(17, 24, 39, 0.95) !important;
+  border-color: rgba(255,255,255,0.08) !important;
+}
+.dark .dropdown-item { color: #e5e7eb !important; }
+.dark .dropdown-item .icon { color: #9ca3af !important; }
+.dark .dropdown-item:hover { background: rgba(255,255,255,0.06) !important; color: #ffffff !important; }
+.dark .dropdown-sep { background: rgba(255,255,255,0.08) !important; }
+
+/* Light tinted backgrounds remapped for dark */
+.dark .bg-blue-50 { background-color: rgba(30, 58, 138, 0.35) !important; }
+.dark .bg-purple-50 { background-color: rgba(59, 7, 100, 0.35) !important; }
+.dark .bg-violet-50 { background-color: rgba(46, 16, 101, 0.35) !important; }
+.dark .bg-amber-50 { background-color: rgba(120, 53, 15, 0.28) !important; }
+.dark .bg-emerald-50 { background-color: rgba(6, 78, 59, 0.28) !important; }
+.dark .bg-red-50 { background-color: rgba(127, 29, 29, 0.28) !important; }
+
+/* Accent text color tuning for dark */
+.dark .text-indigo-600 { color: #a5b4fc !important; }
+.dark .text-purple-700 { color: #c4b5fd !important; }
+.dark .text-blue-600 { color: #93c5fd !important; }
+.dark .text-green-600 { color: #86efac !important; }
+.dark .text-amber-700 { color: #fcd34d !important; }
+.dark .text-red-600 { color: #fca5a5 !important; }
