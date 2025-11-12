@@ -6,7 +6,7 @@ export default function FormsHome() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState<string>('');
-  const apiBase = (import.meta as any)?.env?.VITE_BACKEND_URL || '';
+  const apiBase = (import.meta as any)?.env?.VITE_BACKEND_URL || 'https://api.thehirepilot.com';
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
@@ -32,7 +32,7 @@ export default function FormsHome() {
                 const resp = await fetch(apiBase + '/api/forms', {
                   method: 'POST',
                   headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-                  credentials: 'include',
+                  credentials: 'omit',
                   body: JSON.stringify({ title: 'Untitled Form', is_public: false }),
                 });
                 if (resp.ok) {
@@ -47,7 +47,7 @@ export default function FormsHome() {
                 const resp = await fetch(apiBase + '/api/forms/' + data.id, {
                   method: 'DELETE',
                   headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-                  credentials: 'include',
+                  credentials: 'omit',
                 });
                 if (resp.ok) {
                   setItems(prev => prev.filter(x => x.id !== data.id));

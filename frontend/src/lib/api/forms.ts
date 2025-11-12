@@ -1,6 +1,6 @@
 import { supabase } from '../supabaseClient';
 
-const API_BASE = (import.meta as any).env?.VITE_BACKEND_URL || '';
+const API_BASE = (import.meta as any).env?.VITE_BACKEND_URL || 'https://api.thehirepilot.com';
 
 async function fetchJson<T>(path: string, init?: RequestInit & { requireAuth?: boolean }): Promise<T> {
   const requireAuth = init?.requireAuth !== false;
@@ -15,7 +15,8 @@ async function fetchJson<T>(path: string, init?: RequestInit & { requireAuth?: b
   const resp = await fetch(`${API_BASE}/api${path}`, {
     ...init,
     headers,
-    credentials: 'include',
+    // Use bearer token header; avoid cookie-based auth for cross-origin
+    credentials: 'omit',
   });
   if (!resp.ok) {
     let detail = '';
