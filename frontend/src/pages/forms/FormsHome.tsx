@@ -342,7 +342,7 @@ export default function FormsHome() {
           closeAll();
         } else if (action === 'delete') {
           // Notify parent to perform deletion (auth in parent)
-          window.postMessage({ type: 'hp_forms_action', action: 'delete', id }, '*');
+          try { window.parent.postMessage({ type: 'hp_forms_action', action: 'delete', id }, '*'); } catch {}
         } else if (action === 'sort') {
           const mode = actionItem.getAttribute('data-mode') || 'updated_desc';
           const label = doc.getElementById('sort-label'); if (label) label.textContent = 'Sort by: ' + (mode==='updated_desc'?'Updated Recently': mode==='title_asc'?'Title A–Z':'Title Z–A');
@@ -370,7 +370,7 @@ export default function FormsHome() {
       const newBtn = target.closest('#js-new-form') as HTMLElement | null;
       if (newBtn) {
         e.preventDefault();
-        window.postMessage({ type: 'hp_forms_action', action: 'create' }, '*');
+        try { window.parent.postMessage({ type: 'hp_forms_action', action: 'create' }, '*'); } catch {}
       }
     });
     // Search input handler
