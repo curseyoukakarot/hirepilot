@@ -133,7 +133,22 @@ export async function upsertFieldsRepo(formId: string, fields: Partial<FormField
     ;
   const { data, error } = await supabaseDb.from('form_fields').upsert(normalized as any, { onConflict: 'id' }).select('*');
   if (error) throw error;
-  // Cleanup: ensure only provided fields remain (optional - skip destructive step)
+  // Cleanup: ensure only provided fields remain
+  try {
+    const { data: existing } = await supabaseDb
+      .from('form_fields')
+      .select('id')
+      .eq('form_id', formId);
+    const providedIds = new Set(normalized.filter(n => !!n.id).map(n => String(n.id)));
+    const toDelete = (existing || [])
+      .map(r => (r as any).id as string)
+      .filter(id => !providedIds.has(id));
+    if (toDelete.length) {
+      await supabaseDb.from('form_fields').delete().in('id', toDelete);
+    }
+  } catch (e) {
+    // non-fatal
+  }
   return (data || []) as FormFieldRecord[];
 }
 
