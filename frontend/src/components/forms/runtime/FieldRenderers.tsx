@@ -2,6 +2,12 @@ import React from 'react';
 
 export function RenderField({ field, value, onChange }: { field: any; value: any; onChange: (v: any) => void }) {
   const id = `f_${field.id}`;
+  const optionContainer = (field && field.options) || {};
+  const extractChoices = (): any[] => {
+    if (Array.isArray((optionContainer as any).choices)) return (optionContainer as any).choices;
+    if (Array.isArray(field.options)) return field.options as any[];
+    return [];
+  };
   switch (field.type) {
     case 'short_text':
     case 'phone':
@@ -40,14 +46,14 @@ export function RenderField({ field, value, onChange }: { field: any; value: any
           <label htmlFor={id} className="block text-sm mb-1">{field.label}</label>
           <select id={id} className="w-full border rounded px-2 py-1" value={value || ''} onChange={(e) => onChange(e.target.value)}>
             <option value="">Select…</option>
-            {(field.options || [])?.map((opt: any, idx: number) => (
-              <option key={idx} value={opt?.value || opt}>{opt?.label || String(opt)}</option>
+            {extractChoices().map((opt: any, idx: number) => (
+              <option key={idx} value={opt?.value ?? opt}>{opt?.label ?? String(opt)}</option>
             ))}
           </select>
         </div>
       );
     case 'multi_select': {
-      const opts: any[] = Array.isArray(field.options) ? field.options : [];
+      const opts: any[] = extractChoices();
       const selected: any[] = Array.isArray(value) ? value : [];
       const toggle = (opt: any) => {
         const val = opt?.value ?? opt;
