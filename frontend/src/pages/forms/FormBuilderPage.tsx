@@ -5,7 +5,7 @@ import Canvas from '../../components/forms/builder/Canvas';
 import Inspector from '../../components/forms/builder/Inspector';
 import Topbar from '../../components/forms/builder/Topbar';
 import EmbedModal from '../../components/forms/builder/EmbedModal';
-import { listCustomTables, listJobReqs, publishForm, updateForm } from '../../lib/api/forms';
+import { listCustomTables, listJobReqs, publishForm, updateForm, upsertFields } from '../../lib/api/forms';
 import '../../styles/forms.css';
 import { toast } from 'react-hot-toast';
 
@@ -172,6 +172,30 @@ export default function FormBuilderPage() {
               if (form?.id) await updateForm(form.id, { title: t });
             }}
             onBack={() => { window.location.href = '/forms'; }}
+            onSave={async () => {
+              if (!form?.id) return;
+              try {
+                // Persist form metadata
+                const patch: Record<string, any> = {};
+                if (typeof form?.title === 'string') patch.title = form.title;
+                if (typeof (form as any)?.description === 'string') patch.description = (form as any).description;
+                if ((form as any)?.destination_type) patch.destination_type = (form as any).destination_type;
+                if ((form as any)?.destination_target_id !== undefined) patch.destination_target_id = (form as any).destination_target_id;
+                if ((form as any)?.job_req_id !== undefined) patch.job_req_id = (form as any).job_req_id;
+                const updated = Object.keys(patch).length ? await updateForm(form.id, patch) : form;
+                if (updated) setForm(updated);
+                // Persist fields
+                if (Array.isArray(fields)) {
+                  const resp = await upsertFields(form.id, fields);
+                  if (resp?.fields) {
+                    setFields(resp.fields);
+                  }
+                }
+                toast.success('Form saved');
+              } catch (e: any) {
+                toast.error(e?.message || 'Failed to save form');
+              }
+            }}
             onPreview={() => {
               const html = buildPreviewHTML();
               const w = window.open('', '_blank');
@@ -181,6 +205,15 @@ export default function FormBuilderPage() {
             onPublish={async () => {
               if (!form?.id) return;
               try {
+                // Save before publish to avoid losing latest edits
+                const patch: Record<string, any> = {};
+                if (typeof form?.title === 'string') patch.title = form.title;
+                if (typeof (form as any)?.description === 'string') patch.description = (form as any).description;
+                if ((form as any)?.destination_type) patch.destination_type = (form as any).destination_type;
+                if ((form as any)?.destination_target_id !== undefined) patch.destination_target_id = (form as any).destination_target_id;
+                if ((form as any)?.job_req_id !== undefined) patch.job_req_id = (form as any).job_req_id;
+                if (Object.keys(patch).length) await updateForm(form.id, patch);
+                if (Array.isArray(fields)) await upsertFields(form.id, fields);
                 const upd = await publishForm(form.id, true);
                 setForm(upd);
                 const url = `${window.location.origin}/f/${upd.slug}`;
