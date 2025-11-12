@@ -11,6 +11,7 @@ export type FormFieldType =
   | 'date'
   | 'rating'
   | 'file_upload'
+  | 'calendly'
   | 'section';
 
 export interface FormRecord {

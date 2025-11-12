@@ -109,6 +109,25 @@ export function RenderField({ field, value, onChange }: { field: any; value: any
           <input type="number" min={1} max={5} className="w-24 border rounded px-2 py-1" value={value || ''} onChange={(e) => onChange(e.target.value)} />
         </div>
       );
+    case 'calendly': {
+      const url = (field as any).options?.url || '';
+      const height = Number((field as any).options?.height || 680);
+      if (!url) return null;
+      const embedUrl = `${url}${url.includes('?') ? '&' : '?'}embed_domain=${encodeURIComponent(window.location.hostname)}&embed_type=Inline`;
+      return (
+        <div className="mb-3">
+          <label className="block text-sm mb-2">{field.label}</label>
+          <iframe
+            title="Calendly"
+            src={embedUrl}
+            width="100%"
+            height={height}
+            frameBorder="0"
+            style={{ borderRadius: 12, background: 'transparent' }}
+          />
+        </div>
+      );
+    }
     default:
       return null;
   }

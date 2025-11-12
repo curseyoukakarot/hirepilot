@@ -66,6 +66,18 @@ export function FieldBlock({ field, isSelected, onSelect, onDuplicate, onDelete 
           </div>
         );
       }
+      case 'calendly': {
+        const url = opts.url || '';
+        return (
+          <div className="hp-input w-full rounded-xl px-3 py-3 text-sm text-[var(--hp-text-muted)]">
+            {url ? (
+              <div className="flex items-center gap-2"><i className="fa-solid fa-calendar-check text-[var(--hp-primary)]"></i> Calendly embed: {url}</div>
+            ) : (
+              <span>Calendly will render here (set URL in inspector)</span>
+            )}
+          </div>
+        );
+      }
       case 'file_upload': {
         return (
           <div className="drop-zone rounded-xl p-4">

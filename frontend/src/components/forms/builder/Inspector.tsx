@@ -85,6 +85,30 @@ export function Inspector({ field, onChange, form, onFormChange, tables = [], jo
               />
             </div>
           )}
+          {field.type === 'calendly' && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium mb-2">Calendly URL</label>
+                <input
+                  type="url"
+                  className="hp-input w-full h-10 px-3 rounded-xl"
+                  placeholder="https://calendly.com/your-handle/meeting"
+                  value={String((field as any).options?.url || '')}
+                  onChange={(e) => onChange({ options: { ...(field.options || {}), url: e.target.value } as any })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Embed height (px)</label>
+                <input
+                  type="number"
+                  min={300}
+                  className="hp-input w-full h-10 px-3 rounded-xl"
+                  value={Number((field as any).options?.height || 680)}
+                  onChange={(e) => onChange({ options: { ...(field.options || {}), height: Math.max(300, Number(e.target.value) || 680) } as any })}
+                />
+              </div>
+            </div>
+          )}
           {field.type === 'file_upload' && (
             <div className="space-y-3">
               <div>

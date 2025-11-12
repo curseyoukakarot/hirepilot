@@ -17,6 +17,7 @@ const PALETTE: { label: string; type: BuilderField['type']; icon: string; desc: 
   { label: 'Date', type: 'date', icon: 'fa-solid fa-calendar', desc: 'Date picker' },
   { label: 'Rating', type: 'rating', icon: 'fa-solid fa-star', desc: 'Star rating' },
   { label: 'File Upload', type: 'file_upload', icon: 'fa-solid fa-upload', desc: 'File attachment' },
+  { label: 'Calendly', type: 'calendly', icon: 'fa-solid fa-calendar-check', desc: 'Embed scheduling widget' },
 ];
 
 export function Palette({ onAddField }: Props) {
