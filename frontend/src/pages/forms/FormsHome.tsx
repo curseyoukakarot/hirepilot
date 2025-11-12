@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { listForms } from '../../lib/api/forms';
+import { listForms, listResponses } from '../../lib/api/forms';
 import { supabase } from '../../lib/supabaseClient';
 
 export default function FormsHome() {
@@ -69,7 +69,15 @@ export default function FormsHome() {
         ] as const);
         if (!mounted) return;
         setToken(session?.access_token || '');
-        setItems(Array.isArray((dataResp as any)?.items) ? (dataResp as any).items : []);
+        let list = Array.isArray((dataResp as any)?.items) ? (dataResp as any).items : [];
+        // Fetch submission counts per form
+        try {
+          const counts = await Promise.all(list.map(async (f: any) => {
+            try { const r = await listResponses(f.id, { page: 1 }); return r?.total || 0; } catch { return 0; }
+          }));
+          list = list.map((f: any, i: number) => ({ ...f, _submission_count: counts[i] || 0 }));
+        } catch {}
+        setItems(list);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -101,6 +109,7 @@ export default function FormsHome() {
       const updatedTs = Number(new Date(f.updated_at || f.created_at || Date.now()).getTime() || 0);
       const slug = esc(f.slug);
       const id = esc(f.id);
+      const submissions = Number((f as any)?._submission_count || 0);
       return `
         <div class="rounded-2xl border border-white/5 bg-hp-surface/80 backdrop-blur p-6 card-hover cursor-pointer opacity-0 animate-fade-in ${stagger}" data-id="${id}" data-status="${f.is_public ? 'published' : 'draft'}" data-title="${title.toLowerCase()}" data-updated="${updatedTs}">
           <div class="flex items-start justify-between mb-3">
@@ -139,7 +148,7 @@ export default function FormsHome() {
             <div class="flex items-center gap-4">
               <span class="flex items-center gap-1.5">
                 <i class="fa-solid fa-file-lines"></i>
-                — submissions
+                ${submissions} ${submissions === 1 ? 'submission' : 'submissions'}
               </span>
               <span class="flex items-center gap-1.5">
                 <i class="fa-solid fa-clock"></i>
