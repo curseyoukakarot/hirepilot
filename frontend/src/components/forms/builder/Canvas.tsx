@@ -8,14 +8,29 @@ type Props = {
   onSelect: (id: string) => void;
   onDuplicate: (id: string) => void;
   onDelete: (id: string) => void;
+  formTitle?: string;
+  formDescription?: string;
+  onFormMetaChange?: (patch: { title?: string; description?: string }) => void;
 };
 
-export function Canvas({ fields, selectedId, onSelect, onDuplicate, onDelete }: Props) {
+export function Canvas({ fields, selectedId, onSelect, onDuplicate, onDelete, formTitle, formDescription, onFormMetaChange }: Props) {
   return (
     <div className="space-y-6">
       <div id="form-header" className="mb-2">
-        <input type="text" placeholder="Form Title" className="hp-input w-full h-12 px-4 rounded-xl text-2xl font-semibold border-dashed" />
-        <textarea placeholder="Form description (optional)" className="hp-input w-full mt-4 p-4 rounded-xl border-dashed resize-none" rows={2}></textarea>
+        <input
+          type="text"
+          placeholder="Form Title"
+          className="hp-input w-full h-12 px-4 rounded-xl text-2xl font-semibold border-dashed"
+          value={formTitle || ''}
+          onChange={(e) => onFormMetaChange && onFormMetaChange({ title: e.target.value })}
+        />
+        <textarea
+          placeholder="Form description (optional)"
+          className="hp-input w-full mt-4 p-4 rounded-xl border-dashed resize-none"
+          rows={2}
+          value={formDescription || ''}
+          onChange={(e) => onFormMetaChange && onFormMetaChange({ description: e.target.value })}
+        ></textarea>
       </div>
 
       {fields.length === 0 && (

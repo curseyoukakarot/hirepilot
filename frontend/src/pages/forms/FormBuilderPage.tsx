@@ -236,6 +236,18 @@ export default function FormBuilderPage() {
                 onSelect={(fid) => setSelectedId(fid)}
                 onDuplicate={duplicateField}
                 onDelete={deleteField}
+                formTitle={form?.title || ''}
+                formDescription={(form as any)?.description || ''}
+                onFormMetaChange={async (patch) => {
+                  if (!form?.id) {
+                    setForm((prev: any) => ({ ...(prev || {}), ...patch }));
+                    return;
+                  }
+                  try {
+                    const updated = await updateForm(form.id, patch);
+                    setForm(updated);
+                  } catch {}
+                }}
               />
             </div>
           </div>
