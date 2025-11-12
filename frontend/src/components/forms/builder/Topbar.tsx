@@ -4,15 +4,24 @@ type Props = {
   title: string;
   status: 'saved' | 'saving' | 'dirty';
   onTitleChange: (t: string) => void;
+  onBack?: () => void;
   onPreview: () => void;
   onShare: () => void;
   onPublish: () => void;
 };
 
-export function Topbar({ title, status, onTitleChange, onPreview, onShare, onPublish }: Props) {
+export function Topbar({ title, status, onTitleChange, onBack, onPreview, onShare, onPublish }: Props) {
   return (
     <div className="w-full flex items-center justify-between">
       <div className="flex items-center gap-4">
+        <button
+          className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-[var(--hp-text-muted)] hover:bg-[var(--hp-surface-2)]"
+          onClick={() => onBack && onBack()}
+          aria-label="Back"
+          title="Back"
+        >
+          <i className="fa-solid fa-arrow-left"></i>
+        </button>
         <input
           type="text"
           value={title}
