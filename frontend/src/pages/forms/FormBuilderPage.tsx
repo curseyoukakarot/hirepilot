@@ -197,6 +197,10 @@ export default function FormBuilderPage() {
               }
             }}
             onPreview={() => {
+              if (form?.slug && form?.is_public) {
+                window.open(`/f/${form.slug}?preview=1`, '_blank');
+                return;
+              }
               const html = buildPreviewHTML();
               const w = window.open('', '_blank');
               if (w && html) { w.document.write(html); w.document.close(); }

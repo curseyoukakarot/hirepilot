@@ -153,7 +153,23 @@ export async function upsertFieldsRepo(formId: string, fields: Partial<FormField
 }
 
 export async function publishFormRepo(id: string, isPublic: boolean, userId?: string) {
-  return updateFormRepo(id, { is_public: isPublic } as any, userId);
+  // Load current form
+  const form = await getFormByIdRepo(id, userId);
+  let nextSlug = form.slug;
+  const desired = slugify(form.title || 'form');
+  // If the current slug is default-ish or empty, or still "untitled", regenerate from current title
+  const isDefaultSlug = !nextSlug || /^untitled(-|$)|^untitled-form(-|$)|^form(-|$)/.test(nextSlug);
+  if (isDefaultSlug && desired && desired !== nextSlug) {
+    // ensure uniqueness
+    let candidate = desired;
+    for (let i = 1; i < 100; i++) {
+      const { data: existing } = await supabaseDb.from('forms').select('id').eq('slug', candidate).maybeSingle();
+      if (!existing || (existing as any).id === id) break;
+      candidate = `${desired}-${i}`;
+    }
+    nextSlug = candidate;
+  }
+  return updateFormRepo(id, { is_public: isPublic, slug: nextSlug } as any, userId);
 }
 
 export async function createResponseRepo(
