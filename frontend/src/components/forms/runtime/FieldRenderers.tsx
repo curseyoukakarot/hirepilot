@@ -4,11 +4,18 @@ export function RenderField({ field, value, onChange }: { field: any; value: any
   const id = `f_${field.id}`;
   switch (field.type) {
     case 'short_text':
+    case 'phone':
     case 'email':
       return (
         <div className="mb-3">
           <label htmlFor={id} className="block text-sm mb-1">{field.label}</label>
-          <input id={id} className="w-full border rounded px-2 py-1" value={value || ''} onChange={(e) => onChange(e.target.value)} />
+          <input
+            id={id}
+            type={field.type === 'email' ? 'email' : field.type === 'phone' ? 'tel' : 'text'}
+            className="w-full border rounded px-2 py-1"
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value)}
+          />
         </div>
       );
     case 'long_text':
@@ -39,6 +46,42 @@ export function RenderField({ field, value, onChange }: { field: any; value: any
           </select>
         </div>
       );
+    case 'multi_select': {
+      const opts: any[] = Array.isArray(field.options) ? field.options : [];
+      const selected: any[] = Array.isArray(value) ? value : [];
+      const toggle = (opt: any) => {
+        const val = opt?.value ?? opt;
+        const label = opt?.label ?? String(opt);
+        const exists = selected.find((v) => (v?.value ?? v) === val);
+        if (exists) {
+          onChange(selected.filter((v) => (v?.value ?? v) !== val));
+        } else {
+          onChange([...selected, opt?.value ? { value: val, label } : val]);
+        }
+      };
+      return (
+        <div className="mb-3">
+          <label className="block text-sm mb-2">{field.label}</label>
+          <div className="flex flex-wrap gap-2">
+            {opts.map((opt, i) => {
+              const val = opt?.value ?? opt;
+              const label = opt?.label ?? String(opt);
+              const isOn = selected.some((v) => (v?.value ?? v) === val);
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => toggle(opt)}
+                  className={`px-3 py-1 rounded-lg text-sm border ${isOn ? 'bg-blue-600 text-white border-blue-600' : 'bg-transparent text-current'}`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
     case 'file_upload':
       return (
         <div className="mb-3">
