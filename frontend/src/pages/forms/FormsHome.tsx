@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { listForms, listResponses } from '../../lib/api/forms';
+import { listForms, listResponses, createForm as apiCreateForm, deleteForm as apiDeleteForm } from '../../lib/api/forms';
 import { supabase } from '../../lib/supabaseClient';
 
 export default function FormsHome() {
@@ -29,29 +29,15 @@ export default function FormsHome() {
           } else if (action === 'create') {
             (async () => {
               try {
-                const resp = await fetch(apiBase + '/api/forms', {
-                  method: 'POST',
-                  headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-                  credentials: 'omit',
-                  body: JSON.stringify({ title: 'Untitled Form', is_public: false }),
-                });
-                if (resp.ok) {
-                  const f = await resp.json();
-                  window.location.href = `/forms/${f?.id || ''}`;
-                }
+                const f = await apiCreateForm({ title: 'Untitled Form', is_public: false });
+                if (f?.id) window.location.href = `/forms/${f.id}`;
               } catch {}
             })();
           } else if (action === 'delete' && data.id) {
             (async () => {
               try {
-                const resp = await fetch(apiBase + '/api/forms/' + data.id, {
-                  method: 'DELETE',
-                  headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-                  credentials: 'omit',
-                });
-                if (resp.ok) {
-                  setItems(prev => prev.filter(x => x.id !== data.id));
-                }
+                await apiDeleteForm(data.id);
+                setItems(prev => prev.filter(x => x.id !== data.id));
               } catch {}
             })();
           }
