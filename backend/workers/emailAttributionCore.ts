@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { log } from '../utils/logger';
 
 type EmailEventRow = {
+  id?: string;
   sg_event_id: string;
   sg_message_id: string | null;
   message_id: string | null;          // resolvedMessageId
@@ -24,7 +25,7 @@ function nowMs() { return Date.now(); }
 export async function fetchUnattributedEventsPage(afterTs?: string | null): Promise<EmailEventRow[]> {
   let query = supabaseAdmin
     .from('email_events')
-    .select('sg_event_id, sg_message_id, message_id, event_timestamp, user_id, campaign_id, lead_id, metadata')
+    .select('id, sg_event_id, sg_message_id, message_id, event_timestamp, user_id, campaign_id, lead_id, metadata')
     .is('user_id', null)
     .order('event_timestamp', { ascending: false })
     .limit(BATCH_SIZE);
@@ -205,7 +206,7 @@ export async function attributeEvent(ev: EmailEventRow): Promise<boolean> {
       const { error: updErr } = await supabaseAdmin
         .from('email_events')
         .update({ user_id, campaign_id, lead_id: finalLeadId })
-        .eq('sg_event_id', ev.sg_event_id);
+        .eq('id', (ev as any).id || '');
       if (updErr) throw updErr;
       return true;
     }
