@@ -489,7 +489,7 @@ export default function SettingsIntegrations() {
     } catch { toast.error('Failed to disconnect Slack'); }
   };
 
-  const Card = ({ iconClass, iconSrc, name, status, onConnect, onDisconnect, connectLabel = 'Connect', disableActions = false }) => (
+  const Card = ({ iconClass, iconSrc, name, status, onConnect, onDisconnect, connectLabel = 'Connect', disableActions = false, extraIconClass, onExtraClick, extraTitle }) => (
     <div className="p-4 bg-white dark:bg-gray-900 rounded-xl shadow-sm flex justify-between items-center border border-gray-200 dark:border-gray-800 hover:shadow-md transition-shadow">
       <div className="flex items-center gap-3">
         <div className="w-8 h-8 rounded-md flex items-center justify-center bg-transparent">
@@ -505,6 +505,15 @@ export default function SettingsIntegrations() {
         </div>
       </div>
       <div className="flex items-center gap-2">
+        {extraIconClass && (
+          <button
+            title={extraTitle || 'Manage'}
+            onClick={onExtraClick}
+            className="p-2 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-gray-100 dark:hover:bg-gray-800 transition-colors"
+          >
+            <i className={extraIconClass}></i>
+          </button>
+        )}
         {status === 'Connected' ? (
           <button disabled={disableActions} onClick={onDisconnect} className="px-3 py-1 text-sm bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50">Disconnect</button>
         ) : (
@@ -582,8 +591,11 @@ export default function SettingsIntegrations() {
                   iconSrc="/sendgrid.png"
                   name="SendGrid"
                   status={sendgridConnected ? 'Connected' : 'Not Connected'}
-                  onConnect={()=>setShowSendGridModal(true)}
+                  onConnect={()=>{ setSendGridStep('validate'); setShowSendGridModal(true); }}
                   onDisconnect={()=>toast('Disconnect handled in settings (coming soon)')}
+                  extraIconClass="fa-solid fa-gear"
+                  extraTitle="Change default sender"
+                  onExtraClick={()=>{ setSendGridStep('validate'); setShowSendGridModal(true); }}
                 />
               </div>
             </div>
