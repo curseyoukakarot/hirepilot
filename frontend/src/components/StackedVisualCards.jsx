@@ -78,16 +78,7 @@ const StackedVisualCards = () => {
           />
         </div>
 
-        {/* Card 3 */}
-        <div className="pt-24 md:pt-28 lg:pt-36 flex justify-center overflow-visible">
-          <div className="stack-card reveal-card bg-white rounded-2xl shadow-[0_50px_120px_-35px_rgba(0,0,0,0.9)] ring-1 ring-black/20 border border-gray-200 overflow-hidden transform hover:-translate-y-1 transition-all duration-500 relative origin-center" style={{ transform: 'scale(1.33)' }}>
-            <img
-              src="/features-callout.png"
-              alt="Feature Highlights Card"
-              className="w-full h-auto object-cover"
-            />
-          </div>
-        </div>
+        {/* Card 3 removed per request (features-callout.png) */}
       </div>
     </section>
   );
