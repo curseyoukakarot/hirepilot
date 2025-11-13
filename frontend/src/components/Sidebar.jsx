@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { FaEnvelope, FaChartBar, FaCog, FaSignOutAlt, FaCreditCard, FaShieldAlt, FaRobot, FaExclamationTriangle, FaCookie, FaSlidersH, FaPlug, FaBell, FaUsers, FaTerminal, FaTable } from 'react-icons/fa';
+import { FaEnvelope, FaChartBar, FaCog, FaSignOutAlt, FaCreditCard, FaShieldAlt, FaRobot, FaExclamationTriangle, FaCookie, FaSlidersH, FaPlug, FaBell, FaUsers, FaTerminal, FaTable, FaWpforms } from 'react-icons/fa';
 import { supabase } from '../lib/supabaseClient';
 import { usePlan } from '../context/PlanContext';
 
@@ -108,6 +108,7 @@ export default function Sidebar() {
               ...((isGuest ? baseLinks.filter(l => !['/messages','/billing'].includes(l.to)) : baseLinks)),
               ...((isFree || isGuest) ? [] : [{ to: '/analytics', label: 'Analytics', icon: <FaChartBar /> }]),
               { to: '/tables', label: 'Tables', icon: <FaTable /> },
+              { to: '/forms', label: 'Forms', icon: <FaWpforms /> },
             ].map(link => (
               <li key={link.to}>
                 <NavLink

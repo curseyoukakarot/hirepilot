@@ -69,7 +69,7 @@ import PartnersRouteGuard from './pages/partners/PartnersRouteGuard';
 const RequirePartnersAuth = ({ children }) => <PartnersRouteGuard>{children}</PartnersRouteGuard>;
 import RexWidget from './widgets/rex/RexWidget';
 import PromoBanner from './components/PromoBanner';
-import { PlanProvider } from './context/PlanContext';
+import { PlanProvider, usePlan } from './context/PlanContext';
 import { startSessionCookieSync } from './auth/sessionSync';
 import { ThemeProvider } from './context/ThemeContext';
 import { useTheme } from './context/ThemeContext';
@@ -635,10 +635,10 @@ function InnerApp() {
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/tables" element={<Tables />} />
               <Route path="/tables/:id/edit" element={<TableEditor />} />
-              {/* Forms system (authenticated app area) */}
-              <Route path="/forms" element={<FormsHome />} />
-              <Route path="/forms/:id" element={<FormBuilderPage />} />
-              <Route path="/forms/:id/responses" element={<FormResponsesPage />} />
+              {/* Forms system (authenticated app area, paid feature) */}
+              <Route path="/forms" element={<FormsPaidRoute><FormsHome /></FormsPaidRoute>} />
+              <Route path="/forms/:id" element={<FormsPaidRoute><FormBuilderPage /></FormsPaidRoute>} />
+              <Route path="/forms/:id/responses" element={<FormsPaidRoute><FormResponsesPage /></FormsPaidRoute>} />
               <Route path="/deals" element={<DealsPage />} />
               <Route path="/deals/opportunities/:id" element={<OpportunityDetail />} />
               <Route path="/phantom-monitor" element={<PhantomMonitor />} />
@@ -724,6 +724,29 @@ function InnerApp() {
       {isAuthPage && !location.pathname.startsWith('/blog/') && (
         <PromoBanner show={true} />
       )}
+    </div>
+  );
+}
+
+function FormsPaidRoute({ children }) {
+  const { isFree, loading } = usePlan();
+  if (loading) return <div className="flex items-center justify-center h-screen text-lg">Loading…</div>;
+  if (!isFree) return children;
+  return (
+    <div className="min-h-[60vh] flex items-center justify-center p-8">
+      <div className="max-w-xl w-full bg-white dark:bg-gray-800 shadow rounded-2xl p-8 text-center border border-gray-200 dark:border-gray-700">
+        <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center">
+          <span role="img" aria-label="lock">🔒</span>
+        </div>
+        <h1 className="text-2xl font-semibold mb-2">Forms is a Pro feature</h1>
+        <p className="text-gray-600 dark:text-gray-300 mb-6">
+          Upgrade your plan to create public forms, collect responses, and route submissions to Leads, Candidates, or Custom Tables.
+        </p>
+        <div className="flex items-center justify-center gap-3">
+          <a href="/pricing?plan=pro" className="px-5 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">View Plans</a>
+          <a href="/freeforever" className="px-5 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Learn more</a>
+        </div>
+      </div>
     </div>
   );
 }
