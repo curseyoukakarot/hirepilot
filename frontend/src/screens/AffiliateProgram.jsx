@@ -53,24 +53,24 @@ export default function AffiliateProgram() {
   }, []);
 
   return (
-    <div className="bg-white">
+    <div className="bg-white dark:bg-[#0b0f17]">
       <PublicNavbar />
 
       {/* Hero Section */}
-      <section id="hero" className="relative bg-gradient-to-br from-blue-50 to-indigo-100 h-[600px] overflow-hidden pt-20">
-        <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-secondary/10"></div>
+      <section id="hero" className="relative bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-[#0c1220] dark:to-[#0b0f17] h-[600px] overflow-hidden pt-20">
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-secondary/10 dark:from-white/5 dark:to-transparent"></div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center w-full">
             <div className="space-y-8">
               <div className="space-y-4">
-                <h1 className="text-5xl lg:text-6xl font-bold text-gray-900 leading-tight">
+                <h1 className="text-5xl lg:text-6xl font-bold text-gray-900 dark:text-gray-100 leading-tight">
                   Earn Big by Referring the 
-                  <span className="text-blue-600"> Future of Hiring</span>
+                  <span className="text-blue-600 dark:text-blue-400"> Future of Hiring</span>
                 </h1>
-                <p className="text-xl text-gray-600 leading-relaxed">
+                <p className="text-xl text-gray-600 dark:text-gray-300 leading-relaxed">
                   Turn your network into monthly income. Join the HirePilot Affiliate Program and get paid to share a tool that sells itself.
                 </p>
-                <p className="text-lg text-gray-500">
+                <p className="text-lg text-gray-500 dark:text-gray-400">
                   Whether you're a recruiter, founder, consultant, or just plugged-in — you can get paid to refer our AI-powered hiring system to teams that need it most.
                 </p>
               </div>
@@ -78,9 +78,9 @@ export default function AffiliateProgram() {
                 <a href="https://affiliates.thehirepilot.com/partners/signup" className="bg-blue-600 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-blue-700 transition-colors text-center">
                   Join the Program
                 </a>
-                <div className="flex items-center space-x-6 text-sm text-gray-600">
+                <div className="flex items-center space-x-6 text-sm text-gray-600 dark:text-gray-300">
                   <span className="flex items-center">
-                    <i className="fa-solid fa-users mr-2 text-blue-600"></i>
+                    <i className="fa-solid fa-users mr-2 text-blue-600 dark:text-blue-400"></i>
                     Used by forward thinking recruiters
                   </span>
                   <span className="flex items-center">
@@ -92,10 +92,10 @@ export default function AffiliateProgram() {
             </div>
             <div className="relative">
               <img className="w-full h-96 object-cover object-center rounded-2xl shadow-2xl transform scale-90" src="/affiliate-hero-1.png" alt="modern dashboard interface with AI hiring analytics and Slack notifications, professional tech aesthetic" />
-              <div className="absolute -bottom-4 -right-4 bg-white rounded-lg shadow-lg p-4">
+              <div className="absolute -bottom-4 -right-4 bg-white dark:bg-gray-800 dark:border dark:border-gray-700 rounded-lg shadow-lg p-4">
                 <div className="flex items-center space-x-2">
                   <i className="fa-solid fa-chart-line text-green-500"></i>
-                  <span className="text-sm font-semibold">+42% hiring efficiency</span>
+                  <span className="text-sm font-semibold dark:text-gray-100">+42% hiring efficiency</span>
                 </div>
               </div>
             </div>
