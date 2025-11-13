@@ -70,7 +70,11 @@ export async function sendgridEventsHandler(req: express.Request, res: express.R
       let { user_id, campaign_id, lead_id, message_id: customMessageId } = (custom_args as any) || {};
       const eventTimestamp = new Date((Number(ts) || Math.floor(Date.now() / 1000)) * 1000).toISOString();
 
-      const resolvedMessageId = customMessageId || sg_message_id || ev['smtp-id'] || ev['smtp_id'] || null;
+      // Strip SendGrid suffix (e.g., ".filterdrecv") for matching against our stored message identifiers
+      const strippedSgId = sg_message_id ? String(sg_message_id).split('.')[0] : null;
+      const smtpIdAny: string | undefined = (ev['smtp-id'] || ev['smtp_id']) as any;
+      const strippedSmtpId = smtpIdAny ? String(smtpIdAny).split('.')[0] : null;
+      const resolvedMessageId = customMessageId || strippedSmtpId || strippedSgId || null;
 
       // Fallback attribution: if any ids are missing, try to resolve from messages by our stored identifiers
       if (!user_id || !campaign_id || !lead_id) {
@@ -78,6 +82,7 @@ export async function sendgridEventsHandler(req: express.Request, res: express.R
           const ors: string[] = [];
           if (customMessageId) ors.push(`message_id.eq.${customMessageId}`);
           if (resolvedMessageId) ors.push(`message_id_header.eq.${resolvedMessageId}`);
+          if (strippedSgId) ors.push(`sg_message_id.eq.${strippedSgId}`);
           if (ors.length) {
             const { data: msg } = await supabase
               .from('messages')
@@ -149,6 +154,9 @@ export async function sendgridEventsHandler(req: express.Request, res: express.R
         } else if (resolvedMessageId) {
           const { error: updErr } = await supabase.from('messages').update({ status }).eq('message_id_header', resolvedMessageId);
           if (updErr) console.error('[sendgridEventsHandler] update messages status failed (message_id_header):', updErr);
+        } else if (strippedSgId) {
+          const { error: updErr } = await supabase.from('messages').update({ status }).eq('sg_message_id', strippedSgId);
+          if (updErr) console.error('[sendgridEventsHandler] update messages status failed (message_id_header):', updErr);
         }
       }
 
@@ -160,6 +168,9 @@ export async function sendgridEventsHandler(req: express.Request, res: express.R
         } else if (resolvedMessageId) {
           const { error: updErr } = await supabase.from('messages').update(update).eq('message_id_header', resolvedMessageId);
           if (updErr) console.error('[sendgridEventsHandler] set opened failed (message_id_header):', updErr);
+        } else if (strippedSgId) {
+          const { error: updErr } = await supabase.from('messages').update(update).eq('sg_message_id', strippedSgId);
+          if (updErr) console.error('[sendgridEventsHandler] set opened failed (message_id_header):', updErr);
         }
       }
 
@@ -170,6 +181,9 @@ export async function sendgridEventsHandler(req: express.Request, res: express.R
           if (updErr) console.error('[sendgridEventsHandler] set clicked failed (message_id):', updErr);
         } else if (resolvedMessageId) {
           const { error: updErr } = await supabase.from('messages').update(update).eq('message_id_header', resolvedMessageId);
+          if (updErr) console.error('[sendgridEventsHandler] set clicked failed (message_id_header):', updErr);
+        } else if (strippedSgId) {
+          const { error: updErr } = await supabase.from('messages').update(update).eq('sg_message_id', strippedSgId);
           if (updErr) console.error('[sendgridEventsHandler] set clicked failed (message_id_header):', updErr);
         }
       }

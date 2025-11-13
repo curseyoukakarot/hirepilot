@@ -41,6 +41,9 @@ export async function fetchUnattributedEventsPage(afterTs?: string | null): Prom
 export async function attributeEvent(ev: EmailEventRow): Promise<boolean> {
   try {
     let { sg_message_id, message_id, metadata } = ev;
+    // Normalize SendGrid identifiers by stripping suffixes like ".filterdrecv", ".recv", etc.
+    const strippedSgId = sg_message_id ? String(sg_message_id).split('.')[0] : null;
+    const strippedMsgHeader = message_id ? String(message_id).split('.')[0] : null;
     // Prefer explicit recipient email if present in various known locations
     let email: string | undefined =
       (metadata && (metadata as any).email) ||
@@ -118,13 +121,13 @@ export async function attributeEvent(ev: EmailEventRow): Promise<boolean> {
     }
 
     // Step 2B: Fallback - match by provider message identifiers when available
-    if ((!user_id || !campaign_id || !lead_id) && (sg_message_id || message_id)) {
+    if ((!user_id || !campaign_id || !lead_id) && (strippedSgId || strippedMsgHeader)) {
       // Some DBs may not have sg_message_id column. Try message_id_header first (safe), then best-effort message_id.
       try {
         const { data: msgByHeader } = await supabaseAdmin
           .from('messages')
           .select('user_id,campaign_id,lead_id')
-          .eq('message_id_header', message_id || '')
+          .eq('message_id_header', strippedMsgHeader || '')
           .order('sent_at', { ascending: false })
           .limit(1)
           .maybeSingle();
@@ -140,7 +143,7 @@ export async function attributeEvent(ev: EmailEventRow): Promise<boolean> {
           const { data: msgBySg } = await (supabaseAdmin as any)
             .from('messages')
             .select('user_id,campaign_id,lead_id')
-            .eq('sg_message_id', sg_message_id || '')
+            .eq('sg_message_id', strippedSgId || '')
             .order('sent_at', { ascending: false })
             .limit(1)
             .maybeSingle();

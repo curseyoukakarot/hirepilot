@@ -14,10 +14,10 @@ async function tick() {
 // Run immediately on boot
 tick();
 
-// Schedule: every 5 minutes
-cron.schedule('*/5 * * * *', async () => {
+// Schedule: every 4 minutes
+cron.schedule('*/4 * * * *', async () => {
   log.info('Attribution cron tick starting...');
   await tick();
 });
 
-log.info('Email attribution worker started - running every 5 minutes');
+log.info('Email attribution worker started - running every 4 minutes');

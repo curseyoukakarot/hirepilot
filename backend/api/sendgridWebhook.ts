@@ -41,12 +41,15 @@ router.post('/sendgrid/webhook', async (req, res) => {
       // Attempt attribution fallback from our messages table
       // Prefer lookup by sg_message_id; fallback to SMTP Message-ID header if present
       const smtpId: string | undefined = (event['smtp-id'] || event['smtp_id']) as any;
-      const resolvedMessageId = sg_message_id || smtpId || null;
-      if ((!user_id || !campaign_id || !lead_id) && (sg_message_id || smtpId)) {
+      // Strip suffixes for consistent matching
+      const strippedSgId = sg_message_id ? String(sg_message_id).split('.')[0] : null;
+      const strippedSmtpId = smtpId ? String(smtpId).split('.')[0] : null;
+      const resolvedMessageId = strippedSmtpId || strippedSgId || null;
+      if ((!user_id || !campaign_id || !lead_id) && (strippedSgId || strippedSmtpId)) {
         try {
           const ors: string[] = [];
-          if (sg_message_id) ors.push(`sg_message_id.eq.${sg_message_id}`);
-          if (smtpId) ors.push(`message_id_header.eq.${smtpId}`);
+          if (strippedSgId) ors.push(`sg_message_id.eq.${strippedSgId}`);
+          if (strippedSmtpId) ors.push(`message_id_header.eq.${strippedSmtpId}`);
           if (ors.length) {
             const { data: msg } = await supabase
               .from('messages')
@@ -103,7 +106,7 @@ router.post('/sendgrid/webhook', async (req, res) => {
           .from('messages')
           .update({ status })
           .or([
-            sg_message_id ? `sg_message_id.eq.${sg_message_id}` : '',
+            strippedSgId ? `sg_message_id.eq.${strippedSgId}` : '',
             resolvedMessageId ? `message_id_header.eq.${resolvedMessageId}` : ''
           ].filter(Boolean).join(','));
         if (updateError) console.error('❌ Error updating message status:', updateError);
@@ -141,7 +144,7 @@ router.post('/sendgrid/webhook', async (req, res) => {
           .from('messages')
           .update({ opened: true })
           .or([
-            sg_message_id ? `sg_message_id.eq.${sg_message_id}` : '',
+            strippedSgId ? `sg_message_id.eq.${strippedSgId}` : '',
             resolvedMessageId ? `message_id_header.eq.${resolvedMessageId}` : ''
           ].filter(Boolean).join(','));
         if (updateError) console.error('❌ Error updating message opened flag:', updateError);
@@ -152,7 +155,7 @@ router.post('/sendgrid/webhook', async (req, res) => {
           .from('messages')
           .update({ clicked: true })
           .or([
-            sg_message_id ? `sg_message_id.eq.${sg_message_id}` : '',
+            strippedSgId ? `sg_message_id.eq.${strippedSgId}` : '',
             resolvedMessageId ? `message_id_header.eq.${resolvedMessageId}` : ''
           ].filter(Boolean).join(','));
         if (updateError) console.error('❌ Error updating message clicked flag:', updateError);

@@ -111,7 +111,8 @@ async function sendViaSendGrid(lead: any, content: string, userId: string, templ
         lead_id: lead.id,
         message_id: trackingMessageId
       },
-      replyTo: `msg_${trackingMessageId}.u_${userId}.c_${lead.campaign_id}@${process.env.INBOUND_PARSE_DOMAIN || 'reply.thehirepilot.com'}`
+      // Include lead id in Reply-To to enable robust parsing downstream
+      replyTo: `msg_${trackingMessageId}.u_${userId}.c_${lead.campaign_id}.l_${lead.id}@${process.env.INBOUND_PARSE_DOMAIN || 'reply.thehirepilot.com'}`
     };
 
     console.log(`[sendViaSendGrid] Sending email to ${lead.email} from ${data.default_sender} with subject: ${subject}`);
