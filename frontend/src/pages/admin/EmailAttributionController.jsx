@@ -129,8 +129,8 @@ export default function EmailAttributionController() {
   if (loading) {
     return (
       <div className="p-6">
-        <div className="animate-pulse h-8 bg-gray-200 w-64 rounded mb-4" />
-        <div className="animate-pulse h-5 bg-gray-200 w-96 rounded" />
+        <div className="animate-pulse h-8 bg-gray-800/40 w-64 rounded mb-4" />
+        <div className="animate-pulse h-5 bg-gray-800/40 w-96 rounded" />
       </div>
     );
   }
@@ -160,31 +160,31 @@ export default function EmailAttributionController() {
         </div>
       </div>
 
-      {error && <div className="p-3 rounded bg-red-50 text-red-700">{error}</div>}
+      {error && <div className="p-3 rounded bg-red-900/20 text-red-300 border border-red-800/40">{error}</div>}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="p-4 rounded-lg border">
-          <div className="text-sm text-gray-500">Remaining Unattributed</div>
-          <div className="text-3xl font-bold">{remaining ?? '—'}</div>
+        <div className="p-4 rounded-lg border border-gray-700 bg-gray-800">
+          <div className="text-sm text-gray-400">Remaining Unattributed</div>
+          <div className="text-3xl font-bold text-gray-100">{remaining ?? '—'}</div>
         </div>
-        <div className="p-4 rounded-lg border">
-          <div className="text-sm text-gray-500">Worker Health</div>
-          <div className="mt-1 text-sm">
-            <div>Status: <span className={`font-semibold ${health.running ? 'text-green-600' : 'text-gray-700'}`}>{health.running ? 'Running' : 'Idle'}</span></div>
-            <div>Mode: <span className="font-mono">{health.mode || '—'}</span></div>
-            <div>Started: <span className="font-mono">{health.startedAt || '—'}</span></div>
-            <div>Finished: <span className="font-mono">{health.finishedAt || '—'}</span></div>
-            {health.lastError && <div className="text-red-600">Error: {health.lastError}</div>}
+        <div className="p-4 rounded-lg border border-gray-700 bg-gray-800">
+          <div className="text-sm text-gray-400">Worker Health</div>
+          <div className="mt-1 text-sm text-gray-200">
+            <div>Status: <span className={`font-semibold ${health.running ? 'text-green-400' : 'text-gray-300'}`}>{health.running ? 'Running' : 'Idle'}</span></div>
+            <div>Mode: <span className="font-mono text-gray-300">{health.mode || '—'}</span></div>
+            <div>Started: <span className="font-mono text-gray-300">{health.startedAt || '—'}</span></div>
+            <div>Finished: <span className="font-mono text-gray-300">{health.finishedAt || '—'}</span></div>
+            {health.lastError && <div className="text-red-400">Error: {health.lastError}</div>}
           </div>
         </div>
-        <div className="p-4 rounded-lg border">
-          <div className="text-sm text-gray-500">Last Pass</div>
+        <div className="p-4 rounded-lg border border-gray-700 bg-gray-800">
+          <div className="text-sm text-gray-400">Last Pass</div>
           {lastPass ? (
-            <div className="mt-1 text-sm">
-              <div>Scanned: <span className="font-semibold">{lastPass.scanned}</span></div>
-              <div>Updated: <span className="font-semibold">{lastPass.updated}</span></div>
-              <div>Duration: <span className="font-mono">{Math.round(lastPass.ms / 1000)}s</span></div>
-              <div>At: <span className="font-mono">{new Date(lastPass.at).toLocaleString()}</span></div>
+            <div className="mt-1 text-sm text-gray-200">
+              <div>Scanned: <span className="font-semibold text-gray-100">{lastPass.scanned}</span></div>
+              <div>Updated: <span className="font-semibold text-gray-100">{lastPass.updated}</span></div>
+              <div>Duration: <span className="font-mono text-gray-300">{Math.round(lastPass.ms / 1000)}s</span></div>
+              <div>At: <span className="font-mono text-gray-300">{new Date(lastPass.at).toLocaleString()}</span></div>
             </div>
           ) : (
             <div className="mt-1 text-sm text-gray-500">No recent pass data</div>
@@ -192,12 +192,12 @@ export default function EmailAttributionController() {
         </div>
       </div>
 
-      <div className="p-4 rounded-lg border">
+      <div className="p-4 rounded-lg border border-gray-700 bg-gray-800">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold">Recent Attribution Logs</h2>
+          <h2 className="text-lg font-semibold text-gray-100">Recent Attribution Logs</h2>
           <button
             onClick={fetchLogs}
-            className="px-3 py-1.5 rounded bg-gray-100 hover:bg-gray-200"
+            className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-100"
           >
             Refresh
           </button>
@@ -205,7 +205,7 @@ export default function EmailAttributionController() {
         <div className="overflow-auto">
           <table className="min-w-full text-sm">
             <thead>
-              <tr className="text-left text-gray-500 border-b">
+              <tr className="text-left text-gray-400 border-b border-gray-700">
                 <th className="py-2 pr-4">Updated</th>
                 <th className="py-2 pr-4">Event</th>
                 <th className="py-2 pr-4">Email</th>
@@ -221,18 +221,18 @@ export default function EmailAttributionController() {
                 const meta = row?.metadata || {};
                 const email = meta?.email || meta?.to_email || meta?.recipient || '';
                 return (
-                  <tr key={row.id} className="border-b hover:bg-gray-50">
-                    <td className="py-2 pr-4 font-mono">{new Date(row.updated_at).toLocaleString()}</td>
+                  <tr key={row.id} className="border-b border-gray-700 hover:bg-gray-700/60">
+                    <td className="py-2 pr-4 font-mono text-gray-300">{new Date(row.updated_at).toLocaleString()}</td>
                     <td className="py-2 pr-4">{row.event_type}</td>
                     <td className="py-2 pr-4">{email || '—'}</td>
-                    <td className="py-2 pr-4 font-mono text-xs">{row.user_id || '—'}</td>
-                    <td className="py-2 pr-4 font-mono text-xs">{row.campaign_id || '—'}</td>
-                    <td className="py-2 pr-4 font-mono text-xs">{row.lead_id || '—'}</td>
+                    <td className="py-2 pr-4 font-mono text-xs text-gray-300">{row.user_id || '—'}</td>
+                    <td className="py-2 pr-4 font-mono text-xs text-gray-300">{row.campaign_id || '—'}</td>
+                    <td className="py-2 pr-4 font-mono text-xs text-gray-300">{row.lead_id || '—'}</td>
                     <td className="py-2 pr-4">{row.provider || '—'}</td>
                     <td className="py-2 pr-4">
                       <button
                         onClick={() => openLog(row.id)}
-                        className="px-2 py-1 rounded bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                        className="px-2 py-1 rounded bg-indigo-900/30 text-indigo-300 hover:bg-indigo-900/40"
                       >
                         View
                       </button>
@@ -250,19 +250,19 @@ export default function EmailAttributionController() {
 
       {selectedLog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg w-full max-w-3xl shadow-lg">
-            <div className="px-4 py-3 border-b flex items-center justify-between">
-              <div className="font-semibold">Event Details</div>
-              <button className="text-gray-500 hover:text-gray-700" onClick={() => setSelectedLog(null)}>Close</button>
+          <div className="bg-gray-900 rounded-lg w-full max-w-3xl shadow-lg border border-gray-700">
+            <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between">
+              <div className="font-semibold text-gray-100">Event Details</div>
+              <button className="text-gray-300 hover:text-gray-200" onClick={() => setSelectedLog(null)}>Close</button>
             </div>
             <div className="p-4 space-y-4 max-h-[70vh] overflow-auto">
               <div>
-                <div className="text-sm text-gray-500 mb-1">Event</div>
-                <pre className="text-xs bg-gray-50 p-3 rounded overflow-auto">{JSON.stringify(selectedLog.event, null, 2)}</pre>
+                <div className="text-sm text-gray-400 mb-1">Event</div>
+                <pre className="text-xs bg-gray-800 p-3 rounded overflow-auto text-gray-200">{JSON.stringify(selectedLog.event, null, 2)}</pre>
               </div>
               <div>
-                <div className="text-sm text-gray-500 mb-1">Related Message</div>
-                <pre className="text-xs bg-gray-50 p-3 rounded overflow-auto">{JSON.stringify(selectedLog.message, null, 2)}</pre>
+                <div className="text-sm text-gray-400 mb-1">Related Message</div>
+                <pre className="text-xs bg-gray-800 p-3 rounded overflow-auto text-gray-200">{JSON.stringify(selectedLog.message, null, 2)}</pre>
               </div>
             </div>
           </div>
