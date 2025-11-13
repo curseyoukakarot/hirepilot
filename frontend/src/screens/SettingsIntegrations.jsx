@@ -425,16 +425,53 @@ export default function SettingsIntegrations() {
       else setValidationError('No verified senders found.');
     } finally { setSendGridLoading(false); }
   };
+  // Open existing-senders modal for connected accounts
+  const openSendGridSenderPicker = async () => {
+    try {
+      setSendGridLoading(true); setValidationError('');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/sendgrid/get-senders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: user.id }),
+      });
+      const js = await resp.json();
+      if (!resp.ok) { setValidationError(js.error || 'Failed to load senders'); setShowSendGridModal(true); setSendGridStep('chooseSender'); return; }
+      const normalized = (js.senders || []).map((s) => ({
+        email: s.email || s.from_email || '',
+        name: s.name || s.from_name || s.nickname || '',
+      })).filter(s => s.email);
+      setAllowedSenders(normalized);
+      const current = js.current_sender || (normalized[0]?.email || '');
+      setSelectedSender(current);
+      setShowSendGridModal(true);
+      setSendGridStep('chooseSender');
+    } finally {
+      setSendGridLoading(false);
+    }
+  };
   const saveSendGridSender = async () => {
     try {
       setSendGridLoading(true); setValidationError('');
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/sendgrid/save`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: user.id, api_key: sendGridApiKey, default_sender: selectedSender })
+      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/sendgrid/update-sender`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: user.id, default_sender: selectedSender })
       });
-      if (resp.ok) { setSendgridConnected(true); setShowSendGridModal(false); setSendGridApiKey(''); setAllowedSenders([]); setSelectedSender(''); setSendGridStep('validate'); toast.success('SendGrid connected'); }
-      else { const js = await resp.json(); setValidationError(js.error || 'Failed to save'); }
+      if (resp.ok) {
+        setSendgridConnected(true);
+        setShowSendGridModal(false);
+        setSendGridApiKey('');
+        setAllowedSenders([]);
+        setSelectedSender('');
+        setSendGridStep('validate');
+        toast.success('Default sender updated');
+      } else {
+        const js = await resp.json(); setValidationError(js.error || 'Failed to save');
+      }
     } finally { setSendGridLoading(false); }
   };
 
@@ -595,7 +632,7 @@ export default function SettingsIntegrations() {
                   onDisconnect={()=>toast('Disconnect handled in settings (coming soon)')}
                   extraIconClass="fa-solid fa-gear"
                   extraTitle="Change default sender"
-                  onExtraClick={()=>{ setSendGridStep('validate'); setShowSendGridModal(true); }}
+                  onExtraClick={openSendGridSenderPicker}
                 />
               </div>
             </div>
