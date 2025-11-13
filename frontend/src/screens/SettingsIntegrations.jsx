@@ -429,11 +429,15 @@ export default function SettingsIntegrations() {
   const openSendGridSenderPicker = async () => {
     try {
       setSendGridLoading(true); setValidationError('');
-      const { data: { user } } = await supabase.auth.getUser();
+      const [{ data: { user } }, { data: { session } }] = await Promise.all([
+        supabase.auth.getUser(),
+        supabase.auth.getSession(),
+      ]);
       if (!user) return;
+      const token = session?.access_token;
       const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/sendgrid/get-senders`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ user_id: user.id }),
       });
       const js = await resp.json();
@@ -454,11 +458,15 @@ export default function SettingsIntegrations() {
   const saveSendGridSender = async () => {
     try {
       setSendGridLoading(true); setValidationError('');
-      const { data: { user } } = await supabase.auth.getUser();
+      const [{ data: { user } }, { data: { session } }] = await Promise.all([
+        supabase.auth.getUser(),
+        supabase.auth.getSession(),
+      ]);
       if (!user) return;
+      const token = session?.access_token;
       const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/sendgrid/update-sender`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ user_id: user.id, default_sender: selectedSender })
       });
       if (resp.ok) {
