@@ -38,6 +38,7 @@ export default function TableEditor() {
   const addActivity = (msg) => setActivity((a)=>[{ msg, at: new Date() }, ...a].slice(0,50));
   const [dragColIdx, setDragColIdx] = useState(null);
   const [resizing, setResizing] = useState(null); // { idx, startX, startW }
+  const menuRef = useRef(null);
 
   const apiFetch = async (url, init = {}) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -478,6 +479,29 @@ export default function TableEditor() {
     addActivity(`Changed column type to ${newType}`);
   };
 
+  // Close column menu on outside click
+  useEffect(() => {
+    const onDocClick = (e) => {
+      try {
+        if (!menuRef.current) {
+          setColumnMenuIdx(null);
+          return;
+        }
+        if (!menuRef.current.contains(e.target)) {
+          setColumnMenuIdx(null);
+        }
+      } catch {
+        setColumnMenuIdx(null);
+      }
+    };
+    if (columnMenuIdx !== null) {
+      document.addEventListener('click', onDocClick);
+    }
+    return () => {
+      document.removeEventListener('click', onDocClick);
+    };
+  }, [columnMenuIdx]);
+
   const toggleSelectRow = (idx, checked) => {
     const set = new Set(selectedRowIdxSet);
     if (checked) set.add(idx); else set.delete(idx);
@@ -800,6 +824,38 @@ export default function TableEditor() {
                               <i className="fas fa-ellipsis-h"></i>
                             </button>
                           </div>
+                          {/* Column actions menu */}
+                          {columnMenuIdx === ci && (
+                            <div ref={menuRef} className="absolute right-2 top-9 z-50 w-56 rounded-lg border border-gray-200 bg-white shadow-lg">
+                              <div className="py-1">
+                                <button
+                                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                                  onClick={(e)=>{ 
+                                    e.stopPropagation(); 
+                                    setActiveColIdx(ci); 
+                                    setInlineEditIdx(ci);
+                                    setInlineEditName(col.name);
+                                    setColumnMenuIdx(null);
+                                  }}
+                                >
+                                  Edit column…
+                                </button>
+                                <div className="border-t border-gray-200 my-1"></div>
+                                <button
+                                  className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                                  onClick={async (e)=>{ 
+                                    e.stopPropagation(); 
+                                    setColumnMenuIdx(null);
+                                    let ok = true;
+                                    try { ok = window.confirm(`Delete column “${col.name}”? This cannot be undone.`); } catch {}
+                                    if (ok) { await deleteColumnAt(ci); }
+                                  }}
+                                >
+                                  Delete column
+                                </button>
+                              </div>
+                            </div>
+                          )}
                           {/* Resizer */}
                           <span
                             className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-transparent"
