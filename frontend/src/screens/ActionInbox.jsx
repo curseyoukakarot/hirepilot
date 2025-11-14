@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { api } from '../lib/api';
+import LogActivityModal from '../components/LogActivityModal.jsx';
 
 export default function ActionInbox() {
   const [cards, setCards] = useState([]);
@@ -9,6 +10,9 @@ export default function ActionInbox() {
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('all');
   const [stats, setStats] = useState({ total: 0, unread: 0 });
+  const [openMenuFor, setOpenMenuFor] = useState(null);
+  const [logActivityLead, setLogActivityLead] = useState(null);
+  const [isActionBusy, setIsActionBusy] = useState(false);
 
   // Get current user ID from Supabase
   const getCurrentUserId = useCallback(async () => {
@@ -94,6 +98,90 @@ export default function ActionInbox() {
       console.error('Error recording interaction:', err);
       setError(`Failed to process action: ${err.message}`);
     }
+  };
+  
+  // Helpers to resolve lead/campaign from card
+  const resolveLeadAndCampaign = (card) => {
+    const meta = card?.metadata || {};
+    let leadId = meta.lead_id;
+    let campaignId = meta.campaign_id;
+    if ((!leadId || !campaignId) && card?.thread_key && card.thread_key.startsWith('sourcing:')) {
+      const parts = String(card.thread_key).split(':'); // ['sourcing', campaignId, leadId]
+      if (parts.length >= 3) {
+        campaignId = campaignId || parts[1];
+        leadId = leadId || parts[2];
+      }
+    }
+    return { leadId, campaignId };
+  };
+  
+  const markCardRead = async (cardId) => {
+    try {
+      await api(`/api/notifications/${cardId}/read`, { method: 'PATCH' });
+    } catch (e) {
+      // Non-fatal
+    }
+  };
+  
+  // Convert lead → candidate
+  const handleConvertToCandidate = async (card) => {
+    try {
+      setIsActionBusy(true);
+      setOpenMenuFor(null);
+      const { leadId } = resolveLeadAndCampaign(card);
+      if (!leadId) throw new Error('Missing lead id for this reply');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.id) throw new Error('Not authenticated');
+      await api(`/api/leads/${leadId}/convert`, {
+        method: 'POST',
+        body: JSON.stringify({ user_id: user.id })
+      });
+      await markCardRead(card.id);
+      // Remove card optimistically
+      setCards(prev => prev.filter(c => c.id !== card.id));
+      loadStats();
+    } catch (e) {
+      console.error('Convert to candidate failed:', e);
+      setError(e.message || 'Failed to convert lead to candidate');
+    } finally {
+      setIsActionBusy(false);
+    }
+  };
+  
+  // Convert lead → client
+  const handleConvertToClient = async (card) => {
+    try {
+      setIsActionBusy(true);
+      setOpenMenuFor(null);
+      const { leadId } = resolveLeadAndCampaign(card);
+      if (!leadId) throw new Error('Missing lead id for this reply');
+      await api('/api/clients/convert-lead', {
+        method: 'POST',
+        body: JSON.stringify({ lead_id: leadId })
+      });
+      await markCardRead(card.id);
+      // Keep card visible (optional); for now, remove to reduce clutter
+      setCards(prev => prev.filter(c => c.id !== card.id));
+      loadStats();
+    } catch (e) {
+      console.error('Convert to client failed:', e);
+      setError(e.message || 'Failed to convert lead to client');
+    } finally {
+      setIsActionBusy(false);
+    }
+  };
+  
+  // Open log activity modal
+  const handleLogActivity = (card) => {
+    setOpenMenuFor(null);
+    const { leadId } = resolveLeadAndCampaign(card);
+    if (!leadId) {
+      setError('Missing lead id for this reply');
+      return;
+    }
+    // Pass minimal lead object; modal only needs id and name (optional)
+    const lead = { id: leadId, name: (card?.metadata?.from_email || 'Lead') };
+    setLogActivityLead(lead);
   };
 
   // Handle input changes
@@ -366,9 +454,50 @@ export default function ActionInbox() {
                       )}
                     </div>
                   </div>
-                  {!card.read_at && (
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  )}
+                  <div className="flex items-center gap-2 relative">
+                    {!card.read_at && (
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    )}
+                    {/* Actions menu trigger (only for sourcing replies for now) */}
+                    {String(card.type || '') === 'sourcing_reply' && (
+                      <>
+                        <button
+                          className="px-2 py-1 rounded-md bg-slate-700 hover:bg-slate-600 text-gray-200 text-sm"
+                          onClick={() => setOpenMenuFor(openMenuFor === card.id ? null : card.id)}
+                          disabled={isActionBusy}
+                          title="More actions"
+                        >
+                          ⋯
+                        </button>
+                        {openMenuFor === card.id && (
+                          <div className="absolute right-0 top-6 z-10 w-56 rounded-lg border border-slate-700 bg-slate-800 shadow-lg">
+                            <button
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-slate-700 text-gray-200"
+                              onClick={() => handleConvertToCandidate(card)}
+                              disabled={isActionBusy}
+                            >
+                              Convert to Candidate
+                            </button>
+                            <button
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-slate-700 text-gray-200"
+                              onClick={() => handleConvertToClient(card)}
+                              disabled={isActionBusy}
+                            >
+                              Convert to Client
+                            </button>
+                            <div className="border-t border-slate-700"></div>
+                            <button
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-slate-700 text-gray-200"
+                              onClick={() => handleLogActivity(card)}
+                              disabled={isActionBusy}
+                            >
+                              Log Activity
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 {/* Body */}
@@ -389,6 +518,18 @@ export default function ActionInbox() {
           </div>
         )}
       </div>
+      
+      {/* Log Activity Modal */}
+      {logActivityLead ? (
+        <LogActivityModal
+          lead={logActivityLead}
+          onClose={() => setLogActivityLead(null)}
+          onActivityAdded={() => {
+            setLogActivityLead(null);
+          }}
+          entityType="lead"
+        />
+      ) : null}
     </div>
   );
 }
