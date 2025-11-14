@@ -841,6 +841,50 @@ export default function TableEditor() {
                                   Edit column…
                                 </button>
                                 <div className="border-t border-gray-200 my-1"></div>
+                                <div className="px-3 py-1 text-[11px] uppercase tracking-wide text-gray-500">Change type</div>
+                                <button
+                                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                                  onClick={async (e)=>{ e.stopPropagation(); await changeColumnTypeAt(ci, 'text'); setActiveColIdx(ci); setColumnMenuIdx(null); }}
+                                >
+                                  Text
+                                </button>
+                                <button
+                                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                                  onClick={async (e)=>{ e.stopPropagation(); await changeColumnTypeAt(ci, 'number'); setActiveColIdx(ci); setColumnMenuIdx(null); }}
+                                >
+                                  Number
+                                </button>
+                                <button
+                                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                                  onClick={async (e)=>{ e.stopPropagation(); await changeColumnTypeAt(ci, 'money', (schema[ci] && schema[ci].currency) ? schema[ci].currency : 'USD'); setActiveColIdx(ci); setColumnMenuIdx(null); }}
+                                >
+                                  Money
+                                </button>
+                                <button
+                                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                                  onClick={async (e)=>{ e.stopPropagation(); await changeColumnTypeAt(ci, 'date'); setActiveColIdx(ci); setColumnMenuIdx(null); }}
+                                >
+                                  Date
+                                </button>
+                                <button
+                                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                                  onClick={async (e)=>{ e.stopPropagation(); await changeColumnTypeAt(ci, 'status'); setActiveColIdx(ci); setColumnMenuIdx(null); }}
+                                >
+                                  Status
+                                </button>
+                                <button
+                                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                                  onClick={async (e)=>{ 
+                                    e.stopPropagation(); 
+                                    await changeColumnTypeAt(ci, 'formula', (schema[ci] && schema[ci].currency) ? schema[ci].currency : undefined); 
+                                    setActiveColIdx(ci); 
+                                    setColumnMenuIdx(null); 
+                                    openFormulaBuilder(ci);
+                                  }}
+                                >
+                                  Formula…
+                                </button>
+                                <div className="border-t border-gray-200 my-1"></div>
                                 <button
                                   className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50"
                                   onClick={async (e)=>{ 
