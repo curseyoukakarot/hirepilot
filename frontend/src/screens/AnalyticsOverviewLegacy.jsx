@@ -191,6 +191,25 @@ export default function AnalyticsOverviewLegacy() {
         inst.data.labels = overviewSeries.labels || [];
         if (inst.data.datasets?.[0]) inst.data.datasets[0].data = overviewSeries.open || [];
         if (inst.data.datasets?.[1]) inst.data.datasets[1].data = overviewSeries.reply || [];
+        // Dynamically expand Y-axis so rates can exceed 100 when there are multiple opens per message
+        try {
+          const values = [
+            ...((overviewSeries.open || []).map((n) => Number(n) || 0)),
+            ...((overviewSeries.reply || []).map((n) => Number(n) || 0)),
+          ];
+          const maxVal = values.length ? Math.max(...values) : 0;
+          inst.options = inst.options || {};
+          inst.options.scales = inst.options.scales || {};
+          inst.options.scales.y = { ...(inst.options.scales.y || {}), beginAtZero: true };
+          if (maxVal > 0) {
+            const padded = Math.ceil(maxVal * 1.1);
+            // Ensure we do not inadvertently clamp by leaving legacy suggestedMax/max around
+            delete inst.options.scales.y.suggestedMax;
+            inst.options.scales.y.max = padded;
+          } else {
+            delete inst.options.scales.y.max;
+          }
+        } catch {}
         try { inst.update(); } catch {}
       }
     })();
