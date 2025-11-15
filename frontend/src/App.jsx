@@ -108,6 +108,7 @@ const AutomateRecruiting5 = lazy(() => import("./pages/blog/AutomateRecruiting5"
 const TestGmail = lazy(() => import("./pages/TestGmail"));
 const SequenceDetail = lazy(() => import("./pages/sequences/SequenceDetail"));
 const SniperSettings = lazy(() => import("./pages/SniperSettings"));
+const SniperIntelligence = lazy(() => import("./screens/SniperIntelligence"));
 
 // Lazy load screens
 const SigninScreen = lazy(() => import("./screens/SigninScreen"));
@@ -607,6 +608,7 @@ function InnerApp() {
               <Route path="/apply/:jobId/success" element={<ApplySuccess />} />
               <Route path="/sniper" element={<SniperTargets />} />
               <Route path="/sniper/settings" element={<SniperSettings />} />
+              <Route path="/sniper-intelligence" element={<SniperIntelligence />} />
               {/* Agent Mode Center and drawers */}
               <Route path="/agent" element={<AgentModeCenter />}>
                 <Route path="campaign/:id" element={<CampaignDetailDrawer />} />

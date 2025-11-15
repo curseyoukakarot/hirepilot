@@ -152,6 +152,11 @@ import streamProxyRouter from './services/linkedin-remote/stream/proxy';
 import { bootLinkedinWorker } from './services/linkedin-remote/queue/workers/linkedinWorker';
 import remoteSessionsRouter from './src/routes/remoteSessions';
 import sniperApiRouter from './src/routes/sniper.api';
+import sniperDiscoveryApiRouter from './src/routes/sniper.discovery.api';
+// Start Sniper workers (discovery, zoominfo, apollo)
+import './src/workers/sniper.discovery.worker';
+import './src/workers/sniper.zoominfo.worker';
+import './src/workers/sniper.apollo.worker';
 import sniperSettingsRouter from './src/routes/sniper.settings';
 import { sniperJobsWorker } from './src/workers/sniper.jobs.worker';
 // MCP Support Agent routes
@@ -599,6 +604,7 @@ app.post('/webhooks/user-created', userCreatedWebhook);
   // Remote session storage & testing
   app.use('/api', remoteSessionsRouter);
   app.use('/api', sniperApiRouter);
+  app.use('/api', sniperDiscoveryApiRouter);
   app.use('/api', sniperSettingsRouter);
   // Boot new sniper jobs worker
   void sniperJobsWorker;

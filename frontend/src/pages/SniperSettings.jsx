@@ -230,6 +230,12 @@ export default function SniperSettings() {
 
                 </button>
 
+                <button id="tab-control-center" class="py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
+
+                    Sniper Control Center
+
+                </button>
+
             </nav>
 
         </div>
@@ -752,6 +758,15 @@ export default function SniperSettings() {
       </div>
     </div>
 
+    <!-- Sniper Control Center Tab Content -->
+    <div id="control-center-content" class="px-6 py-6 hidden">
+      <div class="grid grid-cols-12 gap-6">
+        <div class="col-span-12">
+          <div id="sniper-control-center-mount"></div>
+        </div>
+      </div>
+    </div>
+
 </div>
 
 
@@ -838,11 +853,13 @@ document.querySelectorAll('.px-3.py-2').forEach(button => {
     const tabGlobal = document.getElementById('tab-global-defaults');
     const tabCampaign = document.getElementById('tab-per-campaign');
     const tabLinkedin = document.getElementById('tab-linkedin');
+    const tabControl = document.getElementById('tab-control-center');
     const contentGlobal = document.getElementById('main-content');
     const contentLinkedin = document.getElementById('linkedin-content');
+    const contentControl = document.getElementById('control-center-content');
 
     const activate = (btn) => {
-      [tabGlobal, tabCampaign, tabLinkedin].forEach(b => {
+      [tabGlobal, tabCampaign, tabLinkedin, tabControl].forEach(b => {
         if (!b) return;
         b.classList.remove('border-blue-500', 'text-blue-600');
         b.classList.add('border-transparent', 'text-gray-500');
@@ -852,12 +869,19 @@ document.querySelectorAll('.px-3.py-2').forEach(button => {
         btn.classList.add('border-blue-500', 'text-blue-600');
       }
     };
-    const showGlobal = (e) => { e && e.preventDefault && e.preventDefault(); activate(tabGlobal); contentGlobal?.classList.remove('hidden'); contentLinkedin?.classList.add('hidden'); };
-    const showLinkedin = (e) => { e && e.preventDefault && e.preventDefault(); activate(tabLinkedin); contentGlobal?.classList.add('hidden'); contentLinkedin?.classList.remove('hidden'); };
+    const hideAll = () => {
+      contentGlobal?.classList.add('hidden');
+      contentLinkedin?.classList.add('hidden');
+      contentControl?.classList.add('hidden');
+    };
+    const showGlobal = (e) => { e && e.preventDefault && e.preventDefault(); activate(tabGlobal); hideAll(); contentGlobal?.classList.remove('hidden'); };
+    const showLinkedin = (e) => { e && e.preventDefault && e.preventDefault(); activate(tabLinkedin); hideAll(); contentLinkedin?.classList.remove('hidden'); };
+    const showControl = (e) => { e && e.preventDefault && e.preventDefault(); activate(tabControl); hideAll(); contentControl?.classList.remove('hidden'); };
 
     tabGlobal?.addEventListener('click', showGlobal);
     tabCampaign?.addEventListener('click', showGlobal);
     tabLinkedin?.addEventListener('click', showLinkedin);
+    tabControl?.addEventListener('click', showControl);
 
     // Mount React components into LinkedIn tab
     const mount = document.getElementById('linkedin-connect-mount');
@@ -873,10 +897,22 @@ document.querySelectorAll('.px-3.py-2').forEach(button => {
       });
     }
 
+    // Mount Sniper Control Center into its tab
+    const sccMount = document.getElementById('sniper-control-center-mount');
+    if (sccMount) {
+      import('react-dom/client').then(({ createRoot }) => {
+        import('./SniperControlCenter.jsx').then(({ default: SniperControlCenter }) => {
+          const root = createRoot(sccMount);
+          root.render(<SniperControlCenter />);
+        });
+      });
+    }
+
     return () => {
       tabGlobal?.removeEventListener('click', showGlobal);
       tabCampaign?.removeEventListener('click', showGlobal);
       tabLinkedin?.removeEventListener('click', showLinkedin);
+      tabControl?.removeEventListener('click', showControl);
     };
   }, []);
 

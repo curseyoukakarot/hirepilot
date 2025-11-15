@@ -247,6 +247,7 @@ export default function SettingsIntegrations() {
   const [sendgridConnected, setSendgridConnected] = useState(false);
   const [apolloConnected, setApolloConnected] = useState(false);
   const [slackConnected, setSlackConnected] = useState(false);
+  const [zoominfoEnabled, setZoominfoEnabled] = useState(false);
 
   // Category accordion states
   const [open, setOpen] = useState({ messaging: true, sourcing: false, automation: false, collaboration: false });
@@ -318,6 +319,18 @@ export default function SettingsIntegrations() {
         try {
           const data = await api('/api/agent-mode');
           setAgentModeEnabled(!!data.agent_mode_enabled);
+        } catch {}
+        // ZoomInfo enrichment setting
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user?.id) {
+            const { data: row } = await supabase
+              .from('zoominfo_enrichment_settings')
+              .select('enabled')
+              .eq('user_id', user.id)
+              .maybeSingle();
+            setZoominfoEnabled(!!row?.enabled);
+          }
         } catch {}
       } finally {
         setLoading(false);
@@ -672,6 +685,38 @@ export default function SettingsIntegrations() {
                   onDisconnect={()=>setShowApolloModal(true)}
                   connectLabel={apolloConnected ? 'Manage' : 'Connect'}
                 />
+                <div className="p-4 bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <img src="/zoominfo.png" alt="ZoomInfo" className="w-8 h-8 object-contain" onError={(e)=>{ e.currentTarget.style.display='none'; }} />
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-gray-100">ZoomInfo Enrichment (via Decodo)</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">+1 credit per company only when at least one valid email is found</p>
+                      </div>
+                    </div>
+                    <div>
+                      <button
+                        onClick={async ()=>{
+                          try {
+                            const { data: { user } } = await supabase.auth.getUser();
+                            if (!user) return;
+                            const next = !zoominfoEnabled;
+                            await supabase
+                              .from('zoominfo_enrichment_settings')
+                              .upsert({ user_id: user.id, enabled: next }, { onConflict: 'user_id' });
+                            setZoominfoEnabled(next);
+                            toast.success(next ? 'ZoomInfo enrichment enabled' : 'ZoomInfo enrichment disabled');
+                          } catch {
+                            toast.error('Failed to update setting');
+                          }
+                        }}
+                        className={`px-3 py-1 text-sm rounded-lg ${zoominfoEnabled ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200'}`}
+                      >
+                        {zoominfoEnabled ? 'Enabled' : 'Enable'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
                 <Card iconSrc="/hunter.png" name="Hunter.io" status={'Pending'} onConnect={()=>requirePaid(()=>{},'Hunter.io integration')} />
                 <Card iconSrc="/skrapp.png" name="Skrapp" status={'Pending'} onConnect={()=>requirePaid(()=>{},'Skrapp integration')} />
               </div>

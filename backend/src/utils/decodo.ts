@@ -3,8 +3,14 @@ import { HttpsProxyAgent } from 'https-proxy-agent';
 
 // Updated default Decodo endpoint (supports both old /v1/tasks and new /v2/scrape)
 // The new v2 endpoint returns the HTML payload synchronously – no polling required.
-const DECODO_API_URL = process.env.DECODO_API_URL || 'https://scraper-api.decodo.com/v2/scrape';
-const DECODO_API_KEY = process.env.DECODO_API_KEY;
+// Backward compatibility: support legacy envs and new standardized ones
+const DECODO_BASE_URL = process.env.DECODO_BASE_URL || 'https://scraper-api.decodo.com';
+const DECODO_SCRAPER_ENDPOINT = process.env.DECODO_SCRAPER_ENDPOINT || `${DECODO_BASE_URL}/v2/scrape`;
+const DECODO_TIKTOK_ENDPOINT = process.env.DECODO_TIKTOK_ENDPOINT || `${DECODO_BASE_URL}/v1/tasks`;
+const DECODO_BASIC_AUTH = (process.env.DECODO_BASIC_AUTH || '').replace(/^Basic\s+/i, '');
+// Legacy fallbacks
+const DECODO_API_URL = process.env.DECODO_API_URL || DECODO_SCRAPER_ENDPOINT;
+const DECODO_API_KEY = process.env.DECODO_API_KEY || DECODO_BASIC_AUTH;
 
 export interface DecodoTaskRequest {
   url: string;
@@ -30,6 +36,7 @@ export interface DecodoTaskResponse {
 export class DecodoClient {
   private apiKey: string;
   private baseUrl: string;
+  private tiktokEndpoint: string;
 
   constructor(apiKey?: string) {
     const rawKey = apiKey || DECODO_API_KEY || '';
@@ -40,9 +47,10 @@ export class DecodoClient {
       this.apiKey = rawKey;
     }
     this.baseUrl = DECODO_API_URL;
+    this.tiktokEndpoint = DECODO_TIKTOK_ENDPOINT;
     
     if (!this.apiKey) {
-      throw new Error('Decodo API key is required. Set DECODO_API_KEY environment variable.');
+      throw new Error('Decodo API key is required. Set DECODO_BASIC_AUTH or DECODO_API_KEY.');
     }
 
     // Proxy credentials (gate.decodo.com) if using direct proxy mode
@@ -66,7 +74,8 @@ export class DecodoClient {
 
       const response = await axios.post(this.baseUrl, request, {
         headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
+          // v1 style accepts Bearer, v2 uses Basic; Basic works for both on Decodo
+          'Authorization': `Basic ${this.apiKey}`,
           'Content-Type': 'application/json'
         },
         timeout: 30000
@@ -210,6 +219,84 @@ export class DecodoClient {
   }
 
   /**
+   * Universal scraper wrapper with response normalization.
+   * Returns either html or results (JSON) depending on headless mode.
+   */
+  async scrapeUniversal(params: { url: string; headless?: 'html' | 'json' }): Promise<{ html?: string; results?: any }> {
+    const body = {
+      url: params.url,
+      render: true,
+      geo: 'us',
+      proxy_type: 'residential',
+      user_agent: 'desktop'
+    };
+    try {
+      const resp = await axios.post(DECODO_SCRAPER_ENDPOINT, body, {
+        headers: {
+          'Authorization': `Basic ${this.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 30000,
+        validateStatus: (s) => s < 500
+      });
+      if (resp.status >= 400) {
+        const err: any = new Error(`Decodo scrapeUniversal failed with status ${resp.status}`);
+        err.status = resp.status;
+        err.body = resp.data;
+        throw err;
+      }
+      const data = resp.data;
+      if (params.headless === 'json') {
+        return { results: data?.results ?? data?.data ?? data };
+      }
+      const html = data?.html || (typeof data === 'string' ? data : undefined);
+      return html ? { html } : { results: data };
+    } catch (e: any) {
+      if (!e.status) e.status = 500;
+      throw e;
+    }
+  }
+
+  /**
+   * TikTok task creator for Decodo (e.g., tiktok_post).
+   */
+  async createTikTokTask(input: { target: string; url: string; extraParams?: Record<string, any> }): Promise<any> {
+    const payload = {
+      target: input.target,
+      url: input.url,
+      ...(input.extraParams || {})
+    };
+    try {
+      const resp = await axios.post(this.tiktokEndpoint, payload, {
+        headers: {
+          'Authorization': `Basic ${this.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 30000,
+        validateStatus: (s) => s < 500
+      });
+      if (resp.status >= 400) {
+        const err: any = new Error(`Decodo TikTok task failed with status ${resp.status}`);
+        err.status = resp.status;
+        err.body = resp.data;
+        throw err;
+      }
+      return resp.data;
+    } catch (e: any) {
+      if (!e.status) e.status = 500;
+      throw e;
+    }
+  }
+
+  /**
+   * ZoomInfo company scrape helper.
+   */
+  async scrapeZoomInfoCompany(url: string): Promise<{ html?: string; results?: any }> {
+    // Re-use universal scraper
+    return this.scrapeUniversal({ url, headless: 'html' });
+  }
+
+  /**
    * Scrape Sales Navigator search results with LinkedIn authentication
    */
   async scrapeSalesNavigatorSearch(searchUrl: string, page: number = 1, linkedinCookie?: string): Promise<string> {
@@ -286,4 +373,15 @@ export const getDecodoClient = (): DecodoClient => {
     _decodoClient = new DecodoClient();
   }
   return _decodoClient;
-}; 
+};
+
+// Friendly functional exports (as requested by new integrations)
+export async function scrapeUniversal(params: { url: string; headless?: 'html' | 'json' }) {
+  return getDecodoClient().scrapeUniversal(params);
+}
+export async function createTikTokTask(params: { target: string; url: string; extraParams?: Record<string, any> }) {
+  return getDecodoClient().createTikTokTask(params);
+}
+export async function scrapeZoomInfoCompany(url: string) {
+  return getDecodoClient().scrapeZoomInfoCompany(url);
+}
