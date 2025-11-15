@@ -4,6 +4,31 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+
+// Minimal slider row used by the provided UI. Keeps visual-only behavior.
+function SliderRow({ label, max = 100, recommended }) {
+  return (
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="font-medium">{label}</p>
+        {recommended ? (
+          <p className="text-muted-foreground text-xs mt-1">Recommended: {recommended}</p>
+        ) : null}
+      </div>
+      <div className="flex items-center gap-3 w-64">
+        <input
+          type="range"
+          min={0}
+          max={max}
+          defaultValue={Math.min( Math.round(max * 0.5), max)}
+          className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer"
+          onChange={()=>{}}
+        />
+        <span className="text-xs text-muted-foreground">/ {max} max</span>
+      </div>
+    </div>
+  );
+}
 export default function SniperControlCenter() {
 
   return (
