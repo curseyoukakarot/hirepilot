@@ -17,7 +17,7 @@ export default function AnalyticsOverviewLegacy() {
   const [overviewSeries, setOverviewSeries] = useState({ labels: [], open: [], reply: [], conv: [] });
   const [campaigns, setCampaigns] = useState([]);
   const [campaignId, setCampaignId] = useState('all');
-  const [yTicksReady, setYTicksReady] = useState(false);
+  // no-op state removed; always show tick labels with proper colors
 
   // Load campaigns for dropdown (backend preferred, Supabase fallback)
   useEffect(() => {
@@ -182,8 +182,11 @@ export default function AnalyticsOverviewLegacy() {
             },
             options: {
               plugins: { legend: { position: 'top' } },
-              // Hide ticks initially to avoid showing a misleading 0–100 scale before data loads
-              scales: { y: { beginAtZero: true, ticks: { display: false } } },
+              // Show ticks with explicit colors so they are visible in dark mode
+              scales: {
+                y: { beginAtZero: true, ticks: { display: true, color: '#9CA3AF', callback: (v) => `${v}` }, grid: { color: '#f3f4f6' } },
+                x: { ticks: { color: '#9CA3AF' }, grid: { color: '#f3f4f6' } }
+              },
               maintainAspectRatio: false,
               spanGaps: true
             }
@@ -202,21 +205,14 @@ export default function AnalyticsOverviewLegacy() {
           const maxVal = values.length ? Math.max(...values) : 0;
           inst.options = inst.options || {};
           inst.options.scales = inst.options.scales || {};
-          inst.options.scales.y = { ...(inst.options.scales.y || {}), beginAtZero: true };
+          inst.options.scales.y = { ...(inst.options.scales.y || {}), beginAtZero: true, ticks: { ...(inst.options.scales.y?.ticks||{}), display: true, color: '#9CA3AF' } };
           if (maxVal > 0) {
             const padded = Math.ceil(maxVal * 1.1);
             // Ensure we do not inadvertently clamp by leaving legacy suggestedMax/max around
             delete inst.options.scales.y.suggestedMax;
             inst.options.scales.y.max = padded;
-            // Now that we have a real scale, show ticks
-            const prevTicks = inst.options.scales.y.ticks || {};
-            inst.options.scales.y.ticks = { ...prevTicks, display: true };
-            setYTicksReady(true);
           } else {
             delete inst.options.scales.y.max;
-            const prevTicks = inst.options.scales.y.ticks || {};
-            inst.options.scales.y.ticks = { ...prevTicks, display: false };
-            setYTicksReady(false);
           }
         } catch {}
         try { inst.update(); } catch {}
