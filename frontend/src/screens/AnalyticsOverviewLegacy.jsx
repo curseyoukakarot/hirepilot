@@ -102,11 +102,11 @@ export default function AnalyticsOverviewLegacy() {
             sent = s; opens = o; replies = rp; conversions = cv;
           } catch {}
           try {
+            // Avoid 400 when candidates.campaign_id is absent: do not select/filter on that column
             const { data: hires } = await supabase
               .from('candidates')
-              .select('id, created_at, status, campaign_id')
+              .select('id, created_at, status')
               .eq('status','hired')
-              .eq('campaign_id', campaignId)
               .gte('created_at', sinceIso);
             convertedCandidates = (hires||[]).length;
           } catch {}
@@ -125,11 +125,11 @@ export default function AnalyticsOverviewLegacy() {
           try {
             const { data: hires } = await supabase
               .from('candidates')
-              .select('id,created_at,status,user_id,campaign_id')
+              .select('id,created_at,status,user_id')
               .eq('user_id', uid)
               .eq('status','hired')
               .gte('created_at', sinceIso);
-            convertedCandidates = (hires || []).filter(h => campaignId === 'all' || !h.campaign_id || String(h.campaign_id) === String(campaignId)).length;
+            convertedCandidates = (hires || []).length;
           } catch {}
           totalLeads = sent; // fallback when backend doesn't provide total leads
         }
@@ -138,64 +138,31 @@ export default function AnalyticsOverviewLegacy() {
         const conversionRate = (totalLeads || sent) ? (((convertedCandidates / (totalLeads || sent))*100)) : 0;
         setOverviewSummary({ sent, openRate, replyRate, conversionRate, converted: convertedCandidates });
 
-        // Prefer backend time-series (handles auth/rls and returns percent rates). Fallback to Supabase if unavailable.
-        try {
-          const fromProcess = (typeof process !== 'undefined' && process.env) ? (process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL) : '';
-          const fromVite = (typeof import.meta !== 'undefined' && import.meta.env) ? (import.meta.env.VITE_BACKEND_URL) : '';
-          const fromWindow = (typeof window !== 'undefined' && window.__BACKEND_URL__) ? window.__BACKEND_URL__ : '';
-          const base = String(fromProcess || fromVite || fromWindow || '').replace(/\/$/, '');
-          if (base && uid) {
-            const { data: { session } } = await supabase.auth.getSession();
-            const token = session?.access_token;
-            const tr = overviewRange === '30d' ? '30d' : (overviewRange === '90d' ? '90d' : '1y');
-            const qs = new URLSearchParams({ user_id: uid, campaign_id: String(campaignId || 'all'), time_range: tr });
-            const r = await fetch(`${base}/api/analytics/time-series?${qs.toString()}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-            const ct = r.headers?.get?.('content-type') || '';
-            if (r.ok && ct.includes('application/json')) {
-              const payload = await r.json();
-              const rows = Array.isArray(payload) ? payload
-                : (Array.isArray(payload?.data) ? payload.data
-                  : (Array.isArray(payload?.series) ? payload.series : []));
-              if (Array.isArray(rows) && rows.length) {
-                const labels = rows.map((d) => String(d.period || d.rawPeriod || d.day || ''));
-                const openS = rows.map((d) => {
-                  if (typeof d.openRate === 'number') return Number(d.openRate);
-                  const opens = Number(d.opens ?? d.opensCount ?? 0);
-                  const sentC = Number(d.sent ?? d.sentCount ?? 0);
-                  return sentC ? Math.round((opens / sentC) * 1000) / 10 : 0;
-                });
-                const replyS = rows.map((d) => {
-                  if (typeof d.replyRate === 'number') return Number(d.replyRate);
-                  const replies = Number(d.replies ?? d.repliesCount ?? 0);
-                  const sentC = Number(d.sent ?? d.sentCount ?? 0);
-                  return sentC ? Math.round((replies / sentC) * 1000) / 10 : 0;
-                });
-                setOverviewSeries({ labels, open: openS, reply: replyS, conv: [] });
-                return;
-              }
-            }
-          }
-        } catch {}
-
-        // Mirror widget behavior: query events within range (RLS will scope to viewer); do not force user_id filter
-        const { data: evs } = await supabase.from('email_events').select('event_type,event_timestamp,campaign_id').gte('event_timestamp', sinceIso);
-        const weekMs = 7*24*3600*1000;
-        const bucketCount = overviewRange==='30d' ? 4 : overviewRange==='90d' ? 12 : 24;
-        const labels = Array.from({ length: bucketCount }, (_, i) => 'Week ' + (i+1));
-        const sentA = Array.from({ length: bucketCount }, () => 0);
-        const openA = Array.from({ length: bucketCount }, () => 0);
-        const replyA = Array.from({ length: bucketCount }, () => 0);
-        (evs||[]).forEach((r) => {
-          if (campaignId !== 'all' && r.campaign_id && String(r.campaign_id) !== String(campaignId)) return;
-          const ts = r && r.event_timestamp ? new Date(r.event_timestamp).getTime() : null; if (!ts) return;
-          const idxFromEnd = Math.min(bucketCount-1, Math.floor((Date.now() - ts) / weekMs));
-          const b = bucketCount - 1 - idxFromEnd; if (b < 0 || b >= bucketCount) return;
-          const t = r && r.event_type;
-          if (t === 'sent') sentA[b]++; else if (t === 'open') openA[b]++; else if (t === 'reply') replyA[b]++;
-        });
-        const openS = labels.map((_,i)=> sentA[i] ? Math.round((openA[i]/sentA[i])*1000)/10 : 0);
-        const replyS = labels.map((_,i)=> sentA[i] ? Math.round((replyA[i]/sentA[i])*1000)/10 : 0);
-        setOverviewSeries({ labels, open: openS, reply: replyS, conv: [] });
+        // Mirror widget behavior 1: compute Reply series locally from email_events (no user filter; RLS applies)
+        {
+          const rangeDays = overviewRange==='30d' ? 30 : overviewRange==='90d' ? 90 : 180;
+          const { data: rows } = await supabase
+            .from('email_events')
+            .select('event_timestamp,event_type')
+            .gte('event_timestamp', new Date(Date.now() - rangeDays*24*3600*1000).toISOString());
+          const weekMs = 7*24*3600*1000;
+          const bucketCount = overviewRange==='30d' ? 4 : overviewRange==='90d' ? 12 : 24;
+          const labels = Array.from({ length: bucketCount }, (_, i) => `Week ${i+1}`);
+          const sent = Array.from({ length: bucketCount }, () => 0);
+          const replies = Array.from({ length: bucketCount }, () => 0);
+          const opens = Array.from({ length: bucketCount }, () => 0);
+          (rows||[]).forEach((r) => {
+            const ts = r && r.event_timestamp ? new Date(r.event_timestamp) : null; if (!ts) return;
+            const diff = Date.now() - ts.getTime();
+            const idxFromEnd = Math.min(bucketCount-1, Math.floor(diff / weekMs));
+            const bucket = bucketCount - 1 - idxFromEnd; if (bucket < 0 || bucket >= bucketCount) return;
+            const et = r && r.event_type;
+            if (et === 'sent') sent[bucket]++; if (et === 'reply') replies[bucket]++; if (et === 'open') opens[bucket]++;
+          });
+          const replyS = labels.map((_, i) => (sent[i] ? Math.round((replies[i]/sent[i])*1000)/10 : 0));
+          const openS = labels.map((_, i) => (sent[i] ? Math.round((opens[i]/sent[i])*1000)/10 : 0));
+          setOverviewSeries({ labels, open: openS, reply: replyS, conv: [] });
+        }
       } catch {
         setOverviewSummary({ sent: 0, openRate: 0, replyRate: 0, conversionRate: 0, converted: 0 });
         setOverviewSeries({ labels: [], open: [], reply: [], conv: [] });
