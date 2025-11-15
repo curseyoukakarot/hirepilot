@@ -22,7 +22,7 @@ export function Tabs({ defaultValue, value: valueProp, onValueChange, className 
 
 export function TabsList({ className = '', children, ...rest }) {
   return (
-    <div role="tablist" className={className} {...rest}>
+    <div role="tablist" className={`border-b border-gray-200 dark:border-gray-800 ${className}`} {...rest}>
       {children}
     </div>
   );
@@ -36,8 +36,7 @@ export function TabsTrigger({ value, className = '', children, ...rest }) {
       role="tab"
       aria-selected={active}
       onClick={() => setValue(value)}
-      className={`${className} ${active ? 'data-[state=active]:bg-primary' : ''}`}
-      data-state={active ? 'active' : 'inactive'}
+      className={`${className} px-4 py-2 text-sm border-b-2 border-transparent text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white ${active ? 'border-blue-600 text-blue-600 dark:text-blue-400' : ''}`}
       {...rest}
     >
       {children}
