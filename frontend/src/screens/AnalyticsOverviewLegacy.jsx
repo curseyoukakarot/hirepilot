@@ -177,7 +177,8 @@ export default function AnalyticsOverviewLegacy() {
           }
         } catch {}
 
-        const { data: evs } = await supabase.from('email_events').select('event_type,event_timestamp,campaign_id').eq('user_id', uid).gte('event_timestamp', sinceIso);
+        // Mirror widget behavior: query events within range (RLS will scope to viewer); do not force user_id filter
+        const { data: evs } = await supabase.from('email_events').select('event_type,event_timestamp,campaign_id').gte('event_timestamp', sinceIso);
         const weekMs = 7*24*3600*1000;
         const bucketCount = overviewRange==='30d' ? 4 : overviewRange==='90d' ? 12 : 24;
         const labels = Array.from({ length: bucketCount }, (_, i) => 'Week ' + (i+1));
