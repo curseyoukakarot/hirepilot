@@ -17,6 +17,7 @@ export default function AnalyticsOverviewLegacy() {
   const [overviewSeries, setOverviewSeries] = useState({ labels: [], open: [], reply: [], conv: [] });
   const [campaigns, setCampaigns] = useState([]);
   const [campaignId, setCampaignId] = useState('all');
+  const [yTicksReady, setYTicksReady] = useState(false);
 
   // Load campaigns for dropdown (backend preferred, Supabase fallback)
   useEffect(() => {
@@ -181,7 +182,8 @@ export default function AnalyticsOverviewLegacy() {
             },
             options: {
               plugins: { legend: { position: 'top' } },
-              scales: { y: { beginAtZero: true } }, // ensure zero baseline for clarity
+              // Hide ticks initially to avoid showing a misleading 0–100 scale before data loads
+              scales: { y: { beginAtZero: true, ticks: { display: false } } },
               maintainAspectRatio: false,
               spanGaps: true
             }
@@ -206,8 +208,15 @@ export default function AnalyticsOverviewLegacy() {
             // Ensure we do not inadvertently clamp by leaving legacy suggestedMax/max around
             delete inst.options.scales.y.suggestedMax;
             inst.options.scales.y.max = padded;
+            // Now that we have a real scale, show ticks
+            const prevTicks = inst.options.scales.y.ticks || {};
+            inst.options.scales.y.ticks = { ...prevTicks, display: true };
+            setYTicksReady(true);
           } else {
             delete inst.options.scales.y.max;
+            const prevTicks = inst.options.scales.y.ticks || {};
+            inst.options.scales.y.ticks = { ...prevTicks, display: false };
+            setYTicksReady(false);
           }
         } catch {}
         try { inst.update(); } catch {}

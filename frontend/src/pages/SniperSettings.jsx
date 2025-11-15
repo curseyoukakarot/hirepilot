@@ -854,10 +854,45 @@ document.querySelectorAll('.px-3.py-2').forEach(button => {
     const tabGlobal = document.getElementById('tab-global-defaults');
     const tabCampaign = document.getElementById('tab-per-campaign');
     const tabLinkedin = document.getElementById('tab-linkedin');
-    const tabControl = document.getElementById('tab-control-center');
+    // Ensure Control Center tab exists even if HTML string wasn't refreshed (runtime injection)
+    let tabControl = document.getElementById('tab-control-center');
+    const navEl = document.querySelector('#tab-navigation nav');
+    if (!tabControl && navEl) {
+      try {
+        tabControl = document.createElement('button');
+        tabControl.id = 'tab-control-center';
+        tabControl.className = 'py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300';
+        tabControl.textContent = 'Sniper Control Center';
+        navEl.appendChild(tabControl);
+      } catch {}
+    }
     const contentGlobal = document.getElementById('main-content');
     const contentLinkedin = document.getElementById('linkedin-content');
-    const contentControl = document.getElementById('control-center-content');
+    let contentControl = document.getElementById('control-center-content');
+    if (!contentControl) {
+      try {
+        const container = document.getElementById('sniper-settings-container');
+        const linkedinContent = document.getElementById('linkedin-content');
+        const wrapper = document.createElement('div');
+        wrapper.id = 'control-center-content';
+        wrapper.className = 'px-6 py-6 hidden';
+        const grid = document.createElement('div');
+        grid.className = 'grid grid-cols-12 gap-6';
+        const col = document.createElement('div');
+        col.className = 'col-span-12';
+        const mount = document.createElement('div');
+        mount.id = 'sniper-control-center-mount';
+        col.appendChild(mount);
+        grid.appendChild(col);
+        wrapper.appendChild(grid);
+        if (container && linkedinContent && linkedinContent.parentNode === container) {
+          container.appendChild(wrapper);
+        } else if (container) {
+          container.appendChild(wrapper);
+        }
+        contentControl = wrapper;
+      } catch {}
+    }
 
     const activate = (btn) => {
       [tabGlobal, tabCampaign, tabLinkedin, tabControl].forEach(b => {
