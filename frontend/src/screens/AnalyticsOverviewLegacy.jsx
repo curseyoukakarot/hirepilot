@@ -132,9 +132,9 @@ export default function AnalyticsOverviewLegacy() {
           } catch {}
           totalLeads = sent; // fallback when backend doesn't provide total leads
         }
-        const openRate = sent ? Math.min(100, (opens/sent)*100) : 0;
-        const replyRate = sent ? Math.min(100, (replies/sent)*100) : 0;
-        const conversionRate = (totalLeads || sent) ? Math.min(100, (convertedCandidates / (totalLeads || sent))*100) : 0;
+        const openRate = sent ? ((opens/sent)*100) : 0;
+        const replyRate = sent ? ((replies/sent)*100) : 0;
+        const conversionRate = (totalLeads || sent) ? (((convertedCandidates / (totalLeads || sent))*100)) : 0;
         setOverviewSummary({ sent, openRate, replyRate, conversionRate, converted: convertedCandidates });
 
         const { data: evs } = await supabase.from('email_events').select('event_type,event_timestamp,campaign_id').eq('user_id', uid).gte('event_timestamp', sinceIso);
@@ -152,8 +152,8 @@ export default function AnalyticsOverviewLegacy() {
           const t = r && r.event_type;
           if (t === 'sent') sentA[b]++; else if (t === 'open') openA[b]++; else if (t === 'reply') replyA[b]++;
         });
-        const openS = labels.map((_,i)=> sentA[i] ? Math.min(100, Math.round((openA[i]/sentA[i])*1000)/10) : 0);
-        const replyS = labels.map((_,i)=> sentA[i] ? Math.min(100, Math.round((replyA[i]/sentA[i])*1000)/10) : 0);
+        const openS = labels.map((_,i)=> sentA[i] ? Math.round((openA[i]/sentA[i])*1000)/10 : 0);
+        const replyS = labels.map((_,i)=> sentA[i] ? Math.round((replyA[i]/sentA[i])*1000)/10 : 0);
         setOverviewSeries({ labels, open: openS, reply: replyS, conv: [] });
       } catch {
         setOverviewSummary({ sent: 0, openRate: 0, replyRate: 0, conversionRate: 0, converted: 0 });
@@ -181,7 +181,7 @@ export default function AnalyticsOverviewLegacy() {
             },
             options: {
               plugins: { legend: { position: 'top' } },
-              scales: { y: { beginAtZero: true, suggestedMax: 100, ticks: { stepSize: 10 } } },
+              scales: { y: { beginAtZero: true } },
               maintainAspectRatio: false,
               spanGaps: true
             }
