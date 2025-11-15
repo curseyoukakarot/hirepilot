@@ -138,6 +138,32 @@ export default function AnalyticsOverviewLegacy() {
         const conversionRate = (totalLeads || sent) ? (((convertedCandidates / (totalLeads || sent))*100)) : 0;
         setOverviewSummary({ sent, openRate, replyRate, conversionRate, converted: convertedCandidates });
 
+        // Prefer backend time-series (handles auth/rls and returns percent rates). Fallback to Supabase if unavailable.
+        try {
+          const fromProcess = (typeof process !== 'undefined' && process.env) ? (process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL) : '';
+          const fromVite = (typeof import.meta !== 'undefined' && import.meta.env) ? (import.meta.env.VITE_BACKEND_URL) : '';
+          const fromWindow = (typeof window !== 'undefined' && window.__BACKEND_URL__) ? window.__BACKEND_URL__ : '';
+          const base = String(fromProcess || fromVite || fromWindow || '').replace(/\/$/, '');
+          if (base && uid) {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            const tr = overviewRange === '30d' ? '30d' : (overviewRange === '90d' ? '90d' : '1y');
+            const qs = new URLSearchParams({ user_id: uid, campaign_id: String(campaignId || 'all'), time_range: tr });
+            const r = await fetch(`${base}/api/analytics/time-series?${qs.toString()}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+            const ct = r.headers?.get?.('content-type') || '';
+            if (r.ok && ct.includes('application/json')) {
+              const rows = await r.json();
+              if (Array.isArray(rows) && rows.length) {
+                const labels = rows.map((d) => String(d.period || d.rawPeriod || ''));
+                const openS = rows.map((d) => Number(d.openRate || 0));
+                const replyS = rows.map((d) => Number(d.replyRate || 0));
+                setOverviewSeries({ labels, open: openS, reply: replyS, conv: [] });
+                return;
+              }
+            }
+          }
+        } catch {}
+
         const { data: evs } = await supabase.from('email_events').select('event_type,event_timestamp,campaign_id').eq('user_id', uid).gte('event_timestamp', sinceIso);
         const weekMs = 7*24*3600*1000;
         const bucketCount = overviewRange==='30d' ? 4 : overviewRange==='90d' ? 12 : 24;

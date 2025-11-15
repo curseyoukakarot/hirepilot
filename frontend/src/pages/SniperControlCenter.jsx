@@ -1,3 +1,4 @@
+import React, { useState } from "react";
 import { motion } from "framer-motion";
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -7,6 +8,7 @@ import { Button } from "@/components/ui/button";
 
 // Minimal slider row used by the provided UI. Keeps visual-only behavior.
 function SliderRow({ label, max = 100, recommended }) {
+  const [val, setVal] = useState(Math.min(Math.round(max * 0.5), max));
   return (
     <div className="flex items-center justify-between">
       <div>
@@ -15,16 +17,19 @@ function SliderRow({ label, max = 100, recommended }) {
           <p className="text-muted-foreground text-xs mt-1">Recommended: {recommended}</p>
         ) : null}
       </div>
-      <div className="flex items-center gap-3 w-64">
+      <div className="flex items-center gap-3 w-72">
         <input
           type="range"
           min={0}
           max={max}
-          defaultValue={Math.min( Math.round(max * 0.5), max)}
-          className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer"
-          onChange={()=>{}}
+          value={val}
+          onChange={(e)=> setVal(Number(e.target.value))}
+          className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-gray-200 dark:bg-gray-800"
         />
-        <span className="text-xs text-muted-foreground">/ {max} max</span>
+        <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-blue-600/10 text-blue-600 dark:text-blue-400">
+          <span className="font-semibold">{val}</span>
+          <span className="text-muted-foreground">/ {max}</span>
+        </span>
       </div>
     </div>
   );
