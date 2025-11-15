@@ -159,8 +159,14 @@ export default function AnalyticsOverviewLegacy() {
             const et = r && r.event_type;
             if (et === 'sent') sent[bucket]++; if (et === 'reply') replies[bucket]++; if (et === 'open') opens[bucket]++;
           });
-          const replyS = labels.map((_, i) => (sent[i] ? Math.round((replies[i]/sent[i])*1000)/10 : 0));
-          const openS = labels.map((_, i) => (sent[i] ? Math.round((opens[i]/sent[i])*1000)/10 : 0));
+          let replyS = labels.map((_, i) => (sent[i] ? Math.round((replies[i]/sent[i])*1000)/10 : 0));
+          let openS = labels.map((_, i) => (sent[i] ? Math.round((opens[i]/sent[i])*1000)/10 : 0));
+          // Safety: if series are in fraction form (0..1), convert to percent like widgets
+          const computedMax = Math.max(...openS, ...replyS, 0);
+          if (computedMax > 0 && computedMax <= 1.01) {
+            replyS = replyS.map(v => v * 100);
+            openS = openS.map(v => v * 100);
+          }
           setOverviewSeries({ labels, open: openS, reply: replyS, conv: [] });
         }
       } catch {
