@@ -1,4 +1,18 @@
 import React from 'react';
+
+export function Card({ className = '', children, ...rest }) {
+  return <div className={`bg-background rounded-xl ${className}`} {...rest}>{children}</div>;
+}
+export function CardHeader({ className = '', children, ...rest }) {
+  return <div className={`p-4 border-b ${className}`} {...rest}>{children}</div>;
+}
+export function CardContent({ className = '', children, ...rest }) {
+  return <div className={`p-4 ${className}`} {...rest}>{children}</div>;
+}
+
+export default Card;
+
+import React from 'react';
 import { cn } from '../../lib/utils';
 
 const Card = React.forwardRef(({ className, ...props }, ref) => {
