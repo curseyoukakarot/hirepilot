@@ -230,6 +230,7 @@ export default function SniperSettings() {
 
                 </button>
 
+                <!-- Sniper Control Center tab (injected) -->
                 <button id="tab-control-center" class="py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
 
                     Sniper Control Center
