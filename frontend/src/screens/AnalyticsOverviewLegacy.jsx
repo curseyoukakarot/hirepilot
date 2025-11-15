@@ -181,7 +181,7 @@ export default function AnalyticsOverviewLegacy() {
             },
             options: {
               plugins: { legend: { position: 'top' } },
-              scales: { y: { beginAtZero: true } },
+              scales: { y: { beginAtZero: true } }, // ensure zero baseline for clarity
               maintainAspectRatio: false,
               spanGaps: true
             }
