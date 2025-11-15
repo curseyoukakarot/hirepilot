@@ -143,7 +143,7 @@ export default function AnalyticsOverviewLegacy() {
           const rangeDays = overviewRange==='30d' ? 30 : overviewRange==='90d' ? 90 : 180;
           const { data: rows } = await supabase
             .from('email_events')
-            .select('event_timestamp,event_type')
+            .select('event_timestamp,occurred_at,event_type')
             .gte('event_timestamp', new Date(Date.now() - rangeDays*24*3600*1000).toISOString());
           const weekMs = 7*24*3600*1000;
           const bucketCount = overviewRange==='30d' ? 4 : overviewRange==='90d' ? 12 : 24;
@@ -152,7 +152,8 @@ export default function AnalyticsOverviewLegacy() {
           const replies = Array.from({ length: bucketCount }, () => 0);
           const opens = Array.from({ length: bucketCount }, () => 0);
           (rows||[]).forEach((r) => {
-            const ts = r && r.event_timestamp ? new Date(r.event_timestamp) : null; if (!ts) return;
+            const rawTs = r && (r.event_timestamp || r.occurred_at);
+            const ts = rawTs ? new Date(rawTs) : null; if (!ts) return;
             const diff = Date.now() - ts.getTime();
             const idxFromEnd = Math.min(bucketCount-1, Math.floor(diff / weekMs));
             const bucket = bucketCount - 1 - idxFromEnd; if (bucket < 0 || bucket >= bucketCount) return;
