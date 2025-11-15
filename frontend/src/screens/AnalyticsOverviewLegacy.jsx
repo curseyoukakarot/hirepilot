@@ -152,11 +152,24 @@ export default function AnalyticsOverviewLegacy() {
             const r = await fetch(`${base}/api/analytics/time-series?${qs.toString()}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
             const ct = r.headers?.get?.('content-type') || '';
             if (r.ok && ct.includes('application/json')) {
-              const rows = await r.json();
+              const payload = await r.json();
+              const rows = Array.isArray(payload) ? payload
+                : (Array.isArray(payload?.data) ? payload.data
+                  : (Array.isArray(payload?.series) ? payload.series : []));
               if (Array.isArray(rows) && rows.length) {
-                const labels = rows.map((d) => String(d.period || d.rawPeriod || ''));
-                const openS = rows.map((d) => Number(d.openRate || 0));
-                const replyS = rows.map((d) => Number(d.replyRate || 0));
+                const labels = rows.map((d) => String(d.period || d.rawPeriod || d.day || ''));
+                const openS = rows.map((d) => {
+                  if (typeof d.openRate === 'number') return Number(d.openRate);
+                  const opens = Number(d.opens ?? d.opensCount ?? 0);
+                  const sentC = Number(d.sent ?? d.sentCount ?? 0);
+                  return sentC ? Math.round((opens / sentC) * 1000) / 10 : 0;
+                });
+                const replyS = rows.map((d) => {
+                  if (typeof d.replyRate === 'number') return Number(d.replyRate);
+                  const replies = Number(d.replies ?? d.repliesCount ?? 0);
+                  const sentC = Number(d.sent ?? d.sentCount ?? 0);
+                  return sentC ? Math.round((replies / sentC) * 1000) / 10 : 0;
+                });
                 setOverviewSeries({ labels, open: openS, reply: replyS, conv: [] });
                 return;
               }
