@@ -18,14 +18,28 @@ function SliderRow({ label, max = 100, recommended }) {
         ) : null}
       </div>
       <div className="flex items-center gap-3 w-72">
-        <input
+        <div className="relative w-full">
+          {/* Static track (unfilled) */}
+          <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-[6px] rounded-full bg-gray-400/30 dark:bg-gray-700/60" />
+          {/* Filled track */}
+          <div
+            className="absolute left-0 top-1/2 -translate-y-1/2 h-[6px] rounded-full bg-blue-500/70"
+            style={{ width: `${Math.max(0, Math.min(100, (val / max) * 100))}%` }}
+          />
+          {/* Native control (keeps the thumb for affordance) */}
+          <input
           type="range"
           min={0}
           max={max}
           value={val}
           onChange={(e)=> setVal(Number(e.target.value))}
-          className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-gray-200 dark:bg-gray-800"
-        />
+            className="relative w-full h-6 bg-transparent appearance-none cursor-pointer"
+            style={{
+              WebkitAppearance: 'none',
+              appearance: 'none',
+            }}
+          />
+        </div>
         <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-blue-600/10 text-blue-600 dark:text-blue-400">
           <span className="font-semibold">{val}</span>
           <span className="text-muted-foreground">/ {max}</span>
