@@ -17,5 +17,3 @@ export function CardFooter({ className = '', children, ...rest }) {
 }
 
 export default Card;
-
-export { Card }; 
