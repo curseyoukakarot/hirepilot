@@ -309,7 +309,7 @@ export default function Analytics() {
                 labels: (modalData||[{period:'Week 1'},{period:'Week 2'},{period:'Week 3'},{period:'Week 4'}]).map(d=>d.period||''),
                 datasets: [{ label: 'Reply Rate %', data: (modalData||[]).map(d=>d.replyRate||0), borderColor: '#6B46C1', backgroundColor: 'rgba(107,70,193,0.1)', borderWidth: 3, fill: true, tension: 0.4, pointBackgroundColor: '#6B46C1', pointBorderColor: '#ffffff', pointBorderWidth: 2, pointRadius: 6 }]
               },
-              options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 100, grid: { color: '#f3f4f6' } }, x: { grid: { color: '#f3f4f6' } } }, interaction: { intersect: false, mode: 'index' } }
+              options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: '#f3f4f6' } }, x: { grid: { color: '#f3f4f6' } } }, interaction: { intersect: false, mode: 'index' } }
             });
           }
         }
