@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { api } from '../lib/api';
 import LogActivityModal from '../components/LogActivityModal.jsx';
+import { toast } from 'react-hot-toast';
 
 export default function ActionInbox() {
   const [cards, setCards] = useState([]);
@@ -170,6 +171,7 @@ export default function ActionInbox() {
         method: 'POST',
         body: JSON.stringify({ user_id: user.id })
       });
+      toast.success('Converted lead to candidate');
       await markCardRead(card.id);
       // Remove card optimistically
       setCards(prev => prev.filter(c => c.id !== card.id));
@@ -177,6 +179,7 @@ export default function ActionInbox() {
     } catch (e) {
       console.error('Convert to candidate failed:', e);
       setError(e.message || 'Failed to convert lead to candidate');
+      try { toast.error('Failed to convert to candidate'); } catch {}
     } finally {
       setIsActionBusy(false);
     }
@@ -193,6 +196,7 @@ export default function ActionInbox() {
         method: 'POST',
         body: JSON.stringify({ lead_id: baseLeadId })
       });
+      toast.success('Converted lead to client');
       await markCardRead(card.id);
       // Keep card visible (optional); for now, remove to reduce clutter
       setCards(prev => prev.filter(c => c.id !== card.id));
@@ -200,6 +204,7 @@ export default function ActionInbox() {
     } catch (e) {
       console.error('Convert to client failed:', e);
       setError(e.message || 'Failed to convert lead to client');
+      try { toast.error('Failed to convert to client'); } catch {}
     } finally {
       setIsActionBusy(false);
     }
