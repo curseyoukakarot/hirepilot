@@ -224,7 +224,7 @@ export default function AnalyticsOverviewLegacy() {
               plugins: { legend: { position: 'top' } },
               // Show ticks with explicit colors so they are visible in dark mode
               scales: {
-                y: { beginAtZero: true, ticks: { display: true, color: '#9CA3AF', callback: (v) => `${v}%` }, grid: { color: '#f3f4f6' } },
+                y: { beginAtZero: true, grace: '15%', ticks: { display: true, color: '#9CA3AF', callback: (v) => `${Number(v).toFixed(1)}%` }, grid: { color: '#f3f4f6' } },
                 x: { ticks: { color: '#9CA3AF' }, grid: { color: '#f3f4f6' } }
               },
               maintainAspectRatio: false,
@@ -236,27 +236,7 @@ export default function AnalyticsOverviewLegacy() {
         inst.data.labels = overviewSeries.labels || [];
         if (inst.data.datasets?.[0]) inst.data.datasets[0].data = overviewSeries.open || [];
         if (inst.data.datasets?.[1]) inst.data.datasets[1].data = overviewSeries.reply || [];
-        // Dynamically expand Y-axis so rates can exceed 100 when there are multiple opens per message
-        try {
-          const values = [
-            ...((overviewSeries.open || []).map((n) => Number(n) || 0)),
-            ...((overviewSeries.reply || []).map((n) => Number(n) || 0)),
-          ];
-          const maxVal = values.length ? Math.max(...values) : 0;
-          inst.options = inst.options || {};
-          inst.options.scales = inst.options.scales || {};
-          inst.options.scales.y = { ...(inst.options.scales.y || {}), beginAtZero: true, ticks: { ...(inst.options.scales.y?.ticks||{}), display: true, color: '#9CA3AF' } };
-          if (maxVal > 0) {
-            const padded = Math.ceil(maxVal * 1.1);
-            // Ensure we do not inadvertently clamp by leaving legacy suggestedMax/max around
-            delete inst.options.scales.y.suggestedMax;
-            inst.options.scales.y.max = padded;
-          } else {
-            delete inst.options.scales.y.max;
-            // When no data, fall back to a sensible suggested range so axis does not collapse to 0..1
-            inst.options.scales.y.suggestedMax = 100;
-          }
-        } catch {}
+        // Let Chart.js auto-scale based on real % values from the backend (no manual max/suggestedMax)
         try { inst.update(); } catch {}
       }
     })();
