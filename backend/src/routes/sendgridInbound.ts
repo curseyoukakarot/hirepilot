@@ -36,18 +36,122 @@ router.post('/webhooks/sendgrid/sourcing/inbound', upload.any(), async (req: Req
     console.log(`📨 Email from: ${from}, to: ${to}, subject: ${subject}`);
     
     // Extract campaign and lead IDs from headers
-    const campaignId = headers['X-Campaign-Id'] || headers['x-campaign-id'];
-    const leadId = headers['X-Lead-Id'] || headers['x-lead-id'];
+    let campaignId = headers['X-Campaign-Id'] || headers['x-campaign-id'];
+    let leadId = headers['X-Lead-Id'] || headers['x-lead-id'];
     
     console.log(`🏷️ Campaign ID: ${campaignId}, Lead ID: ${leadId}`);
     
     if (!campaignId || !leadId) {
-      console.warn('⚠️ Missing campaign or lead ID in headers, storing as unassigned');
-      // Could implement fallback logic here (e.g., parse plus addressing)
-      return res.status(200).json({ 
-        ok: true, 
-        message: 'Reply received but not assigned to campaign' 
-      });
+      console.warn('⚠️ Missing campaign or lead ID in headers, attempting fallback resolution…');
+      // Try to parse reply-to address format: msg_{messageId}.u_{userId}.c_{campaignOrNone}@domain
+      const parseAddr = (addr: string) => {
+        const raw = String(addr || '');
+        const match = raw.match(/msg_([^.\s]+)\.u_([0-9a-fA-F-]+)\.c_([^@\s>]+)/);
+        if (match) {
+          return { messageId: match[1], userId: match[2], campaignPart: match[3] };
+        }
+        return { messageId: null, userId: null, campaignPart: null };
+      };
+      const { messageId: trackingMsgId, userId: addrUserId, campaignPart } = parseAddr(to || '');
+      // Use c_part if present (may be 'none')
+      if (!campaignId && campaignPart && campaignPart.toLowerCase() !== 'none') campaignId = campaignPart;
+      // Try to recover lead/campaign from messages or email_events by trackingMsgId
+      if (trackingMsgId) {
+        try {
+          const { data: msgRow } = await supabase
+            .from('messages')
+            .select('lead_id,campaign_id,user_id')
+            .eq('message_id', trackingMsgId)
+            .maybeSingle();
+          if (msgRow) {
+            leadId = leadId || (msgRow as any).lead_id || null;
+            campaignId = campaignId || (msgRow as any).campaign_id || null;
+          } else {
+            const { data: evRow } = await supabase
+              .from('email_events')
+              .select('lead_id,campaign_id,user_id')
+              .eq('message_id', trackingMsgId)
+              .maybeSingle();
+            if (evRow) {
+              leadId = leadId || (evRow as any).lead_id || null;
+              campaignId = campaignId || (evRow as any).campaign_id || null;
+            }
+          }
+        } catch (e) {
+          console.warn('[inbound] lookup by tracking message_id failed', (e as any)?.message || e);
+        }
+      }
+      // If still no leadId, try email-based resolution
+      if (!leadId) {
+        const extractEmail = (s: string) => {
+          const m = String(s || '').match(/<([^>]+)>/);
+          const v = (m ? m[1] : String(s || '')).trim();
+          // Remove display names or quotes if any remain
+          const clean = v.replace(/^"+|"+$/g, '');
+          return clean.toLowerCase();
+        };
+        const fromEmail = extractEmail(from || '');
+        const userScopeId = addrUserId || null;
+        if (fromEmail && userScopeId) {
+          try {
+            // Prefer an existing base lead for this user
+            const { data: baseLead } = await supabase
+              .from('leads')
+              .select('id,campaign_id')
+              .eq('user_id', userScopeId)
+              .ilike('email', fromEmail)
+              .maybeSingle();
+            if (baseLead?.id) {
+              leadId = baseLead.id;
+              campaignId = campaignId || (baseLead as any).campaign_id || null;
+            } else {
+              // Fallback: try sourcing_leads then mirror into base leads
+              const { data: srcLead } = await supabase
+                .from('sourcing_leads')
+                .select('id,name,title,company,campaign_id,email,linkedin_url')
+                .ilike('email', fromEmail)
+                .maybeSingle();
+              if (srcLead) {
+                // Create or upsert minimal base lead for the user
+                const { data: existingBase } = await supabase
+                  .from('leads')
+                  .select('id')
+                  .eq('user_id', userScopeId)
+                  .ilike('email', fromEmail)
+                  .maybeSingle();
+                if (existingBase?.id) {
+                  leadId = existingBase.id;
+                } else {
+                  const insert = {
+                    user_id: userScopeId,
+                    name: (srcLead as any).name || fromEmail,
+                    email: fromEmail,
+                    title: (srcLead as any).title || null,
+                    company: (srcLead as any).company || null,
+                    linkedin_url: (srcLead as any).linkedin_url || null,
+                    source: 'sourcing_campaign',
+                    created_at: new Date().toISOString()
+                  } as any;
+                  const { data: created, error: createErr } = await supabase
+                    .from('leads')
+                    .insert(insert)
+                    .select('id')
+                    .single();
+                  if (!createErr && created?.id) {
+                    leadId = created.id;
+                  }
+                }
+                campaignId = campaignId || (srcLead as any).campaign_id || null;
+              }
+            }
+          } catch (e) {
+            console.warn('[inbound] email-based lead resolution failed', (e as any)?.message || e);
+          }
+        }
+      }
+      if (!leadId) {
+        console.warn('⚠️ Could not resolve lead; proceeding without attribution');
+      }
     }
     
     // Store the reply in database
