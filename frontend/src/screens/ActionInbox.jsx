@@ -123,16 +123,39 @@ export default function ActionInbox() {
     }
   };
   
+  // Try to resolve a base leads.id for this card
+  const resolveBaseLeadId = async (card) => {
+    const meta = card?.metadata || {};
+    const { leadId } = resolveLeadAndCampaign(card);
+    // If explicit lead id and not a placeholder, use it
+    if (leadId && String(leadId).toLowerCase() !== 'none') return leadId;
+    // Fallback: search by email
+    const fromEmail = String(meta.from_email || '').trim().toLowerCase();
+    if (fromEmail) {
+      try {
+        const res = await api('/api/search/leads', {
+          method: 'POST',
+          body: JSON.stringify({ q: fromEmail, limit: 1 })
+        });
+        const first = Array.isArray(res?.results) ? res.results[0] : (Array.isArray(res) ? res[0] : null);
+        if (first?.id) return first.id;
+      } catch {
+        // ignore; will surface error at callsite
+      }
+    }
+    return null;
+  };
+  
   // Convert lead → candidate
   const handleConvertToCandidate = async (card) => {
     try {
       setIsActionBusy(true);
       setOpenMenuFor(null);
-      const { leadId } = resolveLeadAndCampaign(card);
-      if (!leadId) throw new Error('Missing lead id for this reply');
+      const baseLeadId = await resolveBaseLeadId(card);
+      if (!baseLeadId) throw new Error('Missing lead id for this reply');
       const { data: { user } } = await supabase.auth.getUser();
       if (!user?.id) throw new Error('Not authenticated');
-      await api(`/api/leads/${leadId}/convert`, {
+      await api(`/api/leads/${baseLeadId}/convert`, {
         method: 'POST',
         body: JSON.stringify({ user_id: user.id })
       });
@@ -153,11 +176,11 @@ export default function ActionInbox() {
     try {
       setIsActionBusy(true);
       setOpenMenuFor(null);
-      const { leadId } = resolveLeadAndCampaign(card);
-      if (!leadId) throw new Error('Missing lead id for this reply');
+      const baseLeadId = await resolveBaseLeadId(card);
+      if (!baseLeadId) throw new Error('Missing lead id for this reply');
       await api('/api/clients/convert-lead', {
         method: 'POST',
-        body: JSON.stringify({ lead_id: leadId })
+        body: JSON.stringify({ lead_id: baseLeadId })
       });
       await markCardRead(card.id);
       // Keep card visible (optional); for now, remove to reduce clutter
