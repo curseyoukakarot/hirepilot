@@ -401,7 +401,8 @@ router.post('/notifications/backfill/email-replies', requireAuth, async (req: Ap
       .eq('id', requesterId)
       .maybeSingle();
     const isPrivileged = role === 'super_admin' || role === 'admin' || requester?.is_admin;
-    if (!isPrivileged) {
+    const isSelfService = user_id && user_id === requesterId; // allow self-scope backfill without admin
+    if (!isPrivileged && !isSelfService) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
