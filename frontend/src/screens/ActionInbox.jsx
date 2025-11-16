@@ -129,8 +129,19 @@ export default function ActionInbox() {
     const { leadId } = resolveLeadAndCampaign(card);
     // If explicit lead id and not a placeholder, use it
     if (leadId && String(leadId).toLowerCase() !== 'none') return leadId;
-    // Fallback: search by email
-    const fromEmail = String(meta.from_email || '').trim().toLowerCase();
+    // Fallback: search by email (robust extraction from metadata, title, or body)
+    const emailRegex = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/ig;
+    const metaEmail = String(meta.from_email || '').trim();
+    let fromEmail = metaEmail;
+    if (!fromEmail) {
+      const titleHit = String(card?.title || '').match(emailRegex);
+      fromEmail = (titleHit && titleHit[0]) || '';
+    }
+    if (!fromEmail && card?.body_md) {
+      const bodyHit = String(card.body_md).match(emailRegex);
+      fromEmail = (bodyHit && bodyHit[0]) || '';
+    }
+    fromEmail = String(fromEmail || '').trim().toLowerCase();
     if (fromEmail) {
       try {
         const res = await api('/api/search/leads', {
