@@ -224,8 +224,8 @@ export default function AnalyticsOverviewLegacy() {
               plugins: { legend: { position: 'top' } },
               // Show ticks with explicit colors so they are visible in dark mode
               scales: {
-                y: { beginAtZero: true, grace: '15%', ticks: { display: true, color: '#9CA3AF', callback: (v) => `${Number(v).toFixed(1)}%` }, grid: { color: '#f3f4f6' } },
-                x: { ticks: { color: '#9CA3AF' }, grid: { color: '#f3f4f6' } }
+                y: { beginAtZero: true, grace: '15%', ticks: { display: true, color: '#9CA3AF', callback: (v) => `${Number(v).toFixed(1)}%` }, grid: { color: 'rgba(148, 163, 184, 0.12)' } },
+                x: { ticks: { color: '#9CA3AF' }, grid: { color: 'rgba(148, 163, 184, 0.12)' } }
               },
               maintainAspectRatio: false,
               spanGaps: true
