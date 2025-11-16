@@ -340,16 +340,98 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
     }
     const { messageId, userId, campaignId } = routing as any;
 
-    // Optional lookup of lead by message id from messages table
+    // Resolve attribution: try messages by tracking message_id, then by id; then email_events; then email-based
     let lead_id: string | null = null;
     try {
-      const { data: msgRow } = await supabase
+      // messages.message_id == tracking id from VERP
+      const { data: msgByTracking } = await supabase
         .from('messages')
-        .select('lead_id')
-        .eq('id', messageId)
+        .select('lead_id,campaign_id,user_id')
+        .eq('message_id', messageId)
         .maybeSingle();
-      lead_id = msgRow?.lead_id ?? null;
+      if (msgByTracking) {
+        lead_id = (msgByTracking as any).lead_id || null;
+        if (!campaignId) campaignId = (msgByTracking as any).campaign_id || campaignId;
+      } else {
+        const { data: msgById } = await supabase
+          .from('messages')
+          .select('lead_id,campaign_id,user_id')
+          .eq('id', messageId)
+          .maybeSingle();
+        if (msgById) {
+          lead_id = (msgById as any).lead_id || null;
+          if (!campaignId) campaignId = (msgById as any).campaign_id || campaignId;
+        } else {
+          const { data: evRow } = await supabase
+            .from('email_events')
+            .select('lead_id,campaign_id,user_id')
+            .eq('message_id', messageId)
+            .maybeSingle();
+          if (evRow) {
+            lead_id = (evRow as any).lead_id || null;
+            if (!campaignId) campaignId = (evRow as any).campaign_id || campaignId;
+          }
+        }
+      }
     } catch {}
+
+    // Email-based fallback to ensure we attach a base lead when possible
+    if (!lead_id) {
+      const cleanEmail = (parsed.from || '').toLowerCase();
+      if (cleanEmail && userId) {
+        try {
+          const { data: baseLead } = await supabase
+            .from('leads')
+            .select('id,campaign_id')
+            .eq('user_id', userId)
+            .ilike('email', cleanEmail)
+            .maybeSingle();
+          if (baseLead?.id) {
+            lead_id = baseLead.id;
+            if (!campaignId) campaignId = (baseLead as any).campaign_id || campaignId;
+          } else {
+            // Try sourcing_leads then mirror minimal base lead
+            const { data: srcLead } = await supabase
+              .from('sourcing_leads')
+              .select('id,name,title,company,campaign_id,email,linkedin_url')
+              .ilike('email', cleanEmail)
+              .maybeSingle();
+            if (srcLead) {
+              // Ensure base lead exists for this user
+              const { data: existing } = await supabase
+                .from('leads')
+                .select('id')
+                .eq('user_id', userId)
+                .ilike('email', cleanEmail)
+                .maybeSingle();
+              if (existing?.id) {
+                lead_id = existing.id;
+              } else {
+                const insert = {
+                  user_id: userId,
+                  name: (srcLead as any).name || cleanEmail,
+                  email: cleanEmail,
+                  title: (srcLead as any).title || null,
+                  company: (srcLead as any).company || null,
+                  linkedin_url: (srcLead as any).linkedin_url || null,
+                  source: 'sourcing_campaign',
+                  created_at: new Date().toISOString()
+                } as any;
+                const { data: created } = await supabase
+                  .from('leads')
+                  .insert(insert)
+                  .select('id')
+                  .single();
+                if (created?.id) lead_id = created.id;
+              }
+              if (!campaignId) campaignId = (srcLead as any).campaign_id || campaignId;
+            }
+          }
+        } catch (e) {
+          console.warn('[sendgrid/inbound] email-based lead resolution failed', (e as any)?.message || e);
+        }
+      }
+    }
 
     // Save reply to database using parsed data
     const { data: replyRow } = await supabase.from('email_replies').insert({
