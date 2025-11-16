@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import sgMail from '@sendgrid/mail';
 import { simpleParser } from 'mailparser';
 import { SourcingNotifications } from '../src/lib/notifications';
+import { sendSourcingReplyNotification } from '../src/services/sourcingNotifications';
 
 const upload = multer();
 const router = express.Router();
@@ -411,6 +412,32 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
       }
     } catch (notifErr) {
       console.warn('[sendgrid/inbound] Failed to create Action Inbox notification:', notifErr);
+    }
+
+    // Slack notification (per-user setting): notify on reply if enabled
+    try {
+      if (userId) {
+        const { data: settings } = await supabase
+          .from('user_settings')
+          .select('slack_webhook_url, slack_notifications, campaign_updates')
+          .eq('user_id', userId)
+          .maybeSingle();
+        const slackAllowed = Boolean(settings?.slack_notifications ?? settings?.campaign_updates);
+        if (slackAllowed && (settings?.slack_webhook_url || process.env.SLACK_WEBHOOK_URL)) {
+          await sendSourcingReplyNotification({
+            campaignId: (campaignId ?? 'none') as any,
+            leadId: (lead_id ?? 'none') as any,
+            replyId: (replyRow as any)?.id || messageId,
+            from: parsed.from || 'unknown@unknown.com',
+            subject: parsed.subject || '(no subject)',
+            classification: 'neutral',
+            nextAction: 'reply',
+            userId
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('[sendgrid/inbound] Slack notify skipped', (e as any)?.message || e);
     }
 
     // Forward reply to user's inbox
