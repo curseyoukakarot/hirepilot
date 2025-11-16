@@ -408,7 +408,7 @@ router.post('/notifications/backfill/email-replies', requireAuth, async (req: Ap
     // Fetch replies missing notifications
     let query = supabase
       .from('email_replies')
-      .select('id, user_id, campaign_id, lead_id, from_email, subject, text_body, html_body')
+      .select('id, user_id, campaign_id, lead_id, message_id, from_email, subject, text_body, html_body')
       .order('id', { ascending: false });
 
     if (user_id) query = query.eq('user_id', user_id);
@@ -422,14 +422,118 @@ router.post('/notifications/backfill/email-replies', requireAuth, async (req: Ap
     let created = 0;
 
     for (const r of replies || []) {
-      const threadKey = r.campaign_id && r.lead_id ? `sourcing:${r.campaign_id}:${r.lead_id}` : undefined;
+      let campaignId = (r as any).campaign_id as string | null;
+      let leadId = (r as any).lead_id as string | null;
+      const replyId = (r as any).id as string;
+      const userId = (r as any).user_id as string;
+      const fromEmail = String((r as any).from_email || '').toLowerCase();
+
+      // Resolve any missing attribution
+      if (!campaignId || !leadId) {
+        try {
+          // 1) messages by tracking message_id
+          if ((r as any).message_id) {
+            const { data: m1 } = await supabase
+              .from('messages')
+              .select('lead_id,campaign_id')
+              .eq('message_id', (r as any).message_id)
+              .maybeSingle();
+            if (m1) {
+              leadId = leadId || (m1 as any).lead_id || null;
+              campaignId = campaignId || (m1 as any).campaign_id || null;
+            }
+            if (!leadId || !campaignId) {
+              const { data: m2 } = await supabase
+                .from('messages')
+                .select('lead_id,campaign_id')
+                .eq('id', (r as any).message_id)
+                .maybeSingle();
+              if (m2) {
+                leadId = leadId || (m2 as any).lead_id || null;
+                campaignId = campaignId || (m2 as any).campaign_id || null;
+              }
+            }
+            if (!leadId || !campaignId) {
+              const { data: ev } = await supabase
+                .from('email_events')
+                .select('lead_id,campaign_id')
+                .eq('message_id', (r as any).message_id)
+                .maybeSingle();
+              if (ev) {
+                leadId = leadId || (ev as any).lead_id || null;
+                campaignId = campaignId || (ev as any).campaign_id || null;
+              }
+            }
+          }
+          // 2) Email-based fallback for the same user
+          if (!leadId && fromEmail && userId) {
+            const { data: baseLead } = await supabase
+              .from('leads')
+              .select('id,campaign_id')
+              .eq('user_id', userId)
+              .ilike('email', fromEmail)
+              .maybeSingle();
+            if (baseLead?.id) {
+              leadId = baseLead.id;
+              campaignId = campaignId || (baseLead as any).campaign_id || campaignId;
+            } else {
+              const { data: srcLead } = await supabase
+                .from('sourcing_leads')
+                .select('id,name,title,company,campaign_id,email,linkedin_url')
+                .ilike('email', fromEmail)
+                .maybeSingle();
+              if (srcLead) {
+                // Mirror minimal base lead
+                const { data: existing } = await supabase
+                  .from('leads')
+                  .select('id')
+                  .eq('user_id', userId)
+                  .ilike('email', fromEmail)
+                  .maybeSingle();
+                if (existing?.id) {
+                  leadId = existing.id;
+                } else {
+                  const insert = {
+                    user_id: userId,
+                    name: (srcLead as any).name || fromEmail,
+                    email: fromEmail,
+                    title: (srcLead as any).title || null,
+                    company: (srcLead as any).company || null,
+                    linkedin_url: (srcLead as any).linkedin_url || null,
+                    source: 'sourcing_campaign',
+                    created_at: new Date().toISOString()
+                  } as any;
+                  const { data: created } = await supabase
+                    .from('leads')
+                    .insert(insert)
+                    .select('id')
+                    .single();
+                  if (created?.id) leadId = created.id;
+                }
+                campaignId = campaignId || (srcLead as any).campaign_id || campaignId;
+              }
+            }
+          }
+          // 3) Update the reply row if anything was resolved
+          if ((leadId && leadId !== (r as any).lead_id) || (campaignId && campaignId !== (r as any).campaign_id)) {
+            await supabase
+              .from('email_replies')
+              .update({ lead_id: leadId, campaign_id: campaignId })
+              .eq('id', replyId);
+          }
+        } catch (e) {
+          console.warn('[backfill] attribution resolution failed for reply', replyId, (e as any)?.message || e);
+        }
+      }
+
+      const threadKey = campaignId && leadId ? `sourcing:${campaignId}:${leadId}` : undefined;
 
       // Skip if a notification already exists for this reply (by metadata.reply_id)
       if (threadKey) {
         const { data: existing, error: existErr } = await supabase
           .from('notifications')
           .select('id')
-          .eq('user_id', r.user_id)
+          .eq('user_id', userId)
           .eq('type', 'sourcing_reply')
           .eq('thread_key', threadKey)
           .contains('metadata', { reply_id: r.id })
@@ -450,19 +554,19 @@ router.post('/notifications/backfill/email-replies', requireAuth, async (req: Ap
         const { error } = await supabase
           .from('notifications')
           .insert({
-            user_id: r.user_id,
+            user_id: userId,
             source: 'inapp',
             thread_key: threadKey,
-            title: `New reply from ${r.from_email || 'candidate'}`,
-            body_md: `${(r.text_body || r.html_body || '').slice(0, 700)}`,
+            title: `New reply from ${fromEmail || 'candidate'}`,
+            body_md: `${((r as any).text_body || (r as any).html_body || '').slice(0, 700)}`,
             type: 'sourcing_reply',
             actions,
             metadata: {
-              campaign_id: r.campaign_id,
-              lead_id: r.lead_id,
-              reply_id: r.id,
-              from_email: r.from_email,
-              subject: r.subject
+              campaign_id: campaignId,
+              lead_id: leadId,
+              reply_id: replyId,
+              from_email: fromEmail,
+              subject: (r as any).subject
             }
           });
         insertErr = error;
@@ -476,11 +580,11 @@ router.post('/notifications/backfill/email-replies', requireAuth, async (req: Ap
           const { error: retryErr } = await supabase
             .from('notifications')
             .insert({
-              user_id: r.user_id,
+              user_id: userId,
               source: 'inapp',
               thread_key: threadKey,
-              title: `New reply from ${r.from_email || 'candidate'}`,
-              body_md: `${(r.text_body || r.html_body || '').slice(0, 700)}`,
+              title: `New reply from ${fromEmail || 'candidate'}`,
+              body_md: `${((r as any).text_body || (r as any).html_body || '').slice(0, 700)}`,
               type: 'sourcing_reply',
               actions
             });
