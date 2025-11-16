@@ -224,7 +224,7 @@ export default function AnalyticsOverviewLegacy() {
               plugins: { legend: { position: 'top' } },
               // Show ticks with explicit colors so they are visible in dark mode
               scales: {
-                y: { beginAtZero: true, ticks: { display: true, color: '#9CA3AF' }, grid: { color: '#f3f4f6' } },
+                y: { beginAtZero: true, ticks: { display: true, color: '#9CA3AF', callback: (v) => `${v}%` }, grid: { color: '#f3f4f6' } },
                 x: { ticks: { color: '#9CA3AF' }, grid: { color: '#f3f4f6' } }
               },
               maintainAspectRatio: false,

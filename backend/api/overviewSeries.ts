@@ -4,13 +4,14 @@ import { createClient } from '@supabase/supabase-js';
 // GET /api/analytics/overview-series?campaign_id=all|<uuid>&range=30d|90d|6m
 export default async function overviewSeries(req: Request, res: Response) {
   try {
-    const userId = (req as any).user?.id || (req as any).user?.sub;
+    // Use caller's JWT so RLS scopes data exactly like widgets
+    const authHeader = String(req.headers?.authorization || '');
     const rawCampaignId = String(req.query.campaign_id ?? 'all');
     const range = String(req.query.range ?? '30d');
     const campaignId = rawCampaignId === 'all' ? null : rawCampaignId;
 
-    if (!userId) {
-      res.status(401).json({ error: 'Unauthorized' });
+    if (!authHeader) {
+      res.status(401).json({ error: 'Missing Authorization header' });
       return;
     }
 
@@ -22,19 +23,21 @@ export default async function overviewSeries(req: Request, res: Response) {
     since.setHours(0, 0, 0, 0);
 
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!url || !serviceKey) {
-      res.status(500).json({ error: 'Missing Supabase service configuration' });
+    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || !anon) {
+      res.status(500).json({ error: 'Missing Supabase anon configuration' });
       return;
     }
-    const supabaseAdmin = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
+    const supabase = createClient(url, anon, {
+      global: { headers: { apikey: anon, Authorization: authHeader } },
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
 
-    let query = supabaseAdmin
+    let query = supabase
       .from('email_events')
       .select('event_timestamp, event_type, campaign_id')
       .gte('event_timestamp', since.toISOString())
-      .in('event_type', ['sent', 'open', 'reply'] as any)
-      .eq('user_id', userId as any);
+      .in('event_type', ['sent', 'open', 'reply'] as any);
 
     if (campaignId) {
       query = query.eq('campaign_id', campaignId);
@@ -45,12 +48,11 @@ export default async function overviewSeries(req: Request, res: Response) {
     events = firstData || [];
     // If campaign_id column doesn't exist or other column issue, retry without selecting/filtering campaign_id
     if (error && (error as any).code === '42703') {
-      const { data: retryEvents, error: retryError } = await supabaseAdmin
+      const { data: retryEvents, error: retryError } = await supabase
         .from('email_events')
         .select('event_timestamp, event_type')
         .gte('event_timestamp', since.toISOString())
-        .in('event_type', ['sent', 'open', 'reply'] as any)
-        .eq('user_id', userId as any);
+        .in('event_type', ['sent', 'open', 'reply'] as any);
       if (retryError) {
         res.status(500).json({ error: retryError.message });
         return;
