@@ -183,6 +183,9 @@ router.get('/users/:id/performance', userPerformance);
 
 // Add analytics time series endpoint
 router.get('/analytics/time-series', requireAuthFlag, analyticsTimeSeries);
+// Overview line-series (service role aggregation)
+import overviewSeries from './api/overviewSeries';
+router.get('/analytics/overview-series', requireAuthFlag, overviewSeries);
 
 // Add schedule mass message endpoint
 router.post('/scheduleMassMessage', scheduleMassMessage);

@@ -138,45 +138,62 @@ export default function AnalyticsOverviewLegacy() {
         const conversionRate = (totalLeads || sent) ? (((convertedCandidates / (totalLeads || sent))*100)) : 0;
         setOverviewSummary({ sent, openRate, replyRate, conversionRate, converted: convertedCandidates });
 
-        // Approach: pull the exact same series the widgets use (backend endpoints), with Supabase fallback
+        // Preferred: call backend overview-series which aggregates server-side with service role
         const loadSeries = async () => {
-          // Robust local aggregation — do not depend on widget endpoints (which 404 in prod)
-          const rangeDays = overviewRange==='30d' ? 30 : overviewRange==='90d' ? 90 : 180;
-          const since = new Date(Date.now() - rangeDays*24*3600*1000).toISOString();
-          let rows = [];
-          // Try to select with campaign_id if it exists; otherwise fall back without it
+          const rangeParam = overviewRange;
           try {
-            const { data, error } = await supabase
+            if (base) {
+              const params = new URLSearchParams({
+                campaign_id: String(campaignId || 'all'),
+                range: String(rangeParam || '30d'),
+              });
+              const token = session?.access_token || '';
+              const r = await fetch(`${base}/api/analytics/overview-series?${params.toString()}`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+                credentials: 'include',
+              });
+              if (r.ok) {
+                const series = await r.json();
+                if (Array.isArray(series)) {
+                  const labels = series.map((d)=> String((d && d.period) || ''));
+                  const openS = series.map((d)=> Number((d && d.openRate) || 0));
+                  const replyS = series.map((d)=> Number((d && d.replyRate) || 0));
+                  setOverviewSeries({ labels, open: openS, reply: replyS, conv: [] });
+                  return;
+                }
+              }
+            }
+          } catch {}
+          // Fallback: local aggregation from Supabase (RLS dependent)
+          try {
+            const rangeDays = overviewRange==='30d' ? 30 : overviewRange==='90d' ? 90 : 180;
+            const since = new Date(Date.now() - rangeDays*24*3600*1000).toISOString();
+            const { data: rows } = await supabase
               .from('email_events')
-              .select('event_timestamp,event_type,campaign_id')
-              .gte('event_timestamp', since);
-            if (error) throw error;
-            rows = Array.isArray(data) ? data : [];
-          } catch (_) {
-            const { data } = await supabase
-              .from('email_events')
-              .select('event_timestamp,event_type')
-              .gte('event_timestamp', since);
-            rows = Array.isArray(data) ? data : [];
+              .select('event_timestamp,event_type,campaign_id,user_id')
+              .gte('event_timestamp', since)
+              .eq('user_id', uid);
+            const weekMs = 7*24*3600*1000;
+            const bucketCount = overviewRange==='30d' ? 4 : overviewRange==='90d' ? 12 : 24;
+            const labels = Array.from({ length: bucketCount }, (_, i) => `Week ${i+1}`);
+            const sent = Array.from({ length: bucketCount }, () => 0);
+            const replies = Array.from({ length: bucketCount }, () => 0);
+            const opens = Array.from({ length: bucketCount }, () => 0);
+            (rows||[]).forEach((r) => {
+              if (campaignId !== 'all' && Object.prototype.hasOwnProperty.call(r,'campaign_id') && r.campaign_id && String(r.campaign_id) !== String(campaignId)) return;
+              const ts = r && r.event_timestamp ? new Date(r.event_timestamp) : null; if (!ts) return;
+              const diff = Date.now() - ts.getTime();
+              const idxFromEnd = Math.min(bucketCount-1, Math.floor(diff / weekMs));
+              const bucket = bucketCount - 1 - idxFromEnd; if (bucket < 0 || bucket >= bucketCount) return;
+              const et = r && r.event_type;
+              if (et === 'sent') sent[bucket]++; if (et === 'reply') replies[bucket]++; if (et === 'open') opens[bucket]++;
+            });
+            const replyS = labels.map((_, i) => (sent[i] ? Math.round((replies[i]/sent[i])*1000)/10 : 0));
+            const openS = labels.map((_, i) => (sent[i] ? Math.round((opens[i]/sent[i])*1000)/10 : 0));
+            setOverviewSeries({ labels, open: openS, reply: replyS, conv: [] });
+          } catch {
+            setOverviewSeries({ labels: [], open: [], reply: [], conv: [] });
           }
-          const weekMs = 7*24*3600*1000;
-          const bucketCount = overviewRange==='30d' ? 4 : overviewRange==='90d' ? 12 : 24;
-          const labels = Array.from({ length: bucketCount }, (_, i) => `Week ${i+1}`);
-          const sent = Array.from({ length: bucketCount }, () => 0);
-          const replies = Array.from({ length: bucketCount }, () => 0);
-          const opens = Array.from({ length: bucketCount }, () => 0);
-          (rows||[]).forEach((r) => {
-            if (campaignId !== 'all' && Object.prototype.hasOwnProperty.call(r,'campaign_id') && r.campaign_id && String(r.campaign_id) !== String(campaignId)) return;
-            const ts = r && r.event_timestamp ? new Date(r.event_timestamp) : null; if (!ts) return;
-            const diff = Date.now() - ts.getTime();
-            const idxFromEnd = Math.min(bucketCount-1, Math.floor(diff / weekMs));
-            const bucket = bucketCount - 1 - idxFromEnd; if (bucket < 0 || bucket >= bucketCount) return;
-            const et = r && r.event_type;
-            if (et === 'sent') sent[bucket]++; if (et === 'reply') replies[bucket]++; if (et === 'open') opens[bucket]++;
-          });
-          const replyS = labels.map((_, i) => (sent[i] ? Math.round((replies[i]/sent[i])*1000)/10 : 0));
-          const openS = labels.map((_, i) => (sent[i] ? Math.round((opens[i]/sent[i])*1000)/10 : 0));
-          setOverviewSeries({ labels, open: openS, reply: replyS, conv: [] });
         };
         await loadSeries();
       } catch {
