@@ -140,55 +140,25 @@ export default function AnalyticsOverviewLegacy() {
 
         // Approach: pull the exact same series the widgets use (backend endpoints), with Supabase fallback
         const loadSeries = async () => {
-          try {
-            const fromProcess = (typeof process !== 'undefined' && process.env) ? (process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL) : '';
-            const fromVite = (typeof import.meta !== 'undefined' && import.meta.env) ? (import.meta.env.VITE_BACKEND_URL) : '';
-            const fromWindow = (typeof window !== 'undefined' && window.__BACKEND_URL__) ? window.__BACKEND_URL__ : '';
-            const base = String(fromProcess || fromVite || fromWindow || '').replace(/\/$/, '');
-            const { data: { session } } = await supabase.auth.getSession();
-            const token = session?.access_token;
-            const headers = token ? { Authorization: `Bearer ${token}` } : {};
-            const rangeParam = overviewRange === '30d' ? '30d' : (overviewRange === '90d' ? '90d' : '6m');
-            if (base) {
-              // Fetch reply and open series in parallel
-              const [rReply, rOpen] = await Promise.allSettled([
-                fetch(`${base}/api/widgets/reply-rate`, { headers }),
-                fetch(`${base}/api/widgets/open-rate?time_range=${encodeURIComponent(rangeParam)}`, { headers }),
-              ]);
-              const replyOk = (rReply.status === 'fulfilled' && rReply.value.ok && (rReply.value.headers?.get?.('content-type')||'').includes('application/json'));
-              const openOk = (rOpen.status === 'fulfilled' && rOpen.value.ok && (rOpen.value.headers?.get?.('content-type')||'').includes('application/json'));
-              let replyRows = [];
-              let openRows = [];
-              if (replyOk) {
-                const j = await rReply.value.json();
-                replyRows = Array.isArray(j?.data) ? j.data : [];
-              }
-              if (openOk) {
-                const j = await rOpen.value.json();
-                openRows = Array.isArray(j?.data) ? j.data : [];
-              }
-              if (replyRows.length || openRows.length) {
-                const labelsSet = new Set([
-                  ...replyRows.map(d=>String(d.period||'')),
-                  ...openRows.map(d=>String(d.period||'')),
-                ]);
-                const labels = Array.from(labelsSet).filter(Boolean).sort((a,b)=>a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
-                const idx = new Map(labels.map((l,i)=>[l,i]));
-                const replyS = Array.from({ length: labels.length }, ()=>0);
-                const openS = Array.from({ length: labels.length }, ()=>0);
-                replyRows.forEach(d=>{ const i=idx.get(String(d.period||'')); if (i!=null) replyS[i]=Number(d.replyRate||0); });
-                openRows.forEach(d=>{ const i=idx.get(String(d.period||'')); if (i!=null) openS[i]=Number(d.openRate||0); });
-                setOverviewSeries({ labels, open: openS, reply: replyS, conv: [] });
-                return;
-              }
-            }
-          } catch {}
-          // Supabase fallback (weekly aggregation)
+          // Robust local aggregation — do not depend on widget endpoints (which 404 in prod)
           const rangeDays = overviewRange==='30d' ? 30 : overviewRange==='90d' ? 90 : 180;
-          const { data: rows } = await supabase
-            .from('email_events')
-            .select('event_timestamp,event_type,campaign_id')
-            .gte('event_timestamp', new Date(Date.now() - rangeDays*24*3600*1000).toISOString());
+          const since = new Date(Date.now() - rangeDays*24*3600*1000).toISOString();
+          let rows = [];
+          // Try to select with campaign_id if it exists; otherwise fall back without it
+          try {
+            const { data, error } = await supabase
+              .from('email_events')
+              .select('event_timestamp,event_type,campaign_id')
+              .gte('event_timestamp', since);
+            if (error) throw error;
+            rows = Array.isArray(data) ? data : [];
+          } catch (_) {
+            const { data } = await supabase
+              .from('email_events')
+              .select('event_timestamp,event_type')
+              .gte('event_timestamp', since);
+            rows = Array.isArray(data) ? data : [];
+          }
           const weekMs = 7*24*3600*1000;
           const bucketCount = overviewRange==='30d' ? 4 : overviewRange==='90d' ? 12 : 24;
           const labels = Array.from({ length: bucketCount }, (_, i) => `Week ${i+1}`);
@@ -196,7 +166,7 @@ export default function AnalyticsOverviewLegacy() {
           const replies = Array.from({ length: bucketCount }, () => 0);
           const opens = Array.from({ length: bucketCount }, () => 0);
           (rows||[]).forEach((r) => {
-            if (campaignId !== 'all' && r.campaign_id && String(r.campaign_id) !== String(campaignId)) return;
+            if (campaignId !== 'all' && Object.prototype.hasOwnProperty.call(r,'campaign_id') && r.campaign_id && String(r.campaign_id) !== String(campaignId)) return;
             const ts = r && r.event_timestamp ? new Date(r.event_timestamp) : null; if (!ts) return;
             const diff = Date.now() - ts.getTime();
             const idxFromEnd = Math.min(bucketCount-1, Math.floor(diff / weekMs));
