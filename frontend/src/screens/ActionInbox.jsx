@@ -137,7 +137,7 @@ export default function ActionInbox() {
           method: 'POST',
           body: JSON.stringify({ q: fromEmail, limit: 1 })
         });
-        const first = Array.isArray(res?.results) ? res.results[0] : (Array.isArray(res) ? res[0] : null);
+        const first = Array.isArray(res?.rows) ? res.rows[0] : (Array.isArray(res) ? res[0] : null);
         if (first?.id) return first.id;
       } catch {
         // ignore; will surface error at callsite
