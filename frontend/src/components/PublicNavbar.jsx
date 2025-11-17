@@ -13,6 +13,7 @@ export default function PublicNavbar() {
   const [mobileUseCasesOpen, setMobileUseCasesOpen] = useState(false);
   const location = useLocation();
   const dropdownRef = useRef(null);
+  const closeTimeoutRef = useRef(null);
 
   const isActive = (href) => location.pathname === href;
 
@@ -53,10 +54,17 @@ export default function PublicNavbar() {
               </a>
             ))}
             <div
-              className="relative"
+              className="relative pb-3"
               ref={dropdownRef}
-              onMouseEnter={() => setShowUseCases(true)}
-              onMouseLeave={() => setShowUseCases(false)}
+              onMouseEnter={() => {
+                if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+                setShowUseCases(true);
+              }}
+              onMouseLeave={() => {
+                // small delay to allow moving cursor into the dropdown without closing
+                if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+                closeTimeoutRef.current = setTimeout(() => setShowUseCases(false), 180);
+              }}
             >
               <div className="flex items-center gap-2">
                 <a
@@ -76,7 +84,7 @@ export default function PublicNavbar() {
                 </button>
               </div>
               {showUseCases && (
-                <div className="absolute top-full left-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg py-2">
+                <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg py-2">
                   <a href="/use-cases" className="block px-4 py-2 text-gray-800 hover:bg-gray-50">Overview</a>
                   <a href="/use-cases/recruiting-agencies" className="block px-4 py-2 text-gray-800 hover:bg-gray-50">Recruiting Agencies</a>
                   <a href="/use-cases/fractional-executives" className="block px-4 py-2 text-gray-800 hover:bg-gray-50">Fractional Executives</a>
