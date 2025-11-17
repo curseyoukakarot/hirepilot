@@ -9,6 +9,7 @@ import walkthroughs from "./walkthroughs";
 import account from "./account";
 import feedback from "./feedback";
 import sales from "./sales";
+import searchKnowledge from "./searchKnowledge";
 import openapi from "./openapi";
 
 const router = Router();
@@ -28,6 +29,7 @@ router.use(walkthroughs);
 router.use(account);
 router.use(feedback);
 router.use(sales);
+router.use(searchKnowledge);
 
 export default router;
 

@@ -1,0 +1,86 @@
+{
+  "support.authentication": {
+    "cmd": "node server/mcp-support/tools/authentication.js",
+    "args": {},
+    "schema": {
+      "topic": "string?",
+      "question": "string?",
+      "context": "string?"
+    },
+    "returns": {
+      "results": [
+        {
+          "filename": "string",
+          "headings": ["string"],
+          "excerpt": "string",
+          "confidence": "number:0..1"
+        }
+      ]
+    }
+  },
+  "support.messaging_email": {
+    "cmd": "node server/mcp-support/tools/messaging_email.js",
+    "args": {}
+  },
+  "support.campaigns": {
+    "cmd": "node server/mcp-support/tools/campaigns.js",
+    "args": {}
+  },
+  "support.leads": {
+    "cmd": "node server/mcp-support/tools/leads.js",
+    "args": {}
+  },
+  "support.candidates": {
+    "cmd": "node server/mcp-support/tools/candidates.js",
+    "args": {}
+  },
+  "support.job_reqs_applications": {
+    "cmd": "node server/mcp-support/tools/job_reqs_applications.js",
+    "args": {}
+  },
+  "support.pipelines": {
+    "cmd": "node server/mcp-support/tools/pipelines.js",
+    "args": {}
+  },
+  "support.deals_billing": {
+    "cmd": "node server/mcp-support/tools/deals_billing.js",
+    "args": {}
+  },
+  "support.rex_tools": {
+    "cmd": "node server/mcp-support/tools/rex_tools.js",
+    "args": {}
+  },
+  "support.sniper": {
+    "cmd": "node server/mcp-support/tools/sniper.js",
+    "args": {}
+  },
+  "support.chrome_extension": {
+    "cmd": "node server/mcp-support/tools/chrome_extension.js",
+    "args": {}
+  },
+  "support.integrations": {
+    "cmd": "node server/mcp-support/tools/integrations.js",
+    "args": {}
+  },
+  "support.tables": {
+    "cmd": "node server/mcp-support/tools/tables.js",
+    "args": {}
+  },
+  "support.admin_permissions": {
+    "cmd": "node server/mcp-support/tools/admin_permissions.js",
+    "args": {}
+  },
+  "support.system_limits": {
+    "cmd": "node server/mcp-support/tools/system_limits.js",
+    "args": {}
+  },
+  "support.automations": {
+    "cmd": "node server/mcp-support/tools/automations.js",
+    "args": {}
+  },
+  "support.troubleshooting": {
+    "cmd": "node server/mcp-support/tools/troubleshooting.js",
+    "args": {}
+  }
+}
+
