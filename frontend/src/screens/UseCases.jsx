@@ -159,7 +159,7 @@ export default function UseCases() {
                 Schedule Demo
               </a>
             </div>
-            <p className="text-sm mt-6 opacity-75">14-day free trial • No setup fees • Cancel anytime</p>
+            <p className="text-sm mt-6 opacity-75">Start For Free, No Credit Card Required • No setup fees • Cancel anytime</p>
           </div>
         </section>
       </main>

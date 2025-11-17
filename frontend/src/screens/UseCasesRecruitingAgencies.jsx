@@ -202,7 +202,7 @@ export default function UseCasesRecruitingAgencies() {
                 <i className="fa-solid fa-calendar ml-2"></i>
               </a>
             </div>
-            <p className="text-sm text-gray-400 mt-6">No credit card required • 14-day free trial • Cancel anytime</p>
+            <p className="text-sm text-gray-400 mt-6">Start For Free, No Credit Card Required • No setup fees • Cancel anytime</p>
           </div>
         </section>
       </main>

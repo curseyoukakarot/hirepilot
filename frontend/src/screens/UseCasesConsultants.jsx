@@ -202,7 +202,7 @@ export default function UseCasesConsultants() {
                 Schedule Demo
               </a>
             </div>
-            <p className="text-indigo-200 text-sm mt-6">No credit card required • 14-day free trial</p>
+            <p className="text-indigo-200 text-sm mt-6">Start For Free, No Credit Card Required • No setup fees • Cancel anytime</p>
           </div>
         </section>
       </main>
