@@ -96,20 +96,6 @@ export default function UseCases() {
                 </div>
               </a>
 
-              <a href="/use-cases" className="group bg-gray-900 p-8 rounded-2xl card-shadow hover-lift transition-all duration-300 border border-gray-800">
-                <div className="mb-6">
-                  <div className="w-16 h-16 bg-orange-900 rounded-xl flex items-center justify-center mb-4 group-hover:bg-orange-800 transition">
-                    <i className="fa-solid fa-bullseye text-2xl text-orange-400"></i>
-                  </div>
-                  <h3 className="text-2xl font-semibold mb-3 text-white">Marketing Agencies</h3>
-                  <p className="text-gray-400 leading-relaxed">Turn your proposals into projects instantly. Automate onboarding, feedback loops, and payments.</p>
-                </div>
-                <div className="flex items-center text-indigo-400 font-semibold group-hover:text-indigo-300 transition">
-                  <span>Explore</span>
-                  <i className="fa-solid fa-arrow-right ml-2 group-hover:translate-x-1 transition"></i>
-                </div>
-              </a>
-
               <div className="group bg-gradient-to-br from-gray-900 to-gray-800 p-8 rounded-2xl border-2 border-dashed border-gray-700 flex flex-col justify-center items-center text-center">
                 <div className="w-16 h-16 bg-indigo-900 rounded-xl flex items-center justify-center mb-4">
                   <i className="fa-solid fa-plus text-2xl text-indigo-400"></i>
