@@ -183,7 +183,7 @@ export default function UseCasesFractionalExecutives() {
                 Book a Demo <i className="fas fa-arrow-right ml-2"></i>
               </a>
             </div>
-            <p className="text-indigo-200 text-sm mt-4">No credit card required • 14-day free trial</p>
+            <p className="text-indigo-200 text-sm mt-4">Start For Free, No Credit Card Required • No setup fees • Cancel anytime</p>
           </div>
         </section>
       </main>
