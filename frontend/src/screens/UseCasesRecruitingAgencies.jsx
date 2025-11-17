@@ -1,6 +1,7 @@
 import React from 'react';
 import PublicNavbar from '../components/PublicNavbar';
 import PublicFooter from '../components/PublicFooter';
+import PublicBreadcrumbs from '../components/PublicBreadcrumbs';
 
 export default function UseCasesRecruitingAgencies() {
   return (
@@ -12,6 +13,9 @@ export default function UseCasesRecruitingAgencies() {
         {/* Hero */}
         <section id="hero-section" className="pt-32 bg-gray-900 py-24 px-6">
           <div className="max-w-5xl mx-auto text-center">
+            <div className="max-w-6xl mx-auto mb-4 text-left">
+              <PublicBreadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Use Cases', href: '/use-cases' }, { label: 'Recruiting Agencies' }]} />
+            </div>
             <div className="mb-6">
               <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-900/50 text-indigo-300 mb-6 border border-indigo-800">
                 <i className="fa-solid fa-users mr-2"></i>

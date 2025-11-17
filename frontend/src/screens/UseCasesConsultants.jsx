@@ -1,6 +1,7 @@
 import React from 'react';
 import PublicNavbar from '../components/PublicNavbar';
 import PublicFooter from '../components/PublicFooter';
+import PublicBreadcrumbs from '../components/PublicBreadcrumbs';
 
 export default function UseCasesConsultants() {
   return (
@@ -11,6 +12,9 @@ export default function UseCasesConsultants() {
 
         {/* Hero Section */}
         <section id="hero" className="pt-32 py-24 px-6 text-center max-w-5xl mx-auto">
+          <div className="max-w-6xl mx-auto mb-4 text-left">
+            <PublicBreadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Use Cases', href: '/use-cases' }, { label: 'Consultants' }]} />
+          </div>
           <div className="mb-6">
             <span className="bg-indigo-900/50 text-indigo-300 px-4 py-2 rounded-full text-sm font-semibold border border-indigo-800">
               For Independent Consultants

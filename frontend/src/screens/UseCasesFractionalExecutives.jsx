@@ -1,6 +1,7 @@
 import React from 'react';
 import PublicNavbar from '../components/PublicNavbar';
 import PublicFooter from '../components/PublicFooter';
+import PublicBreadcrumbs from '../components/PublicBreadcrumbs';
 
 export default function UseCasesFractionalExecutives() {
   return (
@@ -12,6 +13,9 @@ export default function UseCasesFractionalExecutives() {
         {/* Hero */}
         <section id="hero" className="pt-32 py-24 px-6 text-center max-w-5xl mx-auto h-[600px] flex flex-col justify-center">
           <div className="max-w-4xl mx-auto">
+            <div className="max-w-6xl mx-auto mb-4 text-left">
+              <PublicBreadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Use Cases', href: '/use-cases' }, { label: 'Fractional Executives' }]} />
+            </div>
             <h1 className="text-6xl font-bold mb-6 leading-tight text-white">
               Built for Fractional Executives & Solo Consultants
             </h1>

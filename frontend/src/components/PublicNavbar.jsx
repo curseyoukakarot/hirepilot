@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 
 const links = [
@@ -12,8 +12,26 @@ export default function PublicNavbar() {
   const [showUseCases, setShowUseCases] = useState(false);
   const [mobileUseCasesOpen, setMobileUseCasesOpen] = useState(false);
   const location = useLocation();
+  const dropdownRef = useRef(null);
 
   const isActive = (href) => location.pathname === href;
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setShowUseCases(false);
+      }
+    };
+    const handleKey = (e) => {
+      if (e.key === 'Escape') setShowUseCases(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, []);
 
   return (
     <>
@@ -36,15 +54,27 @@ export default function PublicNavbar() {
             ))}
             <div
               className="relative"
+              ref={dropdownRef}
               onMouseEnter={() => setShowUseCases(true)}
               onMouseLeave={() => setShowUseCases(false)}
             >
-              <a
-                href="/use-cases"
-                className={`${location.pathname.startsWith('/use-cases') ? 'text-blue-600 font-medium border-b-2 border-blue-600 pb-1' : 'text-gray-800 hover:text-gray-900'}`}
-              >
-                Use Cases
-              </a>
+              <div className="flex items-center gap-2">
+                <a
+                  href="/use-cases"
+                  className={`${location.pathname.startsWith('/use-cases') ? 'text-blue-600 font-medium border-b-2 border-blue-600 pb-1' : 'text-gray-800 hover:text-gray-900'}`}
+                >
+                  Use Cases
+                </a>
+                <button
+                  type="button"
+                  aria-haspopup="true"
+                  aria-expanded={showUseCases ? 'true' : 'false'}
+                  className="text-gray-700 hover:text-gray-900"
+                  onClick={() => setShowUseCases((v) => !v)}
+                >
+                  <i className={`fa-solid ${showUseCases ? 'fa-chevron-up' : 'fa-chevron-down'} text-sm`} />
+                </button>
+              </div>
               {showUseCases && (
                 <div className="absolute top-full left-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg py-2">
                   <a href="/use-cases" className="block px-4 py-2 text-gray-800 hover:bg-gray-50">Overview</a>
