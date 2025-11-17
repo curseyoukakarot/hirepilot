@@ -76,6 +76,10 @@ import { useTheme } from './context/ThemeContext';
 import PublicJobPage from './screens/PublicJobPage.jsx';
 import ApplyForm from './screens/ApplyForm.jsx';
 import ApplySuccess from './screens/ApplySuccess.jsx';
+import UseCases from './screens/UseCases';
+import UseCasesRecruitingAgencies from './screens/UseCasesRecruitingAgencies';
+import UseCasesFractionalExecutives from './screens/UseCasesFractionalExecutives';
+import UseCasesConsultants from './screens/UseCasesConsultants';
 import OnboardingModals from './components/OnboardingModals';
 // Blog article pages
 const FlowOfHirePilot = lazy(() => import("./pages/blog/FlowOfHirePilot"));
@@ -325,7 +329,7 @@ export default function App() {
 
 function InnerApp() {
   const location = useLocation();
-  const landingPages = ["/", "/signup", "/login", "/reset-password", "/copilot", "/enterprise", "/pricing", "/rex", "/rexsupport", "/chromeextension", "/chromeextension/privacy", "/terms", "/apidoc", "/test-gmail", "/affiliates", "/blog/zapierguide", "/producthunt", "/dfydashboard", "/freeforever", "/jobs/share", "/apply"];
+  const landingPages = ["/", "/signup", "/login", "/reset-password", "/copilot", "/enterprise", "/pricing", "/rex", "/rexsupport", "/chromeextension", "/chromeextension/privacy", "/terms", "/apidoc", "/test-gmail", "/affiliates", "/blog/zapierguide", "/producthunt", "/dfydashboard", "/freeforever", "/jobs/share", "/apply", "/use-cases", "/use-cases/recruiting-agencies", "/use-cases/fractional-executives", "/use-cases/consultants"];
   // Treat blog landing and article pages as public landing pages (no dashboard UI)
   const isPartnerArea = location.pathname.startsWith('/partners');
   // Public dynamic pages (e.g., share/apply) should not be gated by auth
@@ -629,6 +633,11 @@ function InnerApp() {
               <Route path="/workflows" element={dbRole ? <WorkflowsPage /> : <IntegrationsAndWorkflows />} />
               <Route path="/copilot" element={<Copilot />} />
               <Route path="/enterprise" element={<Handsfree />} />
+              {/* Use Cases marketing pages */}
+              <Route path="/use-cases" element={<UseCases />} />
+              <Route path="/use-cases/recruiting-agencies" element={<UseCasesRecruitingAgencies />} />
+              <Route path="/use-cases/fractional-executives" element={<UseCasesFractionalExecutives />} />
+              <Route path="/use-cases/consultants" element={<UseCasesConsultants />} />
               <Route path="/templates" element={<TemplateManager userId="mock-user-id" />} />
               <Route path="/candidates" element={<CandidateList />} />
               <Route path="/jobs" element={<JobRequisitions />} />

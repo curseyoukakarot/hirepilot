@@ -3,13 +3,14 @@ import { useLocation } from 'react-router-dom';
 
 const links = [
   { label: 'Meet REX', href: '/rex' },
-  { label: 'Your Recruiting Co-Pilot', href: '/copilot' },
   { label: 'Free Forever', href: '/freeforever' },
   { label: 'Pricing', href: '/pricing' },
 ];
 
 export default function PublicNavbar() {
   const [open, setOpen] = useState(false);
+  const [showUseCases, setShowUseCases] = useState(false);
+  const [mobileUseCasesOpen, setMobileUseCasesOpen] = useState(false);
   const location = useLocation();
 
   const isActive = (href) => location.pathname === href;
@@ -33,6 +34,26 @@ export default function PublicNavbar() {
                 {l.label}
               </a>
             ))}
+            <div
+              className="relative"
+              onMouseEnter={() => setShowUseCases(true)}
+              onMouseLeave={() => setShowUseCases(false)}
+            >
+              <a
+                href="/use-cases"
+                className={`${location.pathname.startsWith('/use-cases') ? 'text-blue-600 font-medium border-b-2 border-blue-600 pb-1' : 'text-gray-800 hover:text-gray-900'}`}
+              >
+                Use Cases
+              </a>
+              {showUseCases && (
+                <div className="absolute top-full left-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg py-2">
+                  <a href="/use-cases" className="block px-4 py-2 text-gray-800 hover:bg-gray-50">Overview</a>
+                  <a href="/use-cases/recruiting-agencies" className="block px-4 py-2 text-gray-800 hover:bg-gray-50">Recruiting Agencies</a>
+                  <a href="/use-cases/fractional-executives" className="block px-4 py-2 text-gray-800 hover:bg-gray-50">Fractional Executives</a>
+                  <a href="/use-cases/consultants" className="block px-4 py-2 text-gray-800 hover:bg-gray-50">Consultants</a>
+                </div>
+              )}
+            </div>
           </nav>
           <div className="hidden md:flex items-center gap-4">
             <a href="https://app.thehirepilot.com/login" className="text-sm text-gray-800 hover:text-gray-900">Log in</a>
@@ -71,6 +92,21 @@ export default function PublicNavbar() {
                 {l.label}
               </a>
             ))}
+            <button
+              className="text-lg text-gray-700 hover:text-blue-600 flex items-center gap-2"
+              onClick={() => setMobileUseCasesOpen(!mobileUseCasesOpen)}
+            >
+              <span>Use Cases</span>
+              <i className={`fa-solid ${mobileUseCasesOpen ? 'fa-chevron-up' : 'fa-chevron-down'} text-sm`} />
+            </button>
+            {mobileUseCasesOpen && (
+              <div className="ml-4 flex flex-col gap-3">
+                <a href="/use-cases" className="text-gray-700 hover:text-blue-600" onClick={() => setOpen(false)}>Overview</a>
+                <a href="/use-cases/recruiting-agencies" className="text-gray-700 hover:text-blue-600" onClick={() => setOpen(false)}>Recruiting Agencies</a>
+                <a href="/use-cases/fractional-executives" className="text-gray-700 hover:text-blue-600" onClick={() => setOpen(false)}>Fractional Executives</a>
+                <a href="/use-cases/consultants" className="text-gray-700 hover:text-blue-600" onClick={() => setOpen(false)}>Consultants</a>
+              </div>
+            )}
             <a href="https://app.thehirepilot.com/login" className="text-lg text-gray-700 hover:text-blue-600" onClick={() => setOpen(false)}>Sign in</a>
           </nav>
           <a href="/pricing" className="mt-auto bg-gradient-to-r from-blue-600 to-blue-500 text-white w-full text-center py-4 rounded-lg font-semibold" onClick={() => setOpen(false)}>
