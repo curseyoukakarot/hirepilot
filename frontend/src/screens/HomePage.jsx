@@ -136,10 +136,8 @@ const HomePage = () => {
         <div className="container mx-auto px-6 text-center relative z-10">
           <div className="max-w-4xl mx-auto">
             <h1 className="text-4xl md:text-6xl font-bold mb-8 leading-tight">
-              The All-in-One Recruiting OS
-              <br />
-              for <span className="gradient-text">Modern Teams</span>
-                </h1>
+              The All-in-One Recruiting <span className="gradient-text">CRM + ATS</span>
+            </h1>
             <div className="bg-gray-900 rounded-xl p-8 mb-8 text-left max-w-2xl mx-auto">
               <div className="flex items-center mb-4">
                 <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
