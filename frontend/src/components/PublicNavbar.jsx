@@ -37,7 +37,7 @@ export default function PublicNavbar() {
   return (
     <>
       {/* top header */}
-      <header id="header" className="fixed w-full top-0 z-50 bg-white shadow-sm border-b border-gray-100">
+      <header id="header" className="fixed w-full top-0 z-50 bg-white dark:bg-slate-900 shadow-sm border-b border-gray-100 dark:border-slate-800">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <a href="/" className="flex items-center gap-2">
             <img src="/logo.png" alt="HirePilot Logo" className="h-8 w-8" />
@@ -48,7 +48,10 @@ export default function PublicNavbar() {
               <a
                 key={l.href}
                 href={l.href}
-                className={`${isActive(l.href) ? 'text-blue-600 font-medium border-b-2 border-blue-600 pb-1' : 'text-gray-800 hover:text-gray-900'}`}
+                className={`${isActive(l.href)
+                  ? 'text-blue-600 dark:text-blue-400 font-medium border-b-2 border-blue-600 dark:border-blue-400'
+                  : 'text-gray-800 dark:text-gray-100 border-b-2 border-transparent hover:border-blue-600 dark:hover:border-blue-400'
+                } pb-1`}
               >
                 {l.label}
               </a>
@@ -69,7 +72,10 @@ export default function PublicNavbar() {
               <div className="flex items-center gap-2">
                 <a
                   href="/use-cases"
-                  className={`${location.pathname.startsWith('/use-cases') ? 'text-blue-600 font-medium border-b-2 border-blue-600 pb-1' : 'text-gray-800 hover:text-gray-900'}`}
+                  className={`${location.pathname.startsWith('/use-cases')
+                    ? 'text-blue-600 dark:text-blue-400 font-medium border-b-2 border-blue-600 dark:border-blue-400'
+                    : 'text-gray-800 dark:text-gray-100 border-b-2 border-transparent hover:border-blue-600 dark:hover:border-blue-400'
+                  } pb-1`}
                 >
                   Use Cases
                 </a>
@@ -77,18 +83,18 @@ export default function PublicNavbar() {
                   type="button"
                   aria-haspopup="true"
                   aria-expanded={showUseCases ? 'true' : 'false'}
-                  className="text-gray-700 hover:text-gray-900"
+                  className="text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-gray-100 pb-1"
                   onClick={() => setShowUseCases((v) => !v)}
                 >
                   <i className={`fa-solid ${showUseCases ? 'fa-chevron-up' : 'fa-chevron-down'} text-sm`} />
                 </button>
               </div>
               {showUseCases && (
-                <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg py-2">
-                  <a href="/use-cases" className="block px-4 py-2 text-gray-800 hover:bg-gray-50">Overview</a>
-                  <a href="/use-cases/recruiting-agencies" className="block px-4 py-2 text-gray-800 hover:bg-gray-50">Recruiting Agencies</a>
-                  <a href="/use-cases/fractional-executives" className="block px-4 py-2 text-gray-800 hover:bg-gray-50">Fractional Executives</a>
-                  <a href="/use-cases/consultants" className="block px-4 py-2 text-gray-800 hover:bg-gray-50">Consultants</a>
+                <div className="absolute top-full left-0 mt-1 w-64 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg shadow-lg py-2">
+                  <a href="/use-cases" className="block px-4 py-2 text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white rounded-md">Overview</a>
+                  <a href="/use-cases/recruiting-agencies" className="block px-4 py-2 text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white rounded-md">Recruiting Agencies</a>
+                  <a href="/use-cases/fractional-executives" className="block px-4 py-2 text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white rounded-md">Fractional Executives</a>
+                  <a href="/use-cases/consultants" className="block px-4 py-2 text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white rounded-md">Consultants</a>
                 </div>
               )}
             </div>
