@@ -250,11 +250,11 @@ export default function Pricing() {
             <div className="grid sm:grid-cols-2 gap-6 text-left max-w-3xl mx-auto">
               <div className="flex items-center justify-between bg-gray-800 border border-gray-700 p-4 rounded-xl shadow-sm">
                 <span className="text-gray-200 font-medium">Sourcer</span>
-                <span className="text-red-600 font-semibold">$2,000/mo</span>
+                <span className="text-red-600 font-semibold">$5,000/mo</span>
               </div>
               <div className="flex items-center justify-between bg-gray-800 border border-gray-700 p-4 rounded-xl shadow-sm">
                 <span className="text-gray-200 font-medium">Recruiter</span>
-                <span className="text-red-600 font-semibold">$5,000/mo</span>
+                <span className="text-red-600 font-semibold">$7,500/mo</span>
               </div>
               <div className="flex items-center justify-between bg-gray-800 border border-gray-700 p-4 rounded-xl shadow-sm">
                 <span className="text-gray-200 font-medium">Outreach Automation</span>
