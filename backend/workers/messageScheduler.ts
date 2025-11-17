@@ -1,6 +1,5 @@
 import { supabaseDb } from '../lib/supabase';
-import { GmailTrackingService } from '../services/gmailTrackingService';
-import { OutlookTrackingService } from '../services/outlookTrackingService';
+import { sendViaProvider } from '../services/providerEmail';
 
 interface ScheduledMessage {
   id: number;
@@ -12,8 +11,6 @@ interface ScheduledMessage {
   scheduled_for: string;
   status: string;
 }
-
-const getAvatarUrl = (name: string) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
 
 export class MessageScheduler {
   private static instance: MessageScheduler;
@@ -119,58 +116,18 @@ export class MessageScheduler {
         }
       }
 
-      // Send based on channel
-      let messageId: string;
-      switch (message.channel) {
-        case 'google':
-          messageId = await GmailTrackingService.sendEmail(
-            message.user_id,
-            lead.email,
-            subject,
-            message.content.replace(/\n/g, '<br/>'),
-            lead.campaign_id, // Include campaign attribution
-            message.lead_id
-          );
-          break;
-        case 'outlook':
-          messageId = await OutlookTrackingService.sendEmail(
-            message.user_id,
-            lead.email,
-            subject,
-            message.content.replace(/\n/g, '<br/>'),
-            lead.campaign_id, // Include campaign attribution
-            message.lead_id
-          );
-          break;
-        default:
-          throw new Error(`Unsupported channel: ${message.channel}`);
+      // Use unified provider sender (supports sendgrid, gmail/google, outlook)
+      const htmlBody = message.content.replace(/\n/g, '<br/>');
+      const ok = await sendViaProvider(
+        (message.channel as any),
+        { ...lead }, // expects lead-like object with id, email, campaign_id
+        htmlBody,
+        message.user_id,
+        subject
+      );
+      if (!ok) {
+        throw new Error(`Provider send failed for channel ${message.channel}`);
       }
-
-      // Store the message in our database with UI-friendly fields
-      const currentTime = new Date();
-      await supabaseDb.from('messages').insert({
-        user_id: message.user_id,
-        lead_id: message.lead_id,
-        campaign_id: lead.campaign_id, // Include campaign attribution
-        to_email: lead.email,
-        recipient: lead.email,
-        from_address: message.channel === 'google' ? 'you@gmail.com' : 'you@outlook.com',
-        subject,
-        content: message.content,
-        message_id: messageId,
-        provider: message.channel,
-        status: 'sent',
-        sent_at: currentTime.toISOString(),
-        created_at: currentTime.toISOString(),
-        updated_at: currentTime.toISOString(),
-        // UI-friendly fields
-        sender: 'You',
-        avatar: getAvatarUrl('You'),
-        preview: message.content.replace(/<[^>]+>/g, '').slice(0, 100),
-        time: currentTime.toLocaleTimeString(),
-        unread: false,
-        read: true
-      });
 
       // Mark as sent
       await supabaseDb
@@ -190,7 +147,7 @@ export class MessageScheduler {
         .from('scheduled_messages')
         .update({ 
           status: 'failed', 
-          error_message: error.message 
+          error_message: (error as any)?.message || 'send_failed' 
         })
         .eq('id', message.id);
     }
