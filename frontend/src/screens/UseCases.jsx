@@ -96,7 +96,7 @@ export default function UseCases() {
                 </div>
               </a>
 
-              <div className="group bg-gradient-to-br from-gray-900 to-gray-800 p-8 rounded-2xl border-2 border-dashed border-gray-700 flex flex-col justify-center items-center text-center">
+              <div className="group bg-gradient-to-br from-gray-900 to-gray-800 p-8 rounded-2xl border-2 border-dashed border-gray-700 flex flex-col justify-center items-center text-center md:col-span-2">
                 <div className="w-16 h-16 bg-indigo-900 rounded-xl flex items-center justify-center mb-4">
                   <i className="fa-solid fa-plus text-2xl text-indigo-400"></i>
                 </div>

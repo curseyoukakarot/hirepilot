@@ -34,12 +34,12 @@ export default function ChromeExtension() {
               href="https://chromewebstore.google.com/detail/hirepilot-cookie-helper/iiegpolacomfhkfcdgppbgkgkdbfemce?pli=1" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white px-8 py-4 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-2xl inline-block"
+              className="bg-indigo-600 text-white px-8 py-4 rounded-xl font-semibold transition-all duration-300 shadow-lg hover:bg-indigo-700"
             >
               <i className="fab fa-chrome mr-2" />
               Add to Chrome
             </a>
-            <button className="border border-gray-600 hover:border-gray-500 text-gray-300 hover:text-white px-8 py-4 rounded-xl font-semibold transition-all duration-300">
+            <button className="border border-gray-700 text-gray-300 px-8 py-4 rounded-xl font-semibold transition-all duration-300 hover:bg-gray-800">
               <i className="fas fa-play mr-2" />
               Watch Demo
             </button>

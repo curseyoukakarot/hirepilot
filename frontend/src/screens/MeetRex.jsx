@@ -126,13 +126,13 @@ export default function MeetRex() {
             <div className="flex flex-col sm:flex-row gap-4">
               <a
                 href="/pricing"
-                className="gradient-bg px-6 py-3 sm:px-8 sm:py-4 rounded-lg font-semibold text-base sm:text-lg hover:shadow-2xl transition-shadow"
+                className="bg-indigo-600 text-white px-8 py-4 rounded-xl font-semibold hover:bg-indigo-700 transition shadow-lg"
               >
                 Try REX Free
               </a>
               <a
                 href="#chat-preview"
-                className="border-2 border-white/30 px-6 py-3 sm:px-8 sm:py-4 rounded-lg font-semibold text-base sm:text-lg hover:bg-white/10 transition-colors flex items-center gap-2"
+                className="border border-gray-700 text-gray-300 px-8 py-4 rounded-xl font-semibold hover:bg-gray-800 transition flex items-center gap-2"
               >
                 <i className="fa-solid fa-play" />
                 See REX in Action
@@ -373,7 +373,7 @@ export default function MeetRex() {
             <div className="mb-6 flex justify-center">
               <img src="/REX-slack.gif" alt="REX Slack Preview" className="rounded-xl max-w-full" />
             </div>
-            <a href="https://app.thehirepilot.com/login" className="gradient-bg text-white px-8 py-4 rounded-lg font-semibold">
+            <a href="https://app.thehirepilot.com/login" className="bg-indigo-600 text-white px-8 py-4 rounded-xl font-semibold hover:bg-indigo-700 transition shadow-lg">
               Ask REX a Question
             </a>
           </div>
@@ -389,13 +389,13 @@ export default function MeetRex() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
               <a
                 href="/pricing"
-                className="bg-white text-blue-700 border-2 border-blue-600 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-blue-50"
+                className="bg-white text-indigo-600 px-8 py-4 rounded-xl font-semibold hover:bg-gray-100 transition shadow-lg"
               >
                 Start for Free →
               </a>
               <a
                 href="/pricing"
-                className="border-2 border-purple-400 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-purple-900/30"
+                className="border-2 border-white text-white px-8 py-4 rounded-xl font-semibold hover:bg-white/10"
               >
                 View Pricing
               </a>

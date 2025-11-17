@@ -17,7 +17,7 @@ export default function FreeForever() {
             <a href="/pricing" className="inline-flex items-center text-sm text-blue-300 hover:text-white">
               <i className="fa-solid fa-tag mr-2" /> See all plans
             </a>
-            <a href="https://app.thehirepilot.com/signup?plan=free" className="hidden md:inline-flex items-center bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+            <a href="https://app.thehirepilot.com/signup?plan=free" className="hidden md:inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-lg transition-colors">
               Get Started Free
             </a>
           </div>
@@ -208,26 +208,18 @@ export default function FreeForever() {
         </section>
 
         {/* === New Pricing CTA === */}
-        <section id="pricing-cta" className="py-20 bg-gray-900 fade-in">
-          <div className="max-w-4xl mx-auto px-6 text-center">
-            <div className="bg-gradient-to-r from-purple-900/40 to-blue-900/40 rounded-2xl p-12 border border-purple-500/30">
-              <h2 className="text-4xl font-bold text-white mb-6">Free Forever. Click here to get started</h2>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
-                <a
-                  href="https://app.thehirepilot.com/signup?plan=free"
-                  className="bg-white text-blue-700 border-2 border-blue-600 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-blue-50"
-                >
-                  Use Free Forever →
-                </a>
-                <a
-                  href="/pricing"
-                  className="border-2 border-purple-400 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-purple-900/30"
-                >
-                  View Other Plans
-                </a>
-              </div>
-              <p className="text-sm text-gray-400">Start for free. Credits used for enrichment</p>
+        <section id="pricing-cta" className="py-20 px-6 gradient-bg">
+          <div className="max-w-4xl mx-auto text-center text-white">
+            <h2 className="text-5xl font-bold mb-6">Free Forever. Click here to get started</h2>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <a href="https://app.thehirepilot.com/to/UubjS8Rh" className="bg-white text-indigo-600 px-8 py-4 rounded-xl font-semibold hover:bg-gray-100 transition shadow-lg">
+                Use Free Forever
+              </a>
+              <a href="/pricing" className="border-2 border-white text-white px-8 py-4 rounded-xl font-semibold hover:bg-white/10">
+                View Other Plans
+              </a>
             </div>
+            <p className="text-sm mt-6 opacity-75">Start for free • Credits used for enrichment</p>
           </div>
         </section>
       </main>

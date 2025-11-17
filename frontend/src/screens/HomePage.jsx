@@ -152,10 +152,10 @@ const HomePage = () => {
             </div>
             <p className="text-xl text-gray-300 mb-8">An all in one collaborative hiring platform. Powered by AI, driven by data, designed for scale.</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <a href="/pricing" className="bg-blue-600 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-blue-700 transition-colors">
+              <a href="/pricing" className="bg-indigo-600 text-white px-8 py-4 rounded-xl text-lg font-semibold hover:bg-indigo-700 transition shadow-lg">
                 Use Free Forever
               </a>
-              <button onClick={() => setIsDemoOpen((v) => !v)} aria-expanded={isDemoOpen} className="border border-gray-600 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-800 transition-colors">
+              <button onClick={() => setIsDemoOpen((v) => !v)} aria-expanded={isDemoOpen} className="border border-gray-700 px-8 py-4 rounded-xl text-lg font-semibold text-gray-300 hover:bg-gray-800 transition-colors">
                 <i className="fa-solid fa-play mr-2"></i>Watch Demo
               </button>
             </div>
@@ -530,8 +530,8 @@ const HomePage = () => {
             <h2 className="text-4xl font-bold">Start hiring smarter with AI</h2>
             <p className="text-xl text-blue-100">Recruiting shouldn't be slow. Let HirePilot automate it for you.</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <a href="/pricing" className="bg-white text-blue-600 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-100 transition-colors">Use Free Forever</a>
-              <a href="https://youtu.be/zhwZg_8ruyU" target="_blank" rel="noopener" className="border border-white text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white/10 transition-colors">Watch Demo</a>
+              <a href="/pricing" className="bg-white text-indigo-600 px-8 py-4 rounded-xl text-lg font-semibold hover:bg-gray-100 transition-shadow shadow-lg">Use Free Forever</a>
+              <a href="https://youtu.be/zhwZg_8ruyU" target="_blank" rel="noopener" className="border-2 border-white text-white px-8 py-4 rounded-xl text-lg font-semibold hover:bg-white/10 transition-colors">Watch Demo</a>
             </div>
           </div>
         </div>
