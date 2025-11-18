@@ -166,6 +166,43 @@ export default function DashboardDetail() {
     // Panel open/close and staged content reveal
     const askBtn = document.getElementById('ask-rex-btn');
     const closeBtn = document.getElementById('close-panel-btn');
+    const showScope = (text) => {
+      const scope = document.getElementById('insights-scope');
+      if (scope) { scope.textContent = `Scope: ${text}`; scope.classList.remove('hidden'); }
+    };
+    const populatePanel = (json) => {
+      const hide = (id) => { const el = document.getElementById(id); if (el) el.classList.add('hidden'); };
+      const show = (id) => { const el = document.getElementById(id); if (el) el.classList.remove('hidden'); };
+      hide('loading-state');
+      show('summary-section');
+      show('insights-section');
+      show('suggestions-section');
+      show('query-section');
+      const summaryEl = document.querySelector('#summary-section p');
+      if (summaryEl && json?.summary) summaryEl.textContent = json.summary;
+      const list = document.querySelector('#insights-section ul');
+      if (list && Array.isArray(json?.bulletInsights)) {
+        list.innerHTML = '';
+        json.bulletInsights.slice(0, 6).forEach((t) => {
+          const li = document.createElement('li');
+          li.className = 'flex items-start gap-2 text-sm text-slate-600';
+          li.innerHTML = '<i class=\"fa-solid fa-circle text-purple-400 text-xs mt-1.5\"></i><span></span>';
+          li.querySelector('span').textContent = t;
+          list.appendChild(li);
+        });
+      }
+      const sugWrap = document.querySelector('#suggestions-section .space-y-3');
+      if (sugWrap && Array.isArray(json?.suggestions)) {
+        sugWrap.innerHTML = '';
+        json.suggestions.slice(0, 3).forEach((t) => {
+          const div = document.createElement('div');
+          div.className = 'p-3 bg-slate-50 rounded-lg';
+          div.innerHTML = `<p class=\"text-sm font-semibold text-slate-900 mb-1\">Suggestion</p><p class=\"text-xs text-slate-600\"></p>`;
+          div.querySelector('p.text-xs').textContent = t;
+          sugWrap.appendChild(div);
+        });
+      }
+    };
     const onAsk = async () => {
       const panel = document.getElementById('insights-panel');
       if (!panel) return;
@@ -191,40 +228,7 @@ export default function DashboardDetail() {
           },
           body: JSON.stringify(payload)
         });
-        if (resp.ok) {
-          const json = await resp.json();
-          const hide = (id) => { const el = document.getElementById(id); if (el) el.classList.add('hidden'); };
-          const show = (id) => { const el = document.getElementById(id); if (el) el.classList.remove('hidden'); };
-          hide('loading-state');
-          show('summary-section');
-          show('insights-section');
-          show('suggestions-section');
-          show('query-section');
-          const summaryEl = document.querySelector('#summary-section p');
-          if (summaryEl && json?.summary) summaryEl.textContent = json.summary;
-          const list = document.querySelector('#insights-section ul');
-          if (list && Array.isArray(json?.bulletInsights)) {
-            list.innerHTML = '';
-            json.bulletInsights.slice(0, 6).forEach((t) => {
-              const li = document.createElement('li');
-              li.className = 'flex items-start gap-2 text-sm text-slate-600';
-              li.innerHTML = '<i class=\"fa-solid fa-circle text-purple-400 text-xs mt-1.5\"></i><span></span>';
-              li.querySelector('span').textContent = t;
-              list.appendChild(li);
-            });
-          }
-          const sugWrap = document.querySelector('#suggestions-section .space-y-3');
-          if (sugWrap && Array.isArray(json?.suggestions)) {
-            sugWrap.innerHTML = '';
-            json.suggestions.slice(0, 3).forEach((t) => {
-              const div = document.createElement('div');
-              div.className = 'p-3 bg-slate-50 rounded-lg';
-              div.innerHTML = `<p class=\"text-sm font-semibold text-slate-900 mb-1\">Suggestion</p><p class=\"text-xs text-slate-600\"></p>`;
-              div.querySelector('p.text-xs').textContent = t;
-              sugWrap.appendChild(div);
-            });
-          }
-        }
+        if (resp.ok) { const json = await resp.json(); showScope('Dashboard'); populatePanel(json); }
       } catch {}
     };
     const onClose = () => {
@@ -234,10 +238,68 @@ export default function DashboardDetail() {
     };
     askBtn?.addEventListener('click', onAsk);
     closeBtn?.addEventListener('click', onClose);
+    // Explain buttons per widget
+    const backendBase = (import.meta?.env && import.meta.env.VITE_BACKEND_URL) || '';
+    const explain = async (widgetId, title, series) => {
+      const panel = document.getElementById('insights-panel');
+      panel?.classList.remove('hidden');
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const resp = await fetch(`${backendBase}/api/analytics/insights/widget/${encodeURIComponent(widgetId)}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': session?.access_token ? `Bearer ${session.access_token}` : ''
+          },
+          body: JSON.stringify({ series })
+        });
+        if (resp.ok) { const json = await resp.json(); showScope(title); populatePanel(json); }
+      } catch {}
+    };
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep'];
+    const staticRevenue = [420000,445000,438000,465000,482000,490000,505000,518000,532000];
+    const staticExpenses = [280000,285000,290000,295000,298000,302000,305000,310000,315000];
+    const btnRevenue = document.getElementById('explain-revenue');
+    const btnFunnel = document.getElementById('explain-funnel');
+    const btnCampaign = document.getElementById('explain-campaign');
+    const btnCph = document.getElementById('explain-cph');
+    btnRevenue?.addEventListener('click', () => {
+      const series = revSeries ? [
+        { id: 'net_profit', label: 'Net Profit', values: revSeries }
+      ] : [
+        { id: 'revenue', label: 'Revenue', values: months.map((m,i)=>({ x:m, value: staticRevenue[i] })) },
+        { id: 'expenses', label: 'Expenses', values: months.map((m,i)=>({ x:m, value: staticExpenses[i] })) }
+      ];
+      explain('revenue_vs_expenses', 'Revenue vs Expenses', series);
+    });
+    btnFunnel?.addEventListener('click', () => {
+      const cats = ['Leads','Candidates','Screening','Interviews','Offers','Hires'];
+      const vals = [2450,1820,1050,420,198,142];
+      const series = [{ id:'funnel', label:'Recruiting Funnel', values: cats.map((c,i)=>({ x:c, value: vals[i] })) }];
+      explain('recruiting_funnel', 'Recruiting Funnel', series);
+    });
+    btnCampaign?.addEventListener('click', () => {
+      const cats = ['LinkedIn','Email','Referrals','Job Boards','Events'];
+      const vals = [58,42,28,10,4];
+      const series = [{ id:'campaigns', label:'Campaign Performance', values: cats.map((c,i)=>({ x:c, value: vals[i] })) }];
+      explain('campaign_performance', 'Campaign Performance', series);
+    });
+    btnCph?.addEventListener('click', () => {
+      const series = cphSeries ? [
+        { id:'cph', label:'Cost Per Hire', values: cphSeries }
+      ] : [
+        { id:'cph', label:'Cost Per Hire', values: months.map((m,i)=>({ x:m, value: [2280,2240,2195,2150,2120,2085,2055,2030,2004][i] })) }
+      ];
+      explain('cph_trend', 'Cost Per Hire Trend', series);
+    });
     return () => {
       isMounted = false;
       try { askBtn?.removeEventListener('click', onAsk); } catch {}
       try { closeBtn?.removeEventListener('click', onClose); } catch {}
+      try { btnRevenue?.removeEventListener('click', ()=>{}); } catch {}
+      try { btnFunnel?.removeEventListener('click', ()=>{}); } catch {}
+      try { btnCampaign?.removeEventListener('click', ()=>{}); } catch {}
+      try { btnCph?.removeEventListener('click', ()=>{}); } catch {}
     };
   }, []);
 
@@ -411,7 +473,7 @@ export default function DashboardDetail() {
                 <div id="chart-card-1" className="bg-white rounded-xl p-6 border border-slate-200 insight-card">
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="text-lg font-bold text-slate-900">Revenue vs Expenses</h3>
-                    <button className="text-slate-400 hover:text-slate-600 text-sm flex items-center gap-2">
+                    <button id="explain-revenue" className="text-slate-400 hover:text-slate-600 text-sm flex items-center gap-2">
                       <i className="fa-solid fa-lightbulb"></i>
                       Explain
                     </button>
@@ -421,7 +483,7 @@ export default function DashboardDetail() {
                 <div id="chart-card-2" className="bg-white rounded-xl p-6 border border-slate-200 insight-card">
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="text-lg font-bold text-slate-900">Recruiting Funnel</h3>
-                    <button className="text-slate-400 hover:text-slate-600 text-sm flex items-center gap-2">
+                    <button id="explain-funnel" className="text-slate-400 hover:text-slate-600 text-sm flex items-center gap-2">
                       <i className="fa-solid fa-lightbulb"></i>
                       Explain
                     </button>
@@ -431,7 +493,7 @@ export default function DashboardDetail() {
                 <div id="chart-card-3" className="bg-white rounded-xl p-6 border border-slate-200 insight-card">
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="text-lg font-bold text-slate-900">Campaign Performance</h3>
-                    <button className="text-slate-400 hover:text-slate-600 text-sm flex items-center gap-2">
+                    <button id="explain-campaign" className="text-slate-400 hover:text-slate-600 text-sm flex items-center gap-2">
                       <i className="fa-solid fa-lightbulb"></i>
                       Explain
                     </button>
@@ -441,7 +503,7 @@ export default function DashboardDetail() {
                 <div id="chart-card-4" className="bg-white rounded-xl p-6 border border-slate-200 insight-card">
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="text-lg font-bold text-slate-900">Cost Per Hire Trend</h3>
-                    <button className="text-slate-400 hover:text-slate-600 text-sm flex items-center gap-2">
+                    <button id="explain-cph" className="text-slate-400 hover:text-slate-600 text-sm flex items-center gap-2">
                       <i className="fa-solid fa-lightbulb"></i>
                       Explain
                     </button>
@@ -463,6 +525,7 @@ export default function DashboardDetail() {
                   <div>
                     <h3 className="text-lg font-bold text-slate-900">REX Insights</h3>
                     <p className="text-xs text-slate-500">AI-powered analysis</p>
+                      <div id="insights-scope" className="text-[11px] text-slate-500 mt-1 hidden">Scope: Dashboard</div>
                   </div>
                 </div>
                 <button id="close-panel-btn" className="text-slate-400 hover:text-slate-600">
