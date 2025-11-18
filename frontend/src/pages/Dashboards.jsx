@@ -52,23 +52,23 @@ export default function Dashboards() {
   }, []);
 
   return (
-    <div className="bg-gray-50 font-sans min-h-screen">
+    <div className="bg-gray-50 dark:bg-slate-900 font-sans min-h-screen">
       <style>{'::-webkit-scrollbar { display: none; }'}</style>
       {/* Header */}
-      <header id="header" className="bg-white border-b border-gray-200 px-6 py-4">
+      <header id="header" className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-8">
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                 <i className="fa-solid fa-chart-line text-white text-sm"></i>
               </div>
-              <span className="text-xl font-semibold text-gray-900">Analytics</span>
+              <span className="text-xl font-semibold text-gray-900 dark:text-slate-100">Analytics</span>
             </div>
             <nav className="hidden md:flex space-x-6">
-              <a href="#" className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium">Tables</a>
-              <a href="#" className="text-blue-600 bg-blue-50 px-3 py-2 rounded-lg text-sm font-medium">Dashboards</a>
-              <a href="#" className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium">Reports</a>
-              <a href="#" className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium">Settings</a>
+              <a href="#" className="text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-slate-100 px-3 py-2 text-sm font-medium">Tables</a>
+              <a href="#" className="text-blue-600 bg-blue-50 dark:text-indigo-300 dark:bg-slate-800/50 px-3 py-2 rounded-lg text-sm font-medium">Dashboards</a>
+              <a href="#" className="text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-slate-100 px-3 py-2 text-sm font-medium">Reports</a>
+              <a href="#" className="text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-slate-100 px-3 py-2 text-sm font-medium">Settings</a>
             </nav>
           </div>
           <div className="flex items-center space-x-4">
@@ -85,23 +85,23 @@ export default function Dashboards() {
         {/* Top Action Bar */}
         <div id="top-action-bar" className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Dashboards</h1>
-            <p className="text-gray-600 mt-1">Create and manage your analytics dashboards</p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">Dashboards</h1>
+            <p className="text-gray-600 dark:text-slate-300 mt-1">Create and manage your analytics dashboards</p>
           </div>
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-3">
-              <select className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              <select className="px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-800 dark:text-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                 <option>All Owners</option>
                 <option>Created by me</option>
                 <option>Shared with me</option>
               </select>
-              <select className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              <select className="px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-800 dark:text-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                 <option>All Teams</option>
                 <option>Sales Team</option>
                 <option>Marketing Team</option>
                 <option>Finance Team</option>
               </select>
-              <select className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              <select className="px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-800 dark:text-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                 <option>All Data Sources</option>
                 <option>Revenue Table</option>
                 <option>Expenses Table</option>
@@ -118,11 +118,11 @@ export default function Dashboards() {
         {/* Dashboard Grid */}
         <div id="dashboard-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Dashboard Card 1 */}
-          <div id="dashboard-card-1" className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow cursor-pointer">
+          <div id="dashboard-card-1" className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-6 hover:shadow-lg transition-shadow cursor-pointer">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Revenue Analytics</h3>
-                <p className="text-gray-600 text-sm mt-1">Monthly revenue tracking and forecasting</p>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Revenue Analytics</h3>
+                <p className="text-gray-600 dark:text-slate-300 text-sm mt-1">Monthly revenue tracking and forecasting</p>
               </div>
               <div className="flex items-center space-x-1">
                 <button className="p-1 text-gray-400 hover:text-gray-600 rounded">
@@ -150,8 +150,8 @@ export default function Dashboards() {
               </div>
             </div>
             {/* Mini Sparkline */}
-            <div className="h-12 bg-gray-50 rounded-lg" id="sparkline-1"></div>
-            <div className="flex items-center justify-between mt-4 text-sm text-gray-500">
+            <div className="h-12 bg-gray-50 dark:bg-slate-700 rounded-lg" id="sparkline-1"></div>
+            <div className="flex items-center justify-between mt-4 text-sm text-gray-500 dark:text-slate-400">
               <span>Updated 2 hours ago</span>
               <span className="flex items-center">
                 <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" alt="Creator" className="w-5 h-5 rounded-full mr-2" />
@@ -161,11 +161,11 @@ export default function Dashboards() {
           </div>
 
           {/* Dashboard Card 2 */}
-          <div id="dashboard-card-2" className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow cursor-pointer">
+          <div id="dashboard-card-2" className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-6 hover:shadow-lg transition-shadow cursor-pointer">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">HR Metrics</h3>
-                <p className="text-gray-600 text-sm mt-1">Employee hiring and retention analytics</p>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100">HR Metrics</h3>
+                <p className="text-gray-600 dark:text-slate-300 text-sm mt-1">Employee hiring and retention analytics</p>
               </div>
               <div className="flex items-center space-x-1">
                 <button className="p-1 text-gray-400 hover:text-gray-600 rounded">
@@ -188,8 +188,8 @@ export default function Dashboards() {
                 </div>
               </div>
             </div>
-            <div className="h-12 bg-gray-50 rounded-lg" id="sparkline-2"></div>
-            <div className="flex items-center justify-between mt-4 text-sm text-gray-500">
+            <div className="h-12 bg-gray-50 dark:bg-slate-700 rounded-lg" id="sparkline-2"></div>
+            <div className="flex items-center justify-between mt-4 text-sm text-gray-500 dark:text-slate-400">
               <span>Updated 5 hours ago</span>
               <span className="flex items-center">
                 <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-5.jpg" alt="Creator" className="w-5 h-5 rounded-full mr-2" />
@@ -199,11 +199,11 @@ export default function Dashboards() {
           </div>
 
           {/* Dashboard Card 3 */}
-          <div id="dashboard-card-3" className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow cursor-pointer">
+          <div id="dashboard-card-3" className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-6 hover:shadow-lg transition-shadow cursor-pointer">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Campaign Performance</h3>
-                <p className="text-gray-600 text-sm mt-1">Marketing campaign tracking and ROI</p>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Campaign Performance</h3>
+                <p className="text-gray-600 dark:text-slate-300 text-sm mt-1">Marketing campaign tracking and ROI</p>
               </div>
               <div className="flex items-center space-x-1">
                 <button className="p-1 text-gray-400 hover:text-gray-600 rounded">
@@ -226,8 +226,8 @@ export default function Dashboards() {
                 <div className="text-teal-600 text-xs mt-1">This week</div>
               </div>
             </div>
-            <div className="h-12 bg-gray-50 rounded-lg" id="sparkline-3"></div>
-            <div className="flex items-center justify-between mt-4 text-sm text-gray-500">
+            <div className="h-12 bg-gray-50 dark:bg-slate-700 rounded-lg" id="sparkline-3"></div>
+            <div className="flex items-center justify-between mt-4 text-sm text-gray-500 dark:text-slate-400">
               <span>Updated 1 hour ago</span>
               <span className="flex items-center">
                 <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-3.jpg" alt="Creator" className="w-5 h-5 rounded-full mr-2" />
@@ -237,11 +237,11 @@ export default function Dashboards() {
           </div>
 
           {/* Dashboard Card 4 */}
-          <div id="dashboard-card-4" className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow cursor-pointer">
+          <div id="dashboard-card-4" className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-6 hover:shadow-lg transition-shadow cursor-pointer">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Sales Pipeline</h3>
-                <p className="text-gray-600 text-sm mt-1">Lead tracking and sales forecasting</p>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Sales Pipeline</h3>
+                <p className="text-gray-600 dark:text-slate-300 text-sm mt-1">Lead tracking and sales forecasting</p>
               </div>
               <div className="flex items-center space-x-1">
                 <button className="p-1 text-gray-400 hover:text-gray-600 rounded">
@@ -267,8 +267,8 @@ export default function Dashboards() {
                 </div>
               </div>
             </div>
-            <div className="h-12 bg-gray-50 rounded-lg" id="sparkline-4"></div>
-            <div className="flex items-center justify-between mt-4 text-sm text-gray-500">
+            <div className="h-12 bg-gray-50 dark:bg-slate-700 rounded-lg" id="sparkline-4"></div>
+            <div className="flex items-center justify-between mt-4 text-sm text-gray-500 dark:text-slate-400">
               <span>Updated 3 hours ago</span>
               <span className="flex items-center">
                 <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-7.jpg" alt="Creator" className="w-5 h-5 rounded-full mr-2" />
@@ -278,11 +278,11 @@ export default function Dashboards() {
           </div>
 
           {/* Dashboard Card 5 */}
-          <div id="dashboard-card-5" className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow cursor-pointer">
+          <div id="dashboard-card-5" className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-6 hover:shadow-lg transition-shadow cursor-pointer">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Customer Analytics</h3>
-                <p className="text-gray-600 text-sm mt-1">Customer acquisition and retention metrics</p>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Customer Analytics</h3>
+                <p className="text-gray-600 dark:text-slate-300 text-sm mt-1">Customer acquisition and retention metrics</p>
               </div>
               <div className="flex items-center space-x-1">
                 <button className="p-1 text-gray-400 hover:text-gray-600 rounded">
@@ -308,8 +308,8 @@ export default function Dashboards() {
                 </div>
               </div>
             </div>
-            <div className="h-12 bg-gray-50 rounded-lg" id="sparkline-5"></div>
-            <div className="flex items-center justify-between mt-4 text-sm text-gray-500">
+            <div className="h-12 bg-gray-50 dark:bg-slate-700 rounded-lg" id="sparkline-5"></div>
+            <div className="flex items-center justify-between mt-4 text-sm text-gray-500 dark:text-slate-400">
               <span>Updated 4 hours ago</span>
               <span className="flex items-center">
                 <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-8.jpg" alt="Creator" className="w-5 h-5 rounded-full mr-2" />
@@ -319,11 +319,11 @@ export default function Dashboards() {
           </div>
 
           {/* Dashboard Card 6 */}
-          <div id="dashboard-card-6" className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow cursor-pointer">
+          <div id="dashboard-card-6" className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-6 hover:shadow-lg transition-shadow cursor-pointer">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Financial Overview</h3>
-                <p className="text-gray-600 text-sm mt-1">Comprehensive financial performance tracking</p>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Financial Overview</h3>
+                <p className="text-gray-600 dark:text-slate-300 text-sm mt-1">Comprehensive financial performance tracking</p>
               </div>
               <div className="flex items-center space-x-1">
                 <button className="p-1 text-gray-400 hover:text-gray-600 rounded">
@@ -349,8 +349,8 @@ export default function Dashboards() {
                 </div>
               </div>
             </div>
-            <div className="h-12 bg-gray-50 rounded-lg" id="sparkline-6"></div>
-            <div className="flex items-center justify-between mt-4 text-sm text-gray-500">
+            <div className="h-12 bg-gray-50 dark:bg-slate-700 rounded-lg" id="sparkline-6"></div>
+            <div className="flex items-center justify-between mt-4 text-sm text-gray-500 dark:text-slate-400">
               <span>Updated 6 hours ago</span>
               <span className="flex items-center">
                 <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-9.jpg" alt="Creator" className="w-5 h-5 rounded-full mr-2" />

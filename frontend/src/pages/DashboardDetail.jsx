@@ -72,6 +72,13 @@ export default function DashboardDetail() {
           }
         } catch {}
 
+        // Theme-aware chart colors
+        const isDark = document.documentElement.classList.contains('dark');
+        const axisColor = isDark ? '#e5e7eb' : '#475569';
+        const gridColor = isDark ? '#334155' : '#f1f5f9';
+        const paperBg = 'rgba(0,0,0,0)';
+        const plotBg = 'rgba(0,0,0,0)';
+
         // Revenue vs Expenses (fallback to static if no series)
         try {
           const revenueTrace = revSeries ? {
@@ -95,10 +102,10 @@ export default function DashboardDetail() {
             line: { color: '#ec4899', width: 3 }
           }], {
             margin: { t: 20, r: 20, b: 40, l: 60 },
-            plot_bgcolor: '#ffffff',
-            paper_bgcolor: '#ffffff',
-            xaxis: { title: '', showgrid: false },
-            yaxis: { title: 'Amount ($)', gridcolor: '#f1f5f9' },
+            plot_bgcolor: plotBg,
+            paper_bgcolor: paperBg,
+            xaxis: { title: '', showgrid: false, color: axisColor },
+            yaxis: { title: 'Amount ($)', gridcolor: gridColor, color: axisColor },
             showlegend: true,
             legend: { orientation: 'h', y: -0.15 }
           }, { responsive: true, displayModeBar: false, displaylogo: false });
@@ -112,8 +119,8 @@ export default function DashboardDetail() {
             marker: { color: ['#6366f1', '#7c3aed', '#8b5cf6', '#a855f7', '#c084fc', '#d8b4fe'] }
           }], {
             margin: { t: 20, r: 20, b: 40, l: 100 },
-            plot_bgcolor: '#ffffff',
-            paper_bgcolor: '#ffffff'
+            plot_bgcolor: plotBg,
+            paper_bgcolor: paperBg
           }, { responsive: true, displayModeBar: false, displaylogo: false });
         } catch {}
         // Campaign performance
@@ -125,10 +132,10 @@ export default function DashboardDetail() {
             marker: { color: ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'] }
           }], {
             margin: { t: 20, r: 20, b: 60, l: 60 },
-            plot_bgcolor: '#ffffff',
-            paper_bgcolor: '#ffffff',
-            xaxis: { title: '', showgrid: false },
-            yaxis: { title: 'Hires', gridcolor: '#f1f5f9' }
+            plot_bgcolor: plotBg,
+            paper_bgcolor: paperBg,
+            xaxis: { title: '', showgrid: false, color: axisColor },
+            yaxis: { title: 'Hires', gridcolor: gridColor, color: axisColor }
           }, { responsive: true, displayModeBar: false, displaylogo: false });
         } catch {}
         // Cost Per Hire trend (fallback)
@@ -152,10 +159,10 @@ export default function DashboardDetail() {
             fillcolor: 'rgba(16, 185, 129, 0.1)'
           }], {
             margin: { t: 20, r: 20, b: 40, l: 60 },
-            plot_bgcolor: '#ffffff',
-            paper_bgcolor: '#ffffff',
-            xaxis: { title: '', showgrid: false },
-            yaxis: { title: 'Cost ($)', gridcolor: '#f1f5f9' },
+            plot_bgcolor: plotBg,
+            paper_bgcolor: paperBg,
+            xaxis: { title: '', showgrid: false, color: axisColor },
+            yaxis: { title: 'Cost ($)', gridcolor: gridColor, color: axisColor },
             showlegend: false
           }, { responsive: true, displayModeBar: false, displaylogo: false });
         } catch {}
@@ -304,7 +311,7 @@ export default function DashboardDetail() {
   }, []);
 
   return (
-    <div className="bg-slate-50 min-h-screen">
+    <div className="bg-slate-50 dark:bg-slate-900 min-h-screen">
       <style>{`
         * { font-family: 'Inter', sans-serif; }
         ::-webkit-scrollbar { display: none; }
@@ -315,15 +322,15 @@ export default function DashboardDetail() {
       `}</style>
       <div id="main-container" className="flex h-screen overflow-hidden">
         {/* Sidebar */}
-        <aside id="sidebar" className="w-64 bg-white border-r border-slate-200 flex flex-col">
+        <aside id="sidebar" className="w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col">
           <div className="p-6 border-b border-slate-200">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 gradient-bg rounded-lg flex items-center justify-center">
                 <i className="fa-solid fa-chart-line text-white text-lg"></i>
               </div>
               <div>
-                <h1 className="text-xl font-bold text-slate-900">REX Analytics</h1>
-                <p className="text-xs text-slate-500">AI-Powered Insights</p>
+                <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">REX Analytics</h1>
+                <p className="text-xs text-slate-500 dark:text-slate-400">AI-Powered Insights</p>
               </div>
             </div>
           </div>
@@ -332,15 +339,15 @@ export default function DashboardDetail() {
               <i className="fa-solid fa-gauge-high"></i>
               <span className="font-medium">Dashboard</span>
             </a>
-            <a href="#" className="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 rounded-lg transition">
+            <a href="#" className="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition">
               <i className="fa-solid fa-table"></i>
               <span className="font-medium">Tables</span>
             </a>
-            <a href="#" className="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 rounded-lg transition">
+            <a href="#" className="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition">
               <i className="fa-solid fa-calculator"></i>
               <span className="font-medium">Formulas</span>
             </a>
-            <a href="#" className="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 rounded-lg transition">
+            <a href="#" className="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition">
               <i className="fa-solid fa-robot"></i>
               <span className="font-medium">AI Insights</span>
             </a>
@@ -349,8 +356,8 @@ export default function DashboardDetail() {
             <div className="flex items-center gap-3 px-4 py-3">
               <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" className="w-10 h-10 rounded-full" />
               <div className="flex-1">
-                <p className="text-sm font-semibold text-slate-900">Alex Chen</p>
-                <p className="text-xs text-slate-500">Admin</p>
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Alex Chen</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Admin</p>
               </div>
             </div>
           </div>
@@ -360,12 +367,12 @@ export default function DashboardDetail() {
         <main id="main-content" className="flex-1 flex overflow-hidden">
           <div id="dashboard-area" className="flex-1 overflow-y-auto">
             {/* Header */}
-            <header id="header" className="bg-white border-b border-slate-200 sticky top-0 z-10">
+            <header id="header" className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-10">
               <div className="px-8 py-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-2xl font-bold text-slate-900">Recruiting Performance</h2>
-                    <p className="text-sm text-slate-500 mt-1">Last 90 days • Updated 5 min ago</p>
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Recruiting Performance</h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Last 90 days • Updated 5 min ago</p>
                   </div>
                   <div className="flex items-center gap-3">
                     <button className="px-4 py-2 text-slate-600 hover:bg-slate-50 rounded-lg transition flex items-center gap-2">
@@ -385,7 +392,7 @@ export default function DashboardDetail() {
             <div id="kpi-section" className="p-8">
               <div className="grid grid-cols-4 gap-6">
                 {/* KPI 1 */}
-                <div id="kpi-card-1" className="bg-white rounded-xl p-6 border border-slate-200 insight-card">
+                <div id="kpi-card-1" className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 insight-card">
                   <div className="flex items-start justify-between mb-4">
                     <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
                       <i className="fa-solid fa-dollar-sign text-blue-600 text-xl"></i>
@@ -394,8 +401,8 @@ export default function DashboardDetail() {
                       <i className="fa-solid fa-ellipsis-vertical"></i>
                     </button>
                   </div>
-                  <p className="text-sm text-slate-500 font-medium">Net Profit</p>
-                  <h3 className="text-3xl font-bold text-slate-900 mt-2">$284,500</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Net Profit</p>
+                  <h3 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mt-2">$284,500</h3>
                   <div className="flex items-center gap-2 mt-3">
                     <span className="text-green-600 text-sm font-semibold flex items-center gap-1">
                       <i className="fa-solid fa-arrow-up"></i>
@@ -405,7 +412,7 @@ export default function DashboardDetail() {
                   </div>
                 </div>
                 {/* KPI 2 */}
-                <div id="kpi-card-2" className="bg-white rounded-xl p-6 border border-slate-200 insight-card">
+                <div id="kpi-card-2" className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 insight-card">
                   <div className="flex items-start justify-between mb-4">
                     <div className="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center">
                       <i className="fa-solid fa-users text-purple-600 text-xl"></i>
@@ -414,8 +421,8 @@ export default function DashboardDetail() {
                       <i className="fa-solid fa-ellipsis-vertical"></i>
                     </button>
                   </div>
-                  <p className="text-sm text-slate-500 font-medium">Total Hires</p>
-                  <h3 className="text-3xl font-bold text-slate-900 mt-2">142</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Total Hires</p>
+                  <h3 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mt-2">142</h3>
                   <div className="flex items-center gap-2 mt-3">
                     <span className="text-green-600 text-sm font-semibold flex items-center gap-1">
                       <i className="fa-solid fa-arrow-up"></i>
@@ -425,7 +432,7 @@ export default function DashboardDetail() {
                   </div>
                 </div>
                 {/* KPI 3 */}
-                <div id="kpi-card-3" className="bg-white rounded-xl p-6 border border-slate-200 insight-card">
+                <div id="kpi-card-3" className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 insight-card">
                   <div className="flex items-start justify-between mb-4">
                     <div className="w-12 h-12 bg-pink-50 rounded-lg flex items-center justify-center">
                       <i className="fa-solid fa-money-bill-trend-up text-pink-600 text-xl"></i>
@@ -434,8 +441,8 @@ export default function DashboardDetail() {
                       <i className="fa-solid fa-ellipsis-vertical"></i>
                     </button>
                   </div>
-                  <p className="text-sm text-slate-500 font-medium">Cost Per Hire</p>
-                  <h3 className="text-3xl font-bold text-slate-900 mt-2">$2,004</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Cost Per Hire</p>
+                  <h3 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mt-2">$2,004</h3>
                   <div className="flex items-center gap-2 mt-3">
                     <span className="text-red-600 text-sm font-semibold flex items-center gap-1">
                       <i className="fa-solid fa-arrow-down"></i>
@@ -445,7 +452,7 @@ export default function DashboardDetail() {
                   </div>
                 </div>
                 {/* KPI 4 */}
-                <div id="kpi-card-4" className="bg-white rounded-xl p-6 border border-slate-200 insight-card">
+                <div id="kpi-card-4" className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 insight-card">
                   <div className="flex items-start justify-between mb-4">
                     <div className="w-12 h-12 bg-amber-50 rounded-lg flex items-center justify-center">
                       <i className="fa-solid fa-chart-line text-amber-600 text-xl"></i>
@@ -454,8 +461,8 @@ export default function DashboardDetail() {
                       <i className="fa-solid fa-ellipsis-vertical"></i>
                     </button>
                   </div>
-                  <p className="text-sm text-slate-500 font-medium">Conversion Rate</p>
-                  <h3 className="text-3xl font-bold text-slate-900 mt-2">18.7%</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Conversion Rate</p>
+                  <h3 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mt-2">18.7%</h3>
                   <div className="flex items-center gap-2 mt-3">
                     <span className="text-green-600 text-sm font-semibold flex items-center gap-1">
                       <i className="fa-solid fa-arrow-up"></i>
@@ -470,7 +477,7 @@ export default function DashboardDetail() {
             {/* Charts */}
             <div id="charts-section" className="px-8 pb-8">
               <div className="grid grid-cols-2 gap-6">
-                <div id="chart-card-1" className="bg-white rounded-xl p-6 border border-slate-200 insight-card">
+                <div id="chart-card-1" className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 insight-card">
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="text-lg font-bold text-slate-900">Revenue vs Expenses</h3>
                     <button id="explain-revenue" className="text-slate-400 hover:text-slate-600 text-sm flex items-center gap-2">
@@ -480,7 +487,7 @@ export default function DashboardDetail() {
                   </div>
                   <div id="revenue-chart" style={{ height: '300px' }}></div>
                 </div>
-                <div id="chart-card-2" className="bg-white rounded-xl p-6 border border-slate-200 insight-card">
+                <div id="chart-card-2" className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 insight-card">
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="text-lg font-bold text-slate-900">Recruiting Funnel</h3>
                     <button id="explain-funnel" className="text-slate-400 hover:text-slate-600 text-sm flex items-center gap-2">
@@ -490,7 +497,7 @@ export default function DashboardDetail() {
                   </div>
                   <div id="funnel-chart" style={{ height: '300px' }}></div>
                 </div>
-                <div id="chart-card-3" className="bg-white rounded-xl p-6 border border-slate-200 insight-card">
+                <div id="chart-card-3" className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 insight-card">
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="text-lg font-bold text-slate-900">Campaign Performance</h3>
                     <button id="explain-campaign" className="text-slate-400 hover:text-slate-600 text-sm flex items-center gap-2">
@@ -500,7 +507,7 @@ export default function DashboardDetail() {
                   </div>
                   <div id="campaign-chart" style={{ height: '300px' }}></div>
                 </div>
-                <div id="chart-card-4" className="bg-white rounded-xl p-6 border border-slate-200 insight-card">
+                <div id="chart-card-4" className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 insight-card">
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="text-lg font-bold text-slate-900">Cost Per Hire Trend</h3>
                     <button id="explain-cph" className="text-slate-400 hover:text-slate-600 text-sm flex items-center gap-2">
@@ -515,8 +522,8 @@ export default function DashboardDetail() {
           </div>
 
           {/* Insights Panel */}
-          <aside id="insights-panel" className="w-96 bg-white border-l border-slate-200 overflow-y-auto hidden">
-            <div className="sticky top-0 bg-white border-b border-slate-200 p-6 z-10">
+          <aside id="insights-panel" className="w-96 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 overflow-y-auto hidden">
+            <div className="sticky top-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-6 z-10">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 gradient-bg rounded-lg flex items-center justify-center">
