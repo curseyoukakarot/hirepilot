@@ -28,6 +28,7 @@
     "@vitejs/plugin-react": "^4.4.1",
     "canvas-confetti": "^1.9.3",
     "chart.js": "^4.4.9",
+    "plotly.js-dist-min": "^2.35.3",
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.19",
     "lucide-react": "^0.509.0",
