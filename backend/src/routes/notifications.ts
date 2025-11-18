@@ -5,6 +5,9 @@ import { supabase } from '../lib/supabase';
 import { requireAuth } from '../../middleware/authMiddleware';
 import { ApiRequest } from '../../types/api';
 import fetch from 'node-fetch';
+import OpenAI from 'openai';
+import { emailQueue } from '../queues/redis';
+import { getPolicyForUser } from '../services/sales/policy';
 
 const router = express.Router();
 
@@ -142,6 +145,126 @@ router.get('/notifications/stats', requireAuth, async (req: ApiRequest, res: Res
   }
 });
 
+// Compose a tailored meeting request using thread context + Sales Agent policy
+async function composeMeetingEmail(params: {
+  userId: string;
+  campaignId?: string | null;
+  leadId?: string | null;
+  leadEmail?: string | null;
+  replyId?: string | null;
+}) {
+  const { userId, campaignId, leadId, leadEmail, replyId } = params;
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+  const policy = await getPolicyForUser(userId);
+
+  // Fetch context: last outbound + last inbound (reply)
+  let lastOutboundSubject = '';
+  let lastOutboundBody = '';
+  if (leadId) {
+    try {
+      const { data: outs } = await supabase
+        .from('messages')
+        .select('subject, content, html, created_at')
+        .eq('user_id', userId)
+        .eq('lead_id', leadId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (outs && outs[0]) {
+        lastOutboundSubject = (outs[0] as any).subject || '';
+        lastOutboundBody = (outs[0] as any).content || (outs[0] as any).html || '';
+      }
+    } catch {}
+  }
+
+  let replyBody = '';
+  let replySubject = '';
+  try {
+    if (replyId) {
+      const { data: r } = await supabase
+        .from('email_replies')
+        .select('subject, text_body, html_body')
+        .eq('id', replyId)
+        .maybeSingle();
+      if (r) {
+        replySubject = (r as any).subject || '';
+        replyBody = (r as any).text_body || (r as any).html_body || '';
+      }
+    } else if (leadId) {
+      const { data: r2 } = await supabase
+        .from('email_replies')
+        .select('subject, text_body, html_body')
+        .eq('lead_id', leadId)
+        .order('id', { ascending: false })
+        .limit(1);
+      if (r2 && r2[0]) {
+        replySubject = (r2[0] as any).subject || '';
+        replyBody = (r2[0] as any).text_body || (r2[0] as any).html_body || '';
+      }
+    }
+  } catch {}
+
+  const calendlyEvent = String(policy?.scheduling?.event_type || '').trim();
+  const calendlyUrl = calendlyEvent ? `https://calendly.com/${calendlyEvent}` : '';
+  const demoUrl = String(policy?.assets?.demo_video_url || '').trim();
+  const pricingUrl = String(policy?.assets?.pricing_url || '').trim();
+  const onePagerUrl = String(policy?.assets?.one_pager_url || '').trim();
+
+  // Guardrails: fall back to a short template if OpenAI fails
+  const fallbackSubject = lastOutboundSubject ? `Re: ${lastOutboundSubject}` : (replySubject ? `Re: ${replySubject}` : 'Quick time to connect?');
+  const fallbackBody = [
+    'Hey {{firstName}} — appreciate the reply!',
+    demoUrl ? `Here’s a quick demo: ${demoUrl}` : '',
+    pricingUrl ? `Pricing details: ${pricingUrl}` : '',
+    calendlyUrl ? `Grab a time here: ${calendlyUrl}` : 'Happy to share a quick link to grab time if helpful.',
+    '— {{yourName}}'
+  ].filter(Boolean).join('\n\n');
+
+  try {
+    const prompt = `
+You are a succinct, friendly SDR. Draft a short, clean HTML email to advance toward a meeting.
+Use the context and tailor tone/positioning. Max 120 words. Prefer plain paragraphs, no signatures or legal boilerplate.
+If the prospect proposed times, acknowledge and confirm or counter. If they asked a question, answer briefly before the CTA.
+Offer the Calendly link if appropriate. Optionally include demo/pricing links when relevant.
+
+Context:
+- Last outbound subject: ${lastOutboundSubject || '(none)'}
+- Last outbound body (may contain HTML): ${lastOutboundBody || '(none)'}
+- Prospect reply subject: ${replySubject || '(none)'}
+- Prospect reply text: ${replyBody || '(none)'}
+
+Assets:
+- Calendly: ${calendlyUrl || '(none)'}
+- Demo: ${demoUrl || '(none)'}
+- Pricing: ${pricingUrl || '(none)'}
+- One-pager: ${onePagerUrl || '(none)'}
+
+Output JSON with keys: subject, html.
+If no strong subject, set subject to "Re: ${lastOutboundSubject || replySubject || 'Quick time to connect?'}".
+`;
+    const r = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      temperature: 0.2,
+      messages: [{ role: 'user', content: prompt }]
+    });
+    const content = r.choices?.[0]?.message?.content || '';
+    let subject = fallbackSubject;
+    let html = fallbackBody.replace(/\n/g, '<br/>');
+    try {
+      const parsed = JSON.parse(content);
+      if (parsed?.subject) subject = String(parsed.subject);
+      if (parsed?.html) html = String(parsed.html);
+    } catch {
+      // If the model returned raw HTML, attempt to use it directly
+      if (content && content.includes('<')) {
+        html = content;
+      }
+    }
+    return { subject, html, calendlyUrl };
+  } catch {
+    return { subject: fallbackSubject, html: fallbackBody.replace(/\n/g, '<br/>'), calendlyUrl };
+  }
+}
+
 // Record user interaction with notifications (from in-app and Slack)
 router.post('/agent-interactions', async (req: Request, res: Response) => {
   try {
@@ -157,6 +280,43 @@ router.post('/agent-interactions', async (req: Request, res: Response) => {
 
     // Record the interaction
     const interaction = await recordInteraction(body);
+
+    // Inline handler for book_meeting: compose and send a meeting request
+    if (body.action_id === 'book_meeting') {
+      try {
+        const parts = String(body.thread_key || '').split(':'); // e.g., sourcing:campaignId:leadId
+        const campaignId = parts.length >= 3 ? parts[1] : (body.data as any)?.campaign_id || null;
+        const leadId = parts.length >= 3 ? parts[2] : (body.data as any)?.lead_id || null;
+        const replyId = (body.data as any)?.reply_id || null;
+        const leadEmail = (body.data as any)?.lead_email || (body.data as any)?.from_email || null;
+
+        const composed = await composeMeetingEmail({
+          userId: body.user_id,
+          campaignId,
+          leadId,
+          leadEmail,
+          replyId
+        });
+
+        if (!leadEmail) {
+          throw new Error('Missing recipient email for meeting request');
+        }
+
+        const headers: Record<string, string> = {};
+        if (campaignId) headers['X-Campaign-Id'] = String(campaignId);
+        if (leadId) headers['X-Lead-Id'] = String(leadId);
+
+        await emailQueue.add('send', {
+          to: leadEmail,
+          subject: composed.subject,
+          html: composed.html,
+          headers,
+          userId: body.user_id
+        }, { delay: 0 });
+      } catch (sendErr) {
+        console.warn('book_meeting handler failed:', sendErr);
+      }
+    }
 
     // Optional: Forward to REX orchestrator for follow-up wizard steps
     if (process.env.REX_WEBHOOK_URL) {

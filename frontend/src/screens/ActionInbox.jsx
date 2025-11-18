@@ -59,6 +59,10 @@ export default function ActionInbox() {
     try {
       const userId = await getCurrentUserId();
       if (!userId) throw new Error('Not authenticated');
+      const meta = card?.metadata || {};
+      const { leadId, campaignId } = resolveLeadAndCampaign(card);
+      const leadEmail =
+        String(meta.from_email || meta.lead_email || '').trim().toLowerCase() || null;
       // Prepare interaction data
       const interactionData = {
         user_id: userId,
@@ -69,7 +73,14 @@ export default function ActionInbox() {
         action_id: action.id,
         data: action.type === 'input' ? 
               { text: inputs[card.id] || '' } : 
-              data
+              {
+                ...(data || {}),
+                // Provide rich context for server-side handlers (e.g., book_meeting)
+                reply_id: meta.reply_id || null,
+                lead_id: leadId || meta.lead_id || null,
+                campaign_id: campaignId || meta.campaign_id || null,
+                lead_email: leadEmail
+              }
       };
       if (card.thread_key) {
         interactionData.thread_key = card.thread_key;
@@ -95,6 +106,13 @@ export default function ActionInbox() {
       loadStats();
 
       console.log(`✅ Interaction recorded: ${action.id} for card ${card.id}`);
+      try {
+        if (action.id === 'book_meeting') {
+          toast.success('Meeting request queued to send');
+        } else {
+          toast.success('Action recorded');
+        }
+      } catch {}
     } catch (err) {
       console.error('Error recording interaction:', err);
       setError(`Failed to process action: ${err.message}`);
