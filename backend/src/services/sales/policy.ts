@@ -62,3 +62,27 @@ export function getEffectiveAssets(policy: any){
     one_pager: a.one_pager_url || ''
   };
 }
+
+export async function getResponseStrategyForUser(userId: string){
+  // Prefer dedicated settings
+  try {
+    const { data } = await supabase
+      .from('sales_agent_settings')
+      .select('response_strategy')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (data?.response_strategy) return data.response_strategy as any;
+  } catch {}
+  // Fallback: read from policy JSON
+  try {
+    const { data } = await supabase
+      .from('sales_agent_policies')
+      .select('policy')
+      .eq('user_id', userId)
+      .maybeSingle();
+    const p = (data?.policy || {}) as any;
+    return p.response_strategy || p.reply_strategy || { tone:'professional', priority:'book', instructions:'' };
+  } catch {
+    return { tone:'professional', priority:'book', instructions:'' };
+  }
+}

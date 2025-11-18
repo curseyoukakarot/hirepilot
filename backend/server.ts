@@ -137,6 +137,7 @@ import salesPolicyRouter from './src/routes/sales/policy.routes';
 import salesInboundRouter from './src/routes/sales/inbound.routes';
 import salesOpsRouter from './src/routes/sales/ops.routes';
 import salesTestRouter from './src/routes/sales/test.routes';
+import salesStrategyRouter from './src/routes/sales/strategy.routes';
 import salesActionInboxRouter from './src/routes/sales/action_inbox.routes';
 import salesThreadRouter from './src/routes/sales/thread.routes';
 import agentAdvancedRouter from './src/routes/agentAdvanced';
@@ -670,6 +671,7 @@ app.use('/api/payouts', requireAuthFlag, payoutsRouter);
   app.use('/', salesTestRouter);
   app.use('/', salesActionInboxRouter);
   app.use('/', salesThreadRouter);
+  app.use('/', salesStrategyRouter);
   // Boot workers
   void salesInboundWorker;
   void salesSendWorker;

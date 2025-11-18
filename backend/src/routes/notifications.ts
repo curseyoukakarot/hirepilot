@@ -7,7 +7,7 @@ import { ApiRequest } from '../../types/api';
 import fetch from 'node-fetch';
 import OpenAI from 'openai';
 import { emailQueue } from '../queues/redis';
-import { getPolicyForUser } from '../services/sales/policy';
+import { getPolicyForUser, getResponseStrategyForUser } from '../services/sales/policy';
 
 const router = express.Router();
 
@@ -156,6 +156,7 @@ async function composeMeetingEmail(params: {
   const { userId, campaignId, leadId, leadEmail, replyId } = params;
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
   const policy = await getPolicyForUser(userId);
+  const strategy = await getResponseStrategyForUser(userId);
 
   // Fetch context: last outbound + last inbound (reply)
   let lastOutboundSubject = '';
@@ -220,23 +221,32 @@ async function composeMeetingEmail(params: {
   ].filter(Boolean).join('\n\n');
 
   try {
-    const prompt = `
-You are a succinct, friendly SDR. Draft a short, clean HTML email to advance toward a meeting.
-Use the context and tailor tone/positioning. Max 120 words. Prefer plain paragraphs, no signatures or legal boilerplate.
-If the prospect proposed times, acknowledge and confirm or counter. If they asked a question, answer briefly before the CTA.
-Offer the Calendly link if appropriate. Optionally include demo/pricing links when relevant.
+  const planningPayload = {
+    user_strategy: {
+      tone: strategy?.tone || policy?.reply_style?.tone || 'professional',
+      priority: strategy?.priority || 'book',
+      instructions: strategy?.instructions || ''
+    },
+    thread_context: {
+      original_outbound: { subject: lastOutboundSubject, body: lastOutboundBody },
+      latest_reply: { subject: replySubject, body: replyBody },
+      message_history: [] as any[] // reserved for future expansion
+    },
+    sales_settings: {
+      calendly: calendlyUrl,
+      demo_url: demoUrl,
+      pricing_url: pricingUrl,
+      onepager: onePagerUrl
+    }
+  };
 
-Context:
-- Last outbound subject: ${lastOutboundSubject || '(none)'}
-- Last outbound body (may contain HTML): ${lastOutboundBody || '(none)'}
-- Prospect reply subject: ${replySubject || '(none)'}
-- Prospect reply text: ${replyBody || '(none)'}
+  const prompt = `
+Using the user's response strategy, the thread context, and sales agent assets,
+draft the best possible meeting-booking reply. Keep it concise, professional, and adapt tone to strategy.
+If the prospect offered times, acknowledge. If objections exist, handle them briefly. Always include the Calendly link when available.
 
-Assets:
-- Calendly: ${calendlyUrl || '(none)'}
-- Demo: ${demoUrl || '(none)'}
-- Pricing: ${pricingUrl || '(none)'}
-- One-pager: ${onePagerUrl || '(none)'}
+GUIDANCE JSON:
+${JSON.stringify(planningPayload, null, 2)}
 
 Output JSON with keys: subject, html.
 If no strong subject, set subject to "Re: ${lastOutboundSubject || replySubject || 'Quick time to connect?'}".
@@ -306,13 +316,33 @@ router.post('/agent-interactions', async (req: Request, res: Response) => {
         if (campaignId) headers['X-Campaign-Id'] = String(campaignId);
         if (leadId) headers['X-Lead-Id'] = String(leadId);
 
-        await emailQueue.add('send', {
-          to: leadEmail,
-          subject: composed.subject,
-          html: composed.html,
-          headers,
-          userId: body.user_id
-        }, { delay: 0 });
+        // Safety: if Calendly is missing, do not auto-send. Create a draft card in Action Inbox instead.
+        const missingCalendly = !((composed as any).calendlyUrl);
+        if (missingCalendly) {
+          try {
+            await pushNotification({
+              user_id: body.user_id,
+              source: 'inapp',
+              thread_key: body.thread_key,
+              title: 'Draft meeting reply (Calendly not configured)',
+              body_md: `> Configure your Calendly event in Sales Agent Settings.\n\nSuggested email:\n\n---\n\nSubject: ${composed.subject}\n\n${composed.html.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g,'')}`,
+              type: 'meeting_draft',
+              actions: [
+                { id: 'reply_draft', type: 'button', label: '🤖 Draft with REX', style: 'primary' },
+                { id: 'free_text', type: 'input', placeholder: 'Type an instruction…' }
+              ],
+              metadata: { lead_id: leadId, campaign_id: campaignId, reason: 'missing_calendly' }
+            } as any);
+          } catch {}
+        } else {
+          await emailQueue.add('send', {
+            to: leadEmail,
+            subject: composed.subject,
+            html: composed.html,
+            headers,
+            userId: body.user_id
+          }, { delay: 0 });
+        }
       } catch (sendErr) {
         console.warn('book_meeting handler failed:', sendErr);
       }
