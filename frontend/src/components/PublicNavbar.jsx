@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom';
 const links = [
   { label: 'Meet REX', href: '/rex' },
   { label: 'Free Forever', href: '/freeforever' },
+  { label: 'Workflows', href: '/workflows' },
   { label: 'Pricing', href: '/pricing' },
 ];
 
