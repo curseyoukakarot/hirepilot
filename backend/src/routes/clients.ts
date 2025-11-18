@@ -100,8 +100,105 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       }
     }
 
+    // Compute Monthly Revenue per client
+    // Priority: paid recurring invoices (MRR) -> closed won opportunities -> projected (all except Closed Lost)
     const withCounts = (clients || []).map((c: any) => ({ ...c, contact_count: counts[c.id] || 0 }));
-    res.json(withCounts);
+    if (!ids.length) { res.json(withCounts); return; }
+
+    // Fetch related invoices and opportunities scoped to these clients
+    const [invoicesResp, oppsResp] = await Promise.all([
+      supabase
+        .from('invoices')
+        .select('client_id, amount, status, billing_type, paid_at, sent_at')
+        .in('client_id', ids),
+      supabase
+        .from('opportunities')
+        .select('client_id, value, stage, billing_type')
+        .in('client_id', ids),
+    ]);
+    const invoices = invoicesResp.data || [];
+    const opps = oppsResp.data || [];
+
+    const recurringTypes = new Set(['retainer','rpo','subscription','recurring']);
+    const isClosedWon = (s: any) => ['close won','closed won','won'].includes(String(s||'').toLowerCase());
+    const isClosedLost = (s: any) => ['closed lost','close lost','lost'].includes(String(s||'').toLowerCase());
+    const now = new Date();
+    const daysAgo = (n: number) => new Date(now.getFullYear(), now.getMonth(), now.getDate() - n);
+    const recentWindowStart = daysAgo(45);
+
+    // Build maps for fast lookup
+    const invByClient = new Map<string, any[]>();
+    for (const r of invoices) {
+      const k = String((r as any).client_id || '');
+      if (!k) continue;
+      if (!invByClient.has(k)) invByClient.set(k, []);
+      invByClient.get(k)!.push(r);
+    }
+    const oppByClient = new Map<string, any[]>();
+    for (const o of opps) {
+      const k = String((o as any).client_id || '');
+      if (!k) continue;
+      if (!oppByClient.has(k)) oppByClient.set(k, []);
+      oppByClient.get(k)!.push(o);
+    }
+
+    const computeMonthlyFromInvoices = (clientId: string): number => {
+      const rows = invByClient.get(clientId) || [];
+      // Use paid invoices of recurring types within a recent window to approximate active MRR
+      return rows.reduce((sum, r: any) => {
+        const type = String(r.billing_type || '').toLowerCase();
+        const paid = String(r.status || '').toLowerCase() === 'paid';
+        const ts = r.paid_at || r.sent_at;
+        const dt = ts ? new Date(ts) : null;
+        const recent = dt ? dt >= recentWindowStart : false;
+        if (paid && recurringTypes.has(type) && recent) {
+          return sum + (Number(r.amount) || 0);
+        }
+        return sum;
+      }, 0);
+    };
+
+    const monthlyizeOpportunity = (o: any): number => {
+      const type = String(o.billing_type || '').toLowerCase();
+      const val = Number(o.value) || 0;
+      // Treat retainers/RPO as monthly; otherwise convert annual-ish values to monthly
+      return recurringTypes.has(type) ? val : (val / 12);
+    };
+
+    const computeMonthlyFromCloseWon = (clientId: string): number => {
+      const rows = (oppByClient.get(clientId) || []).filter((o: any) => isClosedWon(o.stage));
+      return rows.reduce((s, o) => s + monthlyizeOpportunity(o), 0);
+    };
+
+    const computeMonthlyProjected = (clientId: string): number => {
+      // Include everything except Closed Lost
+      const rows = (oppByClient.get(clientId) || []).filter((o: any) => !isClosedLost(o.stage));
+      return rows.reduce((s, o) => s + monthlyizeOpportunity(o), 0);
+    };
+
+    const enriched = withCounts.map((c: any) => {
+      const id = String(c.id);
+      let monthly = 0;
+      let status = 'projected';
+
+      const fromInvoices = computeMonthlyFromInvoices(id);
+      if (fromInvoices > 0) {
+        monthly = fromInvoices;
+        status = 'active';
+      } else {
+        const fromWon = computeMonthlyFromCloseWon(id);
+        if (fromWon > 0) {
+          monthly = fromWon;
+          status = 'active';
+        } else {
+          monthly = computeMonthlyProjected(id);
+          status = monthly > 0 ? 'projected' : 'projected';
+        }
+      }
+      return { ...c, monthly_revenue: Math.round(monthly), monthly_revenue_status: status };
+    });
+
+    res.json(enriched);
   } catch (e: any) {
     res.status(500).json({ error: e.message || 'Internal server error' });
   }

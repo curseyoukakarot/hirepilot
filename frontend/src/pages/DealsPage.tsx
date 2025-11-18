@@ -836,7 +836,7 @@ export default function DealsPage() {
                   <th className="p-4 text-left">Logo</th>
                   <th className="p-4 text-left">Status</th>
                   <th className="p-4 text-left">Industry</th>
-                  <th className="p-4 text-left">Revenue</th>
+                  <th className="p-4 text-left">Monthly Revenue</th>
                   <th className="p-4 text-left">Location</th>
                   <th className="p-4 text-left">Decision Makers</th>
                   <th className="p-4 text-left">Created</th>
@@ -877,7 +877,22 @@ export default function DealsPage() {
                         </div>
                       </td>
                       <td className="p-4">{c.industry || '—'}</td>
-                      <td className="p-4">{c.revenue != null ? Number(c.revenue).toLocaleString('en-US',{style:'currency',currency:'USD'}) : '—'}</td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-2">
+                          <span>{c.monthly_revenue != null ? Number(c.monthly_revenue).toLocaleString('en-US',{style:'currency',currency:'USD'}) : '—'}</span>
+                          {c.monthly_revenue != null && (
+                            <span
+                              className={`px-2 py-0.5 text-xs rounded-full ${
+                                String(c.monthly_revenue_status||'').toLowerCase()==='active'
+                                  ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-200'
+                                  : 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-200'
+                              }`}
+                            >
+                              {String(c.monthly_revenue_status||'').toLowerCase()==='active' ? 'Active' : 'Projected'}
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="p-4">{c.location || '—'}</td>
                       <td className="p-4">{c.contact_count != null ? c.contact_count : '—'}</td>
                       <td className="p-4 text-gray-500 dark:text-gray-400">{c.created_at ? new Date(c.created_at).toLocaleDateString() : '—'}</td>
