@@ -29,7 +29,7 @@ export type ComputeFormulaArgs = {
 
 type Ref = { func: 'SUM'|'AVG'|'COUNT'|'MIN'|'MAX'; alias: string; column: string; token: string };
 
-const AGG_FUNC = /\\b(SUM|AVG|COUNT|MIN|MAX)\\s*\\(\\s*([A-Za-z_][A-Za-z0-9_]*)\\.([A-Za-z_][A-Za-z0-9_]*)\\s*\\)/g;
+const AGG_FUNC = /\b(SUM|AVG|COUNT|MIN|MAX)\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*\)/g;
 
 function parseRefs(expr: string): Ref[] {
   const refs: Ref[] = [];
@@ -87,7 +87,8 @@ function aggregate(func: Ref['func'], values: number[]): number {
 function evalArithmetic(expr: string, vars: Record<string, number>): number {
   // Tokenize
   const tokens: string[] = [];
-  const re = /\\s+|([0-9]*\\.?[0-9]+)|([A-Za-z_][A-Za-z0-9_]*)|([()+\\-*/])/g;
+  // Split into whitespace, numbers, identifiers, parentheses, or operators
+  const re = /\s+|([0-9]*\.?[0-9]+)|([A-Za-z_][A-Za-z0-9_]*)|([()])|([+\-*/])/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(expr))) {
     if (m[1]) tokens.push(m[1]);
