@@ -193,6 +193,9 @@ const PORT = process.env.PORT || 8080;
 
 // Health check route (before CORS)
 app.get('/health', (_, res) => res.json({ ok: true }));
+// Some platforms probe "/" instead of "/health"
+app.get('/', (_req, res) => res.status(200).send('ok'));
+app.head('/', (_req, res) => res.status(200).end());
 
 // Expose root-level ai-plugin.json for OpenAI Actions (duplicate of support plugin)
 app.get('/.well-known/ai-plugin.json', (_req, res) => {
