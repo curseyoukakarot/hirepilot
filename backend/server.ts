@@ -164,6 +164,7 @@ import { sniperJobsWorker } from './src/workers/sniper.jobs.worker';
 import agentTokenRoute from './src/routes/agentToken';
 import supportTools from './src/routes/support';
 import externalInvoiceRouter from './src/routes/externalInvoice';
+import dashboardsAnalyticsRouter from './src/routes/dashboards.analytics';
 import { attachApiKeyAuth } from './src/middleware/withApiKeyAuth';
 import { authenticate } from './src/middleware/authenticate';
 import formsRouter from './forms/routes';
@@ -507,6 +508,8 @@ app.use('/api/stripe', stripeIntegrationRouter);
   app.use('/api', externalInvoiceRouter);
   // Forms API
   app.use('/api/forms', formsRouter);
+  // Dashboards (analytics preview & future CRUD)
+  app.use('/api/dashboards', dashboardsAnalyticsRouter);
 // Advanced Agent Mode (Personas & Schedules)
 // NOTE: Mount AFTER public OAuth callbacks (e.g., /api/slack/callback) to avoid intercepting with auth
 // We'll attach this later in the file after Slack routes are declared.
