@@ -165,6 +165,7 @@ import agentTokenRoute from './src/routes/agentToken';
 import supportTools from './src/routes/support';
 import externalInvoiceRouter from './src/routes/externalInvoice';
 import dashboardsAnalyticsRouter from './src/routes/dashboards.analytics';
+import analyticsInsightsRouter from './src/routes/analytics.insights';
 import { attachApiKeyAuth } from './src/middleware/withApiKeyAuth';
 import { authenticate } from './src/middleware/authenticate';
 import formsRouter from './forms/routes';
@@ -510,6 +511,8 @@ app.use('/api/stripe', stripeIntegrationRouter);
   app.use('/api/forms', formsRouter);
   // Dashboards (analytics preview & future CRUD)
   app.use('/api/dashboards', dashboardsAnalyticsRouter);
+  // Analytics insights (REX layer)
+  app.use('/api/analytics', analyticsInsightsRouter);
 // Advanced Agent Mode (Personas & Schedules)
 // NOTE: Mount AFTER public OAuth callbacks (e.g., /api/slack/callback) to avoid intercepting with auth
 // We'll attach this later in the file after Slack routes are declared.

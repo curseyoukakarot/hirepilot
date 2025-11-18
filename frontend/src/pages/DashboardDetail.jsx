@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { supabase } from '../lib/supabaseClient';
 
 export default function DashboardDetail() {
   useEffect(() => {
@@ -8,9 +9,77 @@ export default function DashboardDetail() {
         const PlotlyMod = await import('plotly.js-dist-min');
         const Plotly = PlotlyMod.default || PlotlyMod;
         if (!isMounted) return;
-        // Revenue vs Expenses
+        // Try dynamic data via preview endpoint if table IDs are provided in query
+        const url = new URL(window.location.href);
+        const revenueTableId = url.searchParams.get('revenueTableId');
+        const expensesTableId = url.searchParams.get('expensesTableId');
+        const hiresTableId = url.searchParams.get('hiresTableId');
+        const backendBase = (import.meta?.env && import.meta.env.VITE_BACKEND_URL) || '';
+        let revSeries = null;
+        let cphSeries = null;
         try {
-          await Plotly.newPlot('revenue-chart', [{
+          if (backendBase && revenueTableId && expensesTableId) {
+            const { data: { session } } = await supabase.auth.getSession();
+            const resp = await fetch(`${backendBase}/api/dashboards/preview`, { method: 'HEAD' }).catch(()=>null);
+            // Compute Revenue - Expenses by month
+            const body = {
+              type: 'formulaChart',
+              formula: 'SUM(Revenue.amount) - SUM(Expenses.amount)',
+              sources: [
+                { tableId: revenueTableId, alias: 'Revenue' },
+                { tableId: expensesTableId, alias: 'Expenses' }
+              ],
+              timeBucket: 'month'
+            };
+            const r = await fetch(`${backendBase}/api/dashboards/any/widgets/any/preview`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': session?.access_token ? `Bearer ${session.access_token}` : ''
+              },
+              body: JSON.stringify(body)
+            });
+            if (r.ok) {
+              const json = await r.json();
+              revSeries = json?.points || null;
+            }
+          }
+        } catch {}
+        try {
+          if (backendBase && expensesTableId && hiresTableId) {
+            const { data: { session } } = await supabase.auth.getSession();
+            const body = {
+              type: 'formulaChart',
+              formula: 'SUM(Expenses.recruiting_cost) / COUNT(Hires.id)',
+              sources: [
+                { tableId: expensesTableId, alias: 'Expenses' },
+                { tableId: hiresTableId, alias: 'Hires' }
+              ],
+              timeBucket: 'month'
+            };
+            const r = await fetch(`${backendBase}/api/dashboards/any/widgets/any/preview`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': (await supabase.auth.getSession()).data.session?.access_token ? `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` : ''
+              },
+              body: JSON.stringify(body)
+            });
+            if (r.ok) {
+              const json = await r.json();
+              cphSeries = json?.points || null;
+            }
+          }
+        } catch {}
+
+        // Revenue vs Expenses (fallback to static if no series)
+        try {
+          const revenueTrace = revSeries ? {
+            type: 'scatter', mode: 'lines', name: 'Net Profit',
+            x: revSeries.map(p => p.x), y: revSeries.map(p => p.value),
+            line: { color: '#10b981', width: 3 }
+          } : null;
+          await Plotly.newPlot('revenue-chart', revenueTrace ? [revenueTrace] : [{
             type: 'scatter',
             mode: 'lines',
             name: 'Revenue',
@@ -62,9 +131,18 @@ export default function DashboardDetail() {
             yaxis: { title: 'Hires', gridcolor: '#f1f5f9' }
           }, { responsive: true, displayModeBar: false, displaylogo: false });
         } catch {}
-        // Cost Per Hire trend
+        // Cost Per Hire trend (fallback)
         try {
-          await Plotly.newPlot('cph-chart', [{
+          const cphTrace = cphSeries ? {
+            type: 'scatter',
+            mode: 'lines',
+            x: cphSeries.map(p => p.x),
+            y: cphSeries.map(p => p.value),
+            line: { color: '#10b981', width: 3 },
+            fill: 'tozeroy',
+            fillcolor: 'rgba(16, 185, 129, 0.1)'
+          } : null;
+          await Plotly.newPlot('cph-chart', cphTrace ? [cphTrace] : [{
             type: 'scatter',
             mode: 'lines',
             x: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep'],
@@ -88,19 +166,66 @@ export default function DashboardDetail() {
     // Panel open/close and staged content reveal
     const askBtn = document.getElementById('ask-rex-btn');
     const closeBtn = document.getElementById('close-panel-btn');
-    const onAsk = () => {
+    const onAsk = async () => {
       const panel = document.getElementById('insights-panel');
       if (!panel) return;
       panel.classList.remove('hidden');
-      setTimeout(() => {
-        const hide = (id) => { const el = document.getElementById(id); if (el) el.classList.add('hidden'); };
-        const show = (id) => { const el = document.getElementById(id); if (el) el.classList.remove('hidden'); };
-        hide('loading-state');
-        show('summary-section');
-        show('insights-section');
-        show('suggestions-section');
-        show('query-section');
-      }, 1500);
+      // Call insights endpoint to populate panel
+      try {
+        const backendBase = (import.meta?.env && import.meta.env.VITE_BACKEND_URL) || '';
+        const { data: { session } } = await supabase.auth.getSession();
+        const payload = {
+          kpis: [
+            { id: 'net_profit', label: 'Net Profit', value: 284500, format: 'currency' },
+            { id: 'total_hires', label: 'Total Hires', value: 142, format: 'number' },
+            { id: 'cph', label: 'Cost Per Hire', value: 2004, format: 'currency' },
+            { id: 'conv_rate', label: 'Conversion Rate', value: 0.187, format: 'percent' }
+          ],
+          series: []
+        };
+        const resp = await fetch(`${backendBase}/api/analytics/insights/dashboard/demo`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': session?.access_token ? `Bearer ${session.access_token}` : ''
+          },
+          body: JSON.stringify(payload)
+        });
+        if (resp.ok) {
+          const json = await resp.json();
+          const hide = (id) => { const el = document.getElementById(id); if (el) el.classList.add('hidden'); };
+          const show = (id) => { const el = document.getElementById(id); if (el) el.classList.remove('hidden'); };
+          hide('loading-state');
+          show('summary-section');
+          show('insights-section');
+          show('suggestions-section');
+          show('query-section');
+          const summaryEl = document.querySelector('#summary-section p');
+          if (summaryEl && json?.summary) summaryEl.textContent = json.summary;
+          const list = document.querySelector('#insights-section ul');
+          if (list && Array.isArray(json?.bulletInsights)) {
+            list.innerHTML = '';
+            json.bulletInsights.slice(0, 6).forEach((t) => {
+              const li = document.createElement('li');
+              li.className = 'flex items-start gap-2 text-sm text-slate-600';
+              li.innerHTML = '<i class=\"fa-solid fa-circle text-purple-400 text-xs mt-1.5\"></i><span></span>';
+              li.querySelector('span').textContent = t;
+              list.appendChild(li);
+            });
+          }
+          const sugWrap = document.querySelector('#suggestions-section .space-y-3');
+          if (sugWrap && Array.isArray(json?.suggestions)) {
+            sugWrap.innerHTML = '';
+            json.suggestions.slice(0, 3).forEach((t) => {
+              const div = document.createElement('div');
+              div.className = 'p-3 bg-slate-50 rounded-lg';
+              div.innerHTML = `<p class=\"text-sm font-semibold text-slate-900 mb-1\">Suggestion</p><p class=\"text-xs text-slate-600\"></p>`;
+              div.querySelector('p.text-xs').textContent = t;
+              sugWrap.appendChild(div);
+            });
+          }
+        }
+      } catch {}
     };
     const onClose = () => {
       const panel = document.getElementById('insights-panel');
