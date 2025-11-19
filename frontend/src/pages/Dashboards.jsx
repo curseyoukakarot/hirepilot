@@ -22,10 +22,10 @@ export default function Dashboards() {
     setIsCreateOpen(true);
     try {
       setLoadingTables(true);
-      const { data } = await supabase
-        .from('custom_tables')
-        .select('id,name')
-        .order('created_at', { ascending: false });
+      const { data: { user } } = await supabase.auth.getUser();
+      let query = supabase.from('custom_tables').select('id,name').order('updated_at', { ascending: false });
+      if (user?.id) query = query.eq('user_id', user.id);
+      const { data } = await query;
       setTables(Array.isArray(data) ? data : []);
     } catch {
       setTables([]);
