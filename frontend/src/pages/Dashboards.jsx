@@ -17,6 +17,15 @@ export default function Dashboards() {
   const [includeJobs, setIncludeJobs] = useState(false);
   const [includeDeals, setIncludeDeals] = useState(false);
   const [includeCandidates, setIncludeCandidates] = useState(false);
+  // Metric selections
+  const [revValueCol, setRevValueCol] = useState('');
+  const [revDateCol, setRevDateCol] = useState('');
+  const [expValueCol, setExpValueCol] = useState('');
+  const [expDateCol, setExpDateCol] = useState('');
+  const [hiresDateCol, setHiresDateCol] = useState('');
+  const [sideBySide, setSideBySide] = useState(true);
+  const [addFormulaSeries, setAddFormulaSeries] = useState(true);
+  const [formulaExpr, setFormulaExpr] = useState('Revenue - Expenses');
   const [tablesError, setTablesError] = useState(null);
 
   const ensureSession = async () => {
@@ -39,7 +48,7 @@ export default function Dashboards() {
       await ensureSession().catch(() => {});
       const { data, error } = await supabase
         .from('custom_tables')
-        .select('id,name')
+        .select('id,name,schema_json')
         .order('updated_at', { ascending: false });
       if (error) throw error;
       setTables(Array.isArray(data) ? data : []);
@@ -459,9 +468,53 @@ export default function Dashboards() {
                         </div>
                       </div>
                       <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div><label className="text-xs text-slate-500">Revenue Table</label><select value={revenueTableId} onChange={(e)=>setRevenueTableId(e.target.value)} className="mt-1 w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200"><option value="">Select</option>{tables.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></div>
-                        <div><label className="text-xs text-slate-500">Expenses Table</label><select value={expensesTableId} onChange={(e)=>setExpensesTableId(e.target.value)} className="mt-1 w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200"><option value="">Select</option>{tables.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></div>
-                        <div><label className="text-xs text-slate-500">Hires Table</label><select value={hiresTableId} onChange={(e)=>setHiresTableId(e.target.value)} className="mt-1 w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200"><option value="">Select</option>{tables.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></div>
+                        {/* Revenue */}
+                        <div>
+                          <label className="text-xs text-slate-500">Revenue Table</label>
+                          <select value={revenueTableId} onChange={(e)=>{ setRevenueTableId(e.target.value); setRevValueCol(''); setRevDateCol(''); }} className="mt-1 w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200"><option value="">Select</option>{tables.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
+                          {revenueTableId && (
+                            <div className="mt-2 space-y-2">
+                              <select value={revValueCol} onChange={(e)=>setRevValueCol(e.target.value)} className="w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200">
+                                <option value="">Value Column</option>
+                                {(tables.find(t=>t.id===revenueTableId)?.schema_json||[]).filter(c=>['number','money','formula'].includes(String(c.type))).map(c=><option key={c.name} value={c.name}>{c.name}</option>)}
+                              </select>
+                              <select value={revDateCol} onChange={(e)=>setRevDateCol(e.target.value)} className="w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200">
+                                <option value="">Date Column (optional)</option>
+                                {(tables.find(t=>t.id===revenueTableId)?.schema_json||[]).filter(c=>String(c.type)==='date' || /date|created/i.test(String(c.name))).map(c=><option key={c.name} value={c.name}>{c.name}</option>)}
+                              </select>
+                            </div>
+                          )}
+                        </div>
+                        {/* Expenses */}
+                        <div>
+                          <label className="text-xs text-slate-500">Expenses Table</label>
+                          <select value={expensesTableId} onChange={(e)=>{ setExpensesTableId(e.target.value); setExpValueCol(''); setExpDateCol(''); }} className="mt-1 w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200"><option value="">Select</option>{tables.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
+                          {expensesTableId && (
+                            <div className="mt-2 space-y-2">
+                              <select value={expValueCol} onChange={(e)=>setExpValueCol(e.target.value)} className="w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200">
+                                <option value="">Value Column</option>
+                                {(tables.find(t=>t.id===expensesTableId)?.schema_json||[]).filter(c=>['number','money','formula'].includes(String(c.type))).map(c=><option key={c.name} value={c.name}>{c.name}</option>)}
+                              </select>
+                              <select value={expDateCol} onChange={(e)=>setExpDateCol(e.target.value)} className="w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200">
+                                <option value="">Date Column (optional)</option>
+                                {(tables.find(t=>t.id===expensesTableId)?.schema_json||[]).filter(c=>String(c.type)==='date' || /date|created/i.test(String(c.name))).map(c=><option key={c.name} value={c.name}>{c.name}</option>)}
+                              </select>
+                            </div>
+                          )}
+                        </div>
+                        {/* Hires */}
+                        <div>
+                          <label className="text-xs text-slate-500">Hires Table</label>
+                          <select value={hiresTableId} onChange={(e)=>{ setHiresTableId(e.target.value); setHiresDateCol(''); }} className="mt-1 w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200"><option value="">Select</option>{tables.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
+                          {hiresTableId && (
+                            <div className="mt-2">
+                              <select value={hiresDateCol} onChange={(e)=>setHiresDateCol(e.target.value)} className="w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200">
+                                <option value="">Date Column (optional)</option>
+                                {(tables.find(t=>t.id===hiresTableId)?.schema_json||[]).filter(c=>String(c.type)==='date' || /date|created/i.test(String(c.name))).map(c=><option key={c.name} value={c.name}>{c.name}</option>)}
+                              </select>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4">
@@ -491,6 +544,16 @@ export default function Dashboards() {
                         <li>• Charts with multiple metrics and time buckets</li>
                         <li>• Optional REX insights for summaries and suggestions</li>
                       </ul>
+                      <div className="mt-4 space-y-2">
+                        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={sideBySide} onChange={(e)=>setSideBySide(e.target.checked)} />Show selected metrics side-by-side</label>
+                        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={addFormulaSeries} onChange={(e)=>setAddFormulaSeries(e.target.checked)} />Add formula series</label>
+                        {addFormulaSeries && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-600 dark:text-slate-400">Formula</span>
+                            <input value={formulaExpr} onChange={(e)=>setFormulaExpr(e.target.value)} placeholder="Revenue - Expenses" className="flex-1 px-2 py-1 border border-slate-300 dark:border-slate-700 rounded bg-white dark:bg-slate-800 dark:text-slate-200 text-sm" />
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -500,9 +563,33 @@ export default function Dashboards() {
                   <button className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200" onClick={()=>setIsCreateOpen(false)}>Cancel</button>
                   <button className="px-5 py-2.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700" onClick={()=>{
                     const params = new URLSearchParams();
-                    if (revenueTableId) params.set('revenueTableId', revenueTableId);
-                    if (expensesTableId) params.set('expensesTableId', expensesTableId);
-                    if (hiresTableId) params.set('hiresTableId', hiresTableId);
+                    // Sources (aliases fixed)
+                    const sources = [];
+                    if (revenueTableId) sources.push({ alias: 'Revenue', tableId: revenueTableId });
+                    if (expensesTableId) sources.push({ alias: 'Expenses', tableId: expensesTableId });
+                    if (hiresTableId) sources.push({ alias: 'Hires', tableId: hiresTableId });
+                    if (sources.length) params.set('sources', encodeURIComponent(JSON.stringify(sources)));
+                    // Metrics (side-by-side)
+                    const metrics = [];
+                    if (sideBySide) {
+                      if (revenueTableId && revValueCol) metrics.push({ alias: 'Revenue', columnId: revValueCol, agg: 'SUM', dateColumn: revDateCol || undefined });
+                      if (expensesTableId && expValueCol) metrics.push({ alias: 'Expenses', columnId: expValueCol, agg: 'SUM', dateColumn: expDateCol || undefined });
+                    }
+                    if (metrics.length) params.set('metrics', encodeURIComponent(JSON.stringify(metrics)));
+                    // Optional formula expression
+                    if (addFormulaSeries && (formulaExpr || (revValueCol && expValueCol))) {
+                      let expr = formulaExpr || '';
+                      // If plain aliases used, expand to include selected column names
+                      if (/Revenue\b/.test(expr) && revValueCol) expr = expr.replace(/Revenue\b/g, `SUM(Revenue.${revValueCol})`);
+                      if (/Expenses\b/.test(expr) && expValueCol) expr = expr.replace(/Expenses\b/g, `SUM(Expenses.${expValueCol})`);
+                      params.set('formula', expr);
+                    }
+                    // Time bucket & group hint
+                    const tb = (revDateCol || expDateCol || hiresDateCol) ? 'month' : 'none';
+                    params.set('tb', tb);
+                    const groupAlias = revDateCol ? 'Revenue' : (expDateCol ? 'Expenses' : (hiresDateCol ? 'Hires' : ''));
+                    const groupCol = revDateCol || expDateCol || hiresDateCol || '';
+                    if (groupAlias && groupCol) { params.set('groupAlias', groupAlias); params.set('groupCol', groupCol); }
                     if (timeRange) params.set('range', timeRange);
                     navigate(`/dashboards/demo?${params.toString()}`);
                   }}>Build Dashboard</button>

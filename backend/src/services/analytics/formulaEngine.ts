@@ -159,7 +159,9 @@ export async function computeFormula(args: ComputeFormulaArgs): Promise<
   for (const alias of Object.keys(aliasToRows)) {
     const bucketed: Record<string, any[]> = {};
     for (const r of aliasToRows[alias]) {
-      const key = bucketKeyFor(r, timeBucket);
+      // Allow caller to hint which date column to use for bucketing via groupBy
+      const dateHint = (groupBy && groupBy.alias === alias) ? (groupBy as any).columnId : undefined;
+      const key = bucketKeyFor(r, timeBucket, dateHint);
       (bucketed[key] = bucketed[key] || []).push(r);
       allBucketKeys.add(key);
     }

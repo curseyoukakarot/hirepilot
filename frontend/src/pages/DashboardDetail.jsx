@@ -9,68 +9,81 @@ export default function DashboardDetail() {
         const PlotlyMod = await import('plotly.js-dist-min');
         const Plotly = PlotlyMod.default || PlotlyMod;
         if (!isMounted) return;
-        // Try dynamic data via preview endpoint if table IDs are provided in query
+        // Try dynamic data via preview endpoint using modal selections
         const url = new URL(window.location.href);
-        const revenueTableId = url.searchParams.get('revenueTableId');
-        const expensesTableId = url.searchParams.get('expensesTableId');
-        const hiresTableId = url.searchParams.get('hiresTableId');
         const backendBase = (import.meta?.env && import.meta.env.VITE_BACKEND_URL) || '';
-        let revSeries = null;
-        let cphSeries = null;
-        try {
-          if (backendBase && revenueTableId && expensesTableId) {
-            const { data: { session } } = await supabase.auth.getSession();
-            const resp = await fetch(`${backendBase}/api/dashboards/preview`, { method: 'HEAD' }).catch(()=>null);
-            // Compute Revenue - Expenses by month
-            const body = {
-              type: 'formulaChart',
-              formula: 'SUM(Revenue.amount) - SUM(Expenses.amount)',
-              sources: [
-                { tableId: revenueTableId, alias: 'Revenue' },
-                { tableId: expensesTableId, alias: 'Expenses' }
-              ],
-              timeBucket: 'month'
-            };
-            const r = await fetch(`${backendBase}/api/dashboards/any/widgets/any/preview`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': session?.access_token ? `Bearer ${session.access_token}` : ''
-              },
-              body: JSON.stringify(body)
-            });
-            if (r.ok) {
-              const json = await r.json();
-              revSeries = json?.points || null;
-            }
+        const sourcesParam = url.searchParams.get('sources');
+        const metricsParam = url.searchParams.get('metrics');
+        const formulaParam = url.searchParams.get('formula');
+        const tb = url.searchParams.get('tb') || 'none';
+        const groupAlias = url.searchParams.get('groupAlias') || '';
+        const groupCol = url.searchParams.get('groupCol') || '';
+        const sources = sourcesParam ? JSON.parse(decodeURIComponent(sourcesParam)) : [];
+        const metrics = metricsParam ? JSON.parse(decodeURIComponent(metricsParam)) : [];
+        const formulaExpr = formulaParam ? decodeURIComponent(formulaParam) : '';
+        const groupBy = (groupAlias && groupCol) ? { alias: groupAlias, columnId: groupCol } : undefined;
+        // Build dynamic traces
+        const traces = [];
+        if (backendBase && sources.length) {
+          const { data: { session } } = await supabase.auth.getSession();
+          const authHeader = session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {};
+          // Side-by-side metrics (each becomes its own formula chart)
+          for (const m of (Array.isArray(metrics) ? metrics : [])) {
+            try {
+              const r = await fetch(`${backendBase}/api/dashboards/any/widgets/any/preview`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...authHeader },
+                body: JSON.stringify({
+                  type: 'formulaChart',
+                  formula: `${(m.agg || 'SUM').toUpperCase()}(${m.alias}.${m.columnId})`,
+                  sources,
+                  timeBucket: tb,
+                  groupBy
+                })
+              });
+              if (r.ok) {
+                const json = await r.json();
+                const pts = json?.points || [];
+                traces.push({
+                  type: 'scatter',
+                  mode: 'lines',
+                  name: `${m.alias} ${m.columnId}`,
+                  x: pts.map(p => p.x),
+                  y: pts.map(p => p.value),
+                  line: { width: 3 }
+                });
+              }
+            } catch {}
           }
-        } catch {}
-        try {
-          if (backendBase && expensesTableId && hiresTableId) {
-            const { data: { session } } = await supabase.auth.getSession();
-            const body = {
-              type: 'formulaChart',
-              formula: 'SUM(Expenses.recruiting_cost) / COUNT(Hires.id)',
-              sources: [
-                { tableId: expensesTableId, alias: 'Expenses' },
-                { tableId: hiresTableId, alias: 'Hires' }
-              ],
-              timeBucket: 'month'
-            };
-            const r = await fetch(`${backendBase}/api/dashboards/any/widgets/any/preview`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': (await supabase.auth.getSession()).data.session?.access_token ? `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` : ''
-              },
-              body: JSON.stringify(body)
-            });
-            if (r.ok) {
-              const json = await r.json();
-              cphSeries = json?.points || null;
-            }
+          // Optional formula series
+          if (formulaExpr) {
+            try {
+              const r = await fetch(`${backendBase}/api/dashboards/any/widgets/any/preview`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...authHeader },
+                body: JSON.stringify({
+                  type: 'formulaChart',
+                  formula: formulaExpr,
+                  sources,
+                  timeBucket: tb,
+                  groupBy
+                })
+              });
+              if (r.ok) {
+                const json = await r.json();
+                const pts = json?.points || [];
+                traces.push({
+                  type: 'scatter',
+                  mode: 'lines',
+                  name: 'Formula',
+                  x: pts.map(p => p.x),
+                  y: pts.map(p => p.value),
+                  line: { width: 3 }
+                });
+              }
+            } catch {}
           }
-        } catch {}
+        }
 
         // Theme-aware chart colors
         const isDark = document.documentElement.classList.contains('dark');
@@ -79,14 +92,9 @@ export default function DashboardDetail() {
         const paperBg = 'rgba(0,0,0,0)';
         const plotBg = 'rgba(0,0,0,0)';
 
-        // Revenue vs Expenses (fallback to static if no series)
+        // Revenue vs Expenses (dynamic if traces, otherwise fallback)
         try {
-          const revenueTrace = revSeries ? {
-            type: 'scatter', mode: 'lines', name: 'Net Profit',
-            x: revSeries.map(p => p.x), y: revSeries.map(p => p.value),
-            line: { color: '#10b981', width: 3 }
-          } : null;
-          await Plotly.newPlot('revenue-chart', revenueTrace ? [revenueTrace] : [{
+          await Plotly.newPlot('revenue-chart', traces.length ? traces : [{
             type: 'scatter',
             mode: 'lines',
             name: 'Revenue',
