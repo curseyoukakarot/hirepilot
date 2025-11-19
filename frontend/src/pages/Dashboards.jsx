@@ -1,6 +1,38 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { supabase } from '../lib/supabaseClient';
+import { useNavigate } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 
 export default function Dashboards() {
+  const navigate = useNavigate();
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [tables, setTables] = useState([]);
+  const [loadingTables, setLoadingTables] = useState(false);
+  const [revenueTableId, setRevenueTableId] = useState('');
+  const [expensesTableId, setExpensesTableId] = useState('');
+  const [hiresTableId, setHiresTableId] = useState('');
+  const [timeRange, setTimeRange] = useState('last_90_days');
+  const [includeLeads, setIncludeLeads] = useState(false);
+  const [includeCampaigns, setIncludeCampaigns] = useState(false);
+  const [includeJobs, setIncludeJobs] = useState(false);
+  const [includeDeals, setIncludeDeals] = useState(false);
+  const [includeCandidates, setIncludeCandidates] = useState(false);
+
+  const openCreate = async () => {
+    setIsCreateOpen(true);
+    try {
+      setLoadingTables(true);
+      const { data } = await supabase
+        .from('custom_tables')
+        .select('id,name')
+        .order('created_at', { ascending: false });
+      setTables(Array.isArray(data) ? data : []);
+    } catch {
+      setTables([]);
+    } finally {
+      setLoadingTables(false);
+    }
+  };
   useEffect(() => {
     let isMounted = true;
     (async () => {
@@ -115,7 +147,20 @@ export default function Dashboards() {
           </div>
         </div>
 
-        {/* Dashboard Grid */}
+        {/* Ghost CTA (no dashboards) */}
+        <div onClick={() => setIsCreateOpen(true)} className="mb-6 border-2 border-dashed border-indigo-300 dark:border-indigo-700/60 bg-gradient-to-br from-indigo-50 to-fuchsia-50 dark:from-slate-900 dark:to-slate-800 rounded-2xl p-8 cursor-pointer hover:shadow-lg transition">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">Create your first dashboard</h3>
+              <p className="text-indigo-900/70 dark:text-slate-300 mt-2">Blend data from Tables, Leads, Campaigns, Jobs, Deals, Revenue, and Candidates.</p>
+            </div>
+            <button className="px-5 py-3 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 shadow">
+              <i className="fa-solid fa-magic-wand-sparkles mr-2"></i>Create Custom
+            </button>
+          </div>
+        </div>
+        {/* Dashboard Grid (hidden until real saved dashboards) */}
+        {false && (
         <div id="dashboard-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Dashboard Card 1 */}
           <div id="dashboard-card-1" className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-6 hover:shadow-lg transition-shadow cursor-pointer">
@@ -359,7 +404,85 @@ export default function Dashboards() {
             </div>
           </div>
         </div>
+        )}
       </main>
+      {/* Create Dashboard Modal */}
+      <AnimatePresence>
+        {isCreateOpen && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={(e)=>{ if (e.target===e.currentTarget) setIsCreateOpen(false); }}>
+            <motion.div initial={{ scale: 0.97, y: 10, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.98, y: 6, opacity: 0 }} transition={{ type: 'spring', stiffness: 200, damping: 22 }} className="w-full max-w-4xl rounded-2xl overflow-hidden shadow-2xl border border-indigo-200/40 dark:border-indigo-900/40">
+              <div className="bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 text-white p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold">Create Custom Dashboard</h2>
+                    <p className="opacity-90 mt-1">Choose data sources and timeframe. We’ll assemble widgets and charts.</p>
+                  </div>
+                  <button className="text-white/90 hover:text-white" onClick={()=>setIsCreateOpen(false)}><i className="fa-solid fa-xmark text-2xl"></i></button>
+                </div>
+              </div>
+              <div className="bg-white dark:bg-slate-900 p-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="md:col-span-2 space-y-4">
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Data Sources</h3>
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-800">
+                      <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                        <div className="flex items-center gap-2"><i className="fa-solid fa-table text-indigo-200"></i><span className="font-medium">Tables</span></div>
+                        <span className="text-xs text-slate-500">{loadingTables ? 'Loading…' : `${tables.length} available`}</span>
+                      </div>
+                      <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div><label className="text-xs text-slate-500">Revenue Table</label><select value={revenueTableId} onChange={(e)=>setRevenueTableId(e.target.value)} className="mt-1 w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200"><option value="">Select</option>{tables.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></div>
+                        <div><label className="text-xs text-slate-500">Expenses Table</label><select value={expensesTableId} onChange={(e)=>setExpensesTableId(e.target.value)} className="mt-1 w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200"><option value="">Select</option>{tables.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></div>
+                        <div><label className="text-xs text-slate-500">Hires Table</label><select value={hiresTableId} onChange={(e)=>setHiresTableId(e.target.value)} className="mt-1 w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200"><option value="">Select</option>{tables.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></div>
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={includeLeads} onChange={(e)=>setIncludeLeads(e.target.checked)} />Leads</label>
+                        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={includeCampaigns} onChange={(e)=>setIncludeCampaigns(e.target.checked)} />Campaigns</label>
+                        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={includeJobs} onChange={(e)=>setIncludeJobs(e.target.checked)} />Job Reqs</label>
+                        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={includeDeals} onChange={(e)=>setIncludeDeals(e.target.checked)} />Deals & Revenue</label>
+                        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={includeCandidates} onChange={(e)=>setIncludeCandidates(e.target.checked)} />Candidates</label>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-2">We’ll auto-suggest KPIs and charts from each source. Tables can be used directly or in formulas.</p>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Time Range</h3>
+                    <select value={timeRange} onChange={(e)=>setTimeRange(e.target.value)} className="w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200">
+                      <option value="last_30_days">Last 30 Days</option>
+                      <option value="last_90_days">Last 90 Days</option>
+                      <option value="last_180_days">Last 180 Days</option>
+                      <option value="ytd">Year to Date</option>
+                      <option value="all_time">All Time</option>
+                    </select>
+                    <div className="rounded-xl bg-gradient-to-br from-indigo-50 to-fuchsia-50 dark:from-slate-800 dark:to-slate-800/50 border border-slate-200 dark:border-slate-800 p-4">
+                      <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">What you’ll get</h4>
+                      <ul className="text-sm text-slate-600 dark:text-slate-300 space-y-1">
+                        <li>• KPI cards (Net Profit, Cost per Hire, LTV, etc.)</li>
+                        <li>• Charts with multiple metrics and time buckets</li>
+                        <li>• Optional REX insights for summaries and suggestions</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white dark:bg-slate-900 px-6 pb-6">
+                <div className="flex items-center justify-end gap-3">
+                  <button className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200" onClick={()=>setIsCreateOpen(false)}>Cancel</button>
+                  <button className="px-5 py-2.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700" onClick={()=>{
+                    const params = new URLSearchParams();
+                    if (revenueTableId) params.set('revenueTableId', revenueTableId);
+                    if (expensesTableId) params.set('expensesTableId', expensesTableId);
+                    if (hiresTableId) params.set('hiresTableId', hiresTableId);
+                    if (timeRange) params.set('range', timeRange);
+                    navigate(`/dashboards/demo?${params.toString()}`);
+                  }}>Build Dashboard</button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
