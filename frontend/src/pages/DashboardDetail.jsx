@@ -11,7 +11,8 @@ export default function DashboardDetail() {
         if (!isMounted) return;
         // Try dynamic data via preview endpoint using modal selections
         const url = new URL(window.location.href);
-        const backendBase = (import.meta?.env && import.meta.env.VITE_BACKEND_URL) || '';
+        // Prefer env, but default to Railway API domain so charts call backend in prod
+        const backendBase = (import.meta?.env && import.meta.env.VITE_BACKEND_URL) || 'https://api.thehirepilot.com';
         const sourcesParam = url.searchParams.get('sources');
         const metricsParam = url.searchParams.get('metrics');
         const formulaParam = url.searchParams.get('formula');
