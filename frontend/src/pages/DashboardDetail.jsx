@@ -1,7 +1,11 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
 export default function DashboardDetail() {
+  const [kpis, setKpis] = useState([]);
+  const [showFunnel, setShowFunnel] = useState(false);
+  const [showCampaigns, setShowCampaigns] = useState(false);
+  const [showCphTrend, setShowCphTrend] = useState(false);
   useEffect(() => {
     let isMounted = true;
     (async () => {
@@ -23,6 +27,9 @@ export default function DashboardDetail() {
         const metrics = metricsParam ? JSON.parse(decodeURIComponent(metricsParam)) : [];
         const formulaExpr = formulaParam ? decodeURIComponent(formulaParam) : '';
         const groupBy = (groupAlias && groupCol) ? { alias: groupAlias, columnId: groupCol } : undefined;
+        // Optional UI flags: default hidden unless explicitly requested
+        setShowFunnel(url.searchParams.get('showFunnel') === '1');
+        setShowCampaigns(url.searchParams.get('showCampaigns') === '1');
         // Build dynamic traces
         const traces = [];
         if (backendBase && sources.length) {
@@ -84,6 +91,45 @@ export default function DashboardDetail() {
               }
             } catch {}
           }
+          // Compute KPI cards (aggregates with no time bucket)
+          const k = [];
+          for (const m of (Array.isArray(metrics) ? metrics : [])) {
+            try {
+              const r = await fetch(`${backendBase}/api/dashboards/any/widgets/any/preview`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...authHeader },
+                body: JSON.stringify({
+                  type: 'formulaMetric',
+                  formula: `${(m.agg || 'SUM').toUpperCase()}(${m.alias}.${m.columnId})`,
+                  sources,
+                  timeBucket: 'none'
+                })
+              });
+              if (r.ok) {
+                const j = await r.json();
+                k.push({ id: `${m.alias}_${m.columnId}`, label: `${m.alias} ${m.columnId}`, value: j?.value ?? 0, format: /amount|revenue|price|cost|value|total|monthly|yearly/i.test(String(m.columnId)) ? 'currency' : 'number' });
+              }
+            } catch {}
+          }
+          if (formulaExpr) {
+            try {
+              const r = await fetch(`${backendBase}/api/dashboards/any/widgets/any/preview`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...authHeader },
+                body: JSON.stringify({
+                  type: 'formulaMetric',
+                  formula: formulaExpr,
+                  sources,
+                  timeBucket: 'none'
+                })
+              });
+              if (r.ok) {
+                const j = await r.json();
+                k.unshift({ id: 'formula_metric', label: 'Formula', value: j?.value ?? 0, format: 'currency' });
+              }
+            } catch {}
+          }
+          if (isMounted) setKpis(k);
         }
 
         // Theme-aware chart colors
@@ -119,9 +165,10 @@ export default function DashboardDetail() {
             legend: { orientation: 'h', y: -0.15 }
           }, { responsive: true, displayModeBar: false, displaylogo: false });
         } catch {}
-        // Funnel
+        // Funnel (only if container exists)
         try {
-          await Plotly.newPlot('funnel-chart', [{
+          const funnelEl = document.getElementById('funnel-chart');
+          if (funnelEl) await Plotly.newPlot('funnel-chart', [{
             type: 'funnel',
             y: ['Leads', 'Candidates', 'Screening', 'Interviews', 'Offers', 'Hires'],
             x: [2450, 1820, 1050, 420, 198, 142],
@@ -132,9 +179,10 @@ export default function DashboardDetail() {
             paper_bgcolor: paperBg
           }, { responsive: true, displayModeBar: false, displaylogo: false });
         } catch {}
-        // Campaign performance
+        // Campaign performance (only if container exists)
         try {
-          await Plotly.newPlot('campaign-chart', [{
+          const campEl = document.getElementById('campaign-chart');
+          if (campEl) await Plotly.newPlot('campaign-chart', [{
             type: 'bar',
             x: ['LinkedIn', 'Email', 'Referrals', 'Job Boards', 'Events'],
             y: [58, 42, 28, 10, 4],
@@ -147,8 +195,10 @@ export default function DashboardDetail() {
             yaxis: { title: 'Hires', gridcolor: gridColor, color: axisColor }
           }, { responsive: true, displayModeBar: false, displaylogo: false });
         } catch {}
-        // Cost Per Hire trend (fallback)
+        // Cost Per Hire trend (fallback; only if container exists)
         try {
+          const cphEl = document.getElementById('cph-chart');
+          let cphSeries = null; // not computed yet in this version
           const cphTrace = cphSeries ? {
             type: 'scatter',
             mode: 'lines',
@@ -158,7 +208,7 @@ export default function DashboardDetail() {
             fill: 'tozeroy',
             fillcolor: 'rgba(16, 185, 129, 0.1)'
           } : null;
-          await Plotly.newPlot('cph-chart', cphTrace ? [cphTrace] : [{
+          if (cphEl) await Plotly.newPlot('cph-chart', cphTrace ? [cphTrace] : [{
             type: 'scatter',
             mode: 'lines',
             x: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep'],
@@ -174,6 +224,7 @@ export default function DashboardDetail() {
             yaxis: { title: 'Cost ($)', gridcolor: gridColor, color: axisColor },
             showlegend: false
           }, { responsive: true, displayModeBar: false, displaylogo: false });
+          if (isMounted) setShowCphTrend(Boolean(cphSeries && cphEl));
         } catch {}
       } catch (e) {
         console.error('Chart error:', e);
@@ -397,91 +448,33 @@ export default function DashboardDetail() {
               </div>
             </header>
 
-            {/* KPIs */}
-            <div id="kpi-section" className="p-8">
-              <div className="grid grid-cols-4 gap-6">
-                {/* KPI 1 */}
-                <div id="kpi-card-1" className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 insight-card">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
-                      <i className="fa-solid fa-dollar-sign text-blue-600 text-xl"></i>
+            {/* KPIs (dynamic – only render if provided by modal config) */}
+            {kpis.length > 0 && (
+              <div id="kpi-section" className="p-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {kpis.slice(0, 4).map((k) => (
+                    <div key={k.id} className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 insight-card">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
+                          <i className="fa-solid fa-chart-line text-blue-600 text-xl"></i>
+                        </div>
+                        <button className="text-slate-400 hover:text-slate-600">
+                          <i className="fa-solid fa-ellipsis-vertical"></i>
+                        </button>
+                      </div>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">{k.label}</p>
+                      <h3 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mt-2">
+                        {k.format === 'currency'
+                          ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(k.value || 0))
+                          : (k.format === 'percent'
+                            ? `${Math.round(Number(k.value || 0) * 100)}%`
+                            : new Intl.NumberFormat('en-US').format(Number(k.value || 0)))}
+                      </h3>
                     </div>
-                    <button className="text-slate-400 hover:text-slate-600">
-                      <i className="fa-solid fa-ellipsis-vertical"></i>
-                    </button>
-                  </div>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Net Profit</p>
-                  <h3 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mt-2">$284,500</h3>
-                  <div className="flex items-center gap-2 mt-3">
-                    <span className="text-green-600 text-sm font-semibold flex items-center gap-1">
-                      <i className="fa-solid fa-arrow-up"></i>
-                      12.3%
-                    </span>
-                    <span className="text-xs text-slate-400">vs prev period</span>
-                  </div>
-                </div>
-                {/* KPI 2 */}
-                <div id="kpi-card-2" className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 insight-card">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center">
-                      <i className="fa-solid fa-users text-purple-600 text-xl"></i>
-                    </div>
-                    <button className="text-slate-400 hover:text-slate-600">
-                      <i className="fa-solid fa-ellipsis-vertical"></i>
-                    </button>
-                  </div>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Total Hires</p>
-                  <h3 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mt-2">142</h3>
-                  <div className="flex items-center gap-2 mt-3">
-                    <span className="text-green-600 text-sm font-semibold flex items-center gap-1">
-                      <i className="fa-solid fa-arrow-up"></i>
-                      8.4%
-                    </span>
-                    <span className="text-xs text-slate-400">vs prev period</span>
-                  </div>
-                </div>
-                {/* KPI 3 */}
-                <div id="kpi-card-3" className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 insight-card">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-12 h-12 bg-pink-50 rounded-lg flex items-center justify-center">
-                      <i className="fa-solid fa-money-bill-trend-up text-pink-600 text-xl"></i>
-                    </div>
-                    <button className="text-slate-400 hover:text-slate-600">
-                      <i className="fa-solid fa-ellipsis-vertical"></i>
-                    </button>
-                  </div>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Cost Per Hire</p>
-                  <h3 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mt-2">$2,004</h3>
-                  <div className="flex items-center gap-2 mt-3">
-                    <span className="text-red-600 text-sm font-semibold flex items-center gap-1">
-                      <i className="fa-solid fa-arrow-down"></i>
-                      5.2%
-                    </span>
-                    <span className="text-xs text-slate-400">improvement</span>
-                  </div>
-                </div>
-                {/* KPI 4 */}
-                <div id="kpi-card-4" className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 insight-card">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-12 h-12 bg-amber-50 rounded-lg flex items-center justify-center">
-                      <i className="fa-solid fa-chart-line text-amber-600 text-xl"></i>
-                    </div>
-                    <button className="text-slate-400 hover:text-slate-600">
-                      <i className="fa-solid fa-ellipsis-vertical"></i>
-                    </button>
-                  </div>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Conversion Rate</p>
-                  <h3 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mt-2">18.7%</h3>
-                  <div className="flex items-center gap-2 mt-3">
-                    <span className="text-green-600 text-sm font-semibold flex items-center gap-1">
-                      <i className="fa-solid fa-arrow-up"></i>
-                      3.1%
-                    </span>
-                    <span className="text-xs text-slate-400">vs prev period</span>
-                  </div>
+                  ))}
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Charts */}
             <div id="charts-section" className="px-8 pb-8">
@@ -496,36 +489,42 @@ export default function DashboardDetail() {
                   </div>
                   <div id="revenue-chart" style={{ height: '300px' }}></div>
                 </div>
-                <div id="chart-card-2" className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 insight-card">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-bold text-slate-900">Recruiting Funnel</h3>
-                    <button id="explain-funnel" className="text-slate-400 hover:text-slate-600 text-sm flex items-center gap-2">
-                      <i className="fa-solid fa-lightbulb"></i>
-                      Explain
-                    </button>
+                {showFunnel && (
+                  <div id="chart-card-2" className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 insight-card">
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className="text-lg font-bold text-slate-900">Recruiting Funnel</h3>
+                      <button id="explain-funnel" className="text-slate-400 hover:text-slate-600 text-sm flex items-center gap-2">
+                        <i className="fa-solid fa-lightbulb"></i>
+                        Explain
+                      </button>
+                    </div>
+                    <div id="funnel-chart" style={{ height: '300px' }}></div>
                   </div>
-                  <div id="funnel-chart" style={{ height: '300px' }}></div>
-                </div>
-                <div id="chart-card-3" className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 insight-card">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-bold text-slate-900">Campaign Performance</h3>
-                    <button id="explain-campaign" className="text-slate-400 hover:text-slate-600 text-sm flex items-center gap-2">
-                      <i className="fa-solid fa-lightbulb"></i>
-                      Explain
-                    </button>
+                )}
+                {showCampaigns && (
+                  <div id="chart-card-3" className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 insight-card">
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className="text-lg font-bold text-slate-900">Campaign Performance</h3>
+                      <button id="explain-campaign" className="text-slate-400 hover:text-slate-600 text-sm flex items-center gap-2">
+                        <i className="fa-solid fa-lightbulb"></i>
+                        Explain
+                      </button>
+                    </div>
+                    <div id="campaign-chart" style={{ height: '300px' }}></div>
                   </div>
-                  <div id="campaign-chart" style={{ height: '300px' }}></div>
-                </div>
-                <div id="chart-card-4" className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 insight-card">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-bold text-slate-900">Cost Per Hire Trend</h3>
-                    <button id="explain-cph" className="text-slate-400 hover:text-slate-600 text-sm flex items-center gap-2">
-                      <i className="fa-solid fa-lightbulb"></i>
-                      Explain
-                    </button>
+                )}
+                {showCphTrend && (
+                  <div id="chart-card-4" className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 insight-card">
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className="text-lg font-bold text-slate-900">Cost Per Hire Trend</h3>
+                      <button id="explain-cph" className="text-slate-400 hover:text-slate-600 text-sm flex items-center gap-2">
+                        <i className="fa-solid fa-lightbulb"></i>
+                        Explain
+                      </button>
+                    </div>
+                    <div id="cph-chart" style={{ height: '300px' }}></div>
                   </div>
-                  <div id="cph-chart" style={{ height: '300px' }}></div>
-                </div>
+                )}
               </div>
             </div>
           </div>
