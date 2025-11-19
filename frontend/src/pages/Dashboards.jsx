@@ -17,22 +17,43 @@ export default function Dashboards() {
   const [includeJobs, setIncludeJobs] = useState(false);
   const [includeDeals, setIncludeDeals] = useState(false);
   const [includeCandidates, setIncludeCandidates] = useState(false);
+  const [tablesError, setTablesError] = useState(null);
 
-  const openCreate = async () => {
-    setIsCreateOpen(true);
+  const ensureSession = async () => {
+    const { data } = await supabase.auth.getSession();
+    if (data?.session) return data.session;
+    return new Promise((resolve) => {
+      const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
+        if (session) {
+          try { sub.subscription?.unsubscribe(); } catch {}
+          resolve(session);
+        }
+      });
+    });
+  };
+
+  const loadTables = async () => {
     try {
       setLoadingTables(true);
-      // Use RLS to fetch all tables the user has access to (owner or collaborator)
-      const { data } = await supabase
+      setTablesError(null);
+      await ensureSession().catch(() => {});
+      const { data, error } = await supabase
         .from('custom_tables')
         .select('id,name')
         .order('updated_at', { ascending: false });
+      if (error) throw error;
       setTables(Array.isArray(data) ? data : []);
-    } catch {
+    } catch (e) {
       setTables([]);
+      setTablesError(e?.message || 'Failed to load tables');
     } finally {
       setLoadingTables(false);
     }
+  };
+
+  const openCreate = async () => {
+    setIsCreateOpen(true);
+    await loadTables();
   };
   useEffect(() => {
     let isMounted = true;
@@ -141,7 +162,7 @@ export default function Dashboards() {
                 <option>Campaigns Table</option>
               </select>
             </div>
-            <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium flex items-center space-x-2">
+            <button onClick={openCreate} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium flex items-center space-x-2">
               <i className="fa-solid fa-plus"></i>
               <span>Create Dashboard</span>
             </button>
@@ -149,7 +170,7 @@ export default function Dashboards() {
         </div>
 
         {/* Ghost CTA (no dashboards) */}
-        <div onClick={() => setIsCreateOpen(true)} className="mb-6 border-2 border-dashed border-indigo-300 dark:border-indigo-700/60 bg-gradient-to-br from-indigo-50 to-fuchsia-50 dark:from-slate-900 dark:to-slate-800 rounded-2xl p-8 cursor-pointer hover:shadow-lg transition">
+        <div onClick={openCreate} className="mb-6 border-2 border-dashed border-indigo-300 dark:border-indigo-700/60 bg-gradient-to-br from-indigo-50 to-fuchsia-50 dark:from-slate-900 dark:to-slate-800 rounded-2xl p-8 cursor-pointer hover:shadow-lg transition">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">Create your first dashboard</h3>
@@ -427,8 +448,15 @@ export default function Dashboards() {
                     <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Data Sources</h3>
                     <div className="rounded-xl border border-slate-200 dark:border-slate-800">
                       <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-                        <div className="flex items-center gap-2"><i className="fa-solid fa-table text-indigo-200"></i><span className="font-medium">Tables</span></div>
-                        <span className="text-xs text-slate-500">{loadingTables ? 'Loading…' : `${tables.length} available`}</span>
+                        <div className="flex items-center gap-2">
+                          <i className="fa-solid fa-table" style={{ color: '#9CA3AF' }}></i>
+                          <span className="font-medium">Tables</span>
+                        </div>
+                        <div className="text-xs text-slate-400">
+                          {loadingTables ? 'Loading…' : `${tables.length} available`}
+                          {(!loadingTables && tables.length === 0 && !tablesError) ? <span className="ml-2">(none)</span> : null}
+                          {tablesError ? <button onClick={loadTables} className="ml-2 underline">Retry</button> : null}
+                        </div>
                       </div>
                       <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3">
                         <div><label className="text-xs text-slate-500">Revenue Table</label><select value={revenueTableId} onChange={(e)=>setRevenueTableId(e.target.value)} className="mt-1 w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200"><option value="">Select</option>{tables.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></div>
