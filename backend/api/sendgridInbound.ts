@@ -31,6 +31,21 @@ async function resolveRoutingFromAddress(toHeader: string) {
       if (!error && data) {
         return { messageId: data.message_id, userId: data.user_id, campaignId: data.campaign_id, via: 'token' as const };
       }
+      // Fallback: support gmail_reply_mappings if present
+      const { data: gm } = await supabase
+        .from('gmail_reply_mappings')
+        .select('outbound_email_id')
+        .eq('unique_reply_token', token)
+        .maybeSingle();
+      if (gm?.outbound_email_id) {
+        // Lookup user_id and campaign_id from messages
+        const { data: msgMeta } = await supabase
+          .from('messages')
+          .select('user_id,campaign_id')
+          .eq('id', gm.outbound_email_id as any)
+          .maybeSingle();
+        return { messageId: gm.outbound_email_id, userId: (msgMeta as any)?.user_id || null, campaignId: (msgMeta as any)?.campaign_id || null, via: 'gmail_map' as const };
+      }
     } catch {}
   }
   // Fallback to legacy VERP parsing

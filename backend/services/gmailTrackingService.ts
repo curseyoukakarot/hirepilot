@@ -2,6 +2,8 @@ import { google } from 'googleapis';
 import { supabase } from '../lib/supabaseClient';
 import { EmailEventService } from './emailEventService';
 import { getGoogleAccessToken } from './googleTokenHelper';
+import { generateUniqueReplyToken, buildReplyToAddress } from '../utils/generateReplyAddress';
+import { buildGmailRawMessage } from './gmailMime';
 
 export class GmailTrackingService {
   /**
@@ -23,55 +25,97 @@ export class GmailTrackingService {
   }
 
   /**
-   * Send email via Gmail API with tracking
+   * Send email via Gmail API with tracking and Reply-To override.
+   * Returns metadata needed by callers to persist message + reply token mapping.
    */
-  static async sendEmail(userId: string, to: string, subject: string, html: string, campaignId?: string, leadId?: string): Promise<string> {
-    try {
-      const accessToken = await getGoogleAccessToken(userId);
-      const oauth2client = new google.auth.OAuth2();
-      oauth2client.setCredentials({ access_token: accessToken });
-      const gmail = google.gmail({ version: 'v1', auth: oauth2client });
+  static async sendEmailWithReplyMeta(
+    userId: string,
+    to: string,
+    subject: string,
+    html: string,
+    campaignId?: string,
+    leadId?: string
+  ): Promise<{
+    trackingMessageId: string;
+    gmailMessageId?: string;
+    threadId?: string;
+    replyToken: string;
+    replyToAddress: string;
+    messageIdHeader: string;
+  }> {
+    const accessToken = await getGoogleAccessToken(userId);
+    const oauth2client = new google.auth.OAuth2();
+    oauth2client.setCredentials({ access_token: accessToken });
+    const gmail = google.gmail({ version: 'v1', auth: oauth2client });
 
-      // Generate a unique message ID
-      const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    // Tracking id used for opens and correlation
+    const trackingMessageId = `msg_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
 
-      // Add tracking pixel to HTML
-      const htmlWithTracking = this.addTrackingPixel(html, messageId);
+    // Add tracking pixel
+    const htmlWithTracking = this.addTrackingPixel(html, trackingMessageId);
 
-      // Create email message
-      const raw = Buffer.from(
-        `To: ${to}\r\n` +
-        `Subject: ${subject}\r\n` +
-        'Content-Type: text/html; charset=utf-8\r\n' +
-        '\r\n' +
-        htmlWithTracking
-      ).toString('base64url');
+    // Generate reply token/address
+    const replyToken = generateUniqueReplyToken(12);
+    const replyToAddress = buildReplyToAddress(replyToken);
 
-      // Send email
-      const response = await gmail.users.messages.send({
-        userId: 'me',
-        requestBody: { raw },
-      });
+    // We don't know "from" for the user; Gmail will use the authenticated account.
+    // Set a descriptive name-less from placeholder (Gmail ignores it and uses actual account).
+    const fromHeader = 'HirePilot Gmail Sender';
 
-      // Store sent event
-      await EmailEventService.storeEvent({
-        user_id: userId,
-        campaign_id: campaignId,
-        lead_id: leadId,
-        provider: 'gmail',
-        message_id: messageId,
-        event_type: 'sent',
-        metadata: {
-          gmail_message_id: response.data.id,
-          thread_id: response.data.threadId
-        }
-      });
+    // Build MIME and send
+    const { raw, messageIdHeader } = buildGmailRawMessage({
+      from: fromHeader,
+      to,
+      subject,
+      htmlBody: htmlWithTracking,
+      replyToOverride: replyToAddress,
+      headers: {},
+    });
 
-      return messageId;
-    } catch (error) {
-      console.error('Error sending Gmail:', error);
-      throw error;
-    }
+    const response = await gmail.users.messages.send({
+      userId: 'me',
+      requestBody: { raw },
+    });
+
+    // Store sent event
+    await EmailEventService.storeEvent({
+      user_id: userId,
+      campaign_id: campaignId,
+      lead_id: leadId,
+      provider: 'gmail',
+      message_id: trackingMessageId,
+      event_type: 'sent',
+      metadata: {
+        gmail_message_id: response.data.id,
+        thread_id: response.data.threadId,
+        message_id_header: messageIdHeader,
+        reply_to: replyToAddress,
+      },
+    });
+
+    return {
+      trackingMessageId,
+      gmailMessageId: response.data.id,
+      threadId: response.data.threadId,
+      replyToken,
+      replyToAddress,
+      messageIdHeader,
+    };
+  }
+
+  /**
+   * Backwards-compatible wrapper returning only trackingMessageId
+   */
+  static async sendEmail(
+    userId: string,
+    to: string,
+    subject: string,
+    html: string,
+    campaignId?: string,
+    leadId?: string
+  ): Promise<string> {
+    const meta = await this.sendEmailWithReplyMeta(userId, to, subject, html, campaignId, leadId);
+    return meta.trackingMessageId;
   }
 
   /**

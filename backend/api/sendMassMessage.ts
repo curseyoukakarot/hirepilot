@@ -224,15 +224,15 @@ async function sendViaGoogle(lead: any, content: string, userId: string, templat
     body = body.replace(/\n/g, '<br/>');
 
     console.log(`[sendViaGoogle] Sending email to ${lead.email} with subject: ${subject}`);
-    
-    // Use GmailTrackingService for proper tracking with campaign attribution
-    const messageId = await GmailTrackingService.sendEmail(
+
+    // Send via Gmail with reply token/meta
+    const meta = await GmailTrackingService.sendEmailWithReplyMeta(
       userId,
       lead.email,
       subject,
       body,
-      lead.campaign_id, // Fix: Pass campaign_id instead of undefined
-      lead.id    // leadId
+      lead.campaign_id,
+      lead.id
     );
 
     // Store the message in our database with UI-friendly fields
@@ -247,12 +247,14 @@ async function sendViaGoogle(lead: any, content: string, userId: string, templat
       from_address: 'you@gmail.com', // Could get actual from user profile
       subject,
       content: body,
-      message_id: messageId,
+      message_id: meta.trackingMessageId,
       provider: 'gmail',
       status: 'sent',
       sent_at: currentTime.toISOString(),
       created_at: currentTime.toISOString(),
       updated_at: currentTime.toISOString(),
+      message_id_header: meta.messageIdHeader,
+      reply_to_override: meta.replyToAddress,
       // UI-friendly fields
       sender: 'You',
       avatar: getAvatarUrl('You'),
@@ -268,7 +270,33 @@ async function sendViaGoogle(lead: any, content: string, userId: string, templat
       console.error('[sendViaGoogle] Message insert error:', insertError);
       // Don't fail the entire operation for database insert errors
     } else {
-      console.log('[sendViaGoogle] Message stored successfully with tracking ID:', messageId);
+      console.log('[sendViaGoogle] Message stored successfully with tracking ID:', meta.trackingMessageId);
+      // Store reply token mapping (primary lookup table)
+      try {
+        await supabaseDb
+          .from('reply_tokens')
+          .insert({
+            token: meta.replyToken,
+            message_id: (messageRecord as any).id,
+            user_id: userId,
+            campaign_id: lead.campaign_id || null
+          });
+      } catch (e) {
+        console.warn('[sendViaGoogle] Failed to insert reply_tokens mapping', e);
+      }
+      // Optional: also store in gmail_reply_mappings if table exists
+      try {
+        await supabaseDb
+          .from('gmail_reply_mappings')
+          .insert({
+            outbound_email_id: (messageRecord as any).id,
+            gmail_message_id: meta.gmailMessageId || null,
+            unique_reply_token: meta.replyToken,
+            reply_to_address: meta.replyToAddress
+          });
+      } catch {
+        // table may not exist in all deployments; ignore
+      }
     }
 
     console.log(`[sendViaGoogle] Successfully sent to ${lead.email}`);
