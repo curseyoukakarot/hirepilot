@@ -101,10 +101,21 @@ Suggested Action: ${data.nextAction}
 
 View reply: ${process.env.FRONTEND_BASE_URL}/admin/sourcing/campaigns/${data.campaignId}/replies/${data.replyId}`;
     
-    // Send Slack notification if enabled
-    if (settings.campaign_updates && settings.slack_webhook_url) {
+    // Send Slack notification if enabled (supports slack_notifications OR campaign_updates)
+    const slackAllowed = Boolean(settings.slack_notifications ?? settings.campaign_updates);
+    const slackWebhook = settings.slack_webhook_url || process.env.SLACK_WEBHOOK_URL;
+    console.log('[sourcingNotifications] Slack gating', {
+      userId,
+      slack_notifications: Boolean(settings.slack_notifications),
+      campaign_updates: Boolean(settings.campaign_updates),
+      slackAllowed,
+      hasUserWebhook: Boolean(settings.slack_webhook_url),
+      hasGlobalWebhook: Boolean(process.env.SLACK_WEBHOOK_URL),
+      usingWebhook: Boolean(slackWebhook)
+    });
+    if (slackAllowed && slackWebhook) {
       try {
-        await axios.post(settings.slack_webhook_url, { 
+        await axios.post(slackWebhook, { 
           text: slackMessage,
           blocks: [
             {
