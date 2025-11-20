@@ -645,127 +645,149 @@ export default function Dashboard() {
             </div>
   );
 
+  // Render a single widget card by name, with a generic fallback to ensure
+  // any widget saved from Analytics is visible on the Dashboard.
+  const renderWidget = (name) => {
+    switch (name) {
+      case 'Reply Rate Chart':
+        return (
+          <div key={name} className="bg-white dark:bg-gray-900/60 dark:border dark:border-white/10 rounded-2xl shadow-md dark:shadow-none p-6 relative">
+            {headerWithMenu('Reply Rate Chart','Reply Rate Chart')}
+            <div className="h-40"><canvas id="dash-reply-rate"></canvas></div>
+            <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+              <select className="border rounded-md p-2 text-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700" value={replyRange} onChange={(e)=>setReplyRange(e.target.value)}>
+                <option value="6m">Last 6 Months</option>
+                <option value="90d">Last 90 Days</option>
+              </select>
+              <button className="bg-purple-600 text-white px-3 py-2 rounded-md text-sm">Export</button>
+            </div>
+          </div>
+        );
+      case 'Open Rate Widget':
+        return (
+          <div key={name} className="bg-white dark:bg-gray-900/60 dark:border dark:border-white/10 rounded-2xl shadow-md dark:shadow-none p-6 relative">
+            {headerWithMenu('Open Rate','Open Rate Widget', `provider=${encodeURIComponent(openProvider)}&time_range=${encodeURIComponent(openRange)}`)}
+            <div className="text-4xl font-bold text-purple-700 dark:text-purple-300">{(openRateDisplay ?? (metrics?.sent ? Math.round((metrics.opens/Math.max(1,metrics.sent))*1000)/10 : 0)).toString()}%</div>
+            <div className="text-green-600 text-sm mt-1">↑ +2.3% vs last week</div>
+            <div className="h-24 mt-3"><canvas id="dash-open-rate"></canvas></div>
+            <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+              <select className="border rounded-md p-2 text-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700" value={openProvider} onChange={(e)=>setOpenProvider(e.target.value)}>
+                <option value="all">All Providers</option>
+                <option value="google">Google</option>
+                <option value="outlook">Outlook</option>
+                <option value="sendgrid">SendGrid</option>
+              </select>
+              <select className="border rounded-md p-2 text-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700" value={openRange} onChange={(e)=>setOpenRange(e.target.value)}>
+                <option value="30d">Last 30 Days</option>
+                <option value="90d">Last 90 Days</option>
+                <option value="6m">Last 6 Months</option>
+              </select>
+            </div>
+          </div>
+        );
+      case 'Engagement Breakdown':
+        return (
+          <div key={name} className="bg-white dark:bg-gray-900/60 dark:border dark:border-white/10 rounded-2xl shadow-md dark:shadow-none p-6 relative">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Engagement Breakdown</h3>
+              <div className="flex items-center gap-2">
+                <select value={engageCampaignId} onChange={(e)=>setEngageCampaignId(e.target.value)} className="border rounded-md p-2 text-sm dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700">
+                  <option value="all">All Campaigns</option>
+                  {Array.isArray(campaigns) && campaigns.map((c)=> (
+                    <option key={c.id} value={c.id}>{c.name || c.title}</option>
+                  ))}
+                </select>
+                <button className="text-gray-400 hover:text-gray-600" onClick={(e)=>{e.stopPropagation(); setMenuOpenFor(menuOpenFor==='Engagement Breakdown'? null : 'Engagement Breakdown');}}>⚙️</button>
+                {menuOpenFor==='Engagement Breakdown' && (
+                  <div className="absolute right-0 top-10 z-20 w-64 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg shadow">
+                    <button className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={()=>{ const extra = (engageCampaignId && engageCampaignId!=='all') ? `&campaign_id=${encodeURIComponent(engageCampaignId)}` : ''; setMenuOpenFor(null); navigate(`/analytics?tab=${encodeURIComponent(WIDGET_TAB['Engagement Breakdown'])}&open=${encodeURIComponent('Engagement Breakdown')}${extra}`); }}>View details</button>
+                    <button className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={()=>{ const extra = (engageCampaignId && engageCampaignId!=='all') ? `&campaign_id=${encodeURIComponent(engageCampaignId)}` : ''; setMenuOpenFor(null); navigate(`/analytics?tab=${encodeURIComponent(WIDGET_TAB['Engagement Breakdown'])}&open=${encodeURIComponent('Engagement Breakdown')}&edit=1${extra}`); }}>Edit</button>
+                    <button className="w-full text-left px-3 py-2 text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={()=>{ removeWidget('Engagement Breakdown'); }}>Remove from dashboard</button>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4 items-center">
+              <div className="h-40">
+                <canvas id="dash-engagement"></canvas>
+              </div>
+              <div className="space-y-3 text-sm">
+                {(() => {
+                  const rows = engagement || [];
+                  const colorMap = { open: 'text-indigo-500', reply: 'text-emerald-500', bounce: 'text-amber-500', click: 'text-violet-500' };
+                  const labelMap = { open: 'Opens', reply: 'Replies', bounce: 'Bounces', click: 'Clicks' };
+                  return ['open','reply','bounce','click'].map((key) => {
+                    const row = rows.find((r) => r.metric === key) || { pct: 0 };
+                    const pct = `${Math.round(Number((row).pct || 0) * 10) / 10}%`;
+                    return (
+                      <div key={key} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-block w-2.5 h-2.5 rounded-full ${colorMap[key]} bg-current`}></span>
+                          <span className={`font-medium ${colorMap[key]}`}>{labelMap[key]}</span>
+                        </div>
+                        <span className="font-semibold">{pct}</span>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+          </div>
+        );
+      case 'Deal Pipeline':
+        return (
+          <div key={name} className="bg-white dark:bg-gray-900/60 dark:border dark:border-white/10 rounded-2xl shadow-md dark:shadow-none p-6 relative">
+            {headerWithMenu('Deal Pipeline','Deal Pipeline')}
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="p-3 rounded-lg bg-violet-50 dark:bg-violet-950/40 border dark:border-violet-900/50">
+                <div className="text-gray-600 dark:text-gray-300">Pipeline</div>
+                <div className="text-lg font-semibold">${Number(dealPipeline?.pipelineValue||0).toLocaleString()}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">{Number(dealPipeline?.pipelineDeals||0)} deals</div>
+              </div>
+              <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-950/40 border dark:border-purple-900/50">
+                <div className="text-gray-600 dark:text-gray-300">Best Case</div>
+                <div className="text-lg font-semibold">${Number(dealPipeline?.bestCaseValue||0).toLocaleString()}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">{Number(dealPipeline?.bestCaseDeals||0)} deals</div>
+              </div>
+              <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border dark:border-amber-900/40">
+                <div className="text-gray-600 dark:text-gray-300">Commit</div>
+                <div className="text-lg font-semibold">${Number(dealPipeline?.commitValue||0).toLocaleString()}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">{Number(dealPipeline?.commitDeals||0)} deals</div>
+              </div>
+              <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border dark:border-emerald-900/40">
+                <div className="text-gray-600 dark:text-gray-300">Close Won</div>
+                <div className="text-lg font-semibold">${Number(dealPipeline?.closedWonValue||0).toLocaleString()}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">{Number(dealPipeline?.closedWonDeals||0)} deals</div>
+              </div>
+            </div>
+          </div>
+        );
+      case 'Revenue Forecast':
+        return (
+          <div key={name} className="bg-white dark:bg-gray-900/60 dark:border dark:border-white/10 rounded-2xl shadow-md dark:shadow-none p-6 relative">
+            {headerWithMenu('Revenue Forecast','Revenue Forecast')}
+            <div className="h-56"><canvas id="dash-revenue"></canvas></div>
+            <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+              <select className="border rounded-md p-2 text-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700"><option>All Clients</option></select>
+              <div className="flex items-center gap-4 text-gray-600 dark:text-gray-300"><label className="flex items-center gap-2 text-sm"><input type="radio" defaultChecked /> Quarter</label><label className="flex items-center gap-2 text-sm"><input type="radio" /> Year</label></div>
+            </div>
+          </div>
+        );
+      default:
+        return (
+          <div key={name} className="bg-white dark:bg-gray-900/60 dark:border dark:border-white/10 rounded-2xl shadow-md dark:shadow-none p-6 relative">
+            {headerWithMenu(name, name)}
+            <div className="text-sm text-gray-600 dark:text-gray-300">
+              This widget is available in Analytics. Click the menu to view or edit.
+            </div>
+          </div>
+        );
+    }
+  };
+
   const renderCustom = () => (
     <>
-      {customWidgets.includes('Reply Rate Chart') && (
-        <div className="bg-white dark:bg-gray-900/60 dark:border dark:border-white/10 rounded-2xl shadow-md dark:shadow-none p-6 relative">
-          {headerWithMenu('Reply Rate Chart','Reply Rate Chart')}
-          <div className="h-40"><canvas id="dash-reply-rate"></canvas></div>
-          <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-            <select className="border rounded-md p-2 text-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700" value={replyRange} onChange={(e)=>setReplyRange(e.target.value)}>
-              <option value="6m">Last 6 Months</option>
-              <option value="90d">Last 90 Days</option>
-            </select>
-            <button className="bg-purple-600 text-white px-3 py-2 rounded-md text-sm">Export</button>
-              </div>
-            </div>
-      )}
-      {customWidgets.includes('Open Rate Widget') && (
-        <div className="bg-white dark:bg-gray-900/60 dark:border dark:border-white/10 rounded-2xl shadow-md dark:shadow-none p-6 relative">
-          {headerWithMenu('Open Rate','Open Rate Widget', `provider=${encodeURIComponent(openProvider)}&time_range=${encodeURIComponent(openRange)}`)}
-          <div className="text-4xl font-bold text-purple-700 dark:text-purple-300">{(openRateDisplay ?? (metrics?.sent ? Math.round((metrics.opens/Math.max(1,metrics.sent))*1000)/10 : 0)).toString()}%</div>
-          <div className="text-green-600 text-sm mt-1">↑ +2.3% vs last week</div>
-          <div className="h-24 mt-3"><canvas id="dash-open-rate"></canvas></div>
-          <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-            <select className="border rounded-md p-2 text-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700" value={openProvider} onChange={(e)=>setOpenProvider(e.target.value)}>
-              <option value="all">All Providers</option>
-              <option value="google">Google</option>
-              <option value="outlook">Outlook</option>
-              <option value="sendgrid">SendGrid</option>
-            </select>
-            <select className="border rounded-md p-2 text-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700" value={openRange} onChange={(e)=>setOpenRange(e.target.value)}>
-              <option value="30d">Last 30 Days</option>
-              <option value="90d">Last 90 Days</option>
-              <option value="6m">Last 6 Months</option>
-            </select>
-          </div>
-            </div>
-      )}
-      {customWidgets.includes('Engagement Breakdown') && (
-        <div className="bg-white dark:bg-gray-900/60 dark:border dark:border-white/10 rounded-2xl shadow-md dark:shadow-none p-6 relative">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold">Engagement Breakdown</h3>
-            <div className="flex items-center gap-2">
-              <select value={engageCampaignId} onChange={(e)=>setEngageCampaignId(e.target.value)} className="border rounded-md p-2 text-sm dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700">
-                <option value="all">All Campaigns</option>
-                {Array.isArray(campaigns) && campaigns.map((c)=> (
-                  <option key={c.id} value={c.id}>{c.name || c.title}</option>
-                ))}
-              </select>
-              <button className="text-gray-400 hover:text-gray-600" onClick={(e)=>{e.stopPropagation(); setMenuOpenFor(menuOpenFor==='Engagement Breakdown'? null : 'Engagement Breakdown');}}>⚙️</button>
-              {menuOpenFor==='Engagement Breakdown' && (
-                <div className="absolute right-0 top-10 z-20 w-64 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg shadow">
-                  <button className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={()=>{ const extra = (engageCampaignId && engageCampaignId!=='all') ? `&campaign_id=${encodeURIComponent(engageCampaignId)}` : ''; setMenuOpenFor(null); navigate(`/analytics?tab=${encodeURIComponent(WIDGET_TAB['Engagement Breakdown'])}&open=${encodeURIComponent('Engagement Breakdown')}${extra}`); }}>View details</button>
-                  <button className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={()=>{ const extra = (engageCampaignId && engageCampaignId!=='all') ? `&campaign_id=${encodeURIComponent(engageCampaignId)}` : ''; setMenuOpenFor(null); navigate(`/analytics?tab=${encodeURIComponent(WIDGET_TAB['Engagement Breakdown'])}&open=${encodeURIComponent('Engagement Breakdown')}&edit=1${extra}`); }}>Edit</button>
-                  <button className="w-full text-left px-3 py-2 text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={()=>{ removeWidget('Engagement Breakdown'); }}>Remove from dashboard</button>
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4 items-center">
-            <div className="h-40">
-              <canvas id="dash-engagement"></canvas>
-            </div>
-            <div className="space-y-3 text-sm">
-              {(() => {
-                const rows = engagement || [];
-                const colorMap = { open: 'text-indigo-500', reply: 'text-emerald-500', bounce: 'text-amber-500', click: 'text-violet-500' };
-                const labelMap = { open: 'Opens', reply: 'Replies', bounce: 'Bounces', click: 'Clicks' };
-                return ['open','reply','bounce','click'].map((key) => {
-                  const row = rows.find((r) => r.metric === key) || { pct: 0 };
-                  const pct = `${Math.round(Number((row).pct || 0) * 10) / 10}%`;
-                  return (
-                    <div key={key} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className={`inline-block w-2.5 h-2.5 rounded-full ${colorMap[key]} bg-current`}></span>
-                        <span className={`font-medium ${colorMap[key]}`}>{labelMap[key]}</span>
-                      </div>
-                      <span className="font-semibold">{pct}</span>
-                    </div>
-                  );
-                });
-              })()}
-            </div>
-          </div>
-        </div>
-      )}
-      {customWidgets.includes('Deal Pipeline') && (
-        <div className="bg-white dark:bg-gray-900/60 dark:border dark:border-white/10 rounded-2xl shadow-md dark:shadow-none p-6 relative">
-          {headerWithMenu('Deal Pipeline','Deal Pipeline')}
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div className="p-3 rounded-lg bg-violet-50 dark:bg-violet-950/40 border dark:border-violet-900/50">
-              <div className="text-gray-600 dark:text-gray-300">Pipeline</div>
-              <div className="text-lg font-semibold">${Number(dealPipeline?.pipelineValue||0).toLocaleString()}</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">{Number(dealPipeline?.pipelineDeals||0)} deals</div>
-            </div>
-            <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-950/40 border dark:border-purple-900/50">
-              <div className="text-gray-600 dark:text-gray-300">Best Case</div>
-              <div className="text-lg font-semibold">${Number(dealPipeline?.bestCaseValue||0).toLocaleString()}</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">{Number(dealPipeline?.bestCaseDeals||0)} deals</div>
-            </div>
-            <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border dark:border-amber-900/40">
-              <div className="text-gray-600 dark:text-gray-300">Commit</div>
-              <div className="text-lg font-semibold">${Number(dealPipeline?.commitValue||0).toLocaleString()}</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">{Number(dealPipeline?.commitDeals||0)} deals</div>
-            </div>
-            <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border dark:border-emerald-900/40">
-              <div className="text-gray-600 dark:text-gray-300">Close Won</div>
-              <div className="text-lg font-semibold">${Number(dealPipeline?.closedWonValue||0).toLocaleString()}</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">{Number(dealPipeline?.closedWonDeals||0)} deals</div>
-            </div>
-          </div>
-        </div>
-      )}
-      {customWidgets.includes('Revenue Forecast') && (
-        <div className="bg-white dark:bg-gray-900/60 dark:border dark:border-white/10 rounded-2xl shadow-md dark:shadow-none p-6 relative">
-          {headerWithMenu('Revenue Forecast','Revenue Forecast')}
-          <div className="h-56"><canvas id="dash-revenue"></canvas></div>
-          <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-            <select className="border rounded-md p-2 text-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700"><option>All Clients</option></select>
-            <div className="flex items-center gap-4 text-gray-600 dark:text-gray-300"><label className="flex items-center gap-2 text-sm"><input type="radio" defaultChecked /> Quarter</label><label className="flex items-center gap-2 text-sm"><input type="radio" /> Year</label></div>
-              </div>
-                  </div>
-      )}
+      {Array.isArray(customWidgets) && customWidgets.slice(0,6).map((w) => renderWidget(w))}
     </>
   );
 
