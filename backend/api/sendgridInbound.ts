@@ -247,14 +247,14 @@ async function forwardReply({
 }) {
   try {
     if (recipients.length === 0) {
-      console.log('[forwardReply] No recipients, skipping forward');
+      console.log('[forwardReply] No recipients, skipping forward', { userId, messageId });
       return;
     }
 
     // Configure SendGrid with system API key
     const systemApiKey = process.env.SENDGRID_API_KEY;
     if (!systemApiKey) {
-      console.error('[forwardReply] SENDGRID_API_KEY not configured');
+      console.error('[forwardReply] SENDGRID_API_KEY not configured; cannot forward reply email', { userId, messageId });
       return;
     }
     sgMail.setApiKey(systemApiKey);
@@ -308,7 +308,7 @@ async function forwardReply({
       }));
     }
 
-    console.log(`[forwardReply] Forwarding to ${recipients.length} recipients:`, recipients);
+    console.log(`[forwardReply] Forwarding to ${recipients.length} recipients`, { recipients, userId, messageId, campaignId });
     const [response] = await sgMail.send(msg);
     console.log(`[forwardReply] Successfully forwarded reply, message ID:`, response.headers['x-message-id']);
     
@@ -528,7 +528,13 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
           .eq('user_id', userId)
           .maybeSingle();
         const slackAllowed = Boolean(settings?.slack_notifications ?? settings?.campaign_updates);
-        if (slackAllowed && (settings?.slack_webhook_url || process.env.SLACK_WEBHOOK_URL)) {
+        const webhook = settings?.slack_webhook_url || process.env.SLACK_WEBHOOK_URL;
+        console.log('[sendgrid/inbound] Slack check:', {
+          slackAllowed,
+          hasWebhook: Boolean(webhook),
+          userId
+        });
+        if (slackAllowed && webhook) {
           await sendSourcingReplyNotification({
             campaignId: (campaignId ?? 'none') as any,
             leadId: (lead_id ?? 'none') as any,
