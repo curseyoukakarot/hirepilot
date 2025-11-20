@@ -561,7 +561,7 @@ export default function Dashboards() {
               <div className="bg-white dark:bg-slate-900 px-6 pb-6">
                 <div className="flex items-center justify-end gap-3">
                   <button className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200" onClick={()=>setIsCreateOpen(false)}>Cancel</button>
-                  <button className="px-5 py-2.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700" onClick={()=>{
+                  <button className="px-5 py-2.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700" onClick={async ()=>{
                     const params = new URLSearchParams();
                     // Sources (aliases fixed)
                     const sources = [];
@@ -590,7 +590,35 @@ export default function Dashboards() {
                     const groupAlias = revDateCol ? 'Revenue' : (expDateCol ? 'Expenses' : (hiresDateCol ? 'Hires' : ''));
                     const groupCol = revDateCol || expDateCol || hiresDateCol || '';
                     if (groupAlias && groupCol) { params.set('groupAlias', groupAlias); params.set('groupCol', groupCol); }
+                    // Deals & Revenue special flag
+                    if (includeDeals) params.set('includeDeals', '1');
                     if (timeRange) params.set('range', timeRange);
+                    // Save dashboard to Supabase so it appears in Custom Dashboards
+                    try {
+                      const layout = {
+                        sources,
+                        metrics,
+                        formula: params.get('formula') || '',
+                        tb,
+                        groupAlias: params.get('groupAlias') || '',
+                        groupCol: params.get('groupCol') || '',
+                        includeDeals: includeDeals ? 1 : 0,
+                        range: timeRange
+                      };
+                      const { data: { user } } = await supabase.auth.getUser();
+                      if (user?.id) {
+                        const { data: inserted, error } = await supabase
+                          .from('user_dashboards')
+                          .insert({ user_id: user.id, layout })
+                          .select('id')
+                          .single();
+                        if (!error && inserted?.id) {
+                          navigate(`/dashboards/${inserted.id}?${params.toString()}`);
+                          return;
+                        }
+                      }
+                    } catch {}
+                    // Fallback to demo if save fails
                     navigate(`/dashboards/demo?${params.toString()}`);
                   }}>Build Dashboard</button>
                 </div>

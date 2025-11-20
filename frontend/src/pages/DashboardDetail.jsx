@@ -23,6 +23,7 @@ export default function DashboardDetail() {
         const tb = url.searchParams.get('tb') || 'none';
         const groupAlias = url.searchParams.get('groupAlias') || '';
         const groupCol = url.searchParams.get('groupCol') || '';
+        const includeDeals = url.searchParams.get('includeDeals') === '1';
         const sources = sourcesParam ? JSON.parse(decodeURIComponent(sourcesParam)) : [];
         const metrics = metricsParam ? JSON.parse(decodeURIComponent(metricsParam)) : [];
         const formulaExpr = formulaParam ? decodeURIComponent(formulaParam) : '';
@@ -32,6 +33,29 @@ export default function DashboardDetail() {
         setShowCampaigns(url.searchParams.get('showCampaigns') === '1');
         // Build dynamic traces
         const traces = [];
+        // If includeDeals, fetch revenue monthly series via Supabase view and add as trace and KPI
+        let revenueKpi = 0;
+        if (includeDeals) {
+          try {
+            const { data: revRows } = await supabase
+              .from('revenue_monthly')
+              .select('month,revenue')
+              .order('month', { ascending: true });
+            const x = (revRows || []).map(r => r.month);
+            const y = (revRows || []).map(r => Number(r.revenue || 0));
+            if (y.length) {
+              traces.push({
+                type: 'scatter',
+                mode: 'lines',
+                name: 'Revenue',
+                x,
+                y,
+                line: { width: 3 }
+              });
+              revenueKpi = y.reduce((a, b) => a + (Number.isFinite(b) ? b : 0), 0);
+            }
+          } catch {}
+        }
         if (backendBase && sources.length) {
           const { data: { session } } = await supabase.auth.getSession();
           const authHeader = session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {};
@@ -129,6 +153,8 @@ export default function DashboardDetail() {
               }
             } catch {}
           }
+          // Add revenue KPI if present
+          if (revenueKpi > 0) k.unshift({ id: 'revenue_total', label: 'Revenue', value: revenueKpi, format: 'currency' });
           if (isMounted) setKpis(k);
         }
 
