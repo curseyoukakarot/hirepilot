@@ -1,7 +1,7 @@
 import { google } from 'googleapis';
 import { supabase } from '../lib/supabaseClient';
 import { EmailEventService } from './emailEventService';
-import { getGoogleAccessToken } from './googleTokenHelper';
+import { getGoogleAccessToken, forceRefreshGoogleAccessToken } from './googleTokenHelper';
 import { generateUniqueReplyToken, buildReplyToAddress } from '../utils/generateReplyAddress';
 import { buildGmailRawMessage } from './gmailMime';
 
@@ -72,10 +72,29 @@ export class GmailTrackingService {
       headers: {},
     });
 
-    const response = await gmail.users.messages.send({
-      userId: 'me',
-      requestBody: { raw },
-    });
+    let response;
+    try {
+      response = await gmail.users.messages.send({
+        userId: 'me',
+        requestBody: { raw },
+      });
+    } catch (err: any) {
+      // Retry once on invalid credentials by force-refreshing
+      const status = err?.response?.status || err?.code;
+      const isInvalid = status === 401 || (err?.errors && err?.errors[0]?.reason === 'authError');
+      if (isInvalid) {
+        const freshToken = await forceRefreshGoogleAccessToken(userId);
+        const oauth2client2 = new google.auth.OAuth2();
+        oauth2client2.setCredentials({ access_token: freshToken });
+        const gmail2 = google.gmail({ version: 'v1', auth: oauth2client2 });
+        response = await gmail2.users.messages.send({
+          userId: 'me',
+          requestBody: { raw },
+        });
+      } else {
+        throw err;
+      }
+    }
 
     // Store sent event
     await EmailEventService.storeEvent({
