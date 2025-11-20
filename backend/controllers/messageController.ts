@@ -209,6 +209,11 @@ export const sendMessage = async (req: Request, res: Response) => {
         sent_at: currentTime.toISOString(),
         created_at: currentTime.toISOString(),
         updated_at: currentTime.toISOString(),
+        ...(provider === 'google' && sendResult?.meta ? {
+          message_id: sendResult.meta.trackingMessageId,
+          message_id_header: sendResult.meta.messageIdHeader,
+          reply_to_override: sendResult.meta.replyToAddress
+        } : {}),
         // UI-friendly fields
         sender: 'You',
         avatar: getAvatarUrl('You'),
@@ -227,7 +232,9 @@ export const sendMessage = async (req: Request, res: Response) => {
     }
 
     // Add analytics tracking - store sent event
-    const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const messageId = (provider === 'google' && sendResult?.meta)
+      ? sendResult.meta.trackingMessageId
+      : `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     console.log('[sendMessage] Adding analytics tracking with messageId:', messageId);
     const { error: analyticsError } = await supabase
       .from('email_events')
@@ -255,6 +262,30 @@ export const sendMessage = async (req: Request, res: Response) => {
       console.log('[sendMessage] Analytics event stored successfully');
     }
 
+    // If Gmail send with meta, persist token mappings for inbound routing
+    if (provider === 'google' && sendResult?.meta && messageRecord?.id) {
+      try {
+        await supabase.from('reply_tokens').insert({
+          token: sendResult.meta.replyToken,
+          message_id: (messageRecord as any).id,
+          user_id: user.id,
+          campaign_id: campaignId
+        });
+      } catch (e) {
+        console.warn('[sendMessage] Failed to insert reply_tokens mapping', e);
+      }
+      try {
+        await supabase.from('gmail_reply_mappings').insert({
+          outbound_email_id: (messageRecord as any).id,
+          gmail_message_id: sendResult.meta.gmailMessageId || null,
+          unique_reply_token: sendResult.meta.replyToken,
+          reply_to_address: sendResult.meta.replyToAddress
+        });
+      } catch (e) {
+        // table may not exist; ignore
+      }
+    }
+
     console.log('[sendMessage] Request completed successfully');
     res.status(200).json({ success: true });
   } catch (error: any) {
@@ -263,173 +294,17 @@ export const sendMessage = async (req: Request, res: Response) => {
   }
 };
 
-async function sendViaGoogle(integration: any, { to, subject, html, attachments }: EmailParams) {
+async function sendViaGoogle(integration: any, { to, subject, html }: EmailParams) {
   try {
-    console.log('DEBUG: Fetching Google tokens for user:', integration.user_id);
-    
-    // Get the latest tokens from Supabase
-    const { data: tokens, error: tokenError } = await supabase
-      .from('google_accounts')
-      .select('*')
-      .eq('user_id', integration.user_id)
-      .single();
-
-    console.log('DEBUG: Token fetch result:', { tokens, tokenError });
-
-    if (tokenError) {
-      console.error('DEBUG: Token fetch error:', tokenError);
-      throw new Error(`Token fetch error: ${tokenError.message}`);
-    }
-
-    if (!tokens) {
-      console.error('DEBUG: No tokens found for user:', integration.user_id);
-      throw new Error('Google tokens not found');
-    }
-
-    console.log('DEBUG: Initializing OAuth2 client with credentials');
-    // Initialize OAuth2 client with client ID and secret
-    const oauth2Client = new google.auth.OAuth2(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
-      `${process.env.BACKEND_URL}/api/auth/google/callback`
+    // Use centralized Gmail sender with Reply-To override + tracking
+    const meta = await GmailTrackingService.sendEmailWithReplyMeta(
+      integration.user_id,
+      to,
+      subject,
+      html
     );
-
-    console.log('DEBUG: Setting OAuth2 credentials');
-    oauth2Client.setCredentials({
-      access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token,
-      expiry_date: new Date(tokens.expires_at).getTime()
-    });
-
-    // Check if token needs refresh
-    if (tokens.expires_at && new Date(tokens.expires_at) < new Date()) {
-      console.log('DEBUG: Token expired, refreshing...');
-      const { credentials } = await oauth2Client.refreshAccessToken();
-      console.log('DEBUG: New credentials received:', credentials);
-      
-      await supabase
-        .from('google_accounts')
-        .update({
-          access_token: credentials.access_token,
-          expires_at: new Date(Date.now() + (credentials.expiry_date || 3600000)),
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', integration.user_id);
-      
-      console.log('DEBUG: Updated tokens in database');
-      
-      // Update the tokens for this request
-      oauth2Client.setCredentials({
-        access_token: credentials.access_token,
-        refresh_token: tokens.refresh_token,
-        expiry_date: credentials.expiry_date
-      });
-    }
-
-    console.log('DEBUG: Initializing Gmail API client');
-    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
-    
-    // Create email parts
-    const parts: Array<{
-      mimeType: string;
-      content: string;
-      filename?: string;
-    }> = [
-      {
-        mimeType: 'text/html',
-        content: html
-      }
-    ];
-
-    // Add attachments if any
-    if (attachments?.length) {
-      attachments.forEach(attachment => {
-        parts.push({
-          mimeType: attachment.contentType,
-          content: attachment.content.toString('base64'),
-          filename: attachment.filename
-        });
-      });
-    }
-
-    // Create email message
-    const message = [
-      'Content-Type: multipart/mixed; boundary=boundary',
-      'MIME-Version: 1.0',
-      `To: ${to}`,
-      `Subject: ${subject}`,
-      '',
-      '--boundary',
-      'Content-Type: text/html; charset=utf-8',
-      '',
-      html,
-      ...attachments?.map(attachment => [
-        '--boundary',
-        `Content-Type: ${attachment.contentType}`,
-        'Content-Transfer-Encoding: base64',
-        `Content-Disposition: attachment; filename="${attachment.filename}"`,
-        '',
-        attachment.content.toString('base64')
-      ]).flat() || [],
-      '--boundary--'
-    ].join('\n');
-
-    // Generate a unique message ID for tracking
-    const trackingMessageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    // Add tracking pixel to the HTML content
-    const htmlWithTracking = GmailTrackingService.addTrackingPixel(html, trackingMessageId);
-    
-    // Update the message with tracking pixel
-    const messageWithTracking = [
-      'Content-Type: multipart/mixed; boundary=boundary',
-      'MIME-Version: 1.0',
-      `To: ${to}`,
-      `Subject: ${subject}`,
-      '',
-      '--boundary',
-      'Content-Type: text/html; charset=utf-8',
-      '',
-      htmlWithTracking,
-      ...attachments?.map(attachment => [
-        '--boundary',
-        `Content-Type: ${attachment.contentType}`,
-        'Content-Transfer-Encoding: base64',
-        `Content-Disposition: attachment; filename="${attachment.filename}"`,
-        '',
-        attachment.content.toString('base64')
-      ]).flat() || [],
-      '--boundary--'
-    ].join('\n');
-
-    // Send the email
-    const encodedMessage = Buffer.from(messageWithTracking).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-    const response = await gmail.users.messages.send({
-      userId: 'me',
-      requestBody: {
-        raw: encodedMessage
-      }
-    });
-
-    // Store tracking event for analytics
-    await EmailEventService.storeEvent({
-      user_id: integration.user_id,
-      campaign_id: undefined, // Could be passed from messageController if available
-      lead_id: undefined,     // Could be passed from messageController if available
-      provider: 'gmail',
-      message_id: trackingMessageId,
-      event_type: 'sent',
-      metadata: {
-        gmail_message_id: response.data.id,
-        thread_id: response.data.threadId,
-        subject,
-        to_email: to,
-        source: 'message_center'
-      }
-    });
-
-    console.log('[sendViaGoogle] Email sent with tracking ID:', trackingMessageId);
-    return { success: true };
+    console.log('[sendViaGoogle] Email sent with tracking ID:', meta.trackingMessageId);
+    return { success: true, meta };
   } catch (error: unknown) {
     console.error('Google send error:', error);
     return { error: error instanceof Error ? error.message : 'Unknown error' };
