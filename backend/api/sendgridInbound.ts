@@ -353,7 +353,12 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
       res.status(400).send('invalid to token');
       return;
     }
-    const { messageId, userId, campaignId } = routing as any;
+    const { messageId, userId } = routing as any;
+    let campaignId = (routing as any)?.campaignId || null;
+    let eventProvider: 'sendgrid' | 'gmail' = 'sendgrid';
+    if ((routing as any)?.via === 'gmail_map') {
+      eventProvider = 'gmail';
+    }
 
     // Resolve attribution: try messages by tracking message_id, then by id; then email_events; then email-based
     let lead_id: string | null = null;
@@ -361,30 +366,33 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
       // messages.message_id == tracking id from VERP
       const { data: msgByTracking } = await supabase
         .from('messages')
-        .select('lead_id,campaign_id,user_id')
+        .select('lead_id,campaign_id,user_id,provider')
         .eq('message_id', messageId)
         .maybeSingle();
       if (msgByTracking) {
         lead_id = (msgByTracking as any).lead_id || null;
         if (!campaignId) campaignId = (msgByTracking as any).campaign_id || campaignId;
+        if ((msgByTracking as any).provider === 'gmail') eventProvider = 'gmail';
       } else {
         const { data: msgById } = await supabase
           .from('messages')
-          .select('lead_id,campaign_id,user_id')
+          .select('lead_id,campaign_id,user_id,provider')
           .eq('id', messageId)
           .maybeSingle();
         if (msgById) {
           lead_id = (msgById as any).lead_id || null;
           if (!campaignId) campaignId = (msgById as any).campaign_id || campaignId;
+          if ((msgById as any).provider === 'gmail') eventProvider = 'gmail';
         } else {
           const { data: evRow } = await supabase
             .from('email_events')
-            .select('lead_id,campaign_id,user_id')
+            .select('lead_id,campaign_id,user_id,provider')
             .eq('message_id', messageId)
             .maybeSingle();
           if (evRow) {
             lead_id = (evRow as any).lead_id || null;
             if (!campaignId) campaignId = (evRow as any).campaign_id || campaignId;
+            if ((evRow as any).provider === 'gmail') eventProvider = 'gmail';
           }
         }
       }
@@ -466,7 +474,7 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
       user_id: userId,
       campaign_id: campaignId,
       lead_id,
-      provider: 'sendgrid',
+      provider: eventProvider,
       message_id: messageId,
       event_type: 'reply',
       event_timestamp: new Date().toISOString(),
