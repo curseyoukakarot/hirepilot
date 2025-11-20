@@ -185,13 +185,21 @@ async function computeForwardRecipients(userId: string): Promise<string[]> {
 
 // Prefer sender identity routing; fallback to user's primary email
 async function computeRecipientsForMessage(messageId: string): Promise<{ recipients: string[]; msg: any }> {
-  // Look up message metadata (messages table holds sender_identity_id/from_email/message_id_header)
+  // Look up message metadata (messages table holds sender_identity_id/from_email/from_address/message_id_header)
   const { data: m, error: mErr } = await supabase
     .from('messages')
-    .select('id, user_id, campaign_id, sender_identity_id, from_email, message_id_header')
+    .select('id, user_id, campaign_id, sender_identity_id, from_email, from_address, message_id_header')
     .eq('id', messageId)
     .maybeSingle();
   if (mErr || !m) throw new Error('message not found');
+
+  console.log('[computeRecipientsForMessage] message fetched', {
+    messageId,
+    user_id: (m as any).user_id,
+    sender_identity_id: (m as any).sender_identity_id,
+    from_email: (m as any).from_email,
+    from_address: (m as any).from_address
+  });
 
   // prefer sender_identity.forward_to
   if (m.sender_identity_id) {
@@ -213,13 +221,29 @@ async function computeRecipientsForMessage(messageId: string): Promise<{ recipie
     if (idn2?.forward_to) return { recipients: [idn2.forward_to], msg: m };
   }
 
+  // fallback: match identity by from_address (used by Gmail path)
+  if ((m as any).from_address) {
+    const { data: idn3 } = await supabase
+      .from('email_identities')
+      .select('forward_to')
+      .eq('from_email', (m as any).from_address)
+      .maybeSingle();
+    if (idn3?.forward_to) return { recipients: [idn3.forward_to], msg: m };
+  }
+
   // final fallback: the user's primary_email
   const { data: u } = await supabase
     .from('users')
-    .select('primary_email')
+    .select('primary_email, email')
     .eq('id', m.user_id)
     .maybeSingle();
-  return { recipients: u?.primary_email ? [u.primary_email] : [], msg: m };
+  const fallbackEmail = (u?.primary_email || (u as any)?.email) as string | undefined;
+  if (fallbackEmail) {
+    console.log('[computeRecipientsForMessage] falling back to user email', { messageId, fallbackEmail });
+    return { recipients: [fallbackEmail], msg: m };
+  }
+  console.error('[computeRecipientsForMessage] NO RECIPIENT FOUND', { messageId, user_id: (m as any).user_id });
+  return { recipients: [], msg: m };
 }
 
 async function forwardReply({
@@ -354,6 +378,11 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
       return;
     }
     const { messageId, userId } = routing as any;
+    if (!messageId) {
+      console.error('[sendgrid/inbound] Missing original messageId; cannot forward or notify', { routing });
+      res.status(204).end();
+      return;
+    }
     let campaignId = (routing as any)?.campaignId || null;
     let eventProvider: 'sendgrid' | 'gmail' = 'sendgrid';
     if ((routing as any)?.via === 'gmail_map') {
@@ -530,9 +559,13 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
         const slackAllowed = Boolean(settings?.slack_notifications ?? settings?.campaign_updates);
         const webhook = settings?.slack_webhook_url || process.env.SLACK_WEBHOOK_URL;
         console.log('[sendgrid/inbound] Slack check:', {
+          userId,
+          slack_notifications: Boolean(settings?.slack_notifications),
+          campaign_updates: Boolean(settings?.campaign_updates),
           slackAllowed,
-          hasWebhook: Boolean(webhook),
-          userId
+          hasUserWebhook: Boolean(settings?.slack_webhook_url),
+          hasGlobalWebhook: Boolean(process.env.SLACK_WEBHOOK_URL),
+          hasWebhook: Boolean(webhook)
         });
         if (slackAllowed && webhook) {
           await sendSourcingReplyNotification({
@@ -545,6 +578,7 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
             nextAction: 'reply',
             userId
           });
+          console.log('[sendgrid/inbound] Slack notification sent', { userId });
         }
       }
     } catch (e) {
@@ -565,7 +599,7 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
       }
 
       if (recipients.length > 0) {
-        console.log(`[sendgrid/inbound] Forwarding reply to ${recipients.length} recipients`);
+        console.log(`[sendgrid/inbound] Forwarding reply to ${recipients.length} recipients`, { recipients, userId, messageId, campaignId });
         
         // Use parsed attachments from MIME data, fallback to multipart files
         let attachments = parsed.attachments;
