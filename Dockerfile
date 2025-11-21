@@ -9,7 +9,7 @@ COPY backend/package*.json ./backend/
 # 2) Install only production deps for backend
 RUN cd backend && \
     if [ -f "package-lock.json" ]; then \
-      npm ci --omit=dev; \
+      npm ci --omit=dev || npm install --omit=dev; \
     else \
       npm install --omit=dev; \
     fi
