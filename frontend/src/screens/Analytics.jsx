@@ -193,6 +193,21 @@ export default function Analytics() {
       const normalize = (it) => (typeof it === 'string' ? { widget_id: it, position: { x: 0, y: 0 }, config: {} } : it);
       let normalized = (Array.isArray(existingLayout) ? existingLayout : []).map(normalize).filter(Boolean);
       if (!normalized.length) {
+        // Try localStorage baseline first so previously added widgets aren't lost
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          const uid = user?.id || 'anon';
+          const localRaw = localStorage.getItem(`dashboard_widgets_${uid}`) || localStorage.getItem('dashboard_widgets_anon');
+          if (localRaw) {
+            const arr = JSON.parse(localRaw);
+            const names = Array.isArray(arr) ? arr.map((it) => (typeof it === 'string' ? it : (it && it.widget_id) || '')) : [];
+            if (names.length) {
+              normalized = names.map((n) => ({ widget_id: n, position: { x: 0, y: 0 }, config: {} }));
+            }
+          }
+        } catch {}
+      }
+      if (!normalized.length) {
         const DEFAULT_WIDGETS = ['Reply Rate Chart', 'Open Rate Widget', 'Engagement Breakdown'];
         normalized = DEFAULT_WIDGETS.map((n) => ({ widget_id: n, position: { x: 0, y: 0 }, config: {} }));
       }
