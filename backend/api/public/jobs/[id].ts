@@ -24,13 +24,18 @@ export default async function handler(req: Request, res: Response) {
 
     console.log('[GET /api/public/jobs/[id]] Fetching job with share_id:', id);
 
-    // Fetch job by share_id - this will work for anonymous users due to RLS
+    // Fetch job by share_id - this will work for anonymous users due to service-role client
     const { data, error } = await supabaseDb
       .from('job_requisitions')
       .select(`
         id, 
         title, 
-        description, 
+        description,
+        job_description,
+        company,
+        experience_level,
+        work_type,
+        why_join,
         department, 
         location, 
         salary_range, 
@@ -50,6 +55,9 @@ export default async function handler(req: Request, res: Response) {
       });
     }
 
+    // Normalize description with legacy fallback
+    const normalizedDescription = String((data as any).description || (data as any).job_description || '').trim();
+
     // Also fetch pipeline stages if pipeline exists
     let stages = [];
     if (data.pipeline_id) {
@@ -65,6 +73,7 @@ export default async function handler(req: Request, res: Response) {
     res.status(200).json({ 
       job: {
         ...data,
+        description: normalizedDescription,
         stages
       }
     });
