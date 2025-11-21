@@ -1,69 +1,19 @@
-# Drastically shrink Docker build context while keeping backend available
-# Use a blocklist (safer across CI providers than allowlist with "*")
+# Exclude everything by default
+*
 
-# Top-level folders not needed for backend image
-frontend/
-hirepilot-cookie/
-public/
-packages/
-services/
-server/
-src/
-tools/
-supabase/
-knowledge/
-docs/
-scripts/
-fixtures/
-packages/
-server/
-services/
-api/
+# Include only what the backend API needs
+!backend/
+!backend/**
 
-# Always ignore these even inside backend (npm will handle)
-**/node_modules
-**/.env
-**/.env.*
-**/.DS_Store
+# Include root-level files that might be required
+!package.json
+!package-lock.json
+!.env.*
+!Dockerfile
+!.dockerignore
 
-# Large archives and local assets
-*.zip
-*.tar
-*.tar.gz
-*.tgz
-
-# Git and editor junk
-.git
-.gitignore
-.cursorignore
-.vscode
-.idea
-
-# Node modules (will be installed fresh)
-node_modules/
+# Explicitly exclude heavy/unneeded stuff inside backend
 backend/node_modules/
-
-# Build artifacts
 backend/dist/
 backend/.tsbuildinfo
-
-# Environment files
-.env
-.env.local
-.env.production
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
-logs/
-
-# Test files
 backend/test/
-backend/scripts/test*
-
-# Temporary files
-tmp/
-temp/
