@@ -1,3 +1,31 @@
+# Drastically shrink Docker build context and speed up builds
+# Keep only backend and minimal config needed for container
+
+*
+!.dockerignore
+!Dockerfile
+!railway.toml
+!backend/**
+
+# Always ignore these even inside backend (npm will handle)
+**/node_modules
+**/.env
+**/.env.*
+**/.DS_Store
+
+# Large archives and local assets
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+
+# Git and editor junk
+.git
+.gitignore
+.cursorignore
+.vscode
+.idea
+
 # Frontend files (not needed for backend)
 frontend/
 hirepilot-cookie/
