@@ -5,6 +5,8 @@
 !.dockerignore
 !Dockerfile
 !railway.toml
+# Explicitly include backend dir and its contents (required for exceptions)
+!backend
 !backend/**
 
 # Always ignore these even inside backend (npm will handle)
