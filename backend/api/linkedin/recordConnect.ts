@@ -15,6 +15,27 @@ export default async function recordConnect(req: ApiRequest, res: Response) {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
+    // Idempotency guard: if a debit for this action occurred very recently, no-op
+    try {
+      const oneMinuteAgoIso = new Date(Date.now() - 60_000).toISOString();
+      const { data: recent } = await supabaseDb
+        .from('credit_usage_log')
+        .select('id, created_at')
+        .eq('user_id', userId)
+        .eq('type', 'debit')
+        .eq('usage_type', 'api_usage')
+        .eq('description', 'LinkedIn connection request')
+        .gte('created_at', oneMinuteAgoIso)
+        .limit(1);
+      if (Array.isArray(recent) && recent.length > 0) {
+        // Already charged very recently — return success without charging again
+        return res.json({ ok: true, deduped: true });
+      }
+    } catch (e) {
+      // Non-fatal; proceed without dedupe if check fails
+      console.warn('[record-connect] dedupe check failed:', e);
+    }
+
     const creditCost = 5;
 
     // Use centralized credit service so free users and team-sharing are handled

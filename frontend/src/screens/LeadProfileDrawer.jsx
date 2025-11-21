@@ -1391,22 +1391,6 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       lastConnectUrlRef.current = finalUrl;
       window.open(finalUrl, '_blank');
       showToast('Opening LinkedIn profile. Chrome Extension will send your request.', 'info');
-      // Fire-and-forget record-connect after small delay to allow extension to send
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          setTimeout(async () => {
-            try {
-              await fetch(`${API_BASE_URL}/linkedin/record-connect`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${session.access_token}` }
-              });
-              // refresh counters
-              fetchDailyLinkedInCount();
-            } catch {}
-          }, 7000);
-        }
-      } catch {}
       // UX: show a 10-second wait banner with countdown and a Retry button
       setShowExtensionWait(true);
       setExtensionCountdown(10);
