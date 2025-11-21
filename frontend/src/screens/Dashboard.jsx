@@ -153,18 +153,19 @@ export default function Dashboard() {
 
   useEffect(() => {
     const load = async () => {
-      // If we already have widgets from the immediate render, don't override them here.
-      if (Array.isArray(customWidgets) && customWidgets.length > 0) {
-        try {
-          const { data: u } = await supabase.auth.getUser();
-          const uid = u?.user?.id || 'anon';
-          const seedKey = `dashboard_seed_${uid}`;
-          if (localStorage.getItem(seedKey)) {
-            try { localStorage.removeItem(seedKey); } catch {}
-          }
-        } catch {}
-        return;
-      }
+      // Normalize current names (may be strings or objects)
+      const currentNames = (Array.isArray(customWidgets) ? customWidgets : [])
+        .map((it) => (typeof it === 'string' ? it : (it && it.widget_id) || ''))
+        .filter(Boolean);
+      // Clear one-time seed if present (we will still attempt to load a richer remote layout)
+      try {
+        const { data: u } = await supabase.auth.getUser();
+        const uid = u?.user?.id || 'anon';
+        const seedKey = `dashboard_seed_${uid}`;
+        if (localStorage.getItem(seedKey)) {
+          try { localStorage.removeItem(seedKey); } catch {}
+        }
+      } catch {}
       try {
         const { data: sessionData } = await supabase.auth.getSession();
         const token = sessionData?.access_token;
@@ -183,11 +184,15 @@ export default function Dashboard() {
             const arr = JSON.parse(raw);
             const names = Array.isArray(arr) ? arr.map((it)=> (typeof it === 'string' ? it : (it?.widget_id || it))) : [];
             if (names.length) {
-              setCustomWidgets(names.slice(0,6));
+              if (names.length >= currentNames.length) {
+                setCustomWidgets(names.slice(0,6));
+                // Persist in background; if no uid yet, persistLayout will fallback to localStorage
+                try { await persistLayout(names); } catch (_) {}
+                try { if (keyUsed) localStorage.removeItem(keyUsed); } catch {}
+                return; // show seeded layout immediately
+              }
               // Persist in background; if no uid yet, persistLayout will fallback to localStorage
-              try { await persistLayout(names); } catch (_) {}
-              try { if (keyUsed) localStorage.removeItem(keyUsed); } catch {}
-              return; // show seeded layout immediately
+              try { await persistLayout(currentNames); } catch (_) {}
             }
           }
         } catch (_) {}
@@ -196,7 +201,7 @@ export default function Dashboard() {
         if (r.ok) {
           const j = await r.json();
           const names = (Array.isArray(j.layout) ? j.layout : []).map((w) => w.widget_id || w).slice(0, 6);
-          if (names.length) {
+          if (names.length && names.length >= currentNames.length) {
             setCustomWidgets(names);
             return;
           }
@@ -213,8 +218,10 @@ export default function Dashboard() {
             .maybeSingle();
           if (row?.layout && row.layout.length) {
             const names = (Array.isArray(row.layout) ? row.layout : []).map((w) => w?.widget_id || w).slice(0, 6);
-            setCustomWidgets(names);
-            return;
+            if (names.length >= currentNames.length) {
+              setCustomWidgets(names);
+              return;
+            }
           }
           }
       } catch (_) {}
@@ -226,9 +233,11 @@ export default function Dashboard() {
       if (!Array.isArray(local) || !local.length) {
         try { local = JSON.parse(localStorage.getItem('dashboard_widgets_local') || '[]'); } catch {}
       }
-      const fallback = Array.isArray(local) && local.length ? local.slice(0, 6) : DEFAULT_WIDGETS;
-      setCustomWidgets(fallback);
-      try { localStorage.setItem('dashboard_widgets_' + uid, JSON.stringify(fallback)); } catch (_) {}
+      if (currentNames.length === 0) {
+        const fallback = Array.isArray(local) && local.length ? local.slice(0, 6) : DEFAULT_WIDGETS;
+        setCustomWidgets(fallback);
+        try { localStorage.setItem('dashboard_widgets_' + uid, JSON.stringify(fallback)); } catch (_) {}
+      }
     };
     load();
   }, []);
