@@ -61,8 +61,8 @@ RUN if [ -f "backend/package-lock.json" ]; then npm ci --omit=dev --prefix backe
 # Install Chromium browser explicitly during build (optional)
 RUN if [ "$ENABLE_PLAYWRIGHT" = "true" ]; then npx playwright install chromium; fi
 
-# Copy backend sources
-COPY backend/ backend/
+# Copy sources (limited by .dockerignore to backend + minimal files)
+COPY . .
 
 # Build the TypeScript application
 RUN npm run build:production --prefix backend
