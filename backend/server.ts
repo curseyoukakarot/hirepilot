@@ -467,6 +467,9 @@ app.get('/api/advanced-info', getAdvancedInfo);
 app.get('/api/health/overview', appHealth);
 app.get('/api/health/auth', authHealth);
 app.use('/api/user', userRouter);
+// Public API routes (no authentication required) — mount BEFORE generic /api router
+app.get('/api/public/jobs/:id', require('./api/public/jobs/[id]').default);
+app.use('/api/public/apply', require('./api/public/apply').default);
 app.use('/api/phantombuster', runPhantomRouter);
 app.use('/api/phantombuster', phantombusterWebhookRouter);
 app.use('/api/zapier/phantom', zapierPhantomWebhook);
@@ -689,10 +692,6 @@ app.use('/api/payouts', requireAuthFlag, payoutsRouter);
   if (String(process.env.ENABLE_FREE_CADENCE || 'false').toLowerCase() === 'true') {
     void startFreeForeverWorker();
   }
-
-// Public API routes (no authentication required)
-app.get('/api/public/jobs/:id', require('./api/public/jobs/[id]').default);
-app.use('/api/public/apply', require('./api/public/apply').default);
 
 // Auth routes
 app.use('/api/auth', authRouter);
