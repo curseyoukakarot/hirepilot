@@ -5,9 +5,9 @@ WORKDIR /app
 # Copy manifests first (max cache hit)
 COPY package*.json ./
 
-# Install prod deps
+# Install prod deps (fallback to install if lockfile is out of sync)
 RUN if [ -f package-lock.json ]; then \
-      npm ci --omit=dev; \
+      npm ci --omit=dev || npm install --omit=dev; \
     else \
       npm install --omit=dev; \
     fi
