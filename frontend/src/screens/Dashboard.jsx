@@ -330,14 +330,16 @@ export default function Dashboard() {
             const ct = r.headers?.get?.('content-type') || '';
             if (r.ok && ct.includes('application/json')) {
               const p = await r.json();
-              const sent = Number(p.sent || 0);
-              const opens = Number(p.opens || 0);
-              const replies = Number(p.replies || 0);
-              const conversions = Number(p.conversions || 0);
-              const openPct = sent ? (opens / sent) * 100 : 0;
-              const replyPct = sent ? (replies / sent) * 100 : 0;
-              const bouncePct = sent ? ((sent - opens) / sent) * 100 : 0;
-              const clickPct = sent ? (conversions / sent) * 100 : 0;
+              const sent = Math.max(0, Number(p.sent || 0));
+              const opens = Math.max(0, Number(p.opens || 0));
+              const replies = Math.max(0, Number(p.replies || 0));
+              const conversions = Math.max(0, Number(p.conversions || 0));
+              const bounces = Math.max(0, Number(p.bounces || p.bounced || p.hard_bounces || 0));
+              const denom = sent || 1;
+              const openPct = Math.min(100, (opens / denom) * 100);
+              const replyPct = Math.min(100, (replies / denom) * 100);
+              const bouncePct = Math.min(100, (bounces / denom) * 100);
+              const clickPct = Math.min(100, (conversions / denom) * 100);
               payload = [
                 { metric: 'open', pct: Math.round(openPct * 10) / 10 },
                 { metric: 'reply', pct: Math.round(replyPct * 10) / 10 },
@@ -356,10 +358,20 @@ export default function Dashboard() {
               q = q.eq('campaign_id', engageCampaignId);
             }
             const { data: rows } = await q;
-            const agg = { open: 0, reply: 0, bounce: 0, click: 0 };
-            (rows || []).forEach((r) => { const ev = r && r.event_timestamp ? r.event_type : null; if (ev && (ev in agg)) agg[ev] = (agg[ev] || 0) + 1; });
-            const total = Object.values(agg).reduce((a, b) => a + b, 0) || 1;
-            payload = Object.entries(agg).map(([k, v]) => ({ metric: k, pct: Math.round(((v / total) * 1000)) / 10 }));
+            const agg = { sent: 0, open: 0, reply: 0, bounce: 0, click: 0 };
+            (rows || []).forEach((r) => {
+              const type = r && r.event_type;
+              if (!type) return;
+              if (type in agg) agg[type] = (agg[type] || 0) + 1;
+            });
+            const denom = agg.sent || 1;
+            const pct = (n) => Math.max(0, Math.min(100, (n / denom) * 100));
+            payload = [
+              { metric: 'open', pct: Math.round(pct(agg.open) * 10) / 10 },
+              { metric: 'reply', pct: Math.round(pct(agg.reply) * 10) / 10 },
+              { metric: 'bounce', pct: Math.round(pct(agg.bounce) * 10) / 10 },
+              { metric: 'click', pct: Math.round(pct(agg.click) * 10) / 10 },
+            ];
           }
           setEngagement(payload);
           const ctxEng = document.getElementById('dash-engagement');
