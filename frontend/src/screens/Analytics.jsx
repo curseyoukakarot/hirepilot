@@ -189,8 +189,16 @@ export default function Analytics() {
           existingLayout = Array.isArray(row?.layout) ? row.layout : [];
         }
       } catch {}
-      const already = existingLayout.some(w => (w.widget_id || w) === widgetName);
-      const layout = (already ? existingLayout : [...existingLayout, { widget_id: widgetName, position: { x: 0, y: 0 }, config: {} }]).slice(0,6);
+      // Normalize any string entries to object shape and seed defaults if empty
+      const normalize = (it) => (typeof it === 'string' ? { widget_id: it, position: { x: 0, y: 0 }, config: {} } : it);
+      let normalized = (Array.isArray(existingLayout) ? existingLayout : []).map(normalize).filter(Boolean);
+      if (!normalized.length) {
+        const DEFAULT_WIDGETS = ['Reply Rate Chart', 'Open Rate Widget', 'Engagement Breakdown'];
+        normalized = DEFAULT_WIDGETS.map((n) => ({ widget_id: n, position: { x: 0, y: 0 }, config: {} }));
+      }
+      const already = normalized.some(w => (w.widget_id || w) === widgetName);
+      const merged = already ? normalized : [...normalized, { widget_id: widgetName, position: { x: 0, y: 0 }, config: {} }];
+      const layout = merged.slice(0,6);
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user?.id) {
