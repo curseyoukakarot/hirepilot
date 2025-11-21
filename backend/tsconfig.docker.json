@@ -1,0 +1,24 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "outDir": "dist",
+    "rootDirs": [".."],
+    "skipLibCheck": true,
+    "noEmitOnError": false
+  },
+  "include": [
+    "./**/*.ts",
+    "../shared/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "test/**/*.ts",
+    "scripts/**/*.ts",
+    "migrations/**/*.ts"
+  ]
+}
+
