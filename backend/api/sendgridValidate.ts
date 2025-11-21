@@ -31,8 +31,20 @@ router.post('/validate', async (req: Request, res: Response) => {
     }));
     res.json({ senders });
   } catch (error: any) {
-    console.error('❌ SendGrid validation error:', error.response?.data ?? error);
-    res.status(400).json({ error: error.message || 'Failed to validate SendGrid API key' });
+    const status = error?.response?.status || 400;
+    const sgMsg = error?.response?.data?.errors?.[0]?.message || error?.response?.data?.message;
+    const message =
+      status === 401 ? 'Invalid SendGrid API key' :
+      status === 403 ? 'SendGrid API key lacks required scopes' :
+      sgMsg || (error?.message || 'Failed to validate SendGrid API key');
+
+    console.error('❌ SendGrid validation error:', {
+      status,
+      data: error?.response?.data || null,
+      message
+    });
+
+    res.status(status).json({ error: message });
   }
 });
 
