@@ -1,13 +1,24 @@
-# Drastically shrink Docker build context and speed up builds
-# Keep only backend and minimal config needed for container
+# Drastically shrink Docker build context while keeping backend available
+# Use a blocklist (safer across CI providers than allowlist with "*")
 
-*
-!.dockerignore
-!Dockerfile
-!railway.toml
-# Explicitly include backend dir and its contents (required for exceptions)
-!backend
-!backend/**
+# Top-level folders not needed for backend image
+frontend/
+hirepilot-cookie/
+public/
+packages/
+services/
+server/
+src/
+tools/
+supabase/
+knowledge/
+docs/
+scripts/
+fixtures/
+packages/
+server/
+services/
+api/
 
 # Always ignore these even inside backend (npm will handle)
 **/node_modules
@@ -28,17 +39,6 @@
 .vscode
 .idea
 
-# Frontend files (not needed for backend)
-frontend/
-hirepilot-cookie/
-public/
-
-# Development files
-.git
-.gitignore
-README.md
-*.md
-
 # Node modules (will be installed fresh)
 node_modules/
 backend/node_modules/
@@ -51,10 +51,6 @@ backend/.tsbuildinfo
 .env
 .env.local
 .env.production
-
-# IDE files
-.vscode/
-.idea/
 
 # OS files
 .DS_Store
