@@ -72,4 +72,4 @@ RUN echo "=== POST-BUILD: Looking for server files ===" && (find . -name "server
 EXPOSE 8080
 
 # Start command (we're already in /app/backend)
-CMD ["/bin/sh", "-lc", "if [ -f dist/server.js ]; then node dist/server.js; else npm start; fi"]
+CMD ["/bin/sh", "-lc", "if [ -f backend/dist/server.js ]; then node backend/dist/server.js; elif [ -f dist/server.js ]; then node dist/server.js; elif [ -f backend/package.json ]; then npm start --prefix backend; else npm start; fi"]
