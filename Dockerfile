@@ -1,72 +1,77 @@
 # Use AWS Public ECR mirror for Docker Official Images to avoid Docker Hub rate/auth issues
 FROM public.ecr.aws/docker/library/node:20-bookworm-slim
 
+# Build-time flags (tune image weight and logs)
+ARG ENABLE_PLAYWRIGHT=false
+ARG ENABLE_DEBUG_STEPS=false
+
 # Install Playwright system dependencies (equivalent to --with-deps)
-RUN apt-get update && apt-get install -y \
-    ca-certificates \
-    fonts-liberation \
-    libasound2 \
-    libatk-bridge2.0-0 \
-    libatk1.0-0 \
-    libcairo2 \
-    libcups2 \
-    libdbus-1-3 \
-    libexpat1 \
-    libfontconfig1 \
-    libgbm1 \
-    libgcc1 \
-    libglib2.0-0 \
-    libgtk-3-0 \
-    libnspr4 \
-    libnss3 \
-    libpango-1.0-0 \
-    libpangocairo-1.0-0 \
-    libstdc++6 \
-    libx11-6 \
-    libx11-xcb1 \
-    libxcb1 \
-    libxcomposite1 \
-    libxcursor1 \
-    libxdamage1 \
-    libxext6 \
-    libxfixes3 \
-    libxi6 \
-    libxrandr2 \
-    libxrender1 \
-    libxss1 \
-    libxtst6 \
-    lsb-release \
-    wget \
-    xdg-utils \
-    && rm -rf /var/lib/apt/lists/*
+RUN if [ "$ENABLE_PLAYWRIGHT" = "true" ]; then \
+      set -eux; \
+      apt-get update; \
+      apt-get install -y --no-install-recommends \
+        ca-certificates \
+        fonts-liberation \
+        libasound2 \
+        libatk-bridge2.0-0 \
+        libatk1.0-0 \
+        libcairo2 \
+        libcups2 \
+        libdbus-1-3 \
+        libexpat1 \
+        libfontconfig1 \
+        libgbm1 \
+        libgcc1 \
+        libglib2.0-0 \
+        libgtk-3-0 \
+        libnspr4 \
+        libnss3 \
+        libpango-1.0-0 \
+        libpangocairo-1.0-0 \
+        libstdc++6 \
+        libx11-6 \
+        libx11-xcb1 \
+        libxcb1 \
+        libxcomposite1 \
+        libxcursor1 \
+        libxdamage1 \
+        libxext6 \
+        libxfixes3 \
+        libxi6 \
+        libxrandr2 \
+        libxrender1 \
+        libxss1 \
+        libxtst6 \
+        lsb-release \
+        wget \
+        xdg-utils; \
+      rm -rf /var/lib/apt/lists/*; \
+    fi
 
 # Set working directory
 WORKDIR /app
 
-# Copy everything to see what's available
-COPY . .
-RUN echo "=== DEBUG: All files in project root ===" && ls -la
-RUN echo "=== DEBUG: Show root tsconfig ===" && cat tsconfig.json
-RUN echo "=== DEBUG: Show backend package.json (if present) ===" && (cat backend/package.json || true)
+# Copy only manifests first for better layer caching, then install deps
+COPY backend/package*.json backend/
 
-# Install dependencies
-RUN if [ -f "backend/package.json" ]; then npm install --omit=dev --prefix backend; else npm install --omit=dev; fi
-RUN npm install --production ts-node typescript || true
+# Install dependencies (use ci when lockfile exists)
+RUN if [ -f "backend/package-lock.json" ]; then npm ci --omit=dev --prefix backend; else npm install --omit=dev --prefix backend; fi && \
+    npm install --production ts-node typescript
 
-# Install Chromium browser explicitly during build
-RUN npx playwright install chromium
+# Install Chromium browser explicitly during build (optional)
+RUN if [ "$ENABLE_PLAYWRIGHT" = "true" ]; then npx playwright install chromium; fi
 
-# Show files before build
-RUN echo "=== PRE-BUILD: Files before TypeScript build (root) ===" && ls -la
-RUN echo "=== PRE-BUILD: Check server.ts at backend or root ===" && (ls -la backend/server.ts || ls -la server.ts)
+# Copy backend sources
+COPY backend/ backend/
 
 # Build the TypeScript application
-RUN if [ -f "backend/package.json" ]; then npm run build:production --prefix backend || true; else npm run build:production || true; fi
+RUN npm run build:production --prefix backend
 
-# Debug: Show what got built
-RUN echo "=== POST-BUILD: Directory structure ===" && pwd && ls -la
-RUN echo "=== POST-BUILD: Dist directory (root or backend) ===" && (ls -la dist/ || ls -la backend/dist/ || true)
-RUN echo "=== POST-BUILD: Looking for server files ===" && (find . -name "server.js" -type f || true)
+# Optional debug
+RUN if [ "$ENABLE_DEBUG_STEPS" = "true" ]; then \
+      echo \"=== POST-BUILD: Directory structure ===\" && pwd && ls -la && \
+      echo \"=== POST-BUILD: Dist directory (backend) ===\" && ls -la backend/dist/ || true; \
+    fi
 
 # Expose app port (server binds to $PORT or 8080)
 EXPOSE 8080
