@@ -9,7 +9,7 @@
   },
   "include": [
     "./**/*.ts",
-    "../shared/**/*.ts"
+    "../shared/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

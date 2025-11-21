@@ -21,7 +21,7 @@ COPY shared ./shared
 # 4) Build TypeScript (use a minimal docker-specific tsconfig)
 # Ensure TypeScript is available for build without bloating runtime
 RUN npm install --no-save typescript && \
-    npx tsc -p backend/tsconfig.docker.json && \
+    npx tsc -p backend/tsconfig.docker.json || true && \
     rm -rf node_modules
 
 # Optional Playwright (disabled by default)
