@@ -787,7 +787,13 @@ export default function Dashboard() {
 
   const renderCustom = () => (
     <>
-      {Array.isArray(customWidgets) && customWidgets.slice(0,6).map((w) => renderWidget(w))}
+      {(() => {
+        const names = (Array.isArray(customWidgets) ? customWidgets : [])
+          .map((it) => (typeof it === 'string' ? it : (it && it.widget_id) || ''))
+          .filter(Boolean)
+          .slice(0, 6);
+        return names.map((w) => renderWidget(w));
+      })()}
     </>
   );
 
