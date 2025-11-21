@@ -477,15 +477,21 @@ export default function SettingsIntegrations() {
       ]);
       if (!user) return;
       const token = session?.access_token;
-      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/sendgrid/update-sender`, {
+      // If we still have the API key in state, this is a first-time connect: persist key + sender
+      const isFirstConnect = Boolean(sendGridApiKey && sendGridApiKey.trim().length > 0);
+      const endpoint = isFirstConnect ? '/api/sendgrid/save' : '/api/sendgrid/update-sender';
+      const body = isFirstConnect
+        ? { user_id: user.id, api_key: sendGridApiKey, default_sender: selectedSender }
+        : { user_id: user.id, default_sender: selectedSender };
+      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ user_id: user.id, default_sender: selectedSender })
+        body: JSON.stringify(body)
       });
       if (resp.ok) {
         setSendgridConnected(true);
         setShowSendGridModal(false);
-        setSendGridApiKey('');
+        setSendGridApiKey(''); // clear from memory after saving
         setAllowedSenders([]);
         setSelectedSender('');
         setSendGridStep('validate');
