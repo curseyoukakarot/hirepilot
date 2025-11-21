@@ -16,6 +16,7 @@ RUN cd backend && \
 
 # 3) Copy source code
 COPY backend ./backend
+COPY shared ./shared
 
 # 4) Build TypeScript
 RUN cd backend && npm run build:production

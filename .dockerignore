@@ -4,6 +4,8 @@
 # Include only what the backend API needs
 !backend/
 !backend/**
+!shared/
+!shared/**
 
 # Include root-level files that might be required
 !package.json
