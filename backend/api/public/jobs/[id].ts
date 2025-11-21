@@ -47,24 +47,65 @@ export default async function handler(req: Request, res: Response) {
       .eq('share_id', id)
       .single();
 
-    if (error || !data) {
-      console.error('Public job fetch error:', error);
+    let jobRow: any = data || null;
+    let fetchError: any = error || null;
+
+    // Fallback: resolve via job_shares.uuid_link -> job_requisitions.id
+    if (!jobRow) {
+      try {
+        const { data: share } = await supabaseDb
+          .from('job_shares')
+          .select('job_id')
+          .eq('uuid_link', id)
+          .maybeSingle();
+        if (share?.job_id) {
+          const { data: byId, error: byIdErr } = await supabaseDb
+            .from('job_requisitions')
+            .select(`
+              id, 
+              title, 
+              description,
+              job_description,
+              company,
+              experience_level,
+              work_type,
+              why_join,
+              department, 
+              location, 
+              salary_range, 
+              share_id, 
+              pipeline_id,
+              created_at,
+              updated_at
+            `)
+            .eq('id', share.job_id)
+            .single();
+          jobRow = byId || null;
+          fetchError = byIdErr || fetchError;
+        }
+      } catch (e) {
+        // keep fetchError as-is; continue to 404 if still null
+      }
+    }
+
+    if (!jobRow) {
+      console.error('Public job fetch error:', fetchError);
       return res.status(404).json({ 
         error: 'Job not found',
-        details: error?.message || 'No job found with this share_id'
+        details: fetchError?.message || 'No job found with this share_id or share link'
       });
     }
 
     // Normalize description with legacy fallback
-    const normalizedDescription = String((data as any).description || (data as any).job_description || '').trim();
+    const normalizedDescription = String((jobRow as any).description || (jobRow as any).job_description || '').trim();
 
     // Also fetch pipeline stages if pipeline exists
     let stages = [];
-    if (data.pipeline_id) {
+    if (jobRow.pipeline_id) {
       const { data: pipelineStages } = await supabaseDb
         .from('pipeline_stages')
         .select('id, title, position, color')
-        .eq('pipeline_id', data.pipeline_id)
+        .eq('pipeline_id', jobRow.pipeline_id)
         .order('position', { ascending: true });
       
       stages = pipelineStages || [];
@@ -72,7 +113,7 @@ export default async function handler(req: Request, res: Response) {
 
     res.status(200).json({ 
       job: {
-        ...data,
+        ...jobRow,
         description: normalizedDescription,
         stages
       }
