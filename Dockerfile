@@ -52,7 +52,7 @@ RUN if [ "$ENABLE_PLAYWRIGHT" = "true" ]; then \
 WORKDIR /app
 
 # Copy only manifests first for better layer caching, then install deps
-COPY backend/package*.json backend/
+COPY backend/package*.json ./backend/
 
 # Install dependencies (use ci when lockfile exists)
 RUN if [ -f "backend/package-lock.json" ]; then npm ci --omit=dev --prefix backend; else npm install --omit=dev --prefix backend; fi && \
