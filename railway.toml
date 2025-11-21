@@ -12,7 +12,7 @@ healthcheckInterval = 10000
 healthcheckMaxRetries = 6
 
 [environments.production]
-startCommand = "npm start"
+startCommand = "node backend/dist/server.js"
 
 [environments.production.variables]
 NODE_ENV = "production"
