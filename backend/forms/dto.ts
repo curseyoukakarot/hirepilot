@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { FormDestinationType, FormFieldType } from '../../shared/types/forms';
+import type { FormDestinationType, FormFieldType } from '../shared/types/forms';
 
 export const formCreateDto = z.object({
   title: z.string().min(1),

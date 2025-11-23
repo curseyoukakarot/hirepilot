@@ -15,7 +15,8 @@ import {
   upsertFieldsRepo,
 } from './repo';
 import type { FieldUpsertDto, FormCreateDto, FormPatchDto, SubmissionPayloadDto } from './dto';
-import type { FormWithFields } from '../../shared/types/forms';
+import { supabaseDb } from '../lib/supabase';
+import type { FormWithFields } from '../shared/types/forms';
 
 // Optional integrations (no-ops if missing or misconfigured)
 async function emitFormSubmitted(form: FormWithFields, responseId: string) {

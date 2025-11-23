@@ -5,24 +5,21 @@ WORKDIR /app
 # Copy manifests first (max cache hit)
 COPY package*.json ./
 
-# Install prod deps (fallback to install if lockfile is out of sync)
+# Install prod deps + ts-node
 RUN if [ -f package-lock.json ]; then \
       npm ci --omit=dev || npm install --omit=dev; \
     else \
       npm install --omit=dev; \
-    fi
+    fi && \
+    npm install ts-node typescript --no-save
 
 # Copy source
 COPY . .
 
-# Build TS
-RUN npm run build:production
-
-# Optional Playwright (disabled by default)
+# Optional Playwright (disabled)
 ARG ENABLE_PLAYWRIGHT=false
 RUN if [ "$ENABLE_PLAYWRIGHT" = "true" ]; then \
-      apt-get update && \
-      apt-get install -y --no-install-recommends \
+      apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates fonts-liberation libasound2 libatk-bridge2.0-0 libatk1.0-0 \
         libcairo2 libcups2 libexpat1 libfontconfig1 libgbm1 libglib2.0-0 libgtk-3-0 \
         libnspr4 libnss3 libpango-1.0-0 libpangocairo-1.0-0 libstdc++6 libx11-6 libx11-xcb1 \
@@ -33,5 +30,5 @@ RUN if [ "$ENABLE_PLAYWRIGHT" = "true" ]; then \
     fi
 
 EXPOSE 8080
-CMD ["node", "dist/server.js"]
+CMD ["node", "-r", "ts-node/register", "server.ts"]
 

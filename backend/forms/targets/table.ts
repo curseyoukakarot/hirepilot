@@ -1,4 +1,4 @@
-import type { FormWithFields } from '../../../shared/types/forms';
+import type { FormResponseRecord, FormResponseValueRecord } from '../shared/types/forms';
 import { supabaseDb } from '../../lib/supabase';
 
 export async function insertIntoTableFromFormSubmission(form: FormWithFields, responseId: string) {

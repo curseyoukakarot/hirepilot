@@ -1,4 +1,4 @@
-import type { FormWithFields } from '../../../shared/types/forms';
+import type { FormResponseRecord, FormResponseValueRecord } from '../shared/types/forms';
 
 export async function createCandidateFromFormSubmission(form: FormWithFields, responseId: string) {
   // Minimal stub for v1: hook into candidate creation here

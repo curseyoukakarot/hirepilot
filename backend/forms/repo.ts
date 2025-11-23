@@ -1,11 +1,11 @@
 import { supabaseDb } from '../lib/supabase';
 import type {
-  FormRecord,
   FormFieldRecord,
+  FormRecord,
   FormResponseRecord,
   FormResponseValueRecord,
   FormWithFields,
-} from '../../shared/types/forms';
+} from '../shared/types/forms';
 
 function slugify(input: string): string {
   return input

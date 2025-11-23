@@ -69,5 +69,3 @@ export interface FormWithFields extends FormRecord {
 }
 
 export type PublicForm = FormWithFields;
-
-
