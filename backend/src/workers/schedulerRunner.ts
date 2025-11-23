@@ -22,7 +22,7 @@ async function unlockJob(id: string) {
   if (process.env.DISABLE_SCHED_LOCK === '1') return;
   try {
     const hash = [...id].reduce((a, c) => a + c.charCodeAt(0), 0);
-    await supabaseAdmin.rpc('exec_sql', { sql: `select pg_advisory_unlock(${hash})` } as any).catch(()=>{});
+    await supabaseAdmin.rpc('exec_sql', { sql: `select pg_advisory_unlock(${hash})` } as any);
   } catch {}
 }
 
