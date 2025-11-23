@@ -16,9 +16,6 @@ RUN if [ -f package-lock.json ]; then \
 # Copy source
 COPY . .
 
-# Build TypeScript → dist (for workers & server)
-RUN npm run build:production
-
 # Optional Playwright (disabled)
 ARG ENABLE_PLAYWRIGHT=false
 RUN if [ "$ENABLE_PLAYWRIGHT" = "true" ]; then \
