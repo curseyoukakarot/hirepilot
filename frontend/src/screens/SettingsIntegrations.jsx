@@ -421,6 +421,28 @@ export default function SettingsIntegrations() {
     }
   };
 
+  const disconnectSendgrid = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      // Update unified integrations status first
+      await updateIntegrationStatus('sendgrid', 'not_connected');
+      // Best-effort: remove stored API key/default sender so the user can reconnect cleanly
+      try {
+        await supabase
+          .from('user_sendgrid_keys')
+          .delete()
+          .eq('user_id', user.id);
+      } catch {
+        // Non-fatal; the status row is already marked as disconnected
+      }
+      setSendgridConnected(false);
+      toast.success('SendGrid disconnected');
+    } catch {
+      toast.error('Failed to disconnect SendGrid');
+    }
+  };
+
   // SendGrid modal handlers
   const validateSendGridKey = async () => {
     try {
@@ -656,7 +678,7 @@ export default function SettingsIntegrations() {
                   name="SendGrid"
                   status={sendgridConnected ? 'Connected' : 'Not Connected'}
                   onConnect={()=>{ setSendGridStep('validate'); setShowSendGridModal(true); }}
-                  onDisconnect={()=>toast('Disconnect handled in settings (coming soon)')}
+                  onDisconnect={disconnectSendgrid}
                   extraIconClass="fa-solid fa-gear"
                   extraTitle="Change default sender"
                   onExtraClick={openSendGridSenderPicker}
