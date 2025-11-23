@@ -46,11 +46,35 @@ router.post('/save', async (req, res) => {
       }, { onConflict: 'user_id' });
 
     if (error) {
-      console.error('❌ Supabase error:', error);
+      console.error('❌ Supabase error (user_sendgrid_keys):', error);
       throw error;
     }
-    
-    console.log('✅ SendGrid integration saved successfully');
+
+    // Also persist unified integration status so frontend settings can reflect connection state
+    try {
+      const { error: integrationError } = await supabase
+        .from('integrations')
+        .upsert(
+          {
+            user_id,
+            provider: 'sendgrid',
+            status: 'connected',
+            connected_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id,provider' }
+        );
+
+      if (integrationError) {
+        console.error('⚠️ Failed to upsert sendgrid row into integrations table:', integrationError);
+      } else {
+        console.log('✅ SendGrid integration status recorded in integrations table');
+      }
+    } catch (integrationErr) {
+      console.error('⚠️ Unexpected error while updating integrations table for sendgrid:', integrationErr);
+      // Do not fail the main request if the auxiliary status write fails
+    }
+
+    console.log('✅ SendGrid integration saved successfully (API key + status)');
     res.sendStatus(204);
   } catch (err: any) {
     console.error('❌ sendgrid/save error:', err);
