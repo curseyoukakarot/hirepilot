@@ -23,8 +23,9 @@ async function getPlanTier(userId: string): Promise<string> {
     const plan = String((usr as any)?.plan || '').toLowerCase();
     if (plan) return plan;
   } catch {}
-  // If nothing found, treat as free for gating (ensures access gates show instead of full access)
-  return 'free';
+  // If nothing found, return empty so we don't accidentally treat a paid user as free.
+  // Explicit "free" is still enforced via plan/role checks below.
+  return '';
 }
 
 router.get('/deal-access/:userId', requireAuth, async (req: Request, res: Response) => {
@@ -66,7 +67,7 @@ router.get('/deal-access/:userId', requireAuth, async (req: Request, res: Respon
     }
 
     // Free or guest plan => no access
-    if (planTier === 'free' || targetRole === 'guest') {
+    if (planTier === 'free' || targetRole === 'guest' || targetRole === 'free') {
       res.json({ user_id: userId, can_view_clients: false, can_view_opportunities: false, can_view_billing: false, can_view_revenue: false, reason: 'free_plan' });
       return;
     }
