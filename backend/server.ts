@@ -292,10 +292,15 @@ app.post('/api/stripe/webhook', bodyParser.raw({ type: 'application/json' }), st
 
 // Signed SendGrid Event Webhook must receive raw body for signature verification
 // Accept any content-type to avoid mismatches like 'application/json; charset=utf-8'
+// Primary endpoint (documented in some older SendGrid setups as /events-verified)
 app.post('/api/sendgrid/events', bodyParser.raw({ type: '*/*' }), (req: expressNs.Request, res: expressNs.Response) => {
   return sendgridEventsHandler(req, res);
 });
-// Alias to cover common misconfigured paths
+// Backwards-compatible alias for docs and previously-configured webhooks
+app.post('/api/sendgrid/events-verified', bodyParser.raw({ type: '*/*' }), (req: expressNs.Request, res: expressNs.Response) => {
+  return sendgridEventsHandler(req, res);
+});
+// Alias to cover common misconfigured paths (missing trailing "s")
 app.post('/api/sendgrid/event', bodyParser.raw({ type: '*/*' }), (req: expressNs.Request, res: expressNs.Response) => {
   return sendgridEventsHandler(req, res);
 });

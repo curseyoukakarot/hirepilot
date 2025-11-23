@@ -300,7 +300,7 @@ Calm script:
 REX can walk the user through:
 
 curl -X POST  
-https://app.thehirepilot.com/api/sendgrid/events-verified  
+https://api.thehirepilot.com/api/sendgrid/events-verified  
 -H “Content-Type: application/json”  
 -d ‘[ { “event”: “delivered”, “email”: “test@example.com” } ]’
 

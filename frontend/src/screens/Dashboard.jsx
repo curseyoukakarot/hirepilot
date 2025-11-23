@@ -27,8 +27,8 @@ const WIDGET_TAB = {
   'Win Rate KPI': 'deals',
 };
 
-// Helper function to generate avatar URL
-const getAvatarUrl = (name) => `https://app.thehirepilot.com/api/avatar?name=${encodeURIComponent(name)}`;
+// Helper function to generate avatar URL (served by backend API domain)
+const getAvatarUrl = (name) => `https://api.thehirepilot.com/api/avatar?name=${encodeURIComponent(name)}`;
 
 export default function Dashboard() {
   const chartRef = useRef(null);
