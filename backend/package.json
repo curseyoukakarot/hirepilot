@@ -36,7 +36,7 @@
         "build:production": "tsc -p tsconfig.json || tsc -p ../tsconfig.json",
         "build:ultra-fast": "tsc --skipLibCheck --noImplicitAny false --noEmitOnError false --sourceMap false --declaration false --incremental false",
         "build:clean": "rm -rf dist .tsbuildinfo && tsc --incremental",
-        "start": "node -r ts-node/register server.ts",
+        "start": "TS_NODE_TRANSPILE_ONLY=1 node -r ts-node/register server.ts",
         "_postinstall_disabled": "npm run build:ultra-fast",
         "backfill-credits": "ts-node scripts/backfillUserCredits.ts",
         "backfill-activate-campaigns": "ts-node scripts/backfillActivateCampaigns.ts",
