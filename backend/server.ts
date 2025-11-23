@@ -192,9 +192,16 @@ if (enableSentry && process.env.SENTRY_DSN) {
 const PORT = process.env.PORT || 8080;
 
 // Health check route (before CORS)
-app.get('/health', (_, res) => res.json({ ok: true }));
+app.get('/health', (_, res) => {
+  console.log('[Health] Endpoint hit');
+  res.json({ ok: true });
+});
+
 // Some platforms probe "/" instead of "/health"
-app.get('/', (_req, res) => res.status(200).send('ok'));
+app.get('/', (_req, res) => {
+  console.log('[Root] Endpoint hit');
+  res.status(200).send('ok');
+});
 app.head('/', (_req, res) => res.status(200).end());
 
 // Expose root-level ai-plugin.json for OpenAI Actions (duplicate of support plugin)
@@ -1108,8 +1115,9 @@ app.post('/api/sendgrid/update-sender', async (req, res) => {
   }
 });
 // Start the server
+console.log(`[Startup] Starting server on http://0.0.0.0:${PORT}`);
 app.listen(Number(PORT), '0.0.0.0', () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+  console.log(`[Startup] Server is running on http://localhost:${PORT}`);
   // Start cron jobs
   startCronJobs();
 
