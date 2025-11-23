@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';
+import axios from 'axios';
 
 console.log('✅ sendgridSave router loaded');
 
@@ -12,6 +13,68 @@ const bodySchema = z.object({
   api_key:        z.string().min(1),
   default_sender: z.string().email()
 });
+
+/**
+ * Best-effort helper to configure the SendGrid Event Webhook for a user's own
+ * SendGrid account using their API key. This allows HirePilot to automatically
+ * receive opens/clicks/bounces without requiring manual webhook setup.
+ *
+ * IMPORTANT: This must never throw; failures are logged but do not block the
+ * main save flow so existing Gmail/Outlook behavior remains unaffected.
+ */
+async function configureUserSendgridWebhook(apiKey: string, userId: string): Promise<void> {
+  const baseUrl = (process.env.SENDGRID_API_BASE_URL || 'https://api.sendgrid.com').replace(/\/$/, '');
+  const targetUrl =
+    (process.env.SENDGRID_WEBHOOK_URL ||
+      'https://api.thehirepilot.com/api/sendgrid/events-verified').trim();
+
+  if (!apiKey || !targetUrl) {
+    console.warn('[configureUserSendgridWebhook] Missing apiKey or targetUrl; skipping configuration');
+    return;
+  }
+
+  try {
+    const sg = axios.create({
+      baseURL: `${baseUrl}/v3`,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      timeout: 10000,
+    });
+
+    const payload = {
+      enabled: true,
+      url: targetUrl,
+      delivered: true,
+      open: true,
+      click: true,
+      bounce: true,
+      dropped: true,
+      spamreport: true,
+      unsubscribe: true,
+    };
+
+    console.log('[configureUserSendgridWebhook] Configuring Event Webhook for user', {
+      userId,
+      baseUrl,
+      targetUrl,
+    });
+
+    await sg.patch('/user/webhooks/event/settings', payload);
+
+    console.log('[configureUserSendgridWebhook] Event Webhook configured successfully for user', userId);
+  } catch (err: any) {
+    const status = err?.response?.status;
+    const data = err?.response?.data;
+    console.error('[configureUserSendgridWebhook] Failed to configure Event Webhook (non-fatal)', {
+      userId,
+      status,
+      data,
+      message: err?.message,
+    });
+  }
+}
 
 router.post('/save', async (req, res) => {
   console.log('📥 Handling /save request');
@@ -74,7 +137,16 @@ router.post('/save', async (req, res) => {
       // Do not fail the main request if the auxiliary status write fails
     }
 
-    console.log('✅ SendGrid integration saved successfully (API key + status)');
+    // Best-effort: configure the user's own SendGrid Event Webhook so that
+    // opens/clicks/bounces are automatically streamed into HirePilot.
+    // This is intentionally non-blocking: failures are logged only.
+    try {
+      await configureUserSendgridWebhook(api_key, user_id);
+    } catch {
+      // configureUserSendgridWebhook already logs in-depth error details
+    }
+
+    console.log('✅ SendGrid integration saved successfully (API key + status + webhook best-effort)');
     res.sendStatus(204);
   } catch (err: any) {
     console.error('❌ sendgrid/save error:', err);
