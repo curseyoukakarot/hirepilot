@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { toast } from 'react-hot-toast';
 import { api } from '../lib/api';
@@ -237,6 +238,7 @@ export function ZapierModalFrame({ onClose, apiKey }) {
 
 export default function SettingsIntegrations() {
   const { isFree } = usePlan();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [agentModeEnabled, setAgentModeEnabled] = useState(false);
   const [showZapier, setShowZapier] = useState(false);
@@ -987,7 +989,10 @@ export default function SettingsIntegrations() {
         </div>
 
         <div className="mt-8 text-center">
-          <button className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors shadow-sm">
+          <button
+            className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors shadow-sm"
+            onClick={() => navigate('/workflows')}
+          >
             <i className="fa-solid fa-plus mr-2"></i>
             Add New Integration
           </button>
