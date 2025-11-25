@@ -6,7 +6,13 @@ import ApolloApiKeyModal from '../components/ApolloApiKeyModal';
 import ZapierWizardModal from '../components/settings/integrations/ZapierWizardModal.jsx';
 import { usePlan } from '../context/PlanContext';
 
-const BACKEND = import.meta.env.VITE_BACKEND_URL;
+// Backend base: prefer env, otherwise production API domain with localhost fallback
+const BACKEND = (
+  import.meta.env.VITE_BACKEND_URL ||
+  (window.location.host.endsWith('thehirepilot.com')
+    ? 'https://api.thehirepilot.com'
+    : 'http://localhost:8080')
+).replace(/\/$/, '');
 
 export function ZapierModalFrame({ onClose, apiKey }) {
   const iframeRef = useRef(null);
@@ -241,6 +247,14 @@ export default function SettingsIntegrations() {
   const [stripeLoading, setStripeLoading] = useState(false);
   const [stripeConnected, setStripeConnected] = useState({ hasKeys: false, accountId: null, mode: 'connect' });
 
+  // Hunter / Skrapp enrichment admin modal state
+  const [showEnrichmentModal, setShowEnrichmentModal] = useState(false);
+  const [hunterApiKey, setHunterApiKey] = useState('');
+  const [skrappApiKey, setSkrappApiKey] = useState('');
+  const [enrichmentPriority, setEnrichmentPriority] = useState('hunter-first'); // 'hunter-first' | 'apollo-first' | 'skrapp-first'
+  const [enrichmentSaving, setEnrichmentSaving] = useState(false);
+  const [enrichmentError, setEnrichmentError] = useState('');
+
   // Integration statuses
   const [googleConnected, setGoogleConnected] = useState(false);
   const [outlookConnected, setOutlookConnected] = useState(false);
@@ -248,6 +262,8 @@ export default function SettingsIntegrations() {
   const [apolloConnected, setApolloConnected] = useState(false);
   const [slackConnected, setSlackConnected] = useState(false);
   const [zoominfoEnabled, setZoominfoEnabled] = useState(false);
+  const [hunterConnected, setHunterConnected] = useState(false);
+  const [skrappConnected, setSkrappConnected] = useState(false);
 
   // Category accordion states
   const [open, setOpen] = useState({ messaging: true, sourcing: false, automation: false, collaboration: false });
@@ -267,9 +283,29 @@ export default function SettingsIntegrations() {
   // Active connection count for header
   const activeConnections = useMemo(() => {
     const stripeIsConnected = !!(stripeConnected.hasKeys || stripeConnected.accountId);
-    return [googleConnected, outlookConnected, sendgridConnected, apolloConnected, agentModeEnabled, slackConnected, stripeIsConnected]
+    return [
+      googleConnected,
+      outlookConnected,
+      sendgridConnected,
+      apolloConnected,
+      agentModeEnabled,
+      slackConnected,
+      stripeIsConnected,
+      hunterConnected,
+      skrappConnected,
+    ]
       .filter(Boolean).length;
-  }, [googleConnected, outlookConnected, sendgridConnected, apolloConnected, agentModeEnabled, slackConnected, stripeConnected]);
+  }, [
+    googleConnected,
+    outlookConnected,
+    sendgridConnected,
+    apolloConnected,
+    agentModeEnabled,
+    slackConnected,
+    stripeConnected,
+    hunterConnected,
+    skrappConnected,
+  ]);
 
   useEffect(() => {
     (async () => {
@@ -332,6 +368,46 @@ export default function SettingsIntegrations() {
             setZoominfoEnabled(!!row?.enabled);
           }
         } catch {}
+
+        // Admin enrichment keys (Hunter / Skrapp priority)
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token;
+          if (token) {
+            const resp = await fetch(`${BACKEND}/api/user-integrations`, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            });
+            if (resp.ok) {
+              const integ = await resp.json();
+              const hKey = integ?.hunter_api_key || '';
+              const sKey = integ?.skrapp_api_key || '';
+              const pref = integ?.enrichment_source || null;
+              setHunterApiKey(hKey);
+              setSkrappApiKey(sKey);
+              setHunterConnected(!!hKey);
+              setSkrappConnected(!!sKey);
+              if (pref === 'apollo') {
+                setEnrichmentPriority('apollo-first');
+              } else if (pref === 'skrapp') {
+                setEnrichmentPriority('skrapp-first');
+              } else {
+                setEnrichmentPriority('hunter-first');
+              }
+            } else {
+              // 403/401 etc – non-admins or free plans simply won't see prefilled keys
+              try {
+                const body = await resp.json();
+                console.log('Enrichment integrations fetch non-OK:', resp.status, body?.error || body);
+              } catch {
+                console.log('Enrichment integrations fetch failed with status', resp.status);
+              }
+            }
+          }
+        } catch (e) {
+          console.log('Failed to load enrichment integrations', e);
+        }
       } finally {
         setLoading(false);
       }
@@ -575,6 +651,62 @@ export default function SettingsIntegrations() {
     } catch { toast.error('Failed to disconnect Slack'); }
   };
 
+  // Save Admin Enrichment Keys (Hunter / Skrapp + priority)
+  const saveEnrichmentConfig = async () => {
+    try {
+      setEnrichmentSaving(true);
+      setEnrichmentError('');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setEnrichmentError('You must be signed in to save enrichment settings.');
+        return;
+      }
+
+      const payload = {};
+      if (hunterApiKey && hunterApiKey.trim().length > 0) {
+        payload.hunter_api_key = hunterApiKey.trim();
+      }
+      if (skrappApiKey && skrappApiKey.trim().length > 0) {
+        payload.skrapp_api_key = skrappApiKey.trim();
+      }
+      // Map UI priority to backend enrichment_source preference
+      if (enrichmentPriority === 'apollo-first') {
+        payload.enrichment_source = 'apollo';
+      } else if (enrichmentPriority === 'skrapp-first') {
+        payload.enrichment_source = 'skrapp';
+      }
+      // For hunter-first we intentionally omit enrichment_source, which keeps legacy Hunter -> Skrapp -> Apollo order
+
+      const resp = await fetch(`${BACKEND}/api/user-integrations`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const body = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        const msg = body?.error || body?.message || 'Failed to save enrichment configuration';
+        setEnrichmentError(msg);
+        toast.error(msg);
+        return;
+      }
+
+      setHunterConnected(!!hunterApiKey.trim());
+      setSkrappConnected(!!skrappApiKey.trim());
+      toast.success('Enrichment configuration saved');
+      setShowEnrichmentModal(false);
+    } catch (e) {
+      console.error('Failed to save enrichment config', e);
+      setEnrichmentError('Failed to save enrichment configuration. Please try again.');
+      toast.error('Failed to save enrichment configuration');
+    } finally {
+      setEnrichmentSaving(false);
+    }
+  };
+
   const Card = ({ iconClass, iconSrc, name, status, onConnect, onDisconnect, connectLabel = 'Connect', disableActions = false, extraIconClass, onExtraClick, extraTitle }) => (
     <div className="p-4 bg-white dark:bg-gray-900 rounded-xl shadow-sm flex justify-between items-center border border-gray-200 dark:border-gray-800 hover:shadow-md transition-shadow">
       <div className="flex items-center gap-3">
@@ -745,8 +877,20 @@ export default function SettingsIntegrations() {
                     </div>
                   </div>
                 </div>
-                <Card iconSrc="/hunter.png" name="Hunter.io" status={'Pending'} onConnect={()=>requirePaid(()=>{},'Hunter.io integration')} />
-                <Card iconSrc="/skrapp.png" name="Skrapp" status={'Pending'} onConnect={()=>requirePaid(()=>{},'Skrapp integration')} />
+                <Card
+                  iconSrc="/hunter.png"
+                  name="Hunter.io"
+                  status={hunterConnected ? 'Connected' : 'Pending'}
+                  onConnect={()=>requirePaid(()=>setShowEnrichmentModal(true),'Hunter.io integration')}
+                  connectLabel={hunterConnected ? 'Manage' : 'Connect'}
+                />
+                <Card
+                  iconSrc="/skrapp.png"
+                  name="Skrapp"
+                  status={skrappConnected ? 'Connected' : 'Pending'}
+                  onConnect={()=>requirePaid(()=>setShowEnrichmentModal(true),'Skrapp integration')}
+                  connectLabel={skrappConnected ? 'Manage' : 'Connect'}
+                />
               </div>
             </div>
           )}
@@ -817,45 +961,28 @@ export default function SettingsIntegrations() {
           )}
         </div>
 
-        {/* Admin Enrichment Keys panel (visual only for now) */}
-        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-8 rounded-2xl text-white shadow-lg mt-8">
-          <div className="flex justify-between items-center mb-6">
+        {/* Admin Enrichment Keys card – opens modal */}
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 rounded-2xl text-white shadow-lg mt-8">
+          <div className="flex justify-between items-center">
             <div>
-              <h3 className="text-xl font-semibold mb-2">Admin Enrichment Keys</h3>
-              <p className="text-indigo-200">Configure API keys for data enrichment services</p>
+              <h3 className="text-xl font-semibold mb-1">Admin Enrichment Keys</h3>
+              <p className="text-indigo-200 text-sm">
+                Configure Hunter.io &amp; Skrapp.io API keys and control the enrichment priority order.
+              </p>
             </div>
-            <span className="px-3 py-1 bg-indigo-500/20 text-indigo-200 text-sm font-medium rounded-full border border-indigo-400/30">
-              <i className="fa-solid fa-shield-alt mr-1"></i>
-              Admin Only
-            </span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div>
-              <label className="block text-sm font-medium text-indigo-200 mb-2">Hunter.io API Key</label>
-              <input type="password" placeholder="••••••••••••••••••••" className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none" />
+            <div className="flex items-center gap-3">
+              <span className="px-3 py-1 bg-indigo-500/20 text-indigo-200 text-xs font-medium rounded-full border border-indigo-400/30">
+                <i className="fa-solid fa-shield-alt mr-1"></i>
+                Admin Only
+              </span>
+              <button
+                onClick={()=>requirePaid(()=>setShowEnrichmentModal(true),'Admin Enrichment Keys')}
+                className="px-4 py-2 bg-indigo-500 hover:bg-indigo-400 text-white text-sm font-semibold rounded-lg transition-colors"
+              >
+                <i className="fa-solid fa-pen-to-square mr-2"></i>
+                Manage
+              </button>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-indigo-200 mb-2">Skrapp.io API Key</label>
-              <input type="password" placeholder="••••••••••••••••••••" className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-indigo-200 mb-2">Apollo API Key</label>
-              <input type="password" placeholder="••••••••••••••••••••" className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-indigo-200 mb-2">Enrichment Priority Order</label>
-              <select className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none">
-                <option value="hunter-first" className="text-gray-900">Hunter.io → Apollo → Skrapp</option>
-                <option value="apollo-first" className="text-gray-900">Apollo → Hunter.io → Skrapp</option>
-                <option value="skrapp-first" className="text-gray-900">Skrapp → Hunter.io → Apollo</option>
-              </select>
-            </div>
-          </div>
-          <div className="flex justify-end">
-            <button className="px-6 py-3 bg-indigo-500 hover:bg-indigo-400 text-white font-semibold rounded-lg transition-colors">
-              <i className="fa-solid fa-save mr-2"></i>
-              Save Configuration
-            </button>
           </div>
         </div>
 
@@ -913,6 +1040,93 @@ export default function SettingsIntegrations() {
 
       {/* Zapier Modal Overlay (iframe) */}
       {showZapier && <ZapierModalFrame onClose={()=>setShowZapier(false)} apiKey={zapierApiKey} />}
+
+      {/* Admin Enrichment Keys Modal */}
+      {showEnrichmentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-8 rounded-2xl text-white shadow-2xl w-full max-w-3xl relative">
+            <button
+              onClick={()=>setShowEnrichmentModal(false)}
+              className="absolute top-4 right-4 text-slate-300 hover:text-white transition-colors"
+            >
+              <i className="fa-solid fa-xmark text-xl"></i>
+            </button>
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h3 className="text-xl font-semibold mb-1">Admin Enrichment Keys</h3>
+                <p className="text-indigo-200 text-sm">
+                  Configure API keys for Hunter.io and Skrapp.io and choose your enrichment priority order.
+                </p>
+              </div>
+              <span className="px-3 py-1 bg-indigo-500/20 text-indigo-200 text-xs font-medium rounded-full border border-indigo-400/30">
+                <i className="fa-solid fa-shield-alt mr-1"></i>
+                Admin Only
+              </span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-indigo-200 mb-2">Hunter.io API Key</label>
+                <input
+                  type="password"
+                  placeholder="••••••••••••••••••••"
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
+                  value={hunterApiKey}
+                  onChange={e=>setHunterApiKey(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-indigo-200 mb-2">Skrapp.io API Key</label>
+                <input
+                  type="password"
+                  placeholder="••••••••••••••••••••"
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
+                  value={skrappApiKey}
+                  onChange={e=>setSkrappApiKey(e.target.value)}
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-indigo-200 mb-2">Enrichment Priority Order</label>
+                <select
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
+                  value={enrichmentPriority}
+                  onChange={e=>setEnrichmentPriority(e.target.value)}
+                >
+                  <option value="hunter-first" className="text-gray-900">Hunter.io → Skrapp → Apollo (default)</option>
+                  <option value="apollo-first" className="text-gray-900">Apollo Only (skip Hunter.io &amp; Skrapp)</option>
+                  <option value="skrapp-first" className="text-gray-900">Skrapp → Hunter.io → Apollo</option>
+                </select>
+                <p className="mt-2 text-xs text-indigo-200/80">
+                  Hunter-first uses the legacy pipeline (Hunter.io then Skrapp then Apollo). Apollo-only skips premium providers entirely. Skrapp-first prioritizes Skrapp when a key is present.
+                </p>
+              </div>
+            </div>
+            {enrichmentError && (
+              <p className="text-red-300 text-sm mb-4">{enrichmentError}</p>
+            )}
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={()=>setShowEnrichmentModal(false)}
+                className="px-4 py-2 bg-white/10 hover:bg-white/20 text-sm font-medium rounded-lg transition-colors"
+                disabled={enrichmentSaving}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveEnrichmentConfig}
+                className="px-6 py-2 bg-indigo-500 hover:bg-indigo-400 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-60"
+                disabled={enrichmentSaving}
+              >
+                {enrichmentSaving ? 'Saving...' : (
+                  <>
+                    <i className="fa-solid fa-save mr-2"></i>
+                    Save Configuration
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Upgrade Required Modal */}
       {showUpgrade && (
