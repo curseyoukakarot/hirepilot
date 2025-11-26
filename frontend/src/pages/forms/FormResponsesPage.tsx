@@ -345,7 +345,7 @@ export default function FormResponsesPage() {
 
       {/* Right Drawer */}
       <aside
-        className={`fixed inset-y-0 right-0 w-full max-w-xl bg-white dark:bg-dark-card shadow-2xl border-l border-gray-200 dark:border-dark-border z-50 transform transition-transform duration-300 ease-out rounded-l-xl overflow-hidden ${
+        className={`fixed inset-y-0 right-0 w-full max-w-xl bg-white dark:bg-[#14161a] shadow-2xl border-l border-gray-200 dark:border-[#2a2d33] z-50 transform transition-transform duration-300 ease-out rounded-l-xl overflow-hidden ${
           drawerOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
         role="dialog"
@@ -353,10 +353,10 @@ export default function FormResponsesPage() {
         aria-label="Response details"
       >
         {/* Drawer Header */}
-        <div className="sticky top-0 bg-white dark:bg-dark-card border-b border-gray-200 dark:border-dark-border px-6 py-4 z-10">
+        <div className="sticky top-0 bg-white dark:bg-[#0f1114] border-b border-gray-200 dark:border-[#2a2d33] px-6 py-4 z-10">
           <div className="flex items-center justify-between mb-3">
             <button
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-border text-gray-500 dark:text-dark-secondary transition-colors"
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-[#23262b] text-gray-500 dark:text-dark-secondary transition-colors"
               onClick={closeDrawer}
               aria-label="Close drawer"
             >
@@ -364,7 +364,7 @@ export default function FormResponsesPage() {
             </button>
             <div className="relative">
               <button
-                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-border text-gray-500 dark:text-dark-secondary transition-colors"
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-[#23262b] text-gray-500 dark:text-dark-secondary transition-colors"
                 aria-label="More actions"
               >
                 <i className="fas fa-ellipsis-v" />
@@ -481,7 +481,7 @@ export default function FormResponsesPage() {
                                 href={String(d.value)}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="inline-flex items-center px-3 py-2 bg-gray-50 dark:bg-dark-bg text-gray-700 dark:text-dark-text rounded-lg hover:bg-gray-100 dark:hover:bg-dark-border transition-colors"
+                                className="inline-flex items-center px-3 py-2 bg-gray-50 dark:bg-[#1a1d22] text-gray-700 dark:text-dark-text rounded-lg hover:bg-gray-100 dark:hover:bg-[#23262b] transition-colors"
                               >
                                 <i className="fas fa-paperclip mr-2" />
                                 Attachment
@@ -491,7 +491,7 @@ export default function FormResponsesPage() {
                           if (d.type === 'long-text') {
                             const text = String(d.value);
                             return (
-                              <div key={i} className="bg-gray-50 dark:bg-dark-bg p-4 rounded-lg">
+                              <div key={i} className="bg-gray-50 dark:bg-[#1a1d22] p-4 rounded-lg">
                                 <p className="text-gray-700 dark:text-dark-text whitespace-pre-wrap">
                                   {text}
                                 </p>
@@ -513,13 +513,13 @@ export default function FormResponsesPage() {
         </div>
 
         {/* Drawer Footer */}
-        <div className="sticky bottom-0 bg-white dark:bg-dark-card border-t border-gray-200 dark:border-dark-border px-6 py-4">
+        <div className="sticky bottom-0 bg-white dark:bg-[#0f1114] border-t border-gray-200 dark:border-[#2a2d33] px-6 py-4">
           <div className="flex flex-wrap gap-3 mb-4">
             <button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
               <i className="fas fa-reply mr-2" />
               Reply to Candidate
             </button>
-            <button className="px-4 py-2 border border-gray-300 dark:border-dark-border text-gray-700 dark:text-dark-text rounded-lg hover:bg-gray-50 dark:hover:bg-dark-border transition-colors">
+            <button className="px-4 py-2 border border-gray-300 dark:border-[#2a2d33] text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-[#23262b] transition-colors">
               Add to Pool
             </button>
           </div>
