@@ -15,7 +15,9 @@ export default function FormResponsesPage() {
   const [total, setTotal] = useState<number>(0);
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(20);
-  const [fieldsById, setFieldsById] = useState<Record<string, { label: string; type?: string }>>({});
+  const [fieldsById, setFieldsById] = useState<Record<string, { label: string; type?: string; position?: number }>>({});
+  const [formFields, setFormFields] = useState<Array<{ id: string; label: string; type?: string; position?: number }>>([]);
+  const [drawerOpen, setDrawerOpen] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
 
   // Initialize theme based on localStorage or system preference
@@ -44,6 +46,7 @@ export default function FormResponsesPage() {
     const target = e.target as HTMLElement;
     if (target.closest('input[type="checkbox"]')) return;
     setSelectedId(responseId);
+    setDrawerOpen(true);
   }
 
   // Load form fields and responses
@@ -57,17 +60,29 @@ export default function FormResponsesPage() {
           listResponses(formId, { page }),
         ]);
         if (!mounted) return;
-        const mapping: Record<string, { label: string; type?: string }> = {};
-        for (const f of (form?.fields || [])) {
-          mapping[f.id] = { label: f.label, type: f.type };
-        }
+        const mapping: Record<string, { label: string; type?: string; position?: number }> = {};
+        const fieldsArr =
+          (form?.fields || []).map((f: any) => ({
+            id: f.id,
+            label: f.label,
+            type: f.type,
+            position: typeof f.position === 'number' ? f.position : 0,
+          })) || [];
+        fieldsArr.forEach((f: any) => {
+          mapping[f.id] = { label: f.label, type: f.type, position: f.position };
+        });
         setFieldsById(mapping);
+        setFormFields(fieldsArr);
         setItems(resp.items || []);
         setValues(resp.values || []);
         setTotal(resp.total || 0);
         setPageSize(resp.pageSize || 20);
         if (!selectedId && (resp.items || []).length) {
           setSelectedId(resp.items[0].id);
+        }
+        // open drawer when selection exists
+        if (!selectedId && (resp.items || []).length) {
+          setDrawerOpen(true);
         }
       } finally {
         if (mounted) setLoading(false);
@@ -131,6 +146,18 @@ export default function FormResponsesPage() {
     return diff < 24 * 60 * 60 * 1000; // 24h
   }
 
+  function initialsFromName(name?: string) {
+    if (!name) return '??';
+    const parts = name.trim().split(/\s+/).slice(0, 2);
+    return parts.map((p) => p[0]?.toUpperCase() || '').join('') || '??';
+  }
+
+  const selectedResponse = selectedId ? items.find((it) => it.id === selectedId) : null;
+  const selectedValues = selectedId ? (valuesByResponse[selectedId] || []) : [];
+
+  function closeDrawer() {
+    setDrawerOpen(false);
+  }
   return (
     <div id="app" className="min-h-screen bg-gray-50 dark:bg-dark-bg transition-colors duration-200">
       <header className="sticky top-0 z-50 bg-white dark:bg-dark-card border-b border-gray-200 dark:border-dark-border">
@@ -307,6 +334,208 @@ export default function FormResponsesPage() {
           </div>
         </div>
       </main>
+      {/* Backdrop */}
+      <div
+        className={`fixed inset-0 bg-black/40 dark:bg-black/60 backdrop transition-opacity duration-300 z-40 ${
+          drawerOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+        onClick={closeDrawer}
+        aria-hidden="true"
+      />
+
+      {/* Right Drawer */}
+      <aside
+        className={`fixed inset-y-0 right-0 w-full max-w-xl bg-white dark:bg-dark-card shadow-2xl border-l border-gray-200 dark:border-dark-border z-50 transform transition-transform duration-300 ease-out rounded-l-xl overflow-hidden ${
+          drawerOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Response details"
+      >
+        {/* Drawer Header */}
+        <div className="sticky top-0 bg-white dark:bg-dark-card border-b border-gray-200 dark:border-dark-border px-6 py-4 z-10">
+          <div className="flex items-center justify-between mb-3">
+            <button
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-border text-gray-500 dark:text-dark-secondary transition-colors"
+              onClick={closeDrawer}
+              aria-label="Close drawer"
+            >
+              <i className="fas fa-arrow-left" />
+            </button>
+            <div className="relative">
+              <button
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-border text-gray-500 dark:text-dark-secondary transition-colors"
+                aria-label="More actions"
+              >
+                <i className="fas fa-ellipsis-v" />
+              </button>
+            </div>
+          </div>
+          <div className="flex items-center space-x-3">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-medium">
+              {initialsFromName(getName(selectedId || ''))}
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-dark-text">
+                {getName(selectedId || '') || 'Submission'}
+              </h2>
+              <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-dark-secondary">
+                {selectedResponse && (
+                  <>
+                    <span>
+                      Submitted {formatDate(selectedResponse.submitted_at)} at {formatTime(selectedResponse.submitted_at)}
+                    </span>
+                    <span className="inline-flex px-2 py-1 text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300 rounded-full">
+                      {selectedResponse.source || 'direct'}
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Drawer Content */}
+        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+          <div className="space-y-6">
+            {formFields
+              .filter((f) => selectedValues.some((v: any) => v.field_id === f.id && (v.value || v.file_url || v.json_value)))
+              .sort((a, b) => (a.position || 0) - (b.position || 0))
+              .map((field) => {
+                const vals = selectedValues.filter((v: any) => v.field_id === field.id);
+                const display = vals.map((v: any) => {
+                  if (v.file_url) {
+                    return { type: 'file', value: v.file_url };
+                  }
+                  if (field.type === 'multi_select' && v.json_value && Array.isArray(v.json_value)) {
+                    return { type: 'text', value: (v.json_value as any[]).join(', ') };
+                  }
+                  if (field.type === 'long_text') {
+                    return { type: 'long-text', value: v.value || '' };
+                  }
+                  if (field.type === 'email') {
+                    return { type: 'email', value: v.value || '' };
+                  }
+                  if (field.type === 'phone') {
+                    return { type: 'phone', value: v.value || '' };
+                  }
+                  if ((field.type === 'short_text' || field.type === 'dropdown') && typeof v.value === 'string') {
+                    if (v.value.startsWith('http://') || v.value.startsWith('https://')) return { type: 'link', value: v.value };
+                  }
+                  const str =
+                    v.value ??
+                    (v.json_value ? JSON.stringify(v.json_value) : '') ??
+                    '';
+                  return { type: 'text', value: String(str) };
+                });
+
+                return (
+                  <div key={field.id} className="field-item">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-900 dark:text-dark-text">{field.label}</label>
+                      <div className="space-y-2">
+                        {display.map((d, i) => {
+                          if (!d.value) return null;
+                          if (d.type === 'email') {
+                            return (
+                              <a
+                                key={i}
+                                href={`mailto:${d.value}`}
+                                className="inline-flex items-center px-3 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                              >
+                                <i className="fas fa-envelope mr-2" />
+                                {d.value}
+                              </a>
+                            );
+                          }
+                          if (d.type === 'phone') {
+                            return (
+                              <a
+                                key={i}
+                                href={`tel:${d.value}`}
+                                className="inline-flex items-center px-3 py-2 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors"
+                              >
+                                <i className="fas fa-phone mr-2" />
+                                {d.value}
+                              </a>
+                            );
+                          }
+                          if (d.type === 'link') {
+                            return (
+                              <a
+                                key={i}
+                                href={String(d.value)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-blue-600 dark:text-blue-400 hover:underline break-all inline-flex items-center"
+                              >
+                                <i className="fas fa-external-link-alt mr-2" />
+                                {String(d.value)}
+                              </a>
+                            );
+                          }
+                          if (d.type === 'file') {
+                            return (
+                              <a
+                                key={i}
+                                href={String(d.value)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center px-3 py-2 bg-gray-50 dark:bg-dark-bg text-gray-700 dark:text-dark-text rounded-lg hover:bg-gray-100 dark:hover:bg-dark-border transition-colors"
+                              >
+                                <i className="fas fa-paperclip mr-2" />
+                                Attachment
+                              </a>
+                            );
+                          }
+                          if (d.type === 'long-text') {
+                            const text = String(d.value);
+                            return (
+                              <div key={i} className="bg-gray-50 dark:bg-dark-bg p-4 rounded-lg">
+                                <p className="text-gray-700 dark:text-dark-text whitespace-pre-wrap">
+                                  {text}
+                                </p>
+                              </div>
+                            );
+                          }
+                          return (
+                            <p key={i} className="text-gray-700 dark:text-dark-text break-words">
+                              {String(d.value)}
+                            </p>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+
+        {/* Drawer Footer */}
+        <div className="sticky bottom-0 bg-white dark:bg-dark-card border-t border-gray-200 dark:border-dark-border px-6 py-4">
+          <div className="flex flex-wrap gap-3 mb-4">
+            <button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+              <i className="fas fa-reply mr-2" />
+              Reply to Candidate
+            </button>
+            <button className="px-4 py-2 border border-gray-300 dark:border-dark-border text-gray-700 dark:text-dark-text rounded-lg hover:bg-gray-50 dark:hover:bg-dark-border transition-colors">
+              Add to Pool
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <span className="inline-flex px-3 py-1 text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300 rounded-full cursor-pointer">
+              Strong Fit
+            </span>
+            <span className="inline-flex px-3 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300 rounded-full cursor-pointer">
+              Follow Up
+            </span>
+            <span className="inline-flex px-3 py-1 text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300 rounded-full cursor-pointer">
+              Reject
+            </span>
+          </div>
+        </div>
+      </aside>
     </div>
   );
 }
