@@ -178,18 +178,18 @@ export default function FormResponsesPage() {
                   className="pl-10 pr-4 py-2 w-64 bg-gray-100 dark:bg-dark-bg border-0 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:bg-white dark:focus:bg-dark-card transition-all"
                 />
               </div>
-              <button className="flex items-center space-x-2 px-3 py-2 bg-gray-100 dark:bg-dark-bg hover:bg-gray-200 dark:hover:bg-dark-border rounded-lg transition-colors">
+              <button className="flex items-center space-x-2 px-3 py-2 bg-gray-100 dark:bg-[#1a1d22] hover:bg-gray-200 dark:hover:bg-[#23262b] rounded-lg transition-colors">
                 <i className="fas fa-filter text-sm" />
                 <span className="text-sm font-medium">Filter</span>
               </button>
-              <button className="flex items-center space-x-2 px-3 py-2 bg-primary text-white hover:bg-blue-700 rounded-lg transition-colors">
+              <button className="flex items-center space-x-2 px-3 py-2 bg-primary text-white hover:bg-blue-700 dark:hover:bg-blue-600 rounded-lg transition-colors">
                 <i className="fas fa-download text-sm" />
                 <span className="text-sm font-medium">Export</span>
               </button>
               <button
                 id="theme-toggle"
                 onClick={toggleTheme}
-                className="p-2 bg-gray-100 dark:bg-dark-bg hover:bg-gray-200 dark:hover:bg-dark-border rounded-lg transition-colors"
+                className="p-2 bg-gray-100 dark:bg-[#1a1d22] hover:bg-gray-200 dark:hover:bg-[#23262b] rounded-lg transition-colors"
                 aria-label="Toggle theme"
               >
                 <i className={`fas fa-sun ${isDark ? 'hidden' : ''} text-yellow-500`} />
@@ -203,11 +203,11 @@ export default function FormResponsesPage() {
       <main id="main-content" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div
           id="responses-table"
-          className="bg-white dark:bg-dark-card rounded-xl border border-gray-200 dark:border-dark-border overflow-hidden"
+          className="bg-white dark:bg-[#14161a] rounded-xl border border-gray-200 dark:border-[#2a2d33] overflow-hidden"
         >
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50 dark:bg-dark-bg border-b border-gray-200 dark:border-dark-border">
+              <thead className="bg-gray-50 dark:bg-[#0f1114] border-b border-gray-200 dark:border-[#2a2d33]">
                 <tr>
                   <th className="px-6 py-4 text-left">
                     <input type="checkbox" className="rounded border-gray-300 dark:border-dark-border" />
@@ -260,8 +260,8 @@ export default function FormResponsesPage() {
                       <tr
                         key={r.id}
                         className={
-                          'row-hover hover:bg-gray-50 dark:hover:bg-dark-bg cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ' +
-                          (selected ? 'border-l-4 border-primary bg-blue-50 dark:bg-blue-900/10' : '')
+                          'group cursor-pointer transition-colors duration-150 hover:bg-gray-50 dark:hover:bg-[#1c1f24] ' +
+                          (selected ? 'border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-950/30' : '')
                         }
                         onClick={(e) => onRowClick(r.id, e)}
                       >
@@ -302,7 +302,7 @@ export default function FormResponsesPage() {
               </tbody>
             </table>
           </div>
-          <div className="px-6 py-4 bg-gray-50 dark:bg-dark-bg border-t border-gray-200 dark:border-dark-border">
+          <div className="px-6 py-4 bg-gray-50 dark:bg-[#0f1114] border-t border-gray-200 dark:border-[#2a2d33]">
             <div className="flex items-center justify-between">
               <div className="text-sm text-gray-500 dark:text-dark-secondary">
                 {(() => {
