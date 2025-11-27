@@ -1733,10 +1733,11 @@ router.post('/:id/convert', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/leads/apollo/validate-key - simple key validation
+// POST /api/leads/apollo/validate-key - simple key validation (accepts api_key or apiKey)
 router.post('/apollo/validate-key', requireAuth, async (req: Request, res: Response) => {
-  const { api_key } = req.body;
-  if (!api_key) {
+  const raw = req.body || {};
+  const api_key = raw.api_key || raw.apiKey || raw.key;
+  if (!api_key || typeof api_key !== 'string' || !api_key.trim()) {
     res.status(400).json({ error: 'Missing api_key' });
     return;
   }
@@ -1750,11 +1751,17 @@ router.post('/apollo/validate-key', requireAuth, async (req: Request, res: Respo
     if (resp.status === 200) {
       res.status(200).json({ valid: true });
     } else {
-      res.status(400).json({ error: 'invalid_key' });
+      res.status(401).json({ error: 'invalid_key' });
     }
   } catch (e: any) {
-    const msg = e.response?.data?.error || e.message || 'Validation failed';
-    res.status(400).json({ error: msg });
+    const status = e?.response?.status;
+    const msg = e?.response?.data?.error || e?.message || 'Validation failed';
+    // Map Apollo auth failures to 401 to match frontend expectation, else 400
+    if (status === 401 || status === 403) {
+      res.status(401).json({ error: msg || 'Unauthorized' });
+    } else {
+      res.status(400).json({ error: msg });
+    }
   }
 });
 
