@@ -14,6 +14,8 @@ export default function ApolloApiKeyModal({ isOpen, onClose, onSuccess, currentA
   const [isValidating, setIsValidating] = useState(false);
   const [error, setError] = useState('');
 
+  const backendUrl = (import.meta as any).env?.VITE_BACKEND_URL || 'https://api.thehirepilot.com';
+
   const handleValidateAndSave = async () => {
     if (!apiKey.trim()) {
       setError('Please enter an API key');
@@ -28,10 +30,8 @@ export default function ApolloApiKeyModal({ isOpen, onClose, onSuccess, currentA
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('No active session');
 
-      const backendUrl = import.meta.env.VITE_BACKEND_URL;
-
       // First validate the key
-      const validateResponse = await fetch(`${backendUrl}/api/leads/apollo/validate-key`, {
+      const validateResponse = await fetch(`${backendUrl.replace(/\/$/, '')}/api/leads/apollo/validate-key`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -50,7 +50,7 @@ export default function ApolloApiKeyModal({ isOpen, onClose, onSuccess, currentA
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user found');
 
-      const saveResponse = await fetch(`${backendUrl}/api/leads/apollo/save-key`, {
+      const saveResponse = await fetch(`${backendUrl.replace(/\/$/, '')}/api/leads/apollo/save-key`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

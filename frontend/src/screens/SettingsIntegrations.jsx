@@ -420,7 +420,7 @@ export default function SettingsIntegrations() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
-      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/apiKeys`, {
+      const res = await fetch(`${BACKEND}/api/apiKeys`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       });
@@ -462,7 +462,7 @@ export default function SettingsIntegrations() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/auth/google/init?user_id=${user.id}`);
+      const resp = await fetch(`${BACKEND}/api/auth/google/init?user_id=${user.id}`);
       const js = await resp.json();
       if (resp.ok && js.url) window.location.href = js.url; else toast.error(js.error || 'Failed to start Google OAuth');
     } catch { toast.error('Failed to start Google OAuth'); }
@@ -471,7 +471,7 @@ export default function SettingsIntegrations() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/auth/google/disconnect`, {
+      const resp = await fetch(`${BACKEND}/api/auth/google/disconnect`, {
         method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: user.id })
       });
       if (resp.ok) { setGoogleConnected(false); toast.success('Google disconnected'); } else toast.error('Failed to disconnect Google');
@@ -482,7 +482,7 @@ export default function SettingsIntegrations() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const clientId = import.meta.env.VITE_OUTLOOK_CLIENT_ID || '1b3df991-884a-4d19-9cd4-9901baddcb97';
-    const redirectUri = `${import.meta.env.VITE_BACKEND_URL}/api/auth/outlook/callback`;
+    const redirectUri = `${BACKEND}/api/auth/outlook/callback`;
     const scope = encodeURIComponent('openid profile email offline_access Mail.Send');
     const state = user.id;
     const url = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&state=${state}`;
@@ -525,7 +525,7 @@ export default function SettingsIntegrations() {
   const validateSendGridKey = async () => {
     try {
       setSendGridLoading(true); setValidationError('');
-      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/sendgrid/validate`, {
+      const resp = await fetch(`${BACKEND}/api/sendgrid/validate`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey: sendGridApiKey })
       });
       const js = await resp.json();
@@ -548,7 +548,7 @@ export default function SettingsIntegrations() {
       ]);
       if (!user) return;
       const token = session?.access_token;
-      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/sendgrid/get-senders`, {
+      const resp = await fetch(`${BACKEND}/api/sendgrid/get-senders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ user_id: user.id }),
@@ -583,7 +583,7 @@ export default function SettingsIntegrations() {
       const body = isFirstConnect
         ? { user_id: user.id, api_key: sendGridApiKey, default_sender: selectedSender }
         : { user_id: user.id, default_sender: selectedSender };
-      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}${endpoint}`, {
+      const resp = await fetch(`${BACKEND}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify(body)
