@@ -421,8 +421,9 @@ console.log('generateMessage:', generateMessage);
 app.post('/api/generate-message', generateMessage);
 app.post('/api/createUser', createUser);
 app.post('/api/saveMessage', saveMessage);
-app.use('/api/leads', leadsRouter);
+// Mount Apollo-specific routes BEFORE generic /api/leads to avoid route shadowing
 app.use('/api/leads/apollo', leadsApolloRouter);
+app.use('/api/leads', leadsRouter);
 console.table(listEndpoints(app).filter((r: any) => r.path.startsWith('/api/leads')));
 app.use('/api/sourcing', sourcingRouter);
 console.table(listEndpoints(app).filter((r: any) => r.path.startsWith('/api/sourcing')));

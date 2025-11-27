@@ -1733,72 +1733,7 @@ router.post('/:id/convert', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/leads/apollo/validate-key - simple key validation (accepts api_key or apiKey)
-router.post('/apollo/validate-key', requireAuth, async (req: Request, res: Response) => {
-  const raw = req.body || {};
-  const api_key = raw.api_key || raw.apiKey || raw.key;
-  if (!api_key || typeof api_key !== 'string' || !api_key.trim()) {
-    res.status(400).json({ error: 'Missing api_key' });
-    return;
-  }
-  try {
-    // minimal payload to check validity
-    const resp = await axios.post('https://api.apollo.io/v1/mixed_people/search', {
-      api_key,
-      page: 1,
-      per_page: 1
-    });
-    if (resp.status === 200) {
-      res.status(200).json({ valid: true });
-    } else {
-      res.status(401).json({ error: 'invalid_key' });
-    }
-  } catch (e: any) {
-    const status = e?.response?.status;
-    const msg = e?.response?.data?.error || e?.message || 'Validation failed';
-    // Map Apollo auth failures to 401 to match frontend expectation, else 400
-    if (status === 401 || status === 403) {
-      res.status(401).json({ error: msg || 'Unauthorized' });
-    } else {
-      res.status(400).json({ error: msg });
-    }
-  }
-});
-
-// POST /api/leads/apollo/save-key - persist API key in user_settings
-router.post('/apollo/save-key', requireAuth, async (req: Request, res: Response) => {
-  try {
-    const { user_id, api_key } = req.body;
-    if (!user_id || !api_key) {
-      res.status(400).json({ error: 'Missing user_id or api_key' });
-      return;
-    }
-
-    // Upsert into user_settings
-    const { error } = await supabase
-      .from('user_settings')
-      .upsert({ user_id, apollo_api_key: api_key }, { onConflict: 'user_id' });
-
-    if (error) {
-      console.error('Save key DB error:', error);
-      res.status(500).json({ error: error.message });
-      return;
-    }
-
-    // Ensure integrations table marks Apollo as connected
-    await supabase.from('integrations').upsert({
-      user_id,
-      provider: 'apollo',
-      status: 'connected',
-      connected_at: new Date().toISOString()
-    }, { onConflict: 'user_id,provider' });
-
-    res.json({ success: true });
-  } catch (e: any) {
-    console.error('Save key error:', e);
-    res.status(500).json({ error: e.message || 'Failed to save key' });
-  }
-});
+// Apollo routes are handled in backend/api/leadsApollo.ts under /api/leads/apollo
 
 // ---------------------------------------------------------------------------
 // DELETE /api/leads - bulk delete (ids[] in body) for the authenticated user
