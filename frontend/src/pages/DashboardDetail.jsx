@@ -95,6 +95,8 @@ export default function DashboardDetail() {
           }
         }
         if (backendBase && sources.length) {
+          const palette = ['#3b82f6', '#10b981', '#f97316', '#ef4444', '#8b5cf6'];
+          let paletteIdx = 0;
           const { data: { session } } = await supabase.auth.getSession();
           const authHeader = session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {};
           // Side-by-side metrics (each becomes its own formula chart)
@@ -120,8 +122,9 @@ export default function DashboardDetail() {
                   name: m.alias || m.columnId,
                   x: pts.map(p => p.x),
                   y: pts.map(p => p.value),
-                  line: { width: 3 }
+                  line: { width: 3, color: palette[paletteIdx % palette.length] }
                 });
+                paletteIdx += 1;
               }
             } catch {
               toast.error(`Failed to load ${m.alias || m.columnId} series`);
@@ -150,8 +153,9 @@ export default function DashboardDetail() {
                   name: formulaLabel || 'Formula',
                   x: pts.map(p => p.x),
                   y: pts.map(p => p.value),
-                  line: { width: 3 }
+                  line: { width: 3, color: palette[paletteIdx % palette.length] }
                 });
+                paletteIdx += 1;
               }
             } catch {
               toast.error('Failed to load formula series');
