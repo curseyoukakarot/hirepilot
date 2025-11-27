@@ -585,13 +585,17 @@ export default function Dashboards() {
                       params.set('formula', expr);
                     }
                     // Time bucket & group hint
-                    const tb = (revDateCol || expDateCol || hiresDateCol) ? 'month' : 'none';
+                    const tb = (revDateCol || expDateCol || hiresDateCol) ? 'month' : 'month'; // default to month so charts render
                     params.set('tb', tb);
                     const groupAlias = revDateCol ? 'Revenue' : (expDateCol ? 'Expenses' : (hiresDateCol ? 'Hires' : ''));
                     const groupCol = revDateCol || expDateCol || hiresDateCol || '';
                     if (groupAlias && groupCol) { params.set('groupAlias', groupAlias); params.set('groupCol', groupCol); }
-                    // Deals & Revenue special flag
+                    // App datapoint flags
                     if (includeDeals) params.set('includeDeals', '1');
+                    if (includeLeads) params.set('includeLeads', '1');
+                    if (includeCandidates) params.set('includeCandidates', '1');
+                    if (includeJobs) params.set('includeJobs', '1');
+                    if (includeCampaigns) params.set('includeCampaigns', '1');
                     if (timeRange) params.set('range', timeRange);
                     // Save dashboard to Supabase so it appears in Custom Dashboards
                     try {
@@ -603,6 +607,10 @@ export default function Dashboards() {
                         groupAlias: params.get('groupAlias') || '',
                         groupCol: params.get('groupCol') || '',
                         includeDeals: includeDeals ? 1 : 0,
+                        includeLeads: includeLeads ? 1 : 0,
+                        includeCandidates: includeCandidates ? 1 : 0,
+                        includeJobs: includeJobs ? 1 : 0,
+                        includeCampaigns: includeCampaigns ? 1 : 0,
                         range: timeRange
                       };
                       const { data: { user } } = await supabase.auth.getUser();
@@ -627,6 +635,64 @@ export default function Dashboards() {
           </motion.div>
         )}
       </AnimatePresence>
+      {/* Saved Custom Dashboards */}
+      <SavedDashboards />
+    </div>
+  );
+}
+
+function SavedDashboards() {
+  const navigate = useNavigate();
+  const [items, setItems] = useState([]);
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('user_dashboards')
+          .select('id, layout, updated_at')
+          .order('updated_at', { ascending: false });
+        setItems(Array.isArray(data) ? data : []);
+      } catch {
+        setItems([]);
+      }
+    })();
+  }, []);
+  if (!items.length) return null;
+  const toParams = (layout) => {
+    const params = new URLSearchParams();
+    if (layout?.sources?.length) params.set('sources', encodeURIComponent(JSON.stringify(layout.sources)));
+    if (layout?.metrics?.length) params.set('metrics', encodeURIComponent(JSON.stringify(layout.metrics)));
+    if (layout?.formula) params.set('formula', layout.formula);
+    if (layout?.tb) params.set('tb', layout.tb);
+    if (layout?.groupAlias) params.set('groupAlias', layout.groupAlias);
+    if (layout?.groupCol) params.set('groupCol', layout.groupCol);
+    if (layout?.range) params.set('range', layout.range);
+    if (layout?.includeDeals) params.set('includeDeals', String(layout.includeDeals));
+    if (layout?.includeLeads) params.set('includeLeads', String(layout.includeLeads));
+    if (layout?.includeCandidates) params.set('includeCandidates', String(layout.includeCandidates));
+    if (layout?.includeJobs) params.set('includeJobs', String(layout.includeJobs));
+    if (layout?.includeCampaigns) params.set('includeCampaigns', String(layout.includeCampaigns));
+    return params.toString();
+  };
+  return (
+    <div className="mt-10">
+      <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">Custom Dashboards</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {items.map((d) => (
+          <div key={d.id} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 hover:shadow-lg transition cursor-pointer" onClick={() => navigate(`/dashboards/${d.id}?${toParams(d.layout||{})}`)}>
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Custom Dashboard</h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Updated {new Date(d.updated_at).toLocaleString()}</p>
+              </div>
+              <i className="fa-solid fa-chart-line text-indigo-500"></i>
+            </div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">
+              {Array.isArray(d?.layout?.sources) ? d.layout.sources.map(s=>s.alias).join(', ') : '—'}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

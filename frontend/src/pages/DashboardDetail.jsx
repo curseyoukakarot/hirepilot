@@ -20,10 +20,11 @@ export default function DashboardDetail() {
         const sourcesParam = url.searchParams.get('sources');
         const metricsParam = url.searchParams.get('metrics');
         const formulaParam = url.searchParams.get('formula');
-        const tb = url.searchParams.get('tb') || 'none';
+        const tb = url.searchParams.get('tb') || 'month';
         const groupAlias = url.searchParams.get('groupAlias') || '';
         const groupCol = url.searchParams.get('groupCol') || '';
         const includeDeals = url.searchParams.get('includeDeals') === '1';
+        const range = url.searchParams.get('range') || 'last_90_days';
         const sources = sourcesParam ? JSON.parse(decodeURIComponent(sourcesParam)) : [];
         const metrics = metricsParam ? JSON.parse(decodeURIComponent(metricsParam)) : [];
         const formulaExpr = formulaParam ? decodeURIComponent(formulaParam) : '';
@@ -41,8 +42,22 @@ export default function DashboardDetail() {
               .from('revenue_monthly')
               .select('month,revenue')
               .order('month', { ascending: true });
-            const x = (revRows || []).map(r => r.month);
-            const y = (revRows || []).map(r => Number(r.revenue || 0));
+            // Range filter
+            const startFrom = (() => {
+              const now = new Date();
+              const d = new Date(now);
+              if (range === 'last_30_days') d.setDate(now.getDate() - 30);
+              else if (range === 'last_90_days') d.setDate(now.getDate() - 90);
+              else if (range === 'last_180_days') d.setDate(now.getDate() - 180);
+              else if (range === 'ytd') d.setMonth(0, 1);
+              else d.setFullYear(1970, 0, 1);
+              return d;
+            })();
+            const filtered = (revRows || []).filter(r => {
+              try { return new Date(r.month) >= startFrom; } catch { return true; }
+            });
+            const x = filtered.map(r => r.month);
+            const y = filtered.map(r => Number(r.revenue || 0));
             if (y.length) {
               traces.push({
                 type: 'scatter',
