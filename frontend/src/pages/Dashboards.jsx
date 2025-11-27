@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -27,6 +27,71 @@ export default function Dashboards() {
   const [addFormulaSeries, setAddFormulaSeries] = useState(true);
   const [formulaExpr, setFormulaExpr] = useState('Revenue - Expenses');
   const [tablesError, setTablesError] = useState(null);
+  const [dashboards, setDashboards] = useState([]);
+  const [dashboardsLoading, setDashboardsLoading] = useState(false);
+  const [selectedDashIds, setSelectedDashIds] = useState([]);
+  const [editingDashboardId, setEditingDashboardId] = useState(null);
+
+  const resetBuilderState = useCallback(() => {
+    setRevenueTableId('');
+    setExpensesTableId('');
+    setHiresTableId('');
+    setTimeRange('last_90_days');
+    setIncludeLeads(false);
+    setIncludeCampaigns(false);
+    setIncludeJobs(false);
+    setIncludeDeals(false);
+    setIncludeCandidates(false);
+    setRevValueCol('');
+    setRevDateCol('');
+    setExpValueCol('');
+    setExpDateCol('');
+    setHiresDateCol('');
+    setSideBySide(true);
+    setAddFormulaSeries(true);
+    setFormulaExpr('Revenue - Expenses');
+  }, []);
+
+  const hydrateBuilderFromLayout = useCallback((layout = {}) => {
+    resetBuilderState();
+    const sourceByAlias = {};
+    if (Array.isArray(layout.sources)) {
+      layout.sources.forEach((s) => { sourceByAlias[s.alias] = s; });
+      setRevenueTableId(sourceByAlias['Revenue']?.tableId || '');
+      setExpensesTableId(sourceByAlias['Expenses']?.tableId || '');
+      setHiresTableId(sourceByAlias['Hires']?.tableId || '');
+    }
+    if (Array.isArray(layout.metrics) && layout.metrics.length) {
+      setSideBySide(true);
+      const revMetric = layout.metrics.find((m) => m.alias === 'Revenue');
+      const expMetric = layout.metrics.find((m) => m.alias === 'Expenses');
+      if (revMetric) {
+        setRevValueCol(revMetric.columnId || '');
+        setRevDateCol(revMetric.dateColumn || '');
+      }
+      if (expMetric) {
+        setExpValueCol(expMetric.columnId || '');
+        setExpDateCol(expMetric.dateColumn || '');
+      }
+    } else {
+      setSideBySide(false);
+    }
+    if (layout.hiresDateCol) setHiresDateCol(layout.hiresDateCol);
+    else setHiresDateCol('');
+    if (layout.formula) {
+      setAddFormulaSeries(true);
+      setFormulaExpr(layout.formula);
+    } else {
+      setAddFormulaSeries(false);
+      setFormulaExpr('');
+    }
+    if (layout.range) setTimeRange(layout.range);
+    setIncludeDeals(Boolean(layout.includeDeals));
+    setIncludeLeads(Boolean(layout.includeLeads));
+    setIncludeCandidates(Boolean(layout.includeCandidates));
+    setIncludeJobs(Boolean(layout.includeJobs));
+    setIncludeCampaigns(Boolean(layout.includeCampaigns));
+  }, [resetBuilderState]);
 
   const ensureSession = async () => {
     const { data } = await supabase.auth.getSession();
@@ -60,7 +125,92 @@ export default function Dashboards() {
     }
   };
 
+  const loadDashboards = useCallback(async () => {
+    try {
+      setDashboardsLoading(true);
+      const { data } = await supabase
+        .from('user_dashboards')
+        .select('id, layout, updated_at')
+        .order('updated_at', { ascending: false });
+      setDashboards(Array.isArray(data) ? data : []);
+    } catch {
+      setDashboards([]);
+    } finally {
+      setDashboardsLoading(false);
+    }
+  }, []);
+
+  const closeModal = useCallback(() => {
+    setIsCreateOpen(false);
+    setEditingDashboardId(null);
+  }, []);
+
+  const buildParamsFromLayout = useCallback((layout = {}) => {
+    const params = new URLSearchParams();
+    if (Array.isArray(layout.sources) && layout.sources.length) params.set('sources', encodeURIComponent(JSON.stringify(layout.sources)));
+    if (Array.isArray(layout.metrics) && layout.metrics.length) params.set('metrics', encodeURIComponent(JSON.stringify(layout.metrics)));
+    if (layout.formula) params.set('formula', layout.formula);
+    if (layout.tb) params.set('tb', layout.tb);
+    if (layout.groupAlias) params.set('groupAlias', layout.groupAlias);
+    if (layout.groupCol) params.set('groupCol', layout.groupCol);
+    if (layout.groupMode) params.set('groupMode', layout.groupMode);
+    if (layout.range) params.set('range', layout.range);
+    if (layout.includeDeals) params.set('includeDeals', String(layout.includeDeals));
+    if (layout.includeLeads) params.set('includeLeads', String(layout.includeLeads));
+    if (layout.includeCandidates) params.set('includeCandidates', String(layout.includeCandidates));
+    if (layout.includeJobs) params.set('includeJobs', String(layout.includeJobs));
+    if (layout.includeCampaigns) params.set('includeCampaigns', String(layout.includeCampaigns));
+    return params.toString();
+  }, []);
+
+  const toggleSelectDashboard = useCallback((id) => {
+    setSelectedDashIds((prev) => (
+      prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]
+    ));
+  }, []);
+
+  const selectAllDashboards = useCallback((checked) => {
+    if (checked) {
+      setSelectedDashIds(dashboards.map((d) => d.id));
+    } else {
+      setSelectedDashIds([]);
+    }
+  }, [dashboards]);
+
+  const deleteDashboardsByIds = useCallback(async (ids) => {
+    if (!ids.length) return;
+    try {
+      await supabase.from('user_dashboards').delete().in('id', ids);
+      setSelectedDashIds([]);
+      await loadDashboards();
+    } catch {
+      // swallow for now; could show toast
+    }
+  }, [loadDashboards]);
+
+  const deleteSelectedDashboards = useCallback(async () => {
+    await deleteDashboardsByIds(selectedDashIds);
+  }, [deleteDashboardsByIds, selectedDashIds]);
+
+  const viewDashboard = useCallback((dashboard) => {
+    const qs = buildParamsFromLayout(dashboard.layout || {});
+    navigate(`/dashboards/${dashboard.id}?${qs}`);
+  }, [buildParamsFromLayout, navigate]);
+
+  const startEditDashboard = useCallback(async (dashboard) => {
+    hydrateBuilderFromLayout(dashboard.layout || {});
+    setEditingDashboardId(dashboard.id);
+    setIsCreateOpen(true);
+    await loadTables();
+  }, [hydrateBuilderFromLayout, loadTables]);
+
+  const handleDeleteDashboard = useCallback(async (dashboardId) => {
+    await deleteDashboardsByIds([dashboardId]);
+  }, [deleteDashboardsByIds]);
+
   const openCreate = async () => {
+    setEditingDashboardId(null);
+    resetBuilderState();
     setIsCreateOpen(true);
     await loadTables();
   };
@@ -113,6 +263,14 @@ export default function Dashboards() {
     })();
     return () => { isMounted = false; };
   }, []);
+
+  useEffect(() => {
+    loadDashboards();
+  }, [loadDashboards]);
+
+  useEffect(() => {
+    setSelectedDashIds((prev) => prev.filter((id) => dashboards.some((d) => d.id === id)));
+  }, [dashboards]);
 
   return (
     <div className="bg-gray-50 dark:bg-slate-900 font-sans min-h-screen">
@@ -440,7 +598,7 @@ export default function Dashboards() {
       {/* Create Dashboard Modal */}
       <AnimatePresence>
         {isCreateOpen && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={(e)=>{ if (e.target===e.currentTarget) setIsCreateOpen(false); }}>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={(e)=>{ if (e.target===e.currentTarget) closeModal(); }}>
             <motion.div initial={{ scale: 0.97, y: 10, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.98, y: 6, opacity: 0 }} transition={{ type: 'spring', stiffness: 200, damping: 22 }} className="w-full max-w-4xl rounded-2xl overflow-hidden shadow-2xl border border-indigo-200/40 dark:border-indigo-900/40">
               <div className="bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 text-white p-6">
                 <div className="flex items-center justify-between">
@@ -448,7 +606,7 @@ export default function Dashboards() {
                     <h2 className="text-2xl font-bold">Create Custom Dashboard</h2>
                     <p className="opacity-90 mt-1">Choose data sources and timeframe. We’ll assemble widgets and charts.</p>
                   </div>
-                  <button className="text-white/90 hover:text-white" onClick={()=>setIsCreateOpen(false)}><i className="fa-solid fa-xmark text-2xl"></i></button>
+                  <button className="text-white/90 hover:text-white" onClick={closeModal}><i className="fa-solid fa-xmark text-2xl"></i></button>
                 </div>
               </div>
               <div className="bg-white dark:bg-slate-900 p-6">
@@ -560,7 +718,7 @@ export default function Dashboards() {
               </div>
               <div className="bg-white dark:bg-slate-900 px-6 pb-6">
                 <div className="flex items-center justify-end gap-3">
-                  <button className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200" onClick={()=>setIsCreateOpen(false)}>Cancel</button>
+                  <button className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200" onClick={closeModal}>Cancel</button>
                   <button className="px-5 py-2.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700" onClick={async ()=>{
                     const params = new URLSearchParams();
                     // Sources (aliases fixed)
@@ -636,19 +794,36 @@ export default function Dashboards() {
                         includeCandidates: includeCandidates ? 1 : 0,
                         includeJobs: includeJobs ? 1 : 0,
                         includeCampaigns: includeCampaigns ? 1 : 0,
-                        range: timeRange
+                        range: timeRange,
+                        hiresDateCol
                       };
                       const { data: { user } } = await supabase.auth.getUser();
-                      if (user?.id) {
+                      let targetId = editingDashboardId || null;
+                      if (editingDashboardId) {
+                        const { data: updated, error } = await supabase
+                          .from('user_dashboards')
+                          .update({ layout })
+                          .eq('id', editingDashboardId)
+                          .select('id')
+                          .single();
+                        if (!error && updated?.id) {
+                          targetId = updated.id;
+                        }
+                      } else if (user?.id) {
                         const { data: inserted, error } = await supabase
                           .from('user_dashboards')
                           .insert({ user_id: user.id, layout })
                           .select('id')
                           .single();
                         if (!error && inserted?.id) {
-                          navigate(`/dashboards/${inserted.id}?${params.toString()}`);
-                          return;
+                          targetId = inserted.id;
                         }
+                      }
+                      if (targetId) {
+                        await loadDashboards();
+                        closeModal();
+                        navigate(`/dashboards/${targetId}?${params.toString()}`);
+                        return;
                       }
                     } catch {}
                     // Fallback to demo if save fails
@@ -661,61 +836,97 @@ export default function Dashboards() {
         )}
       </AnimatePresence>
       {/* Saved Custom Dashboards */}
-      <SavedDashboards />
+      <SavedDashboards
+        items={dashboards}
+        loading={dashboardsLoading}
+        selectedIds={selectedDashIds}
+        onToggle={toggleSelectDashboard}
+        onToggleAll={selectAllDashboards}
+        onDeleteSelected={deleteSelectedDashboards}
+        onView={viewDashboard}
+        onEdit={startEditDashboard}
+        onDelete={handleDeleteDashboard}
+      />
     </div>
   );
 }
 
-function SavedDashboards() {
-  const navigate = useNavigate();
-  const [items, setItems] = useState([]);
-  useEffect(() => {
-    (async () => {
-      try {
-        const { data } = await supabase
-          .from('user_dashboards')
-          .select('id, layout, updated_at')
-          .order('updated_at', { ascending: false });
-        setItems(Array.isArray(data) ? data : []);
-      } catch {
-        setItems([]);
-      }
-    })();
-  }, []);
-  if (!items.length) return null;
-  const toParams = (layout) => {
-    const params = new URLSearchParams();
-    if (layout?.sources?.length) params.set('sources', encodeURIComponent(JSON.stringify(layout.sources)));
-    if (layout?.metrics?.length) params.set('metrics', encodeURIComponent(JSON.stringify(layout.metrics)));
-    if (layout?.formula) params.set('formula', layout.formula);
-    if (layout?.tb) params.set('tb', layout.tb);
-    if (layout?.groupAlias) params.set('groupAlias', layout.groupAlias);
-    if (layout?.groupCol) params.set('groupCol', layout.groupCol);
-    if (layout?.range) params.set('range', layout.range);
-    if (layout?.groupMode) params.set('groupMode', layout.groupMode);
-    if (layout?.includeDeals) params.set('includeDeals', String(layout.includeDeals));
-    if (layout?.includeLeads) params.set('includeLeads', String(layout.includeLeads));
-    if (layout?.includeCandidates) params.set('includeCandidates', String(layout.includeCandidates));
-    if (layout?.includeJobs) params.set('includeJobs', String(layout.includeJobs));
-    if (layout?.includeCampaigns) params.set('includeCampaigns', String(layout.includeCampaigns));
-    return params.toString();
+function SavedDashboards({
+  items,
+  loading,
+  selectedIds,
+  onToggle,
+  onToggleAll,
+  onDeleteSelected,
+  onView,
+  onEdit,
+  onDelete
+}) {
+  const [menuOpenId, setMenuOpenId] = useState(null);
+  const allSelected = items.length > 0 && selectedIds.length === items.length;
+  const handleSelectAllChange = (e) => onToggleAll?.(e.target.checked);
+  const handleDeleteSelected = () => onDeleteSelected?.();
+  const toggleMenu = (id, e) => {
+    e?.stopPropagation();
+    setMenuOpenId((prev) => prev === id ? null : id);
   };
+  const closeMenu = () => setMenuOpenId(null);
+  useEffect(() => {
+    const handler = () => setMenuOpenId(null);
+    window.addEventListener('click', handler);
+    return () => window.removeEventListener('click', handler);
+  }, []);
+  if (!items.length) {
+    return (
+      <div className="mt-10 text-center text-slate-500">
+        {loading ? 'Loading custom dashboards…' : 'No custom dashboards yet.'}
+      </div>
+    );
+  }
   return (
     <div className="mt-10">
-      <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">Custom Dashboards</h3>
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+        <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Custom Dashboards</h3>
+        <div className="flex items-center gap-4">
+          <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+            <input type="checkbox" className="w-4 h-4" checked={allSelected} onChange={handleSelectAllChange} />
+            Select All
+          </label>
+          <button
+            onClick={handleDeleteSelected}
+            disabled={!selectedIds.length}
+            className={`px-3 py-2 rounded-lg text-sm ${selectedIds.length ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-slate-200 text-slate-500 cursor-not-allowed'}`}
+          >
+            Delete Selected
+          </button>
+        </div>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {items.map((d) => (
-          <div key={d.id} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 hover:shadow-lg transition cursor-pointer" onClick={() => navigate(`/dashboards/${d.id}?${toParams(d.layout||{})}`)}>
+          <div key={d.id} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 hover:shadow-lg transition relative cursor-pointer" onClick={() => onView?.(d)}>
             <div className="flex items-start justify-between mb-3">
               <div>
                 <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Custom Dashboard</h4>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Updated {new Date(d.updated_at).toLocaleString()}</p>
               </div>
-              <i className="fa-solid fa-chart-line text-indigo-500"></i>
+              <div className="flex items-center gap-2">
+                <input type="checkbox" className="w-4 h-4" checked={selectedIds.includes(d.id)} onChange={(e) => { e.stopPropagation(); onToggle?.(d.id); }} />
+                <button onClick={(e) => toggleMenu(d.id, e)} className="text-slate-400 hover:text-slate-200">
+                  <i className="fa-solid fa-ellipsis-vertical"></i>
+                </button>
+              </div>
             </div>
-            <div className="text-xs text-slate-500 dark:text-slate-400">
-              {Array.isArray(d?.layout?.sources) ? d.layout.sources.map(s=>s.alias).join(', ') : '—'}
+            <div className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+              {Array.isArray(d?.layout?.sources) && d.layout.sources.length ? d.layout.sources.map(s=>s.alias).join(', ') : '—'}
             </div>
+            <button className="text-indigo-500 text-sm font-medium" onClick={(e) => { e.stopPropagation(); onView?.(d); }}>View Dashboard</button>
+            {menuOpenId === d.id && (
+              <div className="absolute right-4 top-12 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg w-40 z-20">
+                <button className="block w-full text-left px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800" onClick={(e)=>{ e.stopPropagation(); closeMenu(); onView?.(d); }}>View</button>
+                <button className="block w-full text-left px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800" onClick={async (e)=>{ e.stopPropagation(); closeMenu(); await onEdit?.(d); }}>Edit</button>
+                <button className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-slate-800" onClick={(e)=>{ e.stopPropagation(); closeMenu(); onDelete?.(d.id); }}>Delete</button>
+              </div>
+            )}
           </div>
         ))}
       </div>
