@@ -8,82 +8,74 @@ export default function Dashboards() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [tables, setTables] = useState([]);
   const [loadingTables, setLoadingTables] = useState(false);
-  const [revenueTableId, setRevenueTableId] = useState('');
-  const [expensesTableId, setExpensesTableId] = useState('');
-  const [hiresTableId, setHiresTableId] = useState('');
+  const createMetricBlock = () => ({
+    id: (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `metric-${Date.now()}-${Math.random()}`),
+    alias: '',
+    tableId: '',
+    columnId: '',
+    agg: 'SUM',
+    dateColumn: ''
+  });
+  const [metricBlocks, setMetricBlocks] = useState([createMetricBlock()]);
   const [timeRange, setTimeRange] = useState('last_90_days');
   const [includeLeads, setIncludeLeads] = useState(false);
   const [includeCampaigns, setIncludeCampaigns] = useState(false);
   const [includeJobs, setIncludeJobs] = useState(false);
   const [includeDeals, setIncludeDeals] = useState(false);
   const [includeCandidates, setIncludeCandidates] = useState(false);
-  // Metric selections
-  const [revValueCol, setRevValueCol] = useState('');
-  const [revDateCol, setRevDateCol] = useState('');
-  const [expValueCol, setExpValueCol] = useState('');
-  const [expDateCol, setExpDateCol] = useState('');
-  const [hiresDateCol, setHiresDateCol] = useState('');
-  const [sideBySide, setSideBySide] = useState(true);
   const [addFormulaSeries, setAddFormulaSeries] = useState(true);
-  const [formulaExpr, setFormulaExpr] = useState('Revenue - Expenses');
+  const [formulaExpr, setFormulaExpr] = useState('');
+  const [formulaLabel, setFormulaLabel] = useState('Formula');
   const [tablesError, setTablesError] = useState(null);
   const [dashboards, setDashboards] = useState([]);
   const [dashboardsLoading, setDashboardsLoading] = useState(false);
   const [selectedDashIds, setSelectedDashIds] = useState([]);
   const [editingDashboardId, setEditingDashboardId] = useState(null);
+  const [builderError, setBuilderError] = useState('');
 
   const resetBuilderState = useCallback(() => {
-    setRevenueTableId('');
-    setExpensesTableId('');
-    setHiresTableId('');
+    setMetricBlocks([createMetricBlock()]);
     setTimeRange('last_90_days');
     setIncludeLeads(false);
     setIncludeCampaigns(false);
     setIncludeJobs(false);
     setIncludeDeals(false);
     setIncludeCandidates(false);
-    setRevValueCol('');
-    setRevDateCol('');
-    setExpValueCol('');
-    setExpDateCol('');
-    setHiresDateCol('');
-    setSideBySide(true);
     setAddFormulaSeries(true);
-    setFormulaExpr('Revenue - Expenses');
+    setFormulaExpr('');
+    setFormulaLabel('Formula');
+    setBuilderError('');
   }, []);
 
   const hydrateBuilderFromLayout = useCallback((layout = {}) => {
     resetBuilderState();
-    const sourceByAlias = {};
-    if (Array.isArray(layout.sources)) {
-      layout.sources.forEach((s) => { sourceByAlias[s.alias] = s; });
-      setRevenueTableId(sourceByAlias['Revenue']?.tableId || '');
-      setExpensesTableId(sourceByAlias['Expenses']?.tableId || '');
-      setHiresTableId(sourceByAlias['Hires']?.tableId || '');
-    }
     if (Array.isArray(layout.metrics) && layout.metrics.length) {
-      setSideBySide(true);
-      const revMetric = layout.metrics.find((m) => m.alias === 'Revenue');
-      const expMetric = layout.metrics.find((m) => m.alias === 'Expenses');
-      if (revMetric) {
-        setRevValueCol(revMetric.columnId || '');
-        setRevDateCol(revMetric.dateColumn || '');
-      }
-      if (expMetric) {
-        setExpValueCol(expMetric.columnId || '');
-        setExpDateCol(expMetric.dateColumn || '');
-      }
+      const derivedBlocks = layout.metrics.map((m, idx) => {
+        const sourceTableId = layout.sources?.find((s) => s.alias === m.alias)?.tableId || '';
+        return {
+          id: `metric-${idx}-${Date.now()}`,
+          alias: m.alias || `Metric ${idx + 1}`,
+          tableId: sourceTableId,
+          columnId: m.columnId || '',
+          agg: m.agg || 'SUM',
+          dateColumn: m.dateColumn || ''
+        };
+      });
+      setMetricBlocks(derivedBlocks);
     } else {
-      setSideBySide(false);
+      setMetricBlocks([createMetricBlock()]);
     }
-    if (layout.hiresDateCol) setHiresDateCol(layout.hiresDateCol);
-    else setHiresDateCol('');
     if (layout.formula) {
       setAddFormulaSeries(true);
       setFormulaExpr(layout.formula);
     } else {
       setAddFormulaSeries(false);
       setFormulaExpr('');
+    }
+    if (layout.formulaLabel) {
+      setFormulaLabel(layout.formulaLabel);
+    } else {
+      setFormulaLabel(layout.formula ? 'Formula' : '');
     }
     if (layout.range) setTimeRange(layout.range);
     setIncludeDeals(Boolean(layout.includeDeals));
@@ -92,6 +84,18 @@ export default function Dashboards() {
     setIncludeJobs(Boolean(layout.includeJobs));
     setIncludeCampaigns(Boolean(layout.includeCampaigns));
   }, [resetBuilderState]);
+
+  const updateMetricBlock = useCallback((id, patch) => {
+    setMetricBlocks((prev) => prev.map((block) => (block.id === id ? { ...block, ...patch } : block)));
+  }, []);
+
+  const removeMetricBlock = useCallback((id) => {
+    setMetricBlocks((prev) => (prev.length === 1 ? prev : prev.filter((block) => block.id !== id)));
+  }, []);
+
+  const addMetricBlock = useCallback(() => {
+    setMetricBlocks((prev) => [...prev, createMetricBlock()]);
+  }, []);
 
   const ensureSession = async () => {
     const { data } = await supabase.auth.getSession();
@@ -150,6 +154,7 @@ export default function Dashboards() {
     if (Array.isArray(layout.sources) && layout.sources.length) params.set('sources', encodeURIComponent(JSON.stringify(layout.sources)));
     if (Array.isArray(layout.metrics) && layout.metrics.length) params.set('metrics', encodeURIComponent(JSON.stringify(layout.metrics)));
     if (layout.formula) params.set('formula', layout.formula);
+    if (layout.formulaLabel) params.set('formulaLabel', layout.formulaLabel);
     if (layout.tb) params.set('tb', layout.tb);
     if (layout.groupAlias) params.set('groupAlias', layout.groupAlias);
     if (layout.groupCol) params.set('groupCol', layout.groupCol);
@@ -603,171 +608,201 @@ export default function Dashboards() {
               <div className="bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 text-white p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-2xl font-bold">Create Custom Dashboard</h2>
-                    <p className="opacity-90 mt-1">Choose data sources and timeframe. We’ll assemble widgets and charts.</p>
+                    <div className="flex items-center gap-3">
+                      <h2 className="text-2xl font-bold">{editingDashboardId ? 'Edit Dashboard' : 'Create Custom Dashboard'}</h2>
+                      {editingDashboardId && (
+                        <span className="px-3 py-1 text-xs font-semibold rounded-full bg-white/20">Editing existing</span>
+                      )}
+                    </div>
+                    <p className="opacity-90 mt-1">Choose any tables or system data, name the metrics, add an optional formula, and we’ll assemble widgets and charts.</p>
                   </div>
                   <button className="text-white/90 hover:text-white" onClick={closeModal}><i className="fa-solid fa-xmark text-2xl"></i></button>
                 </div>
               </div>
               <div className="bg-white dark:bg-slate-900 p-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="md:col-span-2 space-y-4">
-                    <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Data Sources</h3>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <div className="lg:col-span-2 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Metrics & Sources</h3>
+                      <button className="text-sm px-3 py-1 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800" onClick={addMetricBlock}>
+                        <i className="fa-solid fa-plus mr-1"></i>Add metric
+                      </button>
+                    </div>
                     <div className="rounded-xl border border-slate-200 dark:border-slate-800">
                       <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <i className="fa-solid fa-table" style={{ color: '#9CA3AF' }}></i>
-                          <span className="font-medium">Tables</span>
+                          <i className="fa-solid fa-table text-slate-400"></i>
+                          <span className="font-medium text-slate-900 dark:text-slate-100">Pick any table</span>
                         </div>
                         <div className="text-xs text-slate-400">
                           {loadingTables ? 'Loading…' : `${tables.length} available`}
-                          {(!loadingTables && tables.length === 0 && !tablesError) ? <span className="ml-2">(none)</span> : null}
                           {tablesError ? <button onClick={loadTables} className="ml-2 underline">Retry</button> : null}
                         </div>
                       </div>
-                      <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-                        {/* Revenue */}
-                        <div>
-                          <label className="text-xs text-slate-500">Revenue Table</label>
-                          <select value={revenueTableId} onChange={(e)=>{ setRevenueTableId(e.target.value); setRevValueCol(''); setRevDateCol(''); }} className="mt-1 w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200"><option value="">Select</option>{tables.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
-                          {revenueTableId && (
-                            <div className="mt-2 space-y-2">
-                              <select value={revValueCol} onChange={(e)=>setRevValueCol(e.target.value)} className="w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200">
-                                <option value="">Value Column</option>
-                                {(tables.find(t=>t.id===revenueTableId)?.schema_json||[]).filter(c=>['number','money','formula'].includes(String(c.type))).map(c=><option key={c.name} value={c.name}>{c.name}</option>)}
-                              </select>
-                              <select value={revDateCol} onChange={(e)=>setRevDateCol(e.target.value)} className="w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200">
-                                <option value="">Date Column (optional)</option>
-                                {(tables.find(t=>t.id===revenueTableId)?.schema_json||[]).filter(c=>String(c.type)==='date' || /date|created/i.test(String(c.name))).map(c=><option key={c.name} value={c.name}>{c.name}</option>)}
-                              </select>
+                      <div className="p-4 space-y-4 max-h-[50vh] overflow-y-auto">
+                        {metricBlocks.map((block, idx) => {
+                          const selectedTable = tables.find((t) => t.id === block.tableId);
+                          const schema = Array.isArray(selectedTable?.schema_json) ? selectedTable.schema_json : [];
+                          const numericColumns = schema.filter((c) => ['number', 'money', 'formula'].includes(String(c.type)));
+                          const dateColumns = schema.filter((c) => String(c.type) === 'date' || /date|created/i.test(String(c.name || '')));
+                          return (
+                            <div key={block.id} className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 space-y-3 bg-white dark:bg-slate-900/40">
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Series {idx + 1}</p>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400">Alias used in formulas and labels</p>
+                                </div>
+                                {metricBlocks.length > 1 && (
+                                  <button className="text-xs text-red-500 hover:text-red-400" onClick={() => removeMetricBlock(block.id)}>Remove</button>
+                                )}
+                              </div>
+                              <div className="grid md:grid-cols-2 gap-3">
+                                <input
+                                  value={block.alias}
+                                  onChange={(e)=>updateMetricBlock(block.id, { alias: e.target.value })}
+                                  placeholder="Alias (e.g. Expenses)"
+                                  className="w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200 text-sm"
+                                />
+                                <select
+                                  value={block.tableId}
+                                  onChange={(e)=>updateMetricBlock(block.id, { tableId: e.target.value, columnId: '', dateColumn: '' })}
+                                  className="w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200 text-sm"
+                                >
+                                  <option value="">Select table</option>
+                                  {tables.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                </select>
+                              </div>
+                              <div className="grid lg:grid-cols-3 gap-3">
+                                <select
+                                  value={block.columnId}
+                                  onChange={(e)=>updateMetricBlock(block.id, { columnId: e.target.value })}
+                                  disabled={!block.tableId}
+                                  className="w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200 text-sm disabled:opacity-50"
+                                >
+                                  <option value="">{block.tableId ? 'Value column' : 'Select table first'}</option>
+                                  {numericColumns.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
+                                </select>
+                                <select
+                                  value={block.agg}
+                                  onChange={(e)=>updateMetricBlock(block.id, { agg: e.target.value })}
+                                  className="w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200 text-sm"
+                                >
+                                  {['SUM','AVG','COUNT','MIN','MAX'].map((agg) => <option key={agg} value={agg}>{agg}</option>)}
+                                </select>
+                                <select
+                                  value={block.dateColumn}
+                                  onChange={(e)=>updateMetricBlock(block.id, { dateColumn: e.target.value })}
+                                  disabled={!block.tableId}
+                                  className="w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200 text-sm disabled:opacity-50"
+                                >
+                                  <option value="">Date column (optional)</option>
+                                  {dateColumns.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
+                                </select>
+                              </div>
                             </div>
-                          )}
-                        </div>
-                        {/* Expenses */}
-                        <div>
-                          <label className="text-xs text-slate-500">Expenses Table</label>
-                          <select value={expensesTableId} onChange={(e)=>{ setExpensesTableId(e.target.value); setExpValueCol(''); setExpDateCol(''); }} className="mt-1 w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200"><option value="">Select</option>{tables.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
-                          {expensesTableId && (
-                            <div className="mt-2 space-y-2">
-                              <select value={expValueCol} onChange={(e)=>setExpValueCol(e.target.value)} className="w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200">
-                                <option value="">Value Column</option>
-                                {(tables.find(t=>t.id===expensesTableId)?.schema_json||[]).filter(c=>['number','money','formula'].includes(String(c.type))).map(c=><option key={c.name} value={c.name}>{c.name}</option>)}
-                              </select>
-                              <select value={expDateCol} onChange={(e)=>setExpDateCol(e.target.value)} className="w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200">
-                                <option value="">Date Column (optional)</option>
-                                {(tables.find(t=>t.id===expensesTableId)?.schema_json||[]).filter(c=>String(c.type)==='date' || /date|created/i.test(String(c.name))).map(c=><option key={c.name} value={c.name}>{c.name}</option>)}
-                              </select>
-                            </div>
-                          )}
-                        </div>
-                        {/* Hires */}
-                        <div>
-                          <label className="text-xs text-slate-500">Hires Table</label>
-                          <select value={hiresTableId} onChange={(e)=>{ setHiresTableId(e.target.value); setHiresDateCol(''); }} className="mt-1 w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200"><option value="">Select</option>{tables.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
-                          {hiresTableId && (
-                            <div className="mt-2">
-                              <select value={hiresDateCol} onChange={(e)=>setHiresDateCol(e.target.value)} className="w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200">
-                                <option value="">Date Column (optional)</option>
-                                {(tables.find(t=>t.id===hiresTableId)?.schema_json||[]).filter(c=>String(c.type)==='date' || /date|created/i.test(String(c.name))).map(c=><option key={c.name} value={c.name}>{c.name}</option>)}
-                              </select>
-                            </div>
-                          )}
-                        </div>
+                          );
+                        })}
                       </div>
                     </div>
                     <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4">
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={includeLeads} onChange={(e)=>setIncludeLeads(e.target.checked)} />Leads</label>
-                        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={includeCampaigns} onChange={(e)=>setIncludeCampaigns(e.target.checked)} />Campaigns</label>
-                        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={includeJobs} onChange={(e)=>setIncludeJobs(e.target.checked)} />Job Reqs</label>
-                        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={includeDeals} onChange={(e)=>setIncludeDeals(e.target.checked)} />Deals & Revenue</label>
-                        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={includeCandidates} onChange={(e)=>setIncludeCandidates(e.target.checked)} />Candidates</label>
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">App data overlays</h4>
+                        <span className="text-xs text-slate-500 dark:text-slate-400">Optional</span>
                       </div>
-                      <p className="text-xs text-slate-500 mt-2">We’ll auto-suggest KPIs and charts from each source. Tables can be used directly or in formulas.</p>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                        <label className="flex items-center gap-2"><input type="checkbox" checked={includeLeads} onChange={(e)=>setIncludeLeads(e.target.checked)} />Leads</label>
+                        <label className="flex items-center gap-2"><input type="checkbox" checked={includeCampaigns} onChange={(e)=>setIncludeCampaigns(e.target.checked)} />Campaigns</label>
+                        <label className="flex items-center gap-2"><input type="checkbox" checked={includeJobs} onChange={(e)=>setIncludeJobs(e.target.checked)} />Job Reqs</label>
+                        <label className="flex items-center gap-2"><input type="checkbox" checked={includeDeals} onChange={(e)=>setIncludeDeals(e.target.checked)} />Deals & Revenue</label>
+                        <label className="flex items-center gap-2"><input type="checkbox" checked={includeCandidates} onChange={(e)=>setIncludeCandidates(e.target.checked)} />Candidates</label>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-2">Use these toggles to overlay system metrics like Close Won revenue or candidate counts alongside your custom tables.</p>
                     </div>
                   </div>
                   <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Time Range</h3>
-                    <select value={timeRange} onChange={(e)=>setTimeRange(e.target.value)} className="w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200">
-                      <option value="last_30_days">Last 30 Days</option>
-                      <option value="last_90_days">Last 90 Days</option>
-                      <option value="last_180_days">Last 180 Days</option>
-                      <option value="ytd">Year to Date</option>
-                      <option value="all_time">All Time</option>
-                    </select>
-                    <div className="rounded-xl bg-gradient-to-br from-indigo-50 to-fuchsia-50 dark:from-slate-800 dark:to-slate-800/50 border border-slate-200 dark:border-slate-800 p-4">
-                      <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">What you’ll get</h4>
-                      <ul className="text-sm text-slate-600 dark:text-slate-300 space-y-1">
-                        <li>• KPI cards (Net Profit, Cost per Hire, LTV, etc.)</li>
-                        <li>• Charts with multiple metrics and time buckets</li>
-                        <li>• Optional REX insights for summaries and suggestions</li>
-                      </ul>
-                      <div className="mt-4 space-y-2">
-                        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={sideBySide} onChange={(e)=>setSideBySide(e.target.checked)} />Show selected metrics side-by-side</label>
-                        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={addFormulaSeries} onChange={(e)=>setAddFormulaSeries(e.target.checked)} />Add formula series</label>
-                        {addFormulaSeries && (
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-slate-600 dark:text-slate-400">Formula</span>
-                            <input value={formulaExpr} onChange={(e)=>setFormulaExpr(e.target.value)} placeholder="Revenue - Expenses" className="flex-1 px-2 py-1 border border-slate-300 dark:border-slate-700 rounded bg-white dark:bg-slate-800 dark:text-slate-200 text-sm" />
-                          </div>
-                        )}
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">Time Range</h3>
+                      <select value={timeRange} onChange={(e)=>setTimeRange(e.target.value)} className="w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200">
+                        <option value="last_30_days">Last 30 Days</option>
+                        <option value="last_90_days">Last 90 Days</option>
+                        <option value="last_180_days">Last 180 Days</option>
+                        <option value="ytd">Year to Date</option>
+                        <option value="all_time">All Time</option>
+                      </select>
+                    </div>
+                    <div className="rounded-xl bg-gradient-to-br from-indigo-50 to-fuchsia-50 dark:from-slate-800 dark:to-slate-800/50 border border-slate-200 dark:border-slate-800 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Formula (optional)</h4>
+                        <label className="flex items-center gap-2 text-xs text-slate-500"><input type="checkbox" checked={addFormulaSeries} onChange={(e)=>setAddFormulaSeries(e.target.checked)} />Enable</label>
                       </div>
+                      {addFormulaSeries && (
+                        <>
+                          <input value={formulaLabel} onChange={(e)=>setFormulaLabel(e.target.value)} placeholder="Label (e.g. Net Profit)" className="w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-900/60 text-sm" />
+                          <textarea value={formulaExpr} onChange={(e)=>setFormulaExpr(e.target.value)} placeholder="Example: Revenue - Expenses" className="w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-900/60 text-sm min-h-[70px]" />
+                          <p className="text-xs text-slate-600 dark:text-slate-400">Use aliases exactly as defined above. We’ll translate them into safe expressions.</p>
+                          <div className="flex flex-wrap gap-2">
+                            {metricBlocks.filter((b) => b.alias.trim()).map((b) => (
+                              <span key={`alias-${b.id}`} className="text-xs px-2 py-1 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200">{b.alias || 'Alias'}</span>
+                            ))}
+                            {!metricBlocks.some((b) => b.alias.trim()) && <span className="text-xs text-slate-500">Add an alias to see tokens</span>}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 space-y-2">
+                      <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Preview summary</h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">We’ll build {metricBlocks.filter((b)=>b.alias && b.tableId && b.columnId).length} metric series, {addFormulaSeries && formulaExpr ? 'plus a formula output.' : 'with no formula output yet.'}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Charts will bucket by the first metric with a date column, otherwise fall back to row order.</p>
                     </div>
                   </div>
                 </div>
               </div>
               <div className="bg-white dark:bg-slate-900 px-6 pb-6">
+                {builderError && <p className="text-sm text-red-500 mb-3">{builderError}</p>}
                 <div className="flex items-center justify-end gap-3">
                   <button className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200" onClick={closeModal}>Cancel</button>
                   <button className="px-5 py-2.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700" onClick={async ()=>{
                     const params = new URLSearchParams();
-                    // Sources (aliases fixed)
-                    const sources = [];
-                    if (revenueTableId) sources.push({ alias: 'Revenue', tableId: revenueTableId });
-                    if (expensesTableId) sources.push({ alias: 'Expenses', tableId: expensesTableId });
-                    if (hiresTableId) sources.push({ alias: 'Hires', tableId: hiresTableId });
-                    if (sources.length) params.set('sources', encodeURIComponent(JSON.stringify(sources)));
-                    // Metrics (side-by-side)
-                    const metrics = [];
-                    if (sideBySide) {
-                      if (revenueTableId && revValueCol) metrics.push({ alias: 'Revenue', columnId: revValueCol, agg: 'SUM', dateColumn: revDateCol || undefined });
-                      if (expensesTableId && expValueCol) metrics.push({ alias: 'Expenses', columnId: expValueCol, agg: 'SUM', dateColumn: expDateCol || undefined });
+                    const preparedBlocks = metricBlocks.map((b) => ({ ...b, alias: (b.alias || '').trim() }));
+                    const validMetrics = preparedBlocks.filter((b) => b.alias && b.tableId && b.columnId);
+                    if (!validMetrics.length) {
+                      setBuilderError('Add at least one metric with an alias, table, and value column.');
+                      return;
                     }
-                    if (metrics.length) params.set('metrics', encodeURIComponent(JSON.stringify(metrics)));
-                    // Optional formula expression
-                    if (addFormulaSeries && (formulaExpr || (revValueCol && expValueCol))) {
-                      let expr = formulaExpr || '';
-                      // If plain aliases used, expand to include selected column names
-                      if (/Revenue\b/.test(expr) && revValueCol) expr = expr.replace(/Revenue\b/g, `SUM(Revenue.${revValueCol})`);
-                      if (/Expenses\b/.test(expr) && expValueCol) expr = expr.replace(/Expenses\b/g, `SUM(Expenses.${expValueCol})`);
-                      params.set('formula', expr);
+                    const aliasSet = new Set();
+                    for (const block of validMetrics) {
+                      if (aliasSet.has(block.alias)) {
+                        setBuilderError('Aliases must be unique. Rename duplicates to continue.');
+                        return;
+                      }
+                      aliasSet.add(block.alias);
+                    }
+                    setBuilderError('');
+                    const sources = validMetrics.map((block) => ({ alias: block.alias, tableId: block.tableId }));
+                    const metrics = validMetrics.map((block) => ({
+                      alias: block.alias,
+                      columnId: block.columnId,
+                      agg: block.agg || 'SUM',
+                      dateColumn: block.dateColumn || undefined
+                    }));
+                    params.set('sources', encodeURIComponent(JSON.stringify(sources)));
+                    params.set('metrics', encodeURIComponent(JSON.stringify(metrics)));
+                    let formulaPayload = '';
+                    if (addFormulaSeries && formulaExpr.trim()) {
+                      formulaPayload = formulaExpr;
+                      validMetrics.forEach((block) => {
+                        const pattern = new RegExp(`\\b${block.alias}\\b`, 'g');
+                        formulaPayload = formulaPayload.replace(pattern, `${(block.agg || 'SUM').toUpperCase()}(${block.alias}.${block.columnId})`);
+                      });
+                      params.set('formula', formulaPayload);
+                      if (formulaLabel.trim()) params.set('formulaLabel', formulaLabel.trim());
                     }
                     // Time bucket & grouping strategy
-                    let tb = 'none';
-                    let groupAlias = '';
-                    let groupCol = '';
-                    let groupMode = 'row';
-                    if (revDateCol) {
-                      groupAlias = 'Revenue';
-                      groupCol = revDateCol;
-                      groupMode = 'time';
-                      tb = 'month';
-                    } else if (expDateCol) {
-                      groupAlias = 'Expenses';
-                      groupCol = expDateCol;
-                      groupMode = 'time';
-                      tb = 'month';
-                    } else if (hiresDateCol) {
-                      groupAlias = 'Hires';
-                      groupCol = hiresDateCol;
-                      groupMode = 'time';
-                      tb = 'month';
-                    } else if (sources.length) {
-                      groupAlias = sources[0].alias;
-                      groupCol = '__row__';
-                      groupMode = 'row';
-                      tb = 'none';
-                    }
+                    const dateMetric = validMetrics.find((block) => block.dateColumn);
+                    const tb = dateMetric ? 'month' : 'none';
+                    const groupAlias = dateMetric ? dateMetric.alias : validMetrics[0].alias;
+                    const groupCol = dateMetric ? dateMetric.dateColumn : '';
+                    const groupMode = dateMetric ? 'time' : 'row';
                     params.set('tb', tb);
                     if (groupAlias) params.set('groupAlias', groupAlias);
                     if (groupCol) params.set('groupCol', groupCol);
@@ -784,7 +819,8 @@ export default function Dashboards() {
                       const layout = {
                         sources,
                         metrics,
-                        formula: params.get('formula') || '',
+                        formula: formulaPayload || '',
+                        formulaLabel: formulaLabel || '',
                         tb,
                         groupAlias: params.get('groupAlias') || '',
                         groupCol: params.get('groupCol') || '',
@@ -794,8 +830,7 @@ export default function Dashboards() {
                         includeCandidates: includeCandidates ? 1 : 0,
                         includeJobs: includeJobs ? 1 : 0,
                         includeCampaigns: includeCampaigns ? 1 : 0,
-                        range: timeRange,
-                        hiresDateCol
+                        range: timeRange
                       };
                       const { data: { user } } = await supabase.auth.getUser();
                       let targetId = editingDashboardId || null;

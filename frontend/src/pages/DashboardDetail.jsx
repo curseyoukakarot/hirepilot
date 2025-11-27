@@ -26,6 +26,7 @@ export default function DashboardDetail() {
         const groupMode = url.searchParams.get('groupMode') || (tb !== 'none' ? 'time' : 'row');
         const includeDeals = url.searchParams.get('includeDeals') === '1';
         const range = url.searchParams.get('range') || 'last_90_days';
+        const formulaLabel = url.searchParams.get('formulaLabel') || 'Formula';
         const sources = sourcesParam ? JSON.parse(decodeURIComponent(sourcesParam)) : [];
         const metrics = metricsParam ? JSON.parse(decodeURIComponent(metricsParam)) : [];
         const formulaExpr = formulaParam ? decodeURIComponent(formulaParam) : '';
@@ -97,7 +98,7 @@ export default function DashboardDetail() {
                 traces.push({
                   type: 'scatter',
                   mode: 'lines',
-                  name: `${m.alias} ${m.columnId}`,
+                  name: m.alias || m.columnId,
                   x: pts.map(p => p.x),
                   y: pts.map(p => p.value),
                   line: { width: 3 }
@@ -125,7 +126,7 @@ export default function DashboardDetail() {
                 traces.push({
                   type: 'scatter',
                   mode: 'lines',
-                  name: 'Formula',
+                  name: formulaLabel || 'Formula',
                   x: pts.map(p => p.x),
                   y: pts.map(p => p.value),
                   line: { width: 3 }
@@ -149,7 +150,7 @@ export default function DashboardDetail() {
               });
               if (r.ok) {
                 const j = await r.json();
-                k.push({ id: `${m.alias}_${m.columnId}`, label: `${m.alias} ${m.columnId}`, value: j?.value ?? 0, format: /amount|revenue|price|cost|value|total|monthly|yearly/i.test(String(m.columnId)) ? 'currency' : 'number' });
+                k.push({ id: `${m.alias}_${m.columnId}`, label: m.alias || m.columnId, value: j?.value ?? 0, format: /amount|revenue|price|cost|value|total|monthly|yearly/i.test(String(m.columnId)) ? 'currency' : 'number' });
               }
             } catch {}
           }
@@ -167,7 +168,7 @@ export default function DashboardDetail() {
               });
               if (r.ok) {
                 const j = await r.json();
-                k.unshift({ id: 'formula_metric', label: 'Formula', value: j?.value ?? 0, format: 'currency' });
+                k.unshift({ id: 'formula_metric', label: formulaLabel || 'Formula', value: j?.value ?? 0, format: 'currency' });
               }
             } catch {}
           }
