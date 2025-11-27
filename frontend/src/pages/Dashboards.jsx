@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { toast } from 'react-hot-toast';
 import { supabase } from '../lib/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -32,6 +33,10 @@ export default function Dashboards() {
   const [selectedDashIds, setSelectedDashIds] = useState([]);
   const [editingDashboardId, setEditingDashboardId] = useState(null);
   const [builderError, setBuilderError] = useState('');
+  const announceOverlayToggle = useCallback((label, enabled) => {
+    if (enabled) toast.success(`${label} enabled`);
+    else toast(`${label} hidden`);
+  }, []);
 
   const resetBuilderState = useCallback(() => {
     setMetricBlocks([createMetricBlock()]);
@@ -188,8 +193,9 @@ export default function Dashboards() {
       await supabase.from('user_dashboards').delete().in('id', ids);
       setSelectedDashIds([]);
       await loadDashboards();
+      toast.success(ids.length > 1 ? 'Dashboards deleted' : 'Dashboard deleted');
     } catch {
-      // swallow for now; could show toast
+      toast.error('Failed to delete dashboard');
     }
   }, [loadDashboards]);
 
@@ -710,11 +716,26 @@ export default function Dashboards() {
                         <span className="text-xs text-slate-500 dark:text-slate-400">Optional</span>
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
-                        <label className="flex items-center gap-2"><input type="checkbox" checked={includeLeads} onChange={(e)=>setIncludeLeads(e.target.checked)} />Leads</label>
-                        <label className="flex items-center gap-2"><input type="checkbox" checked={includeCampaigns} onChange={(e)=>setIncludeCampaigns(e.target.checked)} />Campaigns</label>
-                        <label className="flex items-center gap-2"><input type="checkbox" checked={includeJobs} onChange={(e)=>setIncludeJobs(e.target.checked)} />Job Reqs</label>
-                        <label className="flex items-center gap-2"><input type="checkbox" checked={includeDeals} onChange={(e)=>setIncludeDeals(e.target.checked)} />Deals & Revenue</label>
-                        <label className="flex items-center gap-2"><input type="checkbox" checked={includeCandidates} onChange={(e)=>setIncludeCandidates(e.target.checked)} />Candidates</label>
+                        <label className="flex items-center gap-2">
+                          <input type="checkbox" checked={includeLeads} onChange={(e)=>{ const checked = e.target.checked; setIncludeLeads(checked); announceOverlayToggle('Leads overlay', checked); }} />
+                          Leads
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input type="checkbox" checked={includeCampaigns} onChange={(e)=>{ const checked = e.target.checked; setIncludeCampaigns(checked); announceOverlayToggle('Campaign overlay', checked); }} />
+                          Campaigns
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input type="checkbox" checked={includeJobs} onChange={(e)=>{ const checked = e.target.checked; setIncludeJobs(checked); announceOverlayToggle('Job Req overlay', checked); }} />
+                          Job Reqs
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input type="checkbox" checked={includeDeals} onChange={(e)=>{ const checked = e.target.checked; setIncludeDeals(checked); announceOverlayToggle('Deals & Revenue overlay', checked); }} />
+                          Deals & Revenue
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input type="checkbox" checked={includeCandidates} onChange={(e)=>{ const checked = e.target.checked; setIncludeCandidates(checked); announceOverlayToggle('Candidate overlay', checked); }} />
+                          Candidates
+                        </label>
                       </div>
                       <p className="text-xs text-slate-500 mt-2">Use these toggles to overlay system metrics like Close Won revenue or candidate counts alongside your custom tables.</p>
                     </div>
@@ -766,13 +787,17 @@ export default function Dashboards() {
                     const preparedBlocks = metricBlocks.map((b) => ({ ...b, alias: (b.alias || '').trim() }));
                     const validMetrics = preparedBlocks.filter((b) => b.alias && b.tableId && b.columnId);
                     if (!validMetrics.length) {
-                      setBuilderError('Add at least one metric with an alias, table, and value column.');
+                      const msg = 'Add at least one metric with an alias, table, and value column.';
+                      setBuilderError(msg);
+                      toast.error(msg);
                       return;
                     }
                     const aliasSet = new Set();
                     for (const block of validMetrics) {
                       if (aliasSet.has(block.alias)) {
-                        setBuilderError('Aliases must be unique. Rename duplicates to continue.');
+                        const msg = 'Aliases must be unique. Rename duplicates to continue.';
+                        setBuilderError(msg);
+                        toast.error(msg);
                         return;
                       }
                       aliasSet.add(block.alias);
@@ -857,10 +882,14 @@ export default function Dashboards() {
                       if (targetId) {
                         await loadDashboards();
                         closeModal();
+                        toast.success(editingDashboardId ? 'Dashboard updated' : 'Dashboard created');
                         navigate(`/dashboards/${targetId}?${params.toString()}`);
                         return;
                       }
-                    } catch {}
+                      toast.error('Failed to save dashboard');
+                    } catch {
+                      toast.error('Failed to save dashboard');
+                    }
                     // Fallback to demo if save fails
                     navigate(`/dashboards/demo?${params.toString()}`);
                   }}>Build Dashboard</button>

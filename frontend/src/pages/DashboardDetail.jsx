@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { toast } from 'react-hot-toast';
 import { supabase } from '../lib/supabaseClient';
 
 export default function DashboardDetail() {
@@ -73,7 +74,9 @@ export default function DashboardDetail() {
               }
               revenueKpi = y.reduce((a, b) => a + (Number.isFinite(b) ? b : 0), 0);
             }
-          } catch {}
+          } catch {
+            toast.error('Failed to load revenue overlay');
+          }
         }
         if (backendBase && sources.length) {
           const { data: { session } } = await supabase.auth.getSession();
@@ -104,7 +107,9 @@ export default function DashboardDetail() {
                   line: { width: 3 }
                 });
               }
-            } catch {}
+            } catch {
+              toast.error(`Failed to load ${m.alias || m.columnId} series`);
+            }
           }
           // Optional formula series
           if (formulaExpr) {
@@ -132,7 +137,9 @@ export default function DashboardDetail() {
                   line: { width: 3 }
                 });
               }
-            } catch {}
+            } catch {
+              toast.error('Failed to load formula series');
+            }
           }
           // Compute KPI cards (aggregates with no time bucket)
           const k = [];
@@ -152,7 +159,9 @@ export default function DashboardDetail() {
                 const j = await r.json();
                 k.push({ id: `${m.alias}_${m.columnId}`, label: m.alias || m.columnId, value: j?.value ?? 0, format: /amount|revenue|price|cost|value|total|monthly|yearly/i.test(String(m.columnId)) ? 'currency' : 'number' });
               }
-            } catch {}
+            } catch {
+              toast.error(`Failed to load ${m.alias || m.columnId} KPI`);
+            }
           }
           if (formulaExpr) {
             try {
@@ -170,7 +179,9 @@ export default function DashboardDetail() {
                 const j = await r.json();
                 k.unshift({ id: 'formula_metric', label: formulaLabel || 'Formula', value: j?.value ?? 0, format: 'currency' });
               }
-            } catch {}
+            } catch {
+              toast.error('Failed to load formula KPI');
+            }
           }
           // Add revenue KPI if present
           if (revenueKpi > 0) k.unshift({ id: 'revenue_total', label: 'Revenue', value: revenueKpi, format: 'currency' });
