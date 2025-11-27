@@ -584,12 +584,36 @@ export default function Dashboards() {
                       if (/Expenses\b/.test(expr) && expValueCol) expr = expr.replace(/Expenses\b/g, `SUM(Expenses.${expValueCol})`);
                       params.set('formula', expr);
                     }
-                    // Time bucket & group hint
-                    const tb = (revDateCol || expDateCol || hiresDateCol) ? 'month' : 'month'; // default to month so charts render
+                    // Time bucket & grouping strategy
+                    let tb = 'none';
+                    let groupAlias = '';
+                    let groupCol = '';
+                    let groupMode = 'row';
+                    if (revDateCol) {
+                      groupAlias = 'Revenue';
+                      groupCol = revDateCol;
+                      groupMode = 'time';
+                      tb = 'month';
+                    } else if (expDateCol) {
+                      groupAlias = 'Expenses';
+                      groupCol = expDateCol;
+                      groupMode = 'time';
+                      tb = 'month';
+                    } else if (hiresDateCol) {
+                      groupAlias = 'Hires';
+                      groupCol = hiresDateCol;
+                      groupMode = 'time';
+                      tb = 'month';
+                    } else if (sources.length) {
+                      groupAlias = sources[0].alias;
+                      groupCol = '__row__';
+                      groupMode = 'row';
+                      tb = 'none';
+                    }
                     params.set('tb', tb);
-                    const groupAlias = revDateCol ? 'Revenue' : (expDateCol ? 'Expenses' : (hiresDateCol ? 'Hires' : ''));
-                    const groupCol = revDateCol || expDateCol || hiresDateCol || '';
-                    if (groupAlias && groupCol) { params.set('groupAlias', groupAlias); params.set('groupCol', groupCol); }
+                    if (groupAlias) params.set('groupAlias', groupAlias);
+                    if (groupCol) params.set('groupCol', groupCol);
+                    params.set('groupMode', groupMode);
                     // App datapoint flags
                     if (includeDeals) params.set('includeDeals', '1');
                     if (includeLeads) params.set('includeLeads', '1');
@@ -606,6 +630,7 @@ export default function Dashboards() {
                         tb,
                         groupAlias: params.get('groupAlias') || '',
                         groupCol: params.get('groupCol') || '',
+                        groupMode,
                         includeDeals: includeDeals ? 1 : 0,
                         includeLeads: includeLeads ? 1 : 0,
                         includeCandidates: includeCandidates ? 1 : 0,
@@ -667,6 +692,7 @@ function SavedDashboards() {
     if (layout?.groupAlias) params.set('groupAlias', layout.groupAlias);
     if (layout?.groupCol) params.set('groupCol', layout.groupCol);
     if (layout?.range) params.set('range', layout.range);
+    if (layout?.groupMode) params.set('groupMode', layout.groupMode);
     if (layout?.includeDeals) params.set('includeDeals', String(layout.includeDeals));
     if (layout?.includeLeads) params.set('includeLeads', String(layout.includeLeads));
     if (layout?.includeCandidates) params.set('includeCandidates', String(layout.includeCandidates));

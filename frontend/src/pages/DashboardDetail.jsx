@@ -23,12 +23,13 @@ export default function DashboardDetail() {
         const tb = url.searchParams.get('tb') || 'month';
         const groupAlias = url.searchParams.get('groupAlias') || '';
         const groupCol = url.searchParams.get('groupCol') || '';
+        const groupMode = url.searchParams.get('groupMode') || (tb !== 'none' ? 'time' : 'row');
         const includeDeals = url.searchParams.get('includeDeals') === '1';
         const range = url.searchParams.get('range') || 'last_90_days';
         const sources = sourcesParam ? JSON.parse(decodeURIComponent(sourcesParam)) : [];
         const metrics = metricsParam ? JSON.parse(decodeURIComponent(metricsParam)) : [];
         const formulaExpr = formulaParam ? decodeURIComponent(formulaParam) : '';
-        const groupBy = (groupAlias && groupCol) ? { alias: groupAlias, columnId: groupCol } : undefined;
+        const groupBy = groupAlias ? { alias: groupAlias, columnId: groupCol || undefined, mode: groupMode } : undefined;
         // Optional UI flags: default hidden unless explicitly requested
         setShowFunnel(url.searchParams.get('showFunnel') === '1');
         setShowCampaigns(url.searchParams.get('showCampaigns') === '1');
@@ -59,14 +60,16 @@ export default function DashboardDetail() {
             const x = filtered.map(r => r.month);
             const y = filtered.map(r => Number(r.revenue || 0));
             if (y.length) {
-              traces.push({
-                type: 'scatter',
-                mode: 'lines',
-                name: 'Revenue',
-                x,
-                y,
-                line: { width: 3 }
-              });
+              if (groupMode === 'time') {
+                traces.push({
+                  type: 'scatter',
+                  mode: 'lines',
+                  name: 'Revenue',
+                  x,
+                  y,
+                  line: { width: 3 }
+                });
+              }
               revenueKpi = y.reduce((a, b) => a + (Number.isFinite(b) ? b : 0), 0);
             }
           } catch {}

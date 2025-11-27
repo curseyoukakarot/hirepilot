@@ -1,6 +1,7 @@
 import dayjs from 'dayjs';
 
 type TimeBucket = 'day' | 'week' | 'month' | 'none' | undefined;
+type GroupMode = 'time' | 'category' | 'row';
 
 export type Filter = {
   alias?: string;
@@ -21,7 +22,7 @@ export type ComputeFormulaArgs = {
   sources: SourceSpec[];
   joins?: JoinSpec[];
   timeBucket?: TimeBucket;
-  groupBy?: { alias: string; columnId: string } | undefined;
+  groupBy?: { alias: string; columnId?: string; mode?: GroupMode } | undefined;
   filters?: Filter[];
   // Caller provides a loader so this engine stays framework-agnostic
   loadRows: (tableId: string) => Promise<{ rows: any[]; schema?: any }>;
@@ -60,7 +61,7 @@ function applyFilter(rows: any[], f: Filter): any[] {
   });
 }
 
-function bucketKeyFor(row: any, timeBucket: TimeBucket, dateColumnGuess?: string): string {
+function bucketKeyForTime(row: any, timeBucket: TimeBucket, dateColumnGuess?: string): string {
   if (!timeBucket || timeBucket === 'none') return 'ALL';
   const dc = dateColumnGuess || Object.keys(row || {}).find(k => /(^|_)(date|created_at|created)$/i.test(k)) || '';
   const d = row?.[dc] ? dayjs(row[dc]) : null;
@@ -154,23 +155,58 @@ export async function computeFormula(args: ComputeFormulaArgs): Promise<
     aliasToRows[alias] = fs.reduce((acc, f) => applyFilter(acc, f), aliasToRows[alias]);
   }
   // Determine buckets
+  type BucketMeta = { label: string; order: number };
+  const bucketMeta: Record<string, BucketMeta> = {};
   const allBucketKeys = new Set<string>();
   const aliasBucketed: Record<string, Record<string, any[]>> = {};
+  let bucketSeq = 0;
+
+  const wantsSeries = Boolean(
+    (timeBucket && timeBucket !== 'none') ||
+    (groupBy && (groupBy.mode === 'category' || groupBy.mode === 'row'))
+  );
+
+  const resolveBucket = (params: {
+    row: any;
+    alias: string;
+    index: number;
+  }): { key: string; label: string } => {
+    const { row, alias, index } = params;
+    const specMatchesAlias = groupBy && groupBy.alias === alias;
+    const mode = specMatchesAlias ? groupBy?.mode : undefined;
+    if (mode === 'row') {
+      return { key: `${alias}::row::${index}`, label: `#${index + 1}` };
+    }
+    if (mode === 'category' && specMatchesAlias && groupBy?.columnId) {
+      const raw = row?.[groupBy.columnId];
+      const label = raw === null || typeof raw === 'undefined' || raw === '' ? `${groupBy.columnId} ${index + 1}` : String(raw);
+      return { key: label, label };
+    }
+    if (timeBucket && timeBucket !== 'none') {
+      const dateHint = specMatchesAlias ? groupBy?.columnId : undefined;
+      const label = bucketKeyForTime(row, timeBucket, dateHint);
+      return { key: label, label };
+    }
+    return { key: 'ALL', label: 'ALL' };
+  };
+
   for (const alias of Object.keys(aliasToRows)) {
     const bucketed: Record<string, any[]> = {};
-    for (const r of aliasToRows[alias]) {
-      // Allow caller to hint which date column to use for bucketing via groupBy
-      const dateHint = (groupBy && groupBy.alias === alias) ? (groupBy as any).columnId : undefined;
-      const key = bucketKeyFor(r, timeBucket, dateHint);
+    aliasToRows[alias].forEach((r, idx) => {
+      const { key, label } = resolveBucket({ row: r, alias, index: idx });
       (bucketed[key] = bucketed[key] || []).push(r);
-      allBucketKeys.add(key);
-    }
+      if (key !== 'ALL') {
+        allBucketKeys.add(key);
+        if (!bucketMeta[key]) bucketMeta[key] = { label, order: bucketSeq++ };
+      }
+    });
     aliasBucketed[alias] = bucketed;
   }
   // For now, perform joins later if required; most formulas like SUM(A)-SUM(B) do not need row-level joins
   // Compute ref values per bucket
   const byBucket: Record<string, Record<string, number>> = {};
-  for (const bucket of (allBucketKeys.size ? Array.from(allBucketKeys) : ['ALL'])) {
+  const bucketKeys = allBucketKeys.size ? Array.from(allBucketKeys) : ['ALL'];
+  for (const bucket of bucketKeys) {
     const values: Record<string, number> = {};
     for (const ref of refs) {
       const rows = (aliasBucketed[ref.alias]?.[bucket]) || aliasToRows[ref.alias] || [];
@@ -184,16 +220,28 @@ export async function computeFormula(args: ComputeFormulaArgs): Promise<
     const found = refs.find(r => r.func === func && r.alias === alias && r.column === col);
     return found ? found.token : '0';
   });
-  // If no bucketing, return single metric
-  if (!timeBucket || timeBucket === 'none') {
+  // Decide whether to return single metric or series
+  if (!wantsSeries && (!timeBucket || timeBucket === 'none')) {
     const v = evalArithmetic(expr, byBucket['ALL'] || {});
     return { kind: 'metric', value: v };
   }
-  // Else series by bucket (sorted by time-ish key)
-  const points = Array.from(allBucketKeys).sort().map(key => ({
-    x: key,
-    value: evalArithmetic(expr, byBucket[key] || {})
-  }));
+  const seriesKeys = allBucketKeys.size ? Array.from(allBucketKeys) : ['ALL'];
+  const points = seriesKeys
+    .sort((a, b) => {
+      const orderA = bucketMeta[a]?.order ?? 0;
+      const orderB = bucketMeta[b]?.order ?? 0;
+      if (orderA === orderB) return String(a).localeCompare(String(b));
+      return orderA - orderB;
+    })
+    .map(key => ({
+      x: bucketMeta[key]?.label ?? key,
+      value: evalArithmetic(expr, byBucket[key] || {})
+    }))
+    .filter(p => Number.isFinite(p.value));
+  if (!points.length) {
+    const v = evalArithmetic(expr, byBucket['ALL'] || {});
+    return { kind: 'metric', value: v };
+  }
   return { kind: 'series', points };
 }
 
