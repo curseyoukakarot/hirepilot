@@ -2,6 +2,17 @@ import React, { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../lib/supabaseClient';
 
+const rangeToStartDate = (range) => {
+  const now = new Date();
+  if (range === 'last_30_days') { now.setDate(now.getDate() - 30); return now; }
+  if (range === 'last_90_days') { now.setDate(now.getDate() - 90); return now; }
+  if (range === 'last_180_days') { now.setDate(now.getDate() - 180); return now; }
+  if (range === 'ytd') { return new Date(now.getFullYear(), 0, 1); }
+  if (range === 'all_time') return null;
+  now.setDate(now.getDate() - 90);
+  return now;
+};
+
 export default function DashboardDetail() {
   const [kpis, setKpis] = useState([]);
   const [showFunnel, setShowFunnel] = useState(false);
@@ -32,6 +43,7 @@ export default function DashboardDetail() {
         const metrics = metricsParam ? JSON.parse(decodeURIComponent(metricsParam)) : [];
         const formulaExpr = formulaParam ? decodeURIComponent(formulaParam) : '';
         const groupBy = groupAlias ? { alias: groupAlias, columnId: groupCol || undefined, mode: groupMode } : undefined;
+        const rangeStart = rangeToStartDate(range);
         // Optional UI flags: default hidden unless explicitly requested
         setShowFunnel(url.searchParams.get('showFunnel') === '1');
         setShowCampaigns(url.searchParams.get('showCampaigns') === '1');
@@ -41,41 +53,45 @@ export default function DashboardDetail() {
         let revenueKpi = 0;
         if (includeDeals) {
           try {
-            const { data: revRows } = await supabase
-              .from('revenue_monthly')
-              .select('month,revenue')
-              .order('month', { ascending: true });
-            // Range filter
-            const startFrom = (() => {
-              const now = new Date();
-              const d = new Date(now);
-              if (range === 'last_30_days') d.setDate(now.getDate() - 30);
-              else if (range === 'last_90_days') d.setDate(now.getDate() - 90);
-              else if (range === 'last_180_days') d.setDate(now.getDate() - 180);
-              else if (range === 'ytd') d.setMonth(0, 1);
-              else d.setFullYear(1970, 0, 1);
-              return d;
-            })();
-            const filtered = (revRows || []).filter(r => {
-              try { return new Date(r.month) >= startFrom; } catch { return true; }
-            });
-            const x = filtered.map(r => r.month);
-            const y = filtered.map(r => Number(r.revenue || 0));
-            if (y.length) {
-              if (groupMode === 'time') {
+            let dealsQuery = supabase
+              .from('opportunities')
+              .select('value, stage, created_at')
+              .order('created_at', { ascending: true });
+            if (rangeStart) dealsQuery = dealsQuery.gte('created_at', rangeStart.toISOString());
+            const { data: dealsRows, error: dealsError } = await dealsQuery;
+            if (dealsError) throw dealsError;
+            const closeWon = (dealsRows || []).filter((row) => String(row?.stage || '').toLowerCase() === 'close won');
+            if (closeWon.length) {
+              const buckets = new Map();
+              closeWon.forEach((row, idx) => {
+                const amt = Number(row?.value) || 0;
+                if (!amt) return;
+                let bucketKey = `Deal ${idx + 1}`;
+                if (groupMode === 'time' && row?.created_at) {
+                  const d = new Date(row.created_at);
+                  bucketKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                }
+                buckets.set(bucketKey, (buckets.get(bucketKey) || 0) + amt);
+              });
+              const overlayX = Array.from(buckets.keys());
+              const overlayY = overlayX.map((key) => buckets.get(key) || 0);
+              if (overlayY.some((v) => Number.isFinite(v) && v !== 0)) {
                 traces.push({
                   type: 'scatter',
                   mode: 'lines',
-                  name: 'Revenue',
-                  x,
-                  y,
-                  line: { width: 3 }
+                  name: 'Close Won',
+                  x: overlayX,
+                  y: overlayY,
+                  line: { width: 3, color: '#f97316' }
                 });
+                revenueKpi = overlayY.reduce((sum, v) => sum + (Number.isFinite(v) ? v : 0), 0);
               }
-              revenueKpi = y.reduce((a, b) => a + (Number.isFinite(b) ? b : 0), 0);
+            } else {
+              toast('No Close Won deals in this range yet.');
             }
-          } catch {
-            toast.error('Failed to load revenue overlay');
+          } catch (err) {
+            console.error('Close Won overlay error', err);
+            toast.error('Failed to load Close Won revenue');
           }
         }
         if (backendBase && sources.length) {
