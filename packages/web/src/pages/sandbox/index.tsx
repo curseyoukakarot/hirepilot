@@ -23,8 +23,149 @@ export default function SandboxPage() {
     const sidebar = document.getElementById('sidebar');
     const canvas = document.getElementById('main-canvas');
     const dropZone = document.getElementById('drop-zone') as HTMLElement | null;
+    const connectionSvg = document.getElementById('connection-svg') as SVGSVGElement | null;
 
-    if (!sidebar || !canvas) return;
+    if (!sidebar || !canvas || !connectionSvg) return;
+
+    type ConnectionRecord = {
+      id: string;
+      from: HTMLElement;
+      to: HTMLElement;
+      path: SVGPathElement;
+    };
+
+    const connections: ConnectionRecord[] = [];
+    let connectionCounter = 0;
+    let nodeIdentityCounter = 0;
+
+    const ensureNodeIdentity = (node: HTMLElement | null) => {
+      if (!node) return;
+      if (!node.dataset.nodeId) node.dataset.nodeId = `node-${Date.now()}-${nodeIdentityCounter++}`;
+      if (!node.dataset.nodeType) {
+        const fallback = (node.querySelector('p.text-xs')?.textContent || '').includes('Action') ? 'Action' : 'Trigger';
+        node.dataset.nodeType = fallback;
+      }
+    };
+
+    const getHandleCenter = (handle: HTMLElement) => {
+      const rect = handle.getBoundingClientRect();
+      const canvasRect = canvas.getBoundingClientRect();
+      return {
+        x: rect.left - canvasRect.left + rect.width / 2,
+        y: rect.top - canvasRect.top + rect.height / 2,
+      };
+    };
+
+    const buildPathD = (start: { x: number; y: number }, end: { x: number; y: number }) => {
+      const dx = Math.max(Math.abs(end.x - start.x) * 0.5, 40);
+      const c1x = start.x + dx;
+      const c2x = end.x - dx;
+      return `M ${start.x} ${start.y} C ${c1x} ${start.y}, ${c2x} ${end.y}, ${end.x} ${end.y}`;
+    };
+
+    const createPathElement = (isPreview = false) => {
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('stroke', 'url(#connectionGradient)');
+      path.setAttribute('stroke-width', isPreview ? '2' : '3');
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke-linecap', 'round');
+      path.setAttribute('stroke-linejoin', 'round');
+      path.classList.add('connection-line');
+      if (isPreview) {
+        path.setAttribute('stroke-dasharray', '6 6');
+        path.setAttribute('opacity', '0.65');
+      } else {
+        path.setAttribute('filter', 'url(#connectionGlow)');
+      }
+      return path;
+    };
+
+    const pruneConnections = () => {
+      for (let i = connections.length - 1; i >= 0; i -= 1) {
+        const conn = connections[i];
+        if (!document.body.contains(conn.from) || !document.body.contains(conn.to)) {
+          conn.path.remove();
+          connections.splice(i, 1);
+        }
+      }
+    };
+
+    const refreshConnectionLines = () => {
+      pruneConnections();
+      connections.forEach((conn) => {
+        const start = getHandleCenter(conn.from);
+        const end = getHandleCenter(conn.to);
+        conn.path.setAttribute('d', buildPathD(start, end));
+      });
+    };
+
+    const createConnection = (fromHandle: HTMLElement, toHandle: HTMLElement) => {
+      const startNode = fromHandle.closest('[data-node-type]') as HTMLElement | null;
+      const endNode = toHandle.closest('[data-node-type]') as HTMLElement | null;
+      ensureNodeIdentity(startNode);
+      ensureNodeIdentity(endNode);
+      const fromType = startNode?.dataset.nodeType;
+      const toType = endNode?.dataset.nodeType;
+      if (fromType === 'Action' || toType === 'Trigger' || !fromType || !toType) return;
+
+      const alreadyExists = connections.some((conn) => conn.from === fromHandle && conn.to === toHandle);
+      if (alreadyExists) return;
+
+      const path = createPathElement();
+      const id = `conn-${connectionCounter++}`;
+      path.dataset.connectionId = id;
+      connectionSvg.appendChild(path);
+      connections.push({ id, from: fromHandle, to: toHandle, path });
+      refreshConnectionLines();
+    };
+
+    const startConnectionDrag = (event: MouseEvent, startHandle: HTMLElement) => {
+      event.stopPropagation();
+      event.preventDefault();
+      const preview = createPathElement(true);
+      connectionSvg.appendChild(preview);
+
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        const start = getHandleCenter(startHandle);
+        const canvasRect = canvas.getBoundingClientRect();
+        const end = {
+          x: moveEvent.clientX - canvasRect.left,
+          y: moveEvent.clientY - canvasRect.top,
+        };
+        preview.setAttribute('d', buildPathD(start, end));
+      };
+
+      const handleMouseUp = (upEvent: MouseEvent) => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        preview.remove();
+        const target = upEvent.target as HTMLElement | null;
+        const dropHandle = target?.dataset.handle === 'input'
+          ? target
+          : (target?.closest('[data-handle="input"]') as HTMLElement | null);
+        if (dropHandle) createConnection(startHandle, dropHandle);
+      };
+
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    };
+
+    const registerConnectionHandles = (node: HTMLElement) => {
+      if (node.dataset.connectionHandles === 'ready') return;
+      node.dataset.connectionHandles = 'ready';
+      const handles = Array.from(node.querySelectorAll('[data-handle]')) as HTMLElement[];
+      handles.forEach((handle) => {
+        handle.dataset.nodeType = node.dataset.nodeType || '';
+        handle.classList.add('cursor-crosshair');
+        if (handle.dataset.handle === 'output') {
+          handle.addEventListener('mousedown', (event) => startConnectionDrag(event, handle));
+        } else {
+          handle.addEventListener('mousedown', (event) => event.stopPropagation());
+        }
+      });
+    };
+
+    window.addEventListener('resize', refreshConnectionLines);
 
     // Handle drag start for sidebar items
     const onDragStart = (e: DragEvent) => {
@@ -70,6 +211,7 @@ export default function SandboxPage() {
     };
 
     const makeNodeDraggable = (node: HTMLElement) => {
+      ensureNodeIdentity(node);
       const handleMouseMove = (e: MouseEvent) => {
         if (isDragging && canvas) {
           const canvasRect = canvas.getBoundingClientRect();
@@ -79,6 +221,7 @@ export default function SandboxPage() {
           const ny = Math.max(0, Math.min(y, canvasRect.height - 100));
           node.style.left = nx + 'px';
           node.style.top = ny + 'px';
+          refreshConnectionLines();
         }
       };
       const handleMouseUp = () => {
@@ -102,6 +245,7 @@ export default function SandboxPage() {
         setSelectedNode({ title, endpoint, type });
         setIsModalOpen(true);
       });
+      registerConnectionHandles(node);
     };
 
     const createWorkflowNode = (sourceElement: HTMLElement, x: number, y: number) => {
@@ -112,6 +256,7 @@ export default function SandboxPage() {
       workflowNode.style.left = x - 128 + 'px';
       workflowNode.style.top = y - 50 + 'px';
       (workflowNode.style as any).cursor = 'move';
+      workflowNode.dataset.nodeType = isAction ? 'Action' : 'Trigger';
       workflowNode.innerHTML = `
             <div class="bg-gradient-to-br ${isAction ? 'from-purple-600 to-purple-800' : 'from-blue-600 to-blue-800'} p-4 rounded-xl shadow-lg border ${isAction ? 'border-purple-400/20 node-glow-purple' : 'border-blue-400/20 node-glow'} w-64">
                 <div class="flex items-center gap-3 mb-2">
@@ -124,7 +269,7 @@ export default function SandboxPage() {
                 <div class="text-xs ${isAction ? 'text-purple-100 bg-purple-900/30' : 'text-blue-100 bg-blue-900/30'} rounded-md px-2 py-1">
                     ${nodeData.endpoint}
                 </div>
-                <div class="absolute ${isAction ? '-left-2' : '-right-2'} top-1/2 transform -translate-y-1/2 w-4 h-4 ${isAction ? 'bg-purple-400' : 'bg-blue-400'} rounded-full border-2 border-white shadow-lg"></div>
+                <div class="absolute ${isAction ? '-left-2' : '-right-2'} top-1/2 transform -translate-y-1/2 w-4 h-4 ${isAction ? 'bg-purple-400' : 'bg-blue-400'} rounded-full border-2 border-white shadow-lg" data-handle="${isAction ? 'input' : 'output'}"></div>
             </div>
         `;
       canvas.appendChild(workflowNode);
@@ -132,9 +277,10 @@ export default function SandboxPage() {
     };
 
     const onDomContentLoaded = () => {
-      // Make existing nodes draggable
-      document.querySelectorAll('[id^="workflow-node-"]')
-        .forEach((n) => makeNodeDraggable(n as HTMLElement));
+      document.querySelectorAll('[id^="workflow-node-"]').forEach((n) => makeNodeDraggable(n as HTMLElement));
+      const defaultTrigger = document.querySelector('#workflow-node-1 [data-handle="output"]') as HTMLElement | null;
+      const defaultAction = document.querySelector('#workflow-node-2 [data-handle="input"]') as HTMLElement | null;
+      if (defaultTrigger && defaultAction) createConnection(defaultTrigger, defaultAction);
     };
 
     sidebar.addEventListener('dragstart', onDragStart as any);
@@ -146,6 +292,7 @@ export default function SandboxPage() {
     onDomContentLoaded();
 
     return () => {
+      window.removeEventListener('resize', refreshConnectionLines);
       sidebar.removeEventListener('dragstart', onDragStart as any);
       canvas.removeEventListener('dragover', onDragOver as any);
       canvas.removeEventListener('dragleave', onDragLeave as any);
@@ -346,7 +493,7 @@ export default function SandboxPage() {
             Drag nodes from the sidebar to create your automation workflow
           </div>
 
-          <div id="workflow-node-1" className="absolute top-32 left-40 transform transition-all duration-200 hover:scale-105" style={{ cursor: 'move' }}>
+          <div id="workflow-node-1" className="absolute top-32 left-40 transform transition-all duration-200 hover:scale-105" style={{ cursor: 'move' }} data-node-type="Trigger">
             <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-4 rounded-xl shadow-lg border border-blue-400/20 w-64 node-glow">
               <div className="flex items-center gap-3 mb-2">
                 <span className="text-2xl">🎉</span>
@@ -356,11 +503,11 @@ export default function SandboxPage() {
                 </div>
               </div>
               <div className="text-xs text-blue-100 bg-blue-900/30 rounded-md px-2 py-1">/api/events/candidate_hired</div>
-              <div className="absolute -right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 bg-blue-400 rounded-full border-2 border-white shadow-lg"></div>
+              <div className="absolute -right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 bg-blue-400 rounded-full border-2 border-white shadow-lg" data-handle="output"></div>
             </div>
           </div>
 
-          <div id="workflow-node-2" className="absolute top-32 left-96 transform transition-all duration-200 hover:scale-105" style={{ cursor: 'move' }}>
+          <div id="workflow-node-2" className="absolute top-32 left-96 transform transition-all duration-200 hover:scale-105" style={{ cursor: 'move' }} data-node-type="Action">
             <div className="bg-gradient-to-br from-purple-600 to-purple-800 p-4 rounded-xl shadow-lg border border-purple-400/20 w-64 node-glow-purple">
               <div className="flex items-center gap-3 mb-2">
                 <span className="text-2xl">💬</span>
@@ -370,7 +517,7 @@ export default function SandboxPage() {
                 </div>
               </div>
               <div className="text-xs text-purple-100 bg-purple-900/30 rounded-md px-2 py-1">/api/actions/slack_notification</div>
-              <div className="absolute -left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 bg-purple-400 rounded-full border-2 border-white shadow-lg"></div>
+              <div className="absolute -left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 bg-purple-400 rounded-full border-2 border-white shadow-lg" data-handle="input"></div>
             </div>
           </div>
 
@@ -380,8 +527,10 @@ export default function SandboxPage() {
                 <stop offset="0%" style={{ stopColor: '#3b82f6', stopOpacity: 1 }} />
                 <stop offset="100%" style={{ stopColor: '#8b5cf6', stopOpacity: 1 }} />
               </linearGradient>
+              <filter id="connectionGlow" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#60a5fa" floodOpacity="0.45" />
+              </filter>
             </defs>
-            <path d="M 216 160 Q 280 160 320 160" stroke="url(#connectionGradient)" strokeWidth="3" fill="none" className="connection-line" />
           </svg>
 
           <div id="drop-zone" className="absolute inset-0 pointer-events-none opacity-0 transition-opacity duration-300">
@@ -429,25 +578,35 @@ export default function SandboxPage() {
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true">
-          <div className="bg-gray-900 rounded-2xl w-full max-w-lg p-6 border border-gray-800">
+        <div className="fixed inset-0 bg-black/60 dark:bg-black/80 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-lg p-6 border border-gray-200 dark:border-gray-800 shadow-2xl">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Configure {selectedNode?.type}</h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-white">✕</button>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Configure {selectedNode?.type}</h3>
+              <button onClick={() => setIsModalOpen(false)} className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">✕</button>
             </div>
             <div className="space-y-3">
               <div>
-                <label className="block text-sm text-gray-400">Title</label>
-                <input defaultValue={selectedNode?.title || ''} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2" />
+                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300">Title</label>
+                <input
+                  defaultValue={selectedNode?.title || ''}
+                  className="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
               </div>
               <div>
-                <label className="block text-sm text-gray-400">Endpoint</label>
-                <input defaultValue={selectedNode?.endpoint || ''} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2" />
+                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300">Endpoint</label>
+                <input
+                  defaultValue={selectedNode?.endpoint || ''}
+                  className="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
               </div>
             </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 bg-gray-800 rounded-lg">Close</button>
-              <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 bg-indigo-600 rounded-lg">Save</button>
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                Close
+              </button>
+              <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors">
+                Save
+              </button>
             </div>
           </div>
         </div>
