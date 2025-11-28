@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../lib/supabaseClient';
+import { AnimatePresence, motion } from 'framer-motion';
 
 const rangeToStartDate = (range) => {
   const now = new Date();
@@ -13,11 +14,202 @@ const rangeToStartDate = (range) => {
   return now;
 };
 
+const NavButton = ({ icon, label, active, onClick }) => (
+  <button
+    onClick={onClick}
+    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+      active
+        ? 'text-white bg-gradient-to-r from-primary to-secondary shadow-lg'
+        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+    }`}
+  >
+    <i className={`fa-solid ${icon}`}></i>
+    <span className="font-medium">{label}</span>
+  </button>
+);
+
+const SectionCard = ({ title, subtitle, icon, children }) => (
+  <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 space-y-4">
+    <div className="flex items-center gap-3">
+      <div className="w-10 h-10 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-300">
+        <i className={`fa-solid ${icon}`}></i>
+      </div>
+      <div>
+        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{title}</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>
+      </div>
+    </div>
+    {children}
+  </div>
+);
+
+const TablesSection = () => (
+  <motion.div
+    key="tables"
+    initial={{ opacity: 0, y: 10 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: -10 }}
+    className="flex-1 overflow-y-auto"
+  >
+    <div className="px-8 py-8 space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Tables Workspace</h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Centralize every recruiting dataset—expenses, pipeline, leads, candidates—then share directly into dashboards.</p>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <SectionCard title="Recent Tables" subtitle="Editable, resizable, formula-ready grids" icon="fa-table">
+          <div className="space-y-3 text-sm">
+            {['Expenses (Net Revenue)', 'Deals & Pipeline', 'Candidate Scorecards'].map((table) => (
+              <div key={table} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-900/40">
+                <div>
+                  <p className="font-semibold text-slate-900 dark:text-slate-100">{table}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Updated {Math.floor(Math.random() * 5) + 1} hrs ago</p>
+                </div>
+                <button className="text-indigo-600 dark:text-indigo-300 text-xs font-semibold hover:underline">Open</button>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+        <SectionCard title="Schema builder" subtitle="Drag columns, add money formats, attach formulas" icon="fa-layer-group">
+          <ul className="text-sm text-slate-600 dark:text-slate-300 space-y-2">
+            <li className="flex items-start gap-2"><i className="fa-solid fa-circle text-indigo-400 text-[8px] mt-1.5"></i>Money columns auto-format with currency + decimal rules.</li>
+            <li className="flex items-start gap-2"><i className="fa-solid fa-circle text-indigo-400 text-[8px] mt-1.5"></i>Formula editor supports SUM/AVG/COUNT + nested expressions.</li>
+            <li className="flex items-start gap-2"><i className="fa-solid fa-circle text-indigo-400 text-[8px] mt-1.5"></i>Inline collaboration: drag columns, resize widths, track history.</li>
+          </ul>
+        </SectionCard>
+      </div>
+      <SectionCard title="Import & Automations" subtitle="Connect CSV, ATS, CRM or Recruiting Agents" icon="fa-cloud-arrow-up">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          {[
+            { title: 'CSV Imports', note: 'Map columns, save presets, auto-enrich missing data.' },
+            { title: 'API Sync', note: 'Pull Deals, Leads, Campaigns nightly via secure tokens.' },
+            { title: 'Public Forms', note: 'Route lead/candidate submissions directly into tables.' },
+          ].map((item) => (
+            <div key={item.title} className="rounded-lg border border-dashed border-slate-300 dark:border-slate-700 p-4">
+              <p className="font-semibold text-slate-900 dark:text-slate-100">{item.title}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{item.note}</p>
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+    </div>
+  </motion.div>
+);
+
+const FormulasSection = () => (
+  <motion.div
+    key="formulas"
+    initial={{ opacity: 0, y: 10 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: -10 }}
+    className="flex-1 overflow-y-auto"
+  >
+    <div className="px-8 py-8 space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Formula Library</h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Blend metrics across tables, assign aliases, then reuse them in dashboards or KPIs.</p>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <SectionCard title="Featured Formulas" subtitle="Cross-table KPIs in plain English" icon="fa-calculator">
+          <div className="space-y-3 text-sm">
+            {[
+              { label: 'Net Profit', expr: 'SUM(Revenue.amount) - SUM(Expenses.monthly)' },
+              { label: 'Cost per Hire', expr: 'SUM(Expenses.recruiting) / COUNT(Hires.id)' },
+              { label: 'Fill Rate', expr: 'COUNT(ClosedRequisitions.id) / COUNT(JobReqs.id)' },
+            ].map((item) => (
+              <div key={item.label} className="rounded-lg bg-slate-50 dark:bg-slate-900/40 p-3">
+                <p className="font-semibold text-slate-900 dark:text-slate-100">{item.label}</p>
+                <p className="text-xs font-mono text-indigo-500 dark:text-indigo-300 mt-1">{item.expr}</p>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+        <SectionCard title="Formula Builder" subtitle="Safe parser with auto-complete tokens" icon="fa-wand-magic-sparkles">
+          <ul className="text-sm text-slate-600 dark:text-slate-300 space-y-2">
+            <li className="flex items-start gap-2"><i className="fa-solid fa-circle text-indigo-400 text-[8px] mt-1.5"></i>Select sources → name aliases → join on date/client.</li>
+            <li className="flex items-start gap-2"><i className="fa-solid fa-circle text-indigo-400 text-[8px] mt-1.5"></i>Supports SUM, AVG, COUNT, MIN, MAX and arithmetic order-of-operations.</li>
+            <li className="flex items-start gap-2"><i className="fa-solid fa-circle text-indigo-400 text-[8px] mt-1.5"></i>Preview results by time bucket (daily / weekly / monthly) instantly.</li>
+          </ul>
+          <button className="mt-4 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold shadow hover:bg-indigo-700">Launch Formula Builder</button>
+        </SectionCard>
+      </div>
+      <SectionCard title="Recently Edited Formulas" subtitle="Drafts saved every change" icon="fa-clock-rotate-left">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-slate-600 dark:text-slate-300">
+          {['Net Revenue Retention', 'Agency Fee %', 'Time-to-Fill Delta'].map((item) => (
+            <div key={item} className="rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+              <p className="font-semibold text-slate-900 dark:text-slate-100">{item}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Edited {Math.floor(Math.random()*3)+1} days ago</p>
+              <button className="mt-3 text-indigo-600 dark:text-indigo-300 text-xs font-semibold hover:underline">Open Formula</button>
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+    </div>
+  </motion.div>
+);
+
+const AIInsightsSection = () => (
+  <motion.div
+    key="ai"
+    initial={{ opacity: 0, y: 10 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: -10 }}
+    className="flex-1 overflow-y-auto"
+  >
+    <div className="px-8 py-8 space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">REX AI Insights</h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Ask natural questions, auto-generate summaries, and trigger AI-recommended playbooks from any dashboard.</p>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <SectionCard title="Insight Templates" subtitle="One-click prompts tuned for recruiting ops" icon="fa-robot">
+          <div className="space-y-3 text-sm">
+            {[
+              { title: 'Pipeline anomalies', detail: '“What changed week-over-week for pipeline value and win-rate?”' },
+              { title: 'Expense variance', detail: '“Explain why expenses spiked vs budget last month.”' },
+              { title: 'Next best action', detail: '“Suggest 3 actions to increase net profit next quarter.”' },
+            ].map((item) => (
+              <div key={item.title} className="rounded-lg bg-slate-50 dark:bg-slate-900/40 p-3">
+                <p className="font-semibold text-slate-900 dark:text-slate-100">{item.title}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{item.detail}</p>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+        <SectionCard title="Snapshot Builder" subtitle="Normalize charts + KPIs for LLM consumption" icon="fa-chart-pie">
+          <ul className="text-sm text-slate-600 dark:text-slate-300 space-y-2">
+            <li className="flex items-start gap-2"><i className="fa-solid fa-circle text-indigo-400 text-[8px] mt-1.5"></i>Converts each widget to `AnalyticsSeries`/`AnalyticsKPI` JSON.</li>
+            <li className="flex items-start gap-2"><i className="fa-solid fa-circle text-indigo-400 text-[8px] mt-1.5"></i>Embeds context (filters, time range, targets) before hitting the LLM.</li>
+            <li className="flex items-start gap-2"><i className="fa-solid fa-circle text-indigo-400 text-[8px] mt-1.5"></i>Routes responses to Insights panel, Slack, or email digests.</li>
+          </ul>
+          <button className="mt-4 px-4 py-2 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-semibold shadow hover:opacity-90">Generate Snapshot</button>
+        </SectionCard>
+      </div>
+      <SectionCard title="Automation Hooks" subtitle="Let AI kick off alerts, tasks, and sequences" icon="fa-bolt">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          {[
+            { title: 'Alerts', copy: 'Auto-send recap to exec Slack channel when KPIs move ±10%.' },
+            { title: 'Playbooks', copy: 'Trigger outreach sequences when deal velocity slows.' },
+            { title: 'Briefings', copy: 'Export AI summary into CRM notes for weekly reviews.' },
+          ].map((hook) => (
+            <div key={hook.title} className="rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+              <p className="font-semibold text-slate-900 dark:text-slate-100">{hook.title}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{hook.copy}</p>
+              <button className="mt-3 text-indigo-600 dark:text-indigo-300 text-xs font-semibold hover:underline">Configure</button>
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+    </div>
+  </motion.div>
+);
+
 export default function DashboardDetail() {
   const [kpis, setKpis] = useState([]);
   const [showFunnel, setShowFunnel] = useState(false);
   const [showCampaigns, setShowCampaigns] = useState(false);
   const [showCphTrend, setShowCphTrend] = useState(false);
+  const [activeSection, setActiveSection] = useState('dashboard');
   useEffect(() => {
     let isMounted = true;
     (async () => {
@@ -471,22 +663,10 @@ export default function DashboardDetail() {
             </div>
           </div>
           <nav className="flex-1 p-4 space-y-1">
-            <a href="#" className="flex items-center gap-3 px-4 py-3 text-white bg-gradient-to-r from-primary to-secondary rounded-lg">
-              <i className="fa-solid fa-gauge-high"></i>
-              <span className="font-medium">Dashboard</span>
-            </a>
-            <a href="#" className="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition">
-              <i className="fa-solid fa-table"></i>
-              <span className="font-medium">Tables</span>
-            </a>
-            <a href="#" className="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition">
-              <i className="fa-solid fa-calculator"></i>
-              <span className="font-medium">Formulas</span>
-            </a>
-            <a href="#" className="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition">
-              <i className="fa-solid fa-robot"></i>
-              <span className="font-medium">AI Insights</span>
-            </a>
+            <NavButton icon="fa-gauge-high" label="Dashboard" active={activeSection === 'dashboard'} onClick={() => setActiveSection('dashboard')} />
+            <NavButton icon="fa-table" label="Tables" active={activeSection === 'tables'} onClick={() => setActiveSection('tables')} />
+            <NavButton icon="fa-calculator" label="Formulas" active={activeSection === 'formulas'} onClick={() => setActiveSection('formulas')} />
+            <NavButton icon="fa-robot" label="AI Insights" active={activeSection === 'ai'} onClick={() => setActiveSection('ai')} />
           </nav>
           <div className="p-4 border-t border-slate-200">
             <div className="flex items-center gap-3 px-4 py-3">
@@ -501,7 +681,15 @@ export default function DashboardDetail() {
 
         {/* Main content */}
         <main id="main-content" className="flex-1 flex overflow-hidden">
-          <div id="dashboard-area" className="flex-1 overflow-y-auto">
+          <AnimatePresence mode="wait">
+            {activeSection === 'dashboard' && (
+              <motion.div
+                key="dashboard"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="flex-1 overflow-y-auto"
+              >
             {/* Header */}
             <header id="header" className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-10">
               <div className="px-8 py-6">
@@ -603,7 +791,12 @@ export default function DashboardDetail() {
                 )}
               </div>
             </div>
-          </div>
+              </motion.div>
+            )}
+            {activeSection === 'tables' && <TablesSection />}
+            {activeSection === 'formulas' && <FormulasSection />}
+            {activeSection === 'ai' && <AIInsightsSection />}
+          </AnimatePresence>
 
           {/* Insights Panel */}
           <aside id="insights-panel" className="w-96 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 overflow-y-auto hidden">

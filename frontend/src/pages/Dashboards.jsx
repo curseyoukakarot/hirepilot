@@ -29,6 +29,7 @@ export default function Dashboards() {
   const [formulaLabel, setFormulaLabel] = useState('Formula');
   const [tablesError, setTablesError] = useState(null);
   const [dashboards, setDashboards] = useState([]);
+  const [dashboardName, setDashboardName] = useState('Custom Dashboard');
   const [dashboardsLoading, setDashboardsLoading] = useState(false);
   const [selectedDashIds, setSelectedDashIds] = useState([]);
   const [editingDashboardId, setEditingDashboardId] = useState(null);
@@ -50,6 +51,7 @@ export default function Dashboards() {
     setFormulaExpr('');
     setFormulaLabel('Formula');
     setBuilderError('');
+    setDashboardName('Custom Dashboard');
   }, []);
 
   const hydrateBuilderFromLayout = useCallback((layout = {}) => {
@@ -88,6 +90,7 @@ export default function Dashboards() {
     setIncludeCandidates(Boolean(layout.includeCandidates));
     setIncludeJobs(Boolean(layout.includeJobs));
     setIncludeCampaigns(Boolean(layout.includeCampaigns));
+    setDashboardName(layout.name || 'Custom Dashboard');
   }, [resetBuilderState]);
 
   const updateMetricBlock = useCallback((id, patch) => {
@@ -628,6 +631,15 @@ export default function Dashboards() {
               <div className="bg-white dark:bg-slate-900 p-6">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   <div className="lg:col-span-2 space-y-4">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-500 dark:text-slate-400">Dashboard name</label>
+                      <input
+                        value={dashboardName}
+                        onChange={(e)=>setDashboardName(e.target.value)}
+                        placeholder="e.g. Recruiting Performance"
+                        className="mt-1 w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200 text-sm"
+                      />
+                    </div>
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Metrics & Sources</h3>
                       <button className="text-sm px-3 py-1 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800" onClick={addMetricBlock}>
