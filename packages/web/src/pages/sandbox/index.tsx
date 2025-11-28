@@ -1,10 +1,18 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useRouter } from 'next/router';
+import { getSupabaseBrowserClient } from '../../lib/supabaseClient';
 
 type NodeConfig = {
   title: string;
   endpoint: string;
   type: 'Trigger' | 'Action';
+  slackChannel?: string;
+};
+
+type SlackChannel = {
+  id?: string;
+  name?: string;
+  value?: string;
 };
 
 export default function SandboxPage() {
@@ -16,8 +24,18 @@ export default function SandboxPage() {
   const [isTesting, setIsTesting] = useState(false);
   const [connectionSummary, setConnectionSummary] = useState<string[]>([]);
   const [showConnectionPanel, setShowConnectionPanel] = useState(false);
+  const [slackChannels, setSlackChannels] = useState<SlackChannel[]>([]);
+  const [slackChannelValue, setSlackChannelValue] = useState('');
+  const [slackHint, setSlackHint] = useState<string | null>(null);
+  const [slackError, setSlackError] = useState<string | null>(null);
+  const [slackLoading, setSlackLoading] = useState(false);
   const activeOutputHandleRef = useRef<HTMLElement | null>(null);
   const potentialConnectionTargetRef = useRef<HTMLElement | null>(null);
+  const supabase = useMemo(() => getSupabaseBrowserClient(), []);
+  const selectedSlackChannelMeta = useMemo(
+    () => slackChannels.find((channel) => (channel.id || channel.value || '') === slackChannelValue),
+    [slackChannels, slackChannelValue]
+  );
 
   useEffect(() => {
     let isDragging = false as boolean;
@@ -30,13 +48,6 @@ export default function SandboxPage() {
     const connectionSvg = document.getElementById('connection-svg') as SVGSVGElement | null;
 
     if (!sidebar || !canvas || !connectionSvg) return;
-
-    type ConnectionRecord = {
-      id: string;
-      from: HTMLElement;
-      to: HTMLElement;
-      path: SVGPathElement;
-    };
 
     type ConnectionRecord = {
       id: string;
@@ -226,7 +237,7 @@ export default function SandboxPage() {
         requestAnimationFrame(() => {
           preview.remove();
           connectionSvg.style.pointerEvents = previousPointerEvents;
-          connectionSvg.offsetHeight;
+          connectionSvg.getBoundingClientRect();
           const targetNode = potentialConnectionTargetRef.current;
           if (targetNode && activeOutputHandleRef.current) {
             const dropHandle = (targetNode.querySelector('[data-handle="input"]') as HTMLElement | null) || targetNode;
@@ -414,6 +425,86 @@ export default function SandboxPage() {
       document.removeEventListener('DOMContentLoaded', onDomContentLoaded);
     };
   }, [setConnectionSummary]);
+
+  const hydrateSlackChannels = useCallback(async () => {
+    if (!supabase) {
+      setSlackHint('Slack channels require a browser session. Refresh to try again.');
+      setSlackChannels([]);
+      return;
+    }
+    setSlackLoading(true);
+    setSlackError(null);
+    setSlackHint(null);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data?.session?.access_token;
+      if (!token) {
+        setSlackHint('Connect Slack from Settings → Integrations to load channels.');
+        setSlackChannels([]);
+        return;
+      }
+      const response = await fetch('/api/slack/channels', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        credentials: 'include',
+      });
+      if (response.status === 401 || response.status === 403) {
+        setSlackHint('Connect Slack from Settings → Integrations to load channels.');
+        setSlackChannels([]);
+        return;
+      }
+      if (!response.ok) {
+        throw new Error(`Slack channels request failed (${response.status})`);
+      }
+      const payload = await response.json().catch(() => null);
+      const channels = Array.isArray(payload?.channels) ? payload.channels : [];
+      if (!channels.length) {
+        setSlackHint('No Slack channels found. Refresh your Slack integration.');
+        setSlackChannels([]);
+        return;
+      }
+      setSlackChannels(channels.slice(0, 200));
+      if (!slackChannelValue && !selectedNode?.slackChannel) {
+        const fallbackValue = channels[0].id || channels[0].value || '';
+        setSlackChannelValue(fallbackValue);
+        setSelectedNode((prev) => (prev ? { ...prev, slackChannel: fallbackValue } : prev));
+      }
+    } catch (error) {
+      console.error('[Sandbox:Next] Failed to hydrate Slack channels', error);
+      setSlackError('Unable to load Slack channels. Please try again.');
+    } finally {
+      setSlackLoading(false);
+    }
+  }, [slackChannelValue, selectedNode, supabase]);
+
+  const handleSlackChannelChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = event.target.value;
+    setSlackChannelValue(value);
+    setSelectedNode((prev) => (prev ? { ...prev, slackChannel: value } : prev));
+  };
+
+  const handleSlackConnectClick = () => {
+    if (typeof window === 'undefined') return;
+    window.open('/settings/integrations', '_blank', 'noopener');
+  };
+
+  useEffect(() => {
+    if (!isModalOpen) {
+      setSlackChannels([]);
+      setSlackChannelValue('');
+      setSlackHint(null);
+      setSlackError(null);
+      setSlackLoading(false);
+      return;
+    }
+    setSlackChannelValue(selectedNode?.slackChannel || '');
+  }, [isModalOpen, selectedNode]);
+
+  useEffect(() => {
+    if (!isModalOpen || !selectedNode || selectedNode.type !== 'Action') return;
+    hydrateSlackChannels();
+  }, [hydrateSlackChannels, isModalOpen, selectedNode]);
 
   const collectGraph = useMemo(() => {
     return () => {
@@ -698,7 +789,7 @@ export default function SandboxPage() {
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Configure {selectedNode?.type}</h3>
               <button onClick={() => setIsModalOpen(false)} className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">✕</button>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-600 dark:text-gray-300">Title</label>
                 <input
@@ -713,6 +804,62 @@ export default function SandboxPage() {
                   className="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
               </div>
+              {selectedNode?.type === 'Action' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 dark:text-gray-300">Slack Channel</label>
+                  <div className="flex gap-2 mt-1">
+                    <select
+                      value={slackChannelValue}
+                      onChange={handleSlackChannelChange}
+                      disabled={slackLoading || (slackChannels.length === 0 && !slackChannelValue)}
+                      className="flex-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    >
+                      {slackLoading && <option value="">Loading channels…</option>}
+                      {!slackLoading && slackChannels.length === 0 && (
+                        <option value="">{slackHint ? 'Connect Slack to continue' : 'No channels found'}</option>
+                      )}
+                      {slackChannels.map((channel) => {
+                        const value = channel.id || channel.value || '';
+                        const label = channel.name ? `#${channel.name}` : value || 'Unnamed channel';
+                        return (
+                          <option key={value || label} value={value}>
+                            {label}
+                          </option>
+                        );
+                      })}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={hydrateSlackChannels}
+                      className="px-3 py-2 text-sm bg-gray-200 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors"
+                      disabled={slackLoading}
+                    >
+                      {slackLoading ? 'Loading' : 'Refresh'}
+                    </button>
+                  </div>
+                  {slackHint && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2 mt-2">
+                      {slackHint}
+                      <button
+                        type="button"
+                        onClick={handleSlackConnectClick}
+                        className="text-blue-600 dark:text-blue-400 font-medium hover:underline"
+                      >
+                        Connect Slack
+                      </button>
+                    </p>
+                  )}
+                  {slackChannelValue && !slackHint && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                      Connected to channel:{' '}
+                      <span className="text-gray-900 dark:text-gray-200 font-medium">
+                        {selectedSlackChannelMeta?.name ? `#${selectedSlackChannelMeta.name}` : slackChannelValue}
+                      </span>
+                    </p>
+                  )}
+                  {slackError && <p className="text-xs text-red-400 mt-2">{slackError}</p>}
+                </div>
+              )}
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
