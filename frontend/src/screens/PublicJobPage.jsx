@@ -117,27 +117,27 @@ export default function PublicJobPage() {
     window.open(url, '_blank', 'noopener');
   };
 
-  if (loading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading…</div>;
-  if (!shareId) return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Invalid job link.</div>;
-  if (!job) return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Job not found.</div>;
+  if (loading) return <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex items-center justify-center text-gray-700 dark:text-slate-200">Loading…</div>;
+  if (!shareId) return <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex items-center justify-center text-gray-700 dark:text-slate-200">Invalid job link.</div>;
+  if (!job) return <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex items-center justify-center text-gray-700 dark:text-slate-200">Job not found.</div>;
 
   const statusPill = (job.status || '').toLowerCase() === 'open' ? 'Now Hiring' : (job.status || '');
 
   return (
-    <div id="public-job-page" className="bg-gray-50 text-gray-800 min-h-screen">
+    <div id="public-job-page" className="bg-gray-50 dark:bg-slate-950 text-gray-800 dark:text-slate-100 min-h-screen">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-20">
+      <header className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 sticky top-0 z-20 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
               <div className="flex-shrink-0 flex items-center space-x-2">
                 <img src="/logo.png" alt="HirePilot" className="h-8 w-8" />
-                <span className="font-bold text-xl text-gray-800">HirePilot</span>
+                <span className="font-bold text-xl text-gray-800 dark:text-white">HirePilot</span>
               </div>
-              <div className="hidden md:flex items-center space-x-3 border-l border-gray-200 pl-4">
-                <h2 className="text-lg font-semibold text-gray-700 truncate">{job.title}</h2>
+              <div className="hidden md:flex items-center space-x-3 border-l border-gray-200 dark:border-slate-700 pl-4">
+                <h2 className="text-lg font-semibold text-gray-700 dark:text-slate-200 truncate">{job.title}</h2>
                 {statusPill && (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{statusPill}</span>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-200">{statusPill}</span>
                 )}
               </div>
             </div>
@@ -156,35 +156,35 @@ export default function PublicJobPage() {
       {/* Main */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         {/* Hero */}
-        <section className="pb-12 border-b border-gray-200">
+        <section className="pb-12 border-b border-gray-200 dark:border-slate-800">
           <div className="flex flex-col space-y-2 md:hidden mb-4">
             {statusPill && (
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 w-fit"><i className="fa-solid fa-check-circle mr-2"></i>{statusPill}</span>
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-200 w-fit"><i className="fa-solid fa-check-circle mr-2"></i>{statusPill}</span>
             )}
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-gray-900">{job.title}</h1>
-          <p className="mt-2 text-xl text-gray-600">{[job.company, job.location].filter(Boolean).join(' · ')}</p>
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-gray-900 dark:text-white">{job.title}</h1>
+          <p className="mt-2 text-xl text-gray-600 dark:text-slate-300">{[job.company, job.location].filter(Boolean).join(' · ')}</p>
 
           <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-            <div className="bg-white p-4 rounded-lg border border-gray-200">
+            <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-gray-200 dark:border-slate-800">
               <div className="text-purple-700 text-2xl mb-2"><i className="fa-solid fa-building"></i></div>
-              <p className="text-sm text-gray-500">Department</p>
-              <p className="font-semibold text-gray-800">{job.department || '—'}</p>
+              <p className="text-sm text-gray-500 dark:text-slate-400">Department</p>
+              <p className="font-semibold text-gray-800 dark:text-slate-100">{job.department || '—'}</p>
             </div>
-            <div className="bg-white p-4 rounded-lg border border-gray-200">
+            <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-gray-200 dark:border-slate-800">
               <div className="text-purple-700 text-2xl mb-2"><i className="fa-solid fa-graduation-cap"></i></div>
-              <p className="text-sm text-gray-500">Experience</p>
-              <p className="font-semibold text-gray-800">{job.experience_level || '—'}</p>
+              <p className="text-sm text-gray-500 dark:text-slate-400">Experience</p>
+              <p className="font-semibold text-gray-800 dark:text-slate-100">{job.experience_level || '—'}</p>
             </div>
-            <div className="bg-white p-4 rounded-lg border border-gray-200">
+            <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-gray-200 dark:border-slate-800">
               <div className="text-purple-700 text-2xl mb-2"><i className="fa-solid fa-sack-dollar"></i></div>
-              <p className="text-sm text-gray-500">Salary Range</p>
-              <p className="font-semibold text-gray-800">{job.salary_range || '—'}</p>
+              <p className="text-sm text-gray-500 dark:text-slate-400">Salary Range</p>
+              <p className="font-semibold text-gray-800 dark:text-slate-100">{job.salary_range || '—'}</p>
             </div>
-            <div className="bg-white p-4 rounded-lg border border-gray-200">
+            <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-gray-200 dark:border-slate-800">
               <div className="text-purple-700 text-2xl mb-2"><i className="fa-solid fa-briefcase"></i></div>
-              <p className="text-sm text-gray-500">Work Type</p>
-              <p className="font-semibold text-gray-800">{job.work_type || (String(job.location||'').toLowerCase().includes('remote') ? 'Remote' : 'Onsite')}</p>
+              <p className="text-sm text-gray-500 dark:text-slate-400">Work Type</p>
+              <p className="font-semibold text-gray-800 dark:text-slate-100">{job.work_type || (String(job.location||'').toLowerCase().includes('remote') ? 'Remote' : 'Onsite')}</p>
             </div>
           </div>
         </section>
@@ -193,42 +193,42 @@ export default function PublicJobPage() {
         <div className="mt-12 grid grid-cols-1 lg:grid-cols-3 lg:gap-12">
           {/* Left */}
           <div className="lg:col-span-2">
-            <section className="prose prose-lg max-w-none text-gray-600">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Role Description</h2>
-              <div className="whitespace-pre-line">{job.description || 'No description provided.'}</div>
+            <section className="prose prose-lg max-w-none text-gray-600 dark:text-slate-200 dark:prose-invert">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Role Description</h2>
+              <div className="whitespace-pre-line">{(job.description && job.description.trim()?.length) ? job.description : 'No description provided.'}</div>
             </section>
 
             {job.why_join && (
-              <section className="mt-12 pt-8 border-t border-gray-200">
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">Why Join Us?</h2>
-                <div className="prose prose-lg max-w-none text-gray-600 whitespace-pre-line">{job.why_join}</div>
+              <section className="mt-12 pt-8 border-t border-gray-200 dark:border-slate-800">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Why Join Us?</h2>
+                <div className="prose prose-lg max-w-none text-gray-600 dark:text-slate-200 whitespace-pre-line dark:prose-invert">{job.why_join}</div>
               </section>
             )}
 
             {/* Application Form */}
-            <section id="apply-form" className="mt-12 pt-8 border-t border-gray-200">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Apply for this Position</h2>
+            <section id="apply-form" className="mt-12 pt-8 border-t border-gray-200 dark:border-slate-800">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Apply for this Position</h2>
               <form onSubmit={handleApply} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">Full Name *</label>
                     <input
                       type="text"
                       required
                       value={form.name}
                       onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-900 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       placeholder="Enter your full name"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Email Address *</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">Email Address *</label>
                     <input
                       type="email"
                       required
                       value={form.email}
                       onChange={(e) => setForm({ ...form, email: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-900 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       placeholder="Enter your email address"
                     />
                   </div>
@@ -236,31 +236,31 @@ export default function PublicJobPage() {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">LinkedIn Profile</label>
-                    <input type="url" value={form.linkedin} onChange={(e)=>setForm({ ...form, linkedin: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="https://linkedin.com/in/yourprofile" />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">LinkedIn Profile</label>
+                  <input type="url" value={form.linkedin} onChange={(e)=>setForm({ ...form, linkedin: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-900 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="https://linkedin.com/in/yourprofile" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Current or Target Title</label>
-                    <input type="text" value={form.title} onChange={(e)=>setForm({ ...form, title: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="Senior Backend Engineer" />
+                    <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">Current or Target Title</label>
+                    <input type="text" value={form.title} onChange={(e)=>setForm({ ...form, title: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-900 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="Senior Backend Engineer" />
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Expected Compensation</label>
-                    <input type="text" value={form.expected_compensation} onChange={(e)=>setForm({ ...form, expected_compensation: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="$120,000 or $100/hr" />
+                    <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">Expected Compensation</label>
+                    <input type="text" value={form.expected_compensation} onChange={(e)=>setForm({ ...form, expected_compensation: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-900 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="$120,000 or $100/hr" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
-                    <input type="text" value={form.location} onChange={(e)=>setForm({ ...form, location: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="San Francisco, CA" />
+                    <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">Location</label>
+                    <input type="text" value={form.location} onChange={(e)=>setForm({ ...form, location: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-900 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="San Francisco, CA" />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Years of Experience</label>
-                  <input type="text" value={form.years_experience} onChange={(e)=>setForm({ ...form, years_experience: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="e.g., 7" />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">Years of Experience</label>
+                  <input type="text" value={form.years_experience} onChange={(e)=>setForm({ ...form, years_experience: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-900 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="e.g., 7" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">What’s your biggest contribution in past roles?</label>
-                  <textarea value={form.notable_impact} onChange={(e)=>setForm({ ...form, notable_impact: e.target.value })} rows={4} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="Share a tangible impact you made…" />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">What’s your biggest contribution in past roles?</label>
+                  <textarea value={form.notable_impact} onChange={(e)=>setForm({ ...form, notable_impact: e.target.value })} rows={4} className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-900 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="Share a tangible impact you made…" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">What’s motivating you to pursue this role?</label>
@@ -281,7 +281,8 @@ export default function PublicJobPage() {
                     value={form.cover_note}
                     onChange={(e) => setForm({ ...form, cover_note: e.target.value })}
                     rows={4}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-900 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-900 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     placeholder="Tell us why you're interested in this position..."
                   />
                 </div>
@@ -313,9 +314,9 @@ export default function PublicJobPage() {
           {/* Right */}
           <aside className="mt-12 lg:mt-0">
             <div className="sticky top-24 space-y-8">
-              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm text-center">
-                <h3 className="text-xl font-bold text-gray-900">Ready to make an impact?</h3>
-                <p className="text-gray-600 mt-2 mb-6">Apply now to join our team and help shape the future.</p>
+              <div className="bg-white dark:bg-slate-900 p-6 rounded-lg border border-gray-200 dark:border-slate-800 shadow-sm text-center">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white">Ready to make an impact?</h3>
+                <p className="text-gray-600 dark:text-slate-300 mt-2 mb-6">Apply now to join our team and help shape the future.</p>
                 <button 
                   onClick={() => document.getElementById('apply-form').scrollIntoView({ behavior: 'smooth' })}
                   className="w-full inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-gradient-to-r from-purple-700 to-purple-500 hover:from-purple-600 hover:to-purple-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-400 transition-all duration-300 transform hover:scale-105 shadow-lg cursor-pointer"
@@ -326,13 +327,13 @@ export default function PublicJobPage() {
               </div>
 
               {(job.recruiter_name || job.recruiter_email) && (
-                <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Assigned Recruiter</h3>
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-lg border border-gray-200 dark:border-slate-800 shadow-sm">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Assigned Recruiter</h3>
                   <div className="flex items-center space-x-4">
                     <img className="h-16 w-16 rounded-full object-cover" src={job.recruiter_avatar || 'https://ui-avatars.com/api/?name=Recruiter&background=random'} alt="Recruiter Avatar" />
                     <div>
-                      <p className="font-bold text-gray-800">{job.recruiter_name || 'Recruiter'}</p>
-                      {job.recruiter_title && <p className="text-sm text-gray-500">{job.recruiter_title}</p>}
+                      <p className="font-bold text-gray-800 dark:text-slate-100">{job.recruiter_name || 'Recruiter'}</p>
+                      {job.recruiter_title && <p className="text-sm text-gray-500 dark:text-slate-400">{job.recruiter_title}</p>}
                       {job.recruiter_linkedin && (
                         <a href={job.recruiter_linkedin} target="_blank" rel="noreferrer" className="text-sm text-purple-700 hover:underline">
                           <i className="fa-brands fa-linkedin mr-1"></i> LinkedIn Profile
