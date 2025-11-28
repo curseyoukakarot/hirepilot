@@ -10,6 +10,7 @@ type SnapshotNode = {
   left?: string;
   top?: string;
   icon?: string;
+  slackChannel?: string;
 };
 
 type SnapshotConnection = {
@@ -26,6 +27,7 @@ type SpawnNodeConfig = {
   icon?: string;
   left?: string;
   top?: string;
+  slackChannel?: string;
 };
 
 const SANDBOX_AUTOSAVE_KEY = 'hp_sandbox_graph_v1';
@@ -46,7 +48,8 @@ const readGraphFromDom = (): { nodes: SnapshotNode[]; connections: SnapshotConne
     const left = style.left || `${nodeEl.offsetLeft || 0}px`;
     const top = style.top || `${nodeEl.offsetTop || 0}px`;
     const id = nodeEl.dataset.nodeId || '';
-    return { id, title, endpoint, type: nodeType, left, top, icon };
+    const slackChannel = nodeEl.dataset.slackChannel || '';
+    return { id, title, endpoint, type: nodeType, left, top, icon, slackChannel };
   });
 
   const connections = Array.from(svg.querySelectorAll('path[data-connection-id]'))
@@ -64,13 +67,21 @@ const readGraphFromDom = (): { nodes: SnapshotNode[]; connections: SnapshotConne
 };
 
 export default function SandboxPage() {
-  const [selectedNode, setSelectedNode] = useState<{ id?: string; title: string; endpoint: string; type: 'Trigger' | 'Action' } | null>(null);
+  const [selectedNode, setSelectedNode] = useState<{ id?: string; title: string; endpoint: string; type: 'Trigger' | 'Action'; slackChannel?: string } | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalState, setModalState] = useState<any>({ mode: 'guided', availableData: [], guidedDefaults: null, developerDefaults: null, preview: '' });
   const [connectionSummary, setConnectionSummary] = useState<string[]>([]);
   const [showConnectionPanel, setShowConnectionPanel] = useState(false);
   const activeOutputHandleRef = useRef<HTMLElement | null>(null);
   const potentialConnectionTargetRef = useRef<HTMLElement | null>(null);
+  const activeModalNodeRef = useRef<HTMLElement | null>(null);
+
+  const closeModalOverlay = () => {
+    const overlay = document.getElementById('modal-overlay') as HTMLElement | null;
+    if (overlay) overlay.style.display = 'none';
+    setModalOpen(false);
+    activeModalNodeRef.current = null;
+  };
   useEffect(() => {
     // Dynamic presets per node (title/endpoint/type)
     const getPresetFor = (node?: { title?: string; endpoint?: string; type?: string }) => {
@@ -595,7 +606,10 @@ export default function SandboxPage() {
           const slug = inferSlugFromTitle(title);
           if (slug) endpoint = `/${type === 'Action' ? 'api/actions' : 'api/events'}/${slug}`;
         }
-        setSelectedNode({ id: `${Date.now()}-${Math.random()}`, title, endpoint, type: type as any });
+        const nodeId = node.dataset.nodeId || `node-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+        activeModalNodeRef.current = node;
+        const slackChannel = node.dataset.slackChannel || '';
+        setSelectedNode({ id: nodeId, title, endpoint, type: type as any, slackChannel });
         openNodeModal({ title, endpoint, type });
       });
     };
@@ -642,6 +656,9 @@ export default function SandboxPage() {
       workflowNode.style.cursor = 'move';
       workflowNode.dataset.nodeType = config.type;
       workflowNode.dataset.nodeId = config.id || `node-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+      workflowNode.dataset.nodeTitle = config.title;
+      workflowNode.dataset.nodeEndpoint = config.endpoint;
+      workflowNode.dataset.slackChannel = (config as any).slackChannel || '';
       const icon = config.icon || (isAction ? '🤖' : '⚡');
       workflowNode.innerHTML = `
             <div class="bg-gradient-to-br ${isAction ? 'from-purple-600 to-purple-800' : 'from-blue-600 to-blue-800'} p-4 rounded-xl shadow-lg border ${isAction ? 'border-purple-400/20 node-glow-purple' : 'border-blue-400/20 node-glow'} w-64">
@@ -724,7 +741,8 @@ export default function SandboxPage() {
           icon: node.icon,
           type: node.type,
           left: node.left,
-          top: node.top
+          top: node.top,
+          slackChannel: node.slackChannel
         });
       });
       requestAnimationFrame(() => {
@@ -844,6 +862,33 @@ export default function SandboxPage() {
           });
         }
       });
+
+      const saveNodeBtn = document.getElementById('save-node-btn') as HTMLButtonElement | null;
+      const handleModalSave = () => {
+        if (!activeModalNodeRef.current) {
+          closeModalOverlay();
+          return;
+        }
+        const nodeElement = activeModalNodeRef.current;
+        const nodeNameInput = document.getElementById('node-name-input') as HTMLInputElement | null;
+        const slackChannelSelect = document.getElementById('slack-channel-select') as HTMLSelectElement | null;
+        const newTitle = (nodeNameInput?.value || '').trim();
+        if (newTitle) {
+          const titleTarget = nodeElement.querySelector('h3');
+          if (titleTarget) titleTarget.textContent = newTitle;
+          nodeElement.dataset.nodeTitle = newTitle;
+          setSelectedNode((prev) => (prev ? { ...prev, title: newTitle } : prev));
+        }
+        if (slackChannelSelect) {
+          nodeElement.dataset.slackChannel = slackChannelSelect.value || '';
+        }
+        schedulePersist();
+        closeModalOverlay();
+      };
+      if (saveNodeBtn && !saveNodeBtn.dataset.bound) {
+        saveNodeBtn.dataset.bound = '1';
+        saveNodeBtn.addEventListener('click', handleModalSave);
+      }
 
       try {
         const getAuthHeaders = async (): Promise<Record<string, string>> => {
@@ -1088,7 +1133,7 @@ export default function SandboxPage() {
     }
 
     function closeModal() {
-      if (overlay) (overlay as HTMLElement).style.display = 'none';
+      closeModalOverlay();
     }
 
     (document.getElementById('close-modal') as HTMLElement | null)?.addEventListener('click', closeModal);
@@ -1132,6 +1177,7 @@ export default function SandboxPage() {
       canvas.removeEventListener('dragleave', onDragLeave as any);
       canvas.removeEventListener('drop', onDrop as any);
       (document.getElementById('close-modal') as HTMLElement | null)?.removeEventListener('click', closeModal);
+      if (saveNodeBtn) saveNodeBtn.removeEventListener('click', handleModalSave);
     };
   }, [setConnectionSummary]);
 
@@ -1411,6 +1457,7 @@ export default function SandboxPage() {
             className="absolute top-32 left-40 transform transition-all duration-200 hover:scale-105"
             style={{ cursor: 'move' }}
             data-node-type="Trigger"
+            data-slack-channel=""
           >
             <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-4 rounded-xl shadow-lg border border-blue-400/20 w-64 node-glow">
               <div className="flex items-center gap-3 mb-2">
@@ -1430,6 +1477,7 @@ export default function SandboxPage() {
             className="absolute top-32 left-96 transform transition-all duration-200 hover:scale-105"
             style={{ cursor: 'move' }}
             data-node-type="Action"
+            data-slack-channel=""
           >
             <div className="bg-gradient-to-br from-purple-600 to-purple-800 p-4 rounded-xl shadow-lg border border-purple-400/20 w-64 node-glow-purple">
               <div className="flex items-center gap-3 mb-2">
@@ -1561,7 +1609,7 @@ export default function SandboxPage() {
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Node Name</label>
-                    <input type="text" defaultValue="Slack Hire Alert" className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-gray-100" />
+                    <input id="node-name-input" type="text" defaultValue="Slack Hire Alert" className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-gray-100" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Candidate Name</label>
@@ -1663,10 +1711,10 @@ export default function SandboxPage() {
               </button>
             </div>
             <div className="flex items-center space-x-3">
-              <button className="px-6 py-2 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors" onClick={() => { (document.getElementById('modal-overlay') as HTMLElement).style.display = 'none'; }}>
+              <button className="px-6 py-2 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors" onClick={closeModalOverlay}>
                 Cancel
               </button>
-              <button className="px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg">
+              <button id="save-node-btn" className="px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg">
                 <i className="fas fa-save mr-2"></i>Save Node
               </button>
             </div>
