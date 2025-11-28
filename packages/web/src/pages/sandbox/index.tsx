@@ -143,7 +143,7 @@ export default function SandboxPage() {
       });
     };
 
-    const startConnectionDrag = (event: MouseEvent, startHandle: HTMLElement) => {
+    const startConnectionDrag = (event: PointerEvent, startHandle: HTMLElement) => {
       event.stopPropagation();
       event.preventDefault();
       const preview = createPathElement(true);
@@ -152,7 +152,7 @@ export default function SandboxPage() {
       const previousPointerEvents = connectionSvg.style.pointerEvents;
       connectionSvg.style.pointerEvents = 'none';
 
-      const handleMouseMove = (moveEvent: MouseEvent) => {
+      const handlePointerMove = (moveEvent: PointerEvent) => {
         const start = getHandleCenter(startHandle);
         const canvasRect = canvas.getBoundingClientRect();
         const end = {
@@ -162,22 +162,25 @@ export default function SandboxPage() {
         preview.setAttribute('d', buildPathD(start, end));
       };
 
-      const handleMouseUp = (upEvent: MouseEvent) => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-        preview.remove();
-        highlightActionTargets(false);
-        connectionSvg.style.pointerEvents = previousPointerEvents;
-        const previousVisibility = connectionSvg.style.visibility;
-        connectionSvg.style.visibility = 'hidden';
-        const elementUnderPointer = document.elementFromPoint(upEvent.clientX, upEvent.clientY);
-        connectionSvg.style.visibility = previousVisibility;
-        const dropHandle = resolveInputHandle(elementUnderPointer || upEvent.target);
-        if (dropHandle) createConnection(startHandle, dropHandle);
+      const handlePointerUp = (upEvent: PointerEvent) => {
+        document.removeEventListener('pointermove', handlePointerMove);
+        document.removeEventListener('pointerup', handlePointerUp);
+        requestAnimationFrame(() => {
+          preview.remove();
+          highlightActionTargets(false);
+          connectionSvg.style.pointerEvents = previousPointerEvents;
+          connectionSvg.offsetHeight; // force reflow for accurate elementFromPoint
+          const previousVisibility = connectionSvg.style.visibility;
+          connectionSvg.style.visibility = 'hidden';
+          const elementUnderPointer = document.elementFromPoint(upEvent.clientX, upEvent.clientY);
+          connectionSvg.style.visibility = previousVisibility;
+          const dropHandle = resolveInputHandle(elementUnderPointer || upEvent.target);
+          if (dropHandle) createConnection(startHandle, dropHandle);
+        });
       };
 
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('pointermove', handlePointerMove, { passive: true });
+      document.addEventListener('pointerup', handlePointerUp, { passive: true });
     };
 
     const registerConnectionHandles = (node: HTMLElement) => {
@@ -188,9 +191,9 @@ export default function SandboxPage() {
         handle.dataset.nodeType = node.dataset.nodeType || '';
         handle.classList.add('cursor-crosshair');
         if (handle.dataset.handle === 'output') {
-          handle.addEventListener('mousedown', (event) => startConnectionDrag(event, handle));
+          handle.addEventListener('pointerdown', (event) => startConnectionDrag(event as PointerEvent, handle));
         } else {
-          handle.addEventListener('mousedown', (event) => event.stopPropagation());
+          handle.addEventListener('pointerdown', (event) => event.stopPropagation());
         }
       });
     };
