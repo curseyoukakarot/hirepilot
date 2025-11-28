@@ -323,7 +323,10 @@ export default function SandboxPage() {
         document.removeEventListener('mouseup', handleMouseUp);
         preview.remove();
         highlightActionTargets(false);
+        const previousVisibility = connectionSvg.style.visibility;
+        connectionSvg.style.visibility = 'hidden';
         const elementUnderPointer = document.elementFromPoint(upEvent.clientX, upEvent.clientY);
+        connectionSvg.style.visibility = previousVisibility;
         const dropHandle = resolveInputHandle(elementUnderPointer || upEvent.target);
         if (dropHandle) createConnection(startHandle, dropHandle);
       };
