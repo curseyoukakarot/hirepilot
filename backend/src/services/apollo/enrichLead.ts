@@ -375,14 +375,12 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
       searchParams.linkedin_url = linkedinUrl;
     }
 
-    // Add API key to params (Apollo expects it as query param)
-    searchParams.api_key = apolloApiKey;
-
     console.log('[Apollo] Search parameters:', {
       originalName: `${firstName} ${lastName}`,
       cleanedName: `${searchParams.first_name} ${searchParams.last_name}`,
       company, linkedinUrl,
-      searchParams: { ...searchParams, api_key: '***' }
+      searchParams,
+      apiKeyLocation: 'header'
     });
 
     // Use Apollo's Match API for enrichment (not search)
@@ -390,7 +388,6 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
     try {
       // Prepare match parameters for enrichment API
       const matchParams: any = {
-        api_key: apolloApiKey,
         reveal_personal_emails: true // Key parameter to get email addresses
         // Note: reveal_phone_number requires webhook_url configuration
       };
@@ -416,7 +413,8 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
 
       response = await axios.post('https://api.apollo.io/api/v1/people/match', matchParams, {
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'X-Api-Key': apolloApiKey || ''
         },
         timeout: 10000 // 10 second timeout
       });

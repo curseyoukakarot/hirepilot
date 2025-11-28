@@ -16,6 +16,7 @@ import decodoRouter from './leads/decodo/salesNavigatorScraper';
 import enrichmentRouter from './leads/decodo/enrichLeadProfile';
 import { fetchHtml } from '../lib/decodoProxy';
 import { notifySlack } from '../../lib/slack';
+import { getUserIntegrations } from '../../utils/userIntegrationsHelper';
 
 const router = express.Router();
 
@@ -187,6 +188,85 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
     let enrichmentSource = 'none';
     let errorMessages: string[] = [];
 
+    const userIntegrations = await getUserIntegrations(userId);
+    const hunterApiKey = (userIntegrations.hunter_api_key || process.env.HUNTER_API_KEY || '').trim();
+    const skrappApiKey = (userIntegrations.skrapp_api_key || process.env.SKRAPP_API_KEY || '').trim();
+    const premiumPreference: 'skrapp' | 'hunter' | 'apollo' = (userIntegrations.enrichment_source as 'skrapp' | 'apollo') || 'hunter';
+    const hasHunterKey = hunterApiKey.length > 0;
+    const hasSkrappKey = skrappApiKey.length > 0;
+
+    const deriveDomainFromLead = (entity: any): string => {
+      if (!entity) return '';
+      const apolloOrg = entity?.enrichment_data?.apollo?.organization || {};
+      const fromApollo = String(apolloOrg.domain || apolloOrg.website_url || '')
+        .replace(/^https?:\/\//, '')
+        .replace(/^www\./, '')
+        .split('/')[0];
+      if (fromApollo) return fromApollo.toLowerCase();
+
+      const decodoSite = String(entity?.enrichment_data?.decodo?.company_website || entity?.enrichment_data?.decodo?.website || '')
+        .replace(/^https?:\/\//, '')
+        .replace(/^www\./, '')
+        .split('/')[0];
+      if (decodoSite) return decodoSite.toLowerCase();
+
+      const companyValue = String(entity?.company || entity?.enrichment_data?.apollo?.organization?.name || '').trim();
+      if (!companyValue) return '';
+      if (companyValue.includes('.')) {
+        return companyValue
+          .toLowerCase()
+          .replace(/^https?:\/\//, '')
+          .replace(/^www\./, '')
+          .split('/')[0];
+      }
+      const normalized = companyValue
+        .toLowerCase()
+        .replace(/\s+/g, '')
+        .replace(/[^a-z0-9]/g, '');
+      return normalized ? `${normalized}.com` : '';
+    };
+
+    const deriveFullNameFromLead = (entity: any): string => {
+      const fullName = `${entity?.first_name || ''} ${entity?.last_name || ''}`.trim();
+      if (fullName) return fullName;
+      const fromNameField = String(entity?.name || '').trim();
+      if (fromNameField) return fromNameField;
+      const fromDecodo = String(entity?.enrichment_data?.decodo?.full_name || entity?.enrichment_data?.decodo?.name || '').trim();
+      if (fromDecodo) return fromDecodo;
+      const fromApollo = String(entity?.enrichment_data?.apollo?.apollo_suggested_name || '').trim();
+      if (fromApollo) return fromApollo;
+      return '';
+    };
+
+    const enrichmentDomain = deriveDomainFromLead(lead);
+    const enrichmentFullName = deriveFullNameFromLead(lead);
+    const companyForSkrapp = lead?.company || lead?.enrichment_data?.apollo?.organization?.name || lead?.enrichment_data?.decodo?.company || undefined;
+
+    const configuredPremiumOrder: Array<'hunter' | 'skrapp'> = (() => {
+      if (premiumPreference === 'apollo') return [];
+      if (premiumPreference === 'skrapp') return ['skrapp', 'hunter'];
+      return ['hunter', 'skrapp'];
+    })();
+    const providerOrder = configuredPremiumOrder.filter((provider) =>
+      provider === 'hunter' ? hasHunterKey : hasSkrappKey
+    );
+
+    const needsPrimaryEmail = () =>
+      !(
+        enrichmentData.decodo?.email ||
+        enrichmentData.hunter?.email ||
+        enrichmentData.skrapp?.email
+      );
+
+    console.log('[LeadEnrich] Premium provider configuration:', {
+      premiumPreference,
+      providerOrder,
+      hasHunterKey,
+      hasSkrappKey,
+      fullNameAvailable: !!enrichmentFullName,
+      domainAvailable: !!enrichmentDomain
+    });
+
     // STEP 1: Try Decodo first (with LinkedIn authentication)
     if (lead.linkedin_url) {
       try {
@@ -255,16 +335,29 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
       }
     }
 
-    // STEP 2: If Decodo didn't find email, try Hunter.io
-    if (!enrichmentData.decodo?.email) {
+    // STEP 2 & 3: Run premium providers according to configured priority
+    const tryHunterEmail = async () => {
+      if (!needsPrimaryEmail()) {
+        return;
+      }
+      if (!hasHunterKey) {
+        console.log('[LeadEnrich] Hunter.io enrichment skipped: no API key configured');
+        errorMessages.push('Hunter: Missing API key');
+        return;
+      }
+      if (!enrichmentFullName || !enrichmentDomain) {
+        console.log('[LeadEnrich] Hunter.io enrichment skipped due to missing full name or domain', {
+          hasFullName: !!enrichmentFullName,
+          hasDomain: !!enrichmentDomain
+        });
+        errorMessages.push('Hunter: Missing name or domain');
+        return;
+      }
+
       try {
-        console.log('[LeadEnrich] Step 2: Trying Hunter.io email enrichment...');
+        console.log('[LeadEnrich] Trying Hunter.io email enrichment...');
         const { enrichWithHunter } = await import('../../services/hunter/enrichLead');
-        
-        const fullName = `${lead.first_name} ${lead.last_name}`.trim();
-        const domain = lead.company ? lead.company.toLowerCase().replace(/[^a-z0-9.]/g, '') : '';
-        
-        const hunterResult = await enrichWithHunter(process.env.HUNTER_API_KEY || '', fullName, domain);
+        const hunterResult = await enrichWithHunter(hunterApiKey, enrichmentFullName, enrichmentDomain);
         
         if (hunterResult) {
           enrichmentData.hunter = {
@@ -281,20 +374,30 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
         console.warn('[LeadEnrich] ❌ Hunter enrichment failed:', error.message);
         errorMessages.push(`Hunter: ${error.message}`);
       }
-    }
+    };
 
-    // STEP 3: If still no email, try Skrapp.io
-    if (!enrichmentData.decodo?.email && !enrichmentData.hunter?.email) {
+    const trySkrappEmail = async () => {
+      if (!needsPrimaryEmail()) {
+        return;
+      }
+      if (!hasSkrappKey) {
+        console.log('[LeadEnrich] Skrapp.io enrichment skipped: no API key configured');
+        errorMessages.push('Skrapp: Missing API key');
+        return;
+      }
+      if (!enrichmentFullName) {
+        console.log('[LeadEnrich] Skrapp.io enrichment skipped: missing full name');
+        errorMessages.push('Skrapp: Missing full name');
+        return;
+      }
+
       try {
-        console.log('[LeadEnrich] Step 3: Trying Skrapp.io email enrichment...');
+        console.log('[LeadEnrich] Trying Skrapp.io email enrichment...');
         const { enrichWithSkrapp, enrichCompanyWithSkrapp } = await import('../../services/skrapp/enrichLead');
-        
-        const fullName = `${lead.first_name} ${lead.last_name}`.trim();
-        const domain = lead.company ? lead.company.toLowerCase().replace(/[^a-z0-9.]/g, '') : '';
-        
-        const skrappKey = process.env.SKRAPP_API_KEY || '';
-        const skrappResult = await enrichWithSkrapp(skrappKey, fullName, domain, lead.company);
-        const skrappCompany = domain && skrappKey ? await enrichCompanyWithSkrapp(skrappKey, domain).catch(()=>null) : null;
+        const skrappResult = await enrichWithSkrapp(skrappApiKey, enrichmentFullName, enrichmentDomain, companyForSkrapp);
+        const skrappCompany = enrichmentDomain && skrappApiKey
+          ? await enrichCompanyWithSkrapp(skrappApiKey, enrichmentDomain).catch(() => null)
+          : null;
         
         if (skrappResult) {
           enrichmentData.skrapp = {
@@ -311,6 +414,24 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
       } catch (error: any) {
         console.warn('[LeadEnrich] ❌ Skrapp enrichment failed:', error.message);
         errorMessages.push(`Skrapp: ${error.message}`);
+      }
+    };
+
+    if (providerOrder.length === 0) {
+      if (premiumPreference === 'apollo') {
+        console.log('[LeadEnrich] Premium providers disabled via Apollo-only preference');
+      } else if (!hasHunterKey && !hasSkrappKey) {
+        console.log('[LeadEnrich] Premium providers skipped: no API keys configured');
+        errorMessages.push('Premium email enrichment skipped: no API keys configured');
+      }
+    } else {
+      for (const provider of providerOrder) {
+        if (!needsPrimaryEmail()) break;
+        if (provider === 'hunter') {
+          await tryHunterEmail();
+        } else {
+          await trySkrappEmail();
+        }
       }
     }
 
