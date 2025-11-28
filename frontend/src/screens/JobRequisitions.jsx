@@ -357,12 +357,12 @@ export default function JobRequisitions() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-950 text-gray-900 dark:text-slate-100">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4">
+      <header className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 px-6 py-4 shadow-sm">
         <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-semibold text-gray-900">Job Requisitions</h1>
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700" onClick={handleOpenNewJobModal}>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-slate-100">Job Requisitions</h1>
+          <button className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow hover:opacity-90 transition" onClick={handleOpenNewJobModal}>
             <FaPlus /> New Job
           </button>
         </div>
@@ -374,7 +374,7 @@ export default function JobRequisitions() {
         {selectedJobs.length > 0 && (
           <div className="mb-4 flex justify-end">
             <button
-              className="bg-red-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-red-700"
+              className="bg-red-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-red-700 shadow"
               onClick={handleBulkDelete}
             >
               <FaTrash /> Delete Selected ({selectedJobs.length})
@@ -382,14 +382,14 @@ export default function JobRequisitions() {
           </div>
         )}
         {/* Search and Filters */}
-        <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
+        <div className="bg-white dark:bg-slate-900/80 rounded-lg shadow-sm border border-gray-200 dark:border-slate-800 p-4 mb-6 backdrop-blur">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
               <div className="relative">
                 <input
                   type="text"
                   placeholder="Search jobs..."
-                  className="w-full pl-4 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full pl-4 pr-4 py-2 border rounded-lg bg-white dark:bg-slate-900/60 border-gray-200 dark:border-slate-700 text-gray-900 dark:text-slate-100 placeholder-gray-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -397,7 +397,7 @@ export default function JobRequisitions() {
             </div>
             <div className="flex gap-4">
               <select
-                className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="border rounded-lg px-4 py-2 bg-white dark:bg-slate-900/60 border-gray-200 dark:border-slate-700 text-gray-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
               >
@@ -407,7 +407,7 @@ export default function JobRequisitions() {
                 <option value="draft">Draft</option>
               </select>
               <select
-                className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="border rounded-lg px-4 py-2 bg-white dark:bg-slate-900/60 border-gray-200 dark:border-slate-700 text-gray-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 value={selectedDepartment}
                 onChange={(e) => setSelectedDepartment(e.target.value)}
               >
@@ -422,13 +422,13 @@ export default function JobRequisitions() {
 
         {/* Loading/Error States */}
         {loading ? (
-          <div className="flex justify-center items-center py-12 text-gray-500">Loading jobs...</div>
+          <div className="flex justify-center items-center py-12 text-gray-500 dark:text-slate-400">Loading jobs...</div>
         ) : error ? (
           <div className="flex justify-center items-center py-12 text-red-500">{error}</div>
         ) : (
-          <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-            <table className="w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+          <div className="bg-white dark:bg-slate-900/80 rounded-lg shadow-sm border border-gray-200 dark:border-slate-800 overflow-hidden">
+            <table className="w-full divide-y divide-gray-200 dark:divide-slate-800">
+              <thead className="bg-gray-50 dark:bg-slate-900/60">
                 <tr>
                   <th className="px-4 py-3">
                     <input
@@ -437,18 +437,18 @@ export default function JobRequisitions() {
                       onChange={handleSelectAll}
                     />
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-48">Job Title</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-32">Department</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-24">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-32">Pipeline</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-20">Candidates</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-24">Created</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-48">Actions</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider min-w-48">Job Title</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider min-w-32">Department</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider min-w-24">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider min-w-32">Pipeline</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider min-w-20">Candidates</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider min-w-24">Created</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider min-w-48">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white dark:bg-transparent divide-y divide-gray-200 dark:divide-slate-800">
                 {currentPageJobs.map((job) => (
-                  <tr key={job.id} className={selectedJobs.includes(job.id) ? 'bg-blue-50' : ''}>
+                  <tr key={job.id} className={selectedJobs.includes(job.id) ? 'bg-blue-50 dark:bg-slate-800/60' : 'hover:bg-gray-50 dark:hover:bg-slate-900'}>
                     <td className="px-4 py-4">
                       <input
                         type="checkbox"
@@ -459,7 +459,7 @@ export default function JobRequisitions() {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <button
-                          className="text-sm font-medium text-gray-900 hover:underline"
+                          className="text-sm font-medium text-gray-900 dark:text-slate-100 hover:underline"
                           onClick={() => navigate(`/job/${job.id}`)}
                         >
                           {job.title}
@@ -477,44 +477,46 @@ export default function JobRequisitions() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">{job.department || '-'}</div>
+                      <div className="text-sm text-gray-500 dark:text-slate-400">{job.department || '-'}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                        job.status === 'open' ? 'bg-green-100 text-green-800' :
-                        job.status === 'closed' ? 'bg-red-100 text-red-800' :
-                        'bg-gray-100 text-gray-800'
+                        job.status === 'open'
+                          ? 'bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-300'
+                          : job.status === 'closed'
+                          ? 'bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-300'
+                          : 'bg-gray-100 text-gray-800 dark:bg-slate-700 dark:text-slate-200'
                       }`}>
                         {job.status ? job.status.charAt(0).toUpperCase() + job.status.slice(1) : '-'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      {job.pipeline_id && pipelines[job.pipeline_id]?.name ? pipelines[job.pipeline_id].name : <span className="text-gray-300">—</span>}
+                    <td className="px-6 py-4 text-sm text-gray-500 dark:text-slate-400">
+                      {job.pipeline_id && pipelines[job.pipeline_id]?.name ? pipelines[job.pipeline_id].name : <span className="text-gray-300 dark:text-slate-600">—</span>}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-slate-400">
                       {candidateCounts[job.id] ?? 0}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-slate-400">
                       {job.created_at ? new Date(job.created_at).toLocaleDateString() : '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium relative min-w-48">
                       <div className="flex items-center justify-end gap-2">
                         <button 
-                          className="text-blue-600 hover:text-blue-900 text-xs"
+                          className="text-blue-600 dark:text-indigo-300 hover:text-blue-900 text-xs"
                           onClick={() => handleViewPipeline(job.id)}
                         >
                           Pipeline
                         </button>
                         <div className="inline-block relative actions-menu">
                           <button 
-                            className="text-gray-400 hover:text-gray-600 p-1" 
+                            className="text-gray-400 hover:text-gray-600 dark:hover:text-slate-200 p-1" 
                             onClick={() => setShowActionsMenu(showActionsMenu === job.id ? null : job.id)}
                             title="More actions"
                           >
                             <FaEllipsisV />
                           </button>
                           {showActionsMenu === job.id && (
-                            <div className="absolute right-0 mt-2 w-40 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
+                            <div className="absolute right-0 mt-2 w-40 rounded-md shadow-lg bg-white dark:bg-slate-900 ring-1 ring-black ring-opacity-5 dark:ring-slate-700 z-10 border border-gray-200 dark:border-slate-700">
                               <div className="py-1" role="menu" aria-orientation="vertical">
                                 <button
                                   className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
