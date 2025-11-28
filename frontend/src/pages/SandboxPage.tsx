@@ -307,6 +307,8 @@ export default function SandboxPage() {
       const preview = createPathElement(true);
       connectionSvg.appendChild(preview);
       highlightActionTargets(true);
+      const previousPointerEvents = connectionSvg.style.pointerEvents;
+      connectionSvg.style.pointerEvents = 'none';
 
       const handleMouseMove = (moveEvent: MouseEvent) => {
         const start = getHandleCenter(startHandle);
@@ -323,6 +325,7 @@ export default function SandboxPage() {
         document.removeEventListener('mouseup', handleMouseUp);
         preview.remove();
         highlightActionTargets(false);
+        connectionSvg.style.pointerEvents = previousPointerEvents;
         const previousVisibility = connectionSvg.style.visibility;
         connectionSvg.style.visibility = 'hidden';
         const elementUnderPointer = document.elementFromPoint(upEvent.clientX, upEvent.clientY);
