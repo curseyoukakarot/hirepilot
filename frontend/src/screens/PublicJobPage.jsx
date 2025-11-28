@@ -193,9 +193,13 @@ export default function PublicJobPage() {
         <div className="mt-12 grid grid-cols-1 lg:grid-cols-3 lg:gap-12">
           {/* Left */}
           <div className="lg:col-span-2">
-            <section className="prose prose-lg max-w-none text-gray-600 dark:text-slate-200 dark:prose-invert">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Role Description</h2>
-              <div className="whitespace-pre-line">{(job.description && job.description.trim()?.length) ? job.description : 'No description provided.'}</div>
+            <section className="space-y-4">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Role Description</h2>
+              <div className="rounded-2xl bg-white dark:bg-slate-900/60 border border-gray-200 dark:border-slate-800 px-6 py-6 text-[1.05rem] leading-8 text-gray-700 dark:text-slate-100 shadow-sm">
+                <div className="whitespace-pre-line">
+                  {(job.description && job.description.trim()?.length) ? job.description : 'No description provided.'}
+                </div>
+              </div>
             </section>
 
             {job.why_join && (
