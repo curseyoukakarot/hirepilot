@@ -96,11 +96,14 @@ export default async function handler(req: Request, res: Response) {
     // Also fetch pipeline stages if pipeline exists
     let stages = [];
     if (jobRow.pipeline_id) {
-      const { data: pipelineStages } = await supabaseDb
+      const { data: pipelineStages, error: stageError } = await supabaseDb
         .from('pipeline_stages')
         .select('id, title, position, color')
         .eq('pipeline_id', jobRow.pipeline_id)
         .order('position', { ascending: true });
+      if (stageError) {
+        console.error('[GET /api/public/jobs/[id]] stage fetch error', stageError);
+      }
       
       stages = pipelineStages || [];
     }
@@ -109,6 +112,7 @@ export default async function handler(req: Request, res: Response) {
       job: {
         ...jobRow,
         description: normalizedDescription,
+        rawDescription: jobRow.description,
         stages
       }
     });
