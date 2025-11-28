@@ -229,7 +229,10 @@ export default function DashboardDetail() {
           || user.email
           || 'You';
         const avatarUrl = profileRow?.avatar_url || user.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=random`;
-        const displayRole = profileRow?.role || profileRow?.account_type || user.user_metadata?.role || 'Member';
+        const normalizedRole = (profileRow?.role || profileRow?.account_type || user.user_metadata?.role || 'Member')
+          .replace(/[_-]+/g, ' ')
+          .replace(/\b\w/g, (c) => c.toUpperCase());
+        const displayRole = normalizedRole;
         if (mounted) setProfile({ name: displayName, role: displayRole, avatar: avatarUrl });
       } catch (err) {
         console.error('Profile fetch failed', err);
