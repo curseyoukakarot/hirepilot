@@ -89,8 +89,134 @@ export default function SandboxPage() {
     const sidebar = document.getElementById('sidebar');
     const canvas = document.getElementById('main-canvas');
     const dropZone = document.getElementById('drop-zone') as HTMLElement | null;
+    const connectionSvg = document.getElementById('connection-svg') as SVGSVGElement | null;
 
-    if (!sidebar || !canvas) return;
+    if (!sidebar || !canvas || !connectionSvg) return;
+
+    type ConnectionRecord = {
+      id: string;
+      from: HTMLElement;
+      to: HTMLElement;
+      path: SVGPathElement;
+    };
+
+    const connections: ConnectionRecord[] = [];
+    let connectionCounter = 0;
+
+    const getHandleCenter = (handle: HTMLElement) => {
+      const rect = handle.getBoundingClientRect();
+      const canvasRect = canvas.getBoundingClientRect();
+      return {
+        x: rect.left - canvasRect.left + rect.width / 2,
+        y: rect.top - canvasRect.top + rect.height / 2
+      };
+    };
+
+    const buildPathD = (start: { x: number; y: number }, end: { x: number; y: number }) => {
+      const dx = Math.max(Math.abs(end.x - start.x) * 0.5, 40);
+      const c1x = start.x + dx;
+      const c2x = end.x - dx;
+      return `M ${start.x} ${start.y} C ${c1x} ${start.y}, ${c2x} ${end.y}, ${end.x} ${end.y}`;
+    };
+
+    const createPathElement = (isPreview = false) => {
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('stroke', 'url(#connectionGradient)');
+      path.setAttribute('stroke-width', isPreview ? '2' : '3');
+      path.setAttribute('fill', 'none');
+      path.classList.add('connection-line');
+      if (isPreview) path.setAttribute('stroke-dasharray', '6 6');
+      return path;
+    };
+
+    const pruneConnections = () => {
+      for (let i = connections.length - 1; i >= 0; i -= 1) {
+        const conn = connections[i];
+        if (!document.body.contains(conn.from) || !document.body.contains(conn.to)) {
+          conn.path.remove();
+          connections.splice(i, 1);
+        }
+      }
+    };
+
+    const refreshConnectionLines = () => {
+      pruneConnections();
+      connections.forEach((conn) => {
+        const start = getHandleCenter(conn.from);
+        const end = getHandleCenter(conn.to);
+        conn.path.setAttribute('d', buildPathD(start, end));
+      });
+    };
+
+    const createConnection = (fromHandle: HTMLElement, toHandle: HTMLElement) => {
+      const startNode = fromHandle.closest('[data-node-type]') as HTMLElement | null;
+      const endNode = toHandle.closest('[data-node-type]') as HTMLElement | null;
+      const fromType = startNode?.dataset.nodeType;
+      const toType = endNode?.dataset.nodeType;
+      if (fromType === 'Action' || toType === 'Trigger' || !fromType || !toType) return;
+
+      const alreadyExists = connections.some((conn) => conn.from === fromHandle && conn.to === toHandle);
+      if (alreadyExists) return;
+
+      const path = createPathElement();
+      const id = `conn-${connectionCounter++}`;
+      path.dataset.connectionId = id;
+      connectionSvg.appendChild(path);
+      connections.push({ id, from: fromHandle, to: toHandle, path });
+      refreshConnectionLines();
+    };
+
+    const startConnectionDrag = (event: MouseEvent, startHandle: HTMLElement) => {
+      event.stopPropagation();
+      event.preventDefault();
+      const preview = createPathElement(true);
+      connectionSvg.appendChild(preview);
+
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        const start = getHandleCenter(startHandle);
+        const canvasRect = canvas.getBoundingClientRect();
+        const end = {
+          x: moveEvent.clientX - canvasRect.left,
+          y: moveEvent.clientY - canvasRect.top
+        };
+        preview.setAttribute('d', buildPathD(start, end));
+      };
+
+      const handleMouseUp = (upEvent: MouseEvent) => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        preview.remove();
+        const target = upEvent.target as HTMLElement | null;
+        const dropHandle = target?.dataset.handle === 'input'
+          ? target
+          : (target?.closest('[data-handle="input"]') as HTMLElement | null);
+
+        if (dropHandle) {
+          createConnection(startHandle, dropHandle);
+        }
+      };
+
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    };
+
+    const registerConnectionHandles = (node: HTMLElement) => {
+      if (node.dataset.connectionHandles === 'ready') return;
+      node.dataset.connectionHandles = 'ready';
+      const handles = Array.from(node.querySelectorAll('[data-handle]')) as HTMLElement[];
+      handles.forEach((handle) => {
+        handle.classList.add('cursor-crosshair', 'ring-offset-1', 'ring-transparent', 'hover:ring-white/80');
+        if (handle.dataset.handle === 'output') {
+          handle.addEventListener('mousedown', (event) => startConnectionDrag(event, handle));
+        } else {
+          handle.addEventListener('mousedown', (event) => event.stopPropagation());
+        }
+      });
+    };
+
+    const refreshHandler = () => refreshConnectionLines();
+    window.addEventListener('resize', refreshHandler);
+    window.addEventListener('hp-refresh-connections', refreshHandler as EventListener);
 
     const onDragStart = (e: DragEvent) => {
       const t = e.target as HTMLElement;
@@ -142,6 +268,108 @@ export default function SandboxPage() {
       return map[t];
     };
 
+    const showSlackConnectHint = (message?: string) => {
+      const hint = document.getElementById('slack-channel-hint') as HTMLElement | null;
+      const textTarget = hint?.querySelector('[data-role="slack-hint-text"]') as HTMLElement | null;
+      if (hint) {
+        if (message && textTarget) textTarget.textContent = message;
+        hint.classList.remove('hidden');
+      }
+    };
+
+    const hideSlackConnectHint = () => {
+      const hint = document.getElementById('slack-channel-hint') as HTMLElement | null;
+      hint?.classList.add('hidden');
+    };
+
+    const attachSlackConnectCta = () => {
+      const btn = document.getElementById('slack-connect-cta') as HTMLButtonElement | null;
+      if (btn && !btn.dataset.bound) {
+        btn.dataset.bound = '1';
+        btn.addEventListener('click', () => {
+          window.open('/settings/integrations', '_blank', 'noopener');
+        });
+      }
+    };
+
+    const hydrateSlackChannels = async () => {
+      const select = document.getElementById('slack-channel-select') as HTMLSelectElement | null;
+      attachSlackConnectCta();
+      if (!select) return;
+      hideSlackConnectHint();
+      select.innerHTML = '';
+      const loadingOpt = document.createElement('option');
+      loadingOpt.value = '';
+      loadingOpt.textContent = 'Loading channels…';
+      select.appendChild(loadingOpt);
+
+      let token = '';
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        token = session?.access_token || '';
+      } catch {}
+
+      if (!token) {
+        select.innerHTML = '';
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'Connect Slack to continue';
+        select.appendChild(opt);
+        showSlackConnectHint('Connect your Slack workspace to load channels.');
+        return;
+      }
+
+      const envBase = (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_BACKEND_URL) || '';
+      const windowBase = (typeof window !== 'undefined' && (window as any)?.VITE_BACKEND_URL) || '';
+      const apiFallback = 'https://api.thehirepilot.com';
+      const baseCandidates = Array.from(new Set([envBase, windowBase, '', apiFallback])).filter((v) => typeof v === 'string') as string[];
+
+      let hydrated = false;
+      for (const base of baseCandidates) {
+        const normalized = base ? base.replace(/\/$/, '') : '';
+        const url = normalized ? `${normalized}/api/slack/channels` : '/api/slack/channels';
+        try {
+          const resp = await fetch(url, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: 'application/json'
+            },
+            credentials: 'include'
+          });
+          if (resp.status === 401 || resp.status === 403) {
+            showSlackConnectHint('Connect Slack from Settings → Integrations to populate your channels.');
+            break;
+          }
+          if (!resp.ok) continue;
+          const payload = await resp.json().catch(() => null);
+          const channels = Array.isArray(payload?.channels) ? payload.channels : [];
+          if (channels.length > 0) {
+            select.innerHTML = '';
+            channels.slice(0, 200).forEach((channel: any) => {
+              const opt = document.createElement('option');
+              opt.value = channel.id || channel.value || channel.name;
+              opt.textContent = channel.name ? `#${channel.name}` : (channel.label || 'Channel');
+              select.appendChild(opt);
+            });
+            hydrated = true;
+            hideSlackConnectHint();
+            break;
+          }
+        } catch {
+          continue;
+        }
+      }
+
+      if (!hydrated) {
+        select.innerHTML = '';
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'No channels found';
+        select.appendChild(opt);
+        showSlackConnectHint('Connect Slack or refresh the integration to pull channels.');
+      }
+    };
+
     const makeNodeClickable = (node: HTMLElement) => {
       node.addEventListener('click', () => {
         if (isDragging) return;
@@ -171,6 +399,7 @@ export default function SandboxPage() {
           const y = e.clientY - canvasRect.top - dragOffset.y;
           node.style.left = Math.max(0, Math.min(x, canvasRect.width - 256)) + 'px';
           node.style.top = Math.max(0, Math.min(y, canvasRect.height - 100)) + 'px';
+          refreshConnectionLines();
         }
       };
       const handleMouseUp = () => {
@@ -179,6 +408,7 @@ export default function SandboxPage() {
         document.removeEventListener('mouseup', handleMouseUp);
       };
       node.addEventListener('mousedown', (e) => {
+        if ((e.target as HTMLElement)?.dataset?.handle) return;
         isDragging = true;
         const rect = node.getBoundingClientRect();
         dragOffset.x = e.clientX - rect.left;
@@ -187,6 +417,7 @@ export default function SandboxPage() {
         document.addEventListener('mouseup', handleMouseUp);
       });
       makeNodeClickable(node);
+      registerConnectionHandles(node);
     };
 
     const extractNodeData = (element: HTMLElement) => {
@@ -204,6 +435,7 @@ export default function SandboxPage() {
       workflowNode.style.left = x - 128 + 'px';
       workflowNode.style.top = y - 50 + 'px';
       workflowNode.style.cursor = 'move';
+      workflowNode.dataset.nodeType = isAction ? 'Action' : 'Trigger';
       workflowNode.innerHTML = `
             <div class="bg-gradient-to-br ${isAction ? 'from-purple-600 to-purple-800' : 'from-blue-600 to-blue-800'} p-4 rounded-xl shadow-lg border ${isAction ? 'border-purple-400/20 node-glow-purple' : 'border-blue-400/20 node-glow'} w-64">
                 <div class="flex items-center gap-3 mb-2">
@@ -216,11 +448,12 @@ export default function SandboxPage() {
                 <div class="text-xs ${isAction ? 'text-purple-100 bg-purple-900/30' : 'text-blue-100 bg-blue-900/30'} rounded-md px-2 py-1">
                     ${nodeData.endpoint}
                 </div>
-                <div class="absolute ${isAction ? '-left-2' : '-right-2'} top-1/2 transform -translate-y-1/2 w-4 h-4 ${isAction ? 'bg-purple-400' : 'bg-blue-400'} rounded-full border-2 border-white shadow-lg"></div>
+                <div class="absolute ${isAction ? '-left-2' : '-right-2'} top-1/2 transform -translate-y-1/2 w-4 h-4 ${isAction ? 'bg-purple-400' : 'bg-blue-400'} rounded-full border-2 border-white shadow-lg" data-handle="${isAction ? 'input' : 'output'}"></div>
             </div>
         `;
       canvas.appendChild(workflowNode);
       makeNodeDraggable(workflowNode);
+      refreshConnectionLines();
     };
 
     const onDrop = (e: DragEvent) => {
@@ -237,6 +470,11 @@ export default function SandboxPage() {
 
     // Make existing nodes draggable and clickable on mount
     document.querySelectorAll('[id^="workflow-node-"]').forEach((n) => makeNodeDraggable(n as HTMLElement));
+    const defaultTriggerHandle = document.querySelector('#workflow-node-1 [data-handle="output"]') as HTMLElement | null;
+    const defaultActionHandle = document.querySelector('#workflow-node-2 [data-handle="input"]') as HTMLElement | null;
+    if (defaultTriggerHandle && defaultActionHandle) {
+      createConnection(defaultTriggerHandle, defaultActionHandle);
+    }
 
     sidebar.addEventListener('dragstart', onDragStart as any);
     canvas.addEventListener('dragover', onDragOver as any);
@@ -333,34 +571,8 @@ export default function SandboxPage() {
           } catch {}
           return { Accept: 'application/json' } as Record<string, string>;
         };
-        // Populate Slack channels when modal opens
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          const token = session?.access_token;
-          const base = ((typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_BACKEND_URL) || '');
-          if (token) {
-            const r = await fetch(`${base}/api/slack/channels`, { headers: { Authorization: `Bearer ${token}` } });
-            const js = await r.json().catch(() => ({} as any));
-            const select = document.getElementById('slack-channel-select') as HTMLSelectElement | null;
-            if (select) {
-              select.innerHTML = '';
-              const channels: Array<{ id: string; name: string }> = (js?.channels || []).slice(0, 200);
-              if (channels.length === 0) {
-                const opt = document.createElement('option');
-                opt.value = '';
-                opt.textContent = 'No channels found';
-                select.appendChild(opt);
-              } else {
-                channels.forEach((c) => {
-                  const opt = document.createElement('option');
-                  opt.value = c.id;
-                  opt.textContent = `#${c.name}`;
-                  select.appendChild(opt);
-                });
-              }
-            }
-          }
-        } catch {}
+
+        await hydrateSlackChannels();
         const getApiBase = () => {
           try {
             const w: any = window as any;
@@ -614,6 +826,8 @@ export default function SandboxPage() {
     });
 
     return () => {
+      window.removeEventListener('resize', refreshHandler);
+      window.removeEventListener('hp-refresh-connections', refreshHandler as EventListener);
       sidebar.removeEventListener('dragstart', onDragStart as any);
       canvas.removeEventListener('dragover', onDragOver as any);
       canvas.removeEventListener('dragleave', onDragLeave as any);
@@ -900,7 +1114,12 @@ export default function SandboxPage() {
           </div>
 
           {/* Example Workflow Nodes */}
-          <div id="workflow-node-1" className="absolute top-32 left-40 transform transition-all duration-200 hover:scale-105" style={{ cursor: 'move' }}>
+          <div
+            id="workflow-node-1"
+            className="absolute top-32 left-40 transform transition-all duration-200 hover:scale-105"
+            style={{ cursor: 'move' }}
+            data-node-type="Trigger"
+          >
             <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-4 rounded-xl shadow-lg border border-blue-400/20 w-64 node-glow">
               <div className="flex items-center gap-3 mb-2">
                 <span className="text-2xl">🎉</span>
@@ -910,11 +1129,16 @@ export default function SandboxPage() {
                 </div>
               </div>
               <div className="text-xs text-blue-100 bg-blue-900/30 rounded-md px-2 py-1">/api/events/candidate_hired</div>
-              <div className="absolute -right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 bg-blue-400 rounded-full border-2 border-white shadow-lg"></div>
+              <div className="absolute -right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 bg-blue-400 rounded-full border-2 border-white shadow-lg" data-handle="output"></div>
             </div>
       </div>
 
-          <div id="workflow-node-2" className="absolute top-32 left-96 transform transition-all duration-200 hover:scale-105" style={{ cursor: 'move' }}>
+          <div
+            id="workflow-node-2"
+            className="absolute top-32 left-96 transform transition-all duration-200 hover:scale-105"
+            style={{ cursor: 'move' }}
+            data-node-type="Action"
+          >
             <div className="bg-gradient-to-br from-purple-600 to-purple-800 p-4 rounded-xl shadow-lg border border-purple-400/20 w-64 node-glow-purple">
               <div className="flex items-center gap-3 mb-2">
                 <span className="text-2xl">💬</span>
@@ -924,7 +1148,7 @@ export default function SandboxPage() {
                 </div>
               </div>
               <div className="text-xs text-purple-100 bg-purple-900/30 rounded-md px-2 py-1">/api/actions/slack_notification</div>
-              <div className="absolute -left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 bg-purple-400 rounded-full border-2 border-white shadow-lg"></div>
+              <div className="absolute -left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 bg-purple-400 rounded-full border-2 border-white shadow-lg" data-handle="input"></div>
             </div>
       </div>
 
@@ -936,7 +1160,6 @@ export default function SandboxPage() {
                 <stop offset="100%" style={{ stopColor: '#8b5cf6', stopOpacity: 1 }} />
               </linearGradient>
             </defs>
-            <path d="M 216 160 Q 280 160 320 160" stroke="url(#connectionGradient)" strokeWidth="3" fill="none" className="connection-line" />
           </svg>
 
           {/* Drop Zone Indicator */}
@@ -979,6 +1202,11 @@ export default function SandboxPage() {
             const canvas = document.getElementById('main-canvas');
             if (!canvas) return;
             Array.from(canvas.querySelectorAll(':scope > div.absolute.transform')).forEach((n) => n.remove());
+            const svg = document.getElementById('connection-svg') as SVGSVGElement | null;
+            if (svg) {
+              Array.from(svg.querySelectorAll('path[data-connection-id]')).forEach((n) => n.remove());
+            }
+            window.dispatchEvent(new CustomEvent('hp-refresh-connections'));
             alert('Sandbox reset 🌪️');
           }} className="bg-red-700 hover:bg-red-600 text-white text-sm px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2">
             🧹 Reset Sandbox
@@ -1064,6 +1292,16 @@ export default function SandboxPage() {
                     <select id="slack-channel-select" className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                       <option value="">Loading channels…</option>
                     </select>
+                    <div id="slack-channel-hint" className="mt-2 text-xs text-gray-500 flex items-center gap-2 hidden">
+                      <span data-role="slack-hint-text">Connect Slack to load your channels.</span>
+                      <button
+                        type="button"
+                        id="slack-connect-cta"
+                        className="text-blue-600 font-medium hover:underline"
+                      >
+                        Connect Slack
+                      </button>
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Message Template</label>
