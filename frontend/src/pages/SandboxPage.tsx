@@ -220,8 +220,15 @@ export default function SandboxPage() {
       path.setAttribute('stroke', 'url(#connectionGradient)');
       path.setAttribute('stroke-width', isPreview ? '2' : '3');
       path.setAttribute('fill', 'none');
+      path.setAttribute('stroke-linecap', 'round');
+      path.setAttribute('stroke-linejoin', 'round');
       path.classList.add('connection-line');
-      if (isPreview) path.setAttribute('stroke-dasharray', '6 6');
+      if (isPreview) {
+        path.setAttribute('stroke-dasharray', '6 6');
+        path.setAttribute('opacity', '0.65');
+      } else {
+        path.setAttribute('filter', 'url(#connectionGlow)');
+      }
       return path;
     };
 
@@ -1325,6 +1332,9 @@ export default function SandboxPage() {
                 <stop offset="0%" style={{ stopColor: '#3b82f6', stopOpacity: 1 }} />
                 <stop offset="100%" style={{ stopColor: '#8b5cf6', stopOpacity: 1 }} />
               </linearGradient>
+              <filter id="connectionGlow" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#60a5fa" floodOpacity="0.45" />
+              </filter>
             </defs>
           </svg>
 
@@ -1382,43 +1392,43 @@ export default function SandboxPage() {
       </div>
 
       {/* Node Configuration Modal - exact markup adapted to JSX */}
-      <div id="modal-overlay" className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ display: 'none' }}>
-        <div id="node-config-modal" className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
-          <div id="modal-header" className="flex items-center justify-between p-6 border-b border-gray-200">
+      <div id="modal-overlay" className="fixed inset-0 bg-black/60 dark:bg-black/80 flex items-center justify-center z-50" style={{ display: 'none' }}>
+        <div id="node-config-modal" className="bg-white dark:bg-[#0f1218] dark:text-gray-100 rounded-2xl shadow-2xl border border-gray-100/40 dark:border-gray-800 w-full max-w-4xl max-h-[90vh] overflow-hidden">
+          <div id="modal-header" className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-800">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
                 <i className="fas fa-cogs text-white text-lg"></i>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900">Configure Slack Alert Node</h2>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Configure Slack Alert Node</h2>
             </div>
-            <button id="close-modal" className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center transition-colors">
-              <i className="fas fa-times text-gray-500"></i>
+            <button id="close-modal" className="w-8 h-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-center transition-colors">
+              <i className="fas fa-times text-gray-500 dark:text-gray-400"></i>
             </button>
           </div>
-          <div id="mode-toggle-section" className="px-6 py-4 border-b border-gray-200">
+          <div id="mode-toggle-section" className="px-6 py-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-transparent">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <span className="text-sm font-medium text-gray-700">Configuration Mode:</span>
-                <div className="flex bg-gray-100 rounded-lg p-1">
-                  <button id="guided-mode-btn" className="px-4 py-2 rounded-md text-sm font-medium transition-all bg-white shadow-sm text-blue-600">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Configuration Mode:</span>
+                <div className="flex bg-gray-100 dark:bg-gray-800/70 rounded-lg p-1">
+                  <button id="guided-mode-btn" className="px-4 py-2 rounded-md text-sm font-medium transition-all bg-white dark:bg-gray-900 shadow-sm text-blue-600 dark:text-blue-400">
                     <i className="fas fa-magic mr-2"></i>Guided
                   </button>
-                  <button id="dev-mode-btn" className="px-4 py-2 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">
+                  <button id="dev-mode-btn" className="px-4 py-2 rounded-md text-sm font-medium transition-all text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">
                     <i className="fas fa-code mr-2"></i>Developer
                   </button>
                 </div>
               </div>
               <div className="flex items-center space-x-2">
-                <button id="save-template-btn" className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+                <button id="save-template-btn" className="px-3 py-1.5 text-xs bg-gray-100 dark:bg-gray-800 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors">
                   <i className="fas fa-bookmark mr-1"></i>Save Template
                 </button>
               </div>
             </div>
           </div>
-          <div id="modal-content" className="p-6 max-h-[60vh] overflow-y-auto">
+          <div id="modal-content" className="p-6 max-h-[60vh] overflow-y-auto bg-white dark:bg-transparent">
             <div id="guided-mode-content" className="space-y-6">
-              <div id="data-pills-section" className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+              <div id="data-pills-section" className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/40 dark:to-purple-950/40 rounded-xl p-4 border border-transparent dark:border-white/5">
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3 flex items-center">
                   <i className="fas fa-tags mr-2 text-blue-500"></i>Available Data
                 </h3>
                 <div id="pills-wrap" className="flex flex-wrap gap-2" data-testid="pills-container">
@@ -1431,23 +1441,23 @@ export default function SandboxPage() {
               <div id="config-fields" className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Node Name</label>
-                    <input type="text" defaultValue="Slack Hire Alert" className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Node Name</label>
+                    <input type="text" defaultValue="Slack Hire Alert" className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-gray-100" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Candidate Name</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Candidate Name</label>
                     <div className="relative">
-                      <input type="text" defaultValue="{{candidate.name}}" className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10" />
-                      <button className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                      <input type="text" defaultValue="{{candidate.name}}" className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10 dark:bg-gray-800 dark:text-gray-100" />
+                      <button className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
                         <i className="fas fa-chevron-down"></i>
                       </button>
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Job Title</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Job Title</label>
                     <div className="relative">
-                      <input type="text" defaultValue="{{job.title}}" className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10" />
-                      <button className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                      <input type="text" defaultValue="{{job.title}}" className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10 dark:bg-gray-800 dark:text-gray-100" />
+                      <button className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
                         <i className="fas fa-chevron-down"></i>
                       </button>
                     </div>
@@ -1455,49 +1465,49 @@ export default function SandboxPage() {
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Slack Channel</label>
-                    <select id="slack-channel-select" className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Slack Channel</label>
+                    <select id="slack-channel-select" className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-gray-100">
                       <option value="">Loading channels…</option>
                     </select>
-                    <div id="slack-channel-hint" className="mt-2 text-xs text-gray-500 flex items-center gap-2 hidden">
+                    <div id="slack-channel-hint" className="mt-2 text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2 hidden">
                       <span data-role="slack-hint-text">Connect Slack to load your channels.</span>
                       <button
                         type="button"
                         id="slack-connect-cta"
-                        className="text-blue-600 font-medium hover:underline"
+                        className="text-blue-600 dark:text-blue-400 font-medium hover:underline"
                       >
                         Connect Slack
                       </button>
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Message Template</label>
-                    <textarea rows={4} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="🎉 {{candidate.name}} hired for {{job.title}}!" defaultValue={"🎉 {{candidate.name}} hired for {{job.title}}!"}></textarea>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Message Template</label>
+                    <textarea rows={4} className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-gray-100" placeholder="🎉 {{candidate.name}} hired for {{job.title}}!" defaultValue={"🎉 {{candidate.name}} hired for {{job.title}}!"}></textarea>
                   </div>
                 </div>
               </div>
-              <div id="sample-preview" className="bg-gray-50 rounded-xl p-4">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+              <div id="sample-preview" className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4">
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3 flex items-center">
                   <i className="fas fa-eye mr-2 text-green-500"></i>Live Preview
                 </h3>
-                <div className="bg-white rounded-lg p-4 border-l-4 border-green-500">
-                  <p className="text-sm text-gray-600">🎉 Sarah Johnson hired for Senior Frontend Developer!</p>
+                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border-l-4 border-green-500">
+                  <p className="text-sm text-gray-600 dark:text-gray-200">🎉 Sarah Johnson hired for Senior Frontend Developer!</p>
                 </div>
               </div>
             </div>
             <div id="dev-mode-content" className="space-y-6 hidden">
-              <div id="api-config" className="dev-mode-bg rounded-xl p-6 text-white">
+              <div id="api-config" className="dev-mode-bg bg-gray-900/90 dark:bg-gray-900 rounded-xl p-6 text-gray-900 dark:text-white">
                 <h3 className="text-lg font-semibold mb-4 flex items-center">
                   <i className="fas fa-terminal mr-2"></i>API Configuration
                 </h3>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium mb-2">Endpoint URL</label>
-                    <input type="text" defaultValue="https://hooks.slack.com/services/..." className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 text-white" />
+                    <input type="text" defaultValue="https://hooks.slack.com/services/..." className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 text-gray-900 dark:text-white" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-2">Method</label>
-                    <select className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 text-white">
+                    <select className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 text-gray-900 dark:text-white">
                       <option>POST</option>
                       <option>GET</option>
                       <option>PUT</option>
@@ -1507,34 +1517,34 @@ export default function SandboxPage() {
                 </div>
                 <div className="mt-4">
                   <label className="block text-sm font-medium mb-2">Headers (JSON)</label>
-                  <textarea rows={3} className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 text-white font-mono text-sm" defaultValue='{"Content-Type": "application/json"}'></textarea>
+                  <textarea rows={3} className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 text-gray-900 dark:text-white font-mono text-sm" defaultValue='{"Content-Type": "application/json"}'></textarea>
                 </div>
                 <div className="mt-4">
                   <label className="block text-sm font-medium mb-2">Request Body (JSON)</label>
-                  <textarea rows={8} className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 text-white font-mono text-sm" defaultValue={`{\n  "channel": "#hiring-alerts",\n  "text": "🎉 {{candidate.name}} hired for {{job.title}}!",\n  "username": "REX Hiring Bot",\n  "icon_emoji": ":tada:"\n}`}></textarea>
+                  <textarea rows={8} className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 text-gray-900 dark:text-white font-mono text-sm" defaultValue={`{\n  "channel": "#hiring-alerts",\n  "text": "🎉 {{candidate.name}} hired for {{job.title}}!",\n  "username": "REX Hiring Bot",\n  "icon_emoji": ":tada:"\n}`}></textarea>
                 </div>
               </div>
-              <div id="test-section" className="bg-yellow-50 rounded-xl p-4">
+              <div id="test-section" className="bg-yellow-50 dark:bg-yellow-900/30 rounded-xl p-4">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-gray-700 flex items-center">
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 flex items-center">
                     <i className="fas fa-flask mr-2 text-yellow-500"></i>Test Configuration
                   </h3>
                   <button id="run-test-btn" className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors">
                     <i className="fas fa-play mr-2"></i>Run Test
                   </button>
                 </div>
-                <p className="text-xs text-gray-600">Send a test request to validate your configuration</p>
+                <p className="text-xs text-gray-600 dark:text-gray-300">Send a test request to validate your configuration</p>
               </div>
             </div>
           </div>
-          <div id="modal-footer" className="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-gray-50">
+          <div id="modal-footer" className="flex items-center justify-between px-6 py-4 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#0b0d12]">
             <div className="flex items-center space-x-3">
-              <button className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors">
+              <button className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white transition-colors">
                 <i className="fas fa-question-circle mr-2"></i>Help
               </button>
             </div>
             <div className="flex items-center space-x-3">
-              <button className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors" onClick={() => { (document.getElementById('modal-overlay') as HTMLElement).style.display = 'none'; }}>
+              <button className="px-6 py-2 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors" onClick={() => { (document.getElementById('modal-overlay') as HTMLElement).style.display = 'none'; }}>
                 Cancel
               </button>
               <button className="px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg">
