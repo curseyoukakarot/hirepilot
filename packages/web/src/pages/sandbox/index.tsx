@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { getSupabaseBrowserClient } from '../../lib/supabaseClient';
 
 type NodeConfig = {
+  id?: string;
   title: string;
   endpoint: string;
   type: 'Trigger' | 'Action';
@@ -29,8 +30,11 @@ export default function SandboxPage() {
   const [slackHint, setSlackHint] = useState<string | null>(null);
   const [slackError, setSlackError] = useState<string | null>(null);
   const [slackLoading, setSlackLoading] = useState(false);
+  const [nodeTitleValue, setNodeTitleValue] = useState('');
+  const [nodeEndpointValue, setNodeEndpointValue] = useState('');
   const activeOutputHandleRef = useRef<HTMLElement | null>(null);
   const potentialConnectionTargetRef = useRef<HTMLElement | null>(null);
+  const selectedNodeElementRef = useRef<HTMLElement | null>(null);
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const selectedSlackChannelMeta = useMemo(
     () => slackChannels.find((channel) => (channel.id || channel.value || '') === slackChannelValue),
@@ -361,10 +365,16 @@ export default function SandboxPage() {
       });
       // open modal on double click
       node.addEventListener('dblclick', () => {
-        const title = (node.querySelector('h3') as HTMLElement)?.textContent || '';
-        const endpoint = (node.querySelector('.text-xs') as HTMLElement)?.textContent?.trim() || '';
+        const title = (node.querySelector('[data-role="node-title"]') as HTMLElement)?.textContent || '';
+        const endpoint = (node.querySelector('[data-role="node-endpoint"]') as HTMLElement)?.textContent?.trim() || '';
         const type = (node.querySelector('p.text-xs')?.textContent || '').includes('Action') ? 'Action' : 'Trigger';
-        setSelectedNode({ title, endpoint, type });
+        const slackChannel = node.dataset.slackChannel || '';
+        const id = node.dataset.nodeId || '';
+        selectedNodeElementRef.current = node;
+        setSelectedNode({ id, title, endpoint, type, slackChannel });
+        setNodeTitleValue(title);
+        setNodeEndpointValue(endpoint);
+        setSlackChannelValue(slackChannel);
         setIsModalOpen(true);
       });
       registerConnectionHandles(node);
@@ -380,16 +390,17 @@ export default function SandboxPage() {
       workflowNode.style.top = y - 50 + 'px';
       (workflowNode.style as any).cursor = 'move';
       workflowNode.dataset.nodeType = isAction ? 'Action' : 'Trigger';
+      workflowNode.dataset.slackChannel = '';
       workflowNode.innerHTML = `
             <div class="bg-gradient-to-br ${isAction ? 'from-purple-600 to-purple-800' : 'from-blue-600 to-blue-800'} p-4 rounded-xl shadow-lg border ${isAction ? 'border-purple-400/20 node-glow-purple' : 'border-blue-400/20 node-glow'} w-64">
                 <div class="flex items-center gap-3 mb-2">
                     <span class="text-2xl">${(sourceElement.querySelector('span') as HTMLElement)?.textContent || ''}</span>
                     <div>
-                        <h3 class="font-semibold text-white">${nodeData.title}</h3>
+                        <h3 class="font-semibold text-white" data-role="node-title">${nodeData.title}</h3>
                         <p class="text-xs ${isAction ? 'text-purple-200' : 'text-blue-200'}">${isAction ? 'Action' : 'Trigger'}</p>
                     </div>
                 </div>
-                <div class="text-xs ${isAction ? 'text-purple-100 bg-purple-900/30' : 'text-blue-100 bg-blue-900/30'} rounded-md px-2 py-1">
+                <div class="text-xs ${isAction ? 'text-purple-100 bg-purple-900/30' : 'text-blue-100 bg-blue-900/30'} rounded-md px-2 py-1" data-role="node-endpoint">
                     ${nodeData.endpoint}
                 </div>
                 <div class="absolute ${isAction ? '-left-2' : '-right-2'} top-1/2 transform -translate-y-1/2 w-4 h-4 ${isAction ? 'bg-purple-400' : 'bg-blue-400'} rounded-full border-2 border-white shadow-lg" data-handle="${isAction ? 'input' : 'output'}"></div>
@@ -489,17 +500,55 @@ export default function SandboxPage() {
     window.open('/settings/integrations', '_blank', 'noopener');
   };
 
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    selectedNodeElementRef.current = null;
+  };
+
+  const handleSaveNode = () => {
+    if (!selectedNodeElementRef.current) {
+      handleCloseModal();
+      return;
+    }
+    const nodeEl = selectedNodeElementRef.current;
+    const nextTitle = nodeTitleValue.trim() || 'Untitled Node';
+    const nextEndpoint =
+      nodeEndpointValue.trim() ||
+      (selectedNode?.type === 'Trigger' ? '/api/events/custom' : '/api/actions/custom');
+    const titleTarget = nodeEl.querySelector('[data-role="node-title"]') as HTMLElement | null;
+    if (titleTarget) titleTarget.textContent = nextTitle;
+    const endpointTarget = nodeEl.querySelector('[data-role="node-endpoint"]') as HTMLElement | null;
+    if (endpointTarget) endpointTarget.textContent = nextEndpoint;
+    nodeEl.dataset.slackChannel = slackChannelValue || '';
+    nodeEl.dataset.nodeTitle = nextTitle;
+    nodeEl.dataset.nodeEndpoint = nextEndpoint;
+    setSelectedNode((prev) =>
+      prev ? { ...prev, title: nextTitle, endpoint: nextEndpoint, slackChannel: slackChannelValue || '' } : prev
+    );
+    handleCloseModal();
+  };
+
+  useEffect(() => {
+    if (!selectedNode) {
+      setNodeTitleValue('');
+      setNodeEndpointValue('');
+      setSlackChannelValue('');
+      return;
+    }
+    setNodeTitleValue(selectedNode.title || '');
+    setNodeEndpointValue(selectedNode.endpoint || '');
+    setSlackChannelValue(selectedNode.slackChannel || '');
+  }, [selectedNode]);
+
   useEffect(() => {
     if (!isModalOpen) {
       setSlackChannels([]);
-      setSlackChannelValue('');
       setSlackHint(null);
       setSlackError(null);
       setSlackLoading(false);
-      return;
+      selectedNodeElementRef.current = null;
     }
-    setSlackChannelValue(selectedNode?.slackChannel || '');
-  }, [isModalOpen, selectedNode]);
+  }, [isModalOpen]);
 
   useEffect(() => {
     if (!isModalOpen || !selectedNode || selectedNode.type !== 'Action') return;
@@ -510,14 +559,14 @@ export default function SandboxPage() {
     return () => {
       const canvas = document.getElementById('main-canvas');
       if (!canvas) return { nodes: [] };
-      const nodes = Array.from(canvas.querySelectorAll('.absolute.transform'))
-        .map((el) => {
-          const rect = (el as HTMLElement).style;
-          const title = (el.querySelector('h3') as HTMLElement)?.textContent || '';
-          const endpoint = (el.querySelector('.text-xs') as HTMLElement)?.textContent?.trim() || '';
-          const type = (el.querySelector('p.text-xs')?.textContent || '').includes('Action') ? 'Action' : 'Trigger';
-          return { title, endpoint, type, left: rect.left, top: rect.top };
-        });
+      const nodes = Array.from(canvas.querySelectorAll('.absolute.transform')).map((el) => {
+        const rect = (el as HTMLElement).style;
+        const title = (el.querySelector('[data-role="node-title"]') as HTMLElement)?.textContent || '';
+        const endpoint = (el.querySelector('[data-role="node-endpoint"]') as HTMLElement)?.textContent?.trim() || '';
+        const type = (el.querySelector('p.text-xs')?.textContent || '').includes('Action') ? 'Action' : 'Trigger';
+        const slackChannel = (el as HTMLElement).dataset.slackChannel || '';
+        return { title, endpoint, type, left: rect.left, top: rect.top, slackChannel };
+      });
       return { nodes };
     };
   }, []);
@@ -698,30 +747,50 @@ export default function SandboxPage() {
             Drag nodes from the sidebar to create your automation workflow
           </div>
 
-          <div id="workflow-node-1" className="absolute top-32 left-40 transform transition-all duration-200 hover:scale-105" style={{ cursor: 'move' }} data-node-type="Trigger">
+          <div
+            id="workflow-node-1"
+            className="absolute top-32 left-40 transform transition-all duration-200 hover:scale-105"
+            style={{ cursor: 'move' }}
+            data-node-type="Trigger"
+            data-slack-channel=""
+          >
             <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-4 rounded-xl shadow-lg border border-blue-400/20 w-64 node-glow">
               <div className="flex items-center gap-3 mb-2">
                 <span className="text-2xl">🎉</span>
                 <div>
-                  <h3 className="font-semibold text-white">Candidate Hired</h3>
+                  <h3 className="font-semibold text-white" data-role="node-title">
+                    Candidate Hired
+                  </h3>
                   <p className="text-xs text-blue-200">Trigger</p>
                 </div>
               </div>
-              <div className="text-xs text-blue-100 bg-blue-900/30 rounded-md px-2 py-1">/api/events/candidate_hired</div>
+              <div className="text-xs text-blue-100 bg-blue-900/30 rounded-md px-2 py-1" data-role="node-endpoint">
+                /api/events/candidate_hired
+              </div>
               <div className="absolute -right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 bg-blue-400 rounded-full border-2 border-white shadow-lg" data-handle="output"></div>
             </div>
           </div>
 
-          <div id="workflow-node-2" className="absolute top-32 left-96 transform transition-all duration-200 hover:scale-105" style={{ cursor: 'move' }} data-node-type="Action">
+          <div
+            id="workflow-node-2"
+            className="absolute top-32 left-96 transform transition-all duration-200 hover:scale-105"
+            style={{ cursor: 'move' }}
+            data-node-type="Action"
+            data-slack-channel=""
+          >
             <div className="bg-gradient-to-br from-purple-600 to-purple-800 p-4 rounded-xl shadow-lg border border-purple-400/20 w-64 node-glow-purple">
               <div className="flex items-center gap-3 mb-2">
                 <span className="text-2xl">💬</span>
                 <div>
-                  <h3 className="font-semibold text-white">Send Slack Alert</h3>
+                  <h3 className="font-semibold text-white" data-role="node-title">
+                    Send Slack Alert
+                  </h3>
                   <p className="text-xs text-purple-200">Action</p>
                 </div>
               </div>
-              <div className="text-xs text-purple-100 bg-purple-900/30 rounded-md px-2 py-1">/api/actions/slack_notification</div>
+              <div className="text-xs text-purple-100 bg-purple-900/30 rounded-md px-2 py-1" data-role="node-endpoint">
+                /api/actions/slack_notification
+              </div>
               <div className="absolute -left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 bg-purple-400 rounded-full border-2 border-white shadow-lg" data-handle="input"></div>
             </div>
           </div>
@@ -793,14 +862,16 @@ export default function SandboxPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-600 dark:text-gray-300">Title</label>
                 <input
-                  defaultValue={selectedNode?.title || ''}
+                  value={nodeTitleValue}
+                  onChange={(event) => setNodeTitleValue(event.target.value)}
                   className="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-600 dark:text-gray-300">Endpoint</label>
                 <input
-                  defaultValue={selectedNode?.endpoint || ''}
+                  value={nodeEndpointValue}
+                  onChange={(event) => setNodeEndpointValue(event.target.value)}
                   className="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
               </div>
@@ -862,11 +933,11 @@ export default function SandboxPage() {
               )}
             </div>
             <div className="mt-5 flex justify-end gap-2">
-              <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+              <button onClick={handleCloseModal} className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                 Close
               </button>
-              <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors">
-                Save
+              <button onClick={handleSaveNode} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors">
+                Save Node
               </button>
             </div>
           </div>
