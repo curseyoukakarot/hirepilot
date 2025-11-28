@@ -2,6 +2,67 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { getSchemaForEndpoint, nodeSchemas } from '../config/nodeSchemas';
 
+type SnapshotNode = {
+  id?: string;
+  title: string;
+  endpoint: string;
+  type: 'Trigger' | 'Action';
+  left?: string;
+  top?: string;
+  icon?: string;
+};
+
+type SnapshotConnection = {
+  id?: string;
+  from?: string;
+  to?: string;
+};
+
+type SpawnNodeConfig = {
+  id?: string;
+  title: string;
+  endpoint: string;
+  type: 'Trigger' | 'Action';
+  icon?: string;
+  left?: string;
+  top?: string;
+};
+
+const SANDBOX_AUTOSAVE_KEY = 'hp_sandbox_graph_v1';
+
+const readGraphFromDom = (): { nodes: SnapshotNode[]; connections: SnapshotConnection[] } => {
+  const canvas = document.getElementById('main-canvas');
+  const svg = document.getElementById('connection-svg');
+  if (!canvas || !svg) return { nodes: [], connections: [] };
+
+  const nodes = Array.from(canvas.querySelectorAll('.absolute.transform')).map((el) => {
+    const nodeEl = el as HTMLElement;
+    const title = (nodeEl.querySelector('h3') as HTMLElement)?.textContent || '';
+    const endpoint = (nodeEl.querySelector('.text-xs') as HTMLElement)?.textContent?.trim() || '';
+    const label = (nodeEl.querySelector('p.text-xs')?.textContent || '').includes('Action') ? 'Action' : 'Trigger';
+    const nodeType = (nodeEl.dataset.nodeType as 'Trigger' | 'Action') || (label as 'Trigger' | 'Action');
+    const icon = (nodeEl.querySelector('.text-2xl') as HTMLElement)?.textContent || '';
+    const style = nodeEl.style || ({} as CSSStyleDeclaration);
+    const left = style.left || `${nodeEl.offsetLeft || 0}px`;
+    const top = style.top || `${nodeEl.offsetTop || 0}px`;
+    const id = nodeEl.dataset.nodeId || '';
+    return { id, title, endpoint, type: nodeType, left, top, icon };
+  });
+
+  const connections = Array.from(svg.querySelectorAll('path[data-connection-id]'))
+    .map((path) => {
+      const p = path as SVGPathElement;
+      return {
+        id: p.dataset.connectionId || '',
+        from: p.dataset.fromNodeId || '',
+        to: p.dataset.toNodeId || ''
+      };
+    })
+    .filter((edge) => edge.from && edge.to);
+
+  return { nodes, connections };
+};
+
 export default function SandboxPage() {
   const [selectedNode, setSelectedNode] = useState<{ id?: string; title: string; endpoint: string; type: 'Trigger' | 'Action' } | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -102,6 +163,41 @@ export default function SandboxPage() {
 
     const connections: ConnectionRecord[] = [];
     let connectionCounter = 0;
+    let persistTimer: number | undefined;
+    let isRestoring = false;
+
+    const schedulePersist = () => {
+      if (isRestoring) return;
+      if (typeof window === 'undefined') return;
+      if (persistTimer) window.clearTimeout(persistTimer);
+      persistTimer = window.setTimeout(() => {
+        try {
+          const snapshot = readGraphFromDom();
+          localStorage.setItem(SANDBOX_AUTOSAVE_KEY, JSON.stringify(snapshot));
+        } catch {}
+      }, 150);
+    };
+
+    const clearConnectionPaths = () => {
+      connections.splice(0, connections.length);
+      Array.from(connectionSvg.querySelectorAll('path[data-connection-id]')).forEach((path) => path.remove());
+    };
+
+    const getHandleForNode = (nodeId: string, handleType: 'input' | 'output') => {
+      if (!nodeId) return null;
+      const nodeEl = canvas.querySelector(`[data-node-id="${nodeId}"]`) as HTMLElement | null;
+      if (!nodeEl) return null;
+      return nodeEl.querySelector(`[data-handle="${handleType}"]`) as HTMLElement | null;
+    };
+
+    const ensureNodeIdentity = (node: HTMLElement | null) => {
+      if (!node) return;
+      if (!node.dataset.nodeId) node.dataset.nodeId = `node-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+      if (!node.dataset.nodeType) {
+        const fallback = (node.querySelector('p.text-xs')?.textContent || '').includes('Action') ? 'Action' : 'Trigger';
+        node.dataset.nodeType = fallback;
+      }
+    };
 
     const getHandleCenter = (handle: HTMLElement) => {
       const rect = handle.getBoundingClientRect();
@@ -151,9 +247,14 @@ export default function SandboxPage() {
     const createConnection = (fromHandle: HTMLElement, toHandle: HTMLElement) => {
       const startNode = fromHandle.closest('[data-node-type]') as HTMLElement | null;
       const endNode = toHandle.closest('[data-node-type]') as HTMLElement | null;
+      ensureNodeIdentity(startNode);
+      ensureNodeIdentity(endNode);
       const fromType = startNode?.dataset.nodeType;
       const toType = endNode?.dataset.nodeType;
+      const fromNodeId = startNode?.dataset.nodeId || '';
+      const toNodeId = endNode?.dataset.nodeId || '';
       if (fromType === 'Action' || toType === 'Trigger' || !fromType || !toType) return;
+      if (!fromNodeId || !toNodeId) return;
 
       const alreadyExists = connections.some((conn) => conn.from === fromHandle && conn.to === toHandle);
       if (alreadyExists) return;
@@ -161,9 +262,12 @@ export default function SandboxPage() {
       const path = createPathElement();
       const id = `conn-${connectionCounter++}`;
       path.dataset.connectionId = id;
+      path.dataset.fromNodeId = fromNodeId;
+      path.dataset.toNodeId = toNodeId;
       connectionSvg.appendChild(path);
       connections.push({ id, from: fromHandle, to: toHandle, path });
       refreshConnectionLines();
+      schedulePersist();
     };
 
     const startConnectionDrag = (event: MouseEvent, startHandle: HTMLElement) => {
@@ -205,6 +309,8 @@ export default function SandboxPage() {
       node.dataset.connectionHandles = 'ready';
       const handles = Array.from(node.querySelectorAll('[data-handle]')) as HTMLElement[];
       handles.forEach((handle) => {
+        handle.dataset.nodeId = node.dataset.nodeId || '';
+        handle.dataset.nodeType = node.dataset.nodeType || '';
         handle.classList.add('cursor-crosshair', 'ring-offset-1', 'ring-transparent', 'hover:ring-white/80');
         if (handle.dataset.handle === 'output') {
           handle.addEventListener('mousedown', (event) => startConnectionDrag(event, handle));
@@ -392,6 +498,7 @@ export default function SandboxPage() {
     };
 
     const makeNodeDraggable = (node: HTMLElement) => {
+      ensureNodeIdentity(node);
       const handleMouseMove = (e: MouseEvent) => {
         if (isDragging && canvas) {
           const canvasRect = canvas.getBoundingClientRect();
@@ -406,6 +513,7 @@ export default function SandboxPage() {
         isDragging = false;
         document.removeEventListener('mousemove', handleMouseMove);
         document.removeEventListener('mouseup', handleMouseUp);
+        schedulePersist();
       };
       node.addEventListener('mousedown', (e) => {
         if ((e.target as HTMLElement)?.dataset?.handle) return;
@@ -420,6 +528,39 @@ export default function SandboxPage() {
       registerConnectionHandles(node);
     };
 
+    const spawnWorkflowNode = (config: SpawnNodeConfig) => {
+      if (!canvas) return null;
+      const isAction = config.type === 'Action';
+      const workflowNode = document.createElement('div');
+      workflowNode.className = 'absolute transform transition-all duration-200 hover:scale-105';
+      workflowNode.style.left = config.left || '0px';
+      workflowNode.style.top = config.top || '0px';
+      workflowNode.style.cursor = 'move';
+      workflowNode.dataset.nodeType = config.type;
+      workflowNode.dataset.nodeId = config.id || `node-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+      const icon = config.icon || (isAction ? '🤖' : '⚡');
+      workflowNode.innerHTML = `
+            <div class="bg-gradient-to-br ${isAction ? 'from-purple-600 to-purple-800' : 'from-blue-600 to-blue-800'} p-4 rounded-xl shadow-lg border ${isAction ? 'border-purple-400/20 node-glow-purple' : 'border-blue-400/20 node-glow'} w-64">
+                <div class="flex items-center gap-3 mb-2">
+                    <span class="text-2xl">${icon}</span>
+                    <div>
+                        <h3 class="font-semibold text-white">${config.title}</h3>
+                        <p class="text-xs ${isAction ? 'text-purple-200' : 'text-blue-200'}">${isAction ? 'Action' : 'Trigger'}</p>
+                    </div>
+                </div>
+                <div class="text-xs ${isAction ? 'text-purple-100 bg-purple-900/30' : 'text-blue-100 bg-blue-900/30'} rounded-md px-2 py-1">
+                    ${config.endpoint}
+                </div>
+                <div class="absolute ${isAction ? '-left-2' : '-right-2'} top-1/2 transform -translate-y-1/2 w-4 h-4 ${isAction ? 'bg-purple-400' : 'bg-blue-400'} rounded-full border-2 border-white shadow-lg" data-handle="${isAction ? 'input' : 'output'}"></div>
+            </div>
+        `;
+      canvas.appendChild(workflowNode);
+      makeNodeDraggable(workflowNode);
+      refreshConnectionLines();
+      schedulePersist();
+      return workflowNode;
+    };
+
     const extractNodeData = (element: HTMLElement) => {
       const title = (element.querySelector('.font-medium') as HTMLElement)?.textContent || '';
       const endpoint = (element.querySelector('.text-xs.text-gray-400') as HTMLElement)?.textContent || '';
@@ -430,30 +571,14 @@ export default function SandboxPage() {
     const createWorkflowNode = (sourceElement: HTMLElement, x: number, y: number) => {
       const isAction = sourceElement.classList.contains('action-node');
       const nodeData = extractNodeData(sourceElement);
-      const workflowNode = document.createElement('div');
-      workflowNode.className = 'absolute transform transition-all duration-200 hover:scale-105';
-      workflowNode.style.left = x - 128 + 'px';
-      workflowNode.style.top = y - 50 + 'px';
-      workflowNode.style.cursor = 'move';
-      workflowNode.dataset.nodeType = isAction ? 'Action' : 'Trigger';
-      workflowNode.innerHTML = `
-            <div class="bg-gradient-to-br ${isAction ? 'from-purple-600 to-purple-800' : 'from-blue-600 to-blue-800'} p-4 rounded-xl shadow-lg border ${isAction ? 'border-purple-400/20 node-glow-purple' : 'border-blue-400/20 node-glow'} w-64">
-                <div class="flex items-center gap-3 mb-2">
-                    <span class="text-2xl">${nodeData.icon}</span>
-                    <div>
-                        <h3 class="font-semibold text-white">${nodeData.title}</h3>
-                        <p class="text-xs ${isAction ? 'text-purple-200' : 'text-blue-200'}">${isAction ? 'Action' : 'Trigger'}</p>
-                    </div>
-                </div>
-                <div class="text-xs ${isAction ? 'text-purple-100 bg-purple-900/30' : 'text-blue-100 bg-blue-900/30'} rounded-md px-2 py-1">
-                    ${nodeData.endpoint}
-                </div>
-                <div class="absolute ${isAction ? '-left-2' : '-right-2'} top-1/2 transform -translate-y-1/2 w-4 h-4 ${isAction ? 'bg-purple-400' : 'bg-blue-400'} rounded-full border-2 border-white shadow-lg" data-handle="${isAction ? 'input' : 'output'}"></div>
-            </div>
-        `;
-      canvas.appendChild(workflowNode);
-      makeNodeDraggable(workflowNode);
-      refreshConnectionLines();
+      spawnWorkflowNode({
+        title: nodeData.title,
+        endpoint: nodeData.endpoint,
+        icon: nodeData.icon,
+        type: isAction ? 'Action' : 'Trigger',
+        left: x - 128 + 'px',
+        top: y - 50 + 'px'
+      });
     };
 
     const onDrop = (e: DragEvent) => {
@@ -468,12 +593,59 @@ export default function SandboxPage() {
       }
     };
 
+    const restoreFromAutosave = () => {
+      if (typeof window === 'undefined') return false;
+      let raw: string | null = null;
+      try {
+        raw = localStorage.getItem(SANDBOX_AUTOSAVE_KEY);
+      } catch {
+        raw = null;
+      }
+      if (!raw) return false;
+      let snapshot: { nodes?: SnapshotNode[]; connections?: SnapshotConnection[]; edges?: SnapshotConnection[] } | null = null;
+      try {
+        snapshot = JSON.parse(raw);
+      } catch {
+        snapshot = null;
+      }
+      if (!snapshot || !Array.isArray(snapshot.nodes) || snapshot.nodes.length === 0) return false;
+      isRestoring = true;
+      Array.from(canvas.querySelectorAll(':scope > div.absolute.transform')).forEach((node) => node.remove());
+      clearConnectionPaths();
+      snapshot.nodes.forEach((node) => {
+        spawnWorkflowNode({
+          id: node.id,
+          title: node.title,
+          endpoint: node.endpoint,
+          icon: node.icon,
+          type: node.type,
+          left: node.left,
+          top: node.top
+        });
+      });
+      requestAnimationFrame(() => {
+        const edges = snapshot?.connections || snapshot?.edges || [];
+        edges.forEach((edge) => {
+          const fromHandle = getHandleForNode(edge.from || '', 'output');
+          const toHandle = getHandleForNode(edge.to || '', 'input');
+          if (fromHandle && toHandle) createConnection(fromHandle, toHandle);
+        });
+        isRestoring = false;
+        schedulePersist();
+        refreshConnectionLines();
+      });
+      return true;
+    };
+
     // Make existing nodes draggable and clickable on mount
     document.querySelectorAll('[id^="workflow-node-"]').forEach((n) => makeNodeDraggable(n as HTMLElement));
-    const defaultTriggerHandle = document.querySelector('#workflow-node-1 [data-handle="output"]') as HTMLElement | null;
-    const defaultActionHandle = document.querySelector('#workflow-node-2 [data-handle="input"]') as HTMLElement | null;
-    if (defaultTriggerHandle && defaultActionHandle) {
-      createConnection(defaultTriggerHandle, defaultActionHandle);
+    const restored = restoreFromAutosave();
+    if (!restored) {
+      const defaultTriggerHandle = document.querySelector('#workflow-node-1 [data-handle="output"]') as HTMLElement | null;
+      const defaultActionHandle = document.querySelector('#workflow-node-2 [data-handle="input"]') as HTMLElement | null;
+      if (defaultTriggerHandle && defaultActionHandle) {
+        createConnection(defaultTriggerHandle, defaultActionHandle);
+      }
     }
 
     sidebar.addEventListener('dragstart', onDragStart as any);
@@ -826,6 +998,7 @@ export default function SandboxPage() {
     });
 
     return () => {
+      if (persistTimer) window.clearTimeout(persistTimer);
       window.removeEventListener('resize', refreshHandler);
       window.removeEventListener('hp-refresh-connections', refreshHandler as EventListener);
       sidebar.removeEventListener('dragstart', onDragStart as any);
@@ -846,19 +1019,7 @@ export default function SandboxPage() {
     if (overlay && overlay.style.display !== 'flex') overlay.style.display = 'flex';
   }, [selectedNode?.id]);
 
-  const collectGraph = () => {
-    const canvas = document.getElementById('main-canvas');
-    if (!canvas) return { nodes: [] } as any;
-    const nodes = Array.from(canvas.querySelectorAll('.absolute.transform'))
-      .map((el) => {
-        const title = (el.querySelector('h3') as HTMLElement)?.textContent || '';
-        const endpoint = (el.querySelector('.text-xs') as HTMLElement)?.textContent?.trim() || '';
-        const type = (el.querySelector('p.text-xs')?.textContent || '').includes('Action') ? 'Action' : 'Trigger';
-        const style = (el as HTMLElement).style || ({} as any);
-        return { title, endpoint, type, left: style.left, top: style.top };
-      });
-    return { nodes } as any;
-  };
+  const collectGraph = () => readGraphFromDom();
 
   const handlePreviewJson = () => {
     const data = collectGraph();
@@ -868,8 +1029,13 @@ export default function SandboxPage() {
   const handleTestRun = async () => {
     try {
       const data = collectGraph();
-      const trigger = (data.nodes || []).find((n: any) => n.type === 'Trigger');
-      const action = (data.nodes || []).find((n: any) => n.type === 'Action');
+      const firstConnection = (data.connections || [])[0];
+      const trigger = firstConnection
+        ? (data.nodes || []).find((n: any) => n.id === firstConnection.from)
+        : (data.nodes || []).find((n: any) => n.type === 'Trigger');
+      const action = firstConnection
+        ? (data.nodes || []).find((n: any) => n.id === firstConnection.to)
+        : (data.nodes || []).find((n: any) => n.type === 'Action');
       const res = await fetch('/api/workflows/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1206,6 +1372,7 @@ export default function SandboxPage() {
             if (svg) {
               Array.from(svg.querySelectorAll('path[data-connection-id]')).forEach((n) => n.remove());
             }
+            try { localStorage.removeItem(SANDBOX_AUTOSAVE_KEY); } catch {}
             window.dispatchEvent(new CustomEvent('hp-refresh-connections'));
             alert('Sandbox reset 🌪️');
           }} className="bg-red-700 hover:bg-red-600 text-white text-sm px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2">
