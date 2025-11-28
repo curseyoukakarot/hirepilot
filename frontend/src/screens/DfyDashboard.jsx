@@ -407,6 +407,7 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
   }).join('') || `<div class="text-sm text-gray-500">No campaigns linked to this job.</div>`;
 
   const htmlThemeClass = theme === 'dark' ? ' class="dark"' : '';
+  const bodyClass = embedded ? 'embedded' : '';
   const html = `<!DOCTYPE html>
 <html${htmlThemeClass}><head>
     <meta charset="UTF-8">
@@ -465,8 +466,12 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
     transition: background-color 0.3s ease, color 0.3s ease;
   }
   .dark body {
-    background-color: #020617;
+    background-color: #0b1120;
     color: #e2e8f0;
+  }
+  .dashboard-shell {
+    min-height: 100vh;
+    background: transparent;
   }
   .card-surface {
     background-color: #ffffff;
@@ -485,9 +490,9 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
   .dark .border-gray-200 { border-color: #1f2937 !important; }
   .dark .border { border-color: #1e293b !important; }
   </style></head>
-<body class="bg-gray-50${embedded ? ' embedded' : ''}">
+<body class="${bodyClass}">
 
-<div class="flex">
+<div class="flex dashboard-shell">
     <aside id="sidebar" class="w-64 card-surface shadow-lg h-screen fixed left-0 top-0 z-10 border-r border-gray-200">
         <div class="p-6 border-b">
             <div class="flex items-center space-x-3">
