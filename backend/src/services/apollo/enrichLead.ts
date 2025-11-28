@@ -385,58 +385,92 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
 
     // Use Apollo's Match API for enrichment (not search)
     let response;
-    try {
-      // Prepare match parameters for enrichment API
-      const matchParams: any = {
-        reveal_personal_emails: true // Key parameter to get email addresses
-        // Note: reveal_phone_number requires webhook_url configuration
-      };
+    // Prepare match parameters for enrichment API
+    const matchParams: any = {
+      reveal_personal_emails: true // Key parameter to get email addresses
+      // Note: reveal_phone_number requires webhook_url configuration
+    };
 
-      // Add available lead information for matching
-      if (firstName && lastName) {
-        matchParams.first_name = searchParams.first_name;
-        matchParams.last_name = searchParams.last_name;
-      }
-      if (company) {
-        matchParams.organization_name = company;
-      }
-      if (linkedinUrl) {
-        matchParams.linkedin_url = linkedinUrl;
-      }
+    // Add available lead information for matching
+    if (firstName && lastName) {
+      matchParams.first_name = searchParams.first_name;
+      matchParams.last_name = searchParams.last_name;
+    }
+    if (company) {
+      matchParams.organization_name = company;
+    }
+    if (linkedinUrl) {
+      matchParams.linkedin_url = linkedinUrl;
+    }
 
-      console.log('[Apollo] Using Match API for enrichment:', {
-        originalName: `${firstName} ${lastName}`,
-        cleanedName: `${matchParams.first_name} ${matchParams.last_name}`,
-        company, linkedinUrl,
-        endpoint: 'people/match'
-      });
+    console.log('[Apollo] Using Match API for enrichment:', {
+      originalName: `${firstName} ${lastName}`,
+      cleanedName: `${matchParams.first_name} ${matchParams.last_name}`,
+      company, linkedinUrl,
+      endpoint: 'people/match'
+    });
 
-      response = await axios.post('https://api.apollo.io/api/v1/people/match', matchParams, {
+    const callApolloMatch = async (apiKey?: string) => {
+      return axios.post('https://api.apollo.io/api/v1/people/match', matchParams, {
         headers: {
           'Content-Type': 'application/json',
-          'X-Api-Key': apolloApiKey || ''
+          'X-Api-Key': apiKey || ''
         },
         timeout: 10000 // 10 second timeout
       });
+    };
 
-      console.log('[Apollo] Match API Response:', {
-        status: response.status,
-        personFound: !!response.data?.person,
-        personName: response.data?.person ? 
-          `${response.data.person.first_name} ${response.data.person.last_name}` : 'None',
-        hasEmail: !!response.data?.person?.email,
-        hasPhone: !!response.data?.person?.phone_numbers?.length
-      });
-    } catch (apolloApiError: any) {
-      console.error('[Apollo] Match API request failed:', apolloApiError);
-      errors.push(`Apollo API error: ${apolloApiError.message || 'Service unavailable'}`);
+    const handleApolloFailure = () => {
       return {
         success: false,
-        provider: 'none',
+        provider: 'none' as const,
         errors,
         fallbacks_used
       };
+    };
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        response = await callApolloMatch(apolloApiKey);
+        break;
+      } catch (apolloApiError: any) {
+        const statusCode = apolloApiError?.response?.status;
+        const errorCode = apolloApiError?.response?.data?.error_code;
+        const canFallbackToSuperAdmin =
+          attempt === 0 &&
+          usingPersonalKey &&
+          statusCode === 403 &&
+          errorCode === 'API_INACCESSIBLE' &&
+          !!process.env.SUPER_ADMIN_APOLLO_API_KEY;
+
+        if (canFallbackToSuperAdmin) {
+          console.warn('[Apollo] Personal API key lacks Match API access; retrying with SUPER_ADMIN_APOLLO_API_KEY');
+          apolloApiKey = process.env.SUPER_ADMIN_APOLLO_API_KEY;
+          usingPersonalKey = false;
+          continue;
+        }
+
+        console.error('[Apollo] Match API request failed:', apolloApiError);
+        errors.push(`Apollo API error: ${apolloApiError.message || 'Service unavailable'}`);
+        return handleApolloFailure();
+      }
     }
+
+    if (!response) {
+      const fallbackError = 'Apollo Match API could not be reached after retries';
+      console.error('[Apollo] Match API request failed:', fallbackError);
+      errors.push(fallbackError);
+      return handleApolloFailure();
+    }
+
+    console.log('[Apollo] Match API Response:', {
+      status: response.status,
+      personFound: !!response.data?.person,
+      personName: response.data?.person ? 
+        `${response.data.person.first_name} ${response.data.person.last_name}` : 'None',
+      hasEmail: !!response.data?.person?.email,
+      hasPhone: !!response.data?.person?.phone_numbers?.length
+    });
 
     if (!response.data?.person) {
       const errorMsg = 'No matching person found in Apollo Match API';
