@@ -31,7 +31,6 @@ export default async function handler(req: Request, res: Response) {
         id, 
         title, 
         description,
-        job_description,
         company,
         experience_level,
         work_type,
@@ -65,7 +64,6 @@ export default async function handler(req: Request, res: Response) {
               id, 
               title, 
               description,
-              job_description,
               company,
               experience_level,
               work_type,
@@ -96,8 +94,8 @@ export default async function handler(req: Request, res: Response) {
       });
     }
 
-    // Normalize description with legacy fallback
-    const normalizedDescription = String((jobRow as any).description || (jobRow as any).job_description || '').trim();
+    // Normalize description with legacy fallback (if future column added)
+    const normalizedDescription = String((jobRow as any).description || '').trim();
 
     // Also fetch pipeline stages if pipeline exists
     let stages = [];
