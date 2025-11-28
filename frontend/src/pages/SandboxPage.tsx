@@ -291,6 +291,7 @@ export default function SandboxPage() {
     };
 
     const createConnection = (fromHandle: HTMLElement, toHandle: HTMLElement) => {
+      console.log('[Sandbox] createConnection called', { fromHandle, toHandle });
       const startNode = fromHandle.closest('[data-node-type]') as HTMLElement | null;
       const endNode = toHandle.closest('[data-node-type]') as HTMLElement | null;
       ensureNodeIdentity(startNode);
@@ -299,20 +300,56 @@ export default function SandboxPage() {
       const toType = endNode?.dataset.nodeType;
       const fromNodeId = startNode?.dataset.nodeId || '';
       const toNodeId = endNode?.dataset.nodeId || '';
-      if (fromType === 'Action' || toType === 'Trigger' || !fromType || !toType) return;
-      if (!fromNodeId || !toNodeId) return;
+      if (fromType === 'Action' || toType === 'Trigger' || !fromType || !toType) {
+        console.warn('[Sandbox] invalid connection types', { fromType, toType });
+        return;
+      }
+      if (!fromNodeId || !toNodeId) {
+        console.warn('[Sandbox] missing node ids', { fromNodeId, toNodeId });
+        return;
+      }
 
       const alreadyExists = connections.some((conn) => conn.from === fromHandle && conn.to === toHandle);
-      if (alreadyExists) return;
+      if (alreadyExists) {
+        console.info('[Sandbox] connection already exists');
+        return;
+      }
 
-      const path = createPathElement();
+      const outputRect = fromHandle.getBoundingClientRect();
+      const inputRect = toHandle.getBoundingClientRect();
+      const svgRect = connectionSvg.getBoundingClientRect();
+
+      console.log('[Sandbox] outputRect', outputRect);
+      console.log('[Sandbox] inputRect', inputRect);
+      console.log('[Sandbox] svgRect', svgRect);
+
+      const startX = outputRect.left + outputRect.width / 2 - svgRect.left;
+      const startY = outputRect.top + outputRect.height / 2 - svgRect.top;
+      const endX = inputRect.left + inputRect.width / 2 - svgRect.left;
+      const endY = inputRect.top + inputRect.height / 2 - svgRect.top;
+
+      console.log('[Sandbox] calculated SVG coords', { startX, startY, endX, endY });
+
+      if (!isFinite(startX) || !isFinite(startY) || !isFinite(endX) || !isFinite(endY)) {
+        console.error('[Sandbox] invalid coords, aborting connection render');
+        return;
+      }
+
+      const pathD = `M ${startX} ${startY} L ${endX} ${endY}`;
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       const id = `conn-${connectionCounter++}`;
       path.dataset.connectionId = id;
       path.dataset.fromNodeId = fromNodeId;
       path.dataset.toNodeId = toNodeId;
+      path.setAttribute('d', pathD);
+      path.setAttribute('stroke', '#3b82f6');
+      path.setAttribute('stroke-width', '3');
+      path.setAttribute('fill', 'none');
+      path.classList.add('connection-line', 'connection-debug-line');
       connectionSvg.appendChild(path);
+      console.log('[Sandbox] PATH APPENDED →', path);
+
       connections.push({ id, from: fromHandle, to: toHandle, path });
-      refreshConnectionLines();
       schedulePersist();
     };
 
