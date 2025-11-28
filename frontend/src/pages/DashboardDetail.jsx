@@ -210,8 +210,52 @@ export default function DashboardDetail() {
   const [showCampaigns, setShowCampaigns] = useState(false);
   const [showCphTrend, setShowCphTrend] = useState(false);
   const [activeSection, setActiveSection] = useState('dashboard');
+  const [profile, setProfile] = useState({ name: 'Alex Chen', role: 'Admin', avatar: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg' });
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user?.id || !mounted) return;
+        const { data: profileRow } = await supabase
+          .from('users')
+          .select('first_name,last_name,role,avatar_url,account_type,full_name')
+          .eq('id', user.id)
+          .maybeSingle();
+        const displayName = profileRow?.full_name
+          || [profileRow?.first_name, profileRow?.last_name].filter(Boolean).join(' ')
+          || user.user_metadata?.name
+          || `${user.user_metadata?.first_name || ''} ${user.user_metadata?.last_name || ''}`.trim()
+          || user.email
+          || 'You';
+        const avatarUrl = profileRow?.avatar_url || user.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=random`;
+        const displayRole = profileRow?.role || profileRow?.account_type || user.user_metadata?.role || 'Member';
+        if (mounted) setProfile({ name: displayName, role: displayRole, avatar: avatarUrl });
+      } catch (err) {
+        console.error('Profile fetch failed', err);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
   useEffect(() => {
     let isMounted = true;
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id && isMounted) {
+          const { data: dbProfile } = await supabase.from('users').select('full_name, role, avatar_url').eq('id', user.id).maybeSingle();
+          const firstName = user.user_metadata?.first_name || '';
+          const lastName = user.user_metadata?.last_name || '';
+          const fallbackName = [firstName, lastName].filter(Boolean).join(' ') || user.email || 'Member';
+          const derivedName = dbProfile?.full_name || fallbackName;
+          const derivedRole = (dbProfile?.role || user.user_metadata?.role || 'Member').replace(/_/g, ' ');
+          const derivedAvatar = dbProfile?.avatar_url || user.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(derivedName)}&background=random`;
+          setProfile({ name: derivedName, role: derivedRole, avatar: derivedAvatar });
+        }
+      } catch {
+        // silent fallback to default profile
+      }
+    })();
     (async () => {
       try {
         const PlotlyMod = await import('plotly.js-dist-min');
@@ -670,10 +714,10 @@ export default function DashboardDetail() {
           </nav>
           <div className="p-4 border-t border-slate-200">
             <div className="flex items-center gap-3 px-4 py-3">
-              <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" className="w-10 h-10 rounded-full" />
+              <img src={profile.avatar} alt={profile.name} className="w-10 h-10 rounded-full object-cover" />
               <div className="flex-1">
-                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Alex Chen</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Admin</p>
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{profile.name}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 capitalize">{profile.role}</p>
               </div>
             </div>
           </div>
