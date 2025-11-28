@@ -807,16 +807,16 @@ export default function JobRequisitionPage() {
           {/* Dashboard Tab */}
           <div id="dfy-tab" className={activeTab === 'dfy' ? 'tab-content' : 'tab-content hidden'}>
             <div className="max-w-7xl mx-auto px-6 py-6">
-            <div className="bg-white rounded-lg border border-gray-200">
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-gray-900">Dashboard</h3>
+              <div className="bg-white dark:bg-slate-900/80 rounded-lg border border-gray-200 dark:border-slate-800 shadow-sm">
+                <div className="p-6 border-b border-gray-200 dark:border-slate-800">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Dashboard</h3>
+                  </div>
+                </div>
+                <div className="p-0 bg-gray-50 dark:bg-slate-950 rounded-b-lg">
+                  <DfyDashboard embedded={true} jobId={id} />
                 </div>
               </div>
-              <div className="p-0">
-                <DfyDashboard embedded={true} jobId={id} />
-              </div>
-            </div>
             </div>
           </div>
         </main>

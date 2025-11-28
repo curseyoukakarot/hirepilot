@@ -1,6 +1,19 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
+const detectTheme = () => {
+  if (typeof document !== 'undefined') {
+    const doc = document.documentElement;
+    if (doc?.classList?.contains('dark') || document.body?.classList?.contains('dark')) {
+      return 'dark';
+    }
+  }
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  return 'light';
+};
+
 function IFrameEmbed({ html }) {
   const iframeRef = useRef(null);
   const [height, setHeight] = useState('100vh');
@@ -55,6 +68,7 @@ function IFrameEmbed({ html }) {
 }
 
 export default function DfyDashboard({ embedded = false, jobId = null }) {
+  const [theme, setTheme] = useState(() => detectTheme());
   const [metrics, setMetrics] = useState({
     totalCandidates: 0,
     hiresCount: 0,
@@ -323,6 +337,28 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
     return () => { try { supabase.removeChannel(ch); } catch {} };
   }, [jobId]);
 
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const updateTheme = () => setTheme(detectTheme());
+    updateTheme();
+    const observer = new MutationObserver(updateTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    let media;
+    const mediaHandler = (event) => setTheme(event.matches ? 'dark' : 'light');
+    if (window.matchMedia) {
+      media = window.matchMedia('(prefers-color-scheme: dark)');
+      if (media.addEventListener) media.addEventListener('change', mediaHandler);
+      else if (media.addListener) media.addListener(mediaHandler);
+    }
+    return () => {
+      observer.disconnect();
+      if (media) {
+        if (media.removeEventListener) media.removeEventListener('change', mediaHandler);
+        else if (media.removeListener) media.removeListener(mediaHandler);
+      }
+    };
+  }, []);
+
   const successRate = metrics.totalCandidates > 0 ? Math.round((metrics.hiresCount / metrics.totalCandidates) * 1000) / 10 : 0;
   const fmt = (n) => (n || 0).toLocaleString();
   const pct = (n) => `${(Number(n) || 0).toFixed(1)}%`;
@@ -370,8 +406,9 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
       </div>`;
   }).join('') || `<div class="text-sm text-gray-500">No campaigns linked to this job.</div>`;
 
+  const htmlThemeClass = theme === 'dark' ? ' class="dark"' : '';
   const html = `<!DOCTYPE html>
-<html><head>
+<html${htmlThemeClass}><head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -421,11 +458,37 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
   .embedded #sidebar { display: none !important; }
   .embedded #header { display: none !important; }
   .embedded #main-content { margin-left: 0 !important; }
+
+  body {
+    background-color: #f8fafc;
+    color: #0f172a;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+  .dark body {
+    background-color: #020617;
+    color: #e2e8f0;
+  }
+  .card-surface {
+    background-color: #ffffff;
+    border-color: #e2e8f0;
+  }
+  .dark .card-surface {
+    background-color: rgba(15,23,42,0.92);
+    border-color: #1e293b;
+    color: #f8fafc;
+  }
+  .dark .text-gray-600 { color: #cbd5f5 !important; }
+  .dark .text-gray-500 { color: #94a3b8 !important; }
+  .dark .text-gray-400 { color: #94a3b8 !important; }
+  .dark .text-gray-900 { color: #f8fafc !important; }
+  .dark .bg-gray-50 { background-color: rgba(15,23,42,0.6) !important; }
+  .dark .border-gray-200 { border-color: #1f2937 !important; }
+  .dark .border { border-color: #1e293b !important; }
   </style></head>
 <body class="bg-gray-50${embedded ? ' embedded' : ''}">
 
 <div class="flex">
-    <aside id="sidebar" class="w-64 bg-white shadow-lg h-screen fixed left-0 top-0 z-10">
+    <aside id="sidebar" class="w-64 card-surface shadow-lg h-screen fixed left-0 top-0 z-10 border-r border-gray-200">
         <div class="p-6 border-b">
             <div class="flex items-center space-x-3">
                 <img src="/logo.png" alt="HirePilot Logo" class="h-8 w-8" />
@@ -457,7 +520,7 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
     </aside>
 
     <main id="main-content" class="flex-1 ml-64">
-        <header id="header" class="bg-white shadow-sm border-b px-8 py-6">
+        <header id="header" class="card-surface shadow-sm border-b px-8 py-6">
             <div class="flex items-center justify-between">
                 <div>
                     <h1 class="text-3xl font-bold text-gray-900">Your Hiring Dashboard</h1>
@@ -475,7 +538,7 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
 
         <section id="kpi-cards" class="px-8 py-6">
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div class="bg-white rounded-xl shadow-sm p-6 border">
+                <div class="card-surface rounded-xl shadow-sm p-6 border">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-sm font-medium text-gray-600">Success Rate</p>
@@ -491,7 +554,7 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
                     </div>
                 </div>
 
-                <div class="bg-white rounded-xl shadow-sm p-6 border">
+                <div class="card-surface rounded-xl shadow-sm p-6 border">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-sm font-medium text-gray-600">Total Hires Made</p>
@@ -507,7 +570,7 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
                     </div>
                 </div>
 
-                <div class="bg-white rounded-xl shadow-sm p-6 border">
+                <div class="card-surface rounded-xl shadow-sm p-6 border">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-sm font-medium text-gray-600">Reply Rate</p>
@@ -523,7 +586,7 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
                     </div>
                 </div>
 
-                <div class="bg-white rounded-xl shadow-sm p-6 border">
+                <div class="card-surface rounded-xl shadow-sm p-6 border">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-sm font-medium text-gray-600">Outreach Sent</p>
@@ -543,7 +606,7 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
 
         <section id="charts-section" class="px-8 py-6">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div class="bg-white rounded-xl shadow-sm p-6 border">
+                <div class="card-surface rounded-xl shadow-sm p-6 border">
                     <h3 class="text-lg font-semibold text-gray-900 mb-4">Pipeline Conversion Funnel</h3>
                     <div class="space-y-4">
                         <div>
@@ -586,7 +649,7 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
                     <div class="mt-4 text-xs text-gray-500">Funnel shows relative conversion at each stage.</div>
                 </div>
 
-                <div class="bg-white rounded-xl shadow-sm p-6 border">
+                <div class="card-surface rounded-xl shadow-sm p-6 border">
                     <h3 class="text-lg font-semibold text-gray-900 mb-4">Activity Over Time</h3>
                     <div class="mb-3 flex items-center gap-4 text-xs">
                         <span class="inline-flex items-center gap-2"><span class="w-3 h-3 rounded-sm bg-orange-500"></span>Outreach</span>
@@ -612,7 +675,7 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
 
         <section id="tables-section" class="px-8 py-6">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div id="recent-successes" class="bg-white rounded-xl shadow-sm border">
+                <div id="recent-successes" class="card-surface rounded-xl shadow-sm border">
                     <div class="p-6 border-b">
                         <h3 class="text-lg font-semibold text-gray-900">Recent Candidates</h3>
                     </div>
@@ -621,7 +684,7 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
                     </div>
                 </div>
 
-                <div id="open-campaigns" class="bg-white rounded-xl shadow-sm border">
+                <div id="open-campaigns" class="card-surface rounded-xl shadow-sm border">
                     <div class="p-6 border-b">
                         <h3 class="text-lg font-semibold text-gray-900">Active Campaigns</h3>
                     </div>
