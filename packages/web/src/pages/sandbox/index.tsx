@@ -119,11 +119,36 @@ export default function SandboxPage() {
       refreshConnectionLines();
     };
 
+    const resolveInputHandle = (target: EventTarget | null): HTMLElement | null => {
+      const el = target as HTMLElement | null;
+      if (!el) return null;
+      if (el.dataset.handle === 'input') return el;
+      const direct = el.closest('[data-handle="input"]') as HTMLElement | null;
+      if (direct) return direct;
+      const actionNode = el.closest('[data-node-type="Action"]') as HTMLElement | null;
+      if (actionNode) return actionNode.querySelector('[data-handle="input"]') as HTMLElement | null;
+      return null;
+    };
+
+    const highlightActionTargets = (active: boolean) => {
+      const actions = Array.from(canvas.querySelectorAll('[data-node-type="Action"]')) as HTMLElement[];
+      actions.forEach((node) => {
+        if (active) {
+          node.dataset.prevShadow = node.style.boxShadow || '';
+          node.style.boxShadow = `${node.dataset.prevShadow ? `${node.dataset.prevShadow},` : ''}0 0 0 4px rgba(250,204,21,0.35)`;
+        } else if (node.dataset.prevShadow !== undefined) {
+          node.style.boxShadow = node.dataset.prevShadow;
+          delete node.dataset.prevShadow;
+        }
+      });
+    };
+
     const startConnectionDrag = (event: MouseEvent, startHandle: HTMLElement) => {
       event.stopPropagation();
       event.preventDefault();
       const preview = createPathElement(true);
       connectionSvg.appendChild(preview);
+      highlightActionTargets(true);
 
       const handleMouseMove = (moveEvent: MouseEvent) => {
         const start = getHandleCenter(startHandle);
@@ -139,10 +164,8 @@ export default function SandboxPage() {
         document.removeEventListener('mousemove', handleMouseMove);
         document.removeEventListener('mouseup', handleMouseUp);
         preview.remove();
-        const target = upEvent.target as HTMLElement | null;
-        const dropHandle = target?.dataset.handle === 'input'
-          ? target
-          : (target?.closest('[data-handle="input"]') as HTMLElement | null);
+        highlightActionTargets(false);
+        const dropHandle = resolveInputHandle(upEvent.target);
         if (dropHandle) createConnection(startHandle, dropHandle);
       };
 
@@ -278,9 +301,11 @@ export default function SandboxPage() {
 
     const onDomContentLoaded = () => {
       document.querySelectorAll('[id^="workflow-node-"]').forEach((n) => makeNodeDraggable(n as HTMLElement));
-      const defaultTrigger = document.querySelector('#workflow-node-1 [data-handle="output"]') as HTMLElement | null;
-      const defaultAction = document.querySelector('#workflow-node-2 [data-handle="input"]') as HTMLElement | null;
-      if (defaultTrigger && defaultAction) createConnection(defaultTrigger, defaultAction);
+      requestAnimationFrame(() => {
+        const defaultTrigger = document.querySelector('#workflow-node-1 [data-handle="output"]') as HTMLElement | null;
+        const defaultAction = document.querySelector('#workflow-node-2 [data-handle="input"]') as HTMLElement | null;
+        if (defaultTrigger && defaultAction) createConnection(defaultTrigger, defaultAction);
+      });
     };
 
     sidebar.addEventListener('dragstart', onDragStart as any);
