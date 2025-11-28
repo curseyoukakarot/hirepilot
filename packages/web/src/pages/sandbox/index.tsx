@@ -728,13 +728,13 @@ export default function SandboxPage() {
 
       <button
         onClick={() => setShowConnectionPanel((prev) => !prev)}
-        className="fixed bottom-6 right-6 z-40 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg transition-colors"
+        className="fixed top-6 right-6 z-40 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg transition-colors"
       >
         {showConnectionPanel ? 'Hide Connections' : 'Show Connections'}
       </button>
 
       {showConnectionPanel && (
-        <div className="fixed bottom-24 right-6 z-40 w-72 bg-gray-900/95 text-white border border-gray-700 rounded-xl shadow-2xl p-4 space-y-3">
+        <div className="fixed top-24 right-6 z-40 w-72 bg-gray-900/95 text-white border border-gray-700 rounded-xl shadow-2xl p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs uppercase tracking-widest text-gray-500">Connection Helper</p>
