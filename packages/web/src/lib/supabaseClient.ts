@@ -22,11 +22,22 @@ export const getSupabaseBrowserClient = (): SupabaseClient | null => {
     return null;
   }
 
+  const storage = (() => {
+    try {
+      return window.localStorage;
+    } catch (error) {
+      console.warn('[Sandbox] localStorage unavailable; Supabase session persistence disabled.', error);
+      return undefined;
+    }
+  })();
+
   cachedClient = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
+      storageKey: 'hirepilot-auth',
+      storage,
     },
   });
 
