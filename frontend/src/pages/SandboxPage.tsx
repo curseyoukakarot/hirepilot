@@ -323,7 +323,8 @@ export default function SandboxPage() {
         document.removeEventListener('mouseup', handleMouseUp);
         preview.remove();
         highlightActionTargets(false);
-        const dropHandle = resolveInputHandle(upEvent.target);
+        const elementUnderPointer = document.elementFromPoint(upEvent.clientX, upEvent.clientY);
+        const dropHandle = resolveInputHandle(elementUnderPointer || upEvent.target);
         if (dropHandle) createConnection(startHandle, dropHandle);
       };
 
