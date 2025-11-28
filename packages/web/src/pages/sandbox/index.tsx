@@ -14,6 +14,8 @@ export default function SandboxPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedNode, setSelectedNode] = useState<NodeConfig | null>(null);
   const [isTesting, setIsTesting] = useState(false);
+  const [connectionSummary, setConnectionSummary] = useState<string[]>([]);
+  const [showConnectionPanel, setShowConnectionPanel] = useState(false);
   const activeOutputHandleRef = useRef<HTMLElement | null>(null);
   const potentialConnectionTargetRef = useRef<HTMLElement | null>(null);
 
@@ -34,6 +36,15 @@ export default function SandboxPage() {
       from: HTMLElement;
       to: HTMLElement;
       path: SVGPathElement;
+    };
+
+    type ConnectionRecord = {
+      id: string;
+      from: HTMLElement;
+      to: HTMLElement;
+      path: SVGPathElement;
+      fromTitle?: string;
+      toTitle?: string;
     };
 
     const connections: ConnectionRecord[] = [];
@@ -82,6 +93,10 @@ export default function SandboxPage() {
       return path;
     };
 
+    const refreshConnectionSummary = () => {
+      setConnectionSummary(connections.map((conn) => `${conn.fromTitle || 'Trigger'} → ${conn.toTitle || 'Action'}`));
+    };
+
     const pruneConnections = () => {
       for (let i = connections.length - 1; i >= 0; i -= 1) {
         const conn = connections[i];
@@ -90,6 +105,7 @@ export default function SandboxPage() {
           connections.splice(i, 1);
         }
       }
+      refreshConnectionSummary();
     };
 
     const refreshConnectionLines = () => {
@@ -141,6 +157,8 @@ export default function SandboxPage() {
       }
 
       const pathD = `M ${startX} ${startY} L ${endX} ${endY}`;
+      const fromTitle = ((startNode?.querySelector('h3') as HTMLElement)?.textContent || '').trim() || 'Trigger';
+      const toTitle = ((endNode?.querySelector('h3') as HTMLElement)?.textContent || '').trim() || 'Action';
       const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       const id = `conn-${connectionCounter++}`;
       path.dataset.connectionId = id;
@@ -152,18 +170,8 @@ export default function SandboxPage() {
       connectionSvg.appendChild(path);
       console.log('[Sandbox:Next] PATH APPENDED →', path);
 
-      connections.push({ id, from: fromHandle, to: toHandle, path });
-    };
-
-    const resolveInputHandle = (target: EventTarget | null): HTMLElement | null => {
-      const el = target as HTMLElement | null;
-      if (!el) return null;
-      if (el.dataset.handle === 'input') return el;
-      const direct = el.closest('[data-handle="input"]') as HTMLElement | null;
-      if (direct) return direct;
-      const actionNode = el.closest('[data-node-type="Action"]') as HTMLElement | null;
-      if (actionNode) return actionNode.querySelector('[data-handle="input"]') as HTMLElement | null;
-      return null;
+      connections.push({ id, from: fromHandle, to: toHandle, path, fromTitle, toTitle });
+      refreshConnectionSummary();
     };
 
     const setPotentialTarget = (node: HTMLElement | null) => {
@@ -397,6 +405,7 @@ export default function SandboxPage() {
       cancelSeedConnection();
       setPotentialTarget(null);
       activeOutputHandleRef.current = null;
+      setConnectionSummary([]);
       window.removeEventListener('resize', refreshConnectionLines);
       sidebar.removeEventListener('dragstart', onDragStart as any);
       canvas.removeEventListener('dragover', onDragOver as any);
@@ -404,7 +413,7 @@ export default function SandboxPage() {
       canvas.removeEventListener('drop', onDrop as any);
       document.removeEventListener('DOMContentLoaded', onDomContentLoaded);
     };
-  }, []);
+  }, [setConnectionSummary]);
 
   const collectGraph = useMemo(() => {
     return () => {
@@ -714,6 +723,39 @@ export default function SandboxPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      <button
+        onClick={() => setShowConnectionPanel((prev) => !prev)}
+        className="fixed bottom-6 right-6 z-40 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg transition-colors"
+      >
+        {showConnectionPanel ? 'Hide Connections' : 'Show Connections'}
+      </button>
+
+      {showConnectionPanel && (
+        <div className="fixed bottom-24 right-6 z-40 w-72 bg-gray-900/95 text-white border border-gray-700 rounded-xl shadow-2xl p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-widest text-gray-500">Connection Helper</p>
+              <p className="text-lg font-semibold">Active Links</p>
+            </div>
+            <button onClick={() => setShowConnectionPanel(false)} className="text-gray-400 hover:text-white">
+              ✕
+            </button>
+          </div>
+          {connectionSummary.length > 0 ? (
+            <ul className="space-y-2 text-sm">
+              {connectionSummary.map((summary, idx) => (
+                <li key={`${summary}-${idx}`} className="flex items-start gap-2">
+                  <span className="mt-0.5 text-indigo-400">●</span>
+                  <span>{summary}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-gray-400">No connections yet. Drag from a trigger to an action to link them.</p>
+          )}
         </div>
       )}
     </>
