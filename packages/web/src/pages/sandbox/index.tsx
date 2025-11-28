@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/router';
 
 type NodeConfig = {
@@ -14,6 +14,8 @@ export default function SandboxPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedNode, setSelectedNode] = useState<NodeConfig | null>(null);
   const [isTesting, setIsTesting] = useState(false);
+  const activeOutputHandleRef = useRef<HTMLElement | null>(null);
+  const potentialConnectionTargetRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     let isDragging = false as boolean;
@@ -130,25 +132,39 @@ export default function SandboxPage() {
       return null;
     };
 
-    const highlightActionTargets = (active: boolean) => {
-      const actions = Array.from(canvas.querySelectorAll('[data-node-type="Action"]')) as HTMLElement[];
-      actions.forEach((node) => {
-        if (active) {
-          node.dataset.prevShadow = node.style.boxShadow || '';
-          node.style.boxShadow = `${node.dataset.prevShadow ? `${node.dataset.prevShadow},` : ''}0 0 0 4px rgba(250,204,21,0.35)`;
-        } else if (node.dataset.prevShadow !== undefined) {
-          node.style.boxShadow = node.dataset.prevShadow;
-          delete node.dataset.prevShadow;
-        }
+    const setPotentialTarget = (node: HTMLElement | null) => {
+      if (potentialConnectionTargetRef.current === node) return;
+      if (potentialConnectionTargetRef.current) {
+        const prev = potentialConnectionTargetRef.current.dataset.prevShadow || '';
+        potentialConnectionTargetRef.current.style.boxShadow = prev;
+        delete potentialConnectionTargetRef.current.dataset.prevShadow;
+      }
+      potentialConnectionTargetRef.current = node;
+      if (node) {
+        node.dataset.prevShadow = node.style.boxShadow || '';
+        node.style.boxShadow = `${node.dataset.prevShadow ? `${node.dataset.prevShadow},` : ''}0 0 0 4px rgba(250,204,21,0.35)`;
+      }
+    };
+
+    const registerHoverListeners = (node: HTMLElement) => {
+      node.addEventListener('pointerenter', () => {
+        if (!activeOutputHandleRef.current) return;
+        if ((node.dataset.nodeType || '').toLowerCase() !== 'action') return;
+        setPotentialTarget(node);
+      });
+      node.addEventListener('pointerleave', () => {
+        if (!activeOutputHandleRef.current) return;
+        if (potentialConnectionTargetRef.current === node) setPotentialTarget(null);
       });
     };
 
     const startConnectionDrag = (event: PointerEvent, startHandle: HTMLElement) => {
+      if (event.pointerType === 'mouse' && event.button !== 0) return;
       event.stopPropagation();
       event.preventDefault();
+      activeOutputHandleRef.current = startHandle;
       const preview = createPathElement(true);
       connectionSvg.appendChild(preview);
-      highlightActionTargets(true);
       const previousPointerEvents = connectionSvg.style.pointerEvents;
       connectionSvg.style.pointerEvents = 'none';
 
@@ -162,20 +178,20 @@ export default function SandboxPage() {
         preview.setAttribute('d', buildPathD(start, end));
       };
 
-      const handlePointerUp = (upEvent: PointerEvent) => {
+      const handlePointerUp = () => {
         document.removeEventListener('pointermove', handlePointerMove);
         document.removeEventListener('pointerup', handlePointerUp);
         requestAnimationFrame(() => {
           preview.remove();
-          highlightActionTargets(false);
           connectionSvg.style.pointerEvents = previousPointerEvents;
-          connectionSvg.offsetHeight; // force reflow for accurate elementFromPoint
-          const previousVisibility = connectionSvg.style.visibility;
-          connectionSvg.style.visibility = 'hidden';
-          const elementUnderPointer = document.elementFromPoint(upEvent.clientX, upEvent.clientY);
-          connectionSvg.style.visibility = previousVisibility;
-          const dropHandle = resolveInputHandle(elementUnderPointer || upEvent.target);
-          if (dropHandle) createConnection(startHandle, dropHandle);
+          connectionSvg.offsetHeight;
+          const targetNode = potentialConnectionTargetRef.current;
+          if (targetNode && activeOutputHandleRef.current) {
+            const dropHandle = (targetNode.querySelector('[data-handle="input"]') as HTMLElement | null) || targetNode;
+            createConnection(activeOutputHandleRef.current, dropHandle);
+          }
+          setPotentialTarget(null);
+          activeOutputHandleRef.current = null;
         });
       };
 
@@ -188,10 +204,11 @@ export default function SandboxPage() {
       node.dataset.connectionHandles = 'ready';
       const handles = Array.from(node.querySelectorAll('[data-handle]')) as HTMLElement[];
       handles.forEach((handle) => {
+        handle.dataset.nodeId = node.dataset.nodeId || '';
         handle.dataset.nodeType = node.dataset.nodeType || '';
         handle.classList.add('cursor-crosshair');
         if (handle.dataset.handle === 'output') {
-          handle.addEventListener('pointerdown', (event) => startConnectionDrag(event as PointerEvent, handle));
+          handle.addEventListener('pointerdown', (event) => startConnectionDrag(event as PointerEvent, handle), { passive: false });
         } else {
           handle.addEventListener('pointerdown', (event) => event.stopPropagation());
         }
@@ -199,6 +216,25 @@ export default function SandboxPage() {
     };
 
     window.addEventListener('resize', refreshConnectionLines);
+
+    let seedRaf: number | null = null;
+    let seedTimeout: number | null = null;
+
+    const cancelSeedConnection = () => {
+      if (seedRaf) cancelAnimationFrame(seedRaf);
+      if (seedTimeout) window.clearTimeout(seedTimeout);
+    };
+
+    const scheduleSeedConnection = () => {
+      cancelSeedConnection();
+      seedRaf = requestAnimationFrame(() => {
+        seedTimeout = window.setTimeout(() => {
+          const defaultTrigger = document.querySelector('#workflow-node-1 [data-handle="output"]') as HTMLElement | null;
+          const defaultAction = document.querySelector('#workflow-node-2 [data-handle="input"]') as HTMLElement | null;
+          if (defaultTrigger && defaultAction) createConnection(defaultTrigger, defaultAction);
+        }, 150);
+      });
+    };
 
     // Handle drag start for sidebar items
     const onDragStart = (e: DragEvent) => {
@@ -279,6 +315,7 @@ export default function SandboxPage() {
         setIsModalOpen(true);
       });
       registerConnectionHandles(node);
+      registerHoverListeners(node);
     };
 
     const createWorkflowNode = (sourceElement: HTMLElement, x: number, y: number) => {
@@ -311,11 +348,7 @@ export default function SandboxPage() {
 
     const onDomContentLoaded = () => {
       document.querySelectorAll('[id^="workflow-node-"]').forEach((n) => makeNodeDraggable(n as HTMLElement));
-      requestAnimationFrame(() => {
-        const defaultTrigger = document.querySelector('#workflow-node-1 [data-handle="output"]') as HTMLElement | null;
-        const defaultAction = document.querySelector('#workflow-node-2 [data-handle="input"]') as HTMLElement | null;
-        if (defaultTrigger && defaultAction) createConnection(defaultTrigger, defaultAction);
-      });
+      scheduleSeedConnection();
     };
 
     sidebar.addEventListener('dragstart', onDragStart as any);
@@ -327,6 +360,9 @@ export default function SandboxPage() {
     onDomContentLoaded();
 
     return () => {
+      cancelSeedConnection();
+      setPotentialTarget(null);
+      activeOutputHandleRef.current = null;
       window.removeEventListener('resize', refreshConnectionLines);
       sidebar.removeEventListener('dragstart', onDragStart as any);
       canvas.removeEventListener('dragover', onDragOver as any);
