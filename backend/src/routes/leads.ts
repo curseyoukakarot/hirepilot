@@ -599,6 +599,7 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
     if (apolloUsed && !apolloSucceeded && hasSkrappKey) {
       try {
         const { enrichLeadWithSkrappProfileAndCompany } = await import('../../services/skrapp/enrichLead');
+        const hadSkrappBeforeFallback = Boolean(enrichmentData.skrapp);
         const skrappResult = await enrichLeadWithSkrappProfileAndCompany({
           apiKey: skrappApiKey,
           firstName: lead.first_name,
@@ -618,8 +619,12 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
           if (enrichmentSource === 'none') enrichmentSource = 'skrapp';
           console.log('[LeadEnrich] ✅ Skrapp fallback enrichment successful');
         } else {
-          console.log('[LeadEnrich] ❌ Skrapp fallback: No data found');
-          errorMessages.push('Skrapp: No data found (fallback)');
+          if (hadSkrappBeforeFallback) {
+            console.log('[LeadEnrich] ℹ️ Skrapp fallback: no additional company data available');
+          } else {
+            console.log('[LeadEnrich] ❌ Skrapp fallback: No data found');
+            errorMessages.push('Skrapp: No data found (fallback)');
+          }
         }
       } catch (error: any) {
         console.warn('[LeadEnrich] ❌ Skrapp fallback enrichment failed:', error.message);
