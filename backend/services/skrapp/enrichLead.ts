@@ -122,19 +122,13 @@ export async function enrichWithSkrapp(
       apiKeyPrefix: skrappApiKey.substring(0, 8) + '...'
     });
 
-    // Try the documented Email Finder endpoint first (GET /api/v2/find), then a POST fallback
+    // Try the documented Email Finder endpoint (GET /api/v2/find)
     const attempts: Array<{ url: string; body: any; label: string; method: 'post' | 'get' }> = [
       {
         url: `${SKRAPP_API_URL}/find`,
         label: 'find(GET)',
         method: 'get',
         body: { firstName: first_name, lastName: last_name, fullName: `${first_name} ${last_name}`.trim(), company: company || undefined, domain: cleanDomain || undefined, includeCompanyData: true }
-      },
-      {
-        url: `${SKRAPP_API_URL}/find`,
-        label: 'find(POST fallback)',
-        method: 'post',
-        body: { firstName: first_name, lastName: last_name, company: company || null, domain: cleanDomain || null, includeCompanyData: true }
       }
     ];
 
