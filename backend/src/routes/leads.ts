@@ -20,6 +20,231 @@ import { getUserIntegrations } from '../../utils/userIntegrationsHelper';
 
 const router = express.Router();
 
+type LeadEntityType = 'lead' | 'candidate';
+
+interface LeadResolutionResult {
+  entityType: LeadEntityType;
+  lead: any;
+  targetId: string;
+}
+
+const PRIVILEGED_ROLES = ['team_admin', 'super_admin', 'SuperAdmin'] as const;
+
+async function resolveLeadOrCandidateEntity(leadId: string, userId: string): Promise<LeadResolutionResult | null> {
+  let entityType: LeadEntityType = 'lead';
+  let lead: any = null;
+  let targetId: string = leadId;
+
+  const { data: leadData } = await supabase
+    .from('leads')
+    .select('*')
+    .eq('id', leadId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  lead = leadData;
+
+  if (!lead) {
+    const { data: candidate } = await supabase
+      .from('candidates')
+      .select('*')
+      .eq('id', leadId)
+      .maybeSingle();
+
+    if (candidate) {
+      entityType = 'candidate';
+      lead = {
+        id: candidate.id,
+        user_id: candidate.user_id,
+        first_name: candidate.first_name,
+        last_name: candidate.last_name,
+        name: `${candidate.first_name || ''} ${candidate.last_name || ''}`.trim(),
+        email: candidate.email || null,
+        phone: candidate.phone || null,
+        title: candidate.title || null,
+        company: candidate.company || null,
+        linkedin_url: candidate.linkedin_url || null,
+        enrichment_data: candidate.enrichment_data || {},
+        enhanced_insights_unlocked: candidate.enhanced_insights_unlocked,
+        enhanced_insights: candidate.enhanced_insights,
+        has_enhanced_enrichment: candidate.has_enhanced_enrichment
+      };
+      targetId = candidate.id;
+    } else {
+      const { data: candidateByLead } = await supabase
+        .from('candidates')
+        .select('*')
+        .eq('lead_id', leadId)
+        .maybeSingle();
+
+      if (candidateByLead) {
+        entityType = 'candidate';
+        lead = {
+          id: candidateByLead.id,
+          user_id: candidateByLead.user_id,
+          first_name: candidateByLead.first_name,
+          last_name: candidateByLead.last_name,
+          name: `${candidateByLead.first_name || ''} ${candidateByLead.last_name || ''}`.trim(),
+          email: candidateByLead.email || null,
+          phone: candidateByLead.phone || null,
+          title: candidateByLead.title || null,
+          company: candidateByLead.company || null,
+          linkedin_url: candidateByLead.linkedin_url || null,
+          enrichment_data: candidateByLead.enrichment_data || {},
+          enhanced_insights_unlocked: candidateByLead.enhanced_insights_unlocked,
+          enhanced_insights: candidateByLead.enhanced_insights,
+          has_enhanced_enrichment: candidateByLead.has_enhanced_enrichment
+        };
+        targetId = candidateByLead.id;
+      } else {
+        const { data: leadAny } = await supabase
+          .from('leads')
+          .select('*, user_id')
+          .eq('id', leadId)
+          .maybeSingle();
+
+        if (leadAny) {
+          const { data: me } = await supabase.from('users').select('id, team_id, role').eq('id', userId).maybeSingle();
+          const { data: owner } = await supabase.from('users').select('id, team_id').eq('id', leadAny.user_id).maybeSingle();
+
+          const sameTeam = (me as any)?.team_id && owner?.team_id && (me as any).team_id === owner.team_id;
+          const privileged = PRIVILEGED_ROLES.includes((((me as any)?.role) || '') as any);
+
+          if (sameTeam || privileged) {
+            entityType = 'lead';
+            lead = leadAny;
+            targetId = leadAny.id;
+          }
+        }
+
+        if (!lead) {
+          const { data: candAny } = await supabase
+            .from('candidates')
+            .select('*')
+            .or(`id.eq.${leadId},lead_id.eq.${leadId}`)
+            .maybeSingle();
+
+          if (candAny) {
+            const { data: me } = await supabase.from('users').select('id, team_id, role').eq('id', userId).maybeSingle();
+            const { data: owner } = await supabase.from('users').select('id, team_id').eq('id', candAny.user_id).maybeSingle();
+            const sameTeam = (me as any)?.team_id && owner?.team_id && (me as any).team_id === owner.team_id;
+            const privileged = PRIVILEGED_ROLES.includes((((me as any)?.role) || '') as any);
+            if (sameTeam || privileged || candAny.user_id === userId) {
+              entityType = 'candidate';
+              lead = {
+                id: candAny.id,
+                user_id: candAny.user_id,
+                first_name: candAny.first_name,
+                last_name: candAny.last_name,
+                name: `${candAny.first_name || ''} ${candAny.last_name || ''}`.trim(),
+                email: candAny.email || null,
+                phone: candAny.phone || null,
+                title: candAny.title || null,
+                company: candAny.company || null,
+                linkedin_url: candAny.linkedin_url || null,
+                enrichment_data: candAny.enrichment_data || {},
+                enhanced_insights_unlocked: candAny.enhanced_insights_unlocked,
+                enhanced_insights: candAny.enhanced_insights,
+                has_enhanced_enrichment: candAny.has_enhanced_enrichment
+              };
+              targetId = candAny.id;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  if (!lead) {
+    return null;
+  }
+
+  return { entityType, lead, targetId };
+}
+
+function buildEnrichmentStatus(entity: any, overrides?: { source?: string; success?: boolean; errors?: string[] }) {
+  const lastAttempt = entity?.enrichment_data?.last_enrichment_attempt || {};
+  const source = overrides?.source ?? lastAttempt?.source ?? 'none';
+  const errors = Array.isArray(overrides?.errors)
+    ? overrides?.errors
+    : Array.isArray(lastAttempt?.errors)
+      ? lastAttempt.errors
+      : [];
+  const success = typeof overrides?.success === 'boolean'
+    ? overrides.success
+    : Boolean(source && source !== 'none');
+  return {
+    source,
+    success,
+    errors
+  };
+}
+
+function inferEnhancedProvider(entity: any): 'apollo' | 'skrapp' | null {
+  const explicit = entity?.enhanced_insights?.provider;
+  if (explicit === 'apollo' || explicit === 'skrapp') return explicit;
+  const fromLastAttempt = entity?.enrichment_data?.last_enrichment_attempt?.source;
+  if (fromLastAttempt === 'apollo' || fromLastAttempt === 'skrapp') return fromLastAttempt;
+  if (entity?.enrichment_data?.apollo) return 'apollo';
+  if (entity?.enrichment_data?.skrapp) return 'skrapp';
+  return null;
+}
+
+function buildEnhancedInsightsStatus(entity: any) {
+  return {
+    unlocked: Boolean(entity?.enhanced_insights_unlocked ?? entity?.has_enhanced_enrichment),
+    provider: inferEnhancedProvider(entity)
+  };
+}
+
+function buildEnhancedInsightsSnapshot(provider: 'apollo' | 'skrapp', lead: any) {
+  const enrichmentData = lead?.enrichment_data || {};
+  const apollo = enrichmentData.apollo || {};
+  const skrapp = enrichmentData.skrapp || {};
+  const sourceData = provider === 'apollo' ? apollo : skrapp;
+  const organization = provider === 'apollo'
+    ? (apollo.organization || {})
+    : {};
+  const companyInfo = provider === 'skrapp'
+    ? sourceData
+    : {};
+
+  const company = provider === 'apollo'
+    ? {
+        name: organization?.name || lead?.company || null,
+        domain: organization?.domain || organization?.website_url || null,
+        revenue_range: organization?.estimated_annual_revenue || organization?.annual_revenue || null,
+        employee_count: organization?.employee_count || organization?.estimated_num_employees || null,
+        employee_range: organization?.employee_count_range || organization?.estimated_num_employees || null,
+        industry: organization?.industry || organization?.naics_description || null,
+        headquarters: organization?.location || organization?.headquarters || null,
+        funding_total: organization?.total_funding || organization?.funding_total || null,
+        last_funding_round: organization?.last_funding_type || null,
+        last_funding_amount: organization?.last_funding_amount || null,
+        technologies: apollo?.technologies || organization?.technologies || null,
+        keywords: apollo?.keywords || organization?.keywords || null
+      }
+    : {
+        name: companyInfo?.company_name || companyInfo?.name || lead?.company || null,
+        domain: companyInfo?.company_domain || companyInfo?.domain || companyInfo?.website || null,
+        revenue_range: companyInfo?.company_revenue_range || companyInfo?.revenue_range || null,
+        employee_count: companyInfo?.company_employee_count || null,
+        employee_range: companyInfo?.company_employee_range || companyInfo?.company_size || null,
+        industry: companyInfo?.company_industry || companyInfo?.industry || null,
+        headquarters: companyInfo?.company_headquarters || companyInfo?.headquarters || null,
+        funding_total: companyInfo?.company_funding || companyInfo?.funding_total || null,
+        last_funding_round: companyInfo?.last_funding_round || null,
+        last_funding_amount: companyInfo?.last_funding_amount || null,
+        technologies: companyInfo?.technologies || null,
+        keywords: companyInfo?.keywords || null
+      };
+
+  return {
+    provider,
+    company,
+    unlocked_at: new Date().toISOString()
+  };
+}
+
 // Debug logging for route registration
 console.log('Registering leads routes...');
 
@@ -46,130 +271,14 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
       });
     }
 
-    // Get lead details for the profile URL
-    // Try to find a lead first; if not found, allow enrichment of a candidate by id (compat with candidate view)
-    let entityType: 'lead' | 'candidate' = 'lead';
-    let lead: any = null;
-    // targetId is the primary key we will use for subsequent updates (may differ from the incoming id if we matched candidate by lead_id)
-    let targetId: string = leadId;
-    {
-      const { data, error } = await supabase
-        .from('leads')
-        .select('*')
-        .eq('id', leadId)
-        .eq('user_id', userId)  // Security: ensure user owns this lead
-        .maybeSingle();
-      lead = data;
-      if (error) {
-        // proceed to candidate lookup
-      }
+    const resolved = await resolveLeadOrCandidateEntity(leadId, userId);
+    if (!resolved) {
+      return res.status(404).json({
+        success: false,
+        message: 'Lead not found or access denied'
+      });
     }
-    if (!lead) {
-      const { data: candidate } = await supabase
-        .from('candidates')
-        .select('*')
-        .eq('id', leadId)
-        .maybeSingle();
-      if (candidate) {
-        entityType = 'candidate';
-        // Normalize to lead-like shape expected by enrichment pipeline
-        lead = {
-          id: candidate.id,
-          user_id: candidate.user_id,
-          first_name: candidate.first_name,
-          last_name: candidate.last_name,
-          name: `${candidate.first_name || ''} ${candidate.last_name || ''}`.trim(),
-          email: candidate.email || null,
-          phone: candidate.phone || null,
-          title: candidate.title || null,
-          company: candidate.company || null,
-          linkedin_url: candidate.linkedin_url || null,
-          enrichment_data: candidate.enrichment_data || {},
-        };
-        targetId = candidate.id;
-      } else {
-        // Final attempt: sometimes frontend passes lead_id for candidates; look up candidate by lead_id
-        const { data: candidateByLead } = await supabase
-          .from('candidates')
-          .select('*')
-          .eq('lead_id', leadId)
-          .maybeSingle();
-        if (candidateByLead) {
-          entityType = 'candidate';
-          lead = {
-            id: candidateByLead.id,
-            user_id: candidateByLead.user_id,
-            first_name: candidateByLead.first_name,
-            last_name: candidateByLead.last_name,
-            name: `${candidateByLead.first_name || ''} ${candidateByLead.last_name || ''}`.trim(),
-            email: candidateByLead.email || null,
-            phone: candidateByLead.phone || null,
-            title: candidateByLead.title || null,
-            company: candidateByLead.company || null,
-            linkedin_url: candidateByLead.linkedin_url || null,
-            enrichment_data: candidateByLead.enrichment_data || {},
-          };
-          targetId = candidateByLead.id;
-        } else {
-          // One last permissive check: try resolving by id without user constraint and allow if same team
-          // Try lead first
-          const { data: leadAny } = await supabase
-            .from('leads')
-            .select('*, user_id')
-            .eq('id', leadId)
-            .maybeSingle();
-          if (leadAny) {
-            // Check team membership
-            const { data: me } = await supabase.from('users').select('id, team_id, role').eq('id', userId).maybeSingle();
-            const { data: owner } = await supabase.from('users').select('id, team_id').eq('id', leadAny.user_id).maybeSingle();
-            const sameTeam = (me as any)?.team_id && owner?.team_id && (me as any).team_id === owner.team_id;
-            const privileged = ['team_admin','super_admin','SuperAdmin'].includes(((me as any)?.role)||'');
-            if (sameTeam || privileged) {
-              entityType = 'lead';
-              lead = leadAny;
-              targetId = leadAny.id;
-            }
-          }
-          // If still not resolved, try candidate without user filter
-          if (!lead) {
-            const { data: candAny } = await supabase
-              .from('candidates')
-              .select('*')
-              .or(`id.eq.${leadId},lead_id.eq.${leadId}`)
-              .maybeSingle();
-            if (candAny) {
-              const { data: me } = await supabase.from('users').select('id, team_id, role').eq('id', userId).maybeSingle();
-              const { data: owner } = await supabase.from('users').select('id, team_id').eq('id', candAny.user_id).maybeSingle();
-              const sameTeam = (me as any)?.team_id && owner?.team_id && (me as any).team_id === owner.team_id;
-              const privileged = ['team_admin','super_admin','SuperAdmin'].includes(((me as any)?.role)||'');
-              if (sameTeam || privileged || candAny.user_id === userId) {
-                entityType = 'candidate';
-                lead = {
-                  id: candAny.id,
-                  user_id: candAny.user_id,
-                  first_name: candAny.first_name,
-                  last_name: candAny.last_name,
-                  name: `${candAny.first_name || ''} ${candAny.last_name || ''}`.trim(),
-                  email: candAny.email || null,
-                  phone: candAny.phone || null,
-                  title: candAny.title || null,
-                  company: candAny.company || null,
-                  linkedin_url: candAny.linkedin_url || null,
-                  enrichment_data: candAny.enrichment_data || {},
-                };
-                targetId = candAny.id;
-              }
-            }
-          }
-          if (!lead) {
-            return res.status(404).json({
-              success: false,
-              message: 'Lead not found or access denied'
-            });
-          }
-        }
-      }
-    }
+    const { lead, entityType, targetId } = resolved;
 
     console.log(`[LeadEnrich] Starting enrichment for lead: ${lead.first_name} ${lead.last_name}`);
 
@@ -190,7 +299,12 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
 
     const userIntegrations = await getUserIntegrations(userId);
     const hunterApiKey = (userIntegrations.hunter_api_key || process.env.HUNTER_API_KEY || '').trim();
-    const skrappApiKey = (userIntegrations.skrapp_api_key || process.env.SKRAPP_API_KEY || '').trim();
+    const skrappApiKey = (
+      userIntegrations.skrapp_api_key ||
+      process.env.SUPER_ADMIN_SKRAPP_API_KEY ||
+      process.env.SKRAPP_API_KEY ||
+      ''
+    ).trim();
     const premiumPreference: 'skrapp' | 'hunter' | 'apollo' = (userIntegrations.enrichment_source as 'skrapp' | 'apollo') || 'hunter';
     const hasHunterKey = hunterApiKey.length > 0;
     const hasSkrappKey = skrappApiKey.length > 0;
@@ -436,15 +550,23 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
     }
 
     // STEP 4: Apollo enrichment - run if no email found OR if Apollo data is incomplete
-    const hasCompleteApolloData = lead.enrichment_data?.apollo?.employment_history || 
-                                  lead.enrichment_data?.apollo?.functions || 
-                                  lead.enrichment_data?.apollo?.departments;
-    
-    if (!enrichmentData.decodo?.email && !enrichmentData.hunter?.email && !enrichmentData.skrapp?.email || 
-        !hasCompleteApolloData) {
+    const hasCompleteApolloData = lead.enrichment_data?.apollo?.employment_history ||
+      lead.enrichment_data?.apollo?.functions ||
+      lead.enrichment_data?.apollo?.departments;
+
+    const shouldRunApollo = (
+      (!enrichmentData.decodo?.email && !enrichmentData.hunter?.email && !enrichmentData.skrapp?.email) ||
+      !hasCompleteApolloData
+    );
+
+    let apolloUsed = false;
+    let apolloSucceeded = false;
+
+    if (shouldRunApollo) {
+      apolloUsed = true;
       try {
-        console.log(!hasCompleteApolloData ? 
-          '[LeadEnrich] Step 4: Running Apollo enrichment for complete profile data...' : 
+        console.log(!hasCompleteApolloData ?
+          '[LeadEnrich] Step 4: Running Apollo enrichment for complete profile data...' :
           '[LeadEnrich] Step 4: Using Apollo as final fallback...');
         const apolloResult = await enrichWithApollo({
           leadId: leadId,
@@ -456,6 +578,7 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
         });
 
         if (apolloResult && apolloResult.success && apolloResult.data) {
+          apolloSucceeded = true;
           enrichmentData.apollo = {
             ...apolloResult.data,
             used_as_fallback: true,
@@ -470,6 +593,37 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
       } catch (error: any) {
         console.warn('[LeadEnrich] ❌ Apollo enrichment failed:', error.message);
         errorMessages.push(`Apollo: ${error.message}`);
+      }
+    }
+
+    if (apolloUsed && !apolloSucceeded && hasSkrappKey) {
+      try {
+        const { enrichLeadWithSkrappProfileAndCompany } = await import('../../services/skrapp/enrichLead');
+        const skrappResult = await enrichLeadWithSkrappProfileAndCompany({
+          apiKey: skrappApiKey,
+          firstName: lead.first_name,
+          lastName: lead.last_name,
+          domain: enrichmentDomain,
+          company: lead.company,
+          emailNeeded: needsPrimaryEmail() ? (!enrichmentData.decodo?.email && !enrichmentData.hunter?.email) : false
+        });
+
+        if (skrappResult) {
+          enrichmentData.skrapp = {
+            ...(enrichmentData.skrapp || {}),
+            ...skrappResult,
+            enriched_at: new Date().toISOString(),
+            used_as_fallback: true
+          };
+          if (enrichmentSource === 'none') enrichmentSource = 'skrapp';
+          console.log('[LeadEnrich] ✅ Skrapp fallback enrichment successful');
+        } else {
+          console.log('[LeadEnrich] ❌ Skrapp fallback: No data found');
+          errorMessages.push('Skrapp: No data found (fallback)');
+        }
+      } catch (error: any) {
+        console.warn('[LeadEnrich] ❌ Skrapp fallback enrichment failed:', error.message);
+        errorMessages.push(`Skrapp fallback: ${error.message}`);
       }
     }
 
@@ -583,11 +737,12 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
     // Return updated lead with enrichment status
     return res.status(200).json({
       ...updatedLead,
-      enrichment_status: {
+      enrichment_status: buildEnrichmentStatus(updatedLead, {
         source: enrichmentSource,
         success: enrichmentSource !== 'none',
         errors: errorMessages
-      }
+      }),
+      enhanced_insights_status: buildEnhancedInsightsStatus(updatedLead)
     });
 
   } catch (error: any) {
@@ -623,7 +778,7 @@ router.post('/:id/unlock-enhanced', requireAuth, async (req: ApiRequest, res: Re
     }
 
     // If already unlocked, return early
-    if ((lead as any).has_enhanced_enrichment === true) {
+    if ((lead as any).has_enhanced_enrichment === true || (lead as any).enhanced_insights_unlocked === true) {
       res.json({ lead });
       return;
     }
@@ -641,7 +796,11 @@ router.post('/:id/unlock-enhanced', requireAuth, async (req: ApiRequest, res: Re
     // Update lead flag
     const { data: updatedLead, error: updErr } = await supabase
       .from('leads')
-      .update({ has_enhanced_enrichment: true, updated_at: new Date().toISOString() })
+      .update({
+        has_enhanced_enrichment: true,
+        enhanced_insights_unlocked: true,
+        updated_at: new Date().toISOString()
+      })
       .eq('id', leadId)
       .select('*')
       .maybeSingle();
@@ -669,6 +828,109 @@ router.post('/:id/unlock-enhanced', requireAuth, async (req: ApiRequest, res: Re
   } catch (error: any) {
     console.error('[unlock-enhanced] error', error);
     res.status(500).json({ error: error?.message || 'Internal server error' });
+  }
+});
+
+// POST /api/leads/:id/enhanced-insights - unlock enhanced insights with normalized snapshot
+router.post('/:id/enhanced-insights', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const leadId = req.params.id;
+    const userId = (req as any).user?.id as string;
+
+    if (!leadId || !userId) {
+      res.status(400).json({ success: false, message: 'Missing leadId or userId' });
+      return;
+    }
+
+    const resolved = await resolveLeadOrCandidateEntity(leadId, userId);
+    if (!resolved) {
+      res.status(404).json({ success: false, message: 'Lead not found or access denied' });
+      return;
+    }
+    const { lead, entityType, targetId } = resolved;
+
+    const alreadyUnlocked = Boolean(lead?.enhanced_insights_unlocked ?? lead?.has_enhanced_enrichment);
+    if (alreadyUnlocked) {
+      res.json({
+        ...lead,
+        enrichment_status: buildEnrichmentStatus(lead),
+        enhanced_insights_status: buildEnhancedInsightsStatus(lead)
+      });
+      return;
+    }
+
+    const apolloData = lead?.enrichment_data?.apollo;
+    const skrappData = lead?.enrichment_data?.skrapp;
+
+    if (!apolloData && !skrappData) {
+      res.status(400).json({
+        success: false,
+        message: 'Base enrichment required before unlocking enhanced insights.'
+      });
+      return;
+    }
+
+    const hasCredits = await CreditService.hasSufficientCredits(userId, 1);
+    if (!hasCredits) {
+      res.status(402).json({ success: false, message: 'Insufficient credits', required: 1 });
+      return;
+    }
+
+    const chosenProvider: 'apollo' | 'skrapp' = apolloData ? 'apollo' : 'skrapp';
+    const enhancedInsights = buildEnhancedInsightsSnapshot(chosenProvider, lead);
+
+    const updatePayload: any = {
+      enhanced_insights_unlocked: true,
+      has_enhanced_enrichment: true,
+      enhanced_insights: enhancedInsights,
+      updated_at: new Date().toISOString()
+    };
+
+    const tableName = entityType === 'lead' ? 'leads' : 'candidates';
+    const { data: updatedEntity, error: updateError } = await supabase
+      .from(tableName)
+      .update(updatePayload)
+      .eq('id', targetId)
+      .select('*')
+      .maybeSingle();
+
+    if (updateError || !updatedEntity) {
+      console.error('[enhanced-insights] Failed to update entity:', updateError?.message);
+      res.status(500).json({ success: false, message: 'Failed to unlock enhanced insights' });
+      return;
+    }
+
+    try {
+      await CreditService.deductCredits(
+        userId,
+        1,
+        'api_usage',
+        'Unlock enhanced company insights'
+      );
+    } catch (creditErr) {
+      console.error('[enhanced-insights] Credit deduction failed (non-fatal):', creditErr);
+    }
+
+    try {
+      await createZapEvent({
+        event_type: EVENT_TYPES.enhanced_insights_unlocked,
+        user_id: userId,
+        entity: entityType,
+        entity_id: targetId,
+        payload: { provider: chosenProvider }
+      });
+    } catch (zapErr) {
+      console.warn('[enhanced-insights] Failed to emit zap event:', zapErr);
+    }
+
+    res.status(200).json({
+      ...updatedEntity,
+      enrichment_status: buildEnrichmentStatus(updatedEntity),
+      enhanced_insights_status: buildEnhancedInsightsStatus(updatedEntity)
+    });
+  } catch (error: any) {
+    console.error('[enhanced-insights] Unexpected error', error);
+    res.status(500).json({ success: false, message: error?.message || 'Internal server error' });
   }
 });
 

@@ -43,6 +43,7 @@ export const EVENT_TYPES = {
   // --- Enrichment ---
   lead_enrich_requested: 'lead_enrich_requested',
   candidate_enrich_requested: 'candidate_enrich_requested',
+  enhanced_insights_unlocked: 'enhanced_insights_unlocked',
 
   // --- Clients & Contacts ---
   client_created: 'client_created',

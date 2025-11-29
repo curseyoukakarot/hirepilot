@@ -17,6 +17,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   const navigate = useNavigate();
   const [isConverting, setIsConverting] = useState(false);
   const [isEnriching, setIsEnriching] = useState(false);
+  const [isUnlockingInsights, setIsUnlockingInsights] = useState(false);
   const [enrichStatus, setEnrichStatus] = useState({ apollo: null, gpt: null });
   const [localLead, setLocalLead] = useState(lead);
   const [localCandidate, setLocalCandidate] = useState(lead);
@@ -809,17 +810,66 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     return Array.from(new Set([...techA, ...techB])).slice(0, 8);
   };
 
+  const getEnhancedCompany = (lead) => {
+    if (!lead) return null;
+    if (lead.enhanced_insights?.company) return lead.enhanced_insights.company;
+    const preferredProvider =
+      lead?.enhanced_insights_status?.provider ||
+      (lead?.enrichment_data?.apollo ? 'apollo' : lead?.enrichment_data?.skrapp ? 'skrapp' : null);
+
+    if (preferredProvider === 'apollo') {
+      const org = getOrganization(lead);
+      if (!org) return null;
+      const funding = getFunding(lead);
+      return {
+        name: org?.name || lead?.company || null,
+        domain: org?.domain || org?.website_url || null,
+        revenue_range: getAnnualRevenue(org),
+        employee_count: org?.employee_count || org?.estimated_num_employees || null,
+        employee_range: org?.employee_count_range || org?.estimated_num_employees || null,
+        industry: org?.industry || null,
+        headquarters: org?.location || org?.headquarters || null,
+        funding_total: funding?.total || null,
+        last_funding_round: funding?.stage || org?.last_funding_type || null,
+        last_funding_amount: org?.last_funding_amount || null,
+        technologies: getTechnologies(lead),
+        keywords: getKeywords(org)
+      };
+    }
+
+    if (preferredProvider === 'skrapp') {
+      const skrapp = lead?.enrichment_data?.skrapp;
+      if (!skrapp) return null;
+      return {
+        name: skrapp?.company_name || skrapp?.name || lead?.company || null,
+        domain: skrapp?.company_domain || skrapp?.domain || null,
+        revenue_range: skrapp?.company_revenue_range || skrapp?.revenue_range || null,
+        employee_count: skrapp?.company_employee_count || null,
+        employee_range: skrapp?.company_employee_range || skrapp?.company_size || null,
+        industry: skrapp?.company_industry || skrapp?.industry || null,
+        headquarters: skrapp?.company_headquarters || skrapp?.headquarters || null,
+        funding_total: skrapp?.company_funding || null,
+        last_funding_round: skrapp?.last_funding_round || null,
+        last_funding_amount: skrapp?.last_funding_amount || null,
+        technologies: Array.isArray(skrapp?.technologies) ? skrapp.technologies : null,
+        keywords: Array.isArray(skrapp?.keywords) ? skrapp.keywords : null
+      };
+    }
+
+    return null;
+  };
+
   // Determine if we actually have any enhanced org data to show
   const hasEnhancedOrgData = (lead) => {
-    const org = getOrganization(lead);
-    if (!org) return false;
-    if (getAnnualRevenue(org)) return true;
-    const f = getFunding(lead);
-    if (f.stage || f.total) return true;
-    if (getFoundedYear(org)) return true;
-    if (getIndustry(org)) return true;
-    if (getKeywords(org)?.length > 0) return true;
-    if (getTechnologies(lead)?.length > 0) return true;
+    const company = getEnhancedCompany(lead);
+    if (!company) return false;
+    if (company.revenue_range) return true;
+    if (company.employee_range || company.employee_count) return true;
+    if (company.industry) return true;
+    if (company.headquarters) return true;
+    if (company.funding_total || company.last_funding_round || company.last_funding_amount) return true;
+    if (Array.isArray(company.technologies) && company.technologies.length > 0) return true;
+    if (Array.isArray(company.keywords) && company.keywords.length > 0) return true;
     return false;
   };
 
@@ -853,6 +903,14 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   const isEnriched = Boolean(
     localLead.enrichment_data && Object.keys(localLead.enrichment_data).length > 0
   );
+  const enrichmentStatusSummary = getEnrichmentStatusSummary(localLead);
+  const enhancedStatus = localLead?.enhanced_insights_status || null;
+  const enhancedUnlocked = Boolean(enhancedStatus?.unlocked || localLead?.enhanced_insights_unlocked || localLead?.has_enhanced_enrichment);
+  const enhancedProvider = enhancedStatus?.provider ||
+    localLead?.enhanced_insights?.provider ||
+    (localLead?.enrichment_data?.apollo ? 'apollo' : localLead?.enrichment_data?.skrapp ? 'skrapp' : null);
+  const enhancedCompany = getEnhancedCompany(localLead);
+  const enhancedDataAvailable = hasEnhancedOrgData(localLead);
 
   // Debug logging removed for performance
 
@@ -922,6 +980,48 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     }
 
     return sources;
+  };
+
+  const getEnrichmentStatusSummary = (lead) => {
+    if (!lead) return null;
+    if (lead.enrichment_status) return lead.enrichment_status;
+    const lastAttempt = lead?.enrichment_data?.last_enrichment_attempt;
+    if (!lastAttempt) return null;
+    return {
+      source: lastAttempt.source || 'none',
+      success: Boolean(lastAttempt.source && lastAttempt.source !== 'none'),
+      errors: Array.isArray(lastAttempt.errors) ? lastAttempt.errors : []
+    };
+  };
+
+  const formatEnrichmentSourceLabel = (source) => {
+    switch (source) {
+      case 'apollo':
+        return 'Enriched via Apollo';
+      case 'skrapp':
+        return 'Enriched via Skrapp';
+      case 'decodo':
+        return 'Enriched via LinkedIn (Decodo)';
+      case 'hunter':
+        return 'Email via Hunter.io';
+      default:
+        return source && source !== 'none' ? `Enriched via ${source}` : 'Enrichment pending';
+    }
+  };
+
+  const enrichmentSourceChipColor = (source) => {
+    switch (source) {
+      case 'apollo':
+        return 'bg-purple-500/10 text-purple-200';
+      case 'skrapp':
+        return 'bg-blue-500/10 text-blue-200';
+      case 'decodo':
+        return 'bg-indigo-500/10 text-indigo-200';
+      case 'hunter':
+        return 'bg-green-500/10 text-green-200';
+      default:
+        return 'bg-gray-700 text-gray-200';
+    }
   };
 
   // Helper to get the primary email source with tooltip info
@@ -1304,6 +1404,57 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       showToast(`Connection failed. Please try again. ${error.message}`, 'error');
     } finally {
       setIsEnriching(false);
+    }
+  };
+
+  const handleUnlockEnhancedInsights = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        showToast('Please sign in to continue', 'error');
+        return;
+      }
+      const accessToken = session.access_token;
+      const leadId = entityType === 'candidate'
+        ? (localLead.lead_id || localLead.id)
+        : localLead.id;
+      if (!leadId) {
+        showToast('Unable to determine lead id for this record.', 'error');
+        return;
+      }
+
+      setIsUnlockingInsights(true);
+      const response = await fetch(`${API_BASE_URL}/leads/${leadId}/enhanced-insights`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
+        },
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        if (response.status === 402) {
+          showToast(errorData.message || 'You don’t have enough credits to unlock Enhanced Insights. Upgrade or add credits to continue.', 'error');
+        } else if (response.status === 400) {
+          showToast(errorData.message || 'Please enrich this profile first before unlocking Enhanced Insights.', 'error');
+        } else {
+          showToast(errorData.message || 'Failed to unlock enhanced insights', 'error');
+        }
+        return;
+      }
+
+      const updated = await response.json();
+      lastAppliedRef.current = updated?.updated_at || new Date().toISOString();
+      setLocalLead((prev) => ({ ...prev, ...updated }));
+      setLocalCandidate((prev) => ({ ...prev, ...updated }));
+      onLeadUpdated?.(updated);
+      showToast('Enhanced insights unlocked!', 'success');
+    } catch (error) {
+      showToast(error?.message || 'Failed to unlock enhanced insights', 'error');
+    } finally {
+      setIsUnlockingInsights(false);
     }
   };
 
@@ -1843,6 +1994,14 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                   return (
                     <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                       <h3 className="text-sm font-medium text-gray-700 mb-3">Enrichment Status</h3>
+                      {enrichmentStatusSummary?.success && (
+                        <div className="mb-3 flex items-center gap-2 text-xs text-gray-500">
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${enrichmentSourceChipColor(enrichmentStatusSummary.source)}`}>
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+                            {formatEnrichmentSourceLabel(enrichmentStatusSummary.source)}
+                          </span>
+                        </div>
+                      )}
                       
                       {/* PhantomBuster-specific messaging for Sales Navigator leads */}
                       {phantomStatus.status === 'missing' && (
@@ -2299,63 +2458,24 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
 
                 {/* Enhanced Insights CTA: always visible below Work History header */}
                 <div className="mt-4">
-                  {(() => {
-                    const unlocked = Boolean(localLead?.has_enhanced_enrichment);
-                    const canShowData = hasEnhancedOrgData(localLead);
-                    if (!unlocked) {
-                      return (
-                        <div className="p-3 border rounded-lg bg-amber-900/20 border-amber-500/30 flex items-center justify-between">
-                          <div className="text-sm text-amber-200">
-                            Unlock Enhanced Company Insights (revenue, funding, technologies, keywords)
-                          </div>
-                          <button
-                            className="ml-3 inline-flex items-center px-3 py-1.5 rounded text-sm bg-amber-500 hover:bg-amber-400 text-black font-medium shadow border border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-300"
-                            onClick={async () => {
-                              try {
-                                const { data: { session } } = await supabase.auth.getSession();
-                                const token = session?.access_token;
-                                // For candidates, use lead_id for the unlock-enhanced API call
-                                const leadId = entityType === 'candidate' ? localLead.lead_id : localLead.id;
-                                const resp = await fetch(`${API_BASE_URL}/leads/${leadId}/unlock-enhanced`, {
-                                  method: 'POST',
-                                  headers: {
-                                    'Content-Type': 'application/json',
-                                    ...(token ? { Authorization: `Bearer ${token}` } : {})
-                                  }
-                                });
-                                if (!resp.ok) {
-                                  const err = await resp.json().catch(() => ({}));
-                                  showToast(err?.error || 'Failed to unlock insights', 'error');
-                                  return;
-                                }
-                                const { lead } = await resp.json();
-                                setLocalLead((prev) => ({ ...prev, ...lead }));
-                                onLeadUpdated?.(lead);
-                                if (!hasEnhancedOrgData(lead)) {
-                                  showToast('Enhanced unlocked, but no organization details were found for this lead.', 'info');
-                                } else {
-                                  showToast('Enhanced insights unlocked!', 'success');
-                                }
-                              } catch (e) {
-                                showToast('Failed to unlock insights', 'error');
-                              }
-                            }}
-                          >
-                            🔓 Unlock Enhanced Insights (+1 credit)
-                          </button>
-                        </div>
-                      );
-                    }
-                    // Unlocked: if no data, notify gently inline
-                    if (unlocked && !canShowData) {
-                      return (
-                        <div className="p-3 border rounded-lg bg-gray-50 text-gray-600 text-sm">
-                          Enhanced insights are unlocked, but we didn’t find company-level details from Apollo for this lead.
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
+                  {!enhancedUnlocked ? (
+                    <div className="p-3 border rounded-lg bg-amber-900/20 border-amber-500/30 flex items-center justify-between">
+                      <div className="text-sm text-amber-200">
+                        Unlock Enhanced Company Insights (revenue, funding, technologies, keywords)
+                      </div>
+                      <button
+                        className="ml-3 inline-flex items-center px-3 py-1.5 rounded text-sm bg-amber-500 hover:bg-amber-400 text-black font-medium shadow border border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-300 disabled:opacity-60"
+                        onClick={handleUnlockEnhancedInsights}
+                        disabled={isUnlockingInsights}
+                      >
+                        {isUnlockingInsights ? 'Unlocking…' : '🔓 Unlock Enhanced Insights (+1 credit)'}
+                      </button>
+                    </div>
+                  ) : !enhancedDataAvailable ? (
+                    <div className="p-3 border rounded-lg bg-gray-50 text-gray-600 text-sm">
+                      Enhanced insights are unlocked, but we didn’t find company-level details yet. Try re-enriching once more.
+                    </div>
+                  ) : null}
                 </div>
 
                 {/* Blur the rest if not enriched */}
@@ -2407,94 +2527,100 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                       </div>
                     </div>
                     {/* Enhanced Company Insights (data view) */}
-                    {localLead?.has_enhanced_enrichment ? (
-                      hasEnhancedOrgData(localLead) ? (
-                        <div className="mt-6">
-                          <div className="flex items-center justify-between mb-3">
-                            <h3 className="text-lg font-semibold">Enhanced Company Insights</h3>
-                            {getOrganization(localLead)?.name && (
-                              <span className="text-xs text-gray-500">{getOrganization(localLead)?.name}</span>
-                            )}
+                    {enhancedUnlocked && enhancedDataAvailable && enhancedCompany && (
+                      <div className="mt-6 rounded-xl border border-amber-500/40 bg-amber-500/5 px-4 py-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs font-semibold text-amber-300 uppercase tracking-wide">
+                              Enhanced Company Insights
+                            </p>
+                            <p className="mt-0.5 text-xs text-gray-300">
+                              Revenue, funding, technologies, and more – powered by{' '}
+                              <span className="font-medium">
+                                {enhancedProvider === 'skrapp' ? 'Skrapp' : enhancedProvider === 'apollo' ? 'Apollo' : 'our enrichment'}
+                              </span>
+                            </p>
                           </div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="p-4 border rounded-lg">
-                              <div className="text-sm text-gray-500">Revenue</div>
-                              <div className="text-sm font-medium">{getAnnualRevenue(getOrganization(localLead)) || '—'}</div>
+                          <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
+                            Unlocked
+                          </span>
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-200">
+                          {enhancedCompany?.revenue_range && (
+                            <div>
+                              <p className="text-[10px] uppercase text-gray-400">Revenue</p>
+                              <p>{enhancedCompany.revenue_range}</p>
                             </div>
-                            <div className="p-4 border rounded-lg">
-                              <div className="text-sm text-gray-500">Funding</div>
-                              {(() => {
-                                const f = getFunding(localLead);
-                                const parts = [f.stage, f.total].filter(Boolean).join(' · ');
-                                return <div className="text-sm font-medium">{parts || '—'}</div>;
-                              })()}
+                          )}
+                          {(enhancedCompany?.employee_range || enhancedCompany?.employee_count) && (
+                            <div>
+                              <p className="text-[10px] uppercase text-gray-400">Employees</p>
+                              <p>{enhancedCompany.employee_range || enhancedCompany.employee_count}</p>
                             </div>
-                            <div className="p-4 border rounded-lg">
-                              <div className="text-sm text-gray-500">Founded</div>
-                              <div className="text-sm font-medium">{getFoundedYear(getOrganization(localLead)) || '—'}</div>
+                          )}
+                          {enhancedCompany?.industry && (
+                            <div>
+                              <p className="text-[10px] uppercase text-gray-400">Industry</p>
+                              <p>{enhancedCompany.industry}</p>
                             </div>
-                            <div className="p-4 border rounded-lg">
-                              <div className="text-sm text-gray-500">Industry</div>
-                              <div className="text-sm font-medium">{getIndustry(getOrganization(localLead)) || '—'}</div>
+                          )}
+                          {enhancedCompany?.headquarters && (
+                            <div>
+                              <p className="text-[10px] uppercase text-gray-400">HQ</p>
+                              <p>{enhancedCompany.headquarters}</p>
                             </div>
-                          </div>
-                          <div className="mt-4">
-                            <div className="text-sm font-semibold mb-2">Keywords</div>
-                            <div className="flex flex-wrap gap-2">
-                              {getKeywords(getOrganization(localLead)).length > 0 ? getKeywords(getOrganization(localLead)).map((kw, idx) => (
-                                <button
-                                  key={idx}
-                                  onClick={() => openRexWithFilter('keyword', kw)}
-                                  className="px-3 py-1 bg-gray-100 rounded-full text-sm hover:bg-gray-200"
-                                  title={`Search with keyword '${kw}' in REX`}
-                                >
-                                  {kw}
-                                </button>
-                              )) : <span className="text-gray-400 text-sm">—</span>}
+                          )}
+                          {enhancedCompany?.funding_total && (
+                            <div>
+                              <p className="text-[10px] uppercase text-gray-400">Funding</p>
+                              <p>{enhancedCompany.funding_total}</p>
                             </div>
-                          </div>
-                          <div className="mt-4">
-                            <div className="text-sm font-semibold mb-2">Technologies</div>
-                            <div className="flex flex-wrap gap-2">
-                              {getTechnologies(localLead).length > 0 ? getTechnologies(localLead).map((t, idx) => (
-                                <button
-                                  key={idx}
-                                  onClick={() => openRexWithFilter('tech', t)}
-                                  className="px-3 py-1 bg-gray-100 rounded-full text-sm hover:bg-gray-200"
-                                  title={`Search companies using '${t}' in REX`}
-                                >
-                                  {t}
-                                </button>
-                              )) : <span className="text-gray-400 text-sm">—</span>}
+                          )}
+                          {enhancedCompany?.last_funding_round && (
+                            <div>
+                              <p className="text-[10px] uppercase text-gray-400">Latest Round</p>
+                              <p>{enhancedCompany.last_funding_round}</p>
                             </div>
-                          </div>
-                          {/* Funding Events (expandable) */}
-                          {getFundingEvents(localLead).length > 0 && (
-                            <details className="mt-4">
-                              <summary className="text-sm font-semibold cursor-pointer select-none">Funding Events</summary>
-                              <div className="mt-2 space-y-2">
-                                {getFundingEvents(localLead).map((ev, idx) => (
-                                  <div key={idx} className="p-3 border rounded-lg bg-white">
-                                    <div className="text-sm font-medium">{ev.type || 'Round'}{ev.amount ? ` · ${ev.amount}` : ''}</div>
-                                    <div className="text-xs text-gray-600">{ev.date ? new Date(ev.date).toLocaleDateString() : '—'}</div>
-                                    {ev.investors && (
-                                      <div className="text-xs text-gray-700 mt-1">Investors: {ev.investors}</div>
-                                    )}
-                                    {ev.news_url && (
-                                      <a href={ev.news_url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline mt-1 inline-block">News</a>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            </details>
                           )}
                         </div>
-                      ) : (
-                        <div className="mt-6 p-3 border rounded-lg bg-gray-50 text-gray-600 text-sm">
-                          Enhanced insights are unlocked, but no organization details are available for this lead.
-                        </div>
-                      )
-                    ) : null}
+                        {(enhancedCompany?.technologies?.length || enhancedCompany?.keywords?.length) && (
+                          <div className="mt-3">
+                            {Array.isArray(enhancedCompany?.technologies) && enhancedCompany.technologies.length > 0 && (
+                              <>
+                                <p className="text-[10px] uppercase text-gray-400 mb-1">Tech stack</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {enhancedCompany.technologies.map((tech) => (
+                                    <button
+                                      key={tech}
+                                      onClick={() => openRexWithFilter('tech', tech)}
+                                      className="rounded-full bg-gray-900/70 px-2 py-[2px] text-[10px] text-gray-200 hover:bg-gray-800"
+                                    >
+                                      {tech}
+                                    </button>
+                                  ))}
+                                </div>
+                              </>
+                            )}
+                            {Array.isArray(enhancedCompany?.keywords) && enhancedCompany.keywords.length > 0 && (
+                              <>
+                                <p className="mt-2 text-[10px] uppercase text-gray-400 mb-1">Keywords</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {enhancedCompany.keywords.map((kw) => (
+                                    <button
+                                      key={kw}
+                                      onClick={() => openRexWithFilter('keyword', kw)}
+                                      className="rounded-full bg-gray-900/70 px-2 py-[2px] text-[10px] text-gray-200 hover:bg-gray-800"
+                                    >
+                                      {kw}
+                                    </button>
+                                  ))}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
                     {/* Skills */}
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">

@@ -19,6 +19,25 @@ interface SkrappCompanySearchResponse {
   company?: any;
 }
 
+export interface SkrappEnrichmentResult {
+  email?: string | null;
+  buying_role?: string | null;
+  seniority?: string | null;
+  function?: string | null;
+  gender?: string | null;
+  company_domain?: string | null;
+  company_industry?: string | null;
+  company_employee_count?: number | null;
+  company_employee_range?: string | null;
+  company_revenue_range?: string | null;
+  company_headquarters?: string | null;
+  company_funding?: string | null;
+  technologies?: string[] | null;
+  keywords?: string[] | null;
+  raw_person?: any;
+  raw_company?: any;
+}
+
 interface SkrappErrorResponse {
   success: false;
   error: {
@@ -278,6 +297,142 @@ export async function enrichWithSkrapp(
     return null;
   }
 } 
+
+async function fetchCompanyByName(apiKey: string, companyName: string): Promise<any> {
+  const attempts = [
+    { params: { query: companyName }, label: 'company-search(query)' },
+    { params: { company: companyName }, label: 'company-search(company)' }
+  ];
+
+  for (const attempt of attempts) {
+    try {
+      const resp = await axios.get<SkrappCompanySearchResponse>(`${SKRAPP_API_URL}/company-search`, {
+        headers: {
+          'X-Access-Key': apiKey,
+          'Accept': 'application/json',
+          'User-Agent': 'HirePilot/1.0'
+        },
+        params: attempt.params,
+        timeout: 10000
+      });
+      const payload = resp.data?.company || (Array.isArray(resp.data?.items) ? resp.data.items[0] : null);
+      if (payload) {
+        return payload;
+      }
+    } catch (err: any) {
+      console.warn('[Skrapp] Company search by name failed:', attempt.label, err?.message || err);
+    }
+  }
+
+  return null;
+}
+
+export async function enrichLeadWithSkrappProfileAndCompany(params: {
+  apiKey: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  domain?: string | null;
+  company?: string | null;
+  emailNeeded: boolean;
+}): Promise<SkrappEnrichmentResult | null> {
+  const { apiKey, firstName, lastName, domain, company, emailNeeded } = params;
+
+  if (!apiKey) {
+    return null;
+  }
+
+  const cleanDomain = String(domain || '')
+    .replace(/^https?:\/\//, '')
+    .replace(/^www\./, '')
+    .split('/')[0]
+    .toLowerCase();
+
+  const trimmedFirst = firstName?.trim() || '';
+  const trimmedLast = lastName?.trim() || '';
+
+  let personPayload: any = null;
+  let email: string | null = null;
+
+  if (emailNeeded && trimmedFirst) {
+    try {
+      const resp = await axios.get(`${SKRAPP_API_URL}/find`, {
+        headers: {
+          'X-Access-Key': apiKey,
+          'Accept': 'application/json',
+          'User-Agent': 'HirePilot/1.0'
+        },
+        params: {
+          firstName: trimmedFirst,
+          lastName: trimmedLast || undefined,
+          domain: cleanDomain || undefined,
+          company: company || undefined,
+          includeCompanyData: true
+        },
+        timeout: 10000
+      });
+      personPayload = resp.data || null;
+      const candidateEmail = resp.data?.email || resp.data?.data?.email || null;
+      const emailStatus = resp.data?.quality?.status || resp.data?.emailStatus || resp.data?.status;
+      if (
+        candidateEmail &&
+        ['valid', 'ok'].includes(String(emailStatus || '').toLowerCase())
+      ) {
+        email = candidateEmail;
+      }
+    } catch (err: any) {
+      console.warn('[Skrapp] Profile lookup failed:', err?.message || err);
+    }
+  }
+
+  let companyPayload: any = null;
+  if (cleanDomain) {
+    companyPayload = await enrichCompanyWithSkrapp(apiKey, cleanDomain).catch(() => null);
+  }
+  if (!companyPayload && company) {
+    companyPayload = await fetchCompanyByName(apiKey, company.trim());
+  }
+
+  if (!email && !companyPayload && !personPayload) {
+    return null;
+  }
+
+  const asNumber = (value: any): number | null => {
+    if (value === null || value === undefined) return null;
+    const parsed = Number(String(value).replace(/[^0-9.]/g, ''));
+    return Number.isNaN(parsed) ? null : parsed;
+  };
+
+  const result: SkrappEnrichmentResult = {
+    email: email || null,
+    buying_role: personPayload?.buying_role || (Array.isArray(personPayload?.buying_roles) ? personPayload.buying_roles[0] : null),
+    seniority: personPayload?.seniority || personPayload?.seniority_level || null,
+    function: personPayload?.function || personPayload?.job_function || null,
+    gender: personPayload?.gender || null,
+    company_domain: companyPayload?.domain || companyPayload?.company_domain || cleanDomain || null,
+    company_industry: companyPayload?.industry || companyPayload?.company_industry || null,
+    company_employee_count: asNumber(
+      companyPayload?.employee_count ?? companyPayload?.company_employee_count
+    ),
+    company_employee_range: companyPayload?.company_employee_range || companyPayload?.company_size || null,
+    company_revenue_range: companyPayload?.company_revenue_range || companyPayload?.revenue_range || null,
+    company_headquarters: companyPayload?.headquarters || companyPayload?.company_headquarters || companyPayload?.location || null,
+    company_funding: companyPayload?.company_funding || companyPayload?.funding_total || null,
+    technologies: Array.isArray(companyPayload?.technologies)
+      ? companyPayload.technologies
+      : Array.isArray(personPayload?.technologies)
+        ? personPayload.technologies
+        : null,
+    keywords: Array.isArray(companyPayload?.keywords)
+      ? companyPayload.keywords
+      : Array.isArray(personPayload?.keywords)
+        ? personPayload.keywords
+        : null,
+    raw_person: personPayload || null,
+    raw_company: companyPayload || null
+  };
+
+  return result;
+}
 
 /**
  * Company enrichment via Skrapp company-search
