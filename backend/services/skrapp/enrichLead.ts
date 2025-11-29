@@ -334,33 +334,77 @@ export async function enrichLeadWithSkrappProfileAndCompany(params: {
   domain?: string | null;
   company?: string | null;
 }): Promise<(SkrappEnrichmentResult & { skrappStatus: 'success' | 'no_data' }) | null> {
-  const normalized = normalizeLeadForSkrapp(params);
   if (!params.apiKey) return null;
 
+  const normalized = normalizeLeadForSkrapp(params);
   const enrichment: SkrappEnrichmentResult = {};
-  let matchedProfile: any = null;
-  let profileCompany: any = null;
+
   let workingCompany = normalized.company;
   let workingDomain = normalized.domain;
+  let profileCompany: any = null;
+  let matchedProfile: any = null;
 
   if (workingCompany || workingDomain) {
-    const profileResponse = await fetchSkrappProfileSearch(params.apiKey, workingCompany, workingDomain);
+    try {
+      const companyLookup = await enrichCompanyWithSkrapp(
+        params.apiKey,
+        workingCompany || workingDomain || undefined
+      );
+      if (companyLookup) {
+        profileCompany = companyLookup;
+        workingDomain = companyLookup.domain || companyLookup.company_domain || workingDomain;
+        workingCompany = workingCompany || companyLookup.name || workingCompany;
+        logger.info(
+          { at: 'skrapp.companyResolution', company: companyLookup?.name, domain: workingDomain },
+          'Resolved company metadata via Skrapp'
+        );
+      }
+    } catch (err: any) {
+      logger.warn(
+        { at: 'skrapp.companyResolution', error: err?.message },
+        'Company resolution failed; continuing with provided values'
+      );
+    }
+  }
+
+  if (!workingDomain && workingCompany) {
+    const derivedDomain = `${workingCompany.toLowerCase().replace(/\s+/g, '')}.com`;
+    logger.warn(
+      { at: 'skrapp.domainFallback', company: workingCompany, derivedDomain },
+      'Falling back to derived domain'
+    );
+    workingDomain = derivedDomain;
+  }
+
+  if (workingCompany || workingDomain) {
+    const profileResponse = await fetchSkrappProfileSearch(
+      params.apiKey,
+      workingCompany,
+      workingDomain
+    );
     if (profileResponse) {
-      profileCompany = profileResponse.company || null;
-      matchedProfile = pickMatchingProfile(profileResponse.results, normalized.firstName, normalized.lastName);
+      profileCompany = profileResponse.company || profileCompany;
+      matchedProfile = pickMatchingProfile(
+        profileResponse.results,
+        normalized.firstName,
+        normalized.lastName
+      );
       if (profileCompany) {
-        workingCompany = workingCompany || profileCompany.name || null;
-        workingDomain = workingDomain || profileCompany.domain || profileCompany.company_domain || null;
+        workingCompany = workingCompany || profileCompany.name || workingCompany;
+        workingDomain = workingDomain || profileCompany.domain || profileCompany.company_domain || workingDomain;
       }
       if (matchedProfile) {
-        enrichment.first_name = matchedProfile.first_name || matchedProfile.firstName || normalized.firstName || null;
-        enrichment.last_name = matchedProfile.last_name || matchedProfile.lastName || normalized.lastName || null;
-        enrichment.full_name = matchedProfile.full_name || matchedProfile.fullName || normalized.fullName || null;
+        enrichment.first_name =
+          matchedProfile.first_name || matchedProfile.firstName || normalized.firstName || null;
+        enrichment.last_name =
+          matchedProfile.last_name || matchedProfile.lastName || normalized.lastName || null;
+        enrichment.full_name =
+          matchedProfile.full_name || matchedProfile.fullName || normalized.fullName || null;
         enrichment.title = matchedProfile.position?.title || matchedProfile.title || null;
         enrichment.location = matchedProfile.location || matchedProfile.geo || null;
         enrichment.linkedin_url = matchedProfile.linkedin_url || matchedProfile.linkedin || null;
         enrichment.avatar_url = matchedProfile.photo || matchedProfile.picture_url || null;
-        enrichment.email = matchedProfile.email || null;
+        enrichment.email = matchedProfile.email || enrichment.email || null;
         enrichment.email_status = matchedProfile.email_status || matchedProfile.emailStatus || null;
         enrichment.buying_role = matchedProfile.buying_roles?.[0] || matchedProfile.buying_role || null;
         enrichment.seniority = matchedProfile.seniority || matchedProfile.seniority_level || null;
@@ -373,20 +417,22 @@ export async function enrichLeadWithSkrappProfileAndCompany(params: {
 
   if (!profileCompany) {
     profileCompany =
-      (await enrichCompanyWithSkrapp(params.apiKey, workingCompany || workingDomain)) || profileCompany;
-    if (profileCompany && !workingDomain) {
-      workingDomain = profileCompany.domain || profileCompany.company_domain || null;
-    }
-    if (profileCompany && !workingCompany) {
-      workingCompany = profileCompany.name || workingCompany;
+      (await enrichCompanyWithSkrapp(params.apiKey, workingCompany)) ||
+      (await enrichCompanyWithSkrapp(params.apiKey, workingDomain));
+    if (profileCompany) {
+      workingDomain = profileCompany.domain || profileCompany.company_domain || workingDomain;
+      workingCompany = workingCompany || profileCompany.name || workingCompany;
     }
   }
 
   const shouldFetchEmail = !enrichment.email;
-  if (shouldFetchEmail && normalized.fullName) {
+  const fullNameForFinder =
+    normalized.fullName ||
+    [normalized.firstName, normalized.lastName].filter(Boolean).join(' ').trim();
+  if (shouldFetchEmail && fullNameForFinder) {
     const emailFromFinder = await enrichWithSkrapp(
       params.apiKey,
-      normalized.fullName,
+      fullNameForFinder,
       workingDomain || '',
       workingCompany || undefined
     );
@@ -403,14 +449,21 @@ export async function enrichLeadWithSkrappProfileAndCompany(params: {
       typeof profileCompany.employee_count === 'number'
         ? profileCompany.employee_count
         : profileCompany.company_employee_count || null;
-    enrichment.company_employee_range = profileCompany.company_size || profileCompany.employee_count_range || null;
-    enrichment.company_revenue_range = profileCompany.revenue || profileCompany.company_revenue || null;
+    enrichment.company_employee_range =
+      profileCompany.company_size || profileCompany.employee_count_range || null;
+    enrichment.company_revenue_range =
+      profileCompany.revenue || profileCompany.company_revenue || null;
     enrichment.company_headquarters = profileCompany.headquarters || profileCompany.address || null;
     enrichment.company_funding = profileCompany.company_funding || profileCompany.funding_total || null;
     enrichment.raw_company = profileCompany;
   }
 
-  if (!enrichment.email && !matchedProfile && !profileCompany) {
+  const hasUsefulData =
+    Boolean(enrichment.email) ||
+    Boolean(matchedProfile) ||
+    (profileCompany && Object.keys(profileCompany).length > 0);
+
+  if (!hasUsefulData) {
     return { ...enrichment, skrappStatus: 'no_data' };
   }
 
@@ -427,6 +480,7 @@ export async function enrichCompanyWithSkrapp(
 ): Promise<{
   name?: string;
   domain?: string;
+  company_domain?: string;
   website?: string;
   industry?: string;
   type?: string;
@@ -434,6 +488,11 @@ export async function enrichCompanyWithSkrapp(
   founded?: string | number;
   size?: string;
   revenue_range?: string;
+  company_revenue?: string;
+  company_funding?: string;
+  company_size?: string;
+  company_employee_count?: number;
+  company_employee_range?: string;
   linkedin_url?: string;
   crunchbase_url?: string;
   funding_rounds?: number;
