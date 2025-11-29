@@ -899,27 +899,11 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     }
   };
 
-  // Helper to determine if lead is enriched – any non-empty enrichment_data counts
-  const isEnriched = Boolean(
-    localLead.enrichment_data && Object.keys(localLead.enrichment_data).length > 0
-  );
-  const enrichmentStatusSummary = getEnrichmentStatusSummary(localLead);
-  const enhancedStatus = localLead?.enhanced_insights_status || null;
-  const enhancedUnlocked = Boolean(enhancedStatus?.unlocked || localLead?.enhanced_insights_unlocked || localLead?.has_enhanced_enrichment);
-  const enhancedProvider = enhancedStatus?.provider ||
-    localLead?.enhanced_insights?.provider ||
-    (localLead?.enrichment_data?.apollo ? 'apollo' : localLead?.enrichment_data?.skrapp ? 'skrapp' : null);
-  const enhancedCompany = getEnhancedCompany(localLead);
-  const enhancedDataAvailable = hasEnhancedOrgData(localLead);
-
-  // Debug logging removed for performance
-
   // NEW: Helper to detect enrichment sources and get metadata
   const getEnrichmentSources = (lead) => {
     const sources = [];
     const enrichmentData = lead.enrichment_data || {};
 
-    // Check for Decodo enrichment (NEW - highest priority)
     if (enrichmentData.decodo) {
       sources.push({
         type: 'decodo',
@@ -931,7 +915,6 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       });
     }
 
-    // Check for Hunter.io enrichment
     if (enrichmentData.hunter?.email) {
       sources.push({
         type: 'hunter',
@@ -943,7 +926,6 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       });
     }
 
-    // Check for Skrapp.io enrichment
     if (enrichmentData.skrapp?.email) {
       sources.push({
         type: 'skrapp',
@@ -955,7 +937,6 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       });
     }
 
-    // Check for Apollo enrichment
     if (enrichmentData.apollo) {
       sources.push({
         type: 'apollo',
@@ -967,7 +948,6 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       });
     }
 
-    // Check for PhantomBuster (Sales Navigator) enrichment
     if (enrichmentData.phantombuster || enrichmentData.sales_navigator) {
       sources.push({
         type: 'phantombuster',
@@ -1023,6 +1003,21 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
         return 'bg-gray-700 text-gray-200';
     }
   };
+
+  // Helper to determine if lead is enriched – any non-empty enrichment_data counts
+  const isEnriched = Boolean(
+    localLead.enrichment_data && Object.keys(localLead.enrichment_data).length > 0
+  );
+  const enrichmentStatusSummary = getEnrichmentStatusSummary(localLead);
+  const enhancedStatus = localLead?.enhanced_insights_status || null;
+  const enhancedUnlocked = Boolean(enhancedStatus?.unlocked || localLead?.enhanced_insights_unlocked || localLead?.has_enhanced_enrichment);
+  const enhancedProvider = enhancedStatus?.provider ||
+    localLead?.enhanced_insights?.provider ||
+    (localLead?.enrichment_data?.apollo ? 'apollo' : localLead?.enrichment_data?.skrapp ? 'skrapp' : null);
+  const enhancedCompany = getEnhancedCompany(localLead);
+  const enhancedDataAvailable = hasEnhancedOrgData(localLead);
+
+  // Debug logging removed for performance
 
   // Helper to get the primary email source with tooltip info
   const getEmailWithSource = (lead) => {
