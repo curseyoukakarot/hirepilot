@@ -490,41 +490,73 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
       }
     };
 
-    const trySkrappEmail = async () => {
-      if (!needsPrimaryEmail()) {
-        return;
+    const deriveNamePartsForSkrapp = (entity: any) => {
+      const first = (entity?.first_name || '').trim();
+      const last = (entity?.last_name || '').trim();
+      if (first && last) return { firstName: first, lastName: last };
+      const full = deriveFullNameFromLead(entity);
+      if (!full) {
+        return { firstName: first, lastName: last };
       }
+      const parts = full.split(/\s+/).filter(Boolean);
+      if (!first && parts[0]) {
+        const resolvedFirst = parts[0];
+        const resolvedLast = parts.slice(1).join(' ');
+        return { firstName: resolvedFirst, lastName: last || resolvedLast };
+      }
+      if (!last && parts.length > 1) {
+        return { firstName: first || parts[0], lastName: parts.slice(1).join(' ') };
+      }
+      return { firstName: first, lastName: last };
+    };
+
+    const trySkrappEmail = async () => {
       if (!hasSkrappKey) {
         console.log('[LeadEnrich] Skrapp.io enrichment skipped: no API key configured');
         errorMessages.push('Skrapp: Missing API key');
         return;
       }
-      if (!enrichmentFullName) {
-        console.log('[LeadEnrich] Skrapp.io enrichment skipped: missing full name');
-        errorMessages.push('Skrapp: Missing full name');
+
+      const requirePrimaryEmail = needsPrimaryEmail();
+      const alreadyHaveSkrapp = Boolean(lead.enrichment_data?.skrapp);
+      if (!requirePrimaryEmail && alreadyHaveSkrapp) {
+        console.log('[LeadEnrich] Skrapp.io enrichment skipped: existing Skrapp data present');
         return;
       }
 
       try {
-        console.log('[LeadEnrich] Trying Skrapp.io email enrichment...');
-        const { enrichWithSkrapp, enrichCompanyWithSkrapp } = await import('../../services/skrapp/enrichLead');
-        const skrappResult = await enrichWithSkrapp(skrappApiKey, enrichmentFullName, enrichmentDomain, companyForSkrapp);
-        const skrappCompany = enrichmentDomain && skrappApiKey
-          ? await enrichCompanyWithSkrapp(skrappApiKey, enrichmentDomain).catch(() => null)
-          : null;
-        
-        if (skrappResult) {
-          enrichmentData.skrapp = {
-            email: skrappResult,
-            enriched_at: new Date().toISOString(),
-            company: skrappCompany || undefined
-          };
-          if (enrichmentSource === 'none') enrichmentSource = 'skrapp';
-          console.log('[LeadEnrich] ✅ Skrapp.io enrichment successful');
-        } else {
+        console.log('[LeadEnrich] Trying Skrapp.io enrichment...');
+        const { enrichLeadWithSkrappProfileAndCompany } = await import('../../services/skrapp/enrichLead');
+        const { firstName: skrappFirst, lastName: skrappLast } = deriveNamePartsForSkrapp(lead);
+
+        const skrappProfile = await enrichLeadWithSkrappProfileAndCompany({
+          apiKey: skrappApiKey,
+          firstName: skrappFirst,
+          lastName: skrappLast,
+          fullName: enrichmentFullName || lead.name,
+          domain: enrichmentDomain,
+          company: companyForSkrapp
+        });
+
+        if (!skrappProfile) {
+          console.log('[LeadEnrich] ❌ Skrapp.io: No data returned');
+          errorMessages.push('Skrapp: No data found');
+          return;
+        }
+
+        if (requirePrimaryEmail && !skrappProfile.email) {
           console.log('[LeadEnrich] ❌ Skrapp.io: No email found');
           errorMessages.push('Skrapp: No email found');
+          return;
         }
+
+        enrichmentData.skrapp = {
+          ...(enrichmentData.skrapp || {}),
+          ...skrappProfile,
+          enriched_at: new Date().toISOString()
+        };
+        if (enrichmentSource === 'none') enrichmentSource = 'skrapp';
+        console.log('[LeadEnrich] ✅ Skrapp.io enrichment successful');
       } catch (error: any) {
         console.warn('[LeadEnrich] ❌ Skrapp enrichment failed:', error.message);
         errorMessages.push(`Skrapp: ${error.message}`);
@@ -539,12 +571,18 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
         errorMessages.push('Premium email enrichment skipped: no API keys configured');
       }
     } else {
+      let shouldRunSkrappForProfile = !lead.enrichment_data?.skrapp;
       for (const provider of providerOrder) {
-        if (!needsPrimaryEmail()) break;
+        if (!needsPrimaryEmail()) {
+          if (!(shouldRunSkrappForProfile && provider === 'skrapp')) {
+            break;
+          }
+        }
         if (provider === 'hunter') {
           await tryHunterEmail();
         } else {
           await trySkrappEmail();
+          shouldRunSkrappForProfile = false;
         }
       }
     }
@@ -596,7 +634,7 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
       }
     }
 
-    if (apolloUsed && !apolloSucceeded && hasSkrappKey) {
+    if (apolloUsed && !apolloSucceeded && hasSkrappKey && !enrichmentData.skrapp) {
       try {
         const { enrichLeadWithSkrappProfileAndCompany } = await import('../../services/skrapp/enrichLead');
         const hadSkrappBeforeFallback = Boolean(enrichmentData.skrapp);
@@ -604,9 +642,9 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
           apiKey: skrappApiKey,
           firstName: lead.first_name,
           lastName: lead.last_name,
+          fullName: enrichmentFullName || lead.name,
           domain: enrichmentDomain,
           company: lead.company,
-          emailNeeded: needsPrimaryEmail() ? (!enrichmentData.decodo?.email && !enrichmentData.hunter?.email) : false
         });
 
         if (skrappResult) {
