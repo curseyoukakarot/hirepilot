@@ -259,32 +259,56 @@ const fetchSkrappProfileSearch = async (
   domain?: string | null
 ) => {
   if (!companyName && !domain) return null;
-  const params = new URLSearchParams();
-  if (companyName) params.append('companyName', companyName);
-  if (domain) params.append('companyWebsite', domain);
-  params.append('size', '15');
 
-  try {
-    const resp = await axios.get(`${PROFILE_SEARCH_ENDPOINT}?${params.toString()}`, {
-      headers: buildHeaders(apiKey, false),
-      timeout: REQUEST_TIMEOUT
-    });
-    return resp.data;
-  } catch (error: any) {
-    if (error?.response?.status === 404) {
-      logger.info({ at: 'skrapp.profileSearch', companyName, domain }, 'Profile search returned 404');
-      return null;
+  const normalizeWebsite = (value?: string | null) => {
+    if (!value) return undefined;
+    if (value.startsWith('http://') || value.startsWith('https://')) return value;
+    return `https://${value}`;
+  };
+
+  const attempts: Array<{ companyName?: string; domain?: string }> = [];
+  if (companyName || domain) attempts.push({ companyName: companyName || undefined, domain: domain || undefined });
+  if (domain) attempts.push({ domain });
+  if (companyName) attempts.push({ companyName });
+
+  for (const attempt of attempts) {
+    const params = new URLSearchParams();
+    if (attempt.companyName) params.append('companyName', attempt.companyName);
+    if (attempt.domain) params.append('companyWebsite', normalizeWebsite(attempt.domain)!);
+    params.append('size', '15');
+
+    if (!params.has('companyName') && !params.has('companyWebsite')) continue;
+
+    try {
+      const resp = await axios.get(`${PROFILE_SEARCH_ENDPOINT}?${params.toString()}`, {
+        headers: buildHeaders(apiKey, false),
+        timeout: REQUEST_TIMEOUT
+      });
+      logger.info(
+        { at: 'skrapp.profileSearch', attempt: { companyName: attempt.companyName, domain: attempt.domain } },
+        'Profile search succeeded'
+      );
+      return resp.data;
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        logger.info(
+          { at: 'skrapp.profileSearch', attempt: { companyName: attempt.companyName, domain: attempt.domain } },
+          'Profile search returned 404'
+        );
+        continue;
+      }
+      logger.warn(
+        {
+          at: 'skrapp.profileSearch',
+          status: error?.response?.status,
+          data: error?.response?.data
+        },
+        error?.message || 'Profile search failed'
+      );
     }
-    logger.warn(
-      {
-        at: 'skrapp.profileSearch',
-        status: error?.response?.status,
-        data: error?.response?.data
-      },
-      'Profile search failed'
-    );
-    return null;
   }
+
+  return null;
 };
 
 const pickMatchingProfile = (results: any[] | undefined, firstName?: string | null, lastName?: string | null) => {
@@ -316,12 +340,18 @@ export async function enrichLeadWithSkrappProfileAndCompany(params: {
   const enrichment: SkrappEnrichmentResult = {};
   let matchedProfile: any = null;
   let profileCompany: any = null;
+  let workingCompany = normalized.company;
+  let workingDomain = normalized.domain;
 
-  if (normalized.company || normalized.domain) {
-    const profileResponse = await fetchSkrappProfileSearch(params.apiKey, normalized.company, normalized.domain);
+  if (workingCompany || workingDomain) {
+    const profileResponse = await fetchSkrappProfileSearch(params.apiKey, workingCompany, workingDomain);
     if (profileResponse) {
       profileCompany = profileResponse.company || null;
       matchedProfile = pickMatchingProfile(profileResponse.results, normalized.firstName, normalized.lastName);
+      if (profileCompany) {
+        workingCompany = workingCompany || profileCompany.name || null;
+        workingDomain = workingDomain || profileCompany.domain || profileCompany.company_domain || null;
+      }
       if (matchedProfile) {
         enrichment.first_name = matchedProfile.first_name || matchedProfile.firstName || normalized.firstName || null;
         enrichment.last_name = matchedProfile.last_name || matchedProfile.lastName || normalized.lastName || null;
@@ -341,28 +371,33 @@ export async function enrichLeadWithSkrappProfileAndCompany(params: {
     }
   }
 
+  if (!profileCompany) {
+    profileCompany =
+      (await enrichCompanyWithSkrapp(params.apiKey, workingCompany || workingDomain)) || profileCompany;
+    if (profileCompany && !workingDomain) {
+      workingDomain = profileCompany.domain || profileCompany.company_domain || null;
+    }
+    if (profileCompany && !workingCompany) {
+      workingCompany = profileCompany.name || workingCompany;
+    }
+  }
+
   const shouldFetchEmail = !enrichment.email;
   if (shouldFetchEmail && normalized.fullName) {
     const emailFromFinder = await enrichWithSkrapp(
       params.apiKey,
       normalized.fullName,
-      normalized.domain || '',
-      normalized.company || undefined
+      workingDomain || '',
+      workingCompany || undefined
     );
     if (emailFromFinder) {
       enrichment.email = emailFromFinder;
     }
   }
 
-  if (!profileCompany) {
-    profileCompany =
-      (await enrichCompanyWithSkrapp(params.apiKey, normalized.company)) ||
-      (await enrichCompanyWithSkrapp(params.apiKey, normalized.domain));
-  }
-
   if (profileCompany) {
     enrichment.company_domain =
-      profileCompany.domain || profileCompany.company_domain || normalized.domain || null;
+      profileCompany.domain || profileCompany.company_domain || workingDomain || null;
     enrichment.company_industry = profileCompany.industry || profileCompany.company_industry || null;
     enrichment.company_employee_count =
       typeof profileCompany.employee_count === 'number'
@@ -410,7 +445,7 @@ export async function enrichCompanyWithSkrapp(
 
   const headers = buildHeaders(skrappApiKey, false);
   const normalizedKw = (keyword || '').trim();
-  const cleanDomain = normalizeDomain(keyword);
+  const cleanDomain = normalizedKw.includes('.') ? normalizeDomain(normalizedKw) : '';
 
   for (const endpoint of COMPANY_SEARCH_ENDPOINTS) {
     try {

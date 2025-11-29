@@ -510,6 +510,16 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
       return { firstName: first, lastName: last };
     };
 
+    const hasSkrappPayload = (payload: Record<string, any> | undefined) => {
+      if (!payload) return false;
+      return Object.entries(payload).some(([key, value]) => {
+        if (value === undefined || value === null) return false;
+        if (['enriched_at', 'last_sync_reason', 'skrappStatus'].includes(key)) return false;
+        if (key === 'raw_person' || key === 'raw_company') return Boolean(value);
+        return true;
+      });
+    };
+
     const trySkrappEmail = async () => {
       if (!hasSkrappKey) {
         console.log('[LeadEnrich] Skrapp.io enrichment skipped: no API key configured');
@@ -573,7 +583,8 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
           return;
         }
 
-        if (skrappProfile.skrappStatus === 'no_data') {
+        const { skrappStatus, ...skrappPayload } = skrappProfile;
+        if (skrappStatus === 'no_data' || !hasSkrappPayload(skrappPayload)) {
           if (!errorMessages.includes('Skrapp: No data found')) {
             errorMessages.push('Skrapp: No data found');
           }
@@ -583,7 +594,7 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
         enrichmentData.skrapp = {
           ...(lead.enrichment_data?.skrapp || {}),
           ...(enrichmentData.skrapp || {}),
-          ...skrappProfile,
+          ...skrappPayload,
           enriched_at: new Date().toISOString(),
           last_sync_reason: reason
         };
@@ -667,13 +678,16 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
     }
 
     // Update lead with enrichment data
+    const resolvedEnrichmentSource =
+      hasSkrappPayload(enrichmentData.skrapp) ? 'skrapp' : enrichmentSource;
+
     const updateData: any = {
       enrichment_data: {
         ...(lead.enrichment_data || {}),
         ...enrichmentData,
         last_enrichment_attempt: {
           attempted_at: new Date().toISOString(),
-          source: enrichmentSource,
+          source: resolvedEnrichmentSource,
           errors: errorMessages
         }
       },
@@ -746,10 +760,10 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
       updatedLead = data;
     }
 
-    console.log(`[LeadEnrich] Enrichment completed. Source: ${enrichmentSource}`);
+    console.log(`[LeadEnrich] Enrichment completed. Source: ${resolvedEnrichmentSource}`);
 
     // Deduct 1 credit only if we obtained any enrichment (source != none)
-    if (enrichmentSource !== 'none') {
+    if (resolvedEnrichmentSource !== 'none') {
       try {
         await CreditService.deductCredits(
           userId as string,
@@ -769,7 +783,7 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
         user_id: userId!,
         entity: 'lead',
         entity_id: targetId,
-        payload: { source: enrichmentSource, errors: errorMessages }
+        payload: { source: resolvedEnrichmentSource, errors: errorMessages }
       });
     } catch {}
 
