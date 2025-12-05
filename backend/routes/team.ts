@@ -27,6 +27,56 @@ interface AuthenticatedRequest extends Request {
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2022-11-15' });
 
+const NON_PAID_PLAN_LABELS = new Set(['free', 'free_trial', 'trial', 'trial_free', 'guest', 'guest_collaborator', 'starter_free']);
+
+function normalizePaidPlan(plan?: string | null): string | null {
+  const trimmed = (plan || '').trim();
+  if (!trimmed) return null;
+  const lower = trimmed.toLowerCase();
+  if (NON_PAID_PLAN_LABELS.has(lower)) return null;
+  return lower;
+}
+
+function resolvePaidPlanLabel(...candidates: Array<string | null | undefined>): string {
+  for (const candidate of candidates) {
+    const normalized = normalizePaidPlan(candidate);
+    if (normalized) return normalized;
+  }
+  return 'team';
+}
+
+async function upsertUserPlanRecord(params: {
+  userId: string;
+  email: string;
+  role: string;
+  plan: string;
+  teamId?: string | null;
+  seedDefaults?: boolean;
+  returnRow?: boolean;
+}) {
+  const payload: Record<string, any> = {
+    id: params.userId,
+    email: params.email,
+    role: params.role,
+    team_id: params.teamId ?? null,
+    plan: params.plan,
+    plan_updated_at: new Date().toISOString()
+  };
+
+  if (params.seedDefaults) {
+    payload.onboarding_complete = false;
+    payload.credits_used = 0;
+    payload.credits_available = 0;
+    payload.is_in_cooldown = false;
+  }
+
+  const query = supabaseDb
+    .from('users')
+    .upsert(payload, { onConflict: 'id' });
+
+  return params.returnRow ? query.select().single() : query;
+}
+
 // Test endpoint to verify Supabase connection
 router.get('/test-connection', async (req: Request, res: Response) => {
   try {
@@ -102,6 +152,7 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
     const { firstName, lastName, email, company, role } = req.body as TeamInviteRequest;
     const permissions = (req.body as any).permissions || { rexAccess: true, zapierAccess: true };
     const currentUser = currentUserResolved;
+    const teamId = (req as any).teamId || null;
 
     // If current user is a super admin, bypass seat-limit checks entirely
     const { data: currentUserRow, error: currentUserRowError } = await supabase
@@ -118,6 +169,7 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
 
     const inviterRole = currentUserRow?.role;
     const isSuperAdmin = inviterRole === 'super_admin' || inviterRole === 'SuperAdmin';
+    let subscriptionPlanTier: string | null = null;
 
     // Permission: only admin, team_admin, or super_admin can invite members
     if (!['admin', 'team_admin', 'super_admin', 'SuperAdmin'].includes(inviterRole)) {
@@ -141,6 +193,7 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
       }
       // If there is no subscription row, allow inviting without seat checks.
       if (subRow) {
+        subscriptionPlanTier = ((subRow as any)?.plan_tier || null);
         const {
           plan_tier: planTier,
           seat_count: seatCount = 0,
@@ -195,6 +248,8 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
       return;
     }
 
+    const resolvedPaidPlan = resolvePaidPlanLabel(subscriptionPlanTier, (inviter as any)?.plan);
+
     // Generate a unique token for the invite
     const inviteToken = uuidv4();
 
@@ -228,7 +283,7 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
         status: 'pending',
         created_at: new Date().toISOString(),
         expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
-        team_id: (req as any).teamId
+        team_id: teamId
       }])
       .select()
       .single();
@@ -259,7 +314,8 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
           invite_id: inviteToken,
           invited_by: currentUser.id,
           onboarding_complete: false,
-          team_id: (req as any).teamId
+          team_id: teamId,
+          plan: resolvedPaidPlan
         }
       });
 
@@ -279,22 +335,15 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
 
       // Create a record in the public.users table
       console.log('Ensuring public user record for:', email);
-      const publicUserPayload = {
-        id: userData.user.id,
-        email: email,
-        role: role,
-        onboarding_complete: false,
-        credits_used: 0,
-        credits_available: 0,
-        is_in_cooldown: false,
-        team_id: (req as any).teamId
-      };
-
-      const { data: publicUserData, error: publicUserError } = await supabaseDb
-        .from('users')
-        .upsert(publicUserPayload, { onConflict: 'id' })
-        .select()
-        .single();
+      const { data: publicUserData, error: publicUserError } = await upsertUserPlanRecord({
+        userId: userData.user.id,
+        email,
+        role,
+        plan: resolvedPaidPlan,
+        teamId,
+        seedDefaults: true,
+        returnRow: true
+      });
 
       if (publicUserError) {
         console.error('Error ensuring public user record:', publicUserError);
@@ -338,6 +387,18 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
       if (updateErr) {
         console.error('Error updating existing auth user:', updateErr);
         res.status(503).json({ message: 'Failed to update existing user account', error: updateErr });
+        return;
+      }
+      const { error: existingPlanError } = await upsertUserPlanRecord({
+        userId: (existingAuthUser as any).id,
+        email,
+        role,
+        plan: resolvedPaidPlan,
+        teamId,
+      } as any);
+      if (existingPlanError) {
+        console.error('Error syncing plan for existing user:', existingPlanError);
+        res.status(503).json({ message: 'Failed to sync user plan record', error: existingPlanError });
         return;
       }
     }
@@ -406,6 +467,19 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
       return;
     }
 
+    const teamId = (req as any).teamId || null;
+    let resendPlanTier: string | null = null;
+    try {
+      const { data: resendSubRow } = await supabase
+        .from('subscriptions')
+        .select('plan_tier')
+        .eq('user_id', currentUser.id)
+        .maybeSingle();
+      resendPlanTier = ((resendSubRow as any)?.plan_tier || null);
+    } catch (planErr) {
+      console.warn('[team invite][resend] failed to load subscription plan', planErr);
+    }
+
     // Get the invite details
     const { data: invite, error: inviteError } = await supabaseDb
       .from('team_invites')
@@ -431,6 +505,8 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
       res.status(500).json({ message: 'Error fetching inviter details', error: inviterError });
       return;
     }
+
+    const resolvedResendPlan = resolvePaidPlanLabel(resendPlanTier, (inviter as any)?.plan);
 
     console.log('Found invite:', { email: invite.email, id: invite.id });
 
@@ -479,7 +555,8 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
           invite_id: invite.id,
           invited_by: currentUser.id,
           onboarding_complete: false,
-          team_id: (req as any).teamId
+          team_id: teamId,
+          plan: resolvedResendPlan
         }
       });
 
@@ -522,18 +599,14 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
       // Create a record in the public.users table
       if (userData?.user?.id) {
         console.log('Creating public user record for:', invite.email);
-        const { error: publicUserError } = await supabaseDb
-          .from('users')
-          .insert([{
-            id: userData.user.id,
-            email: invite.email,
-            role: invite.role,
-            onboarding_complete: false,
-            credits_used: 0,
-            credits_available: 0,
-            is_in_cooldown: false,
-            team_id: (req as any).teamId
-          }]);
+        const { error: publicUserError } = await upsertUserPlanRecord({
+          userId: userData.user.id,
+          email: invite.email,
+          role: invite.role,
+          plan: resolvedResendPlan,
+          teamId,
+          seedDefaults: true
+        } as any);
 
         if (publicUserError) {
           console.error('Error creating public user record:', publicUserError);
@@ -564,6 +637,18 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
       if (updateErr) {
         console.error('Error updating existing auth user (resend):', updateErr);
         res.status(503).json({ message: 'Failed to update existing user account', error: updateErr });
+        return;
+      }
+      const { error: ensurePlanError } = await upsertUserPlanRecord({
+        userId: (existingAuthUser as any).id,
+        email: invite.email,
+        role: invite.role,
+        plan: resolvedResendPlan,
+        teamId,
+      } as any);
+      if (ensurePlanError) {
+        console.error('Error syncing plan for existing user (resend):', ensurePlanError);
+        res.status(503).json({ message: 'Failed to sync user plan record', error: ensurePlanError });
         return;
       }
     }
