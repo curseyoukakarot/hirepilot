@@ -26,6 +26,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2022-11-15' });
+const TEAM_INVITE_EXPIRATION_HOURS = Number(process.env.TEAM_INVITE_EXPIRATION_HOURS || '24');
 
 const NON_PAID_PLAN_LABELS = new Set(['free', 'free_trial', 'trial', 'trial_free', 'guest', 'guest_collaborator', 'starter_free']);
 
@@ -167,13 +168,14 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
       return;
     }
 
-    const inviterRole = currentUserRow?.role;
-    const isSuperAdmin = inviterRole === 'super_admin' || inviterRole === 'SuperAdmin';
+    const inviterRole = currentUserRow?.role || null;
+    const normalizedInviterRole = String(inviterRole || '').toLowerCase();
+    const isSuperAdmin = normalizedInviterRole === 'super_admin' || normalizedInviterRole === 'superadmin';
     let subscriptionPlanTier: string | null = null;
 
-    // Permission: only admin, team_admin, or super_admin can invite members
-    if (!['admin', 'team_admin', 'super_admin', 'SuperAdmin'].includes(inviterRole)) {
-      res.status(403).json({ message: 'Only admins can invite team members' });
+    // Permission: only team_admin or super_admin can invite members
+    if (!['team_admin', 'super_admin', 'superadmin'].includes(normalizedInviterRole)) {
+      res.status(403).json({ message: 'Only team administrators or super admins can invite team members' });
       return;
     }
 
@@ -270,6 +272,7 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
 
     // Create team invite record first
     console.log('Creating team invite for:', email);
+    const inviteExpiresAt = new Date(Date.now() + TEAM_INVITE_EXPIRATION_HOURS * 60 * 60 * 1000).toISOString();
     const { data: invite, error: inviteError } = await supabaseDb
       .from('team_invites')
       .insert([{
@@ -282,7 +285,7 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
         role: role,
         status: 'pending',
         created_at: new Date().toISOString(),
-        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
+        expires_at: inviteExpiresAt,
         team_id: teamId
       }])
       .select()
@@ -418,7 +421,8 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
           email: inviter.email
         },
         company: company,
-        role: role
+        role: role,
+        expiresInHours: TEAM_INVITE_EXPIRATION_HOURS
       });
     } catch (emailError) {
       console.error('Error sending invite email:', emailError);
@@ -468,6 +472,7 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
     }
 
     const teamId = (req as any).teamId || null;
+    const resendExpiresAt = new Date(Date.now() + TEAM_INVITE_EXPIRATION_HOURS * 60 * 60 * 1000).toISOString();
     let resendPlanTier: string | null = null;
     try {
       const { data: resendSubRow } = await supabase
@@ -668,7 +673,8 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
           email: inviter.email
         },
         company: invite.company || undefined,
-        role: invite.role
+        role: invite.role,
+        expiresInHours: TEAM_INVITE_EXPIRATION_HOURS
       });
     } catch (emailError) {
       console.error('Error sending invite email:', emailError);
@@ -685,7 +691,8 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
       .from('team_invites')
       .update({ 
         updated_at: new Date().toISOString(),
-        status: 'pending'
+        status: 'pending',
+        expires_at: resendExpiresAt
       })
       .eq('id', inviteId);
 
