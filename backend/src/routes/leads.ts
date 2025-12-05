@@ -361,8 +361,9 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
       if (premiumPreference === 'skrapp') return ['skrapp', 'hunter'];
       return ['hunter', 'skrapp'];
     })();
+    const shouldRunSkrappEmailAfterApollo = hasSkrappKey && configuredPremiumOrder.includes('skrapp');
     const providerOrder = configuredPremiumOrder.filter((provider) =>
-      provider === 'hunter' ? hasHunterKey : hasSkrappKey
+      provider === 'hunter' ? hasHunterKey : false
     );
 
     const needsPrimaryEmail = () =>
@@ -611,9 +612,11 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
     if (providerOrder.length === 0) {
       if (premiumPreference === 'apollo') {
         console.log('[LeadEnrich] Premium providers disabled via Apollo-only preference');
-      } else if (!hasHunterKey && !hasSkrappKey) {
+      } else if (!hasHunterKey && !shouldRunSkrappEmailAfterApollo) {
         console.log('[LeadEnrich] Premium providers skipped: no API keys configured');
         errorMessages.push('Premium email enrichment skipped: no API keys configured');
+      } else if (shouldRunSkrappEmailAfterApollo) {
+        console.log('[LeadEnrich] Deferring Skrapp email enrichment until after Apollo attempt');
       }
     } else {
       for (const provider of providerOrder) {
@@ -673,8 +676,12 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
       }
     }
 
-    if (hasSkrappKey) {
-      await mergeSkrappProfile(apolloUsed && !apolloSucceeded ? 'apollo' : 'premium');
+    if ((!apolloUsed || !apolloSucceeded) && shouldRunSkrappEmailAfterApollo) {
+      await trySkrappEmail();
+    }
+
+    if (hasSkrappKey && (!apolloUsed || !apolloSucceeded)) {
+      await mergeSkrappProfile('apollo');
     }
 
     // Update lead with enrichment data
