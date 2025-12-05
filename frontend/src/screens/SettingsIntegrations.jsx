@@ -603,7 +603,17 @@ export default function SettingsIntegrations() {
   };
 
   // Apollo modal success
-  const onApolloSuccess = () => { setApolloConnected(true); setShowApolloModal(false); toast.success('Apollo key saved'); };
+  const onApolloSuccess = async () => {
+    try {
+      await updateIntegrationStatus('apollo', 'connected');
+    } catch (err) {
+      console.warn('Failed to update Apollo integration status', err);
+    } finally {
+      setApolloConnected(true);
+      setShowApolloModal(false);
+      toast.success('Apollo key saved');
+    }
+  };
 
   // Agent mode toggle
   const setAgentMode = async (enabled) => {
