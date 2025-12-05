@@ -278,28 +278,30 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
       }
 
       // Create a record in the public.users table
-      console.log('Creating public user record for:', email);
+      console.log('Ensuring public user record for:', email);
+      const publicUserPayload = {
+        id: userData.user.id,
+        email: email,
+        role: role,
+        onboarding_complete: false,
+        credits_used: 0,
+        credits_available: 0,
+        is_in_cooldown: false,
+        team_id: (req as any).teamId
+      };
+
       const { data: publicUserData, error: publicUserError } = await supabaseDb
         .from('users')
-        .insert([{
-          id: userData.user.id,
-          email: email,
-          role: role,
-          onboarding_complete: false,
-          credits_used: 0,
-          credits_available: 0,
-          is_in_cooldown: false,
-          team_id: (req as any).teamId
-        }])
+        .upsert(publicUserPayload, { onConflict: 'id' })
         .select()
         .single();
 
       if (publicUserError) {
-        console.error('Error creating public user record:', publicUserError);
-        // Clean up the auth user since we couldn't create the public record
+        console.error('Error ensuring public user record:', publicUserError);
+        // Clean up the auth user since we couldn't persist the public record
         await supabaseDb.auth.admin.deleteUser(userData.user.id);
         res.status(503).json({ 
-          message: 'Failed to create user record', 
+          message: 'Failed to persist user record', 
           error: publicUserError
         });
         return;
