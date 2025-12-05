@@ -139,6 +139,75 @@ async function resolveCurrentUser(req: Request): Promise<User | null> {
   }
 }
 
+function isInviteExpired(expiresAt?: string | null) {
+  if (!expiresAt) return false;
+  const expires = new Date(expiresAt).getTime();
+  if (Number.isNaN(expires)) return false;
+  return expires < Date.now();
+}
+
+// Public: GET /api/team/invite/:token → used by join page to display invite metadata
+router.get('/invite/:token', async (req: Request, res: Response) => {
+  try {
+    const token = req.params.token;
+    if (!token) {
+      res.status(400).json({ message: 'Invite token is required' });
+      return;
+    }
+
+    const { data: invite, error: inviteError } = await supabaseDb
+      .from('team_invites')
+      .select('id, invited_by, first_name, last_name, email, company, role, status, expires_at, created_at')
+      .eq('id', token)
+      .maybeSingle();
+
+    if (inviteError || !invite) {
+      res.status(404).json({ message: 'Invite not found' });
+      return;
+    }
+
+    let currentStatus = invite.status;
+    if (invite.status === 'pending' && isInviteExpired(invite.expires_at)) {
+      currentStatus = 'expired';
+      try {
+        await supabaseDb
+          .from('team_invites')
+          .update({ status: 'expired', updated_at: new Date().toISOString() })
+          .eq('id', token);
+      } catch (expireErr) {
+        console.warn('[team invite] failed to auto-expire invite', expireErr);
+      }
+    }
+
+    const { data: inviter } = await supabaseDb
+      .from('users')
+      .select('first_name, last_name, email')
+      .eq('id', invite.invited_by)
+      .maybeSingle();
+
+    res.json({
+      token: invite.id,
+      email: invite.email,
+      firstName: invite.first_name,
+      lastName: invite.last_name,
+      company: invite.company,
+      role: invite.role,
+      status: currentStatus,
+      expiresAt: invite.expires_at,
+      invitedAt: invite.created_at,
+      invitedBy: {
+        firstName: inviter?.first_name || null,
+        lastName: inviter?.last_name || null,
+        email: inviter?.email || null,
+      },
+      isExpired: currentStatus === 'expired',
+    });
+  } catch (error) {
+    console.error('Error loading invite:', error);
+    res.status(500).json({ message: 'Failed to load invite', error });
+  }
+});
+
 // POST /api/team/invite
 router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -712,6 +781,141 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
   } catch (error) {
     console.error('Unexpected error in resend invite:', error);
     res.status(500).json({ message: 'Internal server error', error });
+  }
+});
+
+// Public: Accept invite via token and set password
+router.post('/invite/:token/accept', async (req: Request, res: Response) => {
+  try {
+    const token = req.params.token;
+    const { password, firstName, lastName } = req.body || {};
+
+    if (!token) {
+      res.status(400).json({ message: 'Invite token is required' });
+      return;
+    }
+    if (typeof password !== 'string' || password.length < 8) {
+      res.status(400).json({ message: 'Password must be at least 8 characters long' });
+      return;
+    }
+
+    const { data: invite, error: inviteError } = await supabaseDb
+      .from('team_invites')
+      .select('*')
+      .eq('id', token)
+      .maybeSingle();
+
+    if (inviteError || !invite) {
+      res.status(404).json({ message: 'Invite not found' });
+      return;
+    }
+
+    if (invite.status && invite.status !== 'pending') {
+      res.status(409).json({ message: `Invite already ${invite.status}` });
+      return;
+    }
+
+    if (isInviteExpired(invite.expires_at)) {
+      await supabaseDb
+        .from('team_invites')
+        .update({ status: 'expired', updated_at: new Date().toISOString() })
+        .eq('id', token);
+      res.status(410).json({ message: 'Invite has expired. Please ask your admin to resend a new invite.' });
+      return;
+    }
+
+    const resolvedFirstName = (firstName || invite.first_name || '').trim();
+    const resolvedLastName = (lastName || invite.last_name || '').trim();
+
+    let targetUserId: string | null = null;
+    try {
+      const { data: publicUser } = await supabaseDb
+        .from('users')
+        .select('id')
+        .eq('email', invite.email)
+        .maybeSingle();
+      targetUserId = (publicUser as any)?.id || null;
+    } catch {}
+
+    let authUser: any = null;
+    if (targetUserId) {
+      const { data: authUserData } = await supabaseDb.auth.admin.getUserById(targetUserId);
+      authUser = authUserData?.user || null;
+    }
+
+    if (!authUser) {
+      const { data: listData, error: listError } = await supabaseDb.auth.admin.listUsers({ page: 1, perPage: 1000 } as any);
+      if (listError) {
+        res.status(500).json({ message: 'Failed to load invited user account', error: listError });
+        return;
+      }
+      authUser = (listData?.users || []).find(u => (u.email || '').toLowerCase() === invite.email.toLowerCase());
+      targetUserId = authUser?.id || targetUserId;
+    }
+
+    if (!authUser || !targetUserId) {
+      res.status(404).json({ message: 'Could not locate the invited user account. Please contact support.' });
+      return;
+    }
+
+    const existingMeta = (authUser.user_metadata || {}) as any;
+    const mergedMeta = {
+      ...existingMeta,
+      first_name: resolvedFirstName || existingMeta.first_name || '',
+      last_name: resolvedLastName || existingMeta.last_name || '',
+      company: invite.company || existingMeta.company || null,
+      team_id: (invite as any)?.team_id || existingMeta.team_id || null,
+      invite_id: invite.id,
+      invited_by: invite.invited_by,
+      role: invite.role,
+      onboarding_complete: false
+    };
+
+    const { error: updateAuthError } = await supabaseDb.auth.admin.updateUserById(targetUserId, {
+      password,
+      email_confirm: true,
+      user_metadata: mergedMeta
+    } as any);
+
+    if (updateAuthError) {
+      console.error('[invite accept] failed to update auth user', updateAuthError);
+      res.status(500).json({ message: 'Failed to activate invited account', error: updateAuthError });
+      return;
+    }
+
+    const profileUpdate: Record<string, any> = {
+      onboarding_complete: true,
+      first_name: resolvedFirstName || null,
+      last_name: resolvedLastName || null,
+      firstName: resolvedFirstName || null,
+      lastName: resolvedLastName || null
+    };
+
+    try {
+      await supabaseDb
+        .from('users')
+        .update(profileUpdate)
+        .eq('id', targetUserId);
+    } catch (profileErr) {
+      console.warn('[invite accept] failed to update user profile', profileErr);
+    }
+
+    try {
+      await supabaseDb
+        .from('team_invites')
+        .update({
+          status: 'accepted',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', token);
+    } catch (inviteUpdateErr) {
+      console.warn('[invite accept] failed to update invite status', inviteUpdateErr);
+    }
+
+    res.json({ success: true, email: invite.email });
+  } catch (error) {
+    console.error('Unexpected error accepting invite:', error);
+    res.status(500).json({ message: 'Unexpected error accepting invite', error });
   }
 });
 
