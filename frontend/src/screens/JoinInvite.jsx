@@ -47,8 +47,8 @@ export default function JoinInvite() {
           lastName: data.lastName || prev.lastName,
         }));
         setFetchError('');
-      } catch (err: any) {
-        setFetchError(err.message || 'Failed to load invite');
+      } catch (err) {
+        setFetchError(err?.message || 'Failed to load invite');
       } finally {
         setLoading(false);
       }
@@ -56,11 +56,11 @@ export default function JoinInvite() {
     loadInvite();
   }, [token]);
 
-  const handleChange = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = field => e => {
     setForm(prev => ({ ...prev, [field]: e.target.value }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async e => {
     e.preventDefault();
     if (!invite || invite.status !== 'pending' || invite.isExpired) return;
     if (form.password.length < 8) {
@@ -99,8 +99,8 @@ export default function JoinInvite() {
         await refresh();
       } catch {}
       navigate('/dashboard', { replace: true });
-    } catch (err: any) {
-      setSubmitState({ loading: false, error: err.message || 'Failed to accept invite' });
+    } catch (err) {
+      setSubmitState({ loading: false, error: err?.message || 'Failed to accept invite' });
     }
   };
 
