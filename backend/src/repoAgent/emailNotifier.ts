@@ -5,6 +5,7 @@ import {
   HealthCheckNotificationPayload,
   ScenarioAlertPayload,
   SweepAlertPayload,
+  FullCheckSummaryPayload,
 } from './types';
 import { getRepoAgentSettings } from './settingsService';
 
@@ -74,5 +75,48 @@ export async function sendSweepViolationsEmail(payload: SweepAlertPayload) {
     `Summary: ${payload.violationSummary || 'n/a'}`,
   ].join('\n');
   await sendEmail(subject, body);
+}
+
+export async function sendFullCheckSummaryEmail(payload: FullCheckSummaryPayload) {
+  const subject = `Repo Guardian Full Check – ${
+    payload.failingScenarios.length || payload.violatingSweeps.length
+      ? 'ATTENTION REQUIRED'
+      : 'Healthy'
+  }`;
+  const bodyLines = [
+    `Mode: ${payload.mode}`,
+    `Triggered By: ${payload.triggeredBy}`,
+    `Health Check ID: ${payload.healthStatus.healthCheckId || 'n/a'}`,
+    `Severity: ${payload.healthStatus.severity || 'n/a'}`,
+    `Tests/Lint/Build: ${payload.healthStatus.testsStatus || '-'} / ${
+      payload.healthStatus.lintStatus || '-'
+    } / ${payload.healthStatus.buildStatus || '-'}`,
+    `Summary: ${payload.healthStatus.summary || 'n/a'}`,
+    '',
+    `Failing Scenarios (${payload.failingScenarios.length}):`,
+    payload.failingScenarios.length
+      ? payload.failingScenarios
+          .map(
+            (s) =>
+              `• ${s.name}${s.failingStep ? ` – ${s.failingStep}` : ''}${
+                s.logs ? `\n    Logs: ${s.logs}` : ''
+              }`
+          )
+          .join('\n')
+      : '• None',
+    '',
+    `Sweep Violations (${payload.violatingSweeps.length}):`,
+    payload.violatingSweeps.length
+      ? payload.violatingSweeps
+          .map(
+            (s) =>
+              `• ${s.name} – ${s.violationSummary || 'See Repo Guardian'} (${
+                s.violationCount ?? 'n/a'
+              } issues)`
+          )
+          .join('\n')
+      : '• None',
+  ];
+  await sendEmail(subject, bodyLines.join('\n'));
 }
 

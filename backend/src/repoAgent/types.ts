@@ -108,6 +108,32 @@ export interface SweepAlertPayload {
   violationCount?: number;
 }
 
+export interface FullCheckSummaryPayload {
+  mode: 'scheduled' | 'manual';
+  healthStatus: {
+    healthCheckId?: string;
+    severity?: SeverityLevel;
+    testsStatus?: HealthStatus;
+    lintStatus?: HealthStatus;
+    buildStatus?: HealthStatus;
+    summary?: string;
+  };
+  failingScenarios: {
+    scenarioId: string;
+    name: string;
+    failingStep?: string;
+    logs?: string;
+  }[];
+  violatingSweeps: {
+    sweepId: string;
+    name: string;
+    violationSummary?: string;
+    violationCount?: number | null;
+  }[];
+  triggeredBy: 'system' | 'user';
+  triggeredByUserId?: string;
+}
+
 export type PatchStatus = 'proposed' | 'applied' | 'failed';
 
 export interface StoredPatch {

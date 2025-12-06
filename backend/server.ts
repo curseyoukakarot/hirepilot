@@ -76,6 +76,7 @@ import { parseRouter as candidatesParseRouter } from './src/routes/candidates.pa
 import { analyticsRouter } from './src/routes/analytics.messaging';
 import { candidatesCsvRouter } from './src/routes/candidates.import.csv';
 import clientsRouter from './src/routes/clients';
+import repoAgentRouter from './src/routes/repoAgent';
 import dealAccessRouter from './src/routes/dealAccess';
 import contactsRouter from './src/routes/contacts';
 import clientsRouterModule from './src/routes/clients';
@@ -480,6 +481,7 @@ app.get('/api/advanced-info', getAdvancedInfo);
 app.get('/api/health/overview', appHealth);
 app.get('/api/health/auth', authHealth);
 app.use('/api/user', userRouter);
+app.use('/api/repo-agent', repoAgentRouter);
 // Public API routes (no authentication required) — mount BEFORE generic /api router
 app.get('/api/public/jobs/:id', require('./api/public/jobs/[id]').default);
 app.use('/api/public/apply', require('./api/public/apply').default);
