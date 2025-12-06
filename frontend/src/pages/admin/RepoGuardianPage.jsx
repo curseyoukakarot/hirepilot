@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
+import { useTheme } from '../../context/ThemeContext';
 
 const STATIC_HTML = `
-<div id="repo-guardian-page" class="min-h-screen bg-dark-950 text-white font-sans">
+<div id="repo-guardian-page" class="rg-shell min-h-screen bg-dark-950 text-white font-sans">
   <!-- Header -->
   <header class="sticky top-0 z-40 bg-dark-950/95 backdrop-blur-sm border-b border-dark-800">
     <div class="px-6 py-4">
@@ -17,7 +18,7 @@ const STATIC_HTML = `
           </div>
         </div>
         <div class="flex items-center space-x-3">
-          <div class="flex items-center space-x-4 px-4 py-2 bg-dark-900 border border-dark-800 rounded-lg">
+          <div class="rg-pill flex items-center space-x-4 px-4 py-2 bg-dark-900 border border-dark-800 rounded-lg">
             <div class="flex items-center space-x-2">
               <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
               <span class="text-sm text-dark-300">Auto Checks: <span class="text-green-400">On</span></span>
@@ -53,7 +54,7 @@ const STATIC_HTML = `
   <!-- Stats Cards -->
   <section class="px-6 py-6">
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      <div class="bg-dark-900 border border-dark-800 rounded-xl p-6 hover:border-dark-700 transition-colors duration-200">
+      <div class="rg-card bg-dark-900 border border-dark-800 rounded-xl p-6 hover:border-dark-700 transition-colors duration-200">
         <div class="flex items-center justify-between">
           <div>
             <p class="text-dark-400 text-sm">System Health</p>
@@ -65,7 +66,7 @@ const STATIC_HTML = `
           </div>
         </div>
       </div>
-      <div class="bg-dark-900 border border-dark-800 rounded-xl p-6 hover:border-dark-700 transition-colors duration-200">
+      <div class="rg-card bg-dark-900 border border-dark-800 rounded-xl p-6 hover:border-dark-700 transition-colors duration-200">
         <div class="flex items-center justify-between">
           <div>
             <p class="text-dark-400 text-sm">Open Errors</p>
@@ -77,7 +78,7 @@ const STATIC_HTML = `
           </div>
         </div>
       </div>
-      <div class="bg-dark-900 border border-dark-800 rounded-xl p-6 hover:border-dark-700 transition-colors duration-200">
+      <div class="rg-card bg-dark-900 border border-dark-800 rounded-xl p-6 hover:border-dark-700 transition-colors duration-200">
         <div class="flex items-center justify-between">
           <div>
             <p class="text-dark-400 text-sm">Scenarios</p>
@@ -89,7 +90,7 @@ const STATIC_HTML = `
           </div>
         </div>
       </div>
-      <div class="bg-dark-900 border border-dark-800 rounded-xl p-6 hover:border-dark-700 transition-colors duration-200">
+      <div class="rg-card bg-dark-900 border border-dark-800 rounded-xl p-6 hover:border-dark-700 transition-colors duration-200">
         <div class="flex items-center justify-between">
           <div>
             <p class="text-dark-400 text-sm">Last Sweep</p>
@@ -109,7 +110,7 @@ const STATIC_HTML = `
     <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
       <!-- Left Panel -->
       <div class="lg:col-span-3">
-        <div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
+        <div class="rg-card bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
           <!-- Tabs -->
           <div class="border-b border-dark-800">
             <div class="flex">
@@ -295,7 +296,7 @@ const STATIC_HTML = `
       <!-- Right Panel -->
       <div class="lg:col-span-2 space-y-6">
         <!-- Detail Panel -->
-        <div class="bg-dark-900 border border-dark-800 rounded-xl">
+        <div class="rg-card bg-dark-900 border border-dark-800 rounded-xl">
           <div class="border-b border-dark-800 px-6 py-4">
             <h3 class="text-lg font-semibold text-white flex items-center">
               <i class="fa-solid fa-info-circle text-blue-400 mr-2"></i> Details
@@ -363,7 +364,7 @@ const STATIC_HTML = `
         </div>
 
         <!-- Chat Panel -->
-        <div id="chat-panel" class="bg-dark-900 border border-dark-800 rounded-xl flex flex-col h-[300px]">
+        <div id="chat-panel" class="rg-card bg-dark-900 border border-dark-800 rounded-xl flex flex-col h-[300px]">
           <div class="border-b border-dark-800 px-6 py-4 flex items-center justify-between">
             <h3 class="text-lg font-semibold text-white flex items-center">
               <i class="fa-solid fa-robot text-purple-400 mr-2"></i> Repo Agent Chat
@@ -408,9 +409,106 @@ const STATIC_HTML = `
 </div>
 `;
 
+const LIGHT_MODE_STYLES = `
+#repo-guardian-page {
+  transition: background 0.4s ease, color 0.3s ease;
+}
+#repo-guardian-page[data-theme="light"] {
+  background: radial-gradient(circle at 20% -10%, #ffffff 0%, #eef2ff 55%, #fdfdfd 100%);
+  color: #0f172a;
+}
+#repo-guardian-page[data-theme="light"] .rg-card {
+  background: rgba(255, 255, 255, 0.97);
+  border-color: #e2e8f0;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+}
+#repo-guardian-page[data-theme="light"] .rg-pill {
+  background: rgba(99, 102, 241, 0.08);
+  border-color: #d7def5;
+}
+#repo-guardian-page[data-theme="light"] .health-check-item,
+#repo-guardian-page[data-theme="light"] .error-item,
+#repo-guardian-page[data-theme="light"] .scenario-item,
+#repo-guardian-page[data-theme="light"] .sweep-item {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #0f172a;
+  box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.06);
+}
+#repo-guardian-page[data-theme="light"] .health-check-item:hover,
+#repo-guardian-page[data-theme="light"] .error-item:hover,
+#repo-guardian-page[data-theme="light"] .scenario-item:hover,
+#repo-guardian-page[data-theme="light"] .sweep-item:hover {
+  background: #f4f7ff;
+  border-color: #c7d7ff;
+}
+#repo-guardian-page[data-theme="light"] .tab-btn {
+  color: #475569;
+}
+#repo-guardian-page[data-theme="light"] .tab-btn.active {
+  color: #2563eb;
+  border-color: #2563eb;
+}
+#repo-guardian-page[data-theme="light"] .text-white {
+  color: #0f172a !important;
+}
+#repo-guardian-page[data-theme="light"] .text-dark-400 {
+  color: #475569 !important;
+}
+#repo-guardian-page[data-theme="light"] .text-dark-500 {
+  color: #64748b !important;
+}
+#repo-guardian-page[data-theme="light"] .text-dark-300 {
+  color: #1e293b !important;
+}
+#repo-guardian-page[data-theme="light"] .text-dark-600 {
+  color: #94a3b8 !important;
+}
+#repo-guardian-page[data-theme="light"] .border-dark-800,
+#repo-guardian-page[data-theme="light"] .border-dark-700,
+#repo-guardian-page[data-theme="light"] .border-dark-900 {
+  border-color: #e2e8f0 !important;
+}
+#repo-guardian-page[data-theme="light"] .bg-dark-950\\/95,
+#repo-guardian-page[data-theme="light"] .bg-dark-950\\/90,
+#repo-guardian-page[data-theme="light"] .bg-dark-950\\/80,
+#repo-guardian-page[data-theme="light"] .bg-dark-950\\/60 {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  color: #0f172a !important;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.12);
+}
+#repo-guardian-page[data-theme="light"] .chat-messages {
+  background: linear-gradient(180deg, rgba(255,255,255,0.85) 0%, rgba(244,247,255,0.85) 100%);
+}
+#repo-guardian-page[data-theme="light"] .chat-input {
+  background: rgba(248,250,252,0.95);
+  border-color: #e2e8f0;
+  color: #0f172a;
+}
+#repo-guardian-page[data-theme="light"] .chat-input::placeholder {
+  color: #94a3b8;
+}
+#repo-guardian-page[data-theme="light"] .chat-send {
+  box-shadow: 0 10px 30px rgba(99, 102, 241, 0.35);
+}
+`;
+
 const RepoGuardianPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isAllowed, setIsAllowed] = useState(false);
+  const { theme } = useTheme();
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const styleId = 'repo-guardian-theme-overrides';
+    let styleTag = document.getElementById(styleId);
+    if (!styleTag) {
+      styleTag = document.createElement('style');
+      styleTag.id = styleId;
+      styleTag.innerHTML = LIGHT_MODE_STYLES;
+      document.head.appendChild(styleTag);
+    }
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -434,6 +532,14 @@ const RepoGuardianPage = () => {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!isAllowed) return;
+    const container = document.getElementById('repo-guardian-page');
+    if (container) {
+      container.setAttribute('data-theme', theme || 'light');
+    }
+  }, [theme, isAllowed]);
 
   useEffect(() => {
     if (!isAllowed) return;
