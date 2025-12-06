@@ -364,6 +364,9 @@ app.get('/api/agent/__ping', (_req, res) => res.json({ ok: true, ts: Date.now() 
 // Parse URL-encoded bodies (increase limit for bulk operations)
 app.use(bodyParser.urlencoded({ limit: '25mb', extended: true }));
 
+// Attach team context (team_id) for authenticated requests before routing
+app.use('/api', attachTeam);
+
 // Debug middleware
 app.use((req, res, next) => {
   const headers = { ...req.headers } as any;
@@ -690,7 +693,6 @@ app.use('/api/payouts', requireAuthFlag, payoutsRouter);
       console.warn('[Auth] Failed to mount passcode endpoints', e);
     }
   }
-  app.use('/api', attachTeam);
   // Sales Agent routes
   app.use('/', salesPolicyRouter);
   app.use('/', salesInboundRouter);

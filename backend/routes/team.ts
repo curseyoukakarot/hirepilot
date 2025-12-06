@@ -222,7 +222,7 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
     const { firstName, lastName, email, company, role } = req.body as TeamInviteRequest;
     const permissions = (req.body as any).permissions || { rexAccess: true, zapierAccess: true };
     const currentUser = currentUserResolved;
-    const teamId = (req as any).teamId || null;
+    let teamId = (req as any).teamId || null;
 
     // If current user is a super admin, bypass seat-limit checks entirely
     const { data: currentUserRow, error: currentUserRowError } = await supabase
@@ -317,6 +317,10 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
       console.error('Error fetching inviter details:', inviterError);
       res.status(500).json({ message: 'Error fetching inviter details', error: inviterError });
       return;
+    }
+
+    if (!teamId) {
+      teamId = (inviter as any)?.team_id || null;
     }
 
     const resolvedPaidPlan = resolvePaidPlanLabel(subscriptionPlanTier, (inviter as any)?.plan);
@@ -540,7 +544,7 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
       return;
     }
 
-    const teamId = (req as any).teamId || null;
+    let teamId = (req as any).teamId || null;
     const resendExpiresAt = new Date(Date.now() + TEAM_INVITE_EXPIRATION_HOURS * 60 * 60 * 1000).toISOString();
     let resendPlanTier: string | null = null;
     try {
@@ -578,6 +582,10 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
       console.error('Error fetching inviter details:', inviterError);
       res.status(500).json({ message: 'Error fetching inviter details', error: inviterError });
       return;
+    }
+
+    if (!teamId) {
+      teamId = (inviter as any)?.team_id || null;
     }
 
     const resolvedResendPlan = resolvePaidPlanLabel(resendPlanTier, (inviter as any)?.plan);
@@ -827,6 +835,24 @@ router.post('/invite/:token/accept', async (req: Request, res: Response) => {
     const resolvedFirstName = (firstName || invite.first_name || '').trim();
     const resolvedLastName = (lastName || invite.last_name || '').trim();
 
+    let inviterContext: { team_id?: string | null; plan?: string | null } | null = null;
+    try {
+      if (invite.invited_by) {
+        const { data: inviterRow } = await supabaseDb
+          .from('users')
+          .select('team_id, plan')
+          .eq('id', invite.invited_by)
+          .maybeSingle();
+        inviterContext = inviterRow || null;
+      }
+    } catch (inviterErr) {
+      console.warn('[invite accept] failed to load inviter context', inviterErr);
+    }
+
+    const resolvedTeamId = (invite as any)?.team_id || inviterContext?.team_id || null;
+    const resolvedPlan = resolvePaidPlanLabel(inviterContext?.plan || null);
+    const resolvedRole = invite.role || 'member';
+
     let targetUserId: string | null = null;
     try {
       const { data: publicUser } = await supabaseDb
@@ -864,10 +890,11 @@ router.post('/invite/:token/accept', async (req: Request, res: Response) => {
       first_name: resolvedFirstName || existingMeta.first_name || '',
       last_name: resolvedLastName || existingMeta.last_name || '',
       company: invite.company || existingMeta.company || null,
-      team_id: (invite as any)?.team_id || existingMeta.team_id || null,
+      team_id: resolvedTeamId || existingMeta.team_id || null,
       invite_id: invite.id,
       invited_by: invite.invited_by,
-      role: invite.role,
+      role: resolvedRole,
+      account_type: resolvedRole,
       onboarding_complete: false
     };
 
@@ -888,14 +915,24 @@ router.post('/invite/:token/accept', async (req: Request, res: Response) => {
       first_name: resolvedFirstName || null,
       last_name: resolvedLastName || null,
       firstName: resolvedFirstName || null,
-      lastName: resolvedLastName || null
+      lastName: resolvedLastName || null,
+      role: resolvedRole,
+      plan: resolvedPlan,
+      plan_updated_at: new Date().toISOString()
     };
+    if (resolvedTeamId) profileUpdate.team_id = resolvedTeamId;
 
     try {
       await supabaseDb
         .from('users')
-        .update(profileUpdate)
-        .eq('id', targetUserId);
+        .upsert(
+          {
+            id: targetUserId,
+            email: invite.email,
+            ...profileUpdate
+          } as any,
+          { onConflict: 'id' }
+        );
     } catch (profileErr) {
       console.warn('[invite accept] failed to update user profile', profileErr);
     }
