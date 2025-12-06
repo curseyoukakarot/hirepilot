@@ -32,6 +32,7 @@ import AdminPuppetHealth from './screens/AdminPuppetHealth';
 import AdminProxyManagement from './screens/AdminProxyManagement';
 import AdminAffiliatesManager from './pages/admin/AdminAffiliatesManager';
 import EmailAttributionController from './pages/admin/EmailAttributionController';
+import RepoGuardianPage from './pages/admin/RepoGuardianPage';
 import LeadSyncFailures from './screens/LeadSyncFailures';
 import PhantomConfig from './screens/PhantomConfig';
 import WebhookLogs from './screens/WebhookLogs';
@@ -671,6 +672,7 @@ function InnerApp() {
               <Route path="/super-admin/sourcing/campaigns/:id" element={<RequireSuperAdmin><CampaignDetailPage /></RequireSuperAdmin>} />
               <Route path="/super-admin/sourcing/campaigns/:id/replies" element={<RequireSuperAdmin><RepliesPage /></RequireSuperAdmin>} />
               <Route path="/admin/users" element={<AdminUserManagement />} />
+              <Route path="/admin/repo-guardian" element={<RequireSuperAdmin><RepoGuardianPage /></RequireSuperAdmin>} />
               <Route path="/super-admin/users" element={<RequireSuperAdmin><AdminUserManagement /></RequireSuperAdmin>} />
               <Route path="/admin/puppet-health" element={<AdminPuppetHealth />} />
               <Route path="/admin/proxy-management" element={<AdminProxyManagement />} />
