@@ -2624,6 +2624,33 @@ router.post('/attach-to-campaign', requireAuth, async (req: ApiRequest, res: Res
       });
     }
 
+    // Normalize blank LinkedIn URLs so that leads without profiles can still share campaigns
+    const SANITIZE_CHUNK = 150;
+    for (let i = 0; i < ownedIds.length; i += SANITIZE_CHUNK) {
+      const chunk = ownedIds.slice(i, i + SANITIZE_CHUNK);
+      try {
+        await execWithRetry<null>(async () =>
+          await supabase
+            .from('leads')
+            .update({ linkedin_url: null })
+            .in('id', chunk)
+            .eq('user_id', userId)
+            .eq('linkedin_url', '')
+        );
+      } catch (sanitizeErr: any) {
+        logAttachToCampaignError('sanitize-linkedin-url', sanitizeErr, {
+          userId,
+          campaignId,
+          chunkSize: chunk.length,
+          chunkSample: chunk.slice(0, 5)
+        });
+        return res.status(503).json({
+          success: false,
+          error: `Failed to normalize LinkedIn URLs before attachment: ${summarizeSupabaseError(sanitizeErr)}`
+        });
+      }
+    }
+
     // Update the campaign_id for all the leads
     const nowIso = new Date().toISOString();
     const UPDATE_CHUNK = 150;
