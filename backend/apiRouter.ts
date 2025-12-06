@@ -23,7 +23,6 @@ import debugTrialEmails from './api/debugTrialEmails';
 import triggerTrialEmails from './api/triggerTrialEmails';
 import testTrialEmail from './api/testTrialEmail';
 
-import teamRouter from './routes/team';
 import sendSlackNotification from './api/sendSlackNotification';
 import startTrial from './api/startTrial';
 import zapierRouter from './api/zapierRouter';
@@ -158,8 +157,7 @@ router.use('/message', messageRouter);
 // Job share + apply
 router.use('/jobs', jobsShareRouter);
 
-// Team management routes
-router.use('/team', requireAuth, teamRouter);
+// Team routes are mounted at the server level to keep invite acceptance public.
 
 router.post('/campaigns/:id/launch', launchCampaign);
 
