@@ -118,12 +118,25 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
         : (typeof data?.monthly_credits === 'number' ? data.monthly_credits : null);
 
       const roleLc = String(role || '').toLowerCase();
+      const hasPaidLevelCredits = (() => {
+        const creditCandidates = [
+          typeof remainingCredits === 'number' ? remainingCredits : null,
+          typeof monthlyCredits === 'number' ? monthlyCredits : null,
+          typeof data?.remaining_credits === 'number' ? data.remaining_credits : null,
+          typeof data?.monthly_credits === 'number' ? data.monthly_credits : null
+        ].filter((v): v is number => typeof v === 'number');
+        const maxCredits = creditCandidates.length ? Math.max(...creditCandidates) : 0;
+        return maxCredits >= 300; // ≥ member baseline (350) ⇒ paid teammate
+      })();
       // Elevate admin-like roles to a non-free plan label to avoid free gating banners
       const isAdminRole = ['super_admin','admin','team_admin','team_admins'].includes(roleLc);
       // Treat guest as free for gating purposes unless a paid plan is explicitly set
       let resolvedPlan = planServer || ((roleLc==='free' || roleLc==='guest' || (remainingCredits===50)) ? 'free' : null);
       if (isAdminRole && (!resolvedPlan || resolvedPlan === 'free')) {
         resolvedPlan = 'admin';
+      }
+      if (!isAdminRole && roleLc === 'member' && hasPaidLevelCredits && (!resolvedPlan || resolvedPlan === 'free')) {
+        resolvedPlan = 'member';
       }
 
       setInfo({
