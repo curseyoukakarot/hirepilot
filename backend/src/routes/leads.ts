@@ -20,6 +20,41 @@ import { getUserIntegrations } from '../../utils/userIntegrationsHelper';
 
 const router = express.Router();
 
+function summarizeSupabaseError(error: any): string {
+  if (!error) return 'Unknown Supabase error';
+  if (typeof error === 'string') return error;
+  const message = error?.message || error?.msg;
+  const details = error?.details || error?.detail;
+  const hint = error?.hint;
+  const code = error?.code;
+  const parts = [message, details, hint, code ? `code=${code}` : null].filter(Boolean);
+  if (parts.length) return parts.join(' — ');
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return 'Unserializable Supabase error';
+  }
+}
+
+function logAttachToCampaignError(
+  phase: string,
+  error: any,
+  context: Record<string, any> = {}
+) {
+  console.error('[leads.attach-to-campaign]', {
+    phase,
+    context,
+    supabase: {
+      message: error?.message,
+      details: error?.details,
+      hint: error?.hint,
+      code: error?.code
+    },
+    stack: error?.stack,
+    raw: error
+  });
+}
+
 type LeadEntityType = 'lead' | 'candidate';
 
 interface LeadResolutionResult {
@@ -2569,7 +2604,16 @@ router.post('/attach-to-campaign', requireAuth, async (req: ApiRequest, res: Res
         );
         ownedIds = ownedIds.concat((chunkRows || []).map((r: any) => r.id));
       } catch (fetchErr: any) {
-        return res.status(503).json({ success: false, error: `Failed to verify lead ownership: ${String(fetchErr)}` });
+        logAttachToCampaignError('verify-lead-ownership', fetchErr, {
+          userId,
+          campaignId,
+          chunkSize: chunk.length,
+          chunkSample: chunk.slice(0, 5)
+        });
+        return res.status(503).json({
+          success: false,
+          error: `Failed to verify lead ownership: ${summarizeSupabaseError(fetchErr)}`
+        });
       }
     }
 
@@ -2594,7 +2638,16 @@ router.post('/attach-to-campaign', requireAuth, async (req: ApiRequest, res: Res
             .eq('user_id', userId)
         );
       } catch (fetchErr: any) {
-        return res.status(503).json({ success: false, error: `Failed to attach leads to campaign: ${String(fetchErr)}` });
+        logAttachToCampaignError('bulk-update-leads', fetchErr, {
+          userId,
+          campaignId,
+          chunkSize: chunk.length,
+          chunkSample: chunk.slice(0, 5)
+        });
+        return res.status(503).json({
+          success: false,
+          error: `Failed to attach leads to campaign: ${summarizeSupabaseError(fetchErr)}`
+        });
       }
     }
 
@@ -2628,7 +2681,7 @@ router.post('/attach-to-campaign', requireAuth, async (req: ApiRequest, res: Res
     });
 
   } catch (error) {
-    console.error('Error in attach-to-campaign endpoint:', error);
+    logAttachToCampaignError('unhandled', error, { userId: req.user?.id, campaignId: req.body?.campaignId });
     res.status(500).json({
       success: false,
       error: 'Internal server error'
