@@ -117,6 +117,162 @@ async function requireSuperAdmin(req: Request, res: Response, next: Function) {
   next();
 }
 
+type MinimalUserRow = {
+  id: string;
+  email?: string | null;
+  role?: string | null;
+  team_id?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  company?: string | null;
+};
+
+async function ensureTeamForTeamAdmin(
+  userId: string,
+  context: {
+    teamId?: string | null;
+    email?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    company?: string | null;
+  }
+): Promise<string | null> {
+  if (context.teamId) return context.teamId;
+  try {
+    const displayNameCandidate = [context.firstName, context.lastName].filter(Boolean).join(' ').trim();
+    const emailHandle = context.email?.split('@')?.[0];
+    const teamName =
+      context.company?.trim() ||
+      (displayNameCandidate ? `${displayNameCandidate}'s Team` : null) ||
+      (emailHandle ? `${emailHandle}'s Team` : null) ||
+      `Team ${userId.slice(0, 8)}`;
+
+    const { data, error } = await supabaseDb
+      .from('teams')
+      .insert({ name: teamName })
+      .select('id')
+      .single();
+
+    if (error) {
+      console.error('[ADMIN USERS] Failed to create team for user', userId, error);
+      return null;
+    }
+
+    const newTeamId = data?.id || null;
+    if (newTeamId) {
+      await supabaseDb.from('users').update({ team_id: newTeamId }).eq('id', userId);
+    }
+    return newTeamId;
+  } catch (err) {
+    console.error('[ADMIN USERS] ensureTeamForTeamAdmin error', err);
+    return context.teamId || null;
+  }
+}
+
+async function syncAuthRoleMetadata(userId: string, role?: string, teamId?: string): Promise<void> {
+  if (!role && !teamId) return;
+  try {
+    const { data } = await supabaseDb.auth.admin.getUserById(userId);
+    const authUser = data?.user;
+    if (!authUser) return;
+
+    const nextAppMeta: Record<string, any> = { ...(authUser.app_metadata || {}) };
+    const nextUserMeta: Record<string, any> = { ...(authUser.user_metadata || {}) };
+
+    if (role) {
+      nextAppMeta.role = role;
+      const allowed = new Set<string>(
+        Array.isArray(nextAppMeta.allowed_roles) ? nextAppMeta.allowed_roles : []
+      );
+      allowed.add('authenticated');
+      allowed.add(role);
+      nextAppMeta.allowed_roles = Array.from(allowed);
+
+      nextUserMeta.role = role;
+      nextUserMeta.account_type = role;
+      nextUserMeta.user_type = role;
+    }
+
+    if (teamId) {
+      nextUserMeta.team_id = teamId;
+    }
+
+    const payload: Record<string, any> = {};
+    if (role) payload.app_metadata = nextAppMeta;
+    if (role || teamId) payload.user_metadata = nextUserMeta;
+
+    if (Object.keys(payload).length > 0) {
+      await supabaseDb.auth.admin.updateUserById(userId, payload);
+    }
+  } catch (err) {
+    console.error(`[ADMIN USERS] Failed to sync auth metadata for ${userId}`, err);
+  }
+}
+
+async function applyUserPatchAndSync(userId: string, updates: Record<string, any>) {
+  const { data: before, error: loadErr } = await supabaseDb
+    .from('users')
+    .select('id,email,role,team_id,first_name,last_name,firstName,lastName,company')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (loadErr) throw loadErr;
+
+  const { data, error } = await supabaseDb
+    .from('users')
+    .update(updates)
+    .eq('id', userId)
+    .select('*')
+    .maybeSingle();
+
+  if (error) throw error;
+
+  const resolved: MinimalUserRow | null = (data as MinimalUserRow) || (before as MinimalUserRow) || null;
+  if (!resolved) throw new Error('User not found');
+
+  const resolvedRole = (updates.role ?? resolved.role ?? before?.role) as string | undefined;
+  const normalizedRole =
+    typeof resolvedRole === 'string'
+      ? resolvedRole.toLowerCase().replace(/[\s-]+/g, '_')
+      : '';
+  let resolvedTeamId = resolved.team_id ?? before?.team_id ?? null;
+
+  if (normalizedRole === 'team_admin') {
+    resolvedTeamId =
+      (await ensureTeamForTeamAdmin(userId, {
+        teamId: resolvedTeamId,
+        email: resolved.email || before?.email || null,
+        firstName:
+          resolved.first_name ||
+          resolved.firstName ||
+          before?.first_name ||
+          before?.firstName ||
+          null,
+        lastName:
+          resolved.last_name ||
+          resolved.lastName ||
+          before?.last_name ||
+          before?.lastName ||
+          null,
+        company: (resolved as any)?.company || (before as any)?.company || null,
+      })) ?? resolvedTeamId;
+  }
+
+  await syncAuthRoleMetadata(
+    userId,
+    updates.role !== undefined ? resolvedRole : undefined,
+    resolvedTeamId || undefined
+  );
+
+  if (resolvedTeamId && !resolved.team_id) {
+    resolved.team_id = resolvedTeamId;
+  }
+
+  return resolved;
+}
+
 // GET /api/admin/users - List all users
 router.get('/users', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
   console.log('[ADMIN USERS] Fetching all users from Supabase...');
@@ -360,19 +516,21 @@ router.patch('/users', requireAuth, requireSuperAdmin, async (req: Request, res:
     return res.status(400).json({ error: 'id required' });
   }
 
-  const updatePayload: any = { role };
+  const updatePayload: Record<string, any> = {};
+  if (role !== undefined) updatePayload.role = role;
   if (firstName !== undefined) updatePayload.firstName = firstName;
   if (lastName !== undefined) updatePayload.lastName = lastName;
 
-  const { data, error } = await supabaseDb
-    .from('users')
-    .update(updatePayload)
-    .eq('id', id)
-    .select('*')
-    .maybeSingle();
+  if (Object.keys(updatePayload).length === 0) {
+    return res.status(400).json({ error: 'No updates provided' });
+  }
 
-  if (error) return res.status(500).json({ error: error.message });
-  return res.json(data);
+  try {
+    const updatedUser = await applyUserPatchAndSync(id, updatePayload);
+    return res.json(updatedUser);
+  } catch (err: any) {
+    return res.status(500).json({ error: err?.message || 'Failed to update user' });
+  }
 });
 
 // ---------------------------------------------
@@ -382,19 +540,21 @@ router.patch('/users/:id', requireAuth, requireSuperAdmin, async (req: Request, 
   const { id } = req.params;
   const { firstName, lastName, role } = req.body;
 
-  const updatePayload: any = { role };
+  const updatePayload: Record<string, any> = {};
+  if (role !== undefined) updatePayload.role = role;
   if (firstName !== undefined) updatePayload.firstName = firstName;
   if (lastName !== undefined) updatePayload.lastName = lastName;
 
-  const { data, error } = await supabaseDb
-    .from('users')
-    .update(updatePayload)
-    .eq('id', id)
-    .select('*')
-    .maybeSingle();
+  if (Object.keys(updatePayload).length === 0) {
+    return res.status(400).json({ error: 'No updates provided' });
+  }
 
-  if (error) return res.status(500).json({ error: error.message });
-  return res.json(data);
+  try {
+    const updatedUser = await applyUserPatchAndSync(id, updatePayload);
+    return res.json(updatedUser);
+  } catch (err: any) {
+    return res.status(500).json({ error: err?.message || 'Failed to update user' });
+  }
 });
 
 // DELETE /api/admin/users/:id - Delete user
