@@ -9,22 +9,38 @@ import { sendEmail } from '../services/emailProviderService';
 import { GmailTrackingService } from '../services/gmailTrackingService';
 import { OutlookTrackingService } from '../services/outlookTrackingService';
 
+function normalizeBccList(value?: string | string[] | null): string[] {
+  if (!value) return [];
+  const raw = Array.isArray(value) ? value : String(value).split(/[,;\n]/);
+  const cleaned = raw
+    .map(item => item.trim())
+    .filter(Boolean);
+  return Array.from(new Set(cleaned));
+}
+
 // Helper function to generate avatar URL
 const getAvatarUrl = (name: string) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
 
 // Provider-specific sending functions
-async function sendViaProvider(lead: any, content: string, userId: string, provider: string, templateId?: string): Promise<boolean> {
+async function sendViaProvider(
+  lead: any,
+  content: string,
+  userId: string,
+  provider: string,
+  templateId?: string,
+  bccList?: string[]
+): Promise<boolean> {
   try {
     console.log(`[sendViaProvider] Attempting to send via ${provider} to ${lead.email}`);
     
     switch (provider) {
       case 'sendgrid':
-        return await sendViaSendGrid(lead, content, userId, templateId);
+        return await sendViaSendGrid(lead, content, userId, templateId, bccList);
       case 'google':
       case 'gmail':
-        return await sendViaGoogle(lead, content, userId, templateId);
+        return await sendViaGoogle(lead, content, userId, templateId, bccList);
       case 'outlook':
-        return await sendViaOutlook(lead, content, userId, templateId);
+        return await sendViaOutlook(lead, content, userId, templateId, bccList);
       default:
         console.log(`[sendViaProvider] Unknown provider ${provider}, falling back to emailProviderService`);
         return await sendEmail(lead, content, userId);
@@ -35,7 +51,7 @@ async function sendViaProvider(lead: any, content: string, userId: string, provi
   }
 }
 
-async function sendViaSendGrid(lead: any, content: string, userId: string, templateId?: string): Promise<boolean> {
+async function sendViaSendGrid(lead: any, content: string, userId: string, templateId?: string, bccList?: string[]): Promise<boolean> {
   try {
     // Get subject from template if templateId is provided
     let subject = 'Message from HirePilot';
@@ -115,6 +131,10 @@ async function sendViaSendGrid(lead: any, content: string, userId: string, templ
       replyTo: `msg_${trackingMessageId}.u_${userId}.c_${lead.campaign_id}.l_${lead.id}@${process.env.INBOUND_PARSE_DOMAIN || 'reply.thehirepilot.com'}`
     };
 
+    if (bccList && bccList.length) {
+      msg.bcc = bccList;
+    }
+
     console.log(`[sendViaSendGrid] Sending email to ${lead.email} from ${data.default_sender} with subject: ${subject}`);
     const [response] = await sgMail.send(msg);
     
@@ -187,7 +207,7 @@ async function sendViaSendGrid(lead: any, content: string, userId: string, templ
   }
 }
 
-async function sendViaGoogle(lead: any, content: string, userId: string, templateId?: string): Promise<boolean> {
+async function sendViaGoogle(lead: any, content: string, userId: string, templateId?: string, bccList?: string[]): Promise<boolean> {
   try {
     // Get subject from template if templateId is provided
     let subject = 'Message from HirePilot';
@@ -232,7 +252,8 @@ async function sendViaGoogle(lead: any, content: string, userId: string, templat
       subject,
       body,
       lead.campaign_id,
-      lead.id
+      lead.id,
+      bccList
     );
 
     // Store the message in our database with UI-friendly fields
@@ -319,7 +340,7 @@ async function sendViaGoogle(lead: any, content: string, userId: string, templat
   }
 }
 
-async function sendViaOutlook(lead: any, content: string, userId: string, templateId?: string): Promise<boolean> {
+async function sendViaOutlook(lead: any, content: string, userId: string, templateId?: string, bccList?: string[]): Promise<boolean> {
   try {
     // Get subject from template if templateId is provided
     let subject = 'Message from HirePilot';
@@ -364,7 +385,8 @@ async function sendViaOutlook(lead: any, content: string, userId: string, templa
       subject,
       body,
       lead.campaign_id, // Fix: Pass campaign_id instead of undefined
-      lead.id    // leadId
+      lead.id,    // leadId
+      bccList
     );
 
     // Store the message in our database with UI-friendly fields
@@ -442,7 +464,7 @@ export default async function handler(req: Request, res: Response) {
     const results: any[] = [];
 
     for (const msg of messages) {
-      const { lead_id, user_id: uid, content, template_id: tId, channel: ch } = msg;
+      const { lead_id, user_id: uid, content, template_id: tId, channel: ch, bcc } = msg;
       console.log(`[sendMassMessage] Processing message for lead ${lead_id} with provider ${ch}`);
       
       if (!lead_id || !uid || !content) {
@@ -466,8 +488,10 @@ export default async function handler(req: Request, res: Response) {
 
       // Use provider-specific sending if channel is specified, otherwise fall back to emailProviderService
       let sent = false;
+      const bccList = normalizeBccList(bcc);
+
       if (ch && ['sendgrid', 'google', 'gmail', 'outlook'].includes(ch)) {
-        sent = await sendViaProvider(lead, content, uid, ch, tId);
+        sent = await sendViaProvider(lead, content, uid, ch, tId, bccList);
       } else {
         console.log(`[sendMassMessage] No valid provider specified (${ch}), using emailProviderService`);
         sent = await sendEmail(lead, content, uid);
@@ -506,7 +530,7 @@ export default async function handler(req: Request, res: Response) {
   }
 
   // LEGACY PAYLOAD ----------------------------------------------
-  const { lead_ids, template_id, custom_content, channel, user_id } = req.body;
+  const { lead_ids, template_id, custom_content, channel, user_id, bcc } = req.body;
 
   if (!lead_ids || !template_id || !custom_content || !channel || !user_id) {
     res.status(400).json({ error: 'Missing required fields' });
@@ -538,13 +562,15 @@ export default async function handler(req: Request, res: Response) {
 
     const results = [];
 
+    const bccList = normalizeBccList(bcc);
+
     for (const lead of leads) {
       const personalizedMessage = personalizeMessage(templateContent, lead);
 
       // Use provider-specific sending if channel is specified
       let sent = false;
       if (channel && ['sendgrid', 'google', 'gmail', 'outlook'].includes(channel)) {
-        sent = await sendViaProvider(lead, personalizedMessage, user_id, channel, template_id);
+        sent = await sendViaProvider(lead, personalizedMessage, user_id, channel, template_id, bccList);
       } else {
         sent = await sendEmail(lead, personalizedMessage, user_id);
       }

@@ -34,7 +34,8 @@ export class GmailTrackingService {
     subject: string,
     html: string,
     campaignId?: string,
-    leadId?: string
+    leadId?: string,
+    bccList?: string[]
   ): Promise<{
     trackingMessageId: string;
     gmailMessageId?: string;
@@ -69,6 +70,7 @@ export class GmailTrackingService {
       subject,
       htmlBody: htmlWithTracking,
       replyToOverride: replyToAddress,
+      bcc: bccList && bccList.length ? bccList : undefined,
       headers: {},
     });
 
@@ -131,9 +133,10 @@ export class GmailTrackingService {
     subject: string,
     html: string,
     campaignId?: string,
-    leadId?: string
+    leadId?: string,
+    bccList?: string[]
   ): Promise<string> {
-    const meta = await this.sendEmailWithReplyMeta(userId, to, subject, html, campaignId, leadId);
+    const meta = await this.sendEmailWithReplyMeta(userId, to, subject, html, campaignId, leadId, bccList);
     return meta.trackingMessageId;
   }
 

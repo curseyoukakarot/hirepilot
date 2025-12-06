@@ -10,6 +10,7 @@ interface ScheduledMessage {
   channel: string;
   scheduled_for: string;
   status: string;
+  bcc?: string | null;
 }
 
 export class MessageScheduler {
@@ -118,12 +119,17 @@ export class MessageScheduler {
 
       // Use unified provider sender (supports sendgrid, gmail/google, outlook)
       const htmlBody = message.content.replace(/\n/g, '<br/>');
+      const bccList = (message.bcc || '')
+        .split(/[,;\n]/)
+        .map(addr => addr.trim())
+        .filter(Boolean);
       const ok = await sendViaProvider(
         (message.channel as any),
         { ...lead }, // expects lead-like object with id, email, campaign_id
         htmlBody,
         message.user_id,
-        subject
+        subject,
+        bccList.length ? { bcc: bccList } : undefined
       );
       if (!ok) {
         throw new Error(`Provider send failed for channel ${message.channel}`);

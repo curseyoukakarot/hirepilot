@@ -58,6 +58,10 @@ function LeadManagement() {
   const [sequenceStart, setSequenceStart] = useState(new Date());
   const [sequenceTz, setSequenceTz] = useState('America/Chicago');
   const [isEnrollingSequence, setIsEnrollingSequence] = useState(false);
+  const [sequenceBcc, setSequenceBcc] = useState('');
+  const [sequenceBccConfirmed, setSequenceBccConfirmed] = useState(false);
+  const [showSequenceBccPrompt, setShowSequenceBccPrompt] = useState(false);
+  const [pendingSequenceAction, setPendingSequenceAction] = useState(null);
   // removed duplicate sequenceStart/sequenceTz declarations
   const [bulkMessages, setBulkMessages] = useState({});
   const [bulkIsSending, setBulkIsSending] = useState(false);
@@ -108,12 +112,34 @@ function LeadManagement() {
   // Scheduling state for bulk messaging
   const [showBulkSchedule, setShowBulkSchedule] = useState(false);
   const [bulkScheduledDate, setBulkScheduledDate] = useState(null);
+  const [bulkBcc, setBulkBcc] = useState('');
+  const [bulkBccConfirmed, setBulkBccConfirmed] = useState(false);
+  const [showBulkBccPrompt, setShowBulkBccPrompt] = useState(false);
+  const [pendingBulkAction, setPendingBulkAction] = useState(null);
 
   // Attach to Campaign modal state
   const [showAttachToCampaignModal, setShowAttachToCampaignModal] = useState(false);
   const [attachLeadIds, setAttachLeadIds] = useState([]);
 
   // Provider selection for sequence enrollment (initialized above)
+
+  const parseBccInput = (value = '') => {
+    if (!value) return [];
+    return value
+      .split(/[,;\n]/)
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  };
+
+  const handleBulkBccChange = (value) => {
+    setBulkBcc(value);
+    setBulkBccConfirmed(false);
+  };
+
+  const handleSequenceBccChange = (value) => {
+    setSequenceBcc(value);
+    setSequenceBccConfirmed(false);
+  };
 
   // Load leads function with campaign filtering support
   const loadLeads = async (campaignId = selectedCampaign) => {
@@ -758,7 +784,14 @@ function LeadManagement() {
   };
 
   // Handle send all
-  const handleBulkSend = async () => {
+  const handleBulkSend = async ({ skipBccPrompt = false } = {}) => {
+    const bulkBccList = parseBccInput(bulkBcc);
+    if (!skipBccPrompt && bulkBccList.length && !bulkBccConfirmed) {
+      setPendingBulkAction('send');
+      setShowBulkBccPrompt(true);
+      return;
+    }
+    const normalizedBulkBcc = bulkBccList.join(',');
     setBulkIsSending(true);
     try {
       // Send messages to backend (implement your API endpoint as needed)
@@ -766,13 +799,17 @@ function LeadManagement() {
       if (!user) throw new Error('User not authenticated');
       if (!selectedProvider) throw new Error('Select a provider first');
 
-      const payload = selectedLeadIds.map(leadId => ({
-        lead_id: leadId,
-        user_id: user.id,
-        content: bulkMessages[leadId],
-        template_id: bulkSelectedTemplate?.id || null,
-        channel: selectedProvider
-      }));
+      const payload = selectedLeadIds.map(leadId => {
+        const messagePayload = {
+          lead_id: leadId,
+          user_id: user.id,
+          content: bulkMessages[leadId],
+          template_id: bulkSelectedTemplate?.id || null,
+          channel: selectedProvider
+        };
+        messagePayload.bcc = normalizedBulkBcc;
+        return messagePayload;
+      });
 
       // Example: send to /api/sendMassMessage
       const { data: { session } } = await supabase.auth.getSession();
@@ -801,25 +838,36 @@ function LeadManagement() {
   };
 
   // Handle schedule bulk messages
-  const handleBulkSchedule = async () => {
+  const handleBulkSchedule = async ({ skipBccPrompt = false } = {}) => {
     try {
       if (!bulkScheduledDate) {
         toast.error('Please select a date and time');
         return;
       }
+      const bulkBccList = parseBccInput(bulkBcc);
+      if (!skipBccPrompt && bulkBccList.length && !bulkBccConfirmed) {
+        setPendingBulkAction('schedule');
+        setShowBulkBccPrompt(true);
+        return;
+      }
+      const normalizedBulkBcc = bulkBccList.join(',');
       
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
       if (!selectedProvider) throw new Error('Select a provider first');
 
-      const payload = selectedLeadIds.map(leadId => ({
-        lead_id: leadId,
-        user_id: user.id,
-        content: bulkMessages[leadId],
-        template_id: bulkSelectedTemplate?.id || null,
-        channel: selectedProvider,
-        scheduled_for: bulkScheduledDate.toISOString()
-      }));
+      const payload = selectedLeadIds.map(leadId => {
+        const messagePayload = {
+          lead_id: leadId,
+          user_id: user.id,
+          content: bulkMessages[leadId],
+          template_id: bulkSelectedTemplate?.id || null,
+          channel: selectedProvider,
+          scheduled_for: bulkScheduledDate.toISOString()
+        };
+        messagePayload.bcc = normalizedBulkBcc;
+        return messagePayload;
+      });
 
       const { data: { session } } = await supabase.auth.getSession();
       const response = await fetch(`${API_BASE_URL}/scheduleMassMessage`, {
@@ -839,6 +887,83 @@ function LeadManagement() {
       setBulkScheduledDate(null);
     } catch (err) {
       toast.error(err.message || 'Failed to schedule messages');
+    }
+  };
+
+  const dismissBulkBccPrompt = () => {
+    setShowBulkBccPrompt(false);
+    setPendingBulkAction(null);
+  };
+
+  const confirmBulkBccPrompt = () => {
+    setBulkBccConfirmed(true);
+    setShowBulkBccPrompt(false);
+    const action = pendingBulkAction;
+    setPendingBulkAction(null);
+    if (action === 'send') {
+      handleBulkSend({ skipBccPrompt: true });
+    } else if (action === 'schedule') {
+      handleBulkSchedule({ skipBccPrompt: true });
+    }
+  };
+
+  const handleSequenceEnroll = async ({ skipBccPrompt = false } = {}) => {
+    if (!selectedSequenceId) {
+      toast.error('Select a sequence');
+      return;
+    }
+    const seqBccList = parseBccInput(sequenceBcc);
+    if (!skipBccPrompt && seqBccList.length && !sequenceBccConfirmed) {
+      setPendingSequenceAction('enroll');
+      setShowSequenceBccPrompt(true);
+      return;
+    }
+    try {
+      setIsEnrollingSequence(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const payload = {
+        leadIds: selectedLeadIds,
+        startTimeLocal: (sequenceStart || new Date()).toISOString(),
+        timezone: sequenceTz,
+        provider: sequenceProvider
+      };
+      const normalizedSequenceBcc = seqBccList.join(',');
+      payload.bcc = normalizedSequenceBcc;
+      const res = await fetch(`${API_BASE_URL}/sequences/${selectedSequenceId}/enroll`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        credentials: 'include',
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || 'Failed to enroll leads');
+      }
+      setShowSequencePicker(false);
+      toast.success('Leads enrolled');
+    } catch (e) {
+      toast.error(e.message || 'Failed to enroll leads');
+    } finally {
+      setIsEnrollingSequence(false);
+    }
+  };
+
+  const dismissSequenceBccPrompt = () => {
+    setShowSequenceBccPrompt(false);
+    setPendingSequenceAction(null);
+  };
+
+  const confirmSequenceBccPrompt = () => {
+    setSequenceBccConfirmed(true);
+    setShowSequenceBccPrompt(false);
+    const action = pendingSequenceAction;
+    setPendingSequenceAction(null);
+    if (action === 'enroll') {
+      handleSequenceEnroll({ skipBccPrompt: true });
     }
   };
 
@@ -2187,6 +2312,19 @@ function LeadManagement() {
                 ))}
               </select>
             </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">BCC (optional)</label>
+              <input
+                type="text"
+                className="border rounded px-3 py-2 w-full"
+                placeholder="Enter comma-separated emails"
+                value={bulkBcc}
+                onChange={(e) => handleBulkBccChange(e.target.value)}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Each address will receive a copy of every email in this bulk send.
+              </p>
+            </div>
             {bulkSelectedTemplate && (
               <div className="mb-6">
                 <h4 className="font-semibold mb-2">Preview & Edit Messages</h4>
@@ -2304,6 +2442,51 @@ function LeadManagement() {
         </div>
       )}
 
+      {showBulkBccPrompt && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-xl">
+            <h3 className="text-lg font-semibold mb-4">Send BCC copies?</h3>
+            <p className="text-gray-600 text-sm mb-4">
+              The email addresses you entered for BCC will receive a copy of every bulk message you send to these {selectedLeadIds.length} leads.
+              Make sure this is expected before continuing.
+            </p>
+            <div className="bg-gray-50 border rounded-md p-3 text-xs text-gray-700 mb-4 break-words">
+              {parseBccInput(bulkBcc).join(', ') || 'No addresses detected'}
+            </div>
+            <div className="flex justify-end gap-3">
+              <button className="px-4 py-2 border rounded-lg hover:bg-gray-50" onClick={dismissBulkBccPrompt}>
+                Cancel
+              </button>
+              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700" onClick={confirmBulkBccPrompt}>
+                Send copies
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSequenceBccPrompt && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-xl">
+            <h3 className="text-lg font-semibold mb-4">BCC every sequence email?</h3>
+            <p className="text-gray-600 text-sm mb-4">
+              These BCC recipients will receive a copy of each sequence email sent to your selected leads. Proceed only if this is intended.
+            </p>
+            <div className="bg-gray-50 border rounded-md p-3 text-xs text-gray-700 mb-4 break-words">
+              {parseBccInput(sequenceBcc).join(', ') || 'No addresses detected'}
+            </div>
+            <div className="flex justify-end gap-3">
+              <button className="px-4 py-2 border rounded-lg hover:bg-gray-50" onClick={dismissSequenceBccPrompt}>
+                Cancel
+              </button>
+              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700" onClick={confirmSequenceBccPrompt}>
+                Yes, send copies
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Sequence Picker Modal */}
       {showSequencePicker && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -2362,28 +2545,25 @@ function LeadManagement() {
                 <i className="fa-regular fa-envelope text-green-600" /> SendGrid
               </button>
             </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">BCC (optional)</label>
+              <input
+                type="text"
+                className="border rounded px-3 py-2 w-full"
+                placeholder="Comma-separated emails to copy"
+                value={sequenceBcc}
+                onChange={(e) => handleSequenceBccChange(e.target.value)}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                These addresses will get a copy of every sequence email sent for this action.
+              </p>
+            </div>
             <div className="flex justify-end gap-3">
               <button className="px-4 py-2 border rounded-lg hover:bg-gray-50" onClick={() => setShowSequencePicker(false)} disabled={isEnrollingSequence}>Cancel</button>
               <button
                 className={`px-4 py-2 rounded-lg text-white disabled:opacity-50 ${isEnrollingSequence ? 'bg-purple-400' : 'bg-purple-600 hover:bg-purple-700'}`}
                 disabled={!selectedSequenceId || isEnrollingSequence}
-                onClick={async ()=>{
-                  try{
-                    setIsEnrollingSequence(true);
-                    const { data: { session } } = await supabase.auth.getSession();
-                    const token = session?.access_token;
-                    const res = await fetch(`${API_BASE_URL}/sequences/${selectedSequenceId}/enroll`,{
-                      method:'POST',
-                      headers:{ 'Content-Type':'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {})},
-                      credentials:'include',
-                      body: JSON.stringify({ leadIds: selectedLeadIds, startTimeLocal: sequenceStart.toISOString(), timezone: sequenceTz, provider: sequenceProvider })
-                    });
-                    if(!res.ok) throw new Error('Failed to enroll');
-                    setShowSequencePicker(false);
-                    toast.success('Leads enrolled');
-                  }catch(e){ toast.error(e.message||'Failed'); }
-                  finally{ setIsEnrollingSequence(false); }
-                }}
+                onClick={() => handleSequenceEnroll()}
               >
                 {isEnrollingSequence ? (
                   <span className="inline-flex items-center gap-2">

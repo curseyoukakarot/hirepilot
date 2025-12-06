@@ -27,7 +27,15 @@ export class OutlookTrackingService {
   /**
    * Send email via Microsoft Graph API with tracking
    */
-  static async sendEmail(userId: string, to: string, subject: string, html: string, campaignId?: string, leadId?: string): Promise<string> {
+  static async sendEmail(
+    userId: string,
+    to: string,
+    subject: string,
+    html: string,
+    campaignId?: string,
+    leadId?: string,
+    bccList?: string[]
+  ): Promise<string> {
     try {
       const accessToken = await getOutlookAccessToken(userId);
       const client = Client.init({
@@ -56,7 +64,14 @@ export class OutlookTrackingService {
                 address: to
               }
             }
-          ]
+          ],
+          ...(bccList && bccList.length
+            ? {
+                bccRecipients: bccList.map(address => ({
+                  emailAddress: { address }
+                }))
+              }
+            : {})
         }
       };
 

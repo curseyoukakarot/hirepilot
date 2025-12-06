@@ -69,6 +69,13 @@ async function getSequenceWithSteps(sequenceId: string, userId: string) {
   return { sequence, steps: steps || [] };
 }
 
+function normalizeBccInput(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  const raw = Array.isArray(value) ? value : String(value).split(/[,;\n]/);
+  const cleaned = Array.from(new Set(raw.map(v => v.trim()).filter(Boolean)));
+  return cleaned.length ? cleaned.join(',') : null;
+}
+
 // CRUD Sequences ------------------------------------------------------
 router.post('/sequences', requireAuth, async (req: ApiRequest, res) => {
   try {
@@ -316,7 +323,10 @@ router.post('/sequences/:id/enroll', requireAuth, async (req: ApiRequest, res) =
       if (planTier === 'free') return res.status(403).json({ error: 'Sequences are available in paid plans.' });
     } catch {}
     const sequenceId = req.params.id;
-    const { leadIds, startTimeLocal, timezone, provider } = req.body || {};
+    const body = req.body || {};
+    const { leadIds, startTimeLocal, timezone, provider } = body;
+    const bccProvided = Object.prototype.hasOwnProperty.call(body, 'bcc');
+    const normalizedBcc = bccProvided ? normalizeBccInput(body.bcc) : undefined;
     if (!Array.isArray(leadIds) || !leadIds.length) return res.status(400).json({ error: 'leadIds required' });
 
     const seqBundle = await getSequenceWithSteps(sequenceId, userId);
@@ -410,9 +420,20 @@ router.post('/sequences/:id/enroll', requireAuth, async (req: ApiRequest, res) =
 
       let enrollmentId: string | null = null;
       if (!existing) {
+        const insertPayload: Record<string, any> = {
+          sequence_id: sequenceId,
+          lead_id: resolvedLeadId as string,
+          enrolled_by_user_id: userId,
+          status: 'active',
+          current_step_order: 1,
+          provider: provider || null
+        };
+        if (bccProvided) {
+          insertPayload.bcc = normalizedBcc ?? null;
+        }
         const { data: ins, error: insErr } = await supabaseDb
           .from('sequence_enrollments')
-          .insert({ sequence_id: sequenceId, lead_id: resolvedLeadId as string, enrolled_by_user_id: userId, status: 'active', current_step_order: 1, provider: provider || null })
+          .insert(insertPayload)
           .select('id')
           .single();
         if (insErr) throw insErr;
@@ -425,11 +446,13 @@ router.post('/sequences/:id/enroll', requireAuth, async (req: ApiRequest, res) =
         try {
           // no-op backfill
         } catch {}
-        // Update provider if specified
-        if (provider) {
+        const updatePayload: Record<string, any> = {};
+        if (provider) updatePayload.provider = provider;
+        if (bccProvided) updatePayload.bcc = normalizedBcc ?? null;
+        if (Object.keys(updatePayload).length) {
           await supabaseDb
             .from('sequence_enrollments')
-            .update({ provider })
+            .update(updatePayload)
             .eq('id', enrollmentId);
         }
       }

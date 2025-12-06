@@ -9,9 +9,12 @@ export async function sendViaProvider(
   lead: any,
   bodyHtml: string,
   userId: string,
-  subject?: string
+  subject?: string,
+  options?: { bcc?: string[] }
 ): Promise<boolean> {
   try {
+    const bccList = options?.bcc?.filter(addr => !!addr?.trim());
+
     if (provider === 'sendgrid') {
       // Get user's SendGrid API key and default sender
       const { data, error } = await supabaseDb
@@ -36,6 +39,9 @@ export async function sendViaProvider(
         },
         replyTo: `msg_${trackingMessageId}.u_${userId}.c_${lead.campaign_id}@${process.env.INBOUND_PARSE_DOMAIN || 'reply.thehirepilot.com'}`
       };
+      if (bccList && bccList.length) {
+        msg.bcc = bccList;
+      }
       const [response] = await sgMail.send(msg);
       const sgMsgId = (response as any)?.headers?.['x-message-id'];
       const now = new Date();
@@ -82,7 +88,8 @@ export async function sendViaProvider(
         subject || 'Message from HirePilot',
         bodyHtml,
         lead.campaign_id,
-        lead.id
+        lead.id,
+        bccList
       );
       const now = new Date();
       await supabaseDb.from('messages').insert({
@@ -117,7 +124,8 @@ export async function sendViaProvider(
         subject || 'Message from HirePilot',
         bodyHtml,
         lead.campaign_id,
-        lead.id
+        lead.id,
+        bccList
       );
       const now = new Date();
       await supabaseDb.from('messages').insert({

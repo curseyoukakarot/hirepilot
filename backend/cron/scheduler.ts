@@ -164,7 +164,7 @@ export async function processSequenceStepRuns(){
   const enrollmentIds = Array.from(new Set(runs.map((r:any)=>r.enrollment_id)));
   const { data: enrollments } = await supabaseDb
     .from('sequence_enrollments')
-    .select('id,sequence_id,lead_id,status,current_step_order')
+    .select('id,sequence_id,lead_id,status,current_step_order,provider,bcc')
     .in('id', enrollmentIds);
   const enrollmentById: Record<string, any> = {};
   for (const e of enrollments || []) enrollmentById[e.id]=e;
@@ -253,10 +253,23 @@ export async function processSequenceStepRuns(){
       // Determine provider for this enrollment if specified; else fall back to default service
       let sent = false;
       const preferredProvider = (enrollment as any)?.provider as string | undefined;
+      const enrollmentBcc = (enrollment as any)?.bcc
+        ? String((enrollment as any).bcc)
+            .split(/[,;\n]/)
+            .map(v => v.trim())
+            .filter(Boolean)
+        : [];
       if (preferredProvider && ['sendgrid','google','gmail','outlook'].includes(preferredProvider)) {
         const { sendViaProvider } = await import('../services/providerEmail');
         const subj = step.subject ? personalizeMessage(step.subject, leadRes) : 'Message from HirePilot';
-        sent = await sendViaProvider(preferredProvider as any, leadRes, body, leadRes.user_id, subj);
+        sent = await sendViaProvider(
+          preferredProvider as any,
+          leadRes,
+          body,
+          leadRes.user_id,
+          subj,
+          enrollmentBcc.length ? { bcc: enrollmentBcc } : undefined
+        );
       } else {
         const ep = await import('../services/emailProviderService');
         sent = await ep.sendEmail(leadRes, body, leadRes.user_id, subject);

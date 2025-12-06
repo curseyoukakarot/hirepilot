@@ -6,6 +6,7 @@ type BuildParams = {
   subject: string;
   htmlBody: string;
   replyToOverride: string;
+  bcc?: string[];
   trackingPixelHtml?: string;
   headers?: Record<string, string>;
 };
@@ -40,11 +41,14 @@ export function buildGmailRawMessage(params: BuildParams): {
     : params.htmlBody;
 
   // Build a minimal multipart/alternative with only HTML part for now
+  const bccHeader = params.bcc && params.bcc.length ? `Bcc: ${params.bcc.join(', ')}\r\n` : '';
+
   const mime =
     `From: ${params.from}\r\n` +
     `To: ${params.to}\r\n` +
     `Subject: ${params.subject}\r\n` +
     `Reply-To: ${params.replyToOverride}\r\n` +
+    bccHeader +
     `Message-ID: ${messageIdHeader}\r\n` +
     extraHeaders +
     `MIME-Version: 1.0\r\n` +

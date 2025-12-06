@@ -2,6 +2,13 @@ import { Request, Response } from 'express';
 import { supabaseDb } from '../lib/supabase';
 import { createZapEvent, EVENT_TYPES } from '../src/lib/events';
 
+function normalizeBccString(value?: string | string[] | null): string | null {
+  if (!value) return null;
+  const raw = Array.isArray(value) ? value : String(value).split(/[,;\n]/);
+  const deduped = Array.from(new Set(raw.map(v => v.trim()).filter(Boolean)));
+  return deduped.length ? deduped.join(',') : null;
+}
+
 export default async function scheduleMassMessage(req: Request, res: Response) {
   try {
     const { messages } = req.body;
@@ -19,6 +26,7 @@ export default async function scheduleMassMessage(req: Request, res: Response) {
       template_id: msg.template_id,
       channel: msg.channel,
       scheduled_for: msg.scheduled_for,
+      bcc: normalizeBccString(msg.bcc),
       status: 'scheduled',
       created_at: new Date().toISOString()
     }));
