@@ -7,6 +7,9 @@ const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
 export default function ActivityLogSection({ lead, onActivityAdded, entityType = 'lead' }) {
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [emailEvents, setEmailEvents] = useState([]);
+  const [emailLoading, setEmailLoading] = useState(true);
+  const [emailError, setEmailError] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [error, setError] = useState('');
 
@@ -75,10 +78,36 @@ export default function ActivityLogSection({ lead, onActivityAdded, entityType =
     }
   }, [entityType, lead?.id, lead?.lead_id, getAuthHeaders]);
 
+  const fetchEmailEvents = useCallback(async () => {
+    if (!lead?.id) {
+      setEmailEvents([]);
+      setEmailLoading(false);
+      return;
+    }
+    try {
+      setEmailLoading(true);
+      setEmailError('');
+      const { data, error } = await supabase
+        .from('email_events')
+        .select('id,event_type,event_timestamp,provider,campaign_id,message_id')
+        .eq('lead_id', lead.id)
+        .order('event_timestamp', { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      setEmailEvents(data || []);
+    } catch (err) {
+      console.error('Error fetching email events:', err);
+      setEmailError('Unable to load email events');
+    } finally {
+      setEmailLoading(false);
+    }
+  }, [lead?.id]);
+
   // Fetch activities when lead changes
   useEffect(() => {
     fetchActivities();
-  }, [fetchActivities]);
+    fetchEmailEvents();
+  }, [fetchActivities, fetchEmailEvents]);
 
   const handleActivityAdded = (newActivity) => {
     // Add the new activity to the top of the list
@@ -195,6 +224,30 @@ export default function ActivityLogSection({ lead, onActivityAdded, entityType =
     }
   };
 
+  const getEmailEventIcon = (eventType) => {
+    switch ((eventType || '').toLowerCase()) {
+      case 'sent':
+        return '📤';
+      case 'delivered':
+        return '✅';
+      case 'opened':
+        return '👁️';
+      case 'clicked':
+        return '🖱️';
+      case 'replied':
+        return '💬';
+      case 'bounced':
+        return '⚠️';
+      default:
+        return '✉️';
+    }
+  };
+
+  const formatEventLabel = (eventType) => {
+    if (!eventType) return 'Email';
+    return eventType.charAt(0).toUpperCase() + eventType.slice(1);
+  };
+
   return (
     <div className="space-y-4">
       {/* Section Header */}
@@ -220,6 +273,58 @@ export default function ActivityLogSection({ lead, onActivityAdded, entityType =
           </div>
         </div>
       )}
+
+      {/* Email Events */}
+      <div className="pt-4 border-t">
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+            ✉️ Recent Email Events
+          </h4>
+        </div>
+        {emailError && <div className="text-xs text-red-500 mb-2">{emailError}</div>}
+        {emailLoading ? (
+          <div className="flex items-center text-sm text-gray-500 gap-2">
+            <svg className="animate-spin h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+            </svg>
+            Loading email events...
+          </div>
+        ) : emailEvents.length === 0 ? (
+          <p className="text-xs text-gray-400">No recent email activity yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {emailEvents.map(event => (
+              <div key={event.id} className="flex items-start space-x-3 p-2 rounded-lg bg-white border">
+                <div className="w-7 h-7 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs">
+                  {getEmailEventIcon(event.event_type)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-900">
+                      {formatEventLabel(event.event_type)}
+                    </span>
+                    <span className="text-xs text-gray-500">{formatDate(event.event_timestamp)}</span>
+                  </div>
+                  <div className="text-xs text-gray-500 flex items-center gap-2 mt-1 flex-wrap">
+                    {event.provider && (
+                      <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
+                        {event.provider}
+                      </span>
+                    )}
+                    {event.campaign_id && (
+                      <span className="text-gray-400">Campaign: {String(event.campaign_id).slice(0, 8)}</span>
+                    )}
+                    {event.message_id && (
+                      <span className="text-gray-400">Msg: {String(event.message_id).slice(0, 6)}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Loading State */}
       {loading && (

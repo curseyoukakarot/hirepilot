@@ -5,6 +5,7 @@ import { ApiRequest } from '../types/api';
 import { supabaseDb } from '../lib/supabase';
 import { notifySlack } from '../lib/slack';
 import { personalizeMessage } from '../utils/messageUtils';
+import { logLeadOutreachActivities } from '../src/services/activityLogger';
 
 const router = Router();
 
@@ -321,6 +322,7 @@ router.post('/sequences/:id/enroll', requireAuth, async (req: ApiRequest, res) =
     const seqBundle = await getSequenceWithSteps(sequenceId, userId);
     if (!seqBundle || !seqBundle.steps.length) return res.status(404).json({ error: 'Sequence or steps not found' });
     const { sequence, steps } = seqBundle;
+    const enrolledLeadIds = new Set<string>();
 
     const localStartIso = startTimeLocal || DateTime.now().setZone(timezone || 'America/Chicago').toISO();
     const baseUtcIso = toUtcFromLocal(localStartIso, timezone || 'America/Chicago');
@@ -441,6 +443,7 @@ router.post('/sequences/:id/enroll', requireAuth, async (req: ApiRequest, res) =
           send_at: baseUtc.toISO(),
           status: 'pending'
         });
+        if (resolvedLeadId) enrolledLeadIds.add(resolvedLeadId as string);
       }
     }
 
@@ -469,6 +472,18 @@ router.post('/sequences/:id/enroll', requireAuth, async (req: ApiRequest, res) =
       await notifySlack(`📣 Sequence launched: *${campaignName}*${campaignId ? ` (${campaignId})` : ''}\nEnrolled ${leadIds.length - skippedCount} leads • First send: ${firstTime}`);
     } catch (e) {
       console.warn('[sequences/enroll] Slack notify failed', e);
+    }
+
+    try {
+      if (enrolledLeadIds.size) {
+        const sequenceNote = sequence?.name ? `Sent Email Sequence ${sequence.name}` : 'Sent Email Sequence';
+        await logLeadOutreachActivities(Array.from(enrolledLeadIds), userId, {
+          note: sequenceNote,
+          tags: ['sequence']
+        });
+      }
+    } catch (err) {
+      console.warn('[sequences/enroll] failed to log outreach activity', err);
     }
 
     res.status(201).json({ enrolled: leadIds.length - skippedCount, skipped: skippedCount, first_send_at: baseUtc.toISO() });

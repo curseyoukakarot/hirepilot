@@ -3,6 +3,7 @@ import { Response } from 'express';
 import { supabaseDb } from '../lib/supabase';
 import { personalizeMessage } from '../utils/messageUtils';
 import { createZapEvent, EVENT_TYPES } from '../src/lib/events';
+import { logLeadOutreachActivities } from '../src/services/activityLogger';
 
 /**
  * POST /api/messages/bulk-schedule
@@ -27,7 +28,7 @@ export default async function bulkSchedule(req: ApiRequest, res: Response) {
     // Fetch template content
     const { data: tmpl, error: tmplErr } = await supabaseDb
       .from('templates')
-      .select('content')
+      .select('content, name')
       .eq('id', template_id)
       .eq('user_id', userId)
       .single();
@@ -40,6 +41,8 @@ export default async function bulkSchedule(req: ApiRequest, res: Response) {
       .in('id', lead_ids)
       .eq('user_id', userId);
     if (leadsErr) throw leadsErr;
+
+    const templateName = tmpl.name || 'Template';
 
     const rows = leads.map((lead: any) => ({
       lead_id: lead.id,
@@ -65,6 +68,16 @@ export default async function bulkSchedule(req: ApiRequest, res: Response) {
         payload: { count: rows.length, scheduled_at }
       });
     } catch {}
+
+    try {
+      const leadIds = (leads || []).map((lead: any) => lead.id);
+      await logLeadOutreachActivities(leadIds, userId, {
+        note: templateName ? `Sent Email Template ${templateName}` : 'Sent Email Template',
+        tags: ['template']
+      });
+    } catch (err) {
+      console.warn('[bulkSchedule] failed to log outreach activity', err);
+    }
 
     res.status(201).json({ scheduled: rows.length, scheduled_at });
   } catch (e: any) {
