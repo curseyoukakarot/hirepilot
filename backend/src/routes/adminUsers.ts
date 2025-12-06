@@ -214,7 +214,7 @@ async function syncAuthRoleMetadata(userId: string, role?: string, teamId?: stri
 async function applyUserPatchAndSync(userId: string, updates: Record<string, any>) {
   const { data: before, error: loadErr } = await supabaseDb
     .from('users')
-    .select('id,email,role,team_id,first_name,last_name,firstName,lastName,company')
+    .select('*')
     .eq('id', userId)
     .maybeSingle();
 
