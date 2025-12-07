@@ -30,7 +30,8 @@ export default function SettingsTeamMembers() {
   const [jobOptions, setJobOptions] = useState([]);
   const [teamSettings, setTeamSettings] = useState({
     shareLeads: false,
-    shareCandidates: false
+    shareCandidates: false,
+    allowTeamEditing: false
   });
 
   const handleOpenInviteModal = () => setIsInviteModalOpen(true);
@@ -348,14 +349,15 @@ export default function SettingsTeamMembers() {
       // Get team settings
       const { data: settings } = await supabase
         .from('team_settings')
-        .select('share_leads, share_candidates')
+        .select('share_leads, share_candidates, allow_team_editing')
         .eq('team_id', userData.team_id)
         .maybeSingle();
 
       if (settings) {
         setTeamSettings({
           shareLeads: settings.share_leads || false,
-          shareCandidates: settings.share_candidates || false
+          shareCandidates: settings.share_candidates || false,
+          allowTeamEditing: settings.allow_team_editing || false
         });
       }
     } catch (error) {
@@ -378,20 +380,33 @@ export default function SettingsTeamMembers() {
         body: JSON.stringify({
           shareLeads: setting === 'shareLeads' ? value : undefined,
           shareCandidates: setting === 'shareCandidates' ? value : undefined,
+          allowTeamEditing:
+            setting === 'allowTeamEditing'
+              ? value
+              : (setting === 'shareLeads' && value === false ? false : undefined),
         })
       });
       const js = await resp.json().catch(()=>({}));
       if (!resp.ok) throw new Error(js?.error || 'Failed to update team settings');
 
       // Update local state
-      setTeamSettings(prev => ({
-        ...prev,
-        [setting]: value
-      }));
+      setTeamSettings(prev => {
+        const next = { ...prev, [setting]: value };
+        if (setting === 'shareLeads' && value === false) {
+          next.allowTeamEditing = false;
+        }
+        return next;
+      });
 
       // Backend already updates all existing records. No additional client-side update.
 
-      toast.success(`${setting === 'shareLeads' ? 'Leads' : 'Candidates'} sharing ${value ? 'enabled' : 'disabled'}`);
+      const toastLabel =
+        setting === 'shareLeads'
+          ? 'Leads sharing'
+          : setting === 'shareCandidates'
+            ? 'Candidates sharing'
+            : 'Shared lead editing';
+      toast.success(`${toastLabel} ${value ? 'enabled' : 'disabled'}`);
     } catch (error) {
       console.error('Error updating team setting:', error);
       toast.error('Failed to update team setting');
@@ -489,6 +504,28 @@ export default function SettingsTeamMembers() {
                   className="sr-only peer"
                   checked={teamSettings.shareLeads}
                   onChange={() => updateTeamSetting('shareLeads', !teamSettings.shareLeads)}
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer dark:bg-gray-700 peer-checked:bg-indigo-600"></div>
+              </label>
+            </div>
+            
+            <div className="flex items-center justify-between py-2">
+              <div>
+                <span className="font-medium text-gray-900">Allow teammates to edit shared leads</span>
+                <p className="text-sm text-gray-500">
+                  When enabled, anyone in your team can update leads shared with them.
+                </p>
+                {!teamSettings.shareLeads && (
+                  <p className="text-xs text-gray-400 mt-1">Turn on lead sharing to enable this option.</p>
+                )}
+              </div>
+              <label className={`inline-flex items-center ${!teamSettings.shareLeads ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={teamSettings.allowTeamEditing}
+                  disabled={!teamSettings.shareLeads}
+                  onChange={() => updateTeamSetting('allowTeamEditing', !teamSettings.allowTeamEditing)}
                 />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer dark:bg-gray-700 peer-checked:bg-indigo-600"></div>
               </label>
