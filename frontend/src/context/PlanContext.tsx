@@ -117,7 +117,7 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
         ? creditsJson.total_credits
         : (typeof data?.monthly_credits === 'number' ? data.monthly_credits : null);
 
-      const roleLc = String(role || '').toLowerCase();
+      const roleLc = String(role || '').toLowerCase().replace(/\s|-/g, '_');
       const hasPaidLevelCredits = (() => {
         const creditCandidates = [
           typeof remainingCredits === 'number' ? remainingCredits : null,
@@ -133,10 +133,11 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
       // Treat guest as free for gating purposes unless a paid plan is explicitly set
       let resolvedPlan = planServer || ((roleLc==='free' || roleLc==='guest' || (remainingCredits===50)) ? 'free' : null);
       if (isAdminRole && (!resolvedPlan || resolvedPlan === 'free')) {
-        resolvedPlan = 'admin';
-      }
-      if (!isAdminRole && roleLc === 'member' && hasPaidLevelCredits && (!resolvedPlan || resolvedPlan === 'free')) {
+        resolvedPlan = roleLc === 'team_admin' || roleLc === 'team_admins' ? 'team_admin' : 'admin';
+      } else if (roleLc === 'member' && hasPaidLevelCredits && (!resolvedPlan || resolvedPlan === 'free')) {
         resolvedPlan = 'member';
+      } else if (roleLc === 'recruitpro' && (!resolvedPlan || resolvedPlan === 'free')) {
+        resolvedPlan = 'RecruitPro';
       }
 
       setInfo({
@@ -181,6 +182,8 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
       const normalizedRole = (info.role || '').toLowerCase().replace(/\s|-/g, '_');
       const isSuperAdmin = ['super_admin', 'superadmin'].includes(normalizedRole);
       const planLc = String(info.plan || '').toLowerCase();
+      const paidRoles = ['member','admin','team_admin','team_admins','recruitpro','super_admin','superadmin'];
+      if (paidRoles.includes(normalizedRole) && planLc !== 'free') return false;
       return (planLc === 'free' || normalizedRole === 'free' || normalizedRole === 'guest') && !isSuperAdmin;
     })(),
     remainingCredits: info.remaining_credits,

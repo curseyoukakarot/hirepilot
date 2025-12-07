@@ -73,14 +73,20 @@ router.get('/plan', requireAuthPlan, async (req: ApiRequest, res: Response) => {
     if ((!derivedPlan || derivedPlan === 'free') && privilegedRoles.has(normalizedRole)) {
       if (normalizedRole === 'recruitpro') derivedPlan = 'RecruitPro';
       else if (normalizedRole === 'super_admin' || normalizedRole === 'admin') derivedPlan = 'admin';
-      else derivedPlan = 'team';
+      else derivedPlan = 'member';
+    }
+    let effectiveRole = rawRole || null;
+    if ((!rawRole || normalizedRole === 'free' || normalizedRole === 'guest') && derivedPlan && derivedPlan !== 'free') {
+      if (derivedPlan === 'admin') effectiveRole = 'admin';
+      else if (derivedPlan === 'RecruitPro') effectiveRole = 'RecruitPro';
+      else effectiveRole = 'member';
     }
     res.json({
       plan: derivedPlan || data?.plan || 'free',
       remaining_credits: data?.remaining_credits ?? 0,
       monthly_credits: data?.monthly_credits ?? null,
       plan_updated_at: data?.plan_updated_at || null,
-      role: rawRole || null
+      role: effectiveRole
     });
   } catch (e) {
     res.status(500).json({ error: 'Failed to get plan' });
