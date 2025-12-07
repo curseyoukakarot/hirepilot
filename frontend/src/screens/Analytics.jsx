@@ -853,8 +853,10 @@ export default function Analytics() {
 
         let payload = null;
         if (base) {
-          const uid = session?.user?.id || '';
-          const r = await fetch(`${base}/api/campaigns/all/performance?user_id=${encodeURIComponent(uid)}`, { headers: hdrs });
+          const r = await fetch(`${base}/api/campaigns/all/performance`, {
+            headers: hdrs,
+            credentials: 'include'
+          });
           const ct = r.headers?.get?.('content-type') || '';
           if (r.ok && ct.includes('application/json')) {
             const p = await r.json();

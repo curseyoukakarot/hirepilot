@@ -254,7 +254,10 @@ export default async function handler(req: any, res: any) {
         try {
           const base = (process.env.BACKEND_URL || process.env.VITE_BACKEND_URL || '').replace(/\/$/, '');
           if (base && /^https?:\/\//i.test(base)) {
-            const perf = await fetch(`${base}/api/campaigns/all/performance?user_id=${encodeURIComponent(user.id)}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} } as any);
+            const perf = await fetch(`${base}/api/campaigns/all/performance`, {
+              headers: token ? { Authorization: `Bearer ${token}` } : {},
+              credentials: 'include'
+            } as any);
             const ct = perf.headers?.get?.('content-type') || '';
             if (perf.ok && ct.includes('application/json')) {
               const p = await perf.json();

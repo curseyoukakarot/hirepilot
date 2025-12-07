@@ -100,12 +100,20 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchUserAndMetrics = async () => {
       setLoading(true);
-      const { data } = await supabase.auth.getUser();
-      if (data?.user) {
-        setUser(data.user);
+      const [{ data: userData }, { data: sessionData }] = await Promise.all([
+        supabase.auth.getUser(),
+        supabase.auth.getSession()
+      ]);
+      const authedUser = userData?.user;
+      const token = sessionData?.session?.access_token;
+      if (authedUser) {
+        setUser(authedUser);
         // Avoid noisy 404s: skip legacy tables in production
         try {
-          const response = await fetch(`${BACKEND_URL}/api/campaigns/all/performance?user_id=${data.user.id}`);
+          const response = await fetch(`${BACKEND_URL}/api/campaigns/all/performance`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+            credentials: 'include'
+          });
           const result = await response.json();
           setMetrics(result);
         } catch (_) {
@@ -264,6 +272,7 @@ export default function Dashboard() {
           const base = String(fromProcess || fromVite || fromWindow || '').replace(/\/$/, '');
           const { data: { session } } = await supabase.auth.getSession();
           const token = session?.access_token;
+          const uid = session?.user?.id || '';
           const hdrs = token ? { Authorization: `Bearer ${token}` } : {};
 
           let rows = [];
@@ -318,15 +327,17 @@ export default function Dashboard() {
           const base = String(fromProcess || fromVite || fromWindow || '').replace(/\/$/, '');
           const { data: { session } } = await supabase.auth.getSession();
           const token = session?.access_token;
-          const uid = session?.user?.id || '';
           const hdrs = token ? { Authorization: `Bearer ${token}` } : {};
           let payload = null;
           if (base) {
-            const qs = new URLSearchParams({ user_id: String(uid) });
+            const qs = new URLSearchParams();
             if (engageCampaignId && engageCampaignId !== 'all') {
               qs.set('campaign_id', String(engageCampaignId));
             }
-            const r = await fetch(`${base}/api/campaigns/all/performance?${qs.toString()}`, { headers: hdrs });
+            const path = qs.toString()
+              ? `${base}/api/campaigns/all/performance?${qs.toString()}`
+              : `${base}/api/campaigns/all/performance`;
+            const r = await fetch(path, { headers: hdrs, credentials: 'include' });
             const ct = r.headers?.get?.('content-type') || '';
             if (r.ok && ct.includes('application/json')) {
               const p = await r.json();
