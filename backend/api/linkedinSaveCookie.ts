@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';
 import fetch from 'node-fetch'; // For LinkedIn ping
 import crypto from 'crypto';
+import { encryptGCM } from '../src/lib/crypto';
 
 const router = express.Router();
 
@@ -28,6 +29,20 @@ const saveCookieSchema = z.object({
   user_agent: z.string().min(1, 'User agent is required'),
 });
 
+function extractCookieValue(cookieString: string, key: string): string | null {
+  if (!cookieString) return null;
+  const parts = cookieString.split(';');
+  for (const part of parts) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+    const [name, ...rest] = trimmed.split('=');
+    if (name && name.trim().toLowerCase() === key.toLowerCase()) {
+      return rest.join('=');
+    }
+  }
+  return null;
+}
+
 // POST /api/linkedin/save-cookie
 router.post('/save-cookie', async (req, res) => {
   try {
@@ -35,6 +50,7 @@ router.post('/save-cookie', async (req, res) => {
 
     // Encrypt the session_cookie before storing
     const encrypted_cookie = encrypt(session_cookie);
+    const now = new Date().toISOString();
 
     // Set expires_at to 30 days from now and status to 'valid' for new cookies
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days from now
@@ -44,7 +60,7 @@ router.post('/save-cookie', async (req, res) => {
         user_id, 
         session_cookie: encrypted_cookie, 
         user_agent,
-        updated_at: new Date().toISOString(),
+        updated_at: now,
         expires_at: expiresAt.toISOString(),
         status: 'valid',
         is_valid: true
@@ -53,6 +69,32 @@ router.post('/save-cookie', async (req, res) => {
     if (error) {
       console.error('insert failed', error);
       res.status(500).json({ error: error.message });
+      return;
+    }
+
+    const gcmEncryptedCookie = JSON.stringify(encryptGCM(session_cookie));
+    const liAtValue = extractCookieValue(session_cookie, 'li_at');
+    const jsessionValue = extractCookieValue(session_cookie, 'JSESSIONID');
+
+    const { error: sessionError } = await supabase
+      .from('linkedin_sessions')
+      .upsert(
+        {
+          user_id,
+          enc_cookie: gcmEncryptedCookie,
+          cookie_string: gcmEncryptedCookie,
+          enc_li_at: liAtValue ? JSON.stringify(encryptGCM(liAtValue)) : null,
+          enc_jsessionid: jsessionValue ? JSON.stringify(encryptGCM(jsessionValue)) : null,
+          updated_at: now,
+          last_used_at: now,
+          source: 'chrome_extension'
+        },
+        { onConflict: 'user_id' }
+      );
+
+    if (sessionError) {
+      console.error('linkedin_sessions upsert failed', sessionError);
+      res.status(500).json({ error: sessionError.message });
       return;
     }
 

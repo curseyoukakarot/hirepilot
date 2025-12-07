@@ -7,8 +7,8 @@ import { ApiRequest } from '../../../../types/api';
 import { enrichWithHunter } from '../../../../services/hunter/enrichLead';
 import { enrichWithSkrapp } from '../../../../services/skrapp/enrichLead';
 import { enrichLead as enrichWithApollo } from '../../../../services/apollo/enrichLead';
-import { decryptCookie } from '../../../utils/encryption';
 import { fetchHtml } from '../../../lib/decodoProxy';
+import { getLatestLinkedInCookieForUser } from '../../../services/linkedin/cookieService';
 
 const router = express.Router();
 
@@ -170,43 +170,7 @@ function parseLinkedInProfile(html: string): any {
  * Retrieve user's LinkedIn cookie for enrichment
  */
 async function getUserLinkedInCookie(userId: string): Promise<string | null> {
-  try {
-    const { data: cookieData, error } = await supabase
-      .from('linkedin_cookies')
-      .select('encrypted_cookie, valid, expires_at')
-      .eq('user_id', userId)
-      .eq('valid', true)
-      .single();
-
-    if (error || !cookieData) {
-      console.log(`[EnrichmentAuth] No valid cookie found for user ${userId}`);
-      return null;
-    }
-
-    // Check if cookie is expired
-    if (cookieData.expires_at) {
-      const expiresAt = new Date(cookieData.expires_at);
-      if (expiresAt < new Date()) {
-        console.log(`[EnrichmentAuth] Cookie expired for user ${userId}`);
-        return null;
-      }
-    }
-
-    // Decrypt and return cookie
-    const decryptedCookie = decryptCookie(cookieData.encrypted_cookie);
-    
-    // Update last_used_at timestamp
-    await supabase
-      .from('linkedin_cookies')
-      .update({ last_used_at: new Date().toISOString() })
-      .eq('user_id', userId);
-
-    return decryptedCookie;
-
-  } catch (error: any) {
-    console.error('[EnrichmentAuth] Error retrieving cookie:', error.message);
-    return null;
-  }
+  return getLatestLinkedInCookieForUser(userId);
 }
 
 // STEP 1: Decodo Profile Scraping

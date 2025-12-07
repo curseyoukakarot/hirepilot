@@ -6,6 +6,7 @@ import { DecodoClient } from '../../../utils/decodo';
 import { parseSalesNavigatorSearchResults } from '../../../utils/cheerio/salesNavParser';
 import enrichmentProcessor from '../../../cron/enrichmentProcessor';
 import { fetchSalesNavJson } from '../../../../services/linkedin/playwrightFetcher';
+import { getLatestLinkedInCookieForUser } from '../../../services/linkedin/cookieService';
 // encryption helpers imported dynamically where needed
 
 const router = express.Router();
@@ -353,72 +354,7 @@ router.post('/trigger', requireAuth, async (req: ApiRequest, res: Response) => {
  * Retrieve user's LinkedIn cookie for authentication
  */
 async function getUserLinkedInCookie(userId: string): Promise<string | null> {
-  try {
-    const { data: cookieData, error } = await supabaseDb
-      .from('linkedin_cookies')
-      .select('session_cookie, is_valid, status, expires_at')
-      .eq('user_id', userId)
-      .single();
-
-    if (error || !cookieData) {
-      console.warn('[LinkedInAuth] Cookie query result', { error, cookieData });
-      console.log(`[LinkedInAuth] No valid cookie found for user ${userId}`);
-      return null;
-    }
-
-    // Ensure cookie marked valid
-    if (cookieData.is_valid === false || (cookieData.status && cookieData.status !== 'valid')) {
-      console.log(`[LinkedInAuth] Cookie marked invalid for user ${userId}`);
-      return null;
-    }
-
-    // Check if cookie is expired
-    if (cookieData.expires_at) {
-      const expiresAt = new Date(cookieData.expires_at);
-      if (expiresAt < new Date()) {
-        console.log(`[LinkedInAuth] Cookie expired for user ${userId}`);
-        // Mark as invalid
-        await supabaseDb
-          .from('linkedin_cookies')
-          .update({ valid: false })
-          .eq('user_id', userId);
-        return null;
-      }
-    }
-
-    let plaintextCookie: string | null = null;
-
-    // Fallback for legacy unencrypted storage
-    if (!plaintextCookie && cookieData.session_cookie) {
-      try {
-        // Try decrypting legacy AES cookie first
-        const { decryptLegacyAesCookie } = await import('../../../utils/encryption');
-        plaintextCookie = decryptLegacyAesCookie(cookieData.session_cookie);
-        console.log('[LinkedInAuth] Decrypted legacy session_cookie');
-      } catch (legacyErr) {
-        console.warn('[LinkedInAuth] Unable to decrypt legacy session_cookie, using as-is');
-        plaintextCookie = cookieData.session_cookie;
-      }
-    }
-
-    if (!plaintextCookie) {
-      console.error('[LinkedInAuth] Unable to retrieve a usable cookie record');
-      return null;
-    }
-    
-    // Update last_used_at timestamp
-    await supabaseDb
-      .from('linkedin_cookies')
-      .update({ last_used_at: new Date().toISOString() })
-      .eq('user_id', userId);
-
-    console.log(`[LinkedInAuth] Retrieved valid cookie for user ${userId}`);
-    return plaintextCookie;
-
-  } catch (error: any) {
-    console.error('[LinkedInAuth] Error retrieving cookie:', error.message);
-    return null;
-  }
+  return getLatestLinkedInCookieForUser(userId);
 }
 
 export default router; 

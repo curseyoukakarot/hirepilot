@@ -26,16 +26,26 @@ export function registerLinkedInSessionRoutes(app: Application) {
       return res.status(400).json({ error: 'invalid_payload', details: body.error.flatten() });
     }
 
+    const now = new Date().toISOString();
+    const userIdValue = Array.isArray(user_id) ? user_id[0] : user_id;
+    const encryptedCookie = JSON.stringify(encryptGCM(body.data.cookie));
+    const encryptedLiAt = JSON.stringify(encryptGCM(body.data.li_at));
+    const encryptedJSession = body.data.jsessionid ? JSON.stringify(encryptGCM(body.data.jsessionid)) : null;
+
     const payload = {
-      enc_cookie: JSON.stringify(encryptGCM(body.data.cookie)),
-      enc_li_at: JSON.stringify(encryptGCM(body.data.li_at)),
-      enc_jsessionid: body.data.jsessionid ? JSON.stringify(encryptGCM(body.data.jsessionid)) : null,
-      updated_at: new Date().toISOString()
-    } as const;
+      user_id: userIdValue,
+      enc_cookie: encryptedCookie,
+      cookie_string: encryptedCookie,
+      enc_li_at: encryptedLiAt,
+      enc_jsessionid: encryptedJSession,
+      updated_at: now,
+      last_used_at: now,
+      source: 'integration_api'
+    };
 
     const { error } = await supabase
       .from('linkedin_sessions')
-      .upsert({ user_id: Array.isArray(user_id) ? user_id[0] : user_id, ...payload }, { onConflict: 'user_id' });
+      .upsert(payload, { onConflict: 'user_id' });
 
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ ok: true });

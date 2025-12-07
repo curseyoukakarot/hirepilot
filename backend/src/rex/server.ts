@@ -7,7 +7,7 @@ import sgMail from '@sendgrid/mail';
 import { personalizeMessage } from '../../utils/messageUtils';
 import { canonicalFlows, searchSupport, whitelistPages } from './knowledge.widget';
 import { widgetTools } from './widgetTools';
-import { linkedinTools } from './agents-mcp/linkedin.tools';
+import { buildLinkedinTools } from './agents-mcp/linkedin.tools';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const {
   sourceLeads,
@@ -102,6 +102,17 @@ async function apiAsUser(userId: string, endpoint: string, options: { method: st
   const contentType = response.headers.get('content-type');
   return contentType && contentType.includes('application/json') ? response.json() : response.text();
 }
+
+const linkedinTools = buildLinkedinTools(async ({ userId, action, linkedinUrl, message }) => {
+  return apiAsUser(userId, '/api/linkedin/remote-action', {
+    method: 'POST',
+    body: JSON.stringify({
+      action,
+      linkedinUrl,
+      message
+    })
+  });
+});
 
 // ---------------------------------------------------------------------------------
 // Minimal REX MCP server (stdio transport)

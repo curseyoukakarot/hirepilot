@@ -105,6 +105,16 @@ BRIGHTDATA_POLL_INTERVAL_MS=4000                  # default 4 seconds
 ```
 > Leave these blank to disable Bright Data. All integrations are feature-flagged and will fall back to existing providers automatically.
 
+### Bright Data Browser API (Optional)
+```
+BRIGHTDATA_BROWSER_ENABLED=false                  # Optional flag to toggle remote LinkedIn actions
+BRIGHTDATA_BROWSER_API_TOKEN=bd_browser_xxxxxxxxxxxxxxxxx
+BRIGHTDATA_BROWSER_BASE_URL=https://brd.superproxy.io/browser/...
+BRIGHTDATA_BROWSER_COUNTRY=us
+BRIGHTDATA_BROWSER_MAX_CONCURRENCY=5
+```
+> Leave these unset to keep remote LinkedIn actions disabled. The Browser API uses user cookies, is gated by plan settings, and consumes remote-action credits.
+
 ## 🔴 Redis Configuration (Required for AI Agents)
 ```
 REDIS_URL=redis://default:<password>@<host>:<port>

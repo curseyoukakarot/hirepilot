@@ -20,3 +20,14 @@ if (!brightDataConfig.apiToken) {
   console.warn('[BrightData] BRIGHTDATA_API_TOKEN is not set; Bright Data enrichment/sniper will be disabled.');
 }
 
+export const brightDataBrowserConfig = {
+  apiToken: process.env.BRIGHTDATA_BROWSER_API_TOKEN || process.env.BRIGHTDATA_API_TOKEN,
+  baseUrl: process.env.BRIGHTDATA_BROWSER_BASE_URL,
+  country: process.env.BRIGHTDATA_BROWSER_COUNTRY || 'us',
+  maxConcurrency: Number(process.env.BRIGHTDATA_BROWSER_MAX_CONCURRENCY || 5)
+};
+
+export function isBrightDataBrowserEnabled() {
+  return Boolean(brightDataBrowserConfig.apiToken && brightDataBrowserConfig.baseUrl);
+}
+

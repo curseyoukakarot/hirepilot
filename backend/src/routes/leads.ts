@@ -19,6 +19,10 @@ import { fetchHtml } from '../lib/decodoProxy';
 import { notifySlack } from '../../lib/slack';
 import { getUserIntegrations } from '../../utils/userIntegrationsHelper';
 import { isBrightDataEnabled } from '../config/brightdata';
+import { enqueueLinkedInRemoteAction } from '../services/linkedinRemoteActions';
+import { canUseRemoteLinkedInActions } from '../services/remoteActions';
+import { hasLinkedInCookie } from '../services/linkedin/cookieService';
+import { LinkedInRemoteActionType } from '../services/brightdataBrowser';
 
 const router = express.Router();
 
@@ -3180,4 +3184,91 @@ router.post('/attach-to-campaign', requireAuth, async (req: ApiRequest, res: Res
   }
 });
 
-export default router; 
+router.post('/:id/linkedin-connect', requireAuth, async (req: ApiRequest, res: Response) => {
+  await handleLeadRemoteAction(req, res, 'connect_request');
+});
+
+router.post('/:id/linkedin-message', requireAuth, async (req: ApiRequest, res: Response) => {
+  await handleLeadRemoteAction(req, res, 'send_message');
+});
+
+export default router;
+
+async function handleLeadRemoteAction(req: ApiRequest, res: Response, action: LinkedInRemoteActionType) {
+  try {
+    const userId = getRequestUserId(req);
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+
+    const leadId = req.params.id;
+    if (!leadId) return res.status(400).json({ error: 'Lead ID is required' });
+
+    const eligibility = await canUseRemoteLinkedInActions(userId);
+    if (!eligibility.allowed) {
+      return res.status(403).json({
+        error: eligibility.reason || 'Remote LinkedIn actions are not enabled for this workspace.'
+      });
+    }
+
+    const hasCookieOnFile = await hasLinkedInCookie(userId);
+    if (!hasCookieOnFile) {
+      return res.status(412).json({
+        error: 'LinkedIn cookies missing. Refresh your session in Settings to use remote actions.',
+        action_required: 'refresh_cookie'
+      });
+    }
+
+    const lead = await fetchLeadForRemoteAction(userId, leadId);
+    if (!lead) {
+      return res.status(404).json({ error: 'Lead not found or access denied' });
+    }
+
+    if (!lead.linkedin_url) {
+      return res.status(400).json({ error: 'Lead is missing a LinkedIn URL' });
+    }
+
+    const rawMessage = typeof req.body?.message === 'string' ? req.body.message.trim() : undefined;
+    const message = rawMessage ? rawMessage.slice(0, 450) : undefined;
+
+    if (action === 'send_message' && !message) {
+      return res.status(400).json({ error: 'A LinkedIn message is required.' });
+    }
+
+    await enqueueLinkedInRemoteAction({
+      userId,
+      accountId: lead.account_id || null,
+      leadId: lead.id,
+      action,
+      linkedinUrl: lead.linkedin_url,
+      message,
+      triggeredBy: userId
+    });
+
+    return res.status(202).json({ status: 'queued' });
+  } catch (err: any) {
+    console.error('[Leads] Remote LinkedIn action failed', { action, error: err?.message || err });
+    return res.status(500).json({ error: 'Failed to queue remote LinkedIn action' });
+  }
+}
+
+async function fetchLeadForRemoteAction(userId: string, leadId: string) {
+  try {
+    const { data, error } = await supabase
+      .from('leads')
+      .select('id, user_id, account_id, linkedin_url')
+      .eq('id', leadId)
+      .maybeSingle();
+
+    if (error || !data || data.user_id !== userId) {
+      return null;
+    }
+
+    return data;
+  } catch (err) {
+    console.error('[Leads] fetchLeadForRemoteAction failed', err);
+    return null;
+  }
+}
+
+function getRequestUserId(req: ApiRequest): string | null {
+  return req.user?.id || (req.headers['x-user-id'] as string | undefined) || null;
+}
