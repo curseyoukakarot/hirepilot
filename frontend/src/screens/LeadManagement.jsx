@@ -200,9 +200,12 @@ function LeadManagement() {
           || normalizeSource(enrichment.source)
           || 'Unknown';
         const sharedFromTeamMate = !!(lead.shared_from_team_member ?? (viewerId && lead.user_id && lead.user_id !== viewerId));
+        const sharedCanEdit = !!lead.shared_can_edit;
+        const canEdit = lead.can_edit ?? (lead.user_id === viewerId);
 
         return {
           id: lead.id,
+          ownerId: lead.user_id,
           name: lead.name,
           title: lead.title,
           company: lead.company,
@@ -225,6 +228,8 @@ function LeadManagement() {
           twitter: '',
           outreachHistory: [],
           sharedFromTeamMate,
+          sharedCanEdit,
+          canEdit,
         };
       });
       setLeads(mapped);
@@ -315,8 +320,16 @@ function LeadManagement() {
   const handleAction = (action, lead, e) => {
     e.stopPropagation();
     setShowActionsMenu(null);
+    const viewerId = currentUserId;
+    const ownerId = lead.ownerId || lead.user_id;
+    const isOwner = ownerId ? ownerId === viewerId : !lead.sharedFromTeamMate;
+    const canEditLead = lead.canEdit ?? isOwner;
     switch (action) {
       case 'edit':
+        if (!canEditLead) {
+          toast.error('This lead is view-only. Ask your team admin to allow shared edits.');
+          return;
+        }
         setEditedLead({ ...lead });
         setShowEditModal(true);
         break;
@@ -325,10 +338,18 @@ function LeadManagement() {
         setShowMessageModal(true);
         break;
       case 'convert':
+        if (!isOwner) {
+          toast.error('Only the lead owner can convert this record.');
+          return;
+        }
         setSelectedLead(lead);
         setShowConvertModal(true);
         break;
       case 'delete':
+        if (!isOwner) {
+          toast.error('Only the lead owner can delete this record.');
+          return;
+        }
         setLeadToDelete(lead);
         setShowConfirmDialog(true);
         break;

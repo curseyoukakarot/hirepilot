@@ -63,7 +63,49 @@ interface LeadResolutionResult {
   targetId: string;
 }
 
-const PRIVILEGED_ROLES = ['team_admin', 'super_admin', 'SuperAdmin'] as const;
+const PRIVILEGED_ROLES = ['admin', 'team_admin', 'team_admins', 'super_admin', 'SuperAdmin'] as const;
+
+type TeamSharingSettings = {
+  share_leads: boolean;
+  share_candidates: boolean;
+  allow_team_editing: boolean;
+};
+
+const DEFAULT_TEAM_SETTINGS: TeamSharingSettings = {
+  share_leads: false,
+  share_candidates: false,
+  allow_team_editing: false
+};
+
+async function fetchTeamSettingsForTeam(teamId?: string | null): Promise<TeamSharingSettings> {
+  if (!teamId) return DEFAULT_TEAM_SETTINGS;
+  const { data } = await supabase
+    .from('team_settings')
+    .select('share_leads, share_candidates, allow_team_editing')
+    .eq('team_id', teamId)
+    .maybeSingle();
+  return {
+    share_leads: !!data?.share_leads,
+    share_candidates: !!data?.share_candidates,
+    allow_team_editing: !!data?.allow_team_editing
+  };
+}
+
+async function resolveLeadSharingContext(viewerId: string, ownerId: string) {
+  const [viewerRes, ownerRes] = await Promise.all([
+    supabase.from('users').select('id, team_id, role').eq('id', viewerId).maybeSingle(),
+    supabase.from('users').select('id, team_id').eq('id', ownerId).maybeSingle()
+  ]);
+  const viewer = viewerRes?.data;
+  const owner = ownerRes?.data;
+  const sameTeam = Boolean(viewer?.team_id && owner?.team_id && viewer.team_id === owner.team_id);
+  const teamSettings = sameTeam && owner?.team_id
+    ? await fetchTeamSettingsForTeam(owner.team_id)
+    : DEFAULT_TEAM_SETTINGS;
+  const role = String(viewer?.role || '').toLowerCase();
+  const privileged = PRIVILEGED_ROLES.includes(role as any);
+  return { viewer, owner, sameTeam, teamSettings, privileged };
+}
 
 async function resolveLeadOrCandidateEntity(leadId: string, userId: string): Promise<LeadResolutionResult | null> {
   let entityType: LeadEntityType = 'lead';
@@ -1505,13 +1547,15 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     }
 
     let shareLeadsEnabled = false;
+    let allowTeamEditing = false;
     if (userData.team_id) {
       const { data: settings } = await supabase
         .from('team_settings')
-        .select('share_leads')
+        .select('share_leads, allow_team_editing')
         .eq('team_id', userData.team_id)
         .maybeSingle();
       shareLeadsEnabled = !!settings?.share_leads;
+      allowTeamEditing = shareLeadsEnabled && !!settings?.allow_team_editing;
     }
 
     // Build query based on user role
@@ -1559,14 +1603,22 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
-    const decorated = (leads || []).map((lead: any) => ({
-      ...lead,
-      shared_from_team_member:
+    const decorated = (leads || []).map((lead: any) => {
+      const sharedFromTeamMate =
         !!userData.team_id &&
         lead.user_id &&
         lead.user_id !== userId &&
-        teamUserIds.includes(lead.user_id)
-    }));
+        teamUserIds.includes(lead.user_id);
+      const canEdit =
+        lead.user_id === userId ||
+        (allowTeamEditing && sharedFromTeamMate);
+      return {
+        ...lead,
+        shared_from_team_member: sharedFromTeamMate,
+        shared_can_edit: sharedFromTeamMate && allowTeamEditing,
+        can_edit: canEdit
+      };
+    });
 
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
     res.removeHeader('ETag');
@@ -2055,16 +2107,21 @@ router.get('/:id', requireAuth, async (req: ApiRequest, res: Response) => {
       return;
     }
 
-    // Allow if owner; otherwise allow if same team privileged OR if this user owns a candidate linked to this lead
+    let sharedFromTeamMate = false;
+    let shareViewAllowed = false;
+    let shareEditAllowed = false;
+    let privilegedSameTeam = false;
+
+    // Allow if owner; otherwise allow if team sharing permits or privileged roles
     if (lead.user_id !== userId) {
-      const { data: me } = await supabase.from('users').select('id, role, team_id').eq('id', userId).single();
-      const { data: owner } = await supabase.from('users').select('id, team_id').eq('id', lead.user_id).single();
-      const role = (me as any)?.role;
-      const sameTeam = (me as any)?.team_id && owner?.team_id && (me as any).team_id === owner.team_id;
-      const isPrivileged = role === 'team_admin' || role === 'super_admin' || role === 'SuperAdmin';
+      const { sameTeam, teamSettings, privileged } = await resolveLeadSharingContext(userId, lead.user_id);
+      sharedFromTeamMate = sameTeam;
+      shareViewAllowed = sameTeam && teamSettings.share_leads;
+      shareEditAllowed = shareViewAllowed && teamSettings.allow_team_editing;
+      privilegedSameTeam = privileged && sameTeam;
 
       let hasCandidateAccess = false;
-      if (!isPrivileged || !sameTeam) {
+      if (!privilegedSameTeam && !shareViewAllowed) {
         const { data: candidate } = await supabase
           .from('candidates')
           .select('id')
@@ -2074,13 +2131,18 @@ router.get('/:id', requireAuth, async (req: ApiRequest, res: Response) => {
         hasCandidateAccess = Boolean(candidate);
       }
 
-      if (!(isPrivileged && sameTeam) && !hasCandidateAccess) {
+      if (!privilegedSameTeam && !shareViewAllowed && !hasCandidateAccess) {
         res.status(404).json({ error: 'Lead not found or access denied' });
         return;
       }
     }
-    
-    res.json(lead);
+
+    res.json({
+      ...lead,
+      shared_from_team_member: sharedFromTeamMate,
+      shared_can_edit: shareEditAllowed,
+      can_edit: lead.user_id === userId || shareEditAllowed || privilegedSameTeam
+    });
   } catch (err) {
     console.error('Error fetching lead:', err);
     res.status(500).json({ error: 'Failed to fetch lead' });
@@ -2372,11 +2434,22 @@ export const updateLead = async (req: ApiRequest, res: Response) => {
       .from('leads')
       .select('*')
       .eq('id', id)
-      .eq('user_id', req.user.id)
       .single();
 
     if (fetchError) {
       res.status(500).json({ error: fetchError.message });
+      return;
+    }
+
+    const isOwner = originalLead.user_id === req.user.id;
+    let canEdit = isOwner;
+    if (!canEdit) {
+      const { sameTeam, teamSettings, privileged } = await resolveLeadSharingContext(req.user.id, originalLead.user_id);
+      const shareAllowsEdit = sameTeam && teamSettings.share_leads && teamSettings.allow_team_editing;
+      canEdit = (privileged && sameTeam) || shareAllowsEdit;
+    }
+    if (!canEdit) {
+      res.status(403).json({ error: 'Access denied' });
       return;
     }
 
@@ -2404,7 +2477,6 @@ export const updateLead = async (req: ApiRequest, res: Response) => {
       .from('leads')
       .update(updatePayload)
       .eq('id', id)
-      .eq('user_id', req.user.id)
       .select()
       .maybeSingle();
 
@@ -2430,7 +2502,7 @@ export const updateLead = async (req: ApiRequest, res: Response) => {
         .from('candidates')
         .select('id')
         .eq('lead_id', id)
-        .eq('user_id', req.user.id)
+        .eq('user_id', originalLead.user_id)
         .maybeSingle();
 
       if (candidate) {

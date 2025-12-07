@@ -75,6 +75,8 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   // User role state for feature gating
   const [userRole, setUserRole] = useState(null);
   const [showComingSoonModal, setShowComingSoonModal] = useState(false);
+  const canEditLead = lead?.can_edit ?? true;
+  const editingLocked = lead?.sharedFromTeamMate && !canEditLead;
 
   // Edit states for contact fields
   const [editingEmail, setEditingEmail] = useState(false);
@@ -388,7 +390,16 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   };
 
   // Contact field editing functions
+  const ensureEditable = () => {
+    if (editingLocked) {
+      showToast('This shared lead is view-only. Ask your team admin to enable editing.', 'error');
+      return false;
+    }
+    return true;
+  };
+
   const startEditingEmail = () => {
+    if (!ensureEditable()) return;
     const emailInfo = getEmailWithSource(localLead);
     const currentEmail = emailInfo ? emailInfo.email : '';
     setTempEmail(currentEmail);
@@ -396,6 +407,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   };
 
   const startEditingPhone = () => {
+    if (!ensureEditable()) return;
     const phoneInfo = getPhoneWithSource(localLead);
     const currentPhone = phoneInfo ? phoneInfo.phone : '';
     setTempPhone(currentPhone);
@@ -403,12 +415,14 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   };
 
   const startEditingTwitter = () => {
+    if (!ensureEditable()) return;
     setTempTwitter(localLead.twitter || '');
     setEditingTwitter(true);
   };
 
   const saveContactField = async (field, value) => {
     try {
+      if (!ensureEditable()) return;
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
       
@@ -1642,6 +1656,11 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                 </button>
               </div>
             </div>
+            {editingLocked && (
+              <div className="px-6 py-2 bg-amber-50 border-b border-amber-200 text-amber-700 text-sm">
+                Shared lead is read-only. Ask your team admin to enable editing for shared leads.
+              </div>
+            )}
             {/* Compact Enrich control below header icons */}
             <div className="px-6 pt-3 pb-2 border-b border-gray-100 flex justify-end">
               <button

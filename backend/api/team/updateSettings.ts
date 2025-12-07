@@ -9,7 +9,7 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
       return;
     }
 
-    const { shareLeads, shareCandidates } = req.body;
+    const { shareLeads, shareCandidates, allowTeamEditing } = req.body;
 
     // Get user's role and team_id
     const { data: userData, error: userError } = await supabaseDb
@@ -37,11 +37,12 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
       updated_at: new Date().toISOString()
     };
 
-    if (shareLeads !== undefined) {
-      updateData.share_leads = shareLeads;
-    }
-    if (shareCandidates !== undefined) {
-      updateData.share_candidates = shareCandidates;
+    if (shareLeads !== undefined) updateData.share_leads = shareLeads;
+    if (shareCandidates !== undefined) updateData.share_candidates = shareCandidates;
+    if (allowTeamEditing !== undefined) {
+      updateData.allow_team_editing = allowTeamEditing;
+    } else if (shareLeads === false) {
+      updateData.allow_team_editing = false;
     }
 
     // Try upsert using newer schema (PK team_admin_id). If the constraint/column

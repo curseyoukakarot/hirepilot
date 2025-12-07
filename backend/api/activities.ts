@@ -5,6 +5,47 @@ import { supabaseDb as supabase } from '../lib/supabase';
 
 const router = Router();
 
+const ADMIN_ROLE_SET = new Set(['admin','team_admin','team_admins','super_admin','SuperAdmin']);
+
+type TeamSharingSettings = {
+  share_leads: boolean;
+  share_candidates: boolean;
+  allow_team_editing: boolean;
+};
+
+const DEFAULT_TEAM_SETTINGS: TeamSharingSettings = {
+  share_leads: false,
+  share_candidates: false,
+  allow_team_editing: false
+};
+
+async function fetchTeamSettings(teamId?: string | null): Promise<TeamSharingSettings> {
+  if (!teamId) return DEFAULT_TEAM_SETTINGS;
+  const { data } = await supabase
+    .from('team_settings')
+    .select('share_leads, share_candidates, allow_team_editing')
+    .eq('team_id', teamId)
+    .maybeSingle();
+  return {
+    share_leads: !!data?.share_leads,
+    share_candidates: !!data?.share_candidates,
+    allow_team_editing: !!data?.allow_team_editing
+  };
+}
+
+async function resolveLeadViewerContext(viewerId: string, ownerId: string) {
+  const [viewerRes, ownerRes] = await Promise.all([
+    supabase.from('users').select('id, team_id, role').eq('id', viewerId).maybeSingle(),
+    supabase.from('users').select('id, team_id').eq('id', ownerId).maybeSingle()
+  ]);
+  const viewer = viewerRes?.data;
+  const owner = ownerRes?.data;
+  const sameTeam = Boolean(viewer?.team_id && owner?.team_id && viewer.team_id === owner.team_id);
+  const teamSettings = sameTeam && owner?.team_id ? await fetchTeamSettings(owner.team_id) : DEFAULT_TEAM_SETTINGS;
+  const privileged = ADMIN_ROLE_SET.has(String(viewer?.role || '').toLowerCase());
+  return { sameTeam, teamSettings, privileged };
+}
+
 /**
  * GET /api/activities?entity_type=lead|candidate&entity_id=<uuid>
  * Unified endpoint for fetching activities for both leads and candidates
@@ -50,15 +91,11 @@ router.get('/', requireAuth, async (req: ApiRequest, res: Response) => {
       }
 
       if (lead.user_id !== userId) {
-        // Check if user has team access or candidate access
-        const { data: me } = await supabase.from('users').select('id, role, team_id').eq('id', userId).single();
-        const { data: owner } = await supabase.from('users').select('id, team_id').eq('id', lead.user_id).single();
-        const role = (me as any)?.role;
-        const sameTeam = (me as any)?.team_id && owner?.team_id && (me as any).team_id === owner.team_id;
-        const isPrivileged = role === 'team_admin' || role === 'super_admin' || role === 'SuperAdmin';
+        const { sameTeam, teamSettings, privileged } = await resolveLeadViewerContext(userId, lead.user_id);
+        const shareViewAllowed = sameTeam && teamSettings.share_leads;
 
         let hasCandidateAccess = false;
-        if (!(isPrivileged && sameTeam)) {
+        if (!(privileged && sameTeam) && !shareViewAllowed) {
           const { data: candidate } = await supabase
             .from('candidates')
             .select('id')
@@ -68,7 +105,7 @@ router.get('/', requireAuth, async (req: ApiRequest, res: Response) => {
           hasCandidateAccess = Boolean(candidate);
         }
 
-        if (!(isPrivileged && sameTeam) && !hasCandidateAccess) {
+        if (!(privileged && sameTeam) && !shareViewAllowed && !hasCandidateAccess) {
           return res.status(403).json({ success: false, message: 'Access denied' });
         }
       }

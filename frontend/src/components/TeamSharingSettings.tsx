@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
 
 export default function TeamSharingSettings({ currentUserRole }: { currentUserRole: string }) {
-  const [settings, setSettings] = useState({ shareLeads: false, shareCandidates: false });
+  const [settings, setSettings] = useState({ shareLeads: false, shareCandidates: false, allowTeamEditing: false });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -15,6 +15,7 @@ export default function TeamSharingSettings({ currentUserRole }: { currentUserRo
           setSettings({
             shareLeads: data.share_leads,
             shareCandidates: data.share_candidates,
+            allowTeamEditing: data.allow_team_editing,
           });
         } else {
           throw new Error('Failed to fetch settings');
@@ -29,7 +30,7 @@ export default function TeamSharingSettings({ currentUserRole }: { currentUserRo
     fetchSettings();
   }, []);
 
-  const updateSetting = async (field: 'shareLeads' | 'shareCandidates', value: boolean) => {
+  const updateSetting = async (field: 'shareLeads' | 'shareCandidates' | 'allowTeamEditing', value: boolean) => {
     try {
       const res = await fetch('/api/team/updateSettings', {
         method: 'POST',
@@ -42,7 +43,13 @@ export default function TeamSharingSettings({ currentUserRole }: { currentUserRo
         throw new Error(error.error || 'Failed to update settings');
       }
 
-      setSettings((prev) => ({ ...prev, [field]: value }));
+      setSettings((prev) => {
+        const next = { ...prev, [field]: value };
+        if (field === 'shareLeads' && !value) {
+          next.allowTeamEditing = false;
+        }
+        return next;
+      });
       toast.success(`${field === 'shareLeads' ? 'Leads' : 'Candidates'} sharing ${value ? 'enabled' : 'disabled'}`);
     } catch (error) {
       console.error('Error updating team settings:', error);
@@ -72,6 +79,28 @@ export default function TeamSharingSettings({ currentUserRole }: { currentUserRo
                 className="sr-only peer"
                 checked={settings.shareLeads}
                 onChange={(e) => updateSetting('shareLeads', e.target.checked)}
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer dark:bg-gray-700 peer-checked:bg-indigo-600"></div>
+            </label>
+          </div>
+          
+          <div className="flex items-center justify-between py-3 border-b border-gray-200">
+            <div>
+              <span className="font-medium text-gray-900">Allow teammates to edit shared leads</span>
+              <p className="text-sm text-gray-500">
+                When enabled, members in your team can update shared leads directly.
+              </p>
+              {!settings.shareLeads && (
+                <p className="text-xs text-gray-400 mt-1">Enable lead sharing to unlock this option.</p>
+              )}
+            </div>
+            <label className={`inline-flex items-center ${!settings.shareLeads ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={settings.allowTeamEditing}
+                disabled={!settings.shareLeads}
+                onChange={(e) => updateSetting('allowTeamEditing', e.target.checked)}
               />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer dark:bg-gray-700 peer-checked:bg-indigo-600"></div>
             </label>

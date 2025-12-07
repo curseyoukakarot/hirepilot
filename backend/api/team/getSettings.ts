@@ -24,7 +24,7 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
     // Get team settings
     const { data: settings, error: settingsError } = await supabaseDb
       .from('team_settings')
-      .select('share_leads, share_candidates')
+      .select('share_leads, share_candidates, allow_team_editing')
       .eq('team_id', userData.team_id)
       .single();
 
@@ -35,7 +35,8 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
     // Return settings or defaults if no settings exist
     const result = {
       share_leads: settings?.share_leads || false,
-      share_candidates: settings?.share_candidates || false
+      share_candidates: settings?.share_candidates || false,
+      allow_team_editing: settings?.allow_team_editing || false
     };
 
     res.status(200).json(result);
