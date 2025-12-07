@@ -4,6 +4,8 @@ import { supabaseDb } from '../../lib/supabase';
 import { Queue } from 'bullmq';
 import { connection } from '../queues/redis';
 import { requireAuth } from '../../middleware/authMiddleware';
+import { scrapeLinkedInJob, scrapeGenericJob, BrightDataJob } from '../../services/brightdataClient';
+import { isBrightDataEnabled } from '../../config/brightdata';
 
 const router = Router();
 
@@ -12,6 +14,78 @@ const zoominfoQueue = new Queue('sniper:zoominfo_enrich', { connection });
 const apolloQueue = new Queue('sniper:apollo_decision_makers', { connection });
 
 type ApiRequest = Request & { user?: { id: string } };
+const scrapeJobSchema = z.object({
+  url: z.string().url()
+});
+
+router.post('/sniper/jobs/scrape', requireAuth as any, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    if (!isBrightDataEnabled()) return res.status(503).json({ error: 'Bright Data is not configured in this environment.' });
+
+    const parsed = scrapeJobSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+    }
+
+    const { url } = parsed.data;
+    const urlObj = new URL(url);
+    const { sourceType, sourcePlatform } = deriveSourceFromUrl(urlObj);
+
+    const scrapeFn = sourceType === 'linkedin_job' ? scrapeLinkedInJob : scrapeGenericJob;
+    console.log('[Sniper] [BrightData] Scrape job started', { url, sourceType });
+    const brightJob = await scrapeFn(url);
+    if (!brightJob) {
+      return res.status(424).json({ error: 'Unable to scrape job details from the provided URL.' });
+    }
+
+    const normalized = mapJobToSniperNormalized(brightJob, url, sourcePlatform);
+
+    const { data: run, error: runError } = await supabaseDb
+      .from('sniper_runs')
+      .insert({
+        user_id: userId,
+        workflow_slug: 'brightdata_manual_job',
+        source_platform: sourcePlatform,
+        params: { url, source_type: sourceType },
+        status: 'completed',
+        discovered_count: 1
+      } as any)
+      .select('*')
+      .single();
+    if (runError || !run) {
+      throw runError || new Error('Failed to create run');
+    }
+
+    const { data: result, error: resultError } = await supabaseDb
+      .from('sniper_results')
+      .insert({
+        run_id: run.id,
+        user_id: userId,
+        source_type: sourceType,
+        source_platform: sourcePlatform,
+        normalized,
+        raw: brightJob._raw || brightJob
+      } as any)
+      .select('*')
+      .single();
+    if (resultError || !result) {
+      throw resultError || new Error('Failed to store job result');
+    }
+
+    console.log('[Sniper] [BrightData] Scrape job finished', { url, runId: run.id, resultId: result.id });
+    return res.json({
+      run,
+      result,
+      job: normalized
+    });
+  } catch (e: any) {
+    console.error('[Sniper] [BrightData] Scrape job failed', { error: e?.message || e });
+    return res.status(500).json({ error: e?.message || 'failed_to_scrape' });
+  }
+});
+
 
 // Helpers
 function getUserId(req: ApiRequest): string | null {
@@ -215,5 +289,39 @@ function deriveDepartmentFromJobTitle(title?: string | null): string | null {
 }
 
 export default router;
+
+function deriveSourceFromUrl(urlObj: URL): { sourceType: string; sourcePlatform: string } {
+  const host = urlObj.hostname.toLowerCase();
+  if (host.includes('linkedin.com')) {
+    return { sourceType: 'linkedin_job', sourcePlatform: 'linkedin' };
+  }
+  if (host.includes('remoteok')) {
+    return { sourceType: 'remoteok_job', sourcePlatform: 'remoteok' };
+  }
+  if (host.includes('ziprecruiter')) {
+    return { sourceType: 'zip_job', sourcePlatform: 'ziprecruiter' };
+  }
+  if (host.includes('indeed')) {
+    return { sourceType: 'indeed_job', sourcePlatform: 'indeed' };
+  }
+  return { sourceType: 'external_job', sourcePlatform: host.replace(/^www\./, '') };
+}
+
+function mapJobToSniperNormalized(job: BrightDataJob, fallbackUrl: string, sourcePlatform: string) {
+  return {
+    job_title: job.job_title || null,
+    company_name: job.company_name || null,
+    location: job.location || null,
+    employment_type: job.employment_type || null,
+    salary: job.salary_text || null,
+    job_description: job.job_description || null,
+    job_url: job.job_url || fallbackUrl,
+    source_platform: sourcePlatform,
+    source_url: job.job_url || fallbackUrl,
+    metadata: {
+      brightdata_source: job.source || null
+    }
+  };
+}
 
 

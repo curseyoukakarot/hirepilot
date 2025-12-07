@@ -30,4 +30,10 @@ export interface Lead {
   country: string;
   created_at: string;
   updated_at: string;
+  enrichment_source?: 'brightdata' | 'apollo' | 'skrapp' | 'decodo' | null;
+  enrichment_status?: 'pending' | 'succeeded' | 'failed' | null;
+  enrichment_error?: string | null;
+  email_status?: 'pending' | 'found' | 'not_found' | null;
+  email_source?: 'apollo' | 'skrapp' | null;
+  brightdata_raw?: any | null;
 } 

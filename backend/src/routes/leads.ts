@@ -3,6 +3,7 @@ import express, { Request, Response } from 'express';
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { enrichWithApollo } from '../services/apollo/enrichLead';
+import { scrapeLinkedInProfile, BrightDataProfile } from '../services/brightdataClient';
 import { analyzeProfile } from '../services/gpt/analyzeProfile';
 import { requireAuth } from '../../middleware/authMiddleware';
 import { searchAndEnrichPeople } from '../../utils/apolloApi';
@@ -17,6 +18,7 @@ import enrichmentRouter from './leads/decodo/enrichLeadProfile';
 import { fetchHtml } from '../lib/decodoProxy';
 import { notifySlack } from '../../lib/slack';
 import { getUserIntegrations } from '../../utils/userIntegrationsHelper';
+import { isBrightDataEnabled } from '../config/brightdata';
 
 const router = express.Router();
 
@@ -340,6 +342,306 @@ function buildEnhancedInsightsSnapshot(provider: 'apollo' | 'skrapp', lead: any)
   };
 }
 
+function deriveDomainFromRecord(entity: any, fallbackCompany?: string): string {
+  if (!entity) return '';
+  const fromApollo = entity?.enrichment_data?.apollo?.organization;
+  const apolloDomain = String(fromApollo?.domain || fromApollo?.website_url || '')
+    .replace(/^https?:\/\//, '')
+    .replace(/^www\./, '')
+    .split('/')[0];
+  if (apolloDomain) return apolloDomain.toLowerCase();
+
+  const decodoSite = String(entity?.enrichment_data?.decodo?.company_website || entity?.enrichment_data?.decodo?.website || '')
+    .replace(/^https?:\/\//, '')
+    .replace(/^www\./, '')
+    .split('/')[0];
+  if (decodoSite) return decodoSite.toLowerCase();
+
+  const brightdataSite = String(entity?.enrichment_data?.brightdata?.company_url || entity?.brightdata_raw?.company_url || '')
+    .replace(/^https?:\/\//, '')
+    .replace(/^www\./, '')
+    .split('/')[0];
+  if (brightdataSite) return brightdataSite.toLowerCase();
+
+  const fallback = String(fallbackCompany || entity?.company || '').trim();
+  if (fallback.includes('.')) {
+    return fallback.toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+  }
+
+  if (fallback) {
+    return `${fallback.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '')}.com`;
+  }
+
+  return '';
+}
+
+interface BrightDataPipelineOptions {
+  lead: any;
+  entityType: LeadEntityType;
+  targetId: string;
+  userId: string;
+  leadId: string;
+}
+
+interface BrightDataPipelineResponse {
+  status: number;
+  body: any;
+}
+
+interface EmailEnrichmentOptions {
+  lead: any;
+  brightProfile?: BrightDataProfile | null;
+  userId: string;
+  leadId: string;
+}
+
+interface EmailEnrichmentResult {
+  email: string | null;
+  emailStatus: 'pending' | 'found' | 'not_found' | null;
+  emailSource: 'apollo' | 'skrapp' | null;
+  enrichmentDataPatch?: Record<string, unknown>;
+  errors: string[];
+  creditDescription?: string;
+}
+
+async function runBrightDataEnrichmentFlow(options: BrightDataPipelineOptions): Promise<BrightDataPipelineResponse> {
+  const { lead, entityType, targetId, userId, leadId } = options;
+  const tableName = entityType === 'lead' ? 'leads' : 'candidates';
+  const now = new Date().toISOString();
+  const errorMessages: string[] = [];
+
+  await supabase
+    .from(tableName)
+    .update({
+      enrichment_status: 'pending',
+      enrichment_source: 'brightdata',
+      enrichment_error: null,
+      email_status: 'pending',
+      email_source: null,
+      updated_at: now
+    })
+    .eq('id', targetId);
+
+  let brightProfile: BrightDataProfile | null = null;
+  if (lead.linkedin_url) {
+    console.log('[LeadEnrich] [BrightData] Starting profile scrape', { leadId, url: lead.linkedin_url });
+    brightProfile = await scrapeLinkedInProfile(lead.linkedin_url);
+    if (!brightProfile) {
+      errorMessages.push('Bright Data returned no profile data');
+    }
+  } else {
+    errorMessages.push('LinkedIn URL missing for Bright Data enrichment');
+  }
+
+  const emailResult = await runEmailEnrichment({
+    lead,
+    brightProfile,
+    userId,
+    leadId
+  });
+
+  const enrichmentData = {
+    ...(lead.enrichment_data || {}),
+    ...(brightProfile
+      ? {
+          brightdata: {
+            ...brightProfile,
+            fetched_at: now
+          }
+        }
+      : {}),
+    ...(emailResult.enrichmentDataPatch || {}),
+    last_enrichment_attempt: {
+      attempted_at: now,
+      source: brightProfile ? 'brightdata' : emailResult.emailSource || 'none',
+      errors: [...errorMessages, ...emailResult.errors]
+    }
+  };
+
+  const updatePayload: Record<string, unknown> = {
+    enrichment_data: enrichmentData,
+    enrichment_status: brightProfile ? 'succeeded' : 'failed',
+    enrichment_source: brightProfile ? 'brightdata' : null,
+    enrichment_error: brightProfile ? null : errorMessages[0] || null,
+    email_status: emailResult.emailStatus,
+    email_source: emailResult.emailSource,
+    brightdata_raw: brightProfile?._raw || brightProfile || null,
+    updated_at: now
+  };
+
+  if (brightProfile?.current_title) updatePayload.title = brightProfile.current_title;
+  if (brightProfile?.current_company) updatePayload.company = brightProfile.current_company;
+  if (brightProfile?.location && entityType === 'lead') updatePayload.location = brightProfile.location;
+  if (brightProfile?.profile_url && entityType === 'lead') updatePayload.linkedin_url = brightProfile.profile_url;
+  if (brightProfile?.first_name && entityType === 'lead') updatePayload.first_name = brightProfile.first_name;
+  if (brightProfile?.last_name && entityType === 'lead') updatePayload.last_name = brightProfile.last_name;
+  if (emailResult.email) updatePayload.email = emailResult.email;
+
+  const { data: updatedRecord, error: updateError } = await supabase
+    .from(tableName)
+    .update(updatePayload)
+    .eq('id', targetId)
+    .select('*')
+    .maybeSingle();
+
+  if (updateError || !updatedRecord) {
+    console.error('[LeadEnrich] [BrightData] Failed to update record', updateError);
+    return {
+      status: 500,
+      body: {
+        success: false,
+        message: 'Failed to save enrichment data'
+      }
+    };
+  }
+
+  if (brightProfile) {
+    try {
+      await CreditService.deductCredits(
+        userId,
+        1,
+        'api_usage',
+        `BrightData profile enrichment: ${(brightProfile.full_name || lead.name || '').trim() || targetId}`
+      );
+    } catch (creditErr) {
+      console.error('[LeadEnrich] BrightData credit deduction failed (non-fatal):', creditErr);
+    }
+  }
+
+  if (emailResult.creditDescription) {
+    try {
+      await CreditService.deductCredits(userId, 1, 'api_usage', emailResult.creditDescription);
+    } catch (creditErr) {
+      console.error('[LeadEnrich] Email credit deduction failed (non-fatal):', creditErr);
+    }
+  }
+
+  try {
+    await createZapEvent({
+      event_type: EVENT_TYPES.lead_enrich_requested,
+      user_id: userId,
+      entity: entityType === 'lead' ? 'lead' : 'candidate',
+      entity_id: targetId,
+      payload: { source: brightProfile ? 'brightdata' : emailResult.emailSource, errors: [...errorMessages, ...emailResult.errors] }
+    });
+  } catch {}
+
+  return {
+    status: 200,
+    body: {
+      ...updatedRecord,
+      enrichment_status: buildEnrichmentStatus(updatedRecord, {
+        source: brightProfile ? 'brightdata' : emailResult.emailSource || 'none',
+        success: Boolean(brightProfile),
+        errors: [...errorMessages, ...emailResult.errors]
+      }),
+      enhanced_insights_status: buildEnhancedInsightsStatus(updatedRecord)
+    }
+  };
+}
+
+function buildPreferredFullName(lead: any, brightProfile?: BrightDataProfile | null): string {
+  const pieces = [
+    lead?.first_name || brightProfile?.first_name,
+    lead?.last_name || brightProfile?.last_name
+  ].filter(Boolean);
+  if (pieces.length) return pieces.join(' ').trim();
+  return brightProfile?.full_name || lead?.name || '';
+}
+
+async function runEmailEnrichment(options: EmailEnrichmentOptions): Promise<EmailEnrichmentResult> {
+  const { lead, brightProfile, userId, leadId } = options;
+  const errors: string[] = [];
+  const enrichmentDataPatch: Record<string, unknown> = {};
+  let emailStatus: 'pending' | 'found' | 'not_found' | null = 'pending';
+  let emailSource: 'apollo' | 'skrapp' | null = null;
+  let creditDescription: string | undefined;
+  let email: string | null = lead.email || null;
+
+  if (email) {
+    emailStatus = 'found';
+    return { email, emailStatus, emailSource, enrichmentDataPatch, errors };
+  }
+
+  try {
+    const apolloResult = await enrichWithApollo({
+      leadId,
+      userId,
+      firstName: lead.first_name || brightProfile?.first_name,
+      lastName: lead.last_name || brightProfile?.last_name,
+      company: lead.company || brightProfile?.current_company,
+      linkedinUrl: lead.linkedin_url || brightProfile?.profile_url
+    });
+
+    if (apolloResult?.success && apolloResult.data?.email && !apolloResult.data.email.includes('email_not_unlocked')) {
+      email = apolloResult.data.email;
+      emailStatus = 'found';
+      emailSource = 'apollo';
+      enrichmentDataPatch.apollo = {
+        ...apolloResult.data,
+        enriched_at: new Date().toISOString(),
+        used_for_email: true
+      };
+      creditDescription = `Apollo email enrichment: ${buildPreferredFullName(lead, brightProfile) || leadId}`;
+      return { email, emailStatus, emailSource, enrichmentDataPatch, errors, creditDescription };
+    }
+
+    if (apolloResult && !apolloResult.success) {
+      errors.push('Apollo email not found');
+    }
+  } catch (error: any) {
+    errors.push(`Apollo error: ${error?.message || 'Unknown error'}`);
+  }
+
+  if (!email) {
+    try {
+      const integrations = await getUserIntegrations(userId);
+      const skrappApiKey = (
+        integrations?.skrapp_api_key ||
+        process.env.SUPER_ADMIN_SKRAPP_API_KEY ||
+        process.env.SKRAPP_API_KEY ||
+        ''
+      ).trim();
+
+      if (!skrappApiKey) {
+        errors.push('Skrapp API key not configured');
+      } else {
+        const fullName = buildPreferredFullName(lead, brightProfile);
+        const domain = deriveDomainFromRecord(lead, brightProfile?.current_company);
+        if (!fullName) {
+          errors.push('Skrapp skipped: missing contact name');
+        } else if (!domain) {
+          errors.push('Skrapp skipped: missing company/domain');
+        } else {
+          const { enrichWithSkrapp } = await import('../../services/skrapp/enrichLead') as any;
+          const skrappEmail = await enrichWithSkrapp(skrappApiKey, fullName, domain, brightProfile?.current_company || lead.company);
+          if (skrappEmail) {
+            email = skrappEmail;
+            emailStatus = 'found';
+            emailSource = 'skrapp';
+            enrichmentDataPatch.skrapp = {
+              ...(lead.enrichment_data?.skrapp || {}),
+              email: skrappEmail,
+              enriched_at: new Date().toISOString()
+            };
+            creditDescription = `Skrapp email enrichment: ${fullName || leadId}`;
+            return { email, emailStatus, emailSource, enrichmentDataPatch, errors, creditDescription };
+          }
+          errors.push('Skrapp email not found');
+        }
+      }
+    } catch (error: any) {
+      errors.push(`Skrapp error: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  if (!email) {
+    emailStatus = 'not_found';
+  }
+
+  return { email, emailStatus, emailSource, enrichmentDataPatch, errors };
+}
+
 // Debug logging for route registration
 console.log('Registering leads routes...');
 
@@ -374,6 +676,17 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
       });
     }
     const { lead, entityType, targetId } = resolved;
+
+    if (isBrightDataEnabled()) {
+      const pipelineResult = await runBrightDataEnrichmentFlow({
+        lead,
+        entityType,
+        targetId,
+        userId,
+        leadId
+      });
+      return res.status(pipelineResult.status).json(pipelineResult.body);
+    }
 
     console.log(`[LeadEnrich] Starting enrichment for lead: ${lead.first_name} ${lead.last_name}`);
 
