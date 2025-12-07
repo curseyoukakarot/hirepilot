@@ -2,6 +2,7 @@ import express from 'express';
 import { requireAuth } from '../middleware/authMiddleware';
 import requireAuthUnified from '../middleware/requireAuthUnified';
 import { createClient } from '@supabase/supabase-js';
+import { resolveAnalyticsScope } from '../lib/analyticsScope';
 
 const router = express.Router();
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -11,23 +12,41 @@ const requireAuthFlag = (useUnified ? (requireAuthUnified as any) : (requireAuth
 
 router.get('/analytics/summary', requireAuthFlag, async (req, res) => {
   try {
-    const { user_id, campaign_id } = req.query as { user_id?: string; campaign_id?: string };
-    if (!user_id) {
-      res.status(400).json({ error: 'user_id required' });
+    const viewerId = (req as any)?.user?.id as string | undefined;
+    if (!viewerId) {
+      res.status(401).json({ error: 'Unauthorized' });
       return;
     }
 
-    const filters: any = { user_id };
-    const replyFilters: any = { user_id };
-    if (campaign_id) {
-      filters.campaign_id = campaign_id;
-      replyFilters.campaign_id = campaign_id;
+    const scope = await resolveAnalyticsScope(viewerId);
+    if (!scope.allowed) {
+      const code = 'code' in scope ? scope.code : 'analytics_denied';
+      const status = code === 'analytics_sharing_disabled' ? 403 : 401;
+      res.status(status).json({ error: code });
+      return;
     }
 
-    const { data: events, error } = await supabase
-      .from('email_events')
-      .select('message_id, event_type')
-      .match(filters);
+    const targetUserIds = scope.targetUserIds && scope.targetUserIds.length ? scope.targetUserIds : [viewerId];
+    const { campaign_id } = req.query as { campaign_id?: string };
+
+    const applyUserFilter = <T>(query: T & { eq: Function; in: Function }) => {
+      if (!targetUserIds.length) {
+        return query.in('user_id', ['00000000-0000-0000-0000-000000000000']);
+      }
+      if (targetUserIds.length === 1) {
+        return query.eq('user_id', targetUserIds[0]);
+      }
+      return query.in('user_id', targetUserIds);
+    };
+
+    let eventsQuery = applyUserFilter(
+      supabase
+        .from('email_events')
+        .select('message_id, event_type')
+    );
+    if (campaign_id) eventsQuery = eventsQuery.eq('campaign_id', campaign_id);
+
+    const { data: events, error } = await eventsQuery;
     if (error) throw error;
 
     const delivered = new Set<string>();
@@ -41,10 +60,11 @@ router.get('/analytics/summary', requireAuthFlag, async (req, res) => {
     }
 
     // Also check email_replies table for additional reply data
-    const { data: repliesData, error: rerr } = await supabase
-      .from('email_replies')
-      .select('message_id')
-      .match(replyFilters);
+    let repliesQuery = applyUserFilter(
+      supabase.from('email_replies').select('message_id')
+    );
+    if (campaign_id) repliesQuery = repliesQuery.eq('campaign_id', campaign_id);
+    const { data: repliesData, error: rerr } = await repliesQuery;
     if (rerr) throw rerr;
 
     // Add replies from email_replies table

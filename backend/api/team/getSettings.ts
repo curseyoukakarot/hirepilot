@@ -40,7 +40,11 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
       team_admin_view_pool:
         settings?.team_admin_view_pool === undefined || settings?.team_admin_view_pool === null
           ? true
-          : settings?.team_admin_view_pool
+          : settings?.team_admin_view_pool,
+      share_analytics: settings?.share_analytics || false,
+      analytics_admin_view_enabled: settings?.analytics_admin_view_enabled || false,
+      analytics_admin_view_user_id: settings?.analytics_admin_view_user_id || null,
+      analytics_team_pool: settings?.analytics_team_pool || false
     };
 
     res.status(200).json(result);

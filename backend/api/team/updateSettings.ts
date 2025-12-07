@@ -9,7 +9,16 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
       return;
     }
 
-    const { shareLeads, shareCandidates, allowTeamEditing, adminViewTeamPool } = req.body;
+    const {
+      shareLeads,
+      shareCandidates,
+      allowTeamEditing,
+      adminViewTeamPool,
+      shareAnalytics,
+      analyticsTeamPool,
+      analyticsAdminViewEnabled,
+      analyticsAdminViewUserId
+    } = req.body;
 
     // Get user's role and team_id
     const { data: userData, error: userError } = await supabaseDb
@@ -60,6 +69,41 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
         return;
       }
       updateData.team_admin_view_pool = !!adminViewTeamPool;
+    }
+
+    if (shareAnalytics !== undefined) {
+      if (!isAdminRole) {
+        res.status(403).json({ error: 'Only team admins can control analytics sharing' });
+        return;
+      }
+      updateData.share_analytics = !!shareAnalytics;
+    }
+
+    if (analyticsTeamPool !== undefined) {
+      if (!isAdminRole) {
+        res.status(403).json({ error: 'Only team admins can control analytics pooling' });
+        return;
+      }
+      updateData.analytics_team_pool = !!analyticsTeamPool;
+    }
+
+    if (analyticsAdminViewEnabled !== undefined) {
+      if (!isAdminRole) {
+        res.status(403).json({ error: 'Only team admins can impersonate analytics view' });
+        return;
+      }
+      updateData.analytics_admin_view_enabled = !!analyticsAdminViewEnabled;
+      if (!analyticsAdminViewEnabled) {
+        updateData.analytics_admin_view_user_id = null;
+      }
+    }
+
+    if (analyticsAdminViewUserId !== undefined) {
+      if (!isAdminRole) {
+        res.status(403).json({ error: 'Only team admins can select analytics member view' });
+        return;
+      }
+      updateData.analytics_admin_view_user_id = analyticsAdminViewUserId || null;
     }
 
     // Try upsert using newer schema (PK team_admin_id). If the constraint/column

@@ -32,7 +32,11 @@ export default function SettingsTeamMembers() {
     shareLeads: false,
     shareCandidates: false,
     allowTeamEditing: false,
-    teamAdminViewPool: true
+    teamAdminViewPool: true,
+    shareAnalytics: false,
+    analyticsTeamPool: false,
+    analyticsAdminViewEnabled: false,
+    analyticsAdminViewUserId: null
   });
 
   const handleOpenInviteModal = () => setIsInviteModalOpen(true);
@@ -351,7 +355,7 @@ export default function SettingsTeamMembers() {
       // Get team settings
       const { data: settings } = await supabase
         .from('team_settings')
-        .select('share_leads, share_candidates, allow_team_editing, team_admin_view_pool')
+        .select('share_leads, share_candidates, allow_team_editing, team_admin_view_pool, share_analytics, analytics_team_pool, analytics_admin_view_enabled, analytics_admin_view_user_id')
         .eq('team_id', userData.team_id)
         .maybeSingle();
 
@@ -363,7 +367,11 @@ export default function SettingsTeamMembers() {
           teamAdminViewPool:
             settings.team_admin_view_pool === undefined || settings.team_admin_view_pool === null
               ? true
-              : settings.team_admin_view_pool
+              : settings.team_admin_view_pool,
+          shareAnalytics: settings.share_analytics || false,
+          analyticsTeamPool: settings.analytics_team_pool || false,
+          analyticsAdminViewEnabled: settings.analytics_admin_view_enabled || false,
+          analyticsAdminViewUserId: settings.analytics_admin_view_user_id || null
         });
       }
     } catch (error) {
@@ -371,13 +379,13 @@ export default function SettingsTeamMembers() {
     }
   };
 
-  const updateTeamSetting = async (setting, value) => {
+  const updateTeamSetting = async (setting, value, extraPayload = {}) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
       // Call backend so server can populate team_admin_id
-      const payload = {};
+      const payload = { ...extraPayload };
       if (setting === 'shareLeads') payload.shareLeads = value;
       if (setting === 'shareCandidates') payload.shareCandidates = value;
       if (setting === 'allowTeamEditing') {
@@ -386,6 +394,10 @@ export default function SettingsTeamMembers() {
         payload.allowTeamEditing = false;
       }
       if (setting === 'teamAdminViewPool') payload.adminViewTeamPool = value;
+      if (setting === 'shareAnalytics') payload.shareAnalytics = value;
+      if (setting === 'analyticsTeamPool') payload.analyticsTeamPool = value;
+      if (setting === 'analyticsAdminViewEnabled') payload.analyticsAdminViewEnabled = value;
+      if (setting === 'analyticsAdminViewUserId') payload.analyticsAdminViewUserId = value;
       const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/team/updateSettings`, {
         method: 'POST',
         headers: {
@@ -403,10 +415,17 @@ export default function SettingsTeamMembers() {
         if (setting === 'shareLeads' && value === false) {
           next.allowTeamEditing = false;
         }
+        if (setting === 'analyticsAdminViewEnabled' && !value) {
+          next.analyticsAdminViewUserId = null;
+        }
+        if (setting === 'analyticsAdminViewUserId') {
+          next.analyticsAdminViewUserId = value;
+        }
+        if (Object.prototype.hasOwnProperty.call(payload, 'analyticsAdminViewUserId')) {
+          next.analyticsAdminViewUserId = payload.analyticsAdminViewUserId;
+        }
         return next;
       });
-
-      // Backend already updates all existing records. No additional client-side update.
 
       const toastLabel =
         setting === 'shareLeads'
@@ -415,8 +434,22 @@ export default function SettingsTeamMembers() {
             ? 'Candidates sharing'
             : setting === 'allowTeamEditing'
               ? 'Shared lead editing'
-              : 'Admin pool';
-      toast.success(`${toastLabel} ${value ? 'enabled' : 'disabled'}`);
+              : setting === 'teamAdminViewPool'
+                ? 'Lead pool'
+                : setting === 'shareAnalytics'
+                  ? 'Analytics sharing'
+                  : setting === 'analyticsTeamPool'
+                    ? 'Analytics team pool'
+                    : setting === 'analyticsAdminViewEnabled'
+                      ? 'Admin analytics view'
+                      : setting === 'analyticsAdminViewUserId'
+                        ? 'Analytics member selection'
+                        : 'Setting';
+      toast.success(
+        `${toastLabel} ${
+          typeof value === 'boolean' ? (value ? 'enabled' : 'disabled') : 'updated'
+        }`
+      );
     } catch (error) {
       console.error('Error updating team setting:', error);
       toast.error('Failed to update team setting');
@@ -577,6 +610,89 @@ export default function SettingsTeamMembers() {
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer dark:bg-gray-700 peer-checked:bg-indigo-600"></div>
               </label>
             </div>
+
+            {isAdminRole && (
+              <>
+                <div className="pt-4 border-t">
+                  <p className="text-xs font-semibold tracking-wider text-gray-500 uppercase mb-2">Analytics</p>
+                </div>
+
+                <div className="flex items-center justify-between py-2">
+                  <div>
+                    <span className="font-medium text-gray-900">Share analytics with team</span>
+                    <p className="text-sm text-gray-500">Let members view Campaign Performance analytics.</p>
+                  </div>
+                  <label className="inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="sr-only peer"
+                      checked={teamSettings.shareAnalytics}
+                      onChange={() => updateTeamSetting('shareAnalytics', !teamSettings.shareAnalytics)}
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer dark:bg-gray-700 peer-checked:bg-indigo-600"></div>
+                  </label>
+                </div>
+
+                <div className="flex items-start justify-between py-2 gap-4">
+                  <div>
+                    <span className="font-medium text-gray-900">View a teammate&apos;s analytics</span>
+                    <p className="text-sm text-gray-500">Toggle on to preview analytics as a specific member.</p>
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                    <label className="inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={teamSettings.analyticsAdminViewEnabled}
+                        onChange={() => {
+                          const enabled = !teamSettings.analyticsAdminViewEnabled;
+                          const fallback = enabled
+                            ? (teamSettings.analyticsAdminViewUserId || teamMembers[0]?.id || null)
+                            : null;
+                          updateTeamSetting('analyticsAdminViewEnabled', enabled, {
+                            analyticsAdminViewUserId: fallback
+                          });
+                        }}
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer dark:bg-gray-700 peer-checked:bg-indigo-600"></div>
+                    </label>
+                    {teamSettings.analyticsAdminViewEnabled && (
+                      <select
+                        className="border rounded px-2 py-1 text-sm min-w-[200px]"
+                        value={teamSettings.analyticsAdminViewUserId || ''}
+                        onChange={(e) => updateTeamSetting('analyticsAdminViewUserId', e.target.value)}
+                      >
+                        <option value="" disabled>Select teammate</option>
+                        {teamMembers.map((member) => (
+                          <option key={member.id} value={member.id}>
+                            {member.first_name || member.last_name
+                              ? `${member.first_name || ''} ${member.last_name || ''}`.trim()
+                              : member.email || 'Unnamed'}
+                          </option>
+                        ))}
+                        {!teamMembers.length && <option value="">No teammates</option>}
+                      </select>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between py-2">
+                  <div>
+                    <span className="font-medium text-gray-900">Combine team analytics</span>
+                    <p className="text-sm text-gray-500">Campaign Performance will include everyone&apos;s outreach.</p>
+                  </div>
+                  <label className="inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="sr-only peer"
+                      checked={teamSettings.analyticsTeamPool}
+                      onChange={() => updateTeamSetting('analyticsTeamPool', !teamSettings.analyticsTeamPool)}
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer dark:bg-gray-700 peer-checked:bg-indigo-600"></div>
+                  </label>
+                </div>
+              </>
+            )}
           </div>
         </div>
 

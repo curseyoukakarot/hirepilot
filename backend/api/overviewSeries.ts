@@ -1,17 +1,25 @@
 import { Request, Response } from 'express';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseDb } from '../lib/supabase';
+import { resolveAnalyticsScope } from '../lib/analyticsScope';
 
 // GET /api/analytics/overview-series?campaign_id=all|<uuid>&range=30d|90d|6m
 export default async function overviewSeries(req: Request, res: Response) {
   try {
-    // Use caller's JWT so RLS scopes data exactly like widgets
-    const authHeader = String(req.headers?.authorization || '');
     const rawCampaignId = String(req.query.campaign_id ?? 'all');
     const range = String(req.query.range ?? '30d');
     const campaignId = rawCampaignId === 'all' ? null : rawCampaignId;
+    const viewerId = (req as any)?.user?.id as string | undefined;
 
-    if (!authHeader) {
-      res.status(401).json({ error: 'Missing Authorization header' });
+    if (!viewerId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const scope = await resolveAnalyticsScope(viewerId);
+    if (!scope.allowed) {
+      const code = 'code' in scope ? scope.code : 'analytics_denied';
+      const status = code === 'analytics_sharing_disabled' ? 403 : 401;
+      res.status(status).json({ error: code });
       return;
     }
 
@@ -22,43 +30,32 @@ export default async function overviewSeries(req: Request, res: Response) {
     since.setDate(since.getDate() - daysBack);
     since.setHours(0, 0, 0, 0);
 
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (!url || !anon) {
-      res.status(500).json({ error: 'Missing Supabase anon configuration' });
-      return;
-    }
-    const supabase = createClient(url, anon, {
-      global: { headers: { apikey: anon, Authorization: authHeader } },
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
+    const targetUserIds = scope.targetUserIds && scope.targetUserIds.length ? scope.targetUserIds : [viewerId];
+    const applyUserFilter = <T>(query: T & { eq: Function; in: Function }) => {
+      if (!targetUserIds.length) {
+        return query.in('user_id', ['00000000-0000-0000-0000-000000000000']);
+      }
+      if (targetUserIds.length === 1) {
+        return query.eq('user_id', targetUserIds[0]);
+      }
+      return query.in('user_id', targetUserIds);
+    };
 
-    let query = supabase
-      .from('email_events')
-      .select('event_timestamp, event_type, campaign_id')
-      .gte('event_timestamp', since.toISOString())
-      .in('event_type', ['sent', 'open', 'reply'] as any);
+    let query = applyUserFilter(
+      supabaseDb
+        .from('email_events')
+        .select('event_timestamp, event_type, campaign_id')
+        .gte('event_timestamp', since.toISOString())
+        .in('event_type', ['sent', 'open', 'reply'] as any)
+    );
 
     if (campaignId) {
       query = query.eq('campaign_id', campaignId);
     }
 
-    let events: any[] = [];
-    const { data: firstData, error } = await query;
-    events = firstData || [];
-    // If campaign_id column doesn't exist or other column issue, retry without selecting/filtering campaign_id
-    if (error && (error as any).code === '42703') {
-      const { data: retryEvents, error: retryError } = await supabase
-        .from('email_events')
-        .select('event_timestamp, event_type')
-        .gte('event_timestamp', since.toISOString())
-        .in('event_type', ['sent', 'open', 'reply'] as any);
-      if (retryError) {
-        res.status(500).json({ error: retryError.message });
-        return;
-      }
-      events = retryEvents || [];
-    } else if (error) {
+    const { data: events, error } = await query;
+
+    if (error) {
       res.status(500).json({ error: error.message });
       return;
     }

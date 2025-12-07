@@ -2,27 +2,43 @@
 
 import { Request, Response } from 'express';
 import { supabaseDb } from '../lib/supabase';
+import { resolveAnalyticsScope } from '../lib/analyticsScope';
 
 export default async function getCampaigns(req: Request, res: Response) {
   try {
-    const { user_id } = req.query;
+    const viewerId = (req as any)?.user?.id as string | undefined;
 
-    if (!user_id) {
-      res.status(400).json({ error: 'Missing user_id' });
+    if (!viewerId) {
+      res.status(401).json({ error: 'Unauthorized' });
       return;
     }
 
-    console.log('Incoming user_id:', user_id);
+    const scope = await resolveAnalyticsScope(viewerId);
+    if (!scope.allowed) {
+      const code = 'code' in scope ? scope.code : 'analytics_denied';
+      const status = code === 'analytics_sharing_disabled' ? 403 : 401;
+      res.status(status).json({ error: code });
+      return;
+    }
+
+    const targetUserIds = scope.targetUserIds && scope.targetUserIds.length ? scope.targetUserIds : [viewerId];
     
     // Get campaigns with lead counts
-    const { data: campaigns, error } = await supabaseDb
+    let query = supabaseDb
       .from('campaigns')
       .select(`
         *,
         total_leads:leads(count)
       `)
-      .eq('user_id', user_id)
       .order('created_at', { ascending: false });
+
+    if (targetUserIds.length === 1) {
+      query = query.eq('user_id', targetUserIds[0]);
+    } else {
+      query = query.in('user_id', targetUserIds);
+    }
+
+    const { data: campaigns, error } = await query;
 
     // Transform the data to include lead counts in a usable format
     const campaignsWithCounts = campaigns?.map(campaign => ({
@@ -30,8 +46,6 @@ export default async function getCampaigns(req: Request, res: Response) {
       total_leads: campaign.total_leads?.[0]?.count || 0,
       enriched_leads: 0 // Will be calculated separately if needed
     }));
-
-    console.log('Campaigns returned:', campaignsWithCounts);
 
     if (error) {
       console.error('[getCampaigns Error]', error);

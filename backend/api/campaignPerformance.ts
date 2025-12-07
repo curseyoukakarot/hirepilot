@@ -1,12 +1,12 @@
 import { Request, Response } from 'express';
 import { supabaseDb } from '../lib/supabase';
+import { resolveAnalyticsScope } from '../lib/analyticsScope';
 
 export default async function campaignPerformance(req: Request, res: Response) {
   const { id } = req.params;
-  // Assume user is authenticated and user id is available (adjust as needed)
-  const userId = req.user?.id || req.query.user_id;
-  if (!userId) {
-    res.status(400).json({ error: 'Missing user id' });
+  const viewerId = req.user?.id as string | undefined;
+  if (!viewerId) {
+    res.status(401).json({ error: 'Unauthorized' });
     return;
   }
   if (!id) {
@@ -14,14 +14,36 @@ export default async function campaignPerformance(req: Request, res: Response) {
     return;
   }
 
+  const scope = await resolveAnalyticsScope(viewerId);
+  if (!scope.allowed) {
+    const code = 'code' in scope ? scope.code : 'analytics_denied';
+    const status = code === 'analytics_sharing_disabled' ? 403 : 401;
+    res.status(status).json({ error: code });
+    return;
+  }
+
+  const targetUserIds = scope.targetUserIds && scope.targetUserIds.length
+    ? scope.targetUserIds
+    : [viewerId];
+  const applyUserFilter = <T>(query: T & { eq: Function; in: Function }) => {
+    if (!targetUserIds.length) {
+      return query.in('user_id', ['00000000-0000-0000-0000-000000000000']);
+    }
+    if (targetUserIds.length === 1) {
+      return query.eq('user_id', targetUserIds[0]);
+    }
+    return query.in('user_id', targetUserIds);
+  };
+
   try {
     // For 'all' campaigns, count ALL sent messages (including non-campaign messages)
     // For specific campaigns, only count that campaign's messages
-    let filter = supabaseDb
-      .from('email_events')
-      .select('message_id, lead_id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .eq('event_type', 'sent');
+    let filter = applyUserFilter(
+      supabaseDb
+        .from('email_events')
+        .select('message_id, lead_id', { count: 'exact', head: true })
+        .eq('event_type', 'sent')
+    );
     
     if (id !== 'all') {
       // For specific campaign, only count messages with that campaign_id
@@ -37,11 +59,12 @@ export default async function campaignPerformance(req: Request, res: Response) {
     }
 
     // Opens
-    let openFilter = supabaseDb
-      .from('email_events')
-      .select('message_id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .eq('event_type', 'open');
+    let openFilter = applyUserFilter(
+      supabaseDb
+        .from('email_events')
+        .select('message_id', { count: 'exact', head: true })
+        .eq('event_type', 'open')
+    );
     if (id !== 'all') {
       openFilter = openFilter.eq('campaign_id', id);
     }
@@ -54,11 +77,12 @@ export default async function campaignPerformance(req: Request, res: Response) {
     }
 
     // Replies
-    let replyFilter = supabaseDb
-      .from('email_events')
-      .select('lead_id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .eq('event_type', 'reply');
+    let replyFilter = applyUserFilter(
+      supabaseDb
+        .from('email_events')
+        .select('lead_id', { count: 'exact', head: true })
+        .eq('event_type', 'reply')
+    );
     if (id !== 'all') {
       replyFilter = replyFilter.eq('campaign_id', id);
     }
@@ -71,11 +95,12 @@ export default async function campaignPerformance(req: Request, res: Response) {
     }
 
     // Conversions
-    let conversionFilter = supabaseDb
-      .from('email_events')
-      .select('lead_id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .eq('event_type', 'conversion');
+    let conversionFilter = applyUserFilter(
+      supabaseDb
+        .from('email_events')
+        .select('lead_id', { count: 'exact', head: true })
+        .eq('event_type', 'conversion')
+    );
     if (id !== 'all') {
       conversionFilter = conversionFilter.eq('campaign_id', id);
     }
@@ -93,37 +118,31 @@ export default async function campaignPerformance(req: Request, res: Response) {
     if (id === 'all') {
       // All campaigns: all user leads and candidates
       try {
-        const { count } = await supabaseDb
-          .from('leads')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', userId);
+        const { count } = await applyUserFilter(
+          supabaseDb.from('leads').select('id', { count: 'exact', head: true })
+        );
         total_leads = count || 0;
       } catch {}
 
       try {
-        const { count } = await supabaseDb
-          .from('candidates')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', userId);
+        const { count } = await applyUserFilter(
+          supabaseDb.from('candidates').select('id', { count: 'exact', head: true })
+        );
         converted_candidates = count || 0;
       } catch {}
     } else {
       // Specific campaign: leads under this campaign and their converted candidates
       try {
-        const { data: leadRows, error: leadsErr } = await supabaseDb
-          .from('leads')
-          .select('id')
-          .eq('user_id', userId)
-          .eq('campaign_id', id);
+        const { data: leadRows, error: leadsErr } = await applyUserFilter(
+          supabaseDb.from('leads').select('id').eq('campaign_id', id)
+        );
         if (!leadsErr) {
           total_leads = (leadRows || []).length;
           const leadIds = (leadRows || []).map((l: any) => l.id);
           if (leadIds.length) {
-            const { count } = await supabaseDb
-              .from('candidates')
-              .select('id', { count: 'exact', head: true })
-              .eq('user_id', userId)
-              .in('lead_id', leadIds);
+            const { count } = await applyUserFilter(
+              supabaseDb.from('candidates').select('id', { count: 'exact', head: true }).in('lead_id', leadIds)
+            );
             converted_candidates = count || 0;
           }
         }

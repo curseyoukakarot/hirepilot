@@ -131,7 +131,7 @@ router.get('/slack/channels', requireAuthFlag, async (req, res) => {
 router.get('/fields', fieldsHandler);
 
 // Get campaigns
-router.get("/getCampaigns", getCampaigns);
+router.get("/getCampaigns", requireAuthFlag, getCampaigns);
 
 // Add after other routes
 router.patch("/updateTemplate/:id", requireAuth, updateTemplate);
@@ -172,7 +172,7 @@ router.post('/campaigns/executions/:executionId/debug-webhook', requireAuth, deb
 router.get('/campaigns/debug/search-leads', requireAuth, debugSearchLeads);
 
 // Add campaign performance endpoint
-router.get('/campaigns/:id/performance', campaignPerformance);
+router.get('/campaigns/:id/performance', requireAuthFlag, campaignPerformance);
 // Public: campaigns attached to a job
 router.get('/jobs/:id/campaigns', jobCampaigns);
 

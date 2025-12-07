@@ -1,14 +1,34 @@
 import { Request, Response } from 'express';
 import { supabaseDb } from '../lib/supabase';
+import { resolveAnalyticsScope } from '../lib/analyticsScope';
 
 export default async function analyticsTimeSeries(req: Request, res: Response) {
   const { campaign_id = 'all', time_range = '30d' } = req.query;
-  const userId = req.user?.id || req.query.user_id;
+  const viewerId = req.user?.id as string | undefined;
 
-  if (!userId) {
-    res.status(400).json({ error: 'Missing user id' });
+  if (!viewerId) {
+    res.status(401).json({ error: 'Unauthorized' });
     return;
   }
+
+  const scope = await resolveAnalyticsScope(viewerId);
+  if (!scope.allowed) {
+    const code = 'code' in scope ? scope.code : 'analytics_denied';
+    const status = code === 'analytics_sharing_disabled' ? 403 : 401;
+    res.status(status).json({ error: code });
+    return;
+  }
+
+  const targetUserIds = scope.targetUserIds && scope.targetUserIds.length ? scope.targetUserIds : [viewerId];
+  const applyUserFilter = <T>(query: T & { eq: Function; in: Function }) => {
+    if (!targetUserIds.length) {
+      return query.in('user_id', ['00000000-0000-0000-0000-000000000000']);
+    }
+    if (targetUserIds.length === 1) {
+      return query.eq('user_id', targetUserIds[0]);
+    }
+    return query.in('user_id', targetUserIds);
+  };
 
   try {
     // Calculate date range and grouping
@@ -40,17 +60,18 @@ export default async function analyticsTimeSeries(req: Request, res: Response) {
     }
 
     // Build base query
-    let baseQuery = supabaseDb
-      .from('email_events')
-      .select(`
+    let baseQuery = applyUserFilter(
+      supabaseDb
+        .from('email_events')
+        .select(`
         event_type,
         event_timestamp,
         message_id,
         lead_id
       `)
-      .eq('user_id', userId)
-      .gte('event_timestamp', startDate.toISOString())
-      .order('event_timestamp', { ascending: true });
+        .gte('event_timestamp', startDate.toISOString())
+        .order('event_timestamp', { ascending: true })
+    );
 
     // Add campaign filter if not 'all'
     if (campaign_id !== 'all') {

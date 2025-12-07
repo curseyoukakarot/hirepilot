@@ -440,7 +440,7 @@ console.table(listEndpoints(app).filter((r: any) => r.path.includes('/slack')));
 app.use('/api', slackRouter);
 console.table(listEndpoints(app).filter((r: any) => r.path.includes('sendgrid/sourcing')));
 app.use('/api/outreach', outreachRouter);
-app.get('/api/getCampaigns', getCampaigns);
+app.get('/api/getCampaigns', requireAuthFlag, getCampaigns);
 app.delete('/api/deleteCampaign', deleteCampaign);
 app.use('/api/sendgrid', sendgridValidateRouter);
 app.use('/api/sendgrid', sendgridSaveRouter);
@@ -587,7 +587,7 @@ app.post('/api/agent/send-message', requireAuthFlag, async (req: any, res) => {
   // Boot sniper opener worker (BullMQ)
   void sniperOpenerWorker;
   // (webhook route mounted earlier before body parsers)
-app.get('/api/campaigns/all/performance', (req, res) => {
+app.get('/api/campaigns/all/performance', requireAuthFlag, (req, res) => {
   (req.params as any).id = 'all';
   return campaignPerformance(req, res);
 });

@@ -17,10 +17,15 @@ export default function AnalyticsOverviewLegacy() {
   const [overviewSeries, setOverviewSeries] = useState({ labels: [], open: [], reply: [], conv: [] });
   const [campaigns, setCampaigns] = useState([]);
   const [campaignId, setCampaignId] = useState('all');
+  const [analyticsBlocked, setAnalyticsBlocked] = useState(false);
   // no-op state removed; always show tick labels with proper colors
 
   // Load campaigns for dropdown (backend preferred, Supabase fallback)
   useEffect(() => {
+    if (analyticsBlocked) {
+      setCampaigns([]);
+      return;
+    }
     (async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -32,10 +37,18 @@ export default function AnalyticsOverviewLegacy() {
         let list = [];
         if (base) {
           try {
-            const resp = await fetch(`${base}/api/getCampaigns?user_id=${encodeURIComponent(user.id)}`);
+            const token = (await supabase.auth.getSession())?.data?.session?.access_token;
+            const resp = await fetch(`${base}/api/getCampaigns`, {
+              headers: token ? { Authorization: `Bearer ${token}` } : {},
+              credentials: 'include'
+            });
             if (resp.ok) {
               const result = await resp.json();
               list = Array.isArray(result.campaigns) ? result.campaigns : [];
+            } else if (resp.status === 403) {
+              setAnalyticsBlocked(true);
+              setCampaigns([]);
+              return;
             }
           } catch {}
         }
@@ -46,11 +59,16 @@ export default function AnalyticsOverviewLegacy() {
         setCampaigns(list.map(c => ({ id: c.id, name: c.name || c.title || 'Untitled' })));
       } catch {}
     })();
-  }, []);
+  }, [analyticsBlocked]);
 
   // Load Overview data (summary and series)
   useEffect(() => {
     const loadOverview = async () => {
+      if (analyticsBlocked) {
+        setOverviewSummary({ sent: 0, openRate: 0, replyRate: 0, conversionRate: 0, converted: 0 });
+        setOverviewSeries({ labels: [], open: [], reply: [], conv: [] });
+        return;
+      }
       try {
         const { data: { session } } = await supabase.auth.getSession();
         const uid = session?.user?.id || '';
@@ -65,9 +83,17 @@ export default function AnalyticsOverviewLegacy() {
         if (base && uid) {
           try {
             const token = session?.access_token;
-            const qs = new URLSearchParams({ user_id: uid, since: sinceIso });
-            if (campaignId !== 'all') qs.set('campaign_id', String(campaignId));
-            const r = await fetch(`${base}/api/campaigns/all/performance?${qs.toString()}`, { headers: token ? { Authorization: 'Bearer ' + token } : {} });
+            const endpointId = campaignId && campaignId !== 'all' ? campaignId : 'all';
+            const r = await fetch(`${base}/api/campaigns/${encodeURIComponent(endpointId)}/performance`, {
+              headers: token ? { Authorization: 'Bearer ' + token } : {},
+              credentials: 'include'
+            });
+            if (r.status === 403) {
+              setAnalyticsBlocked(true);
+              setOverviewSummary({ sent: 0, openRate: 0, replyRate: 0, conversionRate: 0, converted: 0 });
+              setOverviewSeries({ labels: [], open: [], reply: [], conv: [] });
+              return;
+            }
             if (r.ok && (r.headers.get('content-type')||'').includes('application/json')) {
               const j = await r.json();
               sent = Number(j.sent||0); opens = Number(j.opens||0); replies = Number(j.replies||0); conversions = Number(j.conversions||0);
@@ -197,12 +223,13 @@ export default function AnalyticsOverviewLegacy() {
         };
         await loadSeries();
       } catch {
+        if (analyticsBlocked) return;
         setOverviewSummary({ sent: 0, openRate: 0, replyRate: 0, conversionRate: 0, converted: 0 });
         setOverviewSeries({ labels: [], open: [], reply: [], conv: [] });
       }
     };
     loadOverview();
-  }, [overviewRange, campaignId]);
+  }, [overviewRange, campaignId, analyticsBlocked]);
 
   // Init and update chart
   useEffect(() => {
@@ -242,6 +269,17 @@ export default function AnalyticsOverviewLegacy() {
     })();
     return () => { try { chartRef.current?.destroy(); } catch {} chartRef.current = null; };
   }, [overviewSeries]);
+
+  if (analyticsBlocked) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-white border rounded-lg p-6 text-center">
+          <h1 className="text-2xl font-semibold text-gray-900 mb-2">Campaign Performance</h1>
+          <p className="text-gray-500">Your team admin has disabled analytics sharing for this account.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

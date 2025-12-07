@@ -70,20 +70,28 @@ type TeamSharingSettings = {
   share_candidates: boolean;
   allow_team_editing: boolean;
   team_admin_view_pool: boolean;
+  share_analytics: boolean;
+  analytics_admin_view_enabled: boolean;
+  analytics_admin_view_user_id?: string | null;
+  analytics_team_pool: boolean;
 };
 
 const DEFAULT_TEAM_SETTINGS: TeamSharingSettings = {
   share_leads: false,
   share_candidates: false,
   allow_team_editing: false,
-  team_admin_view_pool: true
+  team_admin_view_pool: true,
+  share_analytics: false,
+  analytics_admin_view_enabled: false,
+  analytics_admin_view_user_id: null,
+  analytics_team_pool: false
 };
 
 async function fetchTeamSettingsForTeam(teamId?: string | null): Promise<TeamSharingSettings> {
   if (!teamId) return DEFAULT_TEAM_SETTINGS;
   const { data } = await supabase
     .from('team_settings')
-    .select('share_leads, share_candidates, allow_team_editing, team_admin_view_pool')
+    .select('share_leads, share_candidates, allow_team_editing, team_admin_view_pool, share_analytics, analytics_admin_view_enabled, analytics_admin_view_user_id, analytics_team_pool')
     .eq('team_id', teamId)
     .maybeSingle();
   return {
@@ -93,7 +101,11 @@ async function fetchTeamSettingsForTeam(teamId?: string | null): Promise<TeamSha
     team_admin_view_pool:
       data?.team_admin_view_pool === undefined || data?.team_admin_view_pool === null
         ? true
-        : !!data?.team_admin_view_pool
+        : !!data?.team_admin_view_pool,
+    share_analytics: !!data?.share_analytics,
+    analytics_admin_view_enabled: !!data?.analytics_admin_view_enabled,
+    analytics_admin_view_user_id: data?.analytics_admin_view_user_id || null,
+    analytics_team_pool: !!data?.analytics_team_pool
   };
 }
 
