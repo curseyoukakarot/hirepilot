@@ -46,6 +46,31 @@ function resolvePaidPlanLabel(...candidates: Array<string | null | undefined>): 
   return 'team';
 }
 
+async function syncAuthMetadata(userId: string | null, role?: string | null, plan?: string | null, extraMeta: Record<string, any> = {}) {
+  if (!userId) return;
+  try {
+    const { data } = await supabaseDb.auth.admin.getUserById(userId);
+    const authUser = data?.user;
+    const nextApp: Record<string, any> = { ...(authUser?.app_metadata || {}) };
+    const nextMeta: Record<string, any> = { ...(authUser?.user_metadata || {}) };
+    if (role) {
+      nextApp.role = role;
+      nextMeta.role = role;
+      nextMeta.account_type = role;
+    }
+    if (plan) {
+      nextMeta.plan = plan;
+    }
+    Object.assign(nextMeta, extraMeta || {});
+    await supabaseDb.auth.admin.updateUserById(userId, {
+      app_metadata: nextApp,
+      user_metadata: nextMeta
+    } as any);
+  } catch (err) {
+    console.warn('[team] Failed to sync auth metadata', err);
+  }
+}
+
 async function upsertUserPlanRecord(params: {
   userId: string;
   email: string;
@@ -392,8 +417,9 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
           onboarding_complete: false,
           team_id: teamId,
           plan: resolvedPaidPlan
-        }
-      });
+        },
+        app_metadata: { role } as any
+      } as any);
 
       if (createError) {
         console.error('Error creating user:', createError);
@@ -408,6 +434,8 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
         });
         return;
       }
+
+      await syncAuthMetadata(userData.user.id, role, resolvedPaidPlan, { team_id: teamId });
 
       // Create a record in the public.users table
       console.log('Ensuring public user record for:', email);
@@ -477,6 +505,8 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
         res.status(503).json({ message: 'Failed to sync user plan record', error: existingPlanError });
         return;
       }
+
+      await syncAuthMetadata((existingAuthUser as any).id, role, resolvedPaidPlan, { team_id: teamId });
     }
 
     // Send invite email using SendGrid
@@ -936,6 +966,8 @@ router.post('/invite/:token/accept', async (req: Request, res: Response) => {
     } catch (profileErr) {
       console.warn('[invite accept] failed to update user profile', profileErr);
     }
+
+    await syncAuthMetadata(targetUserId, resolvedRole, resolvedPlan, { team_id: resolvedTeamId || invite.team_id || null });
 
     try {
       await supabaseDb
