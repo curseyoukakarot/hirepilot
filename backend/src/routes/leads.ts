@@ -1172,6 +1172,16 @@ router.get('/candidates', requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
+    let shareCandidatesEnabled = false;
+    if (userData.team_id) {
+      const { data: settings } = await supabase
+        .from('team_settings')
+        .select('share_candidates')
+        .eq('team_id', userData.team_id)
+        .maybeSingle();
+      shareCandidatesEnabled = !!settings?.share_candidates;
+    }
+
     // Build query based on user role
     let query = supabase
       .from('candidates')
@@ -1179,30 +1189,14 @@ router.get('/candidates', requireAuth, async (req: Request, res: Response) => {
 
     const isAdmin = ['admin', 'team_admin', 'super_admin'].includes(userData.role);
     
-    if (isAdmin && userData.team_id) {
-      // Admins see their own candidates and all candidates in their team (shared or not)
-      const { data: teamUsers } = await supabase
-        .from('users')
-        .select('id')
-        .eq('team_id', userData.team_id);
-      const teamUserIds = (teamUsers || []).map((u: any) => u.id).filter(Boolean);
-      if (teamUserIds.length > 0) {
-        // Fetch by explicit IN list rather than raw SQL subselects
-        query = query.or(`user_id.eq.${userId},user_id.in.(${teamUserIds.join(',')})`);
+    if (userData.team_id) {
+      const teamFilter = `team_id.eq.${userData.team_id}`;
+      if (isAdmin) {
+        query = query.or(`user_id.eq.${userId},${teamFilter}`);
+      } else if (shareCandidatesEnabled) {
+        query = query.or(`user_id.eq.${userId},${teamFilter}`);
       } else {
-        query = query.eq('user_id', userId);
-      }
-    } else if (userData.team_id) {
-      // Members see their own candidates + shared candidates from team
-      const { data: teamUsers } = await supabase
-        .from('users')
-        .select('id')
-        .eq('team_id', userData.team_id);
-      const teamUserIds = (teamUsers || []).map((u: any) => u.id).filter(Boolean);
-      if (teamUserIds.length > 0) {
-        query = query.or(`user_id.eq.${userId},and(user_id.in.(${teamUserIds.join(',')}),shared.eq.true)`);
-      } else {
-        query = query.eq('user_id', userId);
+        query = query.or(`user_id.eq.${userId},and(${teamFilter},shared.eq.true)`);
       }
     } else {
       // No team - only see own candidates
@@ -1216,7 +1210,15 @@ router.get('/candidates', requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
-    res.json(candidates);
+    const decorated = (candidates || []).map((candidate: any) => ({
+      ...candidate,
+      shared_from_team_member:
+        !!userData.team_id &&
+        candidate.user_id !== userId &&
+        candidate.team_id === userData.team_id
+    }));
+
+    res.json(decorated);
   } catch (error) {
     console.error('Error fetching candidates:', error);
     res.status(500).json({ error: 'Failed to fetch candidates' });
@@ -1487,6 +1489,16 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
+    let shareLeadsEnabled = false;
+    if (userData.team_id) {
+      const { data: settings } = await supabase
+        .from('team_settings')
+        .select('share_leads')
+        .eq('team_id', userData.team_id)
+        .maybeSingle();
+      shareLeadsEnabled = !!settings?.share_leads;
+    }
+
     // Build query based on user role
     let query = supabase
       .from('leads')
@@ -1494,12 +1506,15 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
 
     const isAdmin = ['admin', 'team_admin', 'super_admin'].includes(userData.role);
     
-    if (isAdmin && userData.team_id) {
-      // Admins see all leads in their team (shared or not)
-      query = query.or(`user_id.eq.${userId},and(team_id.eq.${userData.team_id})`);
-    } else if (userData.team_id) {
-      // Members see their own leads + shared leads from team
-      query = query.or(`user_id.eq.${userId},and(team_id.eq.${userData.team_id},shared.eq.true)`);
+    if (userData.team_id) {
+      const teamFilter = `team_id.eq.${userData.team_id}`;
+      if (isAdmin) {
+        query = query.or(`user_id.eq.${userId},${teamFilter}`);
+      } else if (shareLeadsEnabled) {
+        query = query.or(`user_id.eq.${userId},${teamFilter}`);
+      } else {
+        query = query.or(`user_id.eq.${userId},and(${teamFilter},shared.eq.true)`);
+      }
     } else {
       // No team - only see own leads
       query = query.eq('user_id', userId);
@@ -1517,7 +1532,15 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
-    res.json(leads || []);
+    const decorated = (leads || []).map((lead: any) => ({
+      ...lead,
+      shared_from_team_member:
+        !!userData.team_id &&
+        lead.user_id !== userId &&
+        lead.team_id === userData.team_id
+    }));
+
+    res.json(decorated);
   } catch (error) {
     console.error('Error fetching leads:', error);
     res.status(500).json({ error: 'Failed to fetch leads' });

@@ -35,6 +35,7 @@ function LeadManagement() {
   const [selectedTags, setSelectedTags] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const { options: campaignOptions, loading: campaignsLoading, error: campaignsError } = useCampaignOptions();
+  const [currentUserId, setCurrentUserId] = useState(null);
   const [showActionsMenu, setShowActionsMenu] = useState(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [leadToDelete, setLeadToDelete] = useState(null);
@@ -96,6 +97,17 @@ function LeadManagement() {
   const [isLeadsLoading, setIsLeadsLoading] = useState(true);
 
   // Bulk tagging state
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id) setCurrentUserId(user.id);
+      } catch (err) {
+        console.error('Failed to resolve user id', err);
+      }
+    })();
+  }, []);
+
   const [showBulkTagModal, setShowBulkTagModal] = useState(false);
   const [bulkTagInput, setBulkTagInput] = useState('');
   const [isBulkTagging, setIsBulkTagging] = useState(false);
@@ -148,6 +160,17 @@ function LeadManagement() {
       // Use the backend API for all cases (with or without campaign filtering)
       const rawLeads = await getLeads(campaignId);
 
+      let viewerId = currentUserId;
+      if (!viewerId) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          viewerId = user?.id || null;
+          if (viewerId) setCurrentUserId(viewerId);
+        } catch (err) {
+          console.error('Failed to determine current user id', err);
+        }
+      }
+
       const mapped = rawLeads.map((lead) => {
         const enrichment =
           typeof lead.enrichment_data === 'string'
@@ -176,6 +199,7 @@ function LeadManagement() {
           || normalizeSource(lead.enrichment_source)
           || normalizeSource(enrichment.source)
           || 'Unknown';
+        const sharedFromTeamMate = !!(lead.shared_from_team_member ?? (viewerId && lead.user_id && lead.user_id !== viewerId));
 
         return {
           id: lead.id,
@@ -200,6 +224,7 @@ function LeadManagement() {
           skills: [],
           twitter: '',
           outreachHistory: [],
+          sharedFromTeamMate,
         };
       });
       setLeads(mapped);
@@ -1741,7 +1766,14 @@ function LeadManagement() {
                         className="h-10 w-10 rounded-full"
                       />
                       <div className="ml-4 min-w-0">
-                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 max-w-[220px] truncate" title={lead.name}>{lead.name}</div>
+                        <div className="flex items-center gap-2">
+                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100 max-w-[220px] truncate" title={lead.name}>{lead.name}</div>
+                          {lead.sharedFromTeamMate && (
+                            <span className="text-[10px] font-semibold tracking-wide px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-500/20 dark:text-blue-200">
+                              Shared
+                            </span>
+                          )}
+                        </div>
                         <div className="text-sm text-gray-500 dark:text-gray-400 max-w-[240px] truncate" title={lead.title}>{lead.title}</div>
                       </div>
                     </div>

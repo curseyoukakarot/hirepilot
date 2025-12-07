@@ -283,6 +283,7 @@ export default function CandidateList() {
         if (!session) {
           throw new Error('No active session');
         }
+        const viewerId = session.user?.id || null;
 
         const res = await fetch(`${BACKEND_URL}/api/leads/candidates`, {
           method: 'GET',
@@ -322,7 +323,8 @@ export default function CandidateList() {
         };
         const parsedCandidates = fetchedCandidates.map(c => ({
           ...c,
-          enrichment_data: parseEnrichmentData(c.enrichment_data)
+          enrichment_data: parseEnrichmentData(c.enrichment_data),
+          sharedFromTeamMate: !!(c.shared_from_team_member ?? (viewerId && c.user_id && c.user_id !== viewerId))
         }));
         console.log('Candidates:', parsedCandidates);
         setCandidates(parsedCandidates);
@@ -348,6 +350,7 @@ export default function CandidateList() {
       setError(null);
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('No active session');
+      const viewerId = session.user?.id || null;
       const res = await fetch(`${BACKEND_URL}/api/leads/candidates`, {
         method: 'GET',
         headers: {
@@ -364,7 +367,11 @@ export default function CandidateList() {
         if (typeof data === 'string') { try { return JSON.parse(data); } catch { return {}; } }
         return {};
       };
-      setCandidates((fetched||[]).map(c => ({ ...c, enrichment_data: normalize(c.enrichment_data) })));
+      setCandidates((fetched||[]).map(c => ({
+        ...c,
+        enrichment_data: normalize(c.enrichment_data),
+        sharedFromTeamMate: !!(c.shared_from_team_member ?? (viewerId && c.user_id && c.user_id !== viewerId))
+      })));
     } catch (e) {
       setError(e.message || 'Failed to refresh');
     } finally { setLoading(false); }
@@ -789,18 +796,25 @@ export default function CandidateList() {
                               </div>
                             )}
                           </div>
-                          <div className="ml-4 min-w-0">
-                            <div className="text-sm font-medium text-gray-900 dark:text-gray-100 max-w-[220px] truncate" title={`${candidate.first_name || ''} ${candidate.last_name || ''}`.trim()}>
-                              {candidate.first_name} {candidate.last_name}
-                            </div>
-                            <div className="text-sm text-gray-500 dark:text-gray-400 max-w-[240px] truncate" title={candidate.title || (typeof candidate.enrichment_data === 'string' ? parseEnrichmentTitle(candidate.enrichment_data) : candidate.enrichment_data?.current_title) || 'No title'}>
-                              {candidate.title ||
-                                (typeof candidate.enrichment_data === 'string'
-                                  ? parseEnrichmentTitle(candidate.enrichment_data)
-                                  : candidate.enrichment_data?.current_title) ||
-                                'No title'}
-                            </div>
+                      <div className="ml-4 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100 max-w-[220px] truncate" title={`${candidate.first_name || ''} ${candidate.last_name || ''}`.trim()}>
+                            {candidate.first_name} {candidate.last_name}
                           </div>
+                          {candidate.sharedFromTeamMate && (
+                            <span className="text-[10px] font-semibold tracking-wide px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-500/20 dark:text-blue-200">
+                              Shared
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400 max-w-[240px] truncate" title={candidate.title || (typeof candidate.enrichment_data === 'string' ? parseEnrichmentTitle(candidate.enrichment_data) : candidate.enrichment_data?.current_title) || 'No title'}>
+                          {candidate.title ||
+                            (typeof candidate.enrichment_data === 'string'
+                              ? parseEnrichmentTitle(candidate.enrichment_data)
+                              : candidate.enrichment_data?.current_title) ||
+                            'No title'}
+                        </div>
+                      </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
