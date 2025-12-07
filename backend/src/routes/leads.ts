@@ -1218,6 +1218,8 @@ router.get('/candidates', requireAuth, async (req: Request, res: Response) => {
         candidate.team_id === userData.team_id
     }));
 
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.removeHeader('ETag');
     res.json(decorated);
   } catch (error) {
     console.error('Error fetching candidates:', error);
@@ -1540,6 +1542,8 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
         lead.team_id === userData.team_id
     }));
 
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.removeHeader('ETag');
     res.json(decorated);
   } catch (error) {
     console.error('Error fetching leads:', error);
