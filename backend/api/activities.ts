@@ -11,25 +11,31 @@ type TeamSharingSettings = {
   share_leads: boolean;
   share_candidates: boolean;
   allow_team_editing: boolean;
+  team_admin_view_pool: boolean;
 };
 
 const DEFAULT_TEAM_SETTINGS: TeamSharingSettings = {
   share_leads: false,
   share_candidates: false,
-  allow_team_editing: false
+  allow_team_editing: false,
+  team_admin_view_pool: true
 };
 
 async function fetchTeamSettings(teamId?: string | null): Promise<TeamSharingSettings> {
   if (!teamId) return DEFAULT_TEAM_SETTINGS;
   const { data } = await supabase
     .from('team_settings')
-    .select('share_leads, share_candidates, allow_team_editing')
+    .select('share_leads, share_candidates, allow_team_editing, team_admin_view_pool')
     .eq('team_id', teamId)
     .maybeSingle();
   return {
     share_leads: !!data?.share_leads,
     share_candidates: !!data?.share_candidates,
-    allow_team_editing: !!data?.allow_team_editing
+    allow_team_editing: !!data?.allow_team_editing,
+    team_admin_view_pool:
+      data?.team_admin_view_pool === undefined || data?.team_admin_view_pool === null
+        ? true
+        : !!data?.team_admin_view_pool
   };
 }
 
@@ -92,7 +98,8 @@ router.get('/', requireAuth, async (req: ApiRequest, res: Response) => {
 
       if (lead.user_id !== userId) {
         const { sameTeam, teamSettings, privileged } = await resolveLeadViewerContext(userId, lead.user_id);
-        const shareViewAllowed = sameTeam && teamSettings.share_leads;
+        const adminOverride = privileged && sameTeam && teamSettings.team_admin_view_pool;
+        const shareViewAllowed = sameTeam && (teamSettings.share_leads || adminOverride);
 
         let hasCandidateAccess = false;
         if (!(privileged && sameTeam) && !shareViewAllowed) {

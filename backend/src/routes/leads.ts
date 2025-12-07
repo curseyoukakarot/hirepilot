@@ -69,25 +69,31 @@ type TeamSharingSettings = {
   share_leads: boolean;
   share_candidates: boolean;
   allow_team_editing: boolean;
+  team_admin_view_pool: boolean;
 };
 
 const DEFAULT_TEAM_SETTINGS: TeamSharingSettings = {
   share_leads: false,
   share_candidates: false,
-  allow_team_editing: false
+  allow_team_editing: false,
+  team_admin_view_pool: true
 };
 
 async function fetchTeamSettingsForTeam(teamId?: string | null): Promise<TeamSharingSettings> {
   if (!teamId) return DEFAULT_TEAM_SETTINGS;
   const { data } = await supabase
     .from('team_settings')
-    .select('share_leads, share_candidates, allow_team_editing')
+    .select('share_leads, share_candidates, allow_team_editing, team_admin_view_pool')
     .eq('team_id', teamId)
     .maybeSingle();
   return {
     share_leads: !!data?.share_leads,
     share_candidates: !!data?.share_candidates,
-    allow_team_editing: !!data?.allow_team_editing
+    allow_team_editing: !!data?.allow_team_editing,
+    team_admin_view_pool:
+      data?.team_admin_view_pool === undefined || data?.team_admin_view_pool === null
+        ? true
+        : !!data?.team_admin_view_pool
   };
 }
 
@@ -1214,15 +1220,11 @@ router.get('/candidates', requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
-    let shareCandidatesEnabled = false;
+    let teamSharing = DEFAULT_TEAM_SETTINGS;
     if (userData.team_id) {
-      const { data: settings } = await supabase
-        .from('team_settings')
-        .select('share_candidates')
-        .eq('team_id', userData.team_id)
-        .maybeSingle();
-      shareCandidatesEnabled = !!settings?.share_candidates;
+      teamSharing = await fetchTeamSettingsForTeam(userData.team_id);
     }
+    const shareCandidatesEnabled = !!teamSharing.share_candidates;
 
     // Build query based on user role
     let query = supabase
@@ -1230,6 +1232,7 @@ router.get('/candidates', requireAuth, async (req: Request, res: Response) => {
       .select('*');
 
     const isAdmin = ['admin', 'team_admin', 'super_admin'].includes(userData.role);
+    const adminViewPool = isAdmin && teamSharing.team_admin_view_pool;
     
     let teamUserIds: string[] = [];
     if (userData.team_id) {
@@ -1242,7 +1245,14 @@ router.get('/candidates', requireAuth, async (req: Request, res: Response) => {
 
     if (userData.team_id && teamUserIds.length > 0) {
       const otherTeamMembers = teamUserIds.filter(id => id !== userId);
-      if (isAdmin || shareCandidatesEnabled) {
+      if (isAdmin) {
+        if (adminViewPool) {
+          const ids = Array.from(new Set([userId, ...teamUserIds]));
+          query = query.in('user_id', ids);
+        } else {
+          query = query.eq('user_id', userId);
+        }
+      } else if (shareCandidatesEnabled) {
         const ids = Array.from(new Set([userId, ...teamUserIds]));
         query = query.in('user_id', ids);
       } else {
@@ -1546,17 +1556,12 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
-    let shareLeadsEnabled = false;
-    let allowTeamEditing = false;
+    let teamSharing = DEFAULT_TEAM_SETTINGS;
     if (userData.team_id) {
-      const { data: settings } = await supabase
-        .from('team_settings')
-        .select('share_leads, allow_team_editing')
-        .eq('team_id', userData.team_id)
-        .maybeSingle();
-      shareLeadsEnabled = !!settings?.share_leads;
-      allowTeamEditing = shareLeadsEnabled && !!settings?.allow_team_editing;
+      teamSharing = await fetchTeamSettingsForTeam(userData.team_id);
     }
+    const shareLeadsEnabled = !!teamSharing.share_leads;
+    const allowTeamEditing = shareLeadsEnabled && !!teamSharing.allow_team_editing;
 
     // Build query based on user role
     let query = supabase
@@ -1564,6 +1569,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       .select('*');
 
     const isAdmin = ['admin', 'team_admin', 'super_admin'].includes(userData.role);
+    const adminViewPool = isAdmin && teamSharing.team_admin_view_pool;
     
     let teamUserIds: string[] = [];
     if (userData.team_id) {
@@ -1576,7 +1582,14 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
 
     if (userData.team_id && teamUserIds.length > 0) {
       const otherTeamMembers = teamUserIds.filter(id => id !== userId);
-      if (isAdmin || shareLeadsEnabled) {
+      if (isAdmin) {
+        if (adminViewPool) {
+          const ids = Array.from(new Set([userId, ...teamUserIds]));
+          query = query.in('user_id', ids);
+        } else {
+          query = query.eq('user_id', userId);
+        }
+      } else if (shareLeadsEnabled) {
         const ids = Array.from(new Set([userId, ...teamUserIds]));
         query = query.in('user_id', ids);
       } else {
@@ -2116,8 +2129,9 @@ router.get('/:id', requireAuth, async (req: ApiRequest, res: Response) => {
     if (lead.user_id !== userId) {
       const { sameTeam, teamSettings, privileged } = await resolveLeadSharingContext(userId, lead.user_id);
       sharedFromTeamMate = sameTeam;
-      shareViewAllowed = sameTeam && teamSettings.share_leads;
-      shareEditAllowed = shareViewAllowed && teamSettings.allow_team_editing;
+      const adminOverride = privileged && sameTeam && teamSettings.team_admin_view_pool;
+      shareViewAllowed = sameTeam && (teamSettings.share_leads || adminOverride);
+      shareEditAllowed = sameTeam && teamSettings.share_leads && teamSettings.allow_team_editing;
       privilegedSameTeam = privileged && sameTeam;
 
       let hasCandidateAccess = false;
@@ -2136,7 +2150,7 @@ router.get('/:id', requireAuth, async (req: ApiRequest, res: Response) => {
         return;
       }
     }
-
+    
     res.json({
       ...lead,
       shared_from_team_member: sharedFromTeamMate,

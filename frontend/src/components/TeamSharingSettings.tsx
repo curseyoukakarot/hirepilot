@@ -2,7 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
 
 export default function TeamSharingSettings({ currentUserRole }: { currentUserRole: string }) {
-  const [settings, setSettings] = useState({ shareLeads: false, shareCandidates: false, allowTeamEditing: false });
+  const [settings, setSettings] = useState({
+    shareLeads: false,
+    shareCandidates: false,
+    allowTeamEditing: false,
+    teamAdminViewPool: true
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -16,6 +21,10 @@ export default function TeamSharingSettings({ currentUserRole }: { currentUserRo
             shareLeads: data.share_leads,
             shareCandidates: data.share_candidates,
             allowTeamEditing: data.allow_team_editing,
+            teamAdminViewPool:
+              data.team_admin_view_pool === undefined || data.team_admin_view_pool === null
+                ? true
+                : data.team_admin_view_pool,
           });
         } else {
           throw new Error('Failed to fetch settings');
@@ -30,12 +39,20 @@ export default function TeamSharingSettings({ currentUserRole }: { currentUserRo
     fetchSettings();
   }, []);
 
-  const updateSetting = async (field: 'shareLeads' | 'shareCandidates' | 'allowTeamEditing', value: boolean) => {
+  const updateSetting = async (
+    field: 'shareLeads' | 'shareCandidates' | 'allowTeamEditing' | 'teamAdminViewPool',
+    value: boolean
+  ) => {
     try {
+      const payload: Record<string, any> = {};
+      if (field === 'shareLeads') payload.shareLeads = value;
+      if (field === 'shareCandidates') payload.shareCandidates = value;
+      if (field === 'allowTeamEditing') payload.allowTeamEditing = value;
+      if (field === 'teamAdminViewPool') payload.adminViewTeamPool = value;
       const res = await fetch('/api/team/updateSettings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ [field]: value }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
@@ -50,7 +67,15 @@ export default function TeamSharingSettings({ currentUserRole }: { currentUserRo
         }
         return next;
       });
-      toast.success(`${field === 'shareLeads' ? 'Leads' : 'Candidates'} sharing ${value ? 'enabled' : 'disabled'}`);
+      const label =
+        field === 'shareLeads'
+          ? 'Leads sharing'
+          : field === 'shareCandidates'
+            ? 'Candidates sharing'
+            : field === 'allowTeamEditing'
+              ? 'Shared lead editing'
+              : 'Team admin pool';
+      toast.success(`${label} ${value ? 'enabled' : 'disabled'}`);
     } catch (error) {
       console.error('Error updating team settings:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to update settings');
@@ -59,7 +84,8 @@ export default function TeamSharingSettings({ currentUserRole }: { currentUserRo
 
   if (loading) return <p className="text-gray-500">Loading sharing settings...</p>;
 
-  const canManage = ['admin', 'team_admin', 'super_admin'].includes(currentUserRole);
+  const normalizedRole = String(currentUserRole || '').toLowerCase();
+  const canManage = ['admin', 'team_admin', 'team_admins', 'super_admin'].includes(normalizedRole);
 
   return (
     <div className="bg-white rounded-lg shadow p-6 mt-6">
@@ -79,6 +105,25 @@ export default function TeamSharingSettings({ currentUserRole }: { currentUserRo
                 className="sr-only peer"
                 checked={settings.shareLeads}
                 onChange={(e) => updateSetting('shareLeads', e.target.checked)}
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer dark:bg-gray-700 peer-checked:bg-indigo-600"></div>
+            </label>
+          </div>
+          
+          <div className="flex items-center justify-between py-3 border-b border-gray-200">
+            <div>
+              <span className="font-medium text-gray-900">Show entire team pool to admins</span>
+              <p className="text-sm text-gray-500">
+                When enabled, team admins automatically see every teammate&apos;s leads and candidates, even if members
+                haven&apos;t shared yet.
+              </p>
+            </div>
+            <label className="inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={settings.teamAdminViewPool}
+                onChange={(e) => updateSetting('teamAdminViewPool', e.target.checked)}
               />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer dark:bg-gray-700 peer-checked:bg-indigo-600"></div>
             </label>

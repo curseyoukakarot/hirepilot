@@ -9,7 +9,7 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
       return;
     }
 
-    const { shareLeads, shareCandidates, allowTeamEditing } = req.body;
+    const { shareLeads, shareCandidates, allowTeamEditing, adminViewTeamPool } = req.body;
 
     // Get user's role and team_id
     const { data: userData, error: userError } = await supabaseDb
@@ -23,9 +23,14 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
       return;
     }
 
-    // Check if user has permission to update team settings
-    const allowedRoles = ['admin', 'team_admin', 'super_admin'];
-    if (!allowedRoles.includes(userData.role)) {
+    // Determine role-based permissions
+    const normalizedRole = String(userData.role || '').toLowerCase();
+    const adminRoles = ['admin', 'team_admin', 'team_admins', 'super_admin', 'superadmin'];
+    const memberRoles = [...adminRoles, 'member', 'recruitpro', 'recruit_pro'];
+    const isAdminRole = adminRoles.includes(normalizedRole);
+    const canUpdateSharing = memberRoles.includes(normalizedRole);
+
+    if (!canUpdateSharing) {
       res.status(403).json({ error: 'Insufficient permissions to update team settings' });
       return;
     }
@@ -40,9 +45,21 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
     if (shareLeads !== undefined) updateData.share_leads = shareLeads;
     if (shareCandidates !== undefined) updateData.share_candidates = shareCandidates;
     if (allowTeamEditing !== undefined) {
+      if (!isAdminRole) {
+        res.status(403).json({ error: 'Only team admins can change shared editing settings' });
+        return;
+      }
       updateData.allow_team_editing = allowTeamEditing;
     } else if (shareLeads === false) {
       updateData.allow_team_editing = false;
+    }
+
+    if (adminViewTeamPool !== undefined) {
+      if (!isAdminRole) {
+        res.status(403).json({ error: 'Only team admins can control team visibility' });
+        return;
+      }
+      updateData.team_admin_view_pool = !!adminViewTeamPool;
     }
 
     // Try upsert using newer schema (PK team_admin_id). If the constraint/column

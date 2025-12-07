@@ -31,7 +31,8 @@ export default function SettingsTeamMembers() {
   const [teamSettings, setTeamSettings] = useState({
     shareLeads: false,
     shareCandidates: false,
-    allowTeamEditing: false
+    allowTeamEditing: false,
+    teamAdminViewPool: true
   });
 
   const handleOpenInviteModal = () => setIsInviteModalOpen(true);
@@ -275,6 +276,7 @@ export default function SettingsTeamMembers() {
   const userRoleDb = String(dbRole || '').toLowerCase();
   const effectiveRole = userRoleDb || userRoleMeta;
   const roleAllowsInvite = ['admin', 'team_admin', 'super_admin'].includes(effectiveRole);
+  const isAdminRole = ['admin', 'team_admin', 'super_admin'].includes(effectiveRole);
   const allowedPlans = ['pro','team','recruitpro'];
   const allowedRoles = ['admin','team_admin','super_admin'];
   const planKey = (planTier || '').toLowerCase();
@@ -349,7 +351,7 @@ export default function SettingsTeamMembers() {
       // Get team settings
       const { data: settings } = await supabase
         .from('team_settings')
-        .select('share_leads, share_candidates, allow_team_editing')
+        .select('share_leads, share_candidates, allow_team_editing, team_admin_view_pool')
         .eq('team_id', userData.team_id)
         .maybeSingle();
 
@@ -357,7 +359,11 @@ export default function SettingsTeamMembers() {
         setTeamSettings({
           shareLeads: settings.share_leads || false,
           shareCandidates: settings.share_candidates || false,
-          allowTeamEditing: settings.allow_team_editing || false
+          allowTeamEditing: settings.allow_team_editing || false,
+          teamAdminViewPool:
+            settings.team_admin_view_pool === undefined || settings.team_admin_view_pool === null
+              ? true
+              : settings.team_admin_view_pool
         });
       }
     } catch (error) {
@@ -371,20 +377,22 @@ export default function SettingsTeamMembers() {
       if (!session) return;
 
       // Call backend so server can populate team_admin_id
+      const payload = {};
+      if (setting === 'shareLeads') payload.shareLeads = value;
+      if (setting === 'shareCandidates') payload.shareCandidates = value;
+      if (setting === 'allowTeamEditing') {
+        payload.allowTeamEditing = value;
+      } else if (setting === 'shareLeads' && value === false) {
+        payload.allowTeamEditing = false;
+      }
+      if (setting === 'teamAdminViewPool') payload.adminViewTeamPool = value;
       const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/team/updateSettings`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({
-          shareLeads: setting === 'shareLeads' ? value : undefined,
-          shareCandidates: setting === 'shareCandidates' ? value : undefined,
-          allowTeamEditing:
-            setting === 'allowTeamEditing'
-              ? value
-              : (setting === 'shareLeads' && value === false ? false : undefined),
-        })
+        body: JSON.stringify(payload)
       });
       const js = await resp.json().catch(()=>({}));
       if (!resp.ok) throw new Error(js?.error || 'Failed to update team settings');
@@ -405,7 +413,9 @@ export default function SettingsTeamMembers() {
           ? 'Leads sharing'
           : setting === 'shareCandidates'
             ? 'Candidates sharing'
-            : 'Shared lead editing';
+            : setting === 'allowTeamEditing'
+              ? 'Shared lead editing'
+              : 'Admin pool';
       toast.success(`${toastLabel} ${value ? 'enabled' : 'disabled'}`);
     } catch (error) {
       console.error('Error updating team setting:', error);
@@ -530,6 +540,27 @@ export default function SettingsTeamMembers() {
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer dark:bg-gray-700 peer-checked:bg-indigo-600"></div>
               </label>
             </div>
+            
+            {isAdminRole && (
+              <div className="flex items-center justify-between py-2">
+                <div>
+                  <span className="font-medium text-gray-900">Show entire team pool to admins</span>
+                  <p className="text-sm text-gray-500">
+                    When enabled, admins automatically see every teammate&apos;s leads and candidates, even if members
+                    haven&apos;t shared yet.
+                  </p>
+                </div>
+                <label className="inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={teamSettings.teamAdminViewPool}
+                    onChange={() => updateTeamSetting('teamAdminViewPool', !teamSettings.teamAdminViewPool)}
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer dark:bg-gray-700 peer-checked:bg-indigo-600"></div>
+                </label>
+              </div>
+            )}
             
             <div className="flex items-center justify-between py-2">
               <div>
