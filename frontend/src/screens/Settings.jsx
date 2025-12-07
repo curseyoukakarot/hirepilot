@@ -29,6 +29,8 @@ export default function Settings() {
 
   const [tabs, setTabs] = useState(baseTabs);
   const [isGuest, setIsGuest] = useState(false);
+  const [profilePhoto, setProfilePhoto] = useState(null);
+  const [profileName, setProfileName] = useState('Profile');
 
   useEffect(() => {
     (async () => {
@@ -37,6 +39,7 @@ export default function Settings() {
       let filtered = [...baseTabs];
       // Determine if this user is a guest collaborator on any job
       let guestFlag = (typeof window !== 'undefined' && sessionStorage.getItem('guest_mode') === '1');
+      let derivedDisplayName = '';
       try {
         if (user?.email) {
           const { data: guestRow } = await supabase
@@ -49,6 +52,37 @@ export default function Settings() {
         }
       } catch {}
       setIsGuest(guestFlag);
+      try {
+        if (user?.id) {
+          const { data: userProfile } = await supabase
+            .from('users')
+            .select('avatar_url, first_name, last_name')
+            .eq('id', user.id)
+            .maybeSingle();
+          const meta = user?.user_metadata || {};
+          const nameParts = [
+            userProfile?.first_name || meta.first_name || meta.firstName || '',
+            userProfile?.last_name || meta.last_name || meta.lastName || ''
+          ].filter(Boolean);
+          derivedDisplayName = nameParts.join(' ').trim() || meta.full_name || meta.name || user?.email || 'User';
+          const avatarCandidate =
+            userProfile?.avatar_url ||
+            meta.avatar_url ||
+            meta.photo_url ||
+            meta.profile_image_url ||
+            meta.picture ||
+            meta.image ||
+            null;
+          const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(derivedDisplayName)}&background=random`;
+          setProfilePhoto(avatarCandidate || fallbackAvatar);
+          setProfileName(derivedDisplayName);
+        }
+      } catch (avatarErr) {
+        const fallbackName = derivedDisplayName || user?.email || 'User';
+        setProfileName(fallbackName);
+        setProfilePhoto(`https://ui-avatars.com/api/?name=${encodeURIComponent(fallbackName)}&background=random`);
+        console.warn('Failed to load profile avatar', avatarErr);
+      }
       // Hide Team Settings for free users
       if (String(role || '').toLowerCase() === 'free') {
         filtered = filtered.filter(t => t.id !== 'team');
@@ -108,9 +142,9 @@ export default function Settings() {
                 <i className="fa-regular fa-bell text-xl"></i>
               </button>
               <img
-                src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg"
-                alt="Profile"
-                className="w-10 h-10 rounded-full"
+                src={profilePhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(profileName)}&background=random`}
+                alt={profileName || 'Profile'}
+                className="w-10 h-10 rounded-full object-cover border border-gray-200"
               />
             </div>
           </div>
