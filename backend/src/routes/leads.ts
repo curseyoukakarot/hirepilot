@@ -1185,18 +1185,30 @@ router.get('/candidates', requireAuth, async (req: Request, res: Response) => {
     // Build query based on user role
     let query = supabase
       .from('candidates')
-      .select('*');
+      .select('*, owner:user_id(id, first_name, last_name)');
 
     const isAdmin = ['admin', 'team_admin', 'super_admin'].includes(userData.role);
     
+    let teamUserIds: string[] = [];
     if (userData.team_id) {
-      const teamFilter = `team_id.eq.${userData.team_id}`;
-      if (isAdmin) {
-        query = query.or(`user_id.eq.${userId},${teamFilter}`);
-      } else if (shareCandidatesEnabled) {
-        query = query.or(`user_id.eq.${userId},${teamFilter}`);
+      const { data: teamUsers } = await supabase
+        .from('users')
+        .select('id')
+        .eq('team_id', userData.team_id);
+      teamUserIds = (teamUsers || []).map((u: any) => u.id).filter(Boolean);
+    }
+
+    if (userData.team_id && teamUserIds.length > 0) {
+      const otherTeamMembers = teamUserIds.filter(id => id !== userId);
+      if (isAdmin || shareCandidatesEnabled) {
+        const ids = Array.from(new Set([userId, ...teamUserIds]));
+        query = query.in('user_id', ids);
       } else {
-        query = query.or(`user_id.eq.${userId},and(${teamFilter},shared.eq.true)`);
+        if (otherTeamMembers.length > 0) {
+          query = query.or(`user_id.eq.${userId},and(user_id.in.(${otherTeamMembers.join(',')}),shared.eq.true)`);
+        } else {
+          query = query.eq('user_id', userId);
+        }
       }
     } else {
       // No team - only see own candidates
@@ -1210,13 +1222,16 @@ router.get('/candidates', requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
-    const decorated = (candidates || []).map((candidate: any) => ({
-      ...candidate,
-      shared_from_team_member:
-        !!userData.team_id &&
-        candidate.user_id !== userId &&
-        candidate.team_id === userData.team_id
-    }));
+    const decorated = (candidates || []).map((candidate: any) => {
+      const ownerId = (candidate.owner as any)?.id || candidate.user_id;
+      return {
+        ...candidate,
+        shared_from_team_member:
+          !!userData.team_id &&
+          ownerId !== userId &&
+          teamUserIds.includes(ownerId)
+      };
+    });
 
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
     res.removeHeader('ETag');
@@ -1504,18 +1519,30 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     // Build query based on user role
     let query = supabase
       .from('leads')
-      .select('*');
+      .select('*, owner:user_id(id, first_name, last_name)');
 
     const isAdmin = ['admin', 'team_admin', 'super_admin'].includes(userData.role);
     
+    let teamUserIds: string[] = [];
     if (userData.team_id) {
-      const teamFilter = `team_id.eq.${userData.team_id}`;
-      if (isAdmin) {
-        query = query.or(`user_id.eq.${userId},${teamFilter}`);
-      } else if (shareLeadsEnabled) {
-        query = query.or(`user_id.eq.${userId},${teamFilter}`);
+      const { data: teamUsers } = await supabase
+        .from('users')
+        .select('id')
+        .eq('team_id', userData.team_id);
+      teamUserIds = (teamUsers || []).map((u: any) => u.id).filter(Boolean);
+    }
+
+    if (userData.team_id && teamUserIds.length > 0) {
+      const otherTeamMembers = teamUserIds.filter(id => id !== userId);
+      if (isAdmin || shareLeadsEnabled) {
+        const ids = Array.from(new Set([userId, ...teamUserIds]));
+        query = query.in('user_id', ids);
       } else {
-        query = query.or(`user_id.eq.${userId},and(${teamFilter},shared.eq.true)`);
+        if (otherTeamMembers.length > 0) {
+          query = query.or(`user_id.eq.${userId},and(user_id.in.(${otherTeamMembers.join(',')}),shared.eq.true)`);
+        } else {
+          query = query.eq('user_id', userId);
+        }
       }
     } else {
       // No team - only see own leads
@@ -1534,13 +1561,16 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
-    const decorated = (leads || []).map((lead: any) => ({
-      ...lead,
-      shared_from_team_member:
-        !!userData.team_id &&
-        lead.user_id !== userId &&
-        lead.team_id === userData.team_id
-    }));
+    const decorated = (leads || []).map((lead: any) => {
+      const ownerId = (lead.owner as any)?.id || lead.user_id;
+      return {
+        ...lead,
+        shared_from_team_member:
+          !!userData.team_id &&
+          ownerId !== userId &&
+          teamUserIds.includes(ownerId)
+      };
+    });
 
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
     res.removeHeader('ETag');
