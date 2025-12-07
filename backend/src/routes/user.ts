@@ -23,7 +23,7 @@ router.get('/plan', requireAuthPlan, async (req: ApiRequest, res: Response) => {
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
     let { data, error } = await supabase
       .from('users')
-      .select('plan, remaining_credits, monthly_credits, plan_updated_at')
+      .select('plan, remaining_credits, monthly_credits, plan_updated_at, role')
       .eq('id', userId)
       .maybeSingle();
 
@@ -53,16 +53,35 @@ router.get('/plan', requireAuthPlan, async (req: ApiRequest, res: Response) => {
           .select('plan, remaining_credits, monthly_credits, plan_updated_at')
           .eq('id', userId)
           .maybeSingle();
-        data = reread.data || { plan: 'free', remaining_credits: 50, monthly_credits: 50, plan_updated_at: new Date().toISOString() } as any;
+        data = reread.data || { plan: 'free', remaining_credits: 50, monthly_credits: 50, plan_updated_at: new Date().toISOString(), role: 'free' } as any;
       } catch (ensureErr) {
         // If ensure fails, still respond with a sane default so the UI can proceed
-        data = { plan: 'free', remaining_credits: 50, monthly_credits: 50, plan_updated_at: new Date().toISOString() } as any;
+        data = { plan: 'free', remaining_credits: 50, monthly_credits: 50, plan_updated_at: new Date().toISOString(), role: 'free' } as any;
       }
     }
 
     if (error && data) error = null; // ignore not-found after ensure
     if (error) return res.status(500).json({ error: error.message });
-    res.json(data);
+    const rawRole =
+      data?.role ||
+      (req as any)?.user?.role ||
+      (req as any)?.user?.account_type ||
+      null;
+    const normalizedRole = String(rawRole || '').toLowerCase().replace(/\s|-/g, '_');
+    let derivedPlan = data?.plan || null;
+    const privilegedRoles = new Set(['super_admin', 'admin', 'team_admin', 'team_admins', 'member', 'recruitpro']);
+    if ((!derivedPlan || derivedPlan === 'free') && privilegedRoles.has(normalizedRole)) {
+      if (normalizedRole === 'recruitpro') derivedPlan = 'RecruitPro';
+      else if (normalizedRole === 'super_admin' || normalizedRole === 'admin') derivedPlan = 'admin';
+      else derivedPlan = 'team';
+    }
+    res.json({
+      plan: derivedPlan || data?.plan || 'free',
+      remaining_credits: data?.remaining_credits ?? 0,
+      monthly_credits: data?.monthly_credits ?? null,
+      plan_updated_at: data?.plan_updated_at || null,
+      role: rawRole || null
+    });
   } catch (e) {
     res.status(500).json({ error: 'Failed to get plan' });
   }
