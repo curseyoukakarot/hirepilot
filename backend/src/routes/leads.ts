@@ -392,6 +392,108 @@ interface BrightDataPipelineResponse {
   body: any;
 }
 
+function extractBrightDataKeywords(profile: BrightDataProfile): string[] {
+  const keywordSet = new Set<string>();
+
+  const addTokens = (text?: string | null, limit = 25) => {
+    if (!text) return;
+    const matches = text.toLowerCase().match(/[a-z0-9]+/g);
+    if (!matches) return;
+    let added = 0;
+    for (const token of matches) {
+      if (token.length <= 2) continue;
+      keywordSet.add(token);
+      added++;
+      if (limit > 0 && added >= limit) break;
+    }
+  };
+
+  addTokens(profile.headline, 15);
+  addTokens(profile.current_title, 15);
+  addTokens(profile.current_company, 10);
+  addTokens(profile.location, 10);
+
+  if (Array.isArray(profile.skills)) {
+    profile.skills.forEach(skill => {
+      if (typeof skill === 'string') {
+        addTokens(skill, 8);
+      } else if (skill && typeof skill === 'object') {
+        addTokens((skill as any).name, 8);
+      }
+    });
+  }
+
+  addTokens(profile.about, 40);
+
+  if (Array.isArray(profile.experience)) {
+    profile.experience.forEach(exp => {
+      addTokens(exp?.title, 12);
+      addTokens(exp?.company, 12);
+      addTokens(exp?.description, 25);
+    });
+  }
+
+  return Array.from(keywordSet);
+}
+
+function normalizeKeywordToken(value?: string | null): string | null {
+  if (!value || typeof value !== 'string') return null;
+  const normalized = value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!normalized || normalized.length < 2) return null;
+  return normalized;
+}
+
+function coerceKeywordArray(value: unknown): string[] {
+  if (!value) return [];
+  let raw: string[] = [];
+  if (Array.isArray(value)) {
+    raw = value.filter((kw): kw is string => typeof kw === 'string');
+  } else if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        raw = parsed.filter((kw): kw is string => typeof kw === 'string');
+      } else {
+        raw = value.split(',').map(segment => segment.trim());
+      }
+    } catch {
+      raw = value.split(',').map(segment => segment.trim());
+    }
+  }
+
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  raw.forEach(item => {
+    const token = normalizeKeywordToken(item);
+    if (token && !seen.has(token)) {
+      seen.add(token);
+      normalized.push(token);
+    }
+  });
+  return normalized;
+}
+
+function mergeKeywordLists(existing: string[], additions: string[]): string[] {
+  const seen = new Set<string>();
+  const merged: string[] = [];
+
+  const addValue = (value: string) => {
+    const token = normalizeKeywordToken(value);
+    if (token && !seen.has(token)) {
+      seen.add(token);
+      merged.push(token);
+    }
+  };
+
+  existing.forEach(addValue);
+  additions.forEach(addValue);
+  return merged;
+}
+
 interface EmailEnrichmentOptions {
   lead: any;
   brightProfile?: BrightDataProfile | null;
@@ -437,6 +539,8 @@ async function runBrightDataEnrichmentFlow(options: BrightDataPipelineOptions): 
     errorMessages.push('LinkedIn URL missing for Bright Data enrichment');
   }
 
+  const brightDataKeywords = brightProfile ? extractBrightDataKeywords(brightProfile) : [];
+
   const emailResult = await runEmailEnrichment({
     lead,
     brightProfile,
@@ -480,6 +584,14 @@ async function runBrightDataEnrichmentFlow(options: BrightDataPipelineOptions): 
   if (brightProfile?.first_name && entityType === 'lead') updatePayload.first_name = brightProfile.first_name;
   if (brightProfile?.last_name && entityType === 'lead') updatePayload.last_name = brightProfile.last_name;
   if (emailResult.email) updatePayload.email = emailResult.email;
+
+  if (brightDataKeywords.length) {
+    const existingKeywords = coerceKeywordArray((lead as any)?.enrichment_keywords);
+    const mergedKeywords = mergeKeywordLists(existingKeywords, brightDataKeywords);
+    if (mergedKeywords.length > existingKeywords.length) {
+      updatePayload.enrichment_keywords = mergedKeywords;
+    }
+  }
 
   const { data: updatedRecord, error: updateError } = await supabase
     .from(tableName)
@@ -3192,7 +3304,7 @@ router.post('/:id/linkedin-message', requireAuth, async (req: ApiRequest, res: R
   await handleLeadRemoteAction(req, res, 'send_message');
 });
 
-export default router;
+export default router; 
 
 async function handleLeadRemoteAction(req: ApiRequest, res: Response, action: LinkedInRemoteActionType) {
   try {

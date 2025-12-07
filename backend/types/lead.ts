@@ -18,5 +18,6 @@ export interface Lead {
   enrichment_error?: string | null;
   email_status?: 'pending' | 'found' | 'not_found' | null;
   email_source?: 'apollo' | 'skrapp' | null;
+  enrichment_keywords?: string[] | null;
   brightdata_raw?: any | null;
 } 
