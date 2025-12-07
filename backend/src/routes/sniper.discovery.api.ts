@@ -4,8 +4,8 @@ import { supabaseDb } from '../../lib/supabase';
 import { Queue } from 'bullmq';
 import { connection } from '../queues/redis';
 import { requireAuth } from '../../middleware/authMiddleware';
-import { scrapeLinkedInJob, scrapeGenericJob, BrightDataJob } from '../../services/brightdataClient';
-import { isBrightDataEnabled } from '../../config/brightdata';
+import { scrapeLinkedInJob, scrapeGenericJob, BrightDataJob } from '../services/brightdataClient';
+import { isBrightDataEnabled } from '../config/brightdata';
 
 const router = Router();
 
