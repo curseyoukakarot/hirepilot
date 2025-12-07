@@ -10,10 +10,18 @@ export default function CampaignPerformance() {
 
   useEffect(() => {
     const fetchUserAndCampaigns = async () => {
-      const { data } = await supabase.auth.getUser();
-      if (data?.user) {
-        setUser(data.user);
-        const response = await fetch(`/api/getCampaigns?user_id=${data.user.id}`);
+      const [{ data: userData }, { data: sessionData }] = await Promise.all([
+        supabase.auth.getUser(),
+        supabase.auth.getSession()
+      ]);
+      const authedUser = userData?.user;
+      const accessToken = sessionData?.session?.access_token;
+      if (authedUser && accessToken) {
+        setUser(authedUser);
+        const response = await fetch(`/api/getCampaigns`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          credentials: 'include'
+        });
         const result = await response.json();
         if (response.ok) {
           setCampaigns(result.campaigns);

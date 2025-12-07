@@ -154,7 +154,10 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
         // Fallback: use most recent campaign for this user if none linked to job
         if (!matchingCampaignId && user?.id) {
           try {
-            const resp = await fetch(`${base}/api/getCampaigns?user_id=${user.id}`);
+            const resp = await fetch(`${base}/api/getCampaigns`, {
+              credentials: 'include',
+              headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
             const body = await resp.json();
             const list = Array.isArray(body?.campaigns) ? body.campaigns : [];
             if (list.length > 0) matchingCampaignId = list[0].id;
@@ -164,7 +167,10 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
         if ((matchingCampaignId || 'all') && user?.id) {
           try {
             const perfId = matchingCampaignId || 'all';
-            const perfResp = await fetch(`${base}/api/campaigns/${perfId}/performance?user_id=${user.id}`);
+            const perfResp = await fetch(`${base}/api/campaigns/${perfId}/performance`, {
+              credentials: 'include',
+              headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
             if (perfResp.ok) {
               const perf = await perfResp.json();
               outreachSent = Number(perf.sent || 0);
@@ -177,7 +183,11 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
         if (user?.id) {
           try {
             const cid = matchingCampaignId || 'all';
-            const tsResp = await fetch(`${base}/api/analytics/time-series?user_id=${user.id}&campaign_id=${cid}&time_range=90d`);
+            const params = new URLSearchParams({ campaign_id: cid, time_range: '90d' });
+            const tsResp = await fetch(`${base}/api/analytics/time-series?${params.toString()}`, {
+              credentials: 'include',
+              headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
             const ts = tsResp.ok ? await tsResp.json() : { data: [] };
             const weekly = (ts.data || []).slice(-4);
             weeks = weekly.map(w => w.period);
@@ -299,14 +309,20 @@ export default function DfyDashboard({ embedded = false, jobId = null }) {
           // Owner fallback with richer performance
           if (summaries.length === 0 && user?.id) {
             try {
-              const resp = await fetch(`${base}/api/getCampaigns?user_id=${user.id}`);
+              const resp = await fetch(`${base}/api/getCampaigns`, {
+                credentials: 'include',
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+              });
               const body = await resp.json();
               const list = Array.isArray(body?.campaigns) ? body.campaigns : [];
               const forJob = (list || []).filter(c => String(c.job_id || '') === String(jobId)).slice(0, 3);
               const det = [];
               for (const c of forJob) {
                 try {
-                  const pr = await fetch(`${base}/api/campaigns/${c.id}/performance?user_id=${user.id}`);
+                  const pr = await fetch(`${base}/api/campaigns/${c.id}/performance`, {
+                    credentials: 'include',
+                    headers: token ? { Authorization: `Bearer ${token}` } : {}
+                  });
                   const pj = pr.ok ? await pr.json() : {};
                   det.push({ id: c.id, name: c.name || c.title || 'Campaign', sent: Number(pj.sent || 0), replies: Number(pj.replies || 0), hires: hiresCount });
                 } catch { det.push({ id: c.id, name: c.name || c.title || 'Campaign', sent: 0, replies: 0, hires: 0 }); }

@@ -27,16 +27,20 @@ export function useCampaignOptions(): UseCampaignOptionsResult {
         setLoading(true);
         setError(null);
         
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
+        if (!user || !session?.access_token) {
           throw new Error('Not authenticated');
         }
 
         const response = await fetch(
-          `${import.meta.env.VITE_BACKEND_URL}/api/getCampaigns?user_id=${user.id}`,
+          `${import.meta.env.VITE_BACKEND_URL}/api/getCampaigns`,
           {
             method: 'GET',
             credentials: 'include',
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`
+            }
           }
         );
 

@@ -26,14 +26,18 @@ function Campaigns() {
   useEffect(() => {
     const fetchUserAndCampaigns = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          setUser(user);
+        const { data: { session } } = await supabase.auth.getSession();
+        const authedUser = session?.user;
+        if (authedUser && session?.access_token) {
+          setUser(authedUser);
           const response = await fetch(
-            `${import.meta.env.VITE_BACKEND_URL}/api/getCampaigns?user_id=${user.id}`,
+            `${import.meta.env.VITE_BACKEND_URL}/api/getCampaigns`,
             {
               method: 'GET',
               credentials: 'include',
+              headers: {
+                'Authorization': `Bearer ${session.access_token}`
+              }
             }
           );
           const result = await response.json();
