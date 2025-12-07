@@ -1223,11 +1223,12 @@ router.get('/candidates', requireAuth, async (req: Request, res: Response) => {
     }
 
     const decorated = (candidates || []).map((candidate: any) => {
-      const ownerId = (candidate.owner as any)?.id || candidate.user_id;
+      const ownerId = (candidate.user_id as string) || (candidate.owner as any)?.id || null;
       return {
         ...candidate,
         shared_from_team_member:
           !!userData.team_id &&
+          ownerId &&
           ownerId !== userId &&
           teamUserIds.includes(ownerId)
       };
@@ -1562,11 +1563,12 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     }
 
     const decorated = (leads || []).map((lead: any) => {
-      const ownerId = (lead.owner as any)?.id || lead.user_id;
+      const ownerId = (lead.user_id as string) || (lead.owner as any)?.id || null;
       return {
         ...lead,
         shared_from_team_member:
           !!userData.team_id &&
+          ownerId &&
           ownerId !== userId &&
           teamUserIds.includes(ownerId)
       };
