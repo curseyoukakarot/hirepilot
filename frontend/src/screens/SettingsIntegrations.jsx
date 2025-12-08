@@ -263,7 +263,6 @@ export default function SettingsIntegrations() {
   const [sendgridConnected, setSendgridConnected] = useState(false);
   const [apolloConnected, setApolloConnected] = useState(false);
   const [slackConnected, setSlackConnected] = useState(false);
-  const [zoominfoEnabled, setZoominfoEnabled] = useState(false);
   const [hunterConnected, setHunterConnected] = useState(false);
   const [skrappConnected, setSkrappConnected] = useState(false);
 
@@ -357,18 +356,6 @@ export default function SettingsIntegrations() {
         try {
           const data = await api('/api/agent-mode');
           setAgentModeEnabled(!!data.agent_mode_enabled);
-        } catch {}
-        // ZoomInfo enrichment setting
-        try {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user?.id) {
-            const { data: row } = await supabase
-              .from('zoominfo_enrichment_settings')
-              .select('enabled')
-              .eq('user_id', user.id)
-              .maybeSingle();
-            setZoominfoEnabled(!!row?.enabled);
-          }
         } catch {}
 
         // Admin enrichment keys (Hunter / Skrapp priority)
@@ -841,7 +828,7 @@ export default function SettingsIntegrations() {
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Sourcing & Enrichment</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">3 integrations</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">2 integrations</p>
               </div>
             </div>
             <i className={`fa-solid fa-chevron-down text-gray-400 transition-transform duration-300 ${open.sourcing ? 'rotate-180' : ''}`}></i>
@@ -857,38 +844,6 @@ export default function SettingsIntegrations() {
                   onDisconnect={()=>setShowApolloModal(true)}
                   connectLabel={apolloConnected ? 'Manage' : 'Connect'}
                 />
-                <div className="p-4 bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <img src="/zoominfo.png" alt="ZoomInfo" className="w-8 h-8 object-contain" onError={(e)=>{ e.currentTarget.style.display='none'; }} />
-                      <div>
-                        <p className="font-medium text-gray-900 dark:text-gray-100">ZoomInfo Enrichment (via Decodo)</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">+1 credit per company only when at least one valid email is found</p>
-                      </div>
-                    </div>
-                    <div>
-                      <button
-                        onClick={async ()=>{
-                          try {
-                            const { data: { user } } = await supabase.auth.getUser();
-                            if (!user) return;
-                            const next = !zoominfoEnabled;
-                            await supabase
-                              .from('zoominfo_enrichment_settings')
-                              .upsert({ user_id: user.id, enabled: next }, { onConflict: 'user_id' });
-                            setZoominfoEnabled(next);
-                            toast.success(next ? 'ZoomInfo enrichment enabled' : 'ZoomInfo enrichment disabled');
-                          } catch {
-                            toast.error('Failed to update setting');
-                          }
-                        }}
-                        className={`px-3 py-1 text-sm rounded-lg ${zoominfoEnabled ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200'}`}
-                      >
-                        {zoominfoEnabled ? 'Enabled' : 'Enable'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
                 <Card
                   iconSrc="/hunter.png"
                   name="Hunter.io"
@@ -1042,7 +997,7 @@ export default function SettingsIntegrations() {
       )}
 
       {/* Apollo Modal */}
-      <ApolloApiKeyModal isOpen={showApolloModal} onClose={()=>setShowApolloModal(false)} onSuccess={onApolloSuccess} currentApiKey={''} />
+      <ApolloApiKeyModal isOpen={showApolloModal} onClose={()=>setShowApolloModal(false)} onSuccess={onApolloSuccess} currentApiKey={undefined} />
 
       {/* Zapier Wizard (Generate API Key) */}
       <ZapierWizardModal

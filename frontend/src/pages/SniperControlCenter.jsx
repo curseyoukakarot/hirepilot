@@ -155,11 +155,8 @@ export default function SniperControlCenter() {
                 </div>
 
                 <select className="border rounded-xl px-3 py-2 bg-background text-sm">
-
                   <option>Apollo Only</option>
-
-                  <option>Apollo → ZoomInfo</option>
-
+                  <option>Apollo → Bright Data</option>
                 </select>
 
               </div>
