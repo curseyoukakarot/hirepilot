@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { FaEnvelope, FaChartBar, FaCog, FaSignOutAlt, FaCreditCard, FaShieldAlt, FaRobot, FaExclamationTriangle, FaCookie, FaSlidersH, FaPlug, FaBell, FaUsers, FaTerminal, FaTable, FaWpforms } from 'react-icons/fa';
+import { FaEnvelope, FaChartBar, FaCog, FaSignOutAlt, FaCreditCard, FaShieldAlt, FaRobot, FaExclamationTriangle, FaCookie, FaSlidersH, FaPlug, FaBell, FaUsers, FaTerminal, FaTable, FaWpforms, FaHeartbeat } from 'react-icons/fa';
 import { supabase } from '../lib/supabaseClient';
 import { usePlan } from '../context/PlanContext';
 
@@ -224,6 +224,17 @@ export default function Sidebar() {
               >
                 <span className={`${collapsed ? '' : 'mr-3'} text-lg`}><FaRobot /></span>
                 {!collapsed && 'Puppet Health'}
+              </NavLink>
+              <NavLink
+                to="/admin/repo-guardian"
+                className={({ isActive }) =>
+                  `flex items-center px-4 py-2 ${collapsed ? 'justify-center' : ''} text-base rounded-lg font-medium transition-colors cursor-pointer ${
+                    isActive ? 'bg-blue-100 text-blue-700 font-semibold dark:bg-gray-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`
+                }
+              >
+                <span className={`${collapsed ? '' : 'mr-3'} text-lg`}><FaHeartbeat /></span>
+                {!collapsed && 'Repo Guard'}
               </NavLink>
               <NavLink
                 to="/admin/proxy-management"
