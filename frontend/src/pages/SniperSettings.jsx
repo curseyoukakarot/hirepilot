@@ -219,12 +219,6 @@ export default function SniperSettings() {
 
                 </button>
 
-                <button id="tab-per-campaign" class="py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
-
-                    Per-Campaign Overrides
-
-                </button>
-
                 <button id="tab-linkedin" class="py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
 
                     Linkedin Connect
@@ -777,19 +771,17 @@ export default function SniperSettings() {
 
 // Tab toggle
 const tabGlobal = document.getElementById('tab-global-defaults');
-const tabCampaign = document.getElementById('tab-per-campaign');
 const tabLinkedin = document.getElementById('tab-linkedin');
 const contentGlobal = document.getElementById('main-content');
 const contentLinkedin = document.getElementById('linkedin-content');
 
 function activate(btn){
-  [tabGlobal, tabCampaign, tabLinkedin].forEach(b=>{ if(!b) return; b.classList.remove('border-blue-500','text-blue-600'); b.classList.add('border-transparent','text-gray-500'); });
+  [tabGlobal, tabLinkedin].forEach(b=>{ if(!b) return; b.classList.remove('border-blue-500','text-blue-600'); b.classList.add('border-transparent','text-gray-500'); });
   btn.classList.remove('border-transparent','text-gray-500');
   btn.classList.add('border-blue-500','text-blue-600');
 }
 
 tabGlobal?.addEventListener('click', ()=>{ activate(tabGlobal); contentGlobal?.classList.remove('hidden'); contentLinkedin?.classList.add('hidden'); });
-tabCampaign?.addEventListener('click', ()=>{ activate(tabCampaign); contentGlobal?.classList.remove('hidden'); contentLinkedin?.classList.add('hidden'); });
 tabLinkedin?.addEventListener('click', ()=>{ activate(tabLinkedin); contentGlobal?.classList.add('hidden'); contentLinkedin?.classList.remove('hidden'); });
 
 // Toggle switches functionality
@@ -853,7 +845,6 @@ document.querySelectorAll('.px-3.py-2').forEach(button => {
   useEffect(() => {
     // Wire tab navigation (scripts in innerHTML won't execute)
     const tabGlobal = document.getElementById('tab-global-defaults');
-    const tabCampaign = document.getElementById('tab-per-campaign');
     const tabLinkedin = document.getElementById('tab-linkedin');
     // Ensure Control Center tab exists even if HTML string wasn't refreshed (runtime injection)
     let tabControl = document.getElementById('tab-control-center');
@@ -896,7 +887,7 @@ document.querySelectorAll('.px-3.py-2').forEach(button => {
     }
 
     const activate = (btn) => {
-      [tabGlobal, tabCampaign, tabLinkedin, tabControl].forEach(b => {
+      [tabGlobal, tabLinkedin, tabControl].forEach(b => {
         if (!b) return;
         b.classList.remove('border-blue-500', 'text-blue-600');
         b.classList.add('border-transparent', 'text-gray-500');
@@ -916,7 +907,6 @@ document.querySelectorAll('.px-3.py-2').forEach(button => {
     const showControl = (e) => { e && e.preventDefault && e.preventDefault(); activate(tabControl); hideAll(); contentControl?.classList.remove('hidden'); };
 
     tabGlobal?.addEventListener('click', showGlobal);
-    tabCampaign?.addEventListener('click', showGlobal);
     tabLinkedin?.addEventListener('click', showLinkedin);
     tabControl?.addEventListener('click', showControl);
 
@@ -948,7 +938,6 @@ document.querySelectorAll('.px-3.py-2').forEach(button => {
 
     return () => {
       tabGlobal?.removeEventListener('click', showGlobal);
-      tabCampaign?.removeEventListener('click', showGlobal);
       tabLinkedin?.removeEventListener('click', showLinkedin);
       tabControl?.removeEventListener('click', showControl);
     };
