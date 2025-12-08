@@ -40,6 +40,24 @@ const DAY_LABELS = [
   { label: 'Sun', value: 7 }
 ];
 
+const CONFIG_GUIDE_ITEMS = [
+  {
+    title: 'Working Hours',
+    description: 'Set when HirePilot can perform actions. Activities outside these hours will be queued.',
+    className: 'bg-blue-500/15 border-blue-500/30 text-white'
+  },
+  {
+    title: 'Daily Limits',
+    description: 'Conservative limits protect your account. Increase gradually after warm-up period.',
+    className: 'bg-emerald-500/15 border-emerald-500/30 text-white'
+  },
+  {
+    title: 'Safety Features',
+    description: 'Auto-pause triggers help avoid account flags and maintain professional reputation.',
+    className: 'bg-violet-500/15 border-violet-500/30 text-white'
+  }
+];
+
 function SliderRow({ label, max = 100, recommended, value, onChange }) {
   const safeValue = Math.min(Math.max(value ?? 0, 0), max);
   const percentage = Math.max(0, Math.min(100, (safeValue / max) * 100));
@@ -172,6 +190,31 @@ export default function SniperControlCenter() {
               {error}
             </div>
           )}
+          <Card className="rounded-2xl border border-border/60">
+            <CardHeader>
+              <h2 className="text-xl font-semibold">Configuration Guide</h2>
+              <p className="text-muted-foreground text-sm max-w-2xl">
+                Quick reminders on how Sniper keeps your LinkedIn automation healthy.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-3">
+                {CONFIG_GUIDE_ITEMS.map(section => (
+                  <div
+                    key={section.title}
+                    className={`rounded-2xl border px-4 py-5 shadow-sm ${section.className}`}
+                  >
+                    <p className="text-sm font-semibold uppercase tracking-wide opacity-80">
+                      {section.title}
+                    </p>
+                    <p className="mt-2 text-sm opacity-90 text-white/90">
+                      {section.description}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
           {loading ? (
             <Card className="rounded-2xl border border-border/60">
               <CardHeader>
