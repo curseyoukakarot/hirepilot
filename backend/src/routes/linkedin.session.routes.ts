@@ -2,6 +2,8 @@ import type { Application, Request, Response } from 'express';
 import { z } from 'zod';
 import { supabase } from '../lib/supabase';
 import { encryptGCM } from '../lib/crypto';
+import { LinkedinEngineMode, getLinkedinEngineMode, isPlanEligibleForCloud } from '../services/remoteActions';
+import { isBrightDataBrowserEnabled } from '../config/brightdata';
 
 function getUserId(req: Request): string | string[] | undefined {
   // Express attaches user via middleware; fallback to header
@@ -65,6 +67,88 @@ export function registerLinkedInSessionRoutes(app: Application) {
 
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ hasSession: !!data, updated_at: data?.updated_at ?? null });
+  });
+
+  app.get('/api/linkedin/engine-mode', async (req: Request, res: Response) => {
+    const userIdRaw = getUserId(req);
+    const userId = Array.isArray(userIdRaw) ? userIdRaw[0] : userIdRaw;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+
+    const mode = await getLinkedinEngineMode(userId);
+    const { data: cookieRow } = await supabase
+      .from('linkedin_sessions')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle();
+    return res.json({
+      mode,
+      has_cookie: Boolean(cookieRow?.id),
+      brightdata_enabled: isBrightDataBrowserEnabled()
+    });
+  });
+
+  app.post('/api/linkedin/engine-mode', async (req: Request, res: Response) => {
+    const userIdRaw = getUserId(req);
+    const userId = Array.isArray(userIdRaw) ? userIdRaw[0] : userIdRaw;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+
+    const schema = z.object({
+      mode: z.enum(['local_browser', 'brightdata_cloud'])
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+    }
+
+    const mode: LinkedinEngineMode = parsed.data.mode;
+    const useRemote = mode === 'brightdata_cloud';
+
+    if (useRemote) {
+      try {
+        const { data: userRecord, error } = await supabase
+          .from('users')
+          .select('plan')
+          .eq('id', userId)
+          .maybeSingle();
+        if (error) throw error;
+        if (!isPlanEligibleForCloud(userRecord?.plan || null)) {
+          return res.status(403).json({
+            error: 'Upgrade required',
+            message: 'Cloud Engine requires a Pro or Team plan.'
+          });
+        }
+      } catch (err: any) {
+        console.error('[LinkedInEngine] Failed to validate plan', err);
+        return res.status(500).json({ error: 'Failed to validate plan' });
+      }
+    }
+
+    const payload = {
+      user_id: userId,
+      linkedin_engine_mode: mode,
+      use_remote_linkedin_actions: useRemote
+    };
+
+    const { error } = await supabase
+      .from('user_settings')
+      .upsert(payload, { onConflict: 'user_id' });
+
+    if (error) {
+      console.error('[LinkedInEngine] Failed to save mode', error);
+      return res.status(500).json({ error: 'Failed to update engine mode' });
+    }
+
+    const { data: cookieRow } = await supabase
+      .from('linkedin_sessions')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    return res.json({
+      mode,
+      has_cookie: Boolean(cookieRow?.id),
+      brightdata_enabled: isBrightDataBrowserEnabled()
+    });
   });
 }
 

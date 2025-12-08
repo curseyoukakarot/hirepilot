@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import RemoteSessionConnect from '../components/RemoteSessionConnect';
+import LinkedinEngineCard from '../components/LinkedinEngineCard';
 import { supabase } from '../lib/supabaseClient';
 
 function LinkedInCookieCard() {
@@ -926,6 +927,7 @@ document.querySelectorAll('.px-3.py-2').forEach(button => {
         const root = createRoot(mount);
         root.render(
           <div className="space-y-6">
+            <LinkedinEngineCard />
             <RemoteSessionConnect />
             <LinkedInCookieCard />
           </div>
