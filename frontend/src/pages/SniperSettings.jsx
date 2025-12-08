@@ -255,33 +255,33 @@ export default function SniperSettings() {
 
             <div id="help-column" class="col-span-4">
 
-                <div class="bg-white rounded-lg border border-gray-200 p-6 sticky top-6">
+                <div class="bg-white rounded-lg border border-gray-200 p-6 sticky top-6 dark:bg-slate-900/50 dark:border-slate-700">
 
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Configuration Guide</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4 dark:text-white">Configuration Guide</h3>
 
                     <div class="space-y-4">
 
-                        <div class="p-3 bg-blue-50 rounded-lg">
+                        <div class="p-3 bg-blue-50 rounded-lg dark:bg-blue-500/20 dark:border dark:border-blue-400/30">
 
-                            <h4 class="font-medium text-blue-900 mb-2">Working Hours</h4>
+                            <h4 class="font-medium text-blue-900 mb-2 dark:text-blue-100">Working Hours</h4>
 
-                            <p class="text-sm text-blue-800">Set when HirePilot can perform actions. Activities outside these hours will be queued.</p>
-
-                        </div>
-
-                        <div class="p-3 bg-green-50 rounded-lg">
-
-                            <h4 class="font-medium text-green-900 mb-2">Daily Limits</h4>
-
-                            <p class="text-sm text-green-800">Conservative limits protect your account. Increase gradually after warm-up period.</p>
+                            <p class="text-sm text-blue-800 dark:text-blue-100/80">Set when HirePilot can perform actions. Activities outside these hours will be queued.</p>
 
                         </div>
 
-                        <div class="p-3 bg-purple-50 rounded-lg">
+                        <div class="p-3 bg-green-50 rounded-lg dark:bg-emerald-500/20 dark:border dark:border-emerald-400/30">
 
-                            <h4 class="font-medium text-purple-900 mb-2">Safety Features</h4>
+                            <h4 class="font-medium text-green-900 mb-2 dark:text-emerald-100">Daily Limits</h4>
 
-                            <p class="text-sm text-purple-800">Auto-pause triggers help avoid account flags and maintain professional reputation.</p>
+                            <p class="text-sm text-green-800 dark:text-emerald-100/80">Conservative limits protect your account. Increase gradually after warm-up period.</p>
+
+                        </div>
+
+                        <div class="p-3 bg-purple-50 rounded-lg dark:bg-purple-500/20 dark:border dark:border-purple-400/30">
+
+                            <h4 class="font-medium text-purple-900 mb-2 dark:text-purple-100">Safety Features</h4>
+
+                            <p class="text-sm text-purple-800 dark:text-purple-100/80">Auto-pause triggers help avoid account flags and maintain professional reputation.</p>
 
                         </div>
 
