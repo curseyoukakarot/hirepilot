@@ -119,13 +119,8 @@ export default function SniperControlCenter() {
                 </div>
 
                 <select className="border rounded-xl px-3 py-2 bg-background text-sm">
-
-                  <option>Indeed</option>
-
-                  <option>Google Jobs</option>
-
+                  <option>LinkedIn Jobs</option>
                   <option>ZipRecruiter</option>
-
                 </select>
 
               </div>
@@ -328,63 +323,18 @@ export default function SniperControlCenter() {
         </TabsContent>
 
         {/* TAB 4 — DISCOVERY MODULES */}
-
         <TabsContent value="modules" className="mt-8 space-y-8">
-
           <Card className="rounded-2xl border border-border/60">
-
             <CardHeader>
-
-              <h2 className="text-xl font-semibold">ZoomInfo Enrichment</h2>
-
+              <h2 className="text-xl font-semibold">Discovery Modules</h2>
               <p className="text-muted-foreground text-sm max-w-lg">
-
-                Enable ZoomInfo for decision maker intelligence. (+1 credit only when emails are found.)
-
+                Configure additional discovery sources for Sniper. More modules coming soon.
               </p>
-
             </CardHeader>
-
-            <CardContent className="py-6 flex items-center justify-between">
-
-              <p className="font-medium">Enable ZoomInfo</p>
-
-              <Switch />
-
+            <CardContent className="py-6 text-muted-foreground">
+              No discovery modules are currently enabled.
             </CardContent>
-
           </Card>
-
-          <Card className="rounded-2xl border border-border/60">
-
-            <CardHeader>
-
-              <h2 className="text-xl font-semibold">TikTok Discovery</h2>
-
-            </CardHeader>
-
-            <CardContent className="py-6 space-y-6">
-
-              <div className="flex items-center justify-between">
-
-                <p className="font-medium">Creator Search</p>
-
-                <Switch />
-
-              </div>
-
-              <div className="flex items-center justify-between">
-
-                <p className="font-medium">Post Engagement Scraping</p>
-
-                <Switch />
-
-              </div>
-
-            </CardContent>
-
-          </Card>
-
         </TabsContent>
 
       </Tabs>
