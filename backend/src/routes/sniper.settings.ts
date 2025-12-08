@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { supabase } from '../lib/supabase';
+import { DEFAULT_SNIPER_SETTINGS } from '../services/sniperSettings';
 
 const router = Router();
 
@@ -17,23 +18,21 @@ const SettingsSchema = z.object({
   workingHours: z.object({ start: z.string(), end: z.string(), days: z.array(z.number()), runOnWeekends: z.boolean() }),
   warmup: z.object({ enabled: z.boolean(), weeks: z.number(), currentWeek: z.number(), speed: z.number() }),
   sources: z.object({
-    linkedin: z.object({ profileViewsPerDay: z.number(), connectionInvitesPerDay: z.number(), messagesPerDay: z.number(), inMailsPerDay: z.number(), concurrency: z.number(), actionsPerMinute: z.number() })
+    linkedin: z.object({
+      profileViewsPerDay: z.number(),
+      connectionInvitesPerDay: z.number(),
+      messagesPerDay: z.number(),
+      inMailsPerDay: z.number(),
+      concurrency: z.number(),
+      actionsPerMinute: z.number()
+    })
   }).passthrough(),
   creditBudget: z.object({ dailyMax: z.number() }),
-  safety: z.object({ maxTouchesPerPerson: z.number(), doNotContactDomains: z.array(z.string()) })
+  safety: z.object({ maxTouchesPerPerson: z.number(), doNotContactDomains: z.array(z.string()) }),
+  primaryJobBoard: z.enum(['linkedin_jobs', 'ziprecruiter']).default('linkedin_jobs'),
+  autoCreateTables: z.boolean().default(false),
+  defaultEnrichment: z.enum(['apollo_only', 'apollo_brightdata']).default('apollo_only')
 });
-
-function defaultSettings() {
-  return {
-    globalActive: true,
-    timezone: 'America/Chicago',
-    workingHours: { start: '09:00', end: '17:00', days: [1,2,3,4,5], runOnWeekends: false },
-    warmup: { enabled: true, weeks: 3, currentWeek: 1, speed: 0.4 },
-    sources: { linkedin: { profileViewsPerDay: 25, connectionInvitesPerDay: 10, messagesPerDay: 30, inMailsPerDay: 5, concurrency: 2, actionsPerMinute: 1 } },
-    creditBudget: { dailyMax: 200 },
-    safety: { maxTouchesPerPerson: 3, doNotContactDomains: [] }
-  };
-}
 
 // GET /api/sniper/settings
 router.get('/sniper/settings', async (req: Request, res: Response) => {
@@ -44,7 +43,7 @@ router.get('/sniper/settings', async (req: Request, res: Response) => {
     if (!accountId) {
       // Fallback: try to infer account via users table
       // Keeping simple: return defaults if none provided
-      return res.json(defaultSettings());
+      return res.json(DEFAULT_SNIPER_SETTINGS);
     }
     const { data, error } = await supabase
       .from('sniper_settings')
@@ -52,7 +51,7 @@ router.get('/sniper/settings', async (req: Request, res: Response) => {
       .eq('account_id', accountId)
       .maybeSingle();
     if (error) throw error;
-    const s = (data as any)?.settings || defaultSettings();
+    const s = (data as any)?.settings || DEFAULT_SNIPER_SETTINGS;
     return res.json(s);
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed_to_fetch' });

@@ -1,11 +1,12 @@
 import { Worker } from 'bullmq';
-import { LINKEDIN_REMOTE_ACTION_QUEUE, connection } from '../queues/redis';
+import { LINKEDIN_REMOTE_ACTION_QUEUE, connection, linkedinRemoteActionQueue } from '../queues/redis';
 import { getLatestLinkedInCookieForUser } from '../services/linkedin/cookieService';
 import { runLinkedInRemoteAction, LinkedInRemoteActionType } from '../services/brightdataBrowser';
 import { brightDataBrowserConfig } from '../config/brightdata';
 import { logLeadOutreachActivities } from '../services/activityLogger';
 import { supabaseDb } from '../../lib/supabase';
 import { LinkedInRemoteActionJob } from '../services/linkedinRemoteActions';
+import { fetchSniperSettings, formatDateKey, getDailyCounters, saveCounters, DayNumber } from '../services/sniperSettings';
 
 const CREDIT_COST: Record<LinkedInRemoteActionType, number> = {
   connect_request: 3,
@@ -60,6 +61,41 @@ export const linkedinRemoteActionWorker = new Worker<LinkedInRemoteActionJob>(
       candidateId: data.candidateId
     });
 
+    const settings = await fetchSniperSettings(data.accountId || null);
+    const tzNow = new Date(new Date().toLocaleString('en-US', { timeZone: settings.timezone || 'UTC' }));
+    const withinWindow = isWithinWorkingWindow(settings, tzNow);
+
+    if (!withinWindow) {
+      const nextWindow = findNextWindowStart(settings, tzNow);
+      if (nextWindow) {
+        const delayMs = nextWindow.getTime() - tzNow.getTime();
+        await deferJob(job, delayMs, 'outside_working_hours');
+        return { delayed: true };
+      }
+    }
+
+    let counters: any = null;
+    let dateKey = '';
+    if (data.accountId) {
+      dateKey = formatDateKey(new Date(), settings.timezone || 'UTC');
+      counters = await getDailyCounters(data.accountId, dateKey);
+      const limit = data.action === 'connect_request'
+        ? settings.sources.linkedin.connectionInvitesPerDay
+        : settings.sources.linkedin.messagesPerDay;
+      const used = data.action === 'connect_request'
+        ? counters.linkedin_connection_invites_used
+        : counters.linkedin_messages_used;
+      if (used >= limit) {
+        const nextWindow = findNextWindowStart(settings, new Date(tzNow.getTime() + 60 * 1000));
+        if (nextWindow) {
+          const delayMs = nextWindow.getTime() - tzNow.getTime();
+          await deferJob(job, delayMs, 'daily_limit');
+          return { delayed: true };
+        }
+        throw new Error('Daily limit reached');
+      }
+    }
+
     const cookies = await getLatestLinkedInCookieForUser(data.userId);
     if (!cookies) {
       throw new Error('No LinkedIn cookies on file. Ask user to refresh session.');
@@ -85,6 +121,16 @@ export const linkedinRemoteActionWorker = new Worker<LinkedInRemoteActionJob>(
 
     await deductCredits(data.userId, data.action);
 
+    if (data.accountId && counters && dateKey) {
+      const updatedCounters = { ...counters };
+      if (data.action === 'connect_request') {
+        updatedCounters.linkedin_connection_invites_used += 1;
+      } else {
+        updatedCounters.linkedin_messages_used += 1;
+      }
+      await saveCounters(updatedCounters);
+    }
+
     const note =
       data.action === 'connect_request'
         ? 'Sent LinkedIn connection request (remote)'
@@ -109,4 +155,58 @@ if (require.main === module) {
     `[LinkedInRemoteAction] Worker online (queue=${LINKEDIN_REMOTE_ACTION_QUEUE}, concurrency=${brightDataBrowserConfig.maxConcurrency || 2})`
   );
 }
+
+function parseMinutes(input: string) {
+  const [h, m] = input.split(':').map(Number);
+  return (h * 60) + (m || 0);
+}
+
+function normalizeDay(day: number): DayNumber {
+  const normalized = day === 0 ? 7 : day;
+  return normalized as DayNumber;
+}
+
+function isWithinWorkingWindow(settings, tzNow: Date) {
+  const currentDay = normalizeDay(tzNow.getDay());
+  if (!settings.workingHours.days.includes(currentDay)) return false;
+  const minutes = tzNow.getHours() * 60 + tzNow.getMinutes();
+  const start = parseMinutes(settings.workingHours.start);
+  const end = parseMinutes(settings.workingHours.end);
+  return minutes >= start && minutes < end;
+}
+
+function findNextWindowStart(settings, from: Date): Date | null {
+  const startMinutes = parseMinutes(settings.workingHours.start);
+  for (let i = 0; i < 7; i++) {
+    const candidate = new Date(from);
+    candidate.setDate(candidate.getDate() + i);
+    const day = normalizeDay(candidate.getDay());
+    if (!settings.workingHours.days.includes(day)) continue;
+    candidate.setHours(Math.floor(startMinutes / 60), startMinutes % 60, 0, 0);
+    if (candidate.getTime() > from.getTime()) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+async function deferJob(job, delayMs: number, reason: string) {
+  const delay = Math.max(delayMs, 60 * 1000);
+  await linkedinRemoteActionQueue.add(
+    'linkedin_remote_action',
+    job.data,
+    {
+      delay,
+      removeOnComplete: true,
+      attempts: 1
+    }
+  );
+  await job.remove();
+  console.log('[LinkedInRemoteAction] Job deferred', {
+    jobId: job.id,
+    reason,
+    delayMs: delay
+  });
+}
+
 
