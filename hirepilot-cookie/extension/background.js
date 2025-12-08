@@ -30,6 +30,58 @@ async function getApiBase() {
 let lastLinkedInTabId = null;
 const portsByTab = new Map();
 
+async function resolveLinkedInTab(preferredTab) {
+  const isLinkedIn = (tab) => !!(tab && /linkedin\.com/i.test(tab.url || ''));
+  if (isLinkedIn(preferredTab)) return preferredTab;
+  if (lastLinkedInTabId) {
+    try {
+      const tab = await chrome.tabs.get(lastLinkedInTabId);
+      if (isLinkedIn(tab)) return tab;
+    } catch {}
+  }
+  try {
+    const salesTabs = await chrome.tabs.query({ url: ['*://*.linkedin.com/sales/search/*', '*://*.linkedin.com/sales/*'] });
+    if (salesTabs && salesTabs.length) return salesTabs[0];
+  } catch {}
+  try {
+    const liTabs = await chrome.tabs.query({ url: ['*://*.linkedin.com/*', '*://linkedin.com/*'] });
+    if (liTabs && liTabs.length) return liTabs[0];
+  } catch {}
+  return null;
+}
+
+async function ensureContentScriptReady(tabId) {
+  if (!tabId) throw new Error('No LinkedIn tab available');
+  try {
+    await chrome.scripting.executeScript({ target: { tabId, allFrames: true }, files: ['content.js'] });
+  } catch (e) {
+    console.warn('[HP-BG] content.js injection warning:', e?.message || e);
+  }
+  await new Promise((r) => setTimeout(r, 200));
+  const pingResp = await new Promise((resolve) => {
+    chrome.tabs.sendMessage(tabId, { action: 'ping' }, (resp) => {
+      if (chrome.runtime.lastError) return resolve({ error: chrome.runtime.lastError.message });
+      resolve(resp || {});
+    });
+  });
+  if (pingResp && pingResp.ok) return;
+  try {
+    await chrome.scripting.executeScript({ target: { tabId, allFrames: true }, files: ['content.js'] });
+  } catch {}
+  await new Promise((r) => setTimeout(r, 150));
+}
+
+async function relayToLinkedInTab(tab, message) {
+  if (!tab?.id) throw new Error('No LinkedIn tab available');
+  await ensureContentScriptReady(tab.id);
+  return new Promise((resolve, reject) => {
+    chrome.tabs.sendMessage(tab.id, message, (resp) => {
+      if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+      resolve(resp || { ok: true });
+    });
+  });
+}
+
 // --- Helpers for API posting with retry/backoff and error reporting ---
 async function postLeadsScrape(leads, campaignId) {
   const api = await getApiBase();
@@ -322,6 +374,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       try {
         const { summary } = msg || {};
         await reportRunSummary(summary || {});
+        try { await chrome.storage.session.set({ hp_autopilot_mode: false, hp_autopilot_started_at: 0 }); } catch {}
         // Also forward a flat summary for popup completion message
         try {
           chrome.runtime.sendMessage({
@@ -420,52 +473,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       try {
         const pageLimit = msg.pageLimit;
         const campaignId = msg.campaignId;
-        try { await chrome.storage.session.set({ hp_autopilot_mode: false }); } catch {}
-
-        // Resolve a LinkedIn Sales Navigator tab
-        let targetTab = sender?.tab || null;
-        if (!targetTab || !/linkedin\.com/i.test(targetTab.url || '')) {
-          // Prefer Sales Navigator search tabs
-          const salesTabs = await chrome.tabs.query({ url: ['*://*.linkedin.com/sales/search/*', '*://*.linkedin.com/sales/*'] });
-          if (salesTabs && salesTabs.length) targetTab = salesTabs[0];
-        }
-        if (!targetTab) {
-          const liTabs = await chrome.tabs.query({ url: ['*://*.linkedin.com/*'] });
-          if (liTabs && liTabs.length) targetTab = liTabs[0];
-        }
+        try { await chrome.storage.session.set({ hp_autopilot_mode: false, hp_autopilot_started_at: 0 }); } catch {}
+        const targetTab = await resolveLinkedInTab(sender?.tab);
         if (!targetTab) return sendResponse({ error: 'No LinkedIn tab available' });
-
-        // Best-effort inject content.js to guarantee listener is available
-        try {
-          await chrome.scripting.executeScript({ target: { tabId: targetTab.id, allFrames: true }, files: ['content.js'] });
-        } catch (e) {
-          console.warn('[HP-BG] content.js injection warning:', e?.message || e);
-        }
-
-        // Small delay to allow script evaluation, then ping to confirm
-        setTimeout(async () => {
-          try {
-            const pingResp = await new Promise((resolve) => {
-              chrome.tabs.sendMessage(targetTab.id, { action: 'ping' }, (resp) => {
-                if (chrome.runtime.lastError) return resolve({ error: chrome.runtime.lastError.message });
-                resolve(resp || {});
-              });
-            });
-            if (pingResp && pingResp.ok) {
-              console.debug('[HP-BG] content.js alive; relaying', msg.action, 'to tab', targetTab.id);
-            } else {
-              console.warn('[HP-BG] content.js did not respond to ping, retrying injection');
-              try { await chrome.scripting.executeScript({ target: { tabId: targetTab.id, allFrames: true }, files: ['content.js'] }); } catch {}
-            }
-
-            chrome.tabs.sendMessage(targetTab.id, { action: msg.action, pageLimit, campaignId }, (resp) => {
-              if (chrome.runtime.lastError) return sendResponse({ error: chrome.runtime.lastError.message });
-              sendResponse(resp || { ok: true });
-            });
-          } catch (err) {
-            sendResponse({ error: err?.message || 'Failed to relay command' });
-          }
-        }, 300);
+        const resp = await relayToLinkedInTab(targetTab, { action: msg.action, pageLimit, campaignId });
+        sendResponse(resp);
       } catch (e) {
         sendResponse({ error: e?.message || 'Failed to relay command' });
       }
@@ -752,26 +764,16 @@ chrome.runtime.onMessageExternal?.addListener((request, sender, sendResponse) =>
         }
         const pageLimit = request.pageLimit;
         const campaignId = request.campaignId;
-        // Mark autopilot mode for popup to hide controls
-        try { await chrome.storage.session.set({ hp_autopilot_mode: true }); } catch {}
-        // Relay to content script similar to internal path
-        let tabId = lastLinkedInTabId || null;
-        if (!tabId) {
-          try { const stored = await chrome.storage.local.get('lastLinkedInTabId'); tabId = stored?.lastLinkedInTabId || null; } catch {}
+        const autopilotOn = request.action === 'START_SCRAPE';
+        try { await chrome.storage.session.set({ hp_autopilot_mode: autopilotOn, hp_autopilot_started_at: autopilotOn ? Date.now() : 0 }); } catch {}
+        const targetTab = await resolveLinkedInTab();
+        if (!targetTab) return sendResponse({ error: 'No LinkedIn tab available' });
+        try {
+          const resp = await relayToLinkedInTab(targetTab, { action: request.action, pageLimit, campaignId });
+          sendResponse(resp);
+        } catch (e) {
+          sendResponse({ error: e?.message || 'Failed to relay command' });
         }
-        if (!tabId) {
-          const liTabs = await chrome.tabs.query({ url: ['*://*.linkedin.com/*'] });
-          if (liTabs && liTabs.length) tabId = liTabs[0].id;
-        }
-        if (!tabId) {
-          const snTabs = await chrome.tabs.query({ url: '*://*.linkedin.com/sales/*' });
-          if (snTabs && snTabs.length) tabId = snTabs[0].id;
-        }
-        if (!tabId) return sendResponse({ error: 'No LinkedIn tab available' });
-        chrome.tabs.sendMessage(tabId, { action: request.action, pageLimit, campaignId }, (resp) => {
-          if (chrome.runtime.lastError) return sendResponse({ error: chrome.runtime.lastError.message });
-          sendResponse(resp || { ok: true });
-        });
         return; // keep channel open
       }
 
@@ -1093,11 +1095,11 @@ async function scrapeSalesNavListInjected(tabId) {
       return leads;
     }
   });
-  if (!data.length) {
-    // If we got structured debug, surface it for easier support
-    const dbg = (data && data.__hp_debug__) ? ` | debug: ${JSON.stringify(data.__hp_debug__)}` : '';
+  const leads = Array.isArray(data) ? data : [];
+  if (!leads.length) {
+    const dbg = (!Array.isArray(data) && data && data.__hp_debug__) ? ` | debug: ${JSON.stringify(data.__hp_debug__)}` : '';
     return { error: 'No visible results on this page. Try scrolling or refining search.' + dbg };
   }
   const result = await handleBulkAddLeads(leads);
-  return { leads, result, mode: 'li_search_injected' };
+  return { leads, result, mode: 'sn_list_injected' };
 }

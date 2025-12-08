@@ -18,6 +18,7 @@
   const progressSeen = {};
   const pageCounts = {};
   let bulkPreview = [];
+  const AUTOPILOT_STALE_MS = 45 * 60 * 1000;
 
   // Reflect slider value
   if (pageSlider && pageSliderValue) {
@@ -85,7 +86,7 @@
     } catch {}
     try {
       const url = new URL(location.href);
-      const p = url.searchParams.get('campaignId');
+      const p = url.searchParams.get('campaignId') || url.searchParams.get('campaign_id');
       if (p) return p;
     } catch {}
     console.warn('[HP Popup] No campaignId found; using default-campaign');
@@ -94,9 +95,17 @@
 
   async function isAutopilotMode() {
     try {
-      const st = await chrome.storage.session.get(['hp_autopilot_mode']);
-      return !!st.hp_autopilot_mode;
-    } catch { return false; }
+      const st = await chrome.storage.session.get(['hp_autopilot_mode','hp_autopilot_started_at']);
+      if (st && st.hp_autopilot_mode) {
+        const started = Number(st.hp_autopilot_started_at || 0);
+        if (!started || (Date.now() - started > AUTOPILOT_STALE_MS)) {
+          try { await chrome.storage.session.set({ hp_autopilot_mode: false, hp_autopilot_started_at: 0 }); } catch {}
+          return false;
+        }
+        return true;
+      }
+    } catch {}
+    return false;
   }
 
   // Start/Stop actions

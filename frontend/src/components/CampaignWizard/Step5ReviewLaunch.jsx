@@ -395,7 +395,7 @@ export default function Step5ReviewLaunch({ onBack, onEdit }) {
               // For Sales Navigator: Open the search URL in a new tab with campaign ID
               const searchUrl = campaign?.lead_source_payload?.linkedin_search_url;
               if (searchUrl) {
-                const urlWithCampaign = searchUrl + (searchUrl.includes('?') ? '&' : '?') + `campaign_id=${campaign.id}`;
+                const urlWithCampaign = searchUrl + (searchUrl.includes('?') ? '&' : '?') + `campaignId=${campaign.id}`;
                 const win = window.open(urlWithCampaign, '_blank');
                 // Attempt to auto-trigger extension after a short delay
                 setTimeout(async () => {
@@ -496,7 +496,7 @@ export default function Step5ReviewLaunch({ onBack, onEdit }) {
               const searchUrl = campaign?.lead_source_payload?.linkedin_search_url;
               if (searchUrl) {
                 // Add campaign ID to the URL for Chrome Extension integration
-                const urlWithCampaign = searchUrl + (searchUrl.includes('?') ? '&' : '?') + `campaign_id=${campaign.id}`;
+                const urlWithCampaign = searchUrl + (searchUrl.includes('?') ? '&' : '?') + `campaignId=${campaign.id}`;
                 window.open(urlWithCampaign, '_blank');
               }
               setShowSalesNavModal(false);
