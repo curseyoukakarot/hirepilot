@@ -31,7 +31,7 @@ export default function LinkedinEngineCard() {
       setMode(data?.mode || 'local_browser');
       setHasCookie(Boolean(data?.has_cookie));
       setBrightDataEnabled(Boolean(data?.brightdata_enabled));
-    } catch (e: any) {
+    } catch (e) {
       setError(e?.message || 'Failed to load engine mode');
     }
     setLoading(false);
@@ -51,7 +51,7 @@ export default function LinkedinEngineCard() {
       setHasCookie(Boolean(res?.has_cookie));
       setBrightDataEnabled(Boolean(res?.brightdata_enabled));
       toast({ title: 'Updated', description: `LinkedIn engine set to ${value === 'brightdata_cloud' ? 'Cloud Engine' : 'Local Browser'}.` });
-    } catch (e: any) {
+    } catch (e) {
       setError(e?.message || 'Failed to save engine mode');
       toast({ title: 'Unable to update engine', description: e?.message || 'Try again later.', variant: 'destructive' });
     }
