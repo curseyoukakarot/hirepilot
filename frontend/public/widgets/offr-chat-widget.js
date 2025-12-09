@@ -2,44 +2,29 @@
   if (window.__offrChatWidgetLoaded) return;
   window.__offrChatWidgetLoaded = true;
 
-  const currentScript = document.currentScript;
-  const apiBaseAttr = currentScript?.getAttribute('data-api-base');
-  const calendlyAttr = currentScript?.getAttribute('data-calendly-url');
-  const supabaseUrlAttr = currentScript?.getAttribute('data-supabase-url');
-  const supabaseKeyAttr = currentScript?.getAttribute('data-supabase-key');
+  var currentScript = document.currentScript;
+  var apiBaseAttr = currentScript && currentScript.getAttribute('data-api-base');
+  var calendlyAttr = currentScript && currentScript.getAttribute('data-calendly-url');
 
-  const config = {
-    apiBase: apiBaseAttr || 'https://api.thehirepilot.com',
-    calendlyUrl: calendlyAttr || 'https://calendly.com/offrgroup/introduction',
-    supabaseUrl: supabaseUrlAttr || 'https://lqcsassinqfruvpgcooo.supabase.co',
-    supabaseKey: supabaseKeyAttr || (typeof window !== 'undefined' ? window.NEXT_PUBLIC_SUPABASE_ANON_KEY : '') || '',
-  };
+  var API_BASE = (apiBaseAttr || 'https://api.thehirepilot.com').replace(/\/$/, '');
+  var CHAT_ENDPOINT = API_BASE + '/api/public-chat/offr';
+  var LIVE_ENDPOINT = API_BASE + '/api/offr-livechat/messages';
+  var LEAD_ENDPOINT = API_BASE + '/api/public-leads/offr';
+  var CALENDLY_URL = calendlyAttr || 'https://calendly.com/offrgroup/introduction';
 
-  window.offrChatConfig = config;
-
-  const deps = [
-    'https://cdn.tailwindcss.com',
-    'https://unpkg.com/react@18/umd/react.production.min.js',
-    'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js',
-    'https://unpkg.com/@babel/standalone/babel.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js',
-    'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
-  ];
-
-  function loadScript(src) {
-    return new Promise((resolve, reject) => {
-      if ([...document.scripts].some(s => s.src === src)) return resolve(null);
-      const script = document.createElement('script');
-      script.src = src;
-      script.async = false;
-      script.onload = () => resolve(null);
-      script.onerror = () => reject(new Error('Failed to load ' + src));
-      document.head.appendChild(script);
-    });
+  var sessionKey = 'offr:sessionId';
+  function getSessionId() {
+    try {
+      var existing = localStorage.getItem(sessionKey);
+      if (existing) return existing;
+    } catch {}
+    var id = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'session_' + Date.now();
+    try { localStorage.setItem(sessionKey, id); } catch {}
+    return id;
   }
 
   function ensureRoot() {
-    let root = document.getElementById('offr-chat-root');
+    var root = document.getElementById('offr-chat-root');
     if (!root) {
       root = document.createElement('div');
       root.id = 'offr-chat-root';
@@ -49,373 +34,488 @@
   }
 
   function injectStyles() {
-    const fontPreconnect1 = document.createElement('link');
-    fontPreconnect1.rel = 'preconnect';
-    fontPreconnect1.href = 'https://fonts.googleapis.com';
-    const fontPreconnect2 = document.createElement('link');
-    fontPreconnect2.rel = 'preconnect';
-    fontPreconnect2.href = 'https://fonts.gstatic.com';
-    fontPreconnect2.crossOrigin = 'anonymous';
-    const fontLink = document.createElement('link');
-    fontLink.rel = 'stylesheet';
-    fontLink.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap';
-    document.head.appendChild(fontPreconnect1);
-    document.head.appendChild(fontPreconnect2);
-    document.head.appendChild(fontLink);
-
-    const style = document.createElement('style');
-    style.textContent = `
-      * { font-family: 'Inter', sans-serif; }
-      ::-webkit-scrollbar { width: 6px; }
-      ::-webkit-scrollbar-track { background: #1e293b; }
-      ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
-      ::-webkit-scrollbar-thumb:hover { background: #64748b; }
-      .chat-bubble-enter { animation: bubbleIn 0.3s ease-out; }
-      @keyframes bubbleIn {
-        from { opacity: 0; transform: translateY(10px) scale(0.95); }
-        to { opacity: 1; transform: translateY(0) scale(1); }
-      }
-      .panel-enter { animation: panelIn 0.3s ease-out; }
-      @keyframes panelIn {
-        from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-    `;
+    var style = document.createElement('style');
+    style.textContent = "\n      * { font-family: 'Inter', sans-serif; }\n      #offr-chat-root { position: relative; z-index: 2147483000; }\n      .offr-hidden { display: none !important; }\n      .offr-chat-bubble-enter { animation: offrBubbleIn 0.25s ease-out; }\n      @keyframes offrBubbleIn { from { opacity: 0; transform: translateY(10px) scale(0.95);} to { opacity:1; transform: translateY(0) scale(1);} }\n      .offr-panel-enter { animation: offrPanelIn 0.25s ease-out; }\n      @keyframes offrPanelIn { from { opacity:0; transform: translateY(20px);} to { opacity:1; transform: translateY(0);} }\n      .offr-scroll::-webkit-scrollbar { width: 6px; }\n      .offr-scroll::-webkit-scrollbar-track { background: #1e293b; }\n      .offr-scroll::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }\n      .offr-scroll::-webkit-scrollbar-thumb:hover { background: #64748b; }\n    ";
     document.head.appendChild(style);
   }
 
-  function mountWidget() {
-    const widgetCode = [
-      "const { useState, useEffect, useRef } = React;",
-      "const ChatWidget = () => {",
-      "  const cfg = window.offrChatConfig || {};",
-      "  const API_BASE = (cfg.apiBase || 'https://api.thehirepilot.com').replace(/\\/$/, '');",
-      "  const CHAT_ENDPOINT = API_BASE + '/api/public-chat/offr';",
-      "  const LIVE_ENDPOINT = API_BASE + '/api/offr-livechat/messages';",
-      "  const LEAD_ENDPOINT = API_BASE + '/api/public-leads/offr';",
-      "  const CALENDLY_URL = cfg.calendlyUrl || 'https://calendly.com/offrgroup/introduction';",
-      "  const supabaseClient = (window.supabase && cfg.supabaseUrl && cfg.supabaseKey)",
-      "    ? window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseKey)",
-      "    : null;",
-      "  const sessionKey = 'offr:sessionId';",
-      "  const initialSession = () => {",
-      "    try {",
-      "      const existing = localStorage.getItem(sessionKey);",
-      "      if (existing) return existing;",
-      "      const fresh = (crypto && crypto.randomUUID) ? crypto.randomUUID() : 'session_' + Date.now();",
-      "      localStorage.setItem(sessionKey, fresh);",
-      "      return fresh;",
-      "    } catch {",
-      "      return 'session_' + Date.now();",
-      "    }",
-      "  };",
-      "  const [sessionId, setSessionId] = useState(initialSession);",
-      "  const [isOpen, setIsOpen] = useState(false);",
-      "  const [activeTab, setActiveTab] = useState('ai');",
-      "  const [messages, setMessages] = useState([]);",
-      "  const [inputValue, setInputValue] = useState('');",
-      "  const [isTyping, setIsTyping] = useState(false);",
-      "  const [showLeadForm, setShowLeadForm] = useState(false);",
-      "  const [leadData, setLeadData] = useState({ firstName: '', lastName: '', email: '', phone: '', linkedin: '', company: '', hiringFor: '' });",
-      "  const messagesEndRef = useRef(null);",
-      "  const inputRef = useRef(null);",
-      "",
-      "  const scrollToBottom = () => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); };",
-      "  useEffect(() => { scrollToBottom(); }, [messages, isTyping]);",
-      "",
-      "  useEffect(() => {",
-      "    if (isOpen && messages.length === 0) {",
-      "      setTimeout(() => {",
-      "        setMessages([",
-      "          { id: 1, type: 'assistant', text: \"Hey, I'm the Offr Group assistant. I can walk you through contingency, executive, RPO, BPO, and staffing options — or help you figure out what you actually need.\", timestamp: new Date() },",
-      "        ]);",
-      "      }, 300);",
-      "    }",
-      "  }, [isOpen, messages.length]);",
-      "",
-      "  useEffect(() => {",
-      "    if (!supabaseClient || !sessionId) return;",
-      "    const channel = supabaseClient",
-      "      .channel('rex_widget:' + sessionId)",
-      "      .on('broadcast', { event: 'human_reply' }, (payload) => {",
-      "        try {",
-      "          const p = payload?.payload || payload;",
-      "          const text = p?.message || p?.text || '';",
-      "          if (!text) return;",
-      "          const name = p?.name ? p.name + ': ' : '';",
-      "          setMessages(prev => prev.concat([{ id: 'hr_' + Date.now(), type: 'assistant', text: name + text, timestamp: new Date() }]));",
-      "          setActiveTab('live');",
-      "        } catch (e) { console.warn('supabase human_reply parse err', e); }",
-      "      })",
-      "      .subscribe();",
-      "    return () => { try { channel.unsubscribe(); } catch {} };",
-      "  }, [supabaseClient, sessionId]);",
-      "",
-      "  const handleSendMessage = async () => {",
-      "    if (!inputValue.trim()) return;",
-      "    const userMessage = { id: Date.now(), type: 'user', text: inputValue, timestamp: new Date() };",
-      "    setMessages(prev => prev.concat([userMessage]));",
-      "    setInputValue('');",
-      "    setIsTyping(true);",
-      "    try {",
-      "      const history = messages.concat([userMessage]).slice(-10).map(m => ({ role: m.type === 'user' ? 'user' : 'assistant', text: m.text }));",
-      "      const endpoint = activeTab === 'ai' ? CHAT_ENDPOINT : LIVE_ENDPOINT;",
-      "      const body = activeTab === 'ai'",
-      "        ? { message: userMessage.text, session_id: sessionId, page_url: window.parent?.location?.href || window.location.href, history }",
-      "        : { message: userMessage.text, session_id: sessionId, page_url: window.parent?.location?.href || window.location.href };",
-      "      const response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });",
-      "      const data = await response.json();",
-      "      setIsTyping(false);",
-      "      if (data?.session_id && data.session_id !== sessionId) { setSessionId(data.session_id); try { localStorage.setItem(sessionKey, data.session_id); } catch {} }",
-      "      const assistantMessage = { id: Date.now() + 1, type: activeTab === 'ai' ? 'assistant' : 'agent', text: data.response || data.message || \"Thanks for your message. We'll get back to you shortly.\", timestamp: new Date(), showCalendly: !!data.calendly_link };",
-      "      setMessages(prev => prev.concat([assistantMessage]));",
-      "      if (data.capture_lead) { setTimeout(() => setShowLeadForm(true), 400); }",
-      "    } catch (error) {",
-      "      setIsTyping(false);",
-      "      setMessages(prev => prev.concat([{ id: Date.now() + 2, type: 'assistant', text: \"Sorry, I'm having trouble connecting. Please try again.\", timestamp: new Date() }]));",
-      "    }",
-      "  };",
-      "",
-      "  const handleKeyPress = (e) => {",
-      "    if (e.key === 'Enter' && !e.shiftKey) {",
-      "      e.preventDefault();",
-      "      handleSendMessage();",
-      "    }",
-      "  };",
-      "",
-      "  const handleLeadSubmit = async () => {",
-      "    if (!leadData.firstName || !leadData.lastName || !leadData.email) {",
-      "      alert('Please fill in required fields: First name, Last name, and Email');",
-      "      return;",
-      "    }",
-      "    try {",
-      "      const payload = {",
-      "        firstName: leadData.firstName,",
-      "        lastName: leadData.lastName,",
-      "        email: leadData.email,",
-      "        phone: leadData.phone || null,",
-      "        linkedin: leadData.linkedin || null,",
-      "        company: leadData.company || null,",
-      "        hiringFor: leadData.hiringFor || null,",
-      "        session_id: sessionId,",
-      "        source: 'website_chat',",
-      "      };",
-      "      const resp = await fetch(LEAD_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });",
-      "      if (resp.ok) {",
-      "        setShowLeadForm(false);",
-      "        const confirmMessage = { id: Date.now(), type: 'assistant', text: \"Perfect! I've got your details. Ready to book a quick intro call?\", timestamp: new Date(), showCalendly: true };",
-      "        setMessages(prev => prev.concat([confirmMessage]));",
-      "      } else { alert('Error submitting details. Please try again.'); }",
-      "    } catch (error) {",
-      "      alert('Error submitting details. Please try again.');",
-      "    }",
-      "  };",
-      "",
-      "  const openCalendly = () => { window.open(CALENDLY_URL, '_blank'); };",
-      "",
-      "  return (",
-      "    <React.Fragment>",
-      "      {!isOpen && (",
-      "        <button",
-      "          id=\"chat-bubble-btn\"",
-      "          onClick={() => setIsOpen(true)}",
-      "          className=\"fixed bottom-6 right-6 md:bottom-6 md:right-6 w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-transform duration-200 z-50 chat-bubble-enter\"",
-      "        >",
-      "          <i className=\"fas fa-comments text-white text-2xl\"></i>",
-      "        </button>",
-      "      )}",
-      "",
-      "      {isOpen && (",
-      "        <div",
-      "          id=\"chat-panel\"",
-      "          className=\"fixed bottom-6 right-6 w-[360px] h-[520px] md:w-[360px] md:h-[520px] max-w-full max-h-[80vh] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl shadow-2xl border border-slate-700 flex flex-col z-50 panel-enter\"",
-      "        >",
-      "          <div id=\"chat-header\" className=\"bg-gradient-to-r from-blue-600 to-purple-600 rounded-t-2xl px-4 py-3 flex items-center justify-between\">",
-      "            <div className=\"flex items-center gap-3\">",
-      "              <div className=\"w-10 h-10 bg-white rounded-full flex items-center justify-center font-bold text-slate-900 text-sm\">",
-      "                OG",
-      "              </div>",
-      "              <div>",
-      "                <h3 className=\"text-white font-semibold text-sm\">Offr Group Assistant</h3>",
-      "                <p className=\"text-blue-100 text-xs\">Ask about hiring & services</p>",
-      "              </div>",
-      "            </div>",
-      "            <button",
-      "              onClick={() => setIsOpen(false)}",
-      "              className=\"text-white hover:bg-white/20 rounded-full w-8 h-8 flex items-center justify-center transition-colors\"",
-      "            >",
-      "              <i className=\"fas fa-times\"></i>",
-      "            </button>",
-      "          </div>",
-      "",
-      "          <div id=\"chat-tabs\" className=\"bg-slate-800 px-4 py-2 flex gap-2 border-b border-slate-700\">",
-      "            <button",
-      "              onClick={() => setActiveTab('ai')}",
-      "              className={(activeTab === 'ai' ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600') + ' px-3 py-1 rounded-full text-xs font-medium transition-all'}",
-      "            >",
-      "              <i className=\"fas fa-robot mr-1\"></i>",
-      "              AI Assistant",
-      "            </button>",
-      "            <button",
-      "              onClick={() => setActiveTab('live')}",
-      "              className={(activeTab === 'live' ? 'bg-purple-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600') + ' px-3 py-1 rounded-full text-xs font-medium transition-all'}",
-      "            >",
-      "              <i className=\"fas fa-user-headset mr-1\"></i>",
-      "              Live Chat",
-      "            </button>",
-      "          </div>",
-      "",
-      "          {activeTab === 'live' && messages.length === 0 && (",
-      "            <div className=\"px-4 py-2 bg-slate-800/50 border-b border-slate-700\">",
-      "              <p className=\"text-xs text-slate-400 flex items-center gap-2\">",
-      "                <i className=\"fas fa-info-circle\"></i>",
-      "                If no one's available live, we'll follow up by email.",
-      "              </p>",
-      "            </div>",
-      "          )}",
-      "",
-      "          <div id=\"chat-messages\" className=\"flex-1 overflow-y-auto px-3 py-3 space-y-3\">",
-      "            {messages.map((message) => (",
-      "              <div key={message.id} className={'flex ' + (message.type === 'user' ? 'justify-end' : 'justify-start') + ' chat-bubble-enter'}>",
-      "                <div className={(message.type === 'user' ? 'bg-blue-600 text-white rounded-br-sm' : 'bg-slate-700 text-slate-100 rounded-bl-sm') + ' max-w-[80%] px-4 py-2 rounded-2xl'}>",
-      "                  <p className=\"text-sm leading-relaxed\">{message.text}</p>",
-      "                  {message.showCalendly && (",
-      "                    <button",
-      "                      onClick={openCalendly}",
-      "                      className=\"mt-2 w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors\"",
-      "                    >",
-      "                      <i className=\"fas fa-calendar-check mr-2\"></i>",
-      "                      Book a call",
-      "                    </button>",
-      "                  )}",
-      "                </div>",
-      "              </div>",
-      "            ))}",
-      "",
-      "            {isTyping && (",
-      "              <div className=\"flex justify-start chat-bubble-enter\">",
-      "                <div className=\"bg-slate-700 text-slate-100 px-4 py-2 rounded-2xl rounded-bl-sm\">",
-      "                  <div className=\"flex gap-1\">",
-      "                    <div className=\"w-2 h-2 bg-slate-400 rounded-full animate-bounce\" style={{ animationDelay: '0ms' }}></div>",
-      "                    <div className=\"w-2 h-2 bg-slate-400 rounded-full animate-bounce\" style={{ animationDelay: '150ms' }}></div>",
-      "                    <div className=\"w-2 h-2 bg-slate-400 rounded-full animate-bounce\" style={{ animationDelay: '300ms' }}></div>",
-      "                  </div>",
-      "                </div>",
-      "              </div>",
-      "            )}",
-      "",
-      "            {showLeadForm && (",
-      "              <div className=\"bg-slate-700 rounded-xl p-4 space-y-3 chat-bubble-enter\">",
-      "                <h4 className=\"text-white font-semibold text-sm mb-3\">Let's connect you with the right person</h4>",
-      "                <input",
-      "                  type=\"text\"",
-      "                  placeholder=\"First name *\"",
-      "                  value={leadData.firstName}",
-      "                  onChange={(e) => setLeadData({ ...leadData, firstName: e.target.value })}",
-      "                  className=\"w-full bg-slate-800 text-white px-3 py-2 rounded-lg text-sm border border-slate-600 focus:border-blue-500 focus:outline-none\"",
-      "                />",
-      "                <input",
-      "                  type=\"text\"",
-      "                  placeholder=\"Last name *\"",
-      "                  value={leadData.lastName}",
-      "                  onChange={(e) => setLeadData({ ...leadData, lastName: e.target.value })}",
-      "                  className=\"w-full bg-slate-800 text-white px-3 py-2 rounded-lg text-sm border border-slate-600 focus:border-blue-500 focus:outline-none\"",
-      "                />",
-      "                <input",
-      "                  type=\"email\"",
-      "                  placeholder=\"Email *\"",
-      "                  value={leadData.email}",
-      "                  onChange={(e) => setLeadData({ ...leadData, email: e.target.value })}",
-      "                  className=\"w-full bg-slate-800 text-white px-3 py-2 rounded-lg text-sm border border-slate-600 focus:border-blue-500 focus:outline-none\"",
-      "                />",
-      "                <input",
-      "                  type=\"tel\"",
-      "                  placeholder=\"Phone\"",
-      "                  value={leadData.phone}",
-      "                  onChange={(e) => setLeadData({ ...leadData, phone: e.target.value })}",
-      "                  className=\"w-full bg-slate-800 text-white px-3 py-2 rounded-lg text-sm border border-slate-600 focus:border-blue-500 focus:outline-none\"",
-      "                />",
-      "                <input",
-      "                  type=\"text\"",
-      "                  placeholder=\"LinkedIn\"",
-      "                  value={leadData.linkedin}",
-      "                  onChange={(e) => setLeadData({ ...leadData, linkedin: e.target.value })}",
-      "                  className=\"w-full bg-slate-800 text-white px-3 py-2 rounded-lg text-sm border border-slate-600 focus:border-blue-500 focus:outline-none\"",
-      "                />",
-      "                <input",
-      "                  type=\"text\"",
-      "                  placeholder=\"Company\"",
-      "                  value={leadData.company}",
-      "                  onChange={(e) => setLeadData({ ...leadData, company: e.target.value })}",
-      "                  className=\"w-full bg-slate-800 text-white px-3 py-2 rounded-lg text-sm border border-slate-600 focus:border-blue-500 focus:outline-none\"",
-      "                />",
-      "                <textarea",
-      "                  placeholder=\"What are you hiring for?\"",
-      "                  value={leadData.hiringFor}",
-      "                  onChange={(e) => setLeadData({ ...leadData, hiringFor: e.target.value })}",
-      "                  className=\"w-full bg-slate-800 text-white px-3 py-2 rounded-lg text-sm border border-slate-600 focus:border-blue-500 focus:outline-none resize-none\"",
-      "                  rows=\"2\"",
-      "                />",
-      "                <button",
-      "                  onClick={handleLeadSubmit}",
-      "                  className=\"w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all\"",
-      "                >",
-      "                  Submit details",
-      "                </button>",
-      "              </div>",
-      "            )}",
-      "",
-      "            <div ref={messagesEndRef} />",
-      "          </div>",
-      "",
-      "          <div id=\"chat-composer\" className=\"bg-slate-800 rounded-b-2xl px-3 py-3 border-t border-slate-700\">",
-      "            <div className=\"flex items-end gap-2\">",
-      "              <textarea",
-      "                ref={inputRef}",
-      "                value={inputValue}",
-      "                onChange={(e) => setInputValue(e.target.value)}",
-      "                onKeyPress={handleKeyPress}",
-      "                placeholder=\"Type your message...\"",
-      "                className=\"flex-1 bg-slate-700 text-white px-4 py-2 rounded-xl text-sm border border-slate-600 focus:border-blue-500 focus:outline-none resize-none\"",
-      "                rows=\"1\"",
-      "                style={{ maxHeight: '80px' }}",
-      "              />",
-      "              <button",
-      "                onClick={handleSendMessage}",
-      "                disabled={!inputValue.trim()}",
-      "                className={(inputValue.trim() ? 'from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700' : 'from-slate-700 to-slate-700 disabled:cursor-not-allowed') + ' bg-gradient-to-r text-white w-10 h-10 rounded-xl flex items-center justify-center transition-all'}",
-      "              >",
-      "                <i className=\"fas fa-paper-plane\"></i>",
-      "              </button>",
-      "            </div>",
-      "          </div>",
-      "        </div>",
-      "      )}",
-      "    </React.Fragment>",
-      "  );",
-      "};",
-      "ReactDOM.render(<ChatWidget />, document.getElementById('offr-chat-root'));",
-    ].join('\\n');
+  function createEl(tag, className, text) {
+    var el = document.createElement(tag);
+    if (className) el.className = className;
+    if (typeof text === 'string') el.textContent = text;
+    return el;
+  }
 
-    const babelScript = document.createElement('script');
-    babelScript.type = 'text/babel';
-    babelScript.setAttribute('data-presets', 'react');
-    babelScript.textContent = widgetCode;
-    document.body.appendChild(babelScript);
-    if (window.Babel && typeof window.Babel.transformScriptTags === 'function') {
-      window.Babel.transformScriptTags();
+  function buildUi() {
+    var root = ensureRoot();
+    // Launcher
+    var launcher = createEl('button', 'offr-launcher offr-chat-bubble-enter');
+    launcher.setAttribute('aria-label', 'Open Offr chat');
+    launcher.style.position = 'fixed';
+    launcher.style.right = '24px';
+    launcher.style.bottom = '24px';
+    launcher.style.width = '64px';
+    launcher.style.height = '64px';
+    launcher.style.borderRadius = '50%';
+    launcher.style.border = 'none';
+    launcher.style.cursor = 'pointer';
+    launcher.style.boxShadow = '0 20px 40px rgba(0,0,0,0.25)';
+    launcher.style.background = 'linear-gradient(135deg, #2563eb, #7c3aed)';
+    launcher.style.color = '#fff';
+    launcher.style.display = 'flex';
+    launcher.style.alignItems = 'center';
+    launcher.style.justifyContent = 'center';
+    launcher.style.fontSize = '24px';
+    launcher.style.zIndex = '2147483001';
+    launcher.innerHTML = '💬';
+    root.appendChild(launcher);
+
+    // Panel
+    var panel = createEl('div', 'offr-panel offr-panel-enter offr-hidden');
+    panel.style.position = 'fixed';
+    panel.style.right = '16px';
+    panel.style.bottom = '16px';
+    panel.style.width = '360px';
+    panel.style.maxWidth = 'calc(100vw - 24px)';
+    panel.style.height = '520px';
+    panel.style.maxHeight = '80vh';
+    panel.style.background = 'linear-gradient(135deg, #0f172a, #111827)';
+    panel.style.borderRadius = '18px';
+    panel.style.border = '1px solid #1f2937';
+    panel.style.boxShadow = '0 20px 60px rgba(0,0,0,0.45)';
+    panel.style.display = 'flex';
+    panel.style.flexDirection = 'column';
+    panel.style.zIndex = '2147483002';
+    root.appendChild(panel);
+
+    // Header
+    var header = createEl('div');
+    header.style.display = 'flex';
+    header.style.alignItems = 'center';
+    header.style.justifyContent = 'space-between';
+    header.style.padding = '12px 14px';
+    header.style.background = 'linear-gradient(90deg, #2563eb, #7c3aed)';
+    header.style.borderTopLeftRadius = '18px';
+    header.style.borderTopRightRadius = '18px';
+    var left = createEl('div');
+    left.style.display = 'flex';
+    left.style.alignItems = 'center';
+    left.style.gap = '10px';
+    var avatar = createEl('div', '', 'OG');
+    avatar.style.width = '36px';
+    avatar.style.height = '36px';
+    avatar.style.borderRadius = '50%';
+    avatar.style.background = '#fff';
+    avatar.style.color = '#0f172a';
+    avatar.style.display = 'flex';
+    avatar.style.alignItems = 'center';
+    avatar.style.justifyContent = 'center';
+    avatar.style.fontWeight = '700';
+    avatar.style.fontSize = '13px';
+    var titles = createEl('div');
+    var title = createEl('div', '', 'Offr Group Assistant');
+    title.style.color = '#fff';
+    title.style.fontWeight = '600';
+    title.style.fontSize = '13px';
+    var subtitle = createEl('div', '', 'Ask about hiring & services');
+    subtitle.style.color = 'rgba(255,255,255,0.8)';
+    subtitle.style.fontSize = '12px';
+    titles.appendChild(title);
+    titles.appendChild(subtitle);
+    left.appendChild(avatar);
+    left.appendChild(titles);
+    var closeBtn = createEl('button', '', '×');
+    closeBtn.style.color = '#fff';
+    closeBtn.style.background = 'transparent';
+    closeBtn.style.border = 'none';
+    closeBtn.style.fontSize = '18px';
+    closeBtn.style.cursor = 'pointer';
+    closeBtn.style.width = '32px';
+    closeBtn.style.height = '32px';
+    closeBtn.style.borderRadius = '50%';
+    closeBtn.onmouseenter = function () { closeBtn.style.background = 'rgba(255,255,255,0.1)'; };
+    closeBtn.onmouseleave = function () { closeBtn.style.background = 'transparent'; };
+    header.appendChild(left);
+    header.appendChild(closeBtn);
+    panel.appendChild(header);
+
+    // Tabs
+    var tabs = createEl('div');
+    tabs.style.display = 'flex';
+    tabs.style.gap = '8px';
+    tabs.style.padding = '10px 12px';
+    tabs.style.background = '#0f172a';
+    tabs.style.borderBottom = '1px solid #1f2937';
+    var aiTab = createEl('button', '', 'AI Assistant');
+    var liveTab = createEl('button', '', 'Live Chat');
+    [aiTab, liveTab].forEach(function (btn) {
+      btn.style.border = 'none';
+      btn.style.borderRadius = '999px';
+      btn.style.padding = '6px 12px';
+      btn.style.fontSize = '12px';
+      btn.style.cursor = 'pointer';
+      btn.style.transition = 'all 120ms ease';
+    });
+    aiTab.style.background = '#2563eb';
+    aiTab.style.color = '#fff';
+    liveTab.style.background = '#1f2937';
+    liveTab.style.color = '#cbd5e1';
+    tabs.appendChild(aiTab);
+    tabs.appendChild(liveTab);
+    panel.appendChild(tabs);
+
+    // Messages
+    var messagesWrap = createEl('div', 'offr-scroll');
+    messagesWrap.style.flex = '1';
+    messagesWrap.style.overflowY = 'auto';
+    messagesWrap.style.padding = '12px';
+    messagesWrap.style.display = 'flex';
+    messagesWrap.style.flexDirection = 'column';
+    messagesWrap.style.gap = '10px';
+    panel.appendChild(messagesWrap);
+
+    // Lead form
+    var leadCard = createEl('div', 'offr-hidden');
+    leadCard.style.background = '#1f2937';
+    leadCard.style.border = '1px solid '#273449';
+    leadCard.style.borderRadius = '12px';
+    leadCard.style.padding = '12px';
+    leadCard.style.display = 'flex';
+    leadCard.style.flexDirection = 'column';
+    leadCard.style.gap = '8px';
+    var leadTitle = createEl('div', '', "Let's connect you with the right person");
+    leadTitle.style.color = '#fff';
+    leadTitle.style.fontWeight = '600';
+    leadTitle.style.fontSize = '13px';
+    leadCard.appendChild(leadTitle);
+    function leadInput(placeholder, key, type) {
+      var input = document.createElement(type === 'textarea' ? 'textarea' : 'input');
+      if (type !== 'textarea') input.type = type || 'text';
+      input.placeholder = placeholder;
+      input.dataset.key = key;
+      input.style.width = '100%';
+      input.style.background = '#111827';
+      input.style.color = '#fff';
+      input.style.border = '1px solid #273449';
+      input.style.borderRadius = '8px';
+      input.style.padding = '8px';
+      input.style.fontSize = '13px';
+      input.style.outline = 'none';
+      input.onfocus = function () { input.style.borderColor = '#2563eb'; };
+      input.onblur = function () { input.style.borderColor = '#273449'; };
+      if (type === 'textarea') {
+        input.rows = 2;
+        input.style.resize = 'none';
+      }
+      return input;
+    }
+    var fields = [
+      leadInput('First name *', 'firstName', 'text'),
+      leadInput('Last name *', 'lastName', 'text'),
+      leadInput('Email *', 'email', 'email'),
+      leadInput('Phone', 'phone', 'tel'),
+      leadInput('LinkedIn', 'linkedin', 'text'),
+      leadInput('Company', 'company', 'text'),
+      leadInput('What are you hiring for?', 'hiringFor', 'textarea'),
+    ];
+    fields.forEach(function (f) { leadCard.appendChild(f); });
+    var leadSubmit = createEl('button', '', 'Submit details');
+    leadSubmit.style.border = 'none';
+    leadSubmit.style.borderRadius = '10px';
+    leadSubmit.style.padding = '10px';
+    leadSubmit.style.background = 'linear-gradient(90deg, #2563eb, #7c3aed)';
+    leadSubmit.style.color = '#fff';
+    leadSubmit.style.fontWeight = '600';
+    leadSubmit.style.cursor = 'pointer';
+    leadCard.appendChild(leadSubmit);
+    messagesWrap.appendChild(leadCard);
+
+    // Composer
+    var composer = createEl('div');
+    composer.style.padding = '10px';
+    composer.style.borderTop = '1px solid #1f2937';
+    composer.style.background = '#0f172a';
+    var form = createEl('div');
+    form.style.display = 'flex';
+    form.style.gap = '8px';
+    var textarea = document.createElement('textarea');
+    textarea.rows = 1;
+    textarea.placeholder = 'Type your message...';
+    textarea.style.flex = '1';
+    textarea.style.resize = 'none';
+    textarea.style.background = '#1f2937';
+    textarea.style.color = '#fff';
+    textarea.style.border = '1px solid #273449';
+    textarea.style.borderRadius = '10px';
+    textarea.style.padding = '10px';
+    textarea.style.fontSize = '13px';
+    textarea.style.outline = 'none';
+    textarea.onfocus = function () { textarea.style.borderColor = '#2563eb'; };
+    textarea.onblur = function () { textarea.style.borderColor = '#273449'; };
+    var sendBtn = createEl('button', '', '➤');
+    sendBtn.style.border = 'none';
+    sendBtn.style.width = '42px';
+    sendBtn.style.height = '42px';
+    sendBtn.style.borderRadius = '12px';
+    sendBtn.style.background = 'linear-gradient(135deg, #2563eb, #7c3aed)';
+    sendBtn.style.color = '#fff';
+    sendBtn.style.fontSize = '16px';
+    sendBtn.style.cursor = 'pointer';
+    form.appendChild(textarea);
+    form.appendChild(sendBtn);
+    composer.appendChild(form);
+    panel.appendChild(composer);
+
+    return {
+      launcher: launcher,
+      panel: panel,
+      closeBtn: closeBtn,
+      aiTab: aiTab,
+      liveTab: liveTab,
+      messagesWrap: messagesWrap,
+      leadCard: leadCard,
+      leadFields: fields,
+      leadSubmit: leadSubmit,
+      textarea: textarea,
+      sendBtn: sendBtn,
+    };
+  }
+
+  function renderMessage(container, message) {
+    var row = createEl('div');
+    row.style.display = 'flex';
+    row.style.justifyContent = message.type === 'user' ? 'flex-end' : 'flex-start';
+    var bubble = createEl('div');
+    bubble.style.maxWidth = '80%';
+    bubble.style.padding = '10px 12px';
+    bubble.style.borderRadius = '14px';
+    bubble.style.fontSize = '13px';
+    bubble.style.lineHeight = '1.5';
+    bubble.style.wordBreak = 'break-word';
+    if (message.type === 'user') {
+      bubble.style.background = '#2563eb';
+      bubble.style.color = '#fff';
+      bubble.style.borderBottomRightRadius = '4px';
+    } else {
+      bubble.style.background = '#1f2937';
+      bubble.style.color = '#e5e7eb';
+      bubble.style.borderBottomLeftRadius = '4px';
+    }
+    bubble.textContent = message.text || '';
+    if (message.showCalendly) {
+      var btn = createEl('button', '', 'Book a call');
+      btn.style.marginTop = '8px';
+      btn.style.width = '100%';
+      btn.style.border = 'none';
+      btn.style.borderRadius = '10px';
+      btn.style.padding = '10px';
+      btn.style.background = '#7c3aed';
+      btn.style.color = '#fff';
+      btn.style.fontWeight = '600';
+      btn.style.cursor = 'pointer';
+      btn.onclick = function () { window.open(CALENDLY_URL, '_blank'); };
+      bubble.appendChild(btn);
+    }
+    row.appendChild(bubble);
+    container.appendChild(row);
+  }
+
+  function renderTyping(container, show) {
+    var existing = container.querySelector('.offr-typing');
+    if (existing) existing.remove();
+    if (!show) return;
+    var wrap = createEl('div', 'offr-typing');
+    wrap.style.display = 'flex';
+    wrap.style.justifyContent = 'flex-start';
+    var bubble = createEl('div');
+    bubble.style.background = '#1f2937';
+    bubble.style.color = '#e5e7eb';
+    bubble.style.padding = '8px 10px';
+    bubble.style.borderRadius = '12px';
+    bubble.style.borderBottomLeftRadius = '4px';
+    bubble.style.display = 'flex';
+    bubble.style.gap = '4px';
+    bubble.style.alignItems = 'center';
+    function dot(delay) {
+      var d = createEl('div');
+      d.style.width = '6px';
+      d.style.height = '6px';
+      d.style.borderRadius = '50%';
+      d.style.background = '#cbd5e1';
+      d.style.animation = 'offrDot 1s infinite';
+      d.style.animationDelay = delay;
+      return d;
+    }
+    bubble.appendChild(dot('0ms'));
+    bubble.appendChild(dot('150ms'));
+    bubble.appendChild(dot('300ms'));
+    wrap.appendChild(bubble);
+    container.appendChild(wrap);
+    var style = document.getElementById('offr-dot-style');
+    if (!style) {
+      style = document.createElement('style');
+      style.id = 'offr-dot-style';
+      style.textContent = "@keyframes offrDot { 0% { opacity: 0.4; transform: translateY(0);} 50% { opacity: 1; transform: translateY(-2px);} 100% { opacity: 0.4; transform: translateY(0);} }";
+      document.head.appendChild(style);
     }
   }
 
-  Promise.all(deps.map(loadScript))
-    .then(() => {
-      injectStyles();
-      ensureRoot();
-      mountWidget();
-    })
-    .catch(err => {
-      console.error('Offr chat widget failed to load dependencies', err);
-    });
-})();
+  function main() {
+    injectStyles();
+    var ui = buildUi();
+    var isOpen = false;
+    var activeTab = 'ai';
+    var messages = [];
+    var sessionId = getSessionId();
+    var showLeadForm = false;
 
+    function togglePanel(show) {
+      isOpen = show;
+      ui.panel.classList.toggle('offr-hidden', !isOpen);
+    }
+
+    function setTab(tab) {
+      activeTab = tab;
+      ui.aiTab.style.background = tab === 'ai' ? '#2563eb' : '#1f2937';
+      ui.aiTab.style.color = tab === 'ai' ? '#fff' : '#cbd5e1';
+      ui.liveTab.style.background = tab === 'live' ? '#7c3aed' : '#1f2937';
+      ui.liveTab.style.color = tab === 'live' ? '#fff' : '#cbd5e1';
+    }
+
+    function scrollBottom() {
+      setTimeout(function () {
+        ui.messagesWrap.scrollTop = ui.messagesWrap.scrollHeight + 200;
+      }, 20);
+    }
+
+    function renderAll() {
+      ui.messagesWrap.innerHTML = '';
+      messages.forEach(function (m) { renderMessage(ui.messagesWrap, m); });
+      if (showLeadForm) {
+        ui.leadCard.classList.remove('offr-hidden');
+        ui.messagesWrap.appendChild(ui.leadCard);
+      } else {
+        ui.leadCard.classList.add('offr-hidden');
+      }
+      scrollBottom();
+    }
+
+    function addMessage(msg) {
+      messages.push(msg);
+      renderAll();
+    }
+
+    function welcome() {
+      addMessage({
+        id: 'welcome',
+        type: 'assistant',
+        text: "Hey, I'm the Offr Group assistant. I can walk you through contingency, executive, RPO, BPO, and staffing options — or help you figure out what you actually need.",
+      });
+    }
+
+    ui.launcher.onclick = function () {
+      togglePanel(true);
+      if (messages.length === 0) welcome();
+    };
+    ui.closeBtn.onclick = function () { togglePanel(false); };
+    ui.aiTab.onclick = function () { setTab('ai'); };
+    ui.liveTab.onclick = function () { setTab('live'); };
+
+    function sendMessage() {
+      var text = ui.textarea.value.trim();
+      if (!text) return;
+      ui.textarea.value = '';
+      addMessage({ id: 'u_' + Date.now(), type: 'user', text: text });
+      renderTyping(ui.messagesWrap, true);
+      scrollBottom();
+      var body = { message: text, session_id: sessionId, page_url: (window.parent && window.parent.location ? window.parent.location.href : window.location.href) };
+      if (activeTab === 'ai') {
+        var history = messages.slice(-9).map(function (m) { return { role: m.type === 'user' ? 'user' : 'assistant', text: m.text }; });
+        body.history = history;
+      }
+      var endpoint = activeTab === 'ai' ? CHAT_ENDPOINT : LIVE_ENDPOINT;
+      fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          renderTyping(ui.messagesWrap, false);
+          if (data && data.session_id && data.session_id !== sessionId) {
+            sessionId = data.session_id;
+            try { localStorage.setItem(sessionKey, sessionId); } catch {}
+          }
+          addMessage({
+            id: 'a_' + Date.now(),
+            type: activeTab === 'ai' ? 'assistant' : 'agent',
+            text: data.response || data.message || "Thanks for your message. We'll get back to you shortly.",
+            showCalendly: !!data.calendly_link,
+          });
+          if (data.capture_lead) {
+            showLeadForm = true;
+            renderAll();
+          }
+        })
+        .catch(function () {
+          renderTyping(ui.messagesWrap, false);
+          addMessage({ id: 'err_' + Date.now(), type: 'assistant', text: "Sorry, I'm having trouble connecting. Please try again." });
+        });
+    }
+
+    ui.sendBtn.onclick = sendMessage;
+    ui.textarea.addEventListener('keypress', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    ui.leadSubmit.onclick = function () {
+      var payload = {};
+      ui.leadFields.forEach(function (f) {
+        payload[f.dataset.key] = f.value.trim();
+      });
+      if (!payload.firstName || !payload.lastName || !payload.email) {
+        alert('Please fill in First name, Last name, and Email');
+        return;
+      }
+      payload.session_id = sessionId;
+      payload.source = 'website_chat';
+      fetch(LEAD_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName: payload.firstName,
+          lastName: payload.lastName,
+          email: payload.email,
+          phone: payload.phone || null,
+          linkedin: payload.linkedin || null,
+          company: payload.company || null,
+          hiringFor: payload.hiringFor || null,
+          session_id: sessionId,
+          source: 'website_chat',
+        }),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function () {
+          showLeadForm = false;
+          addMessage({
+            id: 'lead_' + Date.now(),
+            type: 'assistant',
+            text: "Perfect! I've got your details. Ready to book a quick intro call?",
+            showCalendly: true,
+          });
+        })
+        .catch(function () {
+          alert('Error submitting details. Please try again.');
+        });
+    };
+
+    // Auto-open welcome on first load if desired
+    // togglePanel(true); welcome();
+  }
+
+  main();
+})();
 
