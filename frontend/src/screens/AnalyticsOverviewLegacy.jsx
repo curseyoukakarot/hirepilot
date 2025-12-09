@@ -13,8 +13,8 @@ async function getChartLib() {
 export default function AnalyticsOverviewLegacy() {
   const chartRef = useRef(null);
   const [overviewRange, setOverviewRange] = useState('30d'); // '30d'|'90d'|'6m'
-  const [overviewSummary, setOverviewSummary] = useState({ sent: 0, openRate: 0, replyRate: 0, conversionRate: 0, converted: 0 });
-  const [overviewSeries, setOverviewSeries] = useState({ labels: [], open: [], reply: [], conv: [] });
+  const [overviewSummary, setOverviewSummary] = useState({ sent: 0, openRateTotal: 0, openRateUnique: 0, replyRate: 0, conversionRate: 0, converted: 0 });
+  const [overviewSeries, setOverviewSeries] = useState({ labels: [], openTotal: [], openUnique: [], reply: [], conv: [] });
   const [campaigns, setCampaigns] = useState([]);
   const [campaignId, setCampaignId] = useState('all');
   const [analyticsBlocked, setAnalyticsBlocked] = useState(false);
@@ -65,8 +65,8 @@ export default function AnalyticsOverviewLegacy() {
   useEffect(() => {
     const loadOverview = async () => {
       if (analyticsBlocked) {
-        setOverviewSummary({ sent: 0, openRate: 0, replyRate: 0, conversionRate: 0, converted: 0 });
-        setOverviewSeries({ labels: [], open: [], reply: [], conv: [] });
+        setOverviewSummary({ sent: 0, openRateTotal: 0, openRateUnique: 0, replyRate: 0, conversionRate: 0, converted: 0 });
+        setOverviewSeries({ labels: [], openTotal: [], openUnique: [], reply: [], conv: [] });
         return;
       }
       try {
@@ -79,7 +79,15 @@ export default function AnalyticsOverviewLegacy() {
         const fromWindow = (typeof window !== 'undefined' && window.__BACKEND_URL__) ? window.__BACKEND_URL__ : '';
         const base = String(fromProcess || fromVite || fromWindow || '').replace(/\/$/, '');
 
-        let sent = 0, opens = 0, replies = 0, conversions = 0, convertedCandidates = 0, totalLeads = 0;
+        let convertedCandidates = 0;
+        let totalLeads = 0;
+        const eventKey = (row) => {
+          if (row?.message_id) return String(row.message_id);
+          if (row?.lead_id) return `lead-${row.lead_id}`;
+          if (row?.campaign_id && row?.event_timestamp) return `camp-${row.campaign_id}-${row.event_timestamp}`;
+          return String(row?.event_timestamp || Math.random());
+        };
+
         if (base && uid) {
           try {
             const token = session?.access_token;
@@ -90,45 +98,20 @@ export default function AnalyticsOverviewLegacy() {
             });
             if (r.status === 403) {
               setAnalyticsBlocked(true);
-              setOverviewSummary({ sent: 0, openRate: 0, replyRate: 0, conversionRate: 0, converted: 0 });
-              setOverviewSeries({ labels: [], open: [], reply: [], conv: [] });
+              setOverviewSummary({ sent: 0, openRateTotal: 0, openRateUnique: 0, replyRate: 0, conversionRate: 0, converted: 0 });
+              setOverviewSeries({ labels: [], openTotal: [], openUnique: [], reply: [], conv: [] });
               return;
             }
             if (r.ok && (r.headers.get('content-type')||'').includes('application/json')) {
               const j = await r.json();
-              sent = Number(j.sent||0); opens = Number(j.opens||0); replies = Number(j.replies||0); conversions = Number(j.conversions||0);
               convertedCandidates = Number(j.converted_candidates || 0);
               totalLeads = Number(j.total_leads || 0);
             }
           } catch {}
         }
-        // If a specific campaign is selected, always ensure campaign-scoped metrics using Supabase as source of truth
-        if (campaignId !== 'all' && uid) {
+        // Candidate conversions fallback when scoped to a campaign
+        if (!convertedCandidates && campaignId !== 'all' && uid) {
           try {
-            const { data: evCounts } = await supabase
-              .from('email_events')
-              .select('event_type', { count: 'exact', head: false })
-              .eq('user_id', uid)
-              .eq('campaign_id', campaignId)
-              .gte('event_timestamp', sinceIso);
-            // Supabase doesn't aggregate here; do a second query to fetch rows to aggregate reliably
-            const { data: evRows } = await supabase
-              .from('email_events')
-              .select('event_type')
-              .eq('user_id', uid)
-              .eq('campaign_id', campaignId)
-              .gte('event_timestamp', sinceIso);
-            let s=0,o=0,rp=0,cv=0;
-            (evRows||[]).forEach(e=>{
-              if (e.event_type==='sent') s++;
-              else if (e.event_type==='open') o++;
-              else if (e.event_type==='reply') rp++;
-              else if (e.event_type==='conversion') cv++;
-            });
-            sent = s; opens = o; replies = rp; conversions = cv;
-          } catch {}
-          try {
-            // Avoid 400 when candidates.campaign_id is absent: do not select/filter on that column
             const { data: hires } = await supabase
               .from('candidates')
               .select('id, created_at, status')
@@ -136,33 +119,38 @@ export default function AnalyticsOverviewLegacy() {
               .gte('created_at', sinceIso);
             convertedCandidates = (hires||[]).length;
           } catch {}
-          totalLeads = sent || totalLeads;
         }
-        if (!sent && uid) {
-          const { data: rows } = await supabase.from('email_events').select('event_type,event_timestamp,campaign_id').eq('user_id', uid).gte('event_timestamp', sinceIso);
-          (rows||[]).forEach((r) => {
-            if (campaignId !== 'all' && r.campaign_id && String(r.campaign_id) !== String(campaignId)) return;
-            const t = r && r.event_type;
-            if (t === 'sent') sent++;
-            else if (t === 'open') opens++;
-            else if (t === 'reply') replies++;
-            else if (t === 'conversion') conversions++;
-          });
-          try {
-            const { data: hires } = await supabase
-              .from('candidates')
-              .select('id,created_at,status,user_id')
-              .eq('user_id', uid)
-              .eq('status','hired')
-              .gte('created_at', sinceIso);
-            convertedCandidates = (hires || []).length;
-          } catch {}
-          totalLeads = sent; // fallback when backend doesn't provide total leads
-        }
-        const openRate = sent ? ((opens/sent)*100) : 0;
-        const replyRate = sent ? ((replies/sent)*100) : 0;
-        const conversionRate = (totalLeads || sent) ? (((convertedCandidates / (totalLeads || sent))*100)) : 0;
-        setOverviewSummary({ sent, openRate, replyRate, conversionRate, converted: convertedCandidates });
+
+        // Always compute messaging metrics from scoped email_events for the selected range
+        const { data: rows } = await supabase
+          .from('email_events')
+          .select('event_type,event_timestamp,campaign_id,message_id,lead_id')
+          .eq('user_id', uid)
+          .gte('event_timestamp', sinceIso);
+
+        const sentMessages = new Set();
+        const openMessages = new Set();
+        let sentEvents = 0, openEvents = 0, replyEvents = 0;
+
+        (rows||[]).forEach((r) => {
+          if (campaignId !== 'all' && r.campaign_id && String(r.campaign_id) !== String(campaignId)) return;
+          const t = r && r.event_type;
+          const key = eventKey(r);
+          if (t === 'sent') { sentEvents++; sentMessages.add(key); }
+          else if (t === 'open') { openEvents++; openMessages.add(key); }
+          else if (t === 'reply') { replyEvents++; }
+        });
+
+        const sentBase = sentMessages.size || sentEvents;
+        const uniqueOpens = Math.min(openMessages.size, sentBase || openMessages.size);
+        const openRateTotal = sentBase ? ((openEvents / sentBase) * 100) : 0;
+        const openRateUnique = sentBase ? ((uniqueOpens / sentBase) * 100) : 0;
+        const replyRate = sentBase ? ((replyEvents / sentBase) * 100) : 0;
+        const conversionRate = (totalLeads || sentBase) ? (((convertedCandidates / (totalLeads || sentBase)) * 100)) : 0;
+
+        if (!totalLeads) totalLeads = sentBase;
+
+        setOverviewSummary({ sent: sentBase, openRateTotal, openRateUnique, replyRate, conversionRate, converted: convertedCandidates });
 
         // Preferred: call backend overview-series which aggregates server-side with service role
         const loadSeries = async () => {
@@ -182,9 +170,10 @@ export default function AnalyticsOverviewLegacy() {
                 const series = await r.json();
                 if (Array.isArray(series)) {
                   const labels = series.map((d)=> String((d && d.period) || ''));
-                  const openS = series.map((d)=> Number((d && d.openRate) || 0));
+                  const openTotal = series.map((d)=> Number((d && (d.openRateTotal ?? d.openRate)) || 0));
+                  const openUnique = series.map((d)=> Number((d && (d.openRateUnique ?? d.openRate)) || 0));
                   const replyS = series.map((d)=> Number((d && d.replyRate) || 0));
-                  setOverviewSeries({ labels, open: openS, reply: replyS, conv: [] });
+                  setOverviewSeries({ labels, openTotal, openUnique, reply: replyS, conv: [] });
                   return;
                 }
               }
@@ -196,15 +185,20 @@ export default function AnalyticsOverviewLegacy() {
             const since = new Date(Date.now() - rangeDays*24*3600*1000).toISOString();
             const { data: rows } = await supabase
               .from('email_events')
-              .select('event_timestamp,event_type,campaign_id,user_id')
+              .select('event_timestamp,event_type,campaign_id,user_id,message_id,lead_id')
               .gte('event_timestamp', since)
               .eq('user_id', uid);
             const weekMs = 7*24*3600*1000;
             const bucketCount = overviewRange==='30d' ? 4 : overviewRange==='90d' ? 12 : 24;
             const labels = Array.from({ length: bucketCount }, (_, i) => `Week ${i+1}`);
-            const sent = Array.from({ length: bucketCount }, () => 0);
-            const replies = Array.from({ length: bucketCount }, () => 0);
-            const opens = Array.from({ length: bucketCount }, () => 0);
+            const buckets = Array.from({ length: bucketCount }, () => ({
+              sentEvents: 0,
+              sentMessages: new Set(),
+              replies: 0,
+              replyMessages: new Set(),
+              opens: 0,
+              openMessages: new Set()
+            }));
             (rows||[]).forEach((r) => {
               if (campaignId !== 'all' && Object.prototype.hasOwnProperty.call(r,'campaign_id') && r.campaign_id && String(r.campaign_id) !== String(campaignId)) return;
               const ts = r && r.event_timestamp ? new Date(r.event_timestamp) : null; if (!ts) return;
@@ -212,20 +206,39 @@ export default function AnalyticsOverviewLegacy() {
               const idxFromEnd = Math.min(bucketCount-1, Math.floor(diff / weekMs));
               const bucket = bucketCount - 1 - idxFromEnd; if (bucket < 0 || bucket >= bucketCount) return;
               const et = r && r.event_type;
-              if (et === 'sent') sent[bucket]++; if (et === 'reply') replies[bucket]++; if (et === 'open') opens[bucket]++;
+              const key = eventKey(r);
+              const target = buckets[bucket];
+              if (et === 'sent') { target.sentEvents++; target.sentMessages.add(key); }
+              if (et === 'reply') { target.replies++; target.replyMessages.add(key); }
+              if (et === 'open') { target.opens++; target.openMessages.add(key); }
             });
-            const replyS = labels.map((_, i) => (sent[i] ? Math.round((replies[i]/sent[i])*1000)/10 : 0));
-            const openS = labels.map((_, i) => (sent[i] ? Math.round((opens[i]/sent[i])*1000)/10 : 0));
-            setOverviewSeries({ labels, open: openS, reply: replyS, conv: [] });
+            const replyS = labels.map((_, i) => {
+              const bucket = buckets[i];
+              const sentBase = bucket.sentMessages.size || bucket.sentEvents;
+              const replyCount = bucket.replyMessages.size || bucket.replies;
+              return sentBase ? Math.round((replyCount / sentBase) * 1000) / 10 : 0;
+            });
+            const openTotal = labels.map((_, i) => {
+              const bucket = buckets[i];
+              const sentBase = bucket.sentMessages.size || bucket.sentEvents;
+              return sentBase ? Math.round((bucket.opens / sentBase) * 1000) / 10 : 0;
+            });
+            const openUnique = labels.map((_, i) => {
+              const bucket = buckets[i];
+              const sentBase = bucket.sentMessages.size || bucket.sentEvents;
+              const uniqueOpens = bucket.openMessages.size || Math.min(bucket.opens, sentBase);
+              return sentBase ? Math.round((uniqueOpens / sentBase) * 1000) / 10 : 0;
+            });
+            setOverviewSeries({ labels, openTotal, openUnique, reply: replyS, conv: [] });
           } catch {
-            setOverviewSeries({ labels: [], open: [], reply: [], conv: [] });
+            setOverviewSeries({ labels: [], openTotal: [], openUnique: [], reply: [], conv: [] });
           }
         };
         await loadSeries();
       } catch {
         if (analyticsBlocked) return;
-        setOverviewSummary({ sent: 0, openRate: 0, replyRate: 0, conversionRate: 0, converted: 0 });
-        setOverviewSeries({ labels: [], open: [], reply: [], conv: [] });
+        setOverviewSummary({ sent: 0, openRateTotal: 0, openRateUnique: 0, replyRate: 0, conversionRate: 0, converted: 0 });
+        setOverviewSeries({ labels: [], openTotal: [], openUnique: [], reply: [], conv: [] });
       }
     };
     loadOverview();
@@ -243,7 +256,8 @@ export default function AnalyticsOverviewLegacy() {
             data: {
               labels: [],
               datasets: [
-                { label: 'Open Rate', data: [], borderColor: '#3B82F6', backgroundColor: 'rgba(59,130,246,0.10)', tension: 0.35, fill: true, borderWidth: 3 },
+                { label: 'Unique Open Rate', data: [], borderColor: '#7C3AED', backgroundColor: 'rgba(124,58,237,0.12)', tension: 0.35, fill: true, borderWidth: 3 },
+                { label: 'Total Open Rate', data: [], borderColor: '#3B82F6', backgroundColor: 'rgba(59,130,246,0.10)', tension: 0.35, fill: true, borderWidth: 2.5, borderDash: [6,4] },
                 { label: 'Reply Rate', data: [], borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,0.10)', tension: 0.35, fill: true, borderWidth: 3 }
               ]
             },
@@ -261,8 +275,9 @@ export default function AnalyticsOverviewLegacy() {
         }
         const inst = chartRef.current;
         inst.data.labels = overviewSeries.labels || [];
-        if (inst.data.datasets?.[0]) inst.data.datasets[0].data = overviewSeries.open || [];
-        if (inst.data.datasets?.[1]) inst.data.datasets[1].data = overviewSeries.reply || [];
+        if (inst.data.datasets?.[0]) inst.data.datasets[0].data = overviewSeries.openUnique || [];
+        if (inst.data.datasets?.[1]) inst.data.datasets[1].data = overviewSeries.openTotal || [];
+        if (inst.data.datasets?.[2]) inst.data.datasets[2].data = overviewSeries.reply || [];
         // Let Chart.js auto-scale based on real % values from the backend (no manual max/suggestedMax)
         try { inst.update(); } catch {}
       }
@@ -303,7 +318,20 @@ export default function AnalyticsOverviewLegacy() {
       </div>
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="bg-white border rounded-lg p-4 text-center"><div className="text-xs text-gray-500 mb-1">Leads Messaged</div><div className="text-2xl font-bold">{overviewSummary.sent.toLocaleString('en-US')}</div></div>
-        <div className="bg-white border rounded-lg p-4 text-center"><div className="text-xs text-gray-500 mb-1">Open Rate</div><div className="text-2xl font-bold">{overviewSummary.openRate.toFixed(1)}%</div></div>
+        <div className="bg-white border rounded-lg p-4 text-center">
+          <div className="text-xs text-gray-500 mb-2">Open Rate</div>
+          <div className="flex items-center justify-center gap-3">
+            <div className="flex flex-col items-center">
+              <div className="text-2xl font-bold text-indigo-700">{overviewSummary.openRateUnique.toFixed(1)}%</div>
+              <div className="text-[11px] uppercase tracking-wide text-indigo-500">Unique</div>
+            </div>
+            <div className="h-8 w-px bg-gray-200"></div>
+            <div className="flex flex-col items-center">
+              <div className="text-lg font-semibold text-blue-600">{overviewSummary.openRateTotal.toFixed(1)}%</div>
+              <div className="text-[11px] uppercase tracking-wide text-blue-500">Total</div>
+            </div>
+          </div>
+        </div>
         <div className="bg-white border rounded-lg p-4 text-center"><div className="text-xs text-gray-500 mb-1">Reply Rate</div><div className="text-2xl font-bold">{overviewSummary.replyRate.toFixed(1)}%</div></div>
         <div className="bg-white border rounded-lg p-4 text-center"><div className="text-xs text-gray-500 mb-1">Conversion Rate</div><div className="text-2xl font-bold">{overviewSummary.conversionRate.toFixed(1)}%</div></div>
         <div className="bg-white border rounded-lg p-4 text-center"><div className="text-xs text-gray-500 mb-1">Converted Candidates</div><div className="text-2xl font-bold text-green-700">{overviewSummary.converted.toLocaleString('en-US')}</div></div>
@@ -312,7 +340,8 @@ export default function AnalyticsOverviewLegacy() {
         <div className="flex items-center justify-between mb-4">
           <div className="font-semibold text-gray-800">Performance Overview</div>
           <div className="flex items-center gap-4 text-xs text-gray-500">
-            <span className="inline-flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-blue-500"></span>Open Rate</span>
+            <span className="inline-flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-purple-500"></span>Unique Open Rate</span>
+            <span className="inline-flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-blue-500"></span>Total Open Rate</span>
             <span className="inline-flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-emerald-500"></span>Reply Rate</span>
           </div>
         </div>

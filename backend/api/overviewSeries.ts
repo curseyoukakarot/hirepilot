@@ -44,7 +44,7 @@ export default async function overviewSeries(req: Request, res: Response) {
     let query = applyUserFilter(
       supabaseDb
         .from('email_events')
-        .select('event_timestamp, event_type, campaign_id')
+        .select('event_timestamp, event_type, campaign_id, message_id')
         .gte('event_timestamp', since.toISOString())
         .in('event_type', ['sent', 'open', 'reply'] as any)
     );
@@ -66,7 +66,14 @@ export default async function overviewSeries(req: Request, res: Response) {
     }
 
     // Aggregate to ISO week buckets (Mon-Sun)
-    const buckets: Record<string, { sent: number; open: number; reply: number }> = {};
+    type Bucket = {
+      sent: number;
+      open: number;
+      reply: number;
+      sentMessages: Set<string>;
+      openMessages: Set<string>;
+    };
+    const buckets: Record<string, Bucket> = {};
     for (const ev of events) {
       const ts = ev && (ev as any).event_timestamp ? new Date((ev as any).event_timestamp) : null;
       const type = (ev as any).event_type;
@@ -77,13 +84,23 @@ export default async function overviewSeries(req: Request, res: Response) {
       wk.setUTCDate(diff);
       wk.setUTCHours(0, 0, 0, 0);
       const key = wk.toISOString().slice(0, 10);
-      if (!buckets[key]) buckets[key] = { sent: 0, open: 0, reply: 0 };
-      if (type === 'sent') buckets[key].sent += 1;
-      else if (type === 'open') buckets[key].open += 1;
-      else if (type === 'reply') buckets[key].reply += 1;
+      if (!buckets[key]) {
+        buckets[key] = { sent: 0, open: 0, reply: 0, sentMessages: new Set(), openMessages: new Set() };
+      }
+      const bucket = buckets[key];
+      const msgId = (ev as any).message_id ? String((ev as any).message_id) : undefined;
+      if (type === 'sent') {
+        bucket.sent += 1;
+        if (msgId) bucket.sentMessages.add(msgId);
+      } else if (type === 'open') {
+        bucket.open += 1;
+        if (msgId) bucket.openMessages.add(msgId);
+      } else if (type === 'reply') {
+        bucket.reply += 1;
+      }
     }
 
-    const series: Array<{ period: string; openRate: number; replyRate: number }> = [];
+    const series: Array<{ period: string; openRate: number; openRateUnique: number; openRateTotal: number; replyRate: number }> = [];
     const current = new Date(since);
     // snap to Monday
     {
@@ -95,16 +112,20 @@ export default async function overviewSeries(req: Request, res: Response) {
     today.setUTCHours(0, 0, 0, 0);
     while (current <= today) {
       const key = current.toISOString().slice(0, 10);
-      const b = buckets[key] || { sent: 0, open: 0, reply: 0 };
-      const sent = b.sent || 0;
-      const openRate = sent > 0 ? (b.open / sent) * 100 : 0;
-      const replyRate = sent > 0 ? (b.reply / sent) * 100 : 0;
+      const b = buckets[key] || { sent: 0, open: 0, reply: 0, sentMessages: new Set(), openMessages: new Set() };
+      const sentBase = b.sentMessages?.size ? b.sentMessages.size : b.sent || 0;
+      const openTotal = sentBase > 0 ? (b.open / sentBase) * 100 : 0;
+      const openUniqueCount = b.openMessages?.size ? b.openMessages.size : Math.min(b.open, sentBase);
+      const openUnique = sentBase > 0 ? (openUniqueCount / sentBase) * 100 : 0;
+      const replyRate = sentBase > 0 ? (b.reply / sentBase) * 100 : 0;
       const weekEnd = new Date(current);
       weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
       const label = `${current.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
       series.push({
         period: label,
-        openRate: Math.round(openRate * 10) / 10,
+        openRate: Math.round(openUnique * 10) / 10, // backwards compat
+        openRateUnique: Math.round(openUnique * 10) / 10,
+        openRateTotal: Math.round(openTotal * 10) / 10,
         replyRate: Math.round(replyRate * 10) / 10,
       });
       current.setUTCDate(current.getUTCDate() + 7);

@@ -390,8 +390,14 @@ export default function Analytics() {
             const Chart = await getChartLib();
             chartInstancesRef.current.openrate = new Chart(ctx, {
               type: 'line',
-              data: { labels: (modalData||[{bucket:'1'},{bucket:'2'},{bucket:'3'},{bucket:'4'}]).map(d=>d.bucket||''), datasets: [{ label: 'Open %', data: (modalData||[]).map(d=>d.openRate||0), borderColor: '#3B82F6', backgroundColor: 'rgba(59,130,246,0.12)', fill: true, tension: 0.35 }] },
-              options: { plugins: { legend: { display: false } }, responsive: true }
+              data: {
+                labels: (modalData||[{bucket:'1'},{bucket:'2'},{bucket:'3'},{bucket:'4'}]).map(d=>d.bucket||d.period||''),
+                datasets: [
+                  { label: 'Unique Open %', data: (modalData||[]).map(d=>d.openRateUnique||0), borderColor: '#7C3AED', backgroundColor: 'rgba(124,58,237,0.12)', fill: true, tension: 0.35, borderWidth: 3 },
+                  { label: 'Total Open %', data: (modalData||[]).map(d=>d.openRateTotal||0), borderColor: '#3B82F6', backgroundColor: 'rgba(59,130,246,0.10)', fill: true, tension: 0.35, borderWidth: 2.5, borderDash: [6,4] }
+                ]
+              },
+              options: { plugins: { legend: { display: true, position: 'bottom' } }, responsive: true }
             });
           }
         }
@@ -690,7 +696,8 @@ export default function Analytics() {
             </div>
             <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-purple-50 p-4 rounded-lg text-center"><div className="text-2xl font-bold text-purple-900">{(replySummary.avgReplyRate||0).toFixed(1)}%</div><div className="text-sm text-purple-700">Average Reply Rate</div></div>
-              <div className="bg-blue-50 p-4 rounded-lg text-center"><div className="text-2xl font-bold text-blue-900">{(replySummary.openRate||0).toFixed(1)}%</div><div className="text-sm text-blue-700">Open Rate</div></div>
+              <div className="bg-indigo-50 p-4 rounded-lg text-center"><div className="text-2xl font-bold text-indigo-900">{(replySummary.openRateUnique||0).toFixed(1)}%</div><div className="text-sm text-indigo-700">Unique Open Rate</div></div>
+              <div className="bg-blue-50 p-4 rounded-lg text-center"><div className="text-2xl font-bold text-blue-900">{(replySummary.openRateTotal||0).toFixed(1)}%</div><div className="text-sm text-blue-700">Total Open Rate</div></div>
               <div className="bg-green-50 p-4 rounded-lg text-center"><div className="text-2xl font-bold text-green-900">{(replySummary.totalSent||0).toLocaleString('en-US')}</div><div className="text-sm text-green-700">Total Sent</div></div>
             </div>
             </>
@@ -705,6 +712,17 @@ export default function Analytics() {
                 <span className="font-semibold">+1.8%</span>
                 </div>
                 </div>
+            {(() => {
+              const latest = Array.isArray(modalData) && modalData.length ? modalData[modalData.length-1] : null;
+              const uniqueVal = latest ? (latest.openRateUnique ?? latest.openRate ?? 0) : 0;
+              const totalVal = latest ? (latest.openRateTotal ?? latest.openRate ?? 0) : 0;
+              return (
+                <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 mb-2">
+                  <span className="inline-flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-purple-500"></span>Unique: {uniqueVal.toFixed(1)}%</span>
+                  <span className="inline-flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-blue-500"></span>Total: {totalVal.toFixed(1)}%</span>
+                </div>
+              );
+            })()}
             <canvas id="chart-openrate" width="400" height="200"></canvas>
               </div>
         )}
@@ -752,7 +770,7 @@ export default function Analytics() {
   const [revenueMode, setRevenueMode] = useState('paid'); // 'paid'|'closewon'|'blended'
   const [revenueHorizon, setRevenueHorizon] = useState('eoy'); // 'eoy'|'12m'
   const [revenueSummary, setRevenueSummary] = useState({ nextMonth: 0, quarter: 0, ytd: 0 });
-  const [replySummary, setReplySummary] = useState({ avgReplyRate: 0, openRate: 0, totalSent: 0 });
+  const [replySummary, setReplySummary] = useState({ avgReplyRate: 0, openRateTotal: 0, openRateUnique: 0, totalSent: 0 });
   const [replyRange, setReplyRange] = useState('30d'); // '30d' | '90d' | '6m'
   // Overview is lazy-loaded to isolate evaluation order
   const Overview = React.lazy(() => import('./AnalyticsOverviewLegacy'));
@@ -942,22 +960,36 @@ export default function Analytics() {
         const rangeDays = replyRange==='30d' ? 30 : replyRange==='90d' ? 90 : 180;
         const { data: rows } = await supabase
           .from('email_events')
-          .select('event_timestamp,event_type')
+          .select('event_timestamp,event_type,message_id,lead_id,campaign_id')
           .gte('event_timestamp', new Date(Date.now() - rangeDays*24*3600*1000).toISOString());
         const weekMs = 7*24*3600*1000;
         const bucketCount = replyRange==='30d' ? 4 : replyRange==='90d' ? 12 : 24;
         const labels = Array.from({ length: bucketCount }, (_, i) => `Week ${i+1}`);
-        const sent = Array.from({ length: bucketCount }, () => 0);
-        const opens = Array.from({ length: bucketCount }, () => 0);
+        const buckets = Array.from({ length: bucketCount }, () => ({
+          sentEvents: 0,
+          sentMessages: new Set(),
+          openEvents: 0,
+          openMessages: new Set()
+        }));
         (rows||[]).forEach((r) => {
           const ts = r && r.event_timestamp ? new Date(r.event_timestamp) : null; if (!ts) return;
           const diff = Date.now() - ts.getTime();
           const idxFromEnd = Math.min(bucketCount-1, Math.floor(diff / weekMs));
           const bucket = bucketCount - 1 - idxFromEnd; if (bucket < 0 || bucket >= bucketCount) return;
           const et = r && r.event_type;
-          if (et === 'sent') sent[bucket]++; if (et === 'open') opens[bucket]++;
+          const key = String(r.message_id || r.lead_id || r.event_timestamp || `${r.event_type}-${ts?.getTime?.() || ''}`);
+          const target = buckets[bucket];
+          if (et === 'sent') { target.sentEvents++; target.sentMessages.add(key); }
+          if (et === 'open') { target.openEvents++; target.openMessages.add(key); }
         });
-        const series = labels.map((name, i) => ({ period: name, openRate: sent[i] ? Math.round((opens[i]/sent[i])*1000)/10 : 0 }));
+        const series = labels.map((name, i) => {
+          const bucket = buckets[i];
+          const sentBase = bucket.sentMessages.size || bucket.sentEvents;
+          const uniqueCount = Math.min(bucket.openMessages.size, sentBase || bucket.openMessages.size);
+          const openRateTotal = sentBase ? Math.round((bucket.openEvents / sentBase) * 1000) / 10 : 0;
+          const openRateUnique = sentBase ? Math.round((uniqueCount / sentBase) * 1000) / 10 : 0;
+          return { period: name, openRate: openRateUnique, openRateTotal, openRateUnique };
+        });
         setModalData(series);
       } catch { setModalData([]); }
     };
@@ -970,9 +1002,11 @@ export default function Analytics() {
     const inst = (chartInstancesRef.current || {}).openrate;
     if (!inst || !Array.isArray(modalData)) return;
     const labels = (modalData || []).map((d) => String((d && d.period) || ''));
-    const vals = (modalData || []).map((d) => Number((d && d.openRate) || 0));
+    const uniqueVals = (modalData || []).map((d) => Number((d && (d.openRateUnique ?? d.openRate)) || 0));
+    const totalVals = (modalData || []).map((d) => Number((d && (d.openRateTotal ?? d.openRate)) || 0));
     inst.data.labels = labels;
-    if (inst.data.datasets && inst.data.datasets[0]) inst.data.datasets[0].data = vals;
+    if (inst.data.datasets && inst.data.datasets[0]) inst.data.datasets[0].data = uniqueVals;
+    if (inst.data.datasets && inst.data.datasets[1]) inst.data.datasets[1].data = totalVals;
     try { inst.update(); } catch {}
   }, [modalData, isModalOpen, modalWidget]);
 
@@ -997,19 +1031,24 @@ export default function Analytics() {
         const rangeDays = replyRange==='30d' ? 30 : replyRange==='90d' ? 90 : 180;
         const { data: rows } = await supabase
           .from('email_events')
-          .select('event_timestamp,event_type')
+          .select('event_timestamp,event_type,message_id,lead_id,campaign_id')
           .eq('user_id', session?.user?.id)
           .gte('event_timestamp', new Date(Date.now() - rangeDays*24*3600*1000).toISOString());
-        let sent = 0, opens = 0, replies = 0;
+        const sentMessages = new Set();
+        const openMessages = new Set();
+        let sentEvents = 0, opens = 0, replies = 0;
         (rows||[]).forEach((r)=>{
           const t = r && r.event_type;
-          if (t==='sent') sent++;
-          else if (t==='open') opens++;
+          const key = String(r.message_id || r.lead_id || r.event_timestamp || `${r.event_type}-${r.event_timestamp || ''}`);
+          if (t==='sent') { sentEvents++; sentMessages.add(key); }
+          else if (t==='open') { opens++; openMessages.add(key); }
           else if (t==='reply') replies++;
         });
-        const avgReplyRate = sent ? (replies/sent)*100 : 0;
-        const openRate = sent ? (opens/sent)*100 : 0;
-        setReplySummary({ avgReplyRate, openRate, totalSent: sent });
+        const sentBase = sentMessages.size || sentEvents;
+        const avgReplyRate = sentBase ? (replies/sentBase)*100 : 0;
+        const openRateTotal = sentBase ? (opens/sentBase)*100 : 0;
+        const openRateUnique = sentBase ? (Math.min(openMessages.size, sentBase || openMessages.size)/sentBase)*100 : 0;
+        setReplySummary({ avgReplyRate, openRateTotal, openRateUnique, totalSent: sentBase });
       } catch {}
     };
     loadReplySummary();

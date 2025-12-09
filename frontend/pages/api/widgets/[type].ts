@@ -89,29 +89,48 @@ export default async function handler(req: any, res: any) {
         const provider = String((qp as any)?.provider || '').toLowerCase() || 'all';
         let q = supabase
           .from('email_events')
-          .select('event_timestamp,event_type,provider')
+          .select('event_timestamp,event_type,provider,message_id,lead_id')
           .eq('user_id', user.id)
           .gte('event_timestamp', new Date(Date.now() - rangeDays*24*3600*1000).toISOString());
         if (provider && provider !== 'all') q = q.eq('provider', provider);
         const { data: rows } = await q;
         const bucketCount = timeRange === '90d' ? 12 : (timeRange === '6m' ? 24 : 4);
         const labels = Array.from({ length: bucketCount }, (_, i) => `Week ${i+1}`);
-        const sent: number[] = Array.from({ length: bucketCount }, () => 0);
-        const opens: number[] = Array.from({ length: bucketCount }, () => 0);
+        const buckets = Array.from({ length: bucketCount }, () => ({
+          sentEvents: 0,
+          sentMessages: new Set<string>(),
+          openEvents: 0,
+          openMessages: new Set<string>()
+        }));
         const weekMs = 7 * 24 * 3600 * 1000;
         (rows || []).forEach((r:any) => {
           const ts = new Date(r.event_timestamp).getTime();
           const diff = Date.now() - ts;
           const idxFromEnd = Math.min(bucketCount - 1, Math.floor(diff / (weekMs)));
           const bucket = bucketCount - 1 - idxFromEnd;
-          if (bucket >= 0 && bucket < bucketCount) {
-            if (r.event_type === 'sent') sent[bucket]++; else if (r.event_type === 'open') opens[bucket]++;
+          if (bucket < 0 || bucket >= bucketCount) return;
+          const key = String(r.message_id || r.lead_id || r.event_timestamp || `${r.event_type}-${ts}`);
+          const target = buckets[bucket];
+          if (r.event_type === 'sent') {
+            target.sentEvents += 1;
+            target.sentMessages.add(key);
+          } else if (r.event_type === 'open') {
+            target.openEvents += 1;
+            target.openMessages.add(key);
           }
         });
-        data = labels.map((label, i) => ({
-          period: label,
-          openRate: sent[i] ? Math.round((opens[i] / sent[i]) * 1000) / 10 : 0
-        }));
+        data = labels.map((label, i) => {
+          const bucket = buckets[i];
+          const sentBase = bucket.sentMessages.size || bucket.sentEvents;
+          const openRateTotal = sentBase ? Math.round((bucket.openEvents / sentBase) * 1000) / 10 : 0;
+          const openRateUnique = sentBase ? Math.round((bucket.openMessages.size / sentBase) * 1000) / 10 : 0;
+          return {
+            period: label,
+            openRate: openRateUnique, // backwards compat
+            openRateTotal,
+            openRateUnique
+          };
+        });
         break;
       }
       case 'conversion-trends': {
