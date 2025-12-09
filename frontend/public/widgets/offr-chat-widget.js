@@ -374,12 +374,21 @@
       ui.panel.classList.toggle('offr-hidden', !isOpen);
     }
 
+    var liveNoticeShown = false;
     function setTab(tab) {
       activeTab = tab;
       ui.aiTab.style.background = tab === 'ai' ? '#2563eb' : '#1f2937';
       ui.aiTab.style.color = tab === 'ai' ? '#fff' : '#cbd5e1';
       ui.liveTab.style.background = tab === 'live' ? '#7c3aed' : '#1f2937';
       ui.liveTab.style.color = tab === 'live' ? '#fff' : '#cbd5e1';
+      if (tab === 'live' && !liveNoticeShown) {
+        addMessage({
+          id: 'live_notice',
+          type: 'assistant',
+          text: 'You switched to live chat — please wait a moment while a team member is called.',
+        });
+        liveNoticeShown = true;
+      }
     }
 
     function scrollBottom() {

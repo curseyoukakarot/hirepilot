@@ -362,29 +362,38 @@ async function routeLivechatMessage(input: {
   ].filter(Boolean).join('\n');
 
   if (botToken && slackChannel) {
-    const slack = new WebClient(botToken);
-    const postArgs: any = {
-      channel: slackChannel,
-      text: textLines,
-      unfurl_links: false,
-      unfurl_media: false,
-    };
-    if (threadTs) postArgs.thread_ts = threadTs;
-    const posted = await slack.chat.postMessage(postArgs);
-    const newThread = (posted as any)?.ts as string | undefined;
-    const activeThread = threadTs || newThread || null;
-    if (activeThread) {
-      try {
-        await supabase
-          .from('rex_live_sessions')
-          .upsert({
-            widget_session_id: sessionId,
-            slack_channel_id: slackChannel,
-            slack_thread_ts: activeThread,
-            user_name: name || null,
-            user_email: email || null,
-          }, { onConflict: 'widget_session_id' });
-      } catch {}
+    try {
+      const slack = new WebClient(botToken);
+      const postArgs: any = {
+        channel: slackChannel,
+        text: textLines,
+        unfurl_links: false,
+        unfurl_media: false,
+      };
+      if (threadTs) postArgs.thread_ts = threadTs;
+      const posted = await slack.chat.postMessage(postArgs);
+      const newThread = (posted as any)?.ts as string | undefined;
+      const activeThread = threadTs || newThread || null;
+      if (activeThread) {
+        try {
+          await supabase
+            .from('rex_live_sessions')
+            .upsert({
+              widget_session_id: sessionId,
+              slack_channel_id: slackChannel,
+              slack_thread_ts: activeThread,
+              user_name: name || null,
+              user_email: email || null,
+            }, { onConflict: 'widget_session_id' });
+        } catch (insErr) {
+          console.error('[offr/livechat] upsert live session failed', insErr);
+        }
+      }
+    } catch (slackErr: any) {
+      console.error('[offr/livechat] slack post failed', slackErr?.message || slackErr);
+      if (webhookUrl) {
+        await postSlack(webhookUrl, textLines);
+      }
     }
   } else if (webhookUrl) {
     await postSlack(webhookUrl, textLines);
