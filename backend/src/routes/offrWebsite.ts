@@ -709,6 +709,28 @@ router.post('/offr-livechat/messages', async (req: Request, res: Response) => {
   }
 });
 
+// Poll for team replies stored in live_chat_messages for a session
+router.get('/offr-livechat/messages', async (req: Request, res: Response) => {
+  try {
+    const sessionId = String((req.query?.session_id || '')).trim();
+    if (!sessionId) {
+      res.status(400).json({ error: 'invalid_input', message: 'session_id required' });
+      return;
+    }
+    const { data, error } = await supabase
+      .from('live_chat_messages')
+      .select('id,created_at,text,sender,name')
+      .eq('session_id', sessionId)
+      .order('created_at', { ascending: true })
+      .limit(30);
+    if (error) throw error;
+    res.json({ messages: data || [] });
+  } catch (err: any) {
+    console.error('[offr/livechat][get] error', err?.message || err);
+    res.status(500).json({ error: 'internal_error' });
+  }
+});
+
 // Utility endpoint to mirror Slack replies into widget (optional manual trigger)
 router.post('/offr-livechat/relay', async (req: Request, res: Response) => {
   const schema = z.object({

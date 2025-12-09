@@ -376,6 +376,8 @@
 
     var liveNoticeShown = false;
     var livePingSent = false;
+    var livePollTimer = null;
+    var seenTeamMsgIds = new Set();
     function setTab(tab) {
       activeTab = tab;
       ui.aiTab.style.background = tab === 'ai' ? '#2563eb' : '#1f2937';
@@ -404,6 +406,11 @@
           } catch {}
         }
       }
+      if (tab === 'live') {
+        startLivePolling();
+      } else {
+        stopLivePolling();
+      }
     }
 
     function scrollBottom() {
@@ -427,6 +434,38 @@
     function addMessage(msg) {
       messages.push(msg);
       renderAll();
+    }
+
+    function startLivePolling() {
+      if (livePollTimer) return;
+      var poll = function () {
+        fetch(LIVE_ENDPOINT + '?session_id=' + encodeURIComponent(sessionId), {
+          method: 'GET',
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            var arr = (data && data.messages) || [];
+            arr.forEach(function (m) {
+              var id = 'team_' + (m.id || m.created_at || Math.random());
+              if (seenTeamMsgIds.has(id)) return;
+              seenTeamMsgIds.add(id);
+              addMessage({
+                id: id,
+                type: 'assistant',
+                text: (m.name ? m.name + ': ' : '') + (m.text || ''),
+              });
+            });
+          })
+          .catch(function () { /* ignore */ });
+      };
+      poll();
+      livePollTimer = setInterval(poll, 5000);
+    }
+    function stopLivePolling() {
+      if (livePollTimer) {
+        clearInterval(livePollTimer);
+        livePollTimer = null;
+      }
     }
 
     function welcome() {
