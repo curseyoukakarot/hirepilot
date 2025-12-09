@@ -51,6 +51,7 @@ import ChromeExtensionPrivacy from './screens/ChromeExtensionPrivacy';
 import TermsPage from './screens/TermsPage';
 import RexSupport from './screens/RexSupport';
 import ApiDocs from './screens/ApiDocs';
+import useVersionNotifier from './hooks/useVersionNotifier';
 import IntegrationsAndWorkflows from './pages/IntegrationsAndWorkflows';
 import WorkflowsPage from './pages/WorkflowsPage';
 import SandboxPage from './pages/SandboxPage';
@@ -313,6 +314,7 @@ export default function App() {
     const stop = startSessionCookieSync();
     return () => { try { stop(); } catch {} };
   }, []);
+  useVersionNotifier();
   return (
     <ErrorBoundary>
       <WizardProvider>
