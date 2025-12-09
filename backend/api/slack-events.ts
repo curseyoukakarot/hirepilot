@@ -5,20 +5,24 @@ import { sendMessageToWidget } from '../src/lib/widgetBridge';
 import { WebClient } from '@slack/web-api';
 import { storeTeamReply } from '../src/routes/slackService';
 
-function verifySlackSignature(req: express.Request, signingSecret: string): boolean {
+function verifySlackSignatureAny(req: express.Request, secrets: string[]): boolean {
   const timestamp = req.headers['x-slack-request-timestamp'] as string | undefined;
   const signature = req.headers['x-slack-signature'] as string | undefined;
   if (!timestamp || !signature) return false;
-  // Prevent replay (5 min window)
   const now = Math.floor(Date.now() / 1000);
   if (Math.abs(now - Number(timestamp)) > 60 * 5) return false;
-
   const rawBody: Buffer | string = (req as any).rawBody || (req as any).bodyRaw || (req as any).body;
   const body = Buffer.isBuffer(rawBody) ? rawBody.toString('utf8') : typeof rawBody === 'string' ? rawBody : JSON.stringify(rawBody || {});
   const base = `v0:${timestamp}:${body}`;
-  const hmac = crypto.createHmac('sha256', signingSecret).update(base).digest('hex');
-  const expected = `v0=${hmac}`;
-  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+  for (const s of secrets) {
+    if (!s) continue;
+    try {
+      const hmac = crypto.createHmac('sha256', s).update(base).digest('hex');
+      const expected = `v0=${hmac}`;
+      if (crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature))) return true;
+    } catch {}
+  }
+  return false;
 }
 
 export async function slackEventsHandler(req: express.Request, res: express.Response) {
@@ -54,27 +58,24 @@ export async function slackEventsHandler(req: express.Request, res: express.Resp
     }
 
     // From here on, verify signatures for real events
-    const secret = process.env.SLACK_SIGNING_SECRET;
-    if (!secret) {
+    const multi = (process.env.SLACK_SIGNING_SECRETS || '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+    if (process.env.SLACK_SIGNING_SECRET) multi.push(process.env.SLACK_SIGNING_SECRET);
+    const secrets = Array.from(new Set(multi));
+    if (!secrets.length) {
       res.status(500).send('SLACK_SIGNING_SECRET not set');
       return;
     }
-
     const timestamp = req.headers['x-slack-request-timestamp'] as string | undefined;
     const signature = req.headers['x-slack-signature'] as string | undefined;
     if (!timestamp || !signature) {
       res.status(400).send('missing headers');
       return;
     }
-    const now = Math.floor(Date.now() / 1000);
-    if (Math.abs(now - Number(timestamp)) > 60 * 5) {
-      res.status(400).send('stale');
-      return;
-    }
-    const base = `v0:${timestamp}:${rawBuf.toString('utf8')}`;
-    const expected = `v0=${crypto.createHmac('sha256', secret).update(base).digest('hex')}`;
-    if (!crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature))) {
-      console.warn('[slack-events] signature mismatch', { expected, provided: signature });
+    if (!verifySlackSignatureAny(req, secrets)) {
+      console.warn('[slack-events] signature mismatch', { provided: signature });
       res.status(400).send('bad signature');
       return;
     }
@@ -95,7 +96,7 @@ export async function slackEventsHandler(req: express.Request, res: express.Resp
 
         // Skip bot self-messages
         try {
-          const botToken = process.env.SLACK_BOT_TOKEN;
+          const botToken = process.env.SLACK_BOT_TOKEN || process.env.OFFR_WEBSITE_CHAT_SLACK_BOT_TOKEN;
           if (botToken) {
             const slack = new WebClient(botToken);
             const auth = await slack.auth.test();
@@ -117,9 +118,10 @@ export async function slackEventsHandler(req: express.Request, res: express.Resp
         let widgetIdFromParent: string | null = null;
 
         // Fallback mapping by parsing parent message
-        if (!session && process.env.SLACK_BOT_TOKEN) {
+        const botTokenForHistory = process.env.SLACK_BOT_TOKEN || process.env.OFFR_WEBSITE_CHAT_SLACK_BOT_TOKEN;
+        if (!session && botTokenForHistory) {
           try {
-            const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
+            const slack = new WebClient(botTokenForHistory);
             const { messages } = await slack.conversations.history({ channel, latest: thread, inclusive: true, limit: 1 });
             const parent = (messages?.[0]?.text || '') as string;
             const m = parent.match(/Session:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
@@ -183,7 +185,7 @@ export async function slackEventsHandler(req: express.Request, res: express.Resp
           // Fetch user name (best-effort)
           let userName: string | null = null;
           try {
-            const botToken = process.env.SLACK_BOT_TOKEN;
+            const botToken = process.env.SLACK_BOT_TOKEN || process.env.OFFR_WEBSITE_CHAT_SLACK_BOT_TOKEN;
             if (botToken && event.user) {
               const slack = new WebClient(botToken);
               const ui = await slack.users.info({ user: event.user });
