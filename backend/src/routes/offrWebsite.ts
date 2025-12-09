@@ -332,10 +332,10 @@ async function routeLivechatMessage(input: {
   };
 }) {
   const sessionId = ensureSessionId(input.session_id);
-  // Only use the Offr-specific channel to avoid posting into generic HirePilot channels
+  // Offr-specific Slack routing (avoid HirePilot defaults)
   const slackChannel = process.env.OFFR_WEBSITE_CHAT_SLACK_CHANNEL || '';
-  const botToken = process.env.SLACK_BOT_TOKEN;
-  const webhookUrl = process.env.OFFR_WEBSITE_CHAT_SLACK_WEBHOOK_URL || process.env.SLACK_WEBHOOK_URL;
+  const botToken = process.env.OFFR_WEBSITE_CHAT_SLACK_BOT_TOKEN || process.env.SLACK_BOT_TOKEN || '';
+  const webhookUrl = process.env.OFFR_WEBSITE_CHAT_SLACK_WEBHOOK_URL || '';
   const name = [input.visitor_context?.first_name, input.visitor_context?.last_name].filter(Boolean).join(' ').trim() || 'Visitor';
   const email = input.visitor_context?.email;
   const page = input.visitor_context?.page_url || '-';
@@ -362,42 +362,42 @@ async function routeLivechatMessage(input: {
     input.message_text,
   ].filter(Boolean).join('\n');
 
-  if (botToken && slackChannel) {
-    try {
-      const slack = new WebClient(botToken);
-      const postArgs: any = {
-        channel: slackChannel,
-        text: textLines,
-        unfurl_links: false,
-        unfurl_media: false,
-      };
-      if (threadTs) postArgs.thread_ts = threadTs;
-      const posted = await slack.chat.postMessage(postArgs);
-      const newThread = (posted as any)?.ts as string | undefined;
-      const activeThread = threadTs || newThread || null;
-      if (activeThread) {
-        try {
-          await supabase
-            .from('rex_live_sessions')
-            .upsert({
-              widget_session_id: sessionId,
-              slack_channel_id: slackChannel,
-              slack_thread_ts: activeThread,
-              user_name: name || null,
-              user_email: email || null,
-            }, { onConflict: 'widget_session_id' });
-        } catch (insErr) {
-          console.error('[offr/livechat] upsert live session failed', insErr);
-        }
-      }
-    } catch (slackErr: any) {
-      console.error('[offr/livechat] slack post failed', slackErr?.message || slackErr);
-      if (webhookUrl) {
-        await postSlack(webhookUrl, textLines);
+  if (!slackChannel || !botToken) {
+    console.error('[offr/livechat] missing Slack config', { slackChannel: !!slackChannel, botToken: !!botToken });
+    throw new Error('missing_slack_config');
+  }
+
+  try {
+    const slack = new WebClient(botToken);
+    const postArgs: any = {
+      channel: slackChannel,
+      text: textLines,
+      unfurl_links: false,
+      unfurl_media: false,
+    };
+    if (threadTs) postArgs.thread_ts = threadTs;
+    const posted = await slack.chat.postMessage(postArgs);
+    const newThread = (posted as any)?.ts as string | undefined;
+    const activeThread = threadTs || newThread || null;
+    if (activeThread) {
+      try {
+        await supabase
+          .from('rex_live_sessions')
+          .upsert({
+            widget_session_id: sessionId,
+            slack_channel_id: slackChannel,
+            slack_thread_ts: activeThread,
+            user_name: name || null,
+            user_email: email || null,
+          }, { onConflict: 'widget_session_id' });
+      } catch (insErr) {
+        console.error('[offr/livechat] upsert live session failed', insErr);
       }
     }
-  } else if (webhookUrl) {
-    await postSlack(webhookUrl, textLines);
+  } catch (slackErr: any) {
+    console.error('[offr/livechat] slack post failed', slackErr?.message || slackErr);
+    // Do not fall back to generic webhooks to avoid wrong channel; surface error
+    throw slackErr;
   }
 
   try {
