@@ -332,7 +332,8 @@ async function routeLivechatMessage(input: {
   };
 }) {
   const sessionId = ensureSessionId(input.session_id);
-  const slackChannel = process.env.OFFR_WEBSITE_CHAT_SLACK_CHANNEL || process.env.SLACK_CHANNEL_ID || '';
+  // Only use the Offr-specific channel to avoid posting into generic HirePilot channels
+  const slackChannel = process.env.OFFR_WEBSITE_CHAT_SLACK_CHANNEL || '';
   const botToken = process.env.SLACK_BOT_TOKEN;
   const webhookUrl = process.env.OFFR_WEBSITE_CHAT_SLACK_WEBHOOK_URL || process.env.SLACK_WEBHOOK_URL;
   const name = [input.visitor_context?.first_name, input.visitor_context?.last_name].filter(Boolean).join(' ').trim() || 'Visitor';
