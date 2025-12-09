@@ -375,6 +375,7 @@
     }
 
     var liveNoticeShown = false;
+    var livePingSent = false;
     function setTab(tab) {
       activeTab = tab;
       ui.aiTab.style.background = tab === 'ai' ? '#2563eb' : '#1f2937';
@@ -388,6 +389,20 @@
           text: 'You switched to live chat — please wait a moment while a team member is called.',
         });
         liveNoticeShown = true;
+        if (!livePingSent) {
+          livePingSent = true;
+          try {
+            fetch(LIVE_ENDPOINT, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                message: 'Visitor opened live chat',
+                session_id: sessionId,
+                page_url: (window.parent && window.parent.location ? window.parent.location.href : window.location.href)
+              }),
+            }).catch(() => {});
+          } catch {}
+        }
       }
     }
 
