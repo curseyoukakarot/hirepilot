@@ -30,9 +30,15 @@ export async function markRun(jobId: string, opts: { ranAt: Date; nextRunAt: Dat
 
 type ScheduleInput = {
   name: string;
-  action_type: 'source_via_persona' | 'launch_campaign' | 'send_sequence';
+  action_type: 'source_via_persona' | 'launch_campaign' | 'send_sequence' | 'persona_with_auto_outreach';
   persona_id?: string | null;
   campaign_id?: string | null;
+  linked_persona_id?: string | null;
+  linked_campaign_id?: string | null;
+  auto_outreach_enabled?: boolean;
+  leads_per_run?: number | null;
+  send_delay_minutes?: number | null;
+  daily_send_cap?: number | null;
   payload?: any;
   schedule_kind: 'one_time' | 'recurring';
   cron_expr?: string | null;
@@ -59,6 +65,12 @@ export async function scheduleFromPayload(userId: string, input: ScheduleInput):
       action_type: input.action_type,
       persona_id: input.persona_id || null,
       campaign_id: input.campaign_id || null,
+      linked_persona_id: input.linked_persona_id ?? input.persona_id ?? null,
+      linked_campaign_id: input.linked_campaign_id ?? input.campaign_id ?? null,
+      auto_outreach_enabled: Boolean(input.auto_outreach_enabled),
+      leads_per_run: input.leads_per_run ?? 50,
+      send_delay_minutes: input.send_delay_minutes ?? 0,
+      daily_send_cap: input.daily_send_cap ?? null,
       payload,
       schedule_kind: input.schedule_kind,
       cron_expr: input.cron_expr || null,

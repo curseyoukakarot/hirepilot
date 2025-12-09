@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { buildSourcingQuery } from '../lib/personaMapper';
 import { searchAndEnrichPeople } from '../../utils/apolloApi';
-import { addLeads } from '../services/sourcing';
+import { addLeads, sendSequenceForLeads } from '../services/sourcing';
 
 export const sourcingRunPersonaTool = {
   name: 'sourcing.run_persona',
@@ -13,15 +13,26 @@ export const sourcingRunPersonaTool = {
     batch_size: z.number().int().positive().max(500).optional(),
     campaign_id: z.string().optional(),
     auto_send: z.boolean().optional(),
-    credit_mode: z.enum(['base','enhanced']).optional()
+    credit_mode: z.enum(['base','enhanced']).optional(),
+    auto_outreach_enabled: z.boolean().optional(),
+    linked_campaign_id: z.string().optional(),
+    linked_persona_id: z.string().optional(),
+    schedule_id: z.string().optional(),
+    leads_per_run: z.number().int().positive().max(500).optional(),
+    send_delay_minutes: z.number().int().nonnegative().optional(),
+    daily_send_cap: z.number().int().positive().optional()
   }),
   handler: async (args: any) => {
     const userId: string = args.userId;
     const personaId: string = args.persona_id;
-    const batchSize: number = Number(args.batch_size || 50);
-    const campaignId: string | undefined = args.campaign_id;
-    const autoSend: boolean = Boolean(args.auto_send);
+    const leadsPerRun: number = Math.max(1, Math.min(Number(args.leads_per_run ?? args.batch_size ?? 50), 500));
+    const campaignId: string | undefined = args.linked_campaign_id || args.campaign_id;
+    const autoSendInput: boolean = Boolean(args.auto_send);
+    const autoOutreachEnabled: boolean = Boolean(args.auto_outreach_enabled ?? autoSendInput);
     const creditMode: string = args.credit_mode || 'base';
+    const sendDelayMinutes: number = typeof args.send_delay_minutes === 'number' ? Math.max(0, args.send_delay_minutes) : 0;
+    const dailySendCap: number | null = typeof args.daily_send_cap === 'number' ? Math.max(1, args.daily_send_cap) : null;
+    const scheduleId: string | null = args.schedule_id || null;
 
     // 1) Load persona (ownership enforced by user_id check)
     const { data: persona, error: pErr } = await supabaseAdmin
@@ -76,7 +87,7 @@ export const sourcingRunPersonaTool = {
       person_locations: (targeting.locations || []).length ? [ (targeting.locations || [])[0] ] : undefined,
       q_keywords: (targeting.keyword_includes || []).join(' ') || undefined,
       page: 1,
-      per_page: Math.min(Math.max(batchSize || 25, 1), 100)
+      per_page: Math.min(Math.max(leadsPerRun || 25, 1), 100)
     } as any);
 
     const mappedLeads = (apolloLeads || []).map((l: any) => ({
@@ -86,24 +97,44 @@ export const sourcingRunPersonaTool = {
       linkedin_url: l.linkedinUrl || undefined,
       email: l.email || undefined
     }));
+    const leadsToInsert = mappedLeads.slice(0, leadsPerRun);
 
     // 6) Insert into sourcing_leads and handle credits
-    const addResult = await addLeads(effectiveCampaignId!, mappedLeads, { source: 'apollo', userId });
+    const mirrorMetadata = scheduleId
+      ? { lead_source: `schedule:${scheduleId}`, tags: [`auto:schedule:${scheduleId}`] }
+      : undefined;
+    const addResult = await addLeads(effectiveCampaignId!, leadsToInsert, { source: 'apollo', userId, mirrorMetadata });
 
-    // 6) Optionally auto-send (V1: just log stub)
-    let sendStatus: string | undefined;
-    if (autoSend) {
-      sendStatus = 'scheduled';
+    let outreachSummary: { scheduled: number; skipped: number } | null = null;
+    if (autoOutreachEnabled && effectiveCampaignId && Array.isArray(addResult.leads)) {
+      const newLeadIds = (addResult.leads as any[]).map((l: any) => l?.id).filter(Boolean);
+      if (!newLeadIds.length) {
+        console.warn('[sourcing.run_persona] auto-outreach enabled but no new leads inserted', { campaignId: effectiveCampaignId, personaId, scheduleId });
+      } else {
+        try {
+          outreachSummary = await sendSequenceForLeads({
+            campaignId: effectiveCampaignId,
+            leadIds: newLeadIds,
+            sendDelayMinutes,
+            dailySendCap
+          });
+        } catch (err: any) {
+          console.warn('[sourcing.run_persona] auto-outreach failed', { campaignId: effectiveCampaignId, personaId, scheduleId, error: err?.message || err });
+        }
+      }
+    } else if (autoOutreachEnabled && !effectiveCampaignId) {
+      console.warn('[sourcing.run_persona] auto-outreach requested without campaign', { personaId, scheduleId });
     }
 
     const summary = {
-      added_count: Number((addResult as any)?.inserted || mappedLeads.length),
+      added_count: Number((addResult as any)?.inserted || leadsToInsert.length),
       skipped_duplicates: 0,
       campaign_id: effectiveCampaignId,
-      auto_send: autoSend,
-      credit_mode: creditMode
+      auto_send: autoOutreachEnabled,
+      credit_mode: creditMode,
+      auto_outreach: outreachSummary
     };
-    console.log(JSON.stringify({ event: 'persona_run', user_id: userId, persona_id: personaId, batch_size: batchSize, ...summary, ts: new Date().toISOString() }));
+    console.log(JSON.stringify({ event: 'persona_run', user_id: userId, persona_id: personaId, batch_size: leadsPerRun, ...summary, ts: new Date().toISOString() }));
     return { content: [{ type: 'text', text: JSON.stringify(summary) }] } as any;
   }
 };

@@ -259,6 +259,29 @@ export default async function rexChat(req: Request, res: Response) {
       { type:'function', function:{ name:'enroll_campaign_in_sequence_by_name', parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'}, sequence_name:{type:'string'}, start_time_local:{type:'string'}, timezone:{type:'string'}, provider:{type:'string'} }, required:['userId','campaign_id','sequence_name'] } } },
       // Create a sequence from a template + delays then enroll
       { type:'function', function:{ name:'create_sequence_from_template_and_enroll', parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'}, template_name:{type:'string'}, delays_business_days:{type:'array', items:{ type:'number' }}, timezone:{type:'string'}, start_time_local:{type:'string'}, provider:{type:'string'} }, required:['userId','campaign_id','template_name','delays_business_days'] } } },
+      {
+        type:'function',
+        function:{
+          name:'create_persona_auto_track',
+          parameters:{
+            type:'object',
+            properties:{
+              userId:{type:'string'},
+              persona_id:{type:'string'},
+              campaign_mode:{type:'string', enum:['use_existing','create_new']},
+              existing_campaign_id:{type:'string', nullable:true},
+              new_campaign_name:{type:'string', nullable:true},
+              cadence:{type:'string'},
+              day_of_week:{type:'string', nullable:true},
+              time_utc:{type:'string'},
+              leads_per_run:{type:'number'},
+              send_delay_minutes:{type:'number'},
+              daily_send_cap:{type:'number', nullable:true}
+            },
+            required:['userId','persona_id','campaign_mode','cadence','time_utc','leads_per_run','send_delay_minutes']
+          }
+        }
+      },
       // Campaign controls
       { type:'function', function:{ name:'sourcing_pause_campaign', parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'} }, required:['userId','campaign_id'] } } },
       { type:'function', function:{ name:'sourcing_resume_campaign', parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'} }, required:['userId','campaign_id'] } } },
@@ -318,6 +341,12 @@ Prefer using these bulk tools instead of single-lead tools when the intent is to
 If the user asks to send using a sequence template by name (e.g., "send with sequence XYZ every 2 business days"), resolve the sequence by name and call 'enroll_campaign_in_sequence_by_name' with { userId, campaign_id: '<latest or given>', sequence_name: 'XYZ', start_time_local: '<now or provided>', timezone: 'America/Chicago' }. The business-day spacing comes from the sequence steps; do not hardcode delays.
 If the user says "send using template <NAME>" but does not provide timing for steps, ask a single follow-up question to collect step timing (e.g., "When should step 1, 2, and 3 send? (e.g., 0,2,4 business days)"), then call 'create_sequence_from_template_and_enroll' with delays_business_days like [0,2,4].
 If the user explicitly says "send from my <provider> account" where <provider> is sendgrid/google/outlook, call 'set_preferred_email_provider' with that provider before sending.
+If the user requests a recurring persona sourcing schedule that automatically enrolls new leads into a campaign ("auto track", "source 50 personas weekly and auto-email", "REX take the order"), gather details in this order with short confirmations:
+1) Persona to use (offer known personas if unclear).
+2) Outreach campaign plan: ask whether to use an existing campaign or create a new one (collect campaign name when creating).
+3) Cadence + timing (daily vs weekly, ask for day/time if weekly; capture HH:MM in user's stated timezone or default to America/Chicago then convert to UTC).
+4) Volume + safety: leads per run, whether to send immediately or delay (collect delay in hours → minutes), and optional daily send cap.
+Once you have these answers, call 'create_persona_auto_track' with the gathered values (convert hours to minutes, ensure cadence/day/time are populated). After the tool succeeds, confirm the schedule back to the user with persona, campaign, cadence, leads/run, delay, and daily cap.
 CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` : ''}`
     } as any;
 

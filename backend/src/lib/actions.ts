@@ -4,7 +4,21 @@ async function executeToolAction(job: ScheduleRow) {
   const actionTool = (job.payload && job.payload.action_tool) || null;
   if (actionTool === 'sourcing.run_persona') {
     const { sourcingRunPersonaTool } = await import('../mcp/sourcing.run_persona');
-    const payload = (job.payload && job.payload.tool_payload) || {};
+    const payload = { ...(job.payload && job.payload.tool_payload ? job.payload.tool_payload : {}) } as Record<string, any>;
+    const scheduleHints: Record<string, any> = {
+      schedule_id: job.id,
+      linked_persona_id: job.linked_persona_id ?? job.persona_id,
+      linked_campaign_id: job.linked_campaign_id ?? job.campaign_id,
+      auto_outreach_enabled: job.auto_outreach_enabled,
+      leads_per_run: job.leads_per_run,
+      send_delay_minutes: job.send_delay_minutes,
+      daily_send_cap: job.daily_send_cap
+    };
+    Object.entries(scheduleHints).forEach(([key, value]) => {
+      if (value !== undefined && payload[key] === undefined) {
+        payload[key] = value;
+      }
+    });
     const result = await sourcingRunPersonaTool.handler({ userId: job.user_id, ...payload });
     try {
       return JSON.parse(result.content?.[0]?.text || '{}');

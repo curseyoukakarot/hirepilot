@@ -22,7 +22,18 @@ export default function SchedulesPanel(props: {
   React.useEffect(() => { (async () => {
     try {
       const data = await listSchedules();
-      setItems((data || []).map((d: any) => ({ id: d.id, name: d.name, type: d.schedule_kind === 'recurring' ? 'Recurring' : 'One-Time', nextRun: d.next_run_at || '-', linkType: d.persona_id ? 'Persona' : (d.campaign_id ? 'Campaign' : undefined), linkName: d.persona_id || d.campaign_id })));
+      setItems((data || []).map((d: any) => {
+        const linkedPersona = d.linked_persona_id || d.persona_id;
+        const linkedCampaign = d.linked_campaign_id || d.campaign_id;
+        return {
+          id: d.id,
+          name: d.name,
+          type: d.schedule_kind === 'recurring' ? 'Recurring' : 'One-Time',
+          nextRun: d.next_run_at || '-',
+          linkType: linkedPersona ? 'Persona' : (linkedCampaign ? 'Campaign' : undefined),
+          linkName: linkedPersona || linkedCampaign
+        };
+      }));
     } catch {
       setItems([]);
     } finally {

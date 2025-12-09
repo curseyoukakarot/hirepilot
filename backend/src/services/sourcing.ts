@@ -8,7 +8,12 @@ import { updateLeadOutreachStage } from './sourcingUtils';
 import { buildThreeStepSequence } from './sequenceBuilder';
 import { emailQueue } from '../queues/redis';
 
-type Steps = { step1: any; step2: any; step3: any; spacingBusinessDays: number };
+type Steps = { step1: any; step2?: any; step3?: any; spacingBusinessDays: number };
+
+type MirrorMetadata = {
+  lead_source?: string;
+  tags?: string[];
+};
 
 export async function createCampaign(payload: {
   title: string;
@@ -64,14 +69,18 @@ export async function saveSequence(campaignId: string, steps: Steps) {
   return data;
 }
 
-export async function addLeads(campaignId: string, leads: any[], options?: { source?: string; userId?: string }) {
+export async function addLeads(
+  campaignId: string,
+  leads: any[],
+  options?: { source?: string; userId?: string; mirrorMetadata?: MirrorMetadata }
+) {
   if (!leads?.length) return { inserted: 0 };
   const payload = leads.map(l => ({
     campaign_id: campaignId,
     ...l,
     enriched: !!l.email
   }));
-  const { error } = await supabase.from('sourcing_leads').insert(payload);
+  const { data, error } = await supabase.from('sourcing_leads').insert(payload).select('*');
   if (error) throw error;
 
   // Mirror into base leads for visibility in /leads (All Campaigns) view
@@ -103,17 +112,23 @@ export async function addLeads(campaignId: string, leads: any[], options?: { sou
 
         const toInsert = (payload || [])
           .filter((p: any) => p?.email && !existingEmails.has(String(p.email).toLowerCase()))
-          .map((p: any) => ({
+          .map((p: any) => {
+            const insertRow: any = {
             user_id: ownerUserId,
             name: p.name || p.email,
             email: p.email,
             title: p.title || null,
             company: p.company || null,
             linkedin_url: p.linkedin_url || null,
-            // Important: base leads.campaign_id references classic campaigns. Leave null to avoid FK issues.
-            campaign_id: null,
-            source: 'sourcing_campaign'
-          }));
+              // Important: base leads.campaign_id references classic campaigns. Leave null to avoid FK issues.
+              campaign_id: null,
+              source: options?.mirrorMetadata?.lead_source || 'sourcing_campaign'
+            };
+            if (options?.mirrorMetadata?.tags?.length) {
+              insertRow.tags = options.mirrorMetadata.tags;
+            }
+            return insertRow;
+          });
 
         if (toInsert.length > 0) {
           await supabase.from('leads').insert(toInsert);
@@ -161,7 +176,7 @@ export async function addLeads(campaignId: string, leads: any[], options?: { sou
     console.error('[sourcing.addLeads] credit deduction failed (non-fatal):', e);
   }
 
-  return { inserted: payload.length };
+  return { inserted: payload.length, leads: data || [] };
 }
 
 export async function scheduleCampaign(campaignId: string) {
@@ -206,6 +221,51 @@ export async function scheduleCampaign(campaignId: string) {
 function addBusinessDays(d: dayjs.Dayjs, days: number) {
   // @ts-ignore
   return d.businessAdd(days);
+}
+
+export async function sendSequenceForLeads(params: {
+  campaignId: string;
+  leadIds: string[];
+  sendDelayMinutes?: number | null;
+  dailySendCap?: number | null;
+}) {
+  const { campaignId, leadIds, sendDelayMinutes, dailySendCap } = params;
+  if (!leadIds.length) return { scheduled: 0, skipped: 0 };
+
+  const { data: seq } = await supabase
+    .from('sourcing_sequences')
+    .select('steps_json')
+    .eq('campaign_id', campaignId)
+    .maybeSingle();
+  if (!seq?.steps_json) throw new Error('campaign_missing_sequence');
+
+  const steps: Steps = seq.steps_json as Steps;
+  const spacing = steps.spacingBusinessDays ?? 2;
+
+  const { data: leadRows } = await supabase
+    .from('sourcing_leads')
+    .select('id,name,email,title,company')
+    .in('id', leadIds);
+
+  const validLeads = (leadRows || []).filter(l => !!l?.email);
+  if (!validLeads.length) return { scheduled: 0, skipped: leadIds.length };
+
+  const cap = typeof dailySendCap === 'number' && dailySendCap > 0 ? dailySendCap : null;
+  const targetLeads = cap ? validLeads.slice(0, cap) : validLeads;
+  const anchor = dayjs().add(sendDelayMinutes || 0, 'minute');
+
+  for (const lead of targetLeads) {
+    const delayMs = Math.max(0, anchor.diff(dayjs(), 'millisecond'));
+    try {
+      await sendStepEmail(campaignId, lead, steps.step1, delayMs);
+      if (steps.step2) await enqueueStepEmail(campaignId, lead, steps.step2, addBusinessDays(anchor, spacing));
+      if (steps.step3) await enqueueStepEmail(campaignId, lead, steps.step3, addBusinessDays(anchor, spacing * 2));
+    } catch (err) {
+      console.warn('[sourcing.sendSequenceForLeads] failed to queue lead', lead.id, err);
+    }
+  }
+
+  return { scheduled: targetLeads.length, skipped: validLeads.length - targetLeads.length };
 }
 
 async function sendStepEmail(campaignId: string, lead: any, step: any, delayMs: number) {

@@ -103,6 +103,53 @@ async function apiAsUser(userId: string, endpoint: string, options: { method: st
   return contentType && contentType.includes('application/json') ? response.json() : response.text();
 }
 
+function parseTimeUtc(time: string) {
+  if (!time || typeof time !== 'string' || !/^\d{2}:\d{2}$/.test(time)) {
+    throw new Error('time_utc must be HH:MM');
+  }
+  const [h, m] = time.split(':').map(v => Number(v));
+  if (Number.isNaN(h) || Number.isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) {
+    throw new Error('time_utc out of range');
+  }
+  return { hour: h, minute: m };
+}
+
+function normalizeDayOfWeek(input?: string | null) {
+  if (!input) return null;
+  const map: Record<string, number> = {
+    sunday: 0,
+    sun: 0,
+    monday: 1,
+    mon: 1,
+    tuesday: 2,
+    tue: 2,
+    wednesday: 3,
+    wed: 3,
+    thursday: 4,
+    thu: 4,
+    friday: 5,
+    fri: 5,
+    saturday: 6,
+    sat: 6
+  };
+  const key = input.toLowerCase();
+  return key in map ? map[key] : null;
+}
+
+function buildCronForCadence(cadence: string, timeUtc: string, dayOfWeek?: string | null) {
+  const { hour, minute } = parseTimeUtc(timeUtc);
+  const dailyCron = `${minute} ${hour} * * *`;
+  if (!cadence || cadence.toLowerCase() === 'daily') {
+    return dailyCron;
+  }
+  if (cadence.toLowerCase() === 'weekly') {
+    const normalized = normalizeDayOfWeek(dayOfWeek);
+    if (normalized === null) throw new Error('day_of_week required for weekly cadence');
+    return `${minute} ${hour} * * ${normalized}`;
+  }
+  throw new Error(`Unsupported cadence: ${cadence}`);
+}
+
 const linkedinTools = buildLinkedinTools(async ({ userId, action, linkedinUrl, message }) => {
   return apiAsUser(userId, '/api/linkedin/remote-action', {
     method: 'POST',
@@ -143,6 +190,99 @@ server.registerCapabilities({
         const { supabaseAdmin } = await import('../lib/supabaseAdmin');
         const { data } = await supabaseAdmin.from('schedules').select('*').eq('user_id', userId).order('created_at', { ascending: false });
         return data || [];
+      }
+    },
+    create_persona_auto_track: {
+      parameters: {
+        userId: { type: 'string' },
+        persona_id: { type: 'string' },
+        campaign_mode: { type: 'string', enum: ['use_existing','create_new'] },
+        existing_campaign_id: { type: 'string', optional: true },
+        new_campaign_name: { type: 'string', optional: true },
+        cadence: { type: 'string' },
+        day_of_week: { type: 'string', optional: true },
+        time_utc: { type: 'string' },
+        leads_per_run: { type: 'number' },
+        send_delay_minutes: { type: 'number' },
+        daily_send_cap: { type: 'number', optional: true }
+      },
+      handler: async (args: any) => {
+        const {
+          userId,
+          persona_id,
+          campaign_mode,
+          existing_campaign_id,
+          new_campaign_name,
+          cadence,
+          day_of_week,
+          time_utc,
+          leads_per_run,
+          send_delay_minutes,
+          daily_send_cap
+        } = args;
+        if (!userId) throw new Error('userId required');
+        if (!persona_id) throw new Error('persona_id required');
+
+        const persona = await apiAsUser(userId, `/api/personas/${persona_id}`);
+
+        if (campaign_mode === 'use_existing' && !existing_campaign_id) {
+          throw new Error('existing_campaign_id required for use_existing mode');
+        }
+        let campaignId = existing_campaign_id || null;
+        if (campaign_mode === 'create_new') {
+          const desiredName = new_campaign_name && String(new_campaign_name).trim().length
+            ? String(new_campaign_name).trim()
+            : `${persona.name || 'Persona'} – Evergreen`;
+          const created = await apiAsUser(userId, '/api/schedules/campaign-from-persona', {
+            method: 'POST',
+            body: JSON.stringify({ persona_id, name: desiredName })
+          });
+          campaignId = created?.id || null;
+        }
+        if (!campaignId) throw new Error('campaign_id required');
+
+        const cronExpr = buildCronForCadence(cadence, time_utc, day_of_week);
+        const leadsPerRun = Math.max(1, Math.min(Number(leads_per_run || 50), 500));
+        const sendDelay = Math.max(0, Number(send_delay_minutes || 0));
+        const dailyCap = daily_send_cap ? Math.max(1, Number(daily_send_cap)) : null;
+
+        const scheduleBody = {
+          name: `Auto Track – ${persona.name || 'Persona'}`,
+          action_type: 'persona_with_auto_outreach',
+          persona_id,
+          linked_persona_id: persona_id,
+          campaign_id: campaignId,
+          linked_campaign_id: campaignId,
+          auto_outreach_enabled: true,
+          leads_per_run: leadsPerRun,
+          send_delay_minutes: sendDelay,
+          daily_send_cap: dailyCap,
+          schedule_kind: 'recurring',
+          cron_expr: cronExpr,
+          payload: {
+            action_tool: 'sourcing.run_persona',
+            tool_payload: {
+              persona_id,
+              campaign_id: campaignId,
+              auto_outreach_enabled: true,
+              leads_per_run: leadsPerRun,
+              send_delay_minutes: sendDelay,
+              daily_send_cap: dailyCap
+            }
+          }
+        };
+
+        const schedule = await apiAsUser(userId, '/api/schedules', {
+          method: 'POST',
+          body: JSON.stringify(scheduleBody)
+        });
+        return {
+          schedule,
+          campaign_id: campaignId,
+          persona_id,
+          cron_expr: cronExpr,
+          campaign_mode
+        };
       }
     },
     sourcing_run_persona: {

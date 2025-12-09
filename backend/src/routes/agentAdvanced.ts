@@ -82,9 +82,15 @@ router.delete('/api/personas/:id', async (req, res) => {
 // Schedules
 const scheduleSchema = z.object({
   name: z.string().min(1),
-  action_type: z.enum(['source_via_persona','launch_campaign','send_sequence']).optional(),
+  action_type: z.enum(['source_via_persona','launch_campaign','send_sequence','persona_with_auto_outreach']).optional(),
   persona_id: z.string().uuid().optional().nullable(),
   campaign_id: z.string().uuid().optional().nullable(),
+  linked_persona_id: z.string().uuid().optional().nullable(),
+  linked_campaign_id: z.string().uuid().optional().nullable(),
+  auto_outreach_enabled: z.boolean().optional(),
+  leads_per_run: z.number().int().positive().max(500).optional(),
+  send_delay_minutes: z.number().int().nonnegative().optional().nullable(),
+  daily_send_cap: z.number().int().positive().optional().nullable(),
   payload: z.record(z.any()).optional(),
   schedule_kind: z.enum(['one_time','recurring']),
   cron_expr: z.string().optional().nullable(),
@@ -99,7 +105,22 @@ router.post('/api/schedules', async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
     const payload = parsed.data.action_tool ? { action_tool: parsed.data.action_tool, tool_payload: parsed.data.tool_payload || {} } : (parsed.data.payload || {});
-    const job = await scheduleFromPayload(userId, { ...parsed.data, payload } as any);
+    if (parsed.data.auto_outreach_enabled) {
+      const personaRef = parsed.data.linked_persona_id || parsed.data.persona_id;
+      const campaignRef = parsed.data.linked_campaign_id || parsed.data.campaign_id;
+      if (!personaRef) return res.status(400).json({ error: 'linked_persona_id_required' });
+      if (!campaignRef) return res.status(400).json({ error: 'linked_campaign_id_required' });
+    }
+    const job = await scheduleFromPayload(userId, {
+      ...parsed.data,
+      payload,
+      linked_persona_id: parsed.data.linked_persona_id ?? parsed.data.persona_id ?? null,
+      linked_campaign_id: parsed.data.linked_campaign_id ?? parsed.data.campaign_id ?? null,
+      auto_outreach_enabled: parsed.data.auto_outreach_enabled ?? false,
+      leads_per_run: parsed.data.leads_per_run ?? (parsed.data.tool_payload as any)?.batch_size ?? 50,
+      send_delay_minutes: parsed.data.send_delay_minutes ?? 0,
+      daily_send_cap: parsed.data.daily_send_cap ?? null
+    } as any);
     res.json(job);
   } catch (e: any) {
     res.status(400).json({ error: e?.message || 'failed to create schedule' });
@@ -159,6 +180,37 @@ router.post('/api/agent/run-persona', async (req, res) => {
     res.json(summary);
   } catch (e: any) {
     res.status(400).json({ error: e?.message || 'run failed' });
+  }
+});
+
+router.post('/api/schedules/campaign-from-persona', async (req, res) => {
+  const userId = requireUser(req, res); if (!userId) return;
+  const schema = z.object({ persona_id: z.string().uuid(), name: z.string().min(3) });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const { data: persona, error: personaErr } = await supabaseAdmin
+      .from('personas')
+      .select('id,name')
+      .eq('id', parsed.data.persona_id)
+      .eq('user_id', userId)
+      .single();
+    if (personaErr || !persona) return res.status(404).json({ error: 'persona_not_found' });
+
+    const { data: campaign, error } = await supabaseAdmin
+      .from('sourcing_campaigns')
+      .insert({
+        title: parsed.data.name,
+        audience_tag: persona.name,
+        created_by: userId,
+        status: 'draft'
+      })
+      .select('id,title,status,created_at')
+      .single();
+    if (error) throw error;
+    res.json(campaign);
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || 'failed_to_create_campaign' });
   }
 });
 
