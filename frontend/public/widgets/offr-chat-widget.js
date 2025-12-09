@@ -368,6 +368,7 @@
     var messages = [];
     var sessionId = getSessionId();
     var showLeadForm = false;
+    var leadCaptured = false;
 
     function togglePanel(show) {
       isOpen = show;
@@ -422,7 +423,7 @@
     function renderAll() {
       ui.messagesWrap.innerHTML = '';
       messages.forEach(function (m) { renderMessage(ui.messagesWrap, m); });
-      if (showLeadForm) {
+      if (showLeadForm && !leadCaptured) {
         ui.leadCard.classList.remove('offr-hidden');
         ui.messagesWrap.appendChild(ui.leadCard);
       } else {
@@ -516,8 +517,8 @@
             showCalendly: !!data.calendly_link,
           });
           if (data.capture_lead) {
-            showLeadForm = true;
-            renderAll();
+            leadCaptured = true;
+            showLeadForm = false;
           }
         })
         .catch(function () {
@@ -563,6 +564,7 @@
         .then(function (r) { return r.json(); })
         .then(function () {
           showLeadForm = false;
+          leadCaptured = true;
           addMessage({
             id: 'lead_' + Date.now(),
             type: 'assistant',
