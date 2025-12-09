@@ -10,7 +10,7 @@
   var CHAT_ENDPOINT = API_BASE + '/api/public-chat/offr';
   var LIVE_ENDPOINT = API_BASE + '/api/offr-livechat/messages';
   var LEAD_ENDPOINT = API_BASE + '/api/public-leads/offr';
-  var CALENDLY_URL = calendlyAttr || 'https://calendly.com/offrgroup/introduction';
+  var CALENDLY_URL = calendlyAttr || 'https://calendly.com/offr-group/introductory-call';
 
   var sessionKey = 'offr:sessionId';
   function getSessionId() {

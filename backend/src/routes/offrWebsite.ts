@@ -16,7 +16,7 @@ const router = express.Router();
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const DEFAULT_CALENDLY = process.env.OFFR_CALENDLY_URL || 'https://calendly.com/offrgroup/introduction';
+const DEFAULT_CALENDLY = process.env.OFFR_CALENDLY_URL || 'https://calendly.com/offr-group/introductory-call';
 
 const MASTER_PROMPT = [
   'You are the Offr Group Website Assistant, powered by HirePilot and REX.',
