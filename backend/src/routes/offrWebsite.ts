@@ -362,42 +362,60 @@ async function routeLivechatMessage(input: {
     input.message_text,
   ].filter(Boolean).join('\n');
 
-  if (!slackChannel || !botToken) {
-    console.error('[offr/livechat] missing Slack config', { slackChannel: !!slackChannel, botToken: !!botToken });
-    throw new Error('missing_slack_config');
+  // Attempt Slack post if we have token+channel; otherwise, try webhook; otherwise, log and continue.
+  let postedToSlack = false;
+  if (slackChannel && botToken) {
+    try {
+      const slack = new WebClient(botToken);
+      const postArgs: any = {
+        channel: slackChannel,
+        text: textLines,
+        unfurl_links: false,
+        unfurl_media: false,
+      };
+      if (threadTs) postArgs.thread_ts = threadTs;
+      const posted = await slack.chat.postMessage(postArgs);
+      postedToSlack = true;
+      const newThread = (posted as any)?.ts as string | undefined;
+      const activeThread = threadTs || newThread || null;
+      if (activeThread) {
+        try {
+          await supabase
+            .from('rex_live_sessions')
+            .upsert({
+              widget_session_id: sessionId,
+              slack_channel_id: slackChannel,
+              slack_thread_ts: activeThread,
+              user_name: name || null,
+              user_email: email || null,
+            }, { onConflict: 'widget_session_id' });
+        } catch (insErr) {
+          console.error('[offr/livechat] upsert live session failed', insErr);
+        }
+      }
+    } catch (slackErr: any) {
+      console.error('[offr/livechat] slack post failed', slackErr?.message || slackErr, {
+        channel: slackChannel ? 'set' : 'missing',
+        token: botToken ? 'set' : 'missing',
+      });
+    }
   }
 
-  try {
-    const slack = new WebClient(botToken);
-    const postArgs: any = {
-      channel: slackChannel,
-      text: textLines,
-      unfurl_links: false,
-      unfurl_media: false,
-    };
-    if (threadTs) postArgs.thread_ts = threadTs;
-    const posted = await slack.chat.postMessage(postArgs);
-    const newThread = (posted as any)?.ts as string | undefined;
-    const activeThread = threadTs || newThread || null;
-    if (activeThread) {
-      try {
-        await supabase
-          .from('rex_live_sessions')
-          .upsert({
-            widget_session_id: sessionId,
-            slack_channel_id: slackChannel,
-            slack_thread_ts: activeThread,
-            user_name: name || null,
-            user_email: email || null,
-          }, { onConflict: 'widget_session_id' });
-      } catch (insErr) {
-        console.error('[offr/livechat] upsert live session failed', insErr);
-      }
+  if (!postedToSlack && webhookUrl) {
+    try {
+      await postSlack(webhookUrl, textLines);
+      postedToSlack = true;
+    } catch (hookErr: any) {
+      console.error('[offr/livechat] webhook post failed', hookErr?.message || hookErr);
     }
-  } catch (slackErr: any) {
-    console.error('[offr/livechat] slack post failed', slackErr?.message || slackErr);
-    // Do not fall back to generic webhooks to avoid wrong channel; surface error
-    throw slackErr;
+  }
+
+  if (!postedToSlack) {
+    console.error('[offr/livechat] no Slack delivery (missing config or post failures)', {
+      hasChannel: !!slackChannel,
+      hasToken: !!botToken,
+      hasWebhook: !!webhookUrl,
+    });
   }
 
   try {
