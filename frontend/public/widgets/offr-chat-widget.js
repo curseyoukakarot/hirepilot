@@ -177,7 +177,7 @@
     // Lead form
     var leadCard = createEl('div', 'offr-hidden');
     leadCard.style.background = '#1f2937';
-    leadCard.style.border = '1px solid '#273449';
+    leadCard.style.border = '1px solid #273449';
     leadCard.style.borderRadius = '12px';
     leadCard.style.padding = '12px';
     leadCard.style.display = 'flex';
