@@ -5,7 +5,7 @@ import toast from 'react-hot-toast'
 const CURRENT_BUILD_ID =
   typeof __APP_BUILD_ID__ !== 'undefined'
     ? __APP_BUILD_ID__
-    : (import.meta?.env?.VITE_APP_VERSION || 'dev')
+    : import.meta?.env?.VITE_APP_VERSION || 'dev'
 
 const CHECK_INTERVAL_MS = 60_000
 
