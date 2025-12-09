@@ -367,30 +367,50 @@ async function routeLivechatMessage(input: {
   if (slackChannel && botToken) {
     try {
       const slack = new WebClient(botToken);
-      const postArgs: any = {
-        channel: slackChannel,
-        text: textLines,
-        unfurl_links: false,
-        unfurl_media: false,
+      const postOnce = async () => {
+        const postArgs: any = {
+          channel: slackChannel,
+          text: textLines,
+          unfurl_links: false,
+          unfurl_media: false,
+        };
+        if (threadTs) postArgs.thread_ts = threadTs;
+        const posted = await slack.chat.postMessage(postArgs);
+        postedToSlack = true;
+        const newThread = (posted as any)?.ts as string | undefined;
+        const activeThread = threadTs || newThread || null;
+        if (activeThread) {
+          try {
+            await supabase
+              .from('rex_live_sessions')
+              .upsert({
+                widget_session_id: sessionId,
+                slack_channel_id: slackChannel,
+                slack_thread_ts: activeThread,
+                user_name: name || null,
+                user_email: email || null,
+              }, { onConflict: 'widget_session_id' });
+          } catch (insErr) {
+            console.error('[offr/livechat] upsert live session failed', insErr);
+          }
+        }
       };
-      if (threadTs) postArgs.thread_ts = threadTs;
-      const posted = await slack.chat.postMessage(postArgs);
-      postedToSlack = true;
-      const newThread = (posted as any)?.ts as string | undefined;
-      const activeThread = threadTs || newThread || null;
-      if (activeThread) {
-        try {
-          await supabase
-            .from('rex_live_sessions')
-            .upsert({
-              widget_session_id: sessionId,
-              slack_channel_id: slackChannel,
-              slack_thread_ts: activeThread,
-              user_name: name || null,
-              user_email: email || null,
-            }, { onConflict: 'widget_session_id' });
-        } catch (insErr) {
-          console.error('[offr/livechat] upsert live session failed', insErr);
+
+      try {
+        await postOnce();
+      } catch (slackErrAny: any) {
+        const errCode = slackErrAny?.data?.error || slackErrAny?.message || '';
+        const needsJoin = errCode === 'not_in_channel';
+        if (needsJoin) {
+          try {
+            await slack.conversations.join({ channel: slackChannel });
+            await postOnce();
+          } catch (joinErr: any) {
+            console.error('[offr/livechat] join/post failed', joinErr?.data?.error || joinErr?.message || joinErr);
+            throw slackErrAny;
+          }
+        } else {
+          throw slackErrAny;
         }
       }
     } catch (slackErr: any) {
