@@ -16,6 +16,7 @@ import express from 'express';
 import * as Sentry from '@sentry/node';
 import cors from 'cors';
 import rexWidgetRouter from './src/routes/rexWidget';
+import offrWebsiteRouter from './src/routes/offrWebsite';
 import authRouter from './src/routes/auth';
 import sendSlackNotification from './api/sendSlackNotification';
 import saveCampaign from './api/saveCampaign';
@@ -488,6 +489,8 @@ app.use('/api/repo-agent', repoAgentRouter);
 // Public API routes (no authentication required) — mount BEFORE generic /api router
 app.get('/api/public/jobs/:id', require('./api/public/jobs/[id]').default);
 app.use('/api/public/apply', require('./api/public/apply').default);
+// Offr Group public chatbot + lead capture
+app.use('/api', offrWebsiteRouter);
 app.use('/api/phantombuster', runPhantomRouter);
 app.use('/api/phantombuster', phantombusterWebhookRouter);
 app.use('/api/zapier/phantom', zapierPhantomWebhook);
