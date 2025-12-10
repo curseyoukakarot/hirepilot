@@ -41,7 +41,7 @@ export default async function campaignPerformance(req: Request, res: Response) {
     let filter = applyUserFilter(
       supabaseDb
         .from('email_events')
-        .select('message_id, lead_id', { count: 'exact', head: true })
+        .select('message_id', { count: 'exact', head: true, distinct: true })
         .eq('event_type', 'sent')
     );
     
@@ -62,7 +62,7 @@ export default async function campaignPerformance(req: Request, res: Response) {
     let openFilter = applyUserFilter(
       supabaseDb
         .from('email_events')
-        .select('message_id', { count: 'exact', head: true })
+        .select('message_id', { count: 'exact', head: true, distinct: true })
         .eq('event_type', 'open')
     );
     if (id !== 'all') {
@@ -80,7 +80,7 @@ export default async function campaignPerformance(req: Request, res: Response) {
     let replyFilter = applyUserFilter(
       supabaseDb
         .from('email_events')
-        .select('lead_id', { count: 'exact', head: true })
+        .select('message_id', { count: 'exact', head: true, distinct: true })
         .eq('event_type', 'reply')
     );
     if (id !== 'all') {
@@ -98,7 +98,7 @@ export default async function campaignPerformance(req: Request, res: Response) {
     let conversionFilter = applyUserFilter(
       supabaseDb
         .from('email_events')
-        .select('lead_id', { count: 'exact', head: true })
+        .select('message_id', { count: 'exact', head: true, distinct: true })
         .eq('event_type', 'conversion')
     );
     if (id !== 'all') {
