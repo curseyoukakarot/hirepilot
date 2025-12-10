@@ -731,6 +731,49 @@ router.get('/offr-livechat/messages', async (req: Request, res: Response) => {
   }
 });
 
+// One-off notification when widget is opened (no DB writes, no thread join)
+router.post('/offr/chat-open', async (req: Request, res: Response) => {
+  try {
+    const sessionId = ensureSessionId((req.body as any)?.session_id);
+    const pageUrl = (req.body as any)?.page_url || '';
+    const slackChannel = process.env.OFFR_WEBSITE_CHAT_SLACK_CHANNEL || '';
+    const botToken = process.env.OFFR_WEBSITE_CHAT_SLACK_BOT_TOKEN || process.env.SLACK_BOT_TOKEN || '';
+    const webhookUrl = process.env.OFFR_WEBSITE_CHAT_SLACK_WEBHOOK_URL || '';
+    const textLines = [
+      `Offr widget opened (session: ${sessionId})`,
+      pageUrl ? `Page: ${pageUrl}` : null,
+    ].filter(Boolean).join('\n');
+
+    let delivered = false;
+    if (slackChannel && botToken) {
+      try {
+        const slack = new WebClient(botToken);
+        await slack.chat.postMessage({
+          channel: slackChannel,
+          text: textLines,
+          unfurl_links: false,
+          unfurl_media: false,
+        });
+        delivered = true;
+      } catch (err: any) {
+        console.error('[offr/chat-open] slack post failed', err?.message || err);
+      }
+    }
+    if (!delivered && webhookUrl) {
+      try {
+        await postSlack(webhookUrl, textLines);
+        delivered = true;
+      } catch (err: any) {
+        console.error('[offr/chat-open] webhook failed', err?.message || err);
+      }
+    }
+    res.json({ ok: true, delivered });
+  } catch (err: any) {
+    console.error('[offr/chat-open] error', err?.message || err);
+    res.status(500).json({ error: 'internal_error' });
+  }
+});
+
 // Utility endpoint to mirror Slack replies into widget (optional manual trigger)
 router.post('/offr-livechat/relay', async (req: Request, res: Response) => {
   const schema = z.object({

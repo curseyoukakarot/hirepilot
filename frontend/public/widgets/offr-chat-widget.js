@@ -369,6 +369,7 @@
     var sessionId = getSessionId();
     var showLeadForm = false;
     var leadCaptured = false;
+    var openedNotified = false;
 
     function togglePanel(show) {
       isOpen = show;
@@ -479,6 +480,19 @@
 
     ui.launcher.onclick = function () {
       togglePanel(true);
+      if (!openedNotified) {
+        openedNotified = true;
+        try {
+          fetch(LIVE_ENDPOINT.replace('/offr-livechat/messages','/offr/chat-open'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              session_id: sessionId,
+              page_url: (window.parent && window.parent.location ? window.parent.location.href : window.location.href)
+            }),
+          }).catch(() => {});
+        } catch {}
+      }
       if (messages.length === 0) welcome();
     };
     ui.closeBtn.onclick = function () { togglePanel(false); };
