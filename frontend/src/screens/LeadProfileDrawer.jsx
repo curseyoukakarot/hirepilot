@@ -18,12 +18,14 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   const [isConverting, setIsConverting] = useState(false);
   const [isEnriching, setIsEnriching] = useState(false);
   const [isUnlockingInsights, setIsUnlockingInsights] = useState(false);
+  const [engineMode, setEngineMode] = useState('local_browser');
+  const [brightdataEnabled, setBrightdataEnabled] = useState(false);
   const [enrichStatus, setEnrichStatus] = useState({ apollo: null, gpt: null });
   const [localLead, setLocalLead] = useState(lead);
   const [localCandidate, setLocalCandidate] = useState(lead);
   const lastAppliedRef = useRef(null);
-  // refresh daily LI count when drawer opens
-  useEffect(() => { if (isOpen) { fetchDailyLinkedInCount(); } }, [isOpen]);
+  // refresh daily LI count and engine mode when drawer opens
+  useEffect(() => { if (isOpen) { fetchDailyLinkedInCount(); fetchEngineMode(); } }, [isOpen]);
   
   // Force remount on entity change to clear stale closures
   const instanceKey = useMemo(
@@ -192,6 +194,23 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     return entityType === 'candidate' ? localCandidate : localLead;
   };
 
+  const fetchEngineMode = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const resp = await fetch(`${API_BASE_URL}/linkedin/engine-mode`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        credentials: 'include'
+      });
+      if (!resp.ok) return;
+      const json = await resp.json();
+      setEngineMode(json.mode || 'local_browser');
+      setBrightdataEnabled(Boolean(json.brightdata_enabled));
+    } catch {}
+  };
+
+  const isBrightDataEngine = engineMode === 'brightdata_cloud' && brightdataEnabled;
+
   // Helper to validate LinkedIn profile URLs and build extension trigger URL
   const isValidLinkedInProfileUrl = (profileUrl) => {
     try {
@@ -213,7 +232,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     }
   };
 
-  // Temporary bypass handler: prefer Chrome extension over Playwright
+  // Temporary bypass handler: prefer Chrome extension over Playwright (unless Bright Data cloud is enabled)
   const handleLinkedInRequestClick = () => {
     const linkedinUrl = getLinkedInUrl(localLead);
     if (!linkedinUrl) {
@@ -222,6 +241,12 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     }
     if (!isValidLinkedInProfileUrl(linkedinUrl)) {
       showToast('Invalid LinkedIn URL.', 'error');
+      return;
+    }
+
+    // If Bright Data cloud engine is enabled, show modal without extension prompt
+    if (isBrightDataEngine) {
+      setShowLinkedInModal(true);
       return;
     }
 
@@ -2863,6 +2888,11 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
             <p className="mb-4 text-gray-600 dark:text-gray-300 text-sm">
               Send a connection request to <strong>{localLead.name}</strong> on LinkedIn.
             </p>
+            {isBrightDataEngine && (
+              <div className="mb-4 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-700 text-sm text-purple-800 dark:text-purple-200">
+                Using Bright Data Cloud Engine. No Chrome extension required—this will be sent remotely.
+              </div>
+            )}
             
             {/* Automation Info */}
             <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
