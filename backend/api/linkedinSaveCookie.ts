@@ -1,6 +1,6 @@
 import express from 'express';
 import { z } from 'zod';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, PostgrestError } from '@supabase/supabase-js';
 import fetch from 'node-fetch'; // For LinkedIn ping
 import crypto from 'crypto';
 import { encryptGCM } from '../src/lib/crypto';
@@ -14,6 +14,43 @@ const supabase = createClient(
 
 const ENCRYPTION_KEY = process.env.COOKIE_ENCRYPTION_KEY?.slice(0, 32) || 'default_key_32_bytes_long_123456'; // 32 bytes for AES-256
 const IV_LENGTH = 16;
+
+// Some environments don't have a unique index on user_id for legacy tables.
+// Attempt the upsert first; if it fails with the missing constraint error,
+// fall back to manual select + update/insert so users are not blocked.
+async function upsertByUserId<T extends Record<string, unknown>>(
+  table: string,
+  payload: T & { user_id: string }
+) {
+  const { error } = await supabase.from(table).upsert(payload, { onConflict: 'user_id' });
+  if (!error) return { error: null as PostgrestError | null };
+
+  const missingConflict =
+    typeof error.message === 'string' &&
+    error.message.includes('no unique or exclusion constraint matching the ON CONFLICT specification');
+
+  if (!missingConflict) {
+    return { error };
+  }
+
+  // Legacy fallback path without relying on a unique constraint
+  const { data: existing, error: selectError } = await supabase
+    .from(table)
+    .select('id')
+    .eq('user_id', payload.user_id)
+    .maybeSingle();
+  if (selectError) {
+    return { error: selectError };
+  }
+
+  if (existing?.id) {
+    const { error: updateError } = await supabase.from(table).update(payload).eq('id', existing.id);
+    return { error: updateError };
+  }
+
+  const { error: insertError } = await supabase.from(table).insert(payload);
+  return { error: insertError };
+}
 
 function encrypt(text: string): string {
   const iv = crypto.randomBytes(IV_LENGTH);
@@ -54,17 +91,15 @@ router.post('/save-cookie', async (req, res) => {
 
     // Set expires_at to 30 days from now and status to 'valid' for new cookies
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days from now
-    const { error } = await supabase
-      .from('linkedin_cookies')
-      .upsert({ 
-        user_id, 
-        session_cookie: encrypted_cookie, 
-        user_agent,
-        updated_at: now,
-        expires_at: expiresAt.toISOString(),
-        status: 'valid',
-        is_valid: true
-      }, { onConflict: 'user_id' });
+    const { error } = await upsertByUserId('linkedin_cookies', {
+      user_id,
+      session_cookie: encrypted_cookie,
+      user_agent,
+      updated_at: now,
+      expires_at: expiresAt.toISOString(),
+      status: 'valid',
+      is_valid: true
+    });
 
     if (error) {
       console.error('insert failed', error);
@@ -76,21 +111,16 @@ router.post('/save-cookie', async (req, res) => {
     const liAtValue = extractCookieValue(session_cookie, 'li_at');
     const jsessionValue = extractCookieValue(session_cookie, 'JSESSIONID');
 
-    const { error: sessionError } = await supabase
-      .from('linkedin_sessions')
-      .upsert(
-        {
-          user_id,
-          enc_cookie: gcmEncryptedCookie,
-          cookie_string: gcmEncryptedCookie,
-          enc_li_at: liAtValue ? JSON.stringify(encryptGCM(liAtValue)) : null,
-          enc_jsessionid: jsessionValue ? JSON.stringify(encryptGCM(jsessionValue)) : null,
-          updated_at: now,
-          last_used_at: now,
-          source: 'chrome_extension'
-        },
-        { onConflict: 'user_id' }
-      );
+    const { error: sessionError } = await upsertByUserId('linkedin_sessions', {
+      user_id,
+      enc_cookie: gcmEncryptedCookie,
+      cookie_string: gcmEncryptedCookie,
+      enc_li_at: liAtValue ? JSON.stringify(encryptGCM(liAtValue)) : null,
+      enc_jsessionid: jsessionValue ? JSON.stringify(encryptGCM(jsessionValue)) : null,
+      updated_at: now,
+      last_used_at: now,
+      source: 'chrome_extension'
+    });
 
     if (sessionError) {
       console.error('linkedin_sessions upsert failed', sessionError);
