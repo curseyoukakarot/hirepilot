@@ -41,7 +41,8 @@ export default async function overviewSeries(req: Request, res: Response) {
       return query.in('user_id', targetUserIds);
     };
 
-    let query = applyUserFilter(
+    // @ts-expect-error suppress deep instantiation from supabase types in this aggregation
+    let query: any = applyUserFilter(
       supabaseDb
         .from('email_events')
         .select('event_timestamp, event_type, campaign_id, message_id')
@@ -65,13 +66,12 @@ export default async function overviewSeries(req: Request, res: Response) {
       return;
     }
 
-    // Aggregate to ISO week buckets (Mon-Sun)
+    // Aggregate to ISO week buckets (Mon-Sun), dedup by message_id to avoid provider/duplicate inflation
     type Bucket = {
-      sent: number;
-      open: number;
-      reply: number;
       sentMessages: Set<string>;
       openMessages: Set<string>;
+      replyMessages: Set<string>;
+      openEventCount: number;
     };
     const buckets: Record<string, Bucket> = {};
     for (const ev of events) {
@@ -85,18 +85,17 @@ export default async function overviewSeries(req: Request, res: Response) {
       wk.setUTCHours(0, 0, 0, 0);
       const key = wk.toISOString().slice(0, 10);
       if (!buckets[key]) {
-        buckets[key] = { sent: 0, open: 0, reply: 0, sentMessages: new Set(), openMessages: new Set() };
+        buckets[key] = { sentMessages: new Set(), openMessages: new Set(), replyMessages: new Set(), openEventCount: 0 };
       }
       const bucket = buckets[key];
       const msgId = (ev as any).message_id ? String((ev as any).message_id) : undefined;
-      if (type === 'sent') {
-        bucket.sent += 1;
-        if (msgId) bucket.sentMessages.add(msgId);
+      if (type === 'sent' && msgId) {
+        bucket.sentMessages.add(msgId);
       } else if (type === 'open') {
-        bucket.open += 1;
+        bucket.openEventCount += 1;
         if (msgId) bucket.openMessages.add(msgId);
-      } else if (type === 'reply') {
-        bucket.reply += 1;
+      } else if (type === 'reply' && msgId) {
+        bucket.replyMessages.add(msgId);
       }
     }
 
@@ -112,12 +111,12 @@ export default async function overviewSeries(req: Request, res: Response) {
     today.setUTCHours(0, 0, 0, 0);
     while (current <= today) {
       const key = current.toISOString().slice(0, 10);
-      const b = buckets[key] || { sent: 0, open: 0, reply: 0, sentMessages: new Set(), openMessages: new Set() };
-      const sentBase = b.sentMessages?.size ? b.sentMessages.size : b.sent || 0;
-      const openTotal = sentBase > 0 ? (b.open / sentBase) * 100 : 0;
-      const openUniqueCount = b.openMessages?.size ? b.openMessages.size : Math.min(b.open, sentBase);
-      const openUnique = sentBase > 0 ? (openUniqueCount / sentBase) * 100 : 0;
-      const replyRate = sentBase > 0 ? (b.reply / sentBase) * 100 : 0;
+      const b = buckets[key] || { sentMessages: new Set(), openMessages: new Set(), replyMessages: new Set(), openEventCount: 0 };
+      const sentBase = b.sentMessages.size;
+      const uniqueOpens = b.openMessages.size;
+      const openTotal = sentBase > 0 ? (b.openEventCount / sentBase) * 100 : 0;
+      const openUnique = sentBase > 0 ? (uniqueOpens / sentBase) * 100 : 0;
+      const replyRate = sentBase > 0 ? (b.replyMessages.size / sentBase) * 100 : 0;
       const weekEnd = new Date(current);
       weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
       const label = `${current.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;

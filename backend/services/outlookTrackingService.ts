@@ -109,13 +109,19 @@ export class OutlookTrackingService {
       // Get message details from database
       const { data: message, error } = await supabase
         .from('email_events')
-        .select('user_id, campaign_id, lead_id')
+        .select('user_id, campaign_id, lead_id, provider')
         .eq('message_id', messageId)
         .eq('event_type', 'sent')
         .single();
 
       if (error || !message) {
         console.error('Message not found:', messageId);
+        return;
+      }
+
+      // Guard: only record Outlook opens for Outlook-sent messages
+      if ((message as any).provider && String((message as any).provider).toLowerCase() !== 'outlook') {
+        console.warn('[outlookTracking] provider mismatch on open; skipping', { messageId, provider: (message as any).provider });
         return;
       }
 
