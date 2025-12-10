@@ -257,7 +257,7 @@ export async function scrapeLinkedInProfile(profileUrl: string): Promise<BrightD
     const resp = await axios.post(
       scrapeUrl,
       [{ url: normalizedUrl }],
-      { headers: requireApiToken(), timeout: 30_000 }
+      { headers: requireApiToken(), timeout: 60_000 }
     );
 
     if (resp.status !== 200) {
