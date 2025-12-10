@@ -396,7 +396,7 @@ function extractBrightDataKeywords(profile: BrightDataProfile): string[] {
   const keywordSet = new Set<string>();
 
   const addTokens = (text?: string | null, limit = 25) => {
-    if (!text) return;
+    if (!text || typeof text !== 'string') return;
     const matches = text.toLowerCase().match(/[a-z0-9]+/g);
     if (!matches) return;
     let added = 0;
