@@ -287,55 +287,52 @@ export async function scrapeLinkedInProfile(profileUrl: string): Promise<BrightD
       console.warn('[BrightData] Profile dataset_id missing; skipping scrape');
       return null;
     }
-    // Fast synchronous scrape with retry/202 handling
+    // Fast synchronous scrape with fallback to async trigger/poll on slow responses
     const scrapeUrl = `${DATASET_SCRAPE_URL}?dataset_id=${encodeURIComponent(datasetId)}&format=json`;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const resp = await axios.post(
-        scrapeUrl,
-        [{ url: normalizedUrl }],
-        {
-          headers: requireApiToken(),
-          timeout: 60_000,
-          validateStatus: () => true
-        }
-      );
-
-      if (resp.status === 200) {
-        const payload = Array.isArray(resp.data) ? resp.data[0] : resp.data;
-        if (!payload) {
-          console.log('[BrightData] Scrape profile finished with no payload', { profileUrl: normalizedUrl });
-          return null;
-        }
-        const mapped = mapProfilePayload(payload);
-        mapped._raw = resp.data;
-        console.log('[BrightData] Scrape profile finished', { profileUrl: normalizedUrl, hasProfile: true });
-        return mapped;
+    const syncResp = await axios.post(
+      scrapeUrl,
+      [{ url: normalizedUrl }],
+      {
+        headers: requireApiToken(),
+        timeout: 90_000,
+        validateStatus: () => true
       }
+    );
 
-      if (resp.status === 202) {
-        const snapId = (resp.data && (resp.data.snapshot_id || resp.data.snapshotId)) || null;
-        if (snapId) {
-          const snap = await pollDatasetSnapshot<BrightDataProfile>(snapId);
-          const payload = Array.isArray(snap.payload) ? (snap.payload as any[])[0] : snap.payload;
-          if (!payload) {
-            console.log('[BrightData] Snapshot finished with no payload', { profileUrl: normalizedUrl });
-            return null;
-          }
-          const mapped = mapProfilePayload(payload);
-          mapped._raw = snap.raw;
-          console.log('[BrightData] Scrape profile finished via snapshot', { profileUrl: normalizedUrl, hasProfile: true });
-          return mapped;
-        }
-        // No snapshot id, wait and retry
-        await sleep(3000);
-        continue;
+    if (syncResp.status === 200) {
+      const payload = Array.isArray(syncResp.data) ? syncResp.data[0] : syncResp.data;
+      if (!payload) {
+        console.log('[BrightData] Scrape profile finished with no payload', { profileUrl: normalizedUrl });
+        return null;
       }
-
-      // Non-success/non-202
-      throw new Error(`BrightData scrape failed (status ${resp.status})`);
+      const mapped = mapProfilePayload(payload);
+      mapped._raw = syncResp.data;
+      console.log('[BrightData] Scrape profile finished', { profileUrl: normalizedUrl, hasProfile: true });
+      return mapped;
     }
 
-    throw new Error('BrightData scrape failed after retries');
+    // If sync scrape returns 202 or times out/other, fall back to async trigger + poll
+    const triggerUrl = buildDatasetTriggerUrl(datasetId);
+    const triggerResp = await axios.post(
+      triggerUrl,
+      [{ url: normalizedUrl }],
+      { headers: requireApiToken(), timeout: 30_000 }
+    );
+    const snapId = triggerResp.data?.snapshot_id;
+    if (!snapId) {
+      throw new Error(`BrightData async trigger failed${triggerResp.status ? ` (status ${triggerResp.status})` : ''}`);
+    }
+
+    const snap = await pollDatasetSnapshot<BrightDataProfile>(snapId);
+    const payload = Array.isArray(snap.payload) ? (snap.payload as any[])[0] : snap.payload;
+    if (!payload) {
+      console.log('[BrightData] Snapshot finished with no payload', { profileUrl: normalizedUrl });
+      return null;
+    }
+    const mapped = mapProfilePayload(payload);
+    mapped._raw = snap.raw;
+    console.log('[BrightData] Scrape profile finished via snapshot fallback', { profileUrl: normalizedUrl, hasProfile: true });
+    return mapped;
   } catch (error: any) {
     console.error('[BrightData] Scrape profile failed', { profileUrl: normalizedUrl, error: error?.message || String(error) });
     return null;
