@@ -69,6 +69,19 @@ function requireApiToken() {
   };
 }
 
+// Ensure we always send https for LinkedIn profile URLs
+function normalizeLinkedInUrl(url: string | undefined | null): string | undefined {
+  if (!url) return undefined;
+  let normalized = url.trim();
+  if (normalized.startsWith('http://')) {
+    normalized = 'https://' + normalized.slice('http://'.length);
+  }
+  if (!/^https?:\/\//i.test(normalized)) {
+    normalized = `https://${normalized}`;
+  }
+  return normalized;
+}
+
 async function triggerCollector(collectorId: string, args: CollectorArgs): Promise<string> {
   const response = await axios.post(
     brightDataConfig.scraperTriggerUrl,
@@ -204,24 +217,26 @@ function mapJobPayload(payload: any): BrightDataJob {
 }
 
 export async function scrapeLinkedInProfile(profileUrl: string): Promise<BrightDataProfile | null> {
-  if (!profileUrl) return null;
-  console.log('[BrightData] Scrape profile started', { profileUrl });
+  const normalizedUrl = normalizeLinkedInUrl(profileUrl);
+  if (!normalizedUrl) return null;
+  console.log('[BrightData] Scrape profile started', { profileUrl: normalizedUrl });
   try {
     const result = await runCollector<{ profile?: any }>(
       brightDataConfig.linkedinProfileScraperId || '',
-      { profileUrl },
-      { profileUrl, collector: 'linkedin_profile' }
+      // Send both keys to satisfy collectors expecting either `profileUrl` or `url`
+      { profileUrl: normalizedUrl, url: normalizedUrl },
+      { profileUrl: normalizedUrl, collector: 'linkedin_profile' }
     );
     if (!result?.payload) {
-      console.log('[BrightData] Scrape profile finished with no payload', { profileUrl });
+      console.log('[BrightData] Scrape profile finished with no payload', { profileUrl: normalizedUrl });
       return null;
     }
     const mapped = mapProfilePayload(result.payload);
     mapped._raw = result.raw;
-    console.log('[BrightData] Scrape profile finished', { profileUrl, hasProfile: true });
+    console.log('[BrightData] Scrape profile finished', { profileUrl: normalizedUrl, hasProfile: true });
     return mapped;
   } catch (error: any) {
-    console.error('[BrightData] Scrape profile failed', { profileUrl, error: error?.message || String(error) });
+    console.error('[BrightData] Scrape profile failed', { profileUrl: normalizedUrl, error: error?.message || String(error) });
     return null;
   }
 }
@@ -252,46 +267,48 @@ export async function scrapeLinkedInCompany(companyUrl: string): Promise<any | n
 
 export async function scrapeLinkedInJob(jobUrl: string): Promise<BrightDataJob | null> {
   if (!jobUrl) return null;
-  console.log('[BrightData] Scrape LinkedIn job started', { jobUrl });
+  const normalizedUrl = normalizeLinkedInUrl(jobUrl);
+  console.log('[BrightData] Scrape LinkedIn job started', { jobUrl: normalizedUrl || jobUrl });
   try {
     const result = await runCollector<any>(
       brightDataConfig.linkedinJobsScraperId || '',
-      { jobUrl },
-      { jobUrl, collector: 'linkedin_jobs' }
+      { jobUrl: normalizedUrl || jobUrl },
+      { jobUrl: normalizedUrl || jobUrl, collector: 'linkedin_jobs' }
     );
     if (!result?.payload) {
-      console.log('[BrightData] Scrape LinkedIn job finished with no payload', { jobUrl });
+      console.log('[BrightData] Scrape LinkedIn job finished with no payload', { jobUrl: normalizedUrl || jobUrl });
       return null;
     }
     const mapped = mapJobPayload(result.payload);
     mapped._raw = result.raw;
-    console.log('[BrightData] Scrape LinkedIn job finished', { jobUrl, hasJob: true });
+    console.log('[BrightData] Scrape LinkedIn job finished', { jobUrl: normalizedUrl || jobUrl, hasJob: true });
     return mapped;
   } catch (error: any) {
-    console.error('[BrightData] Scrape LinkedIn job failed', { jobUrl, error: error?.message || String(error) });
+    console.error('[BrightData] Scrape LinkedIn job failed', { jobUrl: normalizedUrl || jobUrl, error: error?.message || String(error) });
     return null;
   }
 }
 
 export async function scrapeGenericJob(url: string): Promise<BrightDataJob | null> {
   if (!url) return null;
-  console.log('[BrightData] Scrape job started', { url });
+  const normalizedUrl = normalizeLinkedInUrl(url) || url;
+  console.log('[BrightData] Scrape job started', { url: normalizedUrl });
   try {
     const result = await runCollector<any>(
       brightDataConfig.genericJobScraperId || '',
-      { url },
-      { url, collector: 'generic_job' }
+      { url: normalizedUrl },
+      { url: normalizedUrl, collector: 'generic_job' }
     );
     if (!result?.payload) {
-      console.log('[BrightData] Scrape job finished with no payload', { url });
+      console.log('[BrightData] Scrape job finished with no payload', { url: normalizedUrl });
       return null;
     }
     const mapped = mapJobPayload(result.payload);
     mapped._raw = result.raw;
-    console.log('[BrightData] Scrape job finished', { url, hasJob: true });
+    console.log('[BrightData] Scrape job finished', { url: normalizedUrl, hasJob: true });
     return mapped;
   } catch (error: any) {
-    console.error('[BrightData] Scrape job failed', { url, error: error?.message || String(error) });
+    console.error('[BrightData] Scrape job failed', { url: normalizedUrl, error: error?.message || String(error) });
     return null;
   }
 }
