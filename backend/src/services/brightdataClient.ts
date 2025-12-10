@@ -48,12 +48,19 @@ interface BrightDataScrapeResult<T> {
   raw: any;
 }
 
+interface BrightDataDatasetSnapshot<T> {
+  payload: T | null;
+  raw: any;
+}
+
 interface CollectorArgs {
   [key: string]: unknown;
 }
 
 const POLL_TIMEOUT_MS = brightDataConfig.maxPollMs;
 const POLL_INTERVAL_MS = brightDataConfig.pollIntervalMs;
+const DATASET_TRIGGER_URL = 'https://api.brightdata.com/datasets/v3/trigger';
+const DATASET_SNAPSHOT_URL = 'https://api.brightdata.com/datasets/v3/snapshots';
 
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -80,6 +87,15 @@ function normalizeLinkedInUrl(url: string | undefined | null): string | undefine
     normalized = `https://${normalized}`;
   }
   return normalized;
+}
+
+function buildDatasetTriggerUrl(datasetId: string) {
+  const params = new URLSearchParams({
+    dataset_id: datasetId,
+    format: 'json',
+    uncompressed_webhook: 'true'
+  });
+  return `${DATASET_TRIGGER_URL}?${params.toString()}`;
 }
 
 async function triggerCollector(collectorId: string, args: CollectorArgs, requestUrl?: string): Promise<string> {
@@ -230,18 +246,32 @@ export async function scrapeLinkedInProfile(profileUrl: string): Promise<BrightD
   if (!normalizedUrl) return null;
   console.log('[BrightData] Scrape profile started', { profileUrl: normalizedUrl });
   try {
-    const result = await runCollector<{ profile?: any }>(
-      brightDataConfig.linkedinProfileScraperId || '',
-      // Send both keys to satisfy collectors expecting either `profileUrl` or `url`
-      { profileUrl: normalizedUrl, url: normalizedUrl },
-      { profileUrl: normalizedUrl, collector: 'linkedin_profile' },
-      normalizedUrl
+    const datasetId = brightDataConfig.linkedinProfileScraperId || '';
+    if (!datasetId) {
+      console.warn('[BrightData] Profile dataset_id missing; skipping scrape');
+      return null;
+    }
+
+    // Trigger dataset scrape (prebuilt LinkedIn Profiles Scraper expects array body)
+    const triggerUrl = buildDatasetTriggerUrl(datasetId);
+    const triggerResp = await axios.post(
+      triggerUrl,
+      [{ url: normalizedUrl }],
+      { headers: requireApiToken(), timeout: 45_000 }
     );
-    if (!result?.payload) {
+    const snapshotId = triggerResp.data?.snapshot_id;
+    if (!snapshotId) {
+      throw new Error('BrightData trigger response missing snapshot_id');
+    }
+
+    // Poll dataset snapshot for results
+    const result = await pollDatasetSnapshot<BrightDataProfile>(snapshotId);
+    const first = Array.isArray(result?.payload) ? (result.payload as any[])[0] : result?.payload;
+    if (!first) {
       console.log('[BrightData] Scrape profile finished with no payload', { profileUrl: normalizedUrl });
       return null;
     }
-    const mapped = mapProfilePayload(result.payload);
+    const mapped = mapProfilePayload(first);
     mapped._raw = result.raw;
     console.log('[BrightData] Scrape profile finished', { profileUrl: normalizedUrl, hasProfile: true });
     return mapped;
@@ -321,5 +351,32 @@ export async function scrapeGenericJob(url: string): Promise<BrightDataJob | nul
     console.error('[BrightData] Scrape job failed', { url: normalizedUrl, error: error?.message || String(error) });
     return null;
   }
+}
+
+async function pollDatasetSnapshot<T>(snapshotId: string): Promise<BrightDataDatasetSnapshot<T>> {
+  const deadline = Date.now() + POLL_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    const resp = await axios.get(`${DATASET_SNAPSHOT_URL}/${snapshotId}`, {
+      headers: requireApiToken(),
+      timeout: 30_000
+    });
+
+    const status = (resp.data?.status || '').toString().toLowerCase();
+    if (status === 'success') {
+      // Dataset results often come under items/results/data
+      const payload =
+        resp.data?.items ||
+        resp.data?.results ||
+        resp.data?.data ||
+        resp.data?.content ||
+        resp.data;
+      return { payload: payload ?? null, raw: resp.data };
+    }
+    if (status === 'failed' || status === 'error') {
+      throw new Error(`Bright Data snapshot failed (${status})`);
+    }
+    await sleep(POLL_INTERVAL_MS);
+  }
+  throw new Error('Bright Data snapshot timed out');
 }
 
