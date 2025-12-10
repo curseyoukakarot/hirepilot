@@ -61,6 +61,7 @@ const POLL_TIMEOUT_MS = brightDataConfig.maxPollMs;
 const POLL_INTERVAL_MS = brightDataConfig.pollIntervalMs;
 const DATASET_TRIGGER_URL = 'https://api.brightdata.com/datasets/v3/trigger';
 const DATASET_SNAPSHOT_URL = 'https://api.brightdata.com/datasets/v3/snapshots';
+const DATASET_SCRAPE_URL = 'https://api.brightdata.com/datasets/v3/scrape';
 
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -251,28 +252,26 @@ export async function scrapeLinkedInProfile(profileUrl: string): Promise<BrightD
       console.warn('[BrightData] Profile dataset_id missing; skipping scrape');
       return null;
     }
-
-    // Trigger dataset scrape (prebuilt LinkedIn Profiles Scraper expects array body)
-    const triggerUrl = buildDatasetTriggerUrl(datasetId);
-    const triggerResp = await axios.post(
-      triggerUrl,
+    // Fast synchronous scrape (no polling)
+    const scrapeUrl = `${DATASET_SCRAPE_URL}?dataset_id=${encodeURIComponent(datasetId)}&format=json`;
+    const resp = await axios.post(
+      scrapeUrl,
       [{ url: normalizedUrl }],
-      { headers: requireApiToken(), timeout: 45_000 }
+      { headers: requireApiToken(), timeout: 30_000 }
     );
-    const snapshotId = triggerResp.data?.snapshot_id;
-    if (!snapshotId) {
-      throw new Error('BrightData trigger response missing snapshot_id');
+
+    if (resp.status !== 200) {
+      throw new Error(`BrightData scrape failed (status ${resp.status})`);
     }
 
-    // Poll dataset snapshot for results
-    const result = await pollDatasetSnapshot<BrightDataProfile>(snapshotId);
-    const first = Array.isArray(result?.payload) ? (result.payload as any[])[0] : result?.payload;
-    if (!first) {
+    const payload = Array.isArray(resp.data) ? resp.data[0] : resp.data;
+    if (!payload) {
       console.log('[BrightData] Scrape profile finished with no payload', { profileUrl: normalizedUrl });
       return null;
     }
-    const mapped = mapProfilePayload(first);
-    mapped._raw = result.raw;
+
+    const mapped = mapProfilePayload(payload);
+    mapped._raw = resp.data;
     console.log('[BrightData] Scrape profile finished', { profileUrl: normalizedUrl, hasProfile: true });
     return mapped;
   } catch (error: any) {
