@@ -852,17 +852,6 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
     }
     const { lead, entityType, targetId } = resolved;
 
-    if (isBrightDataEnabled()) {
-      const pipelineResult = await runBrightDataEnrichmentFlow({
-        lead,
-        entityType,
-        targetId,
-        userId,
-        leadId
-      });
-      return res.status(pipelineResult.status).json(pipelineResult.body);
-    }
-
     console.log(`[LeadEnrich] Starting enrichment for lead: ${lead.first_name} ${lead.last_name}`);
 
     // Require user to have at least 1 credit before running enrichment providers
@@ -939,15 +928,8 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
     const enrichmentFullName = deriveFullNameFromLead(lead);
     const companyForSkrapp = lead?.company || lead?.enrichment_data?.apollo?.organization?.name || lead?.enrichment_data?.decodo?.company || undefined;
 
-    const configuredPremiumOrder: Array<'hunter' | 'skrapp'> = (() => {
-      if (premiumPreference === 'apollo') return [];
-      if (premiumPreference === 'skrapp') return ['skrapp', 'hunter'];
-      return ['hunter', 'skrapp'];
-    })();
-    const shouldRunSkrappEmailAfterApollo = hasSkrappKey && configuredPremiumOrder.includes('skrapp');
-    const providerOrder = configuredPremiumOrder.filter((provider) =>
-      provider === 'hunter' ? hasHunterKey : false
-    );
+    // We now enforce Apollo -> Skrapp -> Hunter order
+    const providerOrder: Array<'skrapp' | 'hunter'> = ['skrapp', 'hunter'];
 
     const needsPrimaryEmail = () =>
       !(
@@ -956,8 +938,7 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
         enrichmentData.skrapp?.email
       );
 
-    console.log('[LeadEnrich] Premium provider configuration:', {
-      premiumPreference,
+    console.log('[LeadEnrich] Provider configuration (Apollo -> Skrapp -> Hunter):', {
       providerOrder,
       hasHunterKey,
       hasSkrappKey,
@@ -1033,7 +1014,7 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
       }
     }
 
-    // STEP 2 & 3: Run premium providers according to configured priority
+    // STEP 2 & 3: Run providers in order: Apollo (profile + email), then Skrapp, then Hunter
     const tryHunterEmail = async () => {
       if (!needsPrimaryEmail()) {
         return;
@@ -1192,79 +1173,50 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
       }
     };
 
-    if (providerOrder.length === 0) {
-      if (premiumPreference === 'apollo') {
-        console.log('[LeadEnrich] Premium providers disabled via Apollo-only preference');
-      } else if (!hasHunterKey && !shouldRunSkrappEmailAfterApollo) {
-        console.log('[LeadEnrich] Premium providers skipped: no API keys configured');
-        errorMessages.push('Premium email enrichment skipped: no API keys configured');
-      } else if (shouldRunSkrappEmailAfterApollo) {
-        console.log('[LeadEnrich] Deferring Skrapp email enrichment until after Apollo attempt');
-      }
-    } else {
-      for (const provider of providerOrder) {
-        if (!needsPrimaryEmail()) break;
-        if (provider === 'hunter') {
-          await tryHunterEmail();
-        } else {
-          await trySkrappEmail();
-        }
-      }
-    }
-
-    // STEP 4: Apollo enrichment - run if no email found OR if Apollo data is incomplete
-    const hasCompleteApolloData = lead.enrichment_data?.apollo?.employment_history ||
-      lead.enrichment_data?.apollo?.functions ||
-      lead.enrichment_data?.apollo?.departments;
-
-    const shouldRunApollo = (
-      (!enrichmentData.decodo?.email && !enrichmentData.hunter?.email && !enrichmentData.skrapp?.email) ||
-      !hasCompleteApolloData
-    );
-
+    // STEP 2: Apollo first (profile + possible email)
     let apolloUsed = false;
     let apolloSucceeded = false;
-
-    if (shouldRunApollo) {
+    try {
       apolloUsed = true;
-      try {
-        console.log(!hasCompleteApolloData ?
-          '[LeadEnrich] Step 4: Running Apollo enrichment for complete profile data...' :
-          '[LeadEnrich] Step 4: Using Apollo as final fallback...');
-        const apolloResult = await enrichWithApollo({
-          leadId: leadId,
-          userId: userId,
-          firstName: lead.first_name,
-          lastName: lead.last_name,
-          company: lead.company,
-          linkedinUrl: lead.linkedin_url
-        });
+      console.log('[LeadEnrich] Step 2: Running Apollo enrichment first...');
+      const apolloResult = await enrichWithApollo({
+        leadId: leadId,
+        userId: userId,
+        firstName: lead.first_name,
+        lastName: lead.last_name,
+        company: lead.company,
+        linkedinUrl: lead.linkedin_url
+      });
 
-        if (apolloResult && apolloResult.success && apolloResult.data) {
-          apolloSucceeded = true;
-          enrichmentData.apollo = {
-            ...apolloResult.data,
-            used_as_fallback: true,
-            enriched_at: new Date().toISOString()
-          };
-          if (enrichmentSource === 'none') enrichmentSource = 'apollo';
-          console.log('[LeadEnrich] ✅ Apollo enrichment successful (fallback)');
-        } else {
-          console.log('[LeadEnrich] ❌ Apollo: No data found');
-          errorMessages.push('Apollo: No data found');
-        }
-      } catch (error: any) {
-        console.warn('[LeadEnrich] ❌ Apollo enrichment failed:', error.message);
-        errorMessages.push(`Apollo: ${error.message}`);
+      if (apolloResult && apolloResult.success && apolloResult.data) {
+        apolloSucceeded = true;
+        enrichmentData.apollo = {
+          ...apolloResult.data,
+          used_as_fallback: false,
+          enriched_at: new Date().toISOString()
+        };
+        if (enrichmentSource === 'none') enrichmentSource = 'apollo';
+        console.log('[LeadEnrich] ✅ Apollo enrichment successful (primary)');
+      } else {
+        console.log('[LeadEnrich] ❌ Apollo: No data found');
+        errorMessages.push('Apollo: No data found');
+      }
+    } catch (error: any) {
+      console.warn('[LeadEnrich] ❌ Apollo enrichment failed:', error.message);
+      errorMessages.push(`Apollo: ${error.message}`);
+    }
+
+    // STEP 3: Skrapp if still no email
+    if (!enrichmentData.decodo?.email && !enrichmentData.apollo?.email) {
+      await trySkrappEmail();
+      if (hasSkrappKey && !hasSkrappPayload(enrichmentData.skrapp)) {
+        await mergeSkrappProfile('apollo');
       }
     }
 
-    if ((!apolloUsed || !apolloSucceeded) && shouldRunSkrappEmailAfterApollo) {
-      await trySkrappEmail();
-    }
-
-    if (hasSkrappKey && (!apolloUsed || !apolloSucceeded)) {
-      await mergeSkrappProfile('apollo');
+    // STEP 4: Hunter if still no email
+    if (!enrichmentData.decodo?.email && !enrichmentData.apollo?.email && !enrichmentData.skrapp?.email) {
+      await tryHunterEmail();
     }
 
     // Update lead with enrichment data
