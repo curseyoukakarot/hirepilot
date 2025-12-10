@@ -107,11 +107,13 @@ export function registerLinkedInSessionRoutes(app: Application) {
       try {
         const { data: userRecord, error } = await supabase
           .from('users')
-          .select('plan')
+          .select('plan, role')
           .eq('id', userId)
           .maybeSingle();
         if (error) throw error;
-        if (!isPlanEligibleForCloud(userRecord?.plan || null)) {
+        const role = (userRecord?.role || '').toLowerCase();
+        const isSuperAdmin = role === 'super_admin' || role === 'superadmin';
+        if (!isSuperAdmin && !isPlanEligibleForCloud(userRecord?.plan || null)) {
           return res.status(403).json({
             error: 'Upgrade required',
             message: 'Cloud Engine requires a Pro or Team plan.'
