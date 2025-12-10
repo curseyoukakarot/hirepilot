@@ -183,7 +183,19 @@ async function runCollector<T>(
 function mapProfilePayload(payload: any): BrightDataProfile {
   if (!payload) return { _raw: payload };
   const profile = payload.profile || payload;
-  const experienceList = Array.isArray(profile.experience || profile.positions)
+
+  const currentCompany = (() => {
+    const companyObj = profile.current_company || {};
+    const name = companyObj.name || profile.current_company_name;
+    if (!name) return undefined;
+    return {
+      name,
+      link: companyObj.link || profile.current_company_link || null,
+      company_id: companyObj.company_id || profile.current_company_id || null,
+      location: companyObj.location || null
+    };
+  })();
+  let experienceList = Array.isArray(profile.experience || profile.positions)
     ? (profile.experience || profile.positions).map((item: any) => ({
         title: item?.title || item?.position,
         company: item?.company || item?.company_name,
@@ -194,7 +206,19 @@ function mapProfilePayload(payload: any): BrightDataProfile {
       }))
     : undefined;
 
-  const educationList = Array.isArray(profile.education)
+  // Fallback: if no experience array but we have a current company, create a single entry
+  if ((!experienceList || experienceList.length === 0) && currentCompany) {
+    experienceList = [{
+      title: profile.headline || profile.title || null,
+      company: currentCompany.name,
+      location: profile.location || profile.city || profile.region || null,
+      start_date: null,
+      end_date: null,
+      description: null
+    }];
+  }
+
+  let educationList = Array.isArray(profile.education)
     ? profile.education.map((item: any) => ({
         school: item?.school || item?.school_name,
         degree: item?.degree,
@@ -203,6 +227,17 @@ function mapProfilePayload(payload: any): BrightDataProfile {
         end_year: item?.end_year || item?.endYear || null
       }))
     : undefined;
+
+  // Fallback: if no structured education but a string exists
+  if ((!educationList || educationList.length === 0) && typeof profile.educations_details === 'string') {
+    educationList = [{
+      school: profile.educations_details,
+      degree: null,
+      field_of_study: null,
+      start_year: null,
+      end_year: null
+    }];
+  }
 
   const skills = Array.isArray(profile.skills)
     ? profile.skills.map((s: any) => (typeof s === 'string' ? s : s?.name)).filter(Boolean)
@@ -213,9 +248,9 @@ function mapProfilePayload(payload: any): BrightDataProfile {
     first_name: profile.first_name || profile.firstName,
     last_name: profile.last_name || profile.lastName,
     headline: profile.headline || profile.title,
-    location: profile.location || profile.city || profile.region,
-    current_title: profile.current_title || profile.job_title || profile.title,
-    current_company: profile.current_company || profile.company || profile.organization,
+    location: profile.location || profile.city || profile.region || profile.country_code,
+    current_title: profile.current_title || profile.job_title || profile.title || profile.headline,
+    current_company: currentCompany || profile.company || profile.organization,
     about: profile.summary || profile.about,
     profile_url: profile.profile_url || profile.profileUrl || profile.url,
     avatar_url: profile.avatar || profile.avatar_url || profile.image_url,
