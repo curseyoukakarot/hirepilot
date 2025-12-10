@@ -3017,13 +3017,21 @@ export const updateLead = async (req: ApiRequest, res: Response) => {
           const added: string[] = [];
           next.forEach((t: string) => { if (!prev.has(t)) added.push(t); });
           added.forEach((tag) => {
-            try { emitZapEvent({
-              userId: req.user!.id,
-              eventType: ZAP_EVENT_TYPES.LEAD_UPDATED,
-              eventData: createLeadEventData(data, { tag, action: 'tag_added' }),
-              sourceTable: 'leads',
-              sourceId: data.id
-            }); } catch {}
+            try {
+              emitZapEvent({
+                userId: req.user!.id,
+                eventType: ZAP_EVENT_TYPES.LEAD_TAG_ADDED,
+                eventData: createLeadEventData(data, {
+                  tag,
+                  action: 'tag_added',
+                  tags: req.body.tags || [],
+                  previous_tags: originalLead.tags || [],
+                  added_tags: added
+                }),
+                sourceTable: 'leads',
+                sourceId: data.id
+              });
+            } catch {}
           });
         }
       });

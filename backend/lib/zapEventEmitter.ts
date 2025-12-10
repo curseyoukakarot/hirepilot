@@ -10,6 +10,7 @@ export const ZAP_EVENT_TYPES = {
   // Lead Events
   LEAD_CREATED: 'lead_created',
   LEAD_UPDATED: 'lead_updated',
+  LEAD_TAG_ADDED: 'lead_tag_added',
   LEAD_CONVERTED: 'lead_converted',
   LEAD_ENRICHED: 'lead_enriched',
   LEAD_SOURCED: 'lead_sourced',
