@@ -60,7 +60,7 @@ interface CollectorArgs {
 const POLL_TIMEOUT_MS = brightDataConfig.maxPollMs;
 const POLL_INTERVAL_MS = brightDataConfig.pollIntervalMs;
 const DATASET_TRIGGER_URL = 'https://api.brightdata.com/datasets/v3/trigger';
-const DATASET_SNAPSHOT_URL = 'https://api.brightdata.com/datasets/v3/snapshot';
+const DATASET_SNAPSHOT_URL = 'https://api.brightdata.com/datasets/v3/snapshots';
 
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -356,26 +356,36 @@ export async function scrapeGenericJob(url: string): Promise<BrightDataJob | nul
 async function pollDatasetSnapshot<T>(snapshotId: string): Promise<BrightDataDatasetSnapshot<T>> {
   const deadline = Date.now() + POLL_TIMEOUT_MS;
   while (Date.now() < deadline) {
-    const resp = await axios.get(`${DATASET_SNAPSHOT_URL}/${snapshotId}/data`, {
+    const resp = await axios.get(`${DATASET_SNAPSHOT_URL}/${snapshotId}`, {
+      params: { format: 'json' },
       headers: requireApiToken(),
-      timeout: 30_000
+      timeout: 30_000,
+      validateStatus: () => true // handle 404 as "not ready yet"
     });
 
-    const status = (resp.data?.status || '').toString().toLowerCase();
-    if (status === 'success') {
-      // Dataset results often come under items/results/data
-      const payload =
-        resp.data?.items ||
-        resp.data?.results ||
-        resp.data?.data ||
-        resp.data?.content ||
-        resp.data;
-      return { payload: payload ?? null, raw: resp.data };
+    if (resp.status === 404) {
+      // Snapshot not ready yet
+      await sleep(POLL_INTERVAL_MS);
+      continue;
     }
+
+    if (resp.status !== 200) {
+      throw new Error(`Bright Data snapshot poll failed (status ${resp.status})`);
+    }
+
+    const status = (resp.data?.status || '').toString().toLowerCase();
     if (status === 'failed' || status === 'error') {
       throw new Error(`Bright Data snapshot failed (${status})`);
     }
-    await sleep(POLL_INTERVAL_MS);
+
+    // Dataset results often come under items/results/data
+    const payload =
+      resp.data?.items ||
+      resp.data?.results ||
+      resp.data?.data ||
+      resp.data?.content ||
+      resp.data;
+    return { payload: payload ?? null, raw: resp.data };
   }
   throw new Error('Bright Data snapshot timed out');
 }
