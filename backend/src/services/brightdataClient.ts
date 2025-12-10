@@ -82,12 +82,16 @@ function normalizeLinkedInUrl(url: string | undefined | null): string | undefine
   return normalized;
 }
 
-async function triggerCollector(collectorId: string, args: CollectorArgs): Promise<string> {
+async function triggerCollector(collectorId: string, args: CollectorArgs, requestUrl?: string): Promise<string> {
   const response = await axios.post(
     brightDataConfig.scraperTriggerUrl,
     {
       collector_id: collectorId,
-      request: { args, render: false }
+      request: {
+        ...(requestUrl ? { url: requestUrl } : {}),
+        args,
+        render: false
+      }
     },
     { headers: requireApiToken(), timeout: 45_000 }
   );
@@ -131,7 +135,12 @@ async function pollCollectorResult<T>(requestId: string): Promise<BrightDataScra
   throw new Error('Bright Data scraper timed out');
 }
 
-async function runCollector<T>(collectorId: string, args: CollectorArgs, logCtx: Record<string, unknown>): Promise<BrightDataScrapeResult<T> | null> {
+async function runCollector<T>(
+  collectorId: string,
+  args: CollectorArgs,
+  logCtx: Record<string, unknown>,
+  requestUrl?: string
+): Promise<BrightDataScrapeResult<T> | null> {
   if (!isBrightDataEnabled()) {
     console.warn('[BrightData] Client disabled, skipping scrape', logCtx);
     return null;
@@ -143,7 +152,7 @@ async function runCollector<T>(collectorId: string, args: CollectorArgs, logCtx:
   }
 
   try {
-    const requestId = await triggerCollector(collectorId, args);
+    const requestId = await triggerCollector(collectorId, args, requestUrl);
     return await pollCollectorResult<T>(requestId);
   } catch (error: any) {
     console.error('[BrightData] Collector run failed', {
@@ -225,7 +234,8 @@ export async function scrapeLinkedInProfile(profileUrl: string): Promise<BrightD
       brightDataConfig.linkedinProfileScraperId || '',
       // Send both keys to satisfy collectors expecting either `profileUrl` or `url`
       { profileUrl: normalizedUrl, url: normalizedUrl },
-      { profileUrl: normalizedUrl, collector: 'linkedin_profile' }
+      { profileUrl: normalizedUrl, collector: 'linkedin_profile' },
+      normalizedUrl
     );
     if (!result?.payload) {
       console.log('[BrightData] Scrape profile finished with no payload', { profileUrl: normalizedUrl });
