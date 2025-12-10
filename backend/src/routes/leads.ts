@@ -541,6 +541,57 @@ async function runBrightDataEnrichmentFlow(options: BrightDataPipelineOptions): 
 
   const brightDataKeywords = brightProfile ? extractBrightDataKeywords(brightProfile) : [];
 
+  // Map BrightData profile into an Apollo-like shape so the frontend
+  // (which expects enrichment_data.apollo) can render work history, title,
+  // company, and name fields without change.
+  const brightdataApolloPatch = (() => {
+    if (!brightProfile) return null;
+
+    const companyName = typeof brightProfile.current_company === 'object'
+      ? (brightProfile.current_company as any)?.name
+      : typeof brightProfile.current_company === 'string'
+        ? brightProfile.current_company
+        : null;
+
+    const employment_history = Array.isArray(brightProfile.experience)
+      ? brightProfile.experience.map((exp: any) => ({
+          organization_name: exp?.company || exp?.company_name || companyName || null,
+          company: exp?.company || exp?.company_name || companyName || null,
+          title: exp?.title || exp?.position || brightProfile.current_title || brightProfile.headline || null,
+          start_date: exp?.start_date || exp?.startDate || exp?.start || null,
+          end_date: exp?.end_date || exp?.endDate || exp?.end || null,
+          current: exp?.end_date ? false : exp?.current ?? null,
+          description: exp?.description || exp?.summary || null,
+          location: exp?.location || exp?.city || brightProfile.location || null
+        }))
+      : undefined;
+
+    const organization = companyName
+      ? {
+          name: companyName,
+          domain: null,
+          location: (brightProfile.current_company as any)?.location || brightProfile.location || null
+        }
+      : undefined;
+
+    const locationObj = brightProfile.location
+      ? { city: brightProfile.location, state: null, country: null }
+      : undefined;
+
+    return {
+      first_name: brightProfile.first_name || brightProfile.full_name || null,
+      last_name: brightProfile.last_name || null,
+      title: brightProfile.current_title || brightProfile.headline || null,
+      headline: brightProfile.headline || null,
+      linkedin_url: brightProfile.profile_url || null,
+      organization,
+      employment_history,
+      location: locationObj,
+      enriched_at: new Date().toISOString(),
+      source: 'brightdata'
+    };
+  })();
+
   const emailResult = await runEmailEnrichment({
     lead,
     brightProfile,
@@ -550,6 +601,14 @@ async function runBrightDataEnrichmentFlow(options: BrightDataPipelineOptions): 
 
   const enrichmentData = {
     ...(lead.enrichment_data || {}),
+    ...(brightdataApolloPatch
+      ? {
+          apollo: {
+            ...(lead.enrichment_data?.apollo || {}),
+            ...brightdataApolloPatch
+          }
+        }
+      : {}),
     ...(brightProfile
       ? {
           brightdata: {
@@ -577,8 +636,14 @@ async function runBrightDataEnrichmentFlow(options: BrightDataPipelineOptions): 
     updated_at: now
   };
 
+  const companyName = typeof brightProfile?.current_company === 'object'
+    ? (brightProfile?.current_company as any)?.name
+    : typeof brightProfile?.current_company === 'string'
+      ? brightProfile?.current_company
+      : null;
+
   if (brightProfile?.current_title) updatePayload.title = brightProfile.current_title;
-  if (brightProfile?.current_company) updatePayload.company = brightProfile.current_company;
+  if (companyName) updatePayload.company = companyName;
   if (brightProfile?.location && entityType === 'lead') updatePayload.location = brightProfile.location;
   if (brightProfile?.profile_url && entityType === 'lead') updatePayload.linkedin_url = brightProfile.profile_url;
   if (brightProfile?.first_name && entityType === 'lead') updatePayload.first_name = brightProfile.first_name;
