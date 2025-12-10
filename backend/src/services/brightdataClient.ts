@@ -60,7 +60,7 @@ interface CollectorArgs {
 const POLL_TIMEOUT_MS = brightDataConfig.maxPollMs;
 const POLL_INTERVAL_MS = brightDataConfig.pollIntervalMs;
 const DATASET_TRIGGER_URL = 'https://api.brightdata.com/datasets/v3/trigger';
-const DATASET_SNAPSHOT_URL = 'https://api.brightdata.com/datasets/v3/snapshots';
+const DATASET_SNAPSHOT_URL = 'https://api.brightdata.com/datasets/v3/snapshot';
 
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -356,7 +356,7 @@ export async function scrapeGenericJob(url: string): Promise<BrightDataJob | nul
 async function pollDatasetSnapshot<T>(snapshotId: string): Promise<BrightDataDatasetSnapshot<T>> {
   const deadline = Date.now() + POLL_TIMEOUT_MS;
   while (Date.now() < deadline) {
-    const resp = await axios.get(`${DATASET_SNAPSHOT_URL}/${snapshotId}`, {
+    const resp = await axios.get(`${DATASET_SNAPSHOT_URL}/${snapshotId}/data`, {
       headers: requireApiToken(),
       timeout: 30_000
     });
