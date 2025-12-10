@@ -585,13 +585,7 @@ async function runBrightDataEnrichmentFlow(options: BrightDataPipelineOptions): 
   if (brightProfile?.last_name && entityType === 'lead') updatePayload.last_name = brightProfile.last_name;
   if (emailResult.email) updatePayload.email = emailResult.email;
 
-  if (brightDataKeywords.length) {
-    const existingKeywords = coerceKeywordArray((lead as any)?.enrichment_keywords);
-    const mergedKeywords = mergeKeywordLists(existingKeywords, brightDataKeywords);
-    if (mergedKeywords.length > existingKeywords.length) {
-      updatePayload.enrichment_keywords = mergedKeywords;
-    }
-  }
+  // Skip enrichment_keywords when the column is not present in some deployments
 
   const { data: updatedRecord, error: updateError } = await supabase
     .from(tableName)
