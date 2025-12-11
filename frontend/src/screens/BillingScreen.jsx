@@ -1,7 +1,8 @@
 // BillingScreen.jsx (wired to Stripe usage + invoice fetch)
 import React, { useEffect, useState } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
-import { PRICING_CONFIG } from '../config/pricing';
+import { BILLING_CONFIG } from '../config/billingConfig';
+import { useAppMode } from '../lib/appMode';
 import { supabase } from '../lib/supabaseClient';
 import { usePlan } from '../context/PlanContext';
 
@@ -21,6 +22,8 @@ if (!stripeKey) {
 const stripePromise = stripeKey ? loadStripe(stripeKey) : null;
 
 export default function BillingScreen() {
+  const mode = useAppMode();
+  const PLAN_CONFIG = BILLING_CONFIG?.[mode] || BILLING_CONFIG.recruiter;
   const { refresh: refreshPlan, plan: planTier, isFree } = usePlan();
   const [billingOverview, setBillingOverview] = useState({
     subscription: null,
@@ -187,7 +190,7 @@ export default function BillingScreen() {
       }
 
       // Resolve priceId from frontend config (ensures correct live/test ID is sent)
-      const priceId = PRICING_CONFIG?.[planId]?.priceIds?.[interval];
+      const priceId = PLAN_CONFIG?.[planId]?.priceIds?.[interval];
       if (!priceId) {
         throw new Error(`Missing priceId for ${planId}/${interval}. Check VITE_STRIPE_PRICE_ID_* envs in frontend build.`);
       }
@@ -289,7 +292,9 @@ export default function BillingScreen() {
 
   const { subscription, credits, recentUsage, recentInvoices, nextInvoice, seatUsage } = billingOverview;
   // If subscription not present or planTier empty, show Free when isFree
-  const currentPlan = (subscription?.planTier ? PRICING_CONFIG[subscription.planTier] : null) || (isFree ? { name: 'Free', credits: 50 } : null);
+  const currentPlan =
+    (subscription?.planTier && PLAN_CONFIG[subscription.planTier]) ? PLAN_CONFIG[subscription.planTier]
+      : (PLAN_CONFIG.free || (isFree ? { name: 'Free', credits: 50 } : null));
   
   // Calculate credit usage percentage for animation
   const creditUsagePercentage = creditInfo.totalCredits > 0 
@@ -405,23 +410,37 @@ export default function BillingScreen() {
             <h2 className="text-xl font-semibold mb-4">Upgrade Plan</h2>
             <p className="text-gray-600 mb-6">Choose a plan and billing cycle. Your data remains intact; premium features unlock immediately after checkout.</p>
             <div className="grid md:grid-cols-3 gap-6">
-              {(['starter','pro','team']).map((planId) => (
-                <div key={planId} className="border border-gray-200 rounded-xl p-5">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-lg font-semibold capitalize">{PRICING_CONFIG[planId].name}</h3>
-                    <span className="text-sm text-gray-500">{PRICING_CONFIG[planId].credits.toLocaleString()} credits/mo</span>
+              {Object.keys(PLAN_CONFIG)
+                .filter((planId) => PLAN_CONFIG[planId]?.priceIds?.monthly || PLAN_CONFIG[planId]?.priceIds?.annual)
+                .map((planId) => (
+                  <div key={planId} className="border border-gray-200 rounded-xl p-5">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-lg font-semibold capitalize">{PLAN_CONFIG[planId].name}</h3>
+                      <span className="text-sm text-gray-500">
+                        {PLAN_CONFIG[planId].credits.toLocaleString()} credits/mo
+                      </span>
+                    </div>
+                    <ul className="text-sm text-gray-600 space-y-2 mb-4 list-disc pl-5">
+                      {PLAN_CONFIG[planId].features.slice(0, 3).map((f, i) => (
+                        <li key={i}>{f}</li>
+                      ))}
+                    </ul>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => handleUpgrade(planId, 'monthly')}
+                        className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700"
+                      >
+                        Monthly
+                      </button>
+                      <button
+                        onClick={() => handleUpgrade(planId, 'annual')}
+                        className="flex-1 bg-gray-100 text-gray-800 py-2 rounded-lg hover:bg-gray-200"
+                      >
+                        Annual
+                      </button>
+                    </div>
                   </div>
-                  <ul className="text-sm text-gray-600 space-y-2 mb-4 list-disc pl-5">
-                    {PRICING_CONFIG[planId].features.slice(0,3).map((f, i) => (
-                      <li key={i}>{f}</li>
-                    ))}
-                  </ul>
-                  <div className="flex items-center gap-3">
-                    <button onClick={() => handleUpgrade(planId, 'monthly')} className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">Monthly</button>
-                    <button onClick={() => handleUpgrade(planId, 'annual')} className="flex-1 bg-gray-100 text-gray-800 py-2 rounded-lg hover:bg-gray-200">Annual</button>
-                  </div>
-                </div>
-              ))}
+                ))}
             </div>
           </section>
         )}
