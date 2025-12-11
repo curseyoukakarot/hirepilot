@@ -75,6 +75,7 @@ import { PlanProvider, usePlan } from './context/PlanContext';
 import { startSessionCookieSync } from './auth/sessionSync';
 import { ThemeProvider } from './context/ThemeContext';
 import { useTheme } from './context/ThemeContext';
+import { useAppMode } from './lib/appMode';
 import PublicJobPage from './screens/PublicJobPage.jsx';
 import ApplyForm from './screens/ApplyForm.jsx';
 import ApplySuccess from './screens/ApplySuccess.jsx';
@@ -83,6 +84,7 @@ import UseCasesRecruitingAgencies from './screens/UseCasesRecruitingAgencies';
 import UseCasesFractionalExecutives from './screens/UseCasesFractionalExecutives';
 import UseCasesConsultants from './screens/UseCasesConsultants';
 import OnboardingModals from './components/OnboardingModals';
+import JobSeekerRoutes from './pages/jobseeker/JobSeekerRoutes';
 // Blog article pages
 const FlowOfHirePilot = lazy(() => import("./pages/blog/FlowOfHirePilot"));
 const MessageCenterSetup = lazy(() => import("./pages/blog/MessageCenterSetup"));
@@ -334,7 +336,13 @@ export default function App() {
 }
 
 function InnerApp() {
+  const mode = useAppMode();
   const location = useLocation();
+
+  if (mode === 'job_seeker') {
+    return <JobSeekerRoutes />;
+  }
+
   const landingPages = ["/", "/signup", "/join", "/login", "/reset-password", "/copilot", "/enterprise", "/pricing", "/rex", "/rexsupport", "/chromeextension", "/chromeextension/privacy", "/terms", "/apidoc", "/test-gmail", "/affiliates", "/blog/zapierguide", "/producthunt", "/dfydashboard", "/freeforever", "/jobs/share", "/apply", "/use-cases", "/use-cases/recruiting-agencies", "/use-cases/fractional-executives", "/use-cases/consultants"];
   // Treat blog landing and article pages as public landing pages (no dashboard UI)
   const isPartnerArea = location.pathname.startsWith('/partners');
