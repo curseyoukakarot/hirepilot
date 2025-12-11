@@ -8,7 +8,7 @@ import {
   FaCircle,
   FaComments,
   FaGlobe,
-  FaSparkles,
+  FaWandMagicSparkles,
 } from 'react-icons/fa6';
 import { Link } from 'react-router-dom';
 
@@ -318,7 +318,7 @@ export default function JobPrepChatPage() {
                   className="flex-1 bg-transparent text-slate-100 placeholder-slate-500 resize-none outline-none"
                 />
                 <button className="text-slate-400 hover:text-slate-200 p-2">
-                  <FaSparkles />
+                  <FaWandMagicSparkles />
                 </button>
                 <button
                   onClick={handleSend}
