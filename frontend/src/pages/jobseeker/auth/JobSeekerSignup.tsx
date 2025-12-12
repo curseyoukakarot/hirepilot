@@ -37,92 +37,97 @@ export default function JobSeekerSignup() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (loading) return;
     setError('');
     setLoading(true);
-    try {
-      // Primary path: backend admin signup (sets email_confirm)
-      await apiPost(
-        '/api/auth/signup',
-        {
-          email: form.email,
-          password: form.password,
-          first_name: form.firstName,
-          last_name: form.lastName,
-          metadata: {
-            company: form.company,
-            linkedin_url: form.linkedin,
-            account_type: 'job_seeker',
-          },
-        },
-        { requireAuth: false }
-      );
-    } catch (primaryErr: any) {
-      // Fallback: client-side Supabase signUp (avoids backend 401)
-      const { error: signUpErr } = await supabase.auth.signUp({
-        email: form.email,
-        password: form.password,
-        options: {
-          data: {
-            first_name: form.firstName,
-            last_name: form.lastName,
-            company: form.company,
-            linkedin_url: form.linkedin,
-            account_type: 'job_seeker',
-          },
-        },
-      });
-      if (signUpErr) {
-        setError(primaryErr?.message || signUpErr?.message || 'Signup failed.');
-        return;
-      }
-    }
 
-    // create profile row
+    const { firstName, lastName, email, password, company, linkedin } = form;
     let userId: string | undefined;
-    try {
-      const { data: authUser } = await supabase.auth.getUser();
-      userId = authUser?.user?.id;
-    } catch {}
 
-    // Ensure session (sign in if needed)
     try {
-      const { data, error: signInErr } = await supabase.auth.signInWithPassword({
-        email: form.email,
-        password: form.password,
+      // 1) Backend-first signup (admin createUser)
+      const backendRes = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          password,
+          first_name: firstName,
+          last_name: lastName,
+          metadata: {
+            company,
+            linkedin_url: linkedin,
+            account_type: 'job_seeker',
+          },
+        }),
       });
-      if (!userId) userId = data?.user?.id;
-      if (signInErr) console.warn('Sign-in after signup failed (non-blocking):', signInErr);
-    } catch {}
 
-    // Provision user row with plan + account_type
-    try {
-      await apiPost(
-        '/api/createUser',
-        {
-          id: userId,
-          email: form.email,
-          first_name: form.firstName,
-          last_name: form.lastName,
-          company: form.company,
-          linkedin_url: form.linkedin,
-          plan: 'free',
-          account_type: 'job_seeker',
-        },
-        { requireAuth: false }
-      );
-    } catch (createErr: any) {
-      console.warn('Job seeker createUser non-blocking error', createErr);
+      if (backendRes.ok) {
+        const data = await backendRes.json().catch(() => ({}));
+        userId = data?.user?.id || userId;
+      } else if (backendRes.status === 401 || backendRes.status === 403) {
+        // 2) Fallback: client-side Supabase signUp
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              first_name: firstName,
+              last_name: lastName,
+              company,
+              linkedin_url: linkedin,
+              account_type: 'job_seeker',
+            },
+          },
+        });
+        if (error) throw error;
+        userId = data?.user?.id || userId;
+      } else {
+        const errData = await backendRes.json().catch(() => ({}));
+        throw new Error(errData?.error || `Signup failed (${backendRes.status})`);
+      }
+
+      // 3) Ensure session (sign in if needed)
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (!sessionData?.session) {
+          const { data, error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
+          if (signInErr) throw signInErr;
+          if (!userId) userId = data?.user?.id;
+        }
+      } catch (signinErr) {
+        console.warn('Sign-in after signup failed (non-blocking):', signinErr);
+      }
+
+      // 4) Provision user row with plan + account_type
+      try {
+        await apiPost(
+          '/api/createUser',
+          {
+            id: userId,
+            email,
+            first_name: firstName,
+            last_name: lastName,
+            company,
+            linkedin_url: linkedin,
+            plan: 'free',
+            account_type: 'job_seeker',
+          },
+          { requireAuth: false }
+        );
+      } catch (createErr: any) {
+        console.warn('Job seeker createUser non-blocking error', createErr);
+      }
+
+      if (userId) await updateAccountType(userId);
+
+      toast.success('Welcome to HirePilot for Job Seekers!');
+      navigate(resolveRedirect(), { replace: true });
+    } catch (err: any) {
+      setError(err?.message || 'Signup failed.');
+    } finally {
+      setLoading(false);
     }
-
-    if (userId) await updateAccountType(userId);
-
-    toast.success('Welcome to HirePilot for Job Seekers!');
-    navigate(resolveRedirect(), { replace: true });
-  } catch (err: any) {
-    setError(err?.message || 'Signup failed.');
-  } finally {
-    setLoading(false);
-  }
   };
 
   const handleGoogle = async () => {
