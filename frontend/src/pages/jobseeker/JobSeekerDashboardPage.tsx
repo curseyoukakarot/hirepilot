@@ -41,7 +41,7 @@ export default function JobSeekerDashboardPage() {
   };
 
   return (
-    <div className="bg-[#0f0f0f] text-gray-100 min-h-screen font-sans">
+    <div className="bg-[#0b1220] text-gray-100 min-h-screen font-sans">
       {/* Header */}
       <header className="border-b border-neutral-800 bg-[#1a1a1a]/50 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-6 py-4">

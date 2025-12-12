@@ -20,7 +20,7 @@ export function JobsSidebar({
   onCloseMobile,
 }: JobsSidebarProps) {
   const SidebarBody = (
-    <aside className="flex h-full w-72 flex-col border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+    <aside className="flex h-full w-60 flex-col border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
       <div className="px-4 pt-4">
         <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900/40">
           <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">REX</div>

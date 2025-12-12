@@ -82,7 +82,7 @@ export function JobsLayout({ children }: { children: React.ReactNode }) {
   const currentPath = typeof window !== 'undefined' ? window.location.pathname : undefined;
 
   return (
-    <div className="min-h-screen bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
+    <div className="min-h-screen bg-[#0b1220] text-zinc-100 dark:bg-[#0b1220]">
       <JobsNavbar logoSrc="/images/hirepilot-logo.svg" onMenuClick={() => setOpen(true)} />
       <div className="mx-auto flex max-w-7xl">
         <JobsSidebar
