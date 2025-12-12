@@ -2,10 +2,6 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 
 const navItems = [
-  { to: '/dashboard', label: 'Dashboard' },
-  { to: '/leads', label: 'Leads' },
-  { to: '/jobs', label: 'Jobs' },
-  { to: '/campaigns', label: 'Campaigns' },
   { to: '/prep', label: 'Prep' },
   { to: '/messages', label: 'Messages' },
   { to: '/agent-mode', label: 'Agent Mode' },
