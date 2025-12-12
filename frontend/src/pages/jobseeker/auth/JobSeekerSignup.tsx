@@ -40,6 +40,7 @@ export default function JobSeekerSignup() {
     setError('');
     setLoading(true);
     try {
+      try {
       // Primary path: backend admin signup (sets email_confirm)
       await apiPost('/api/auth/signup', {
         email: form.email,
@@ -114,6 +115,7 @@ export default function JobSeekerSignup() {
     toast.success('Welcome to HirePilot for Job Seekers!');
     navigate(resolveRedirect(), { replace: true });
     setLoading(false);
+    }
   } catch (err: any) {
     setError(err?.message || 'Signup failed.');
     setLoading(false);
