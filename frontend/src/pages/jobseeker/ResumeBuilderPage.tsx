@@ -1,5 +1,5 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   FaArrowLeft,
   FaBrain,
@@ -10,8 +10,132 @@ import {
   FaDownload,
   FaCopy,
 } from 'react-icons/fa6';
+import { supabase } from '../../lib/supabaseClient';
+
+type GeneratedExperience = {
+  company: string;
+  title: string;
+  location?: string;
+  dates?: string;
+  whyHiredSummary?: string;
+  bullets: string[];
+  included?: boolean;
+};
+
+type GeneratedResumeJson = {
+  targetRole: { primaryTitle?: string; focus?: string[]; industry?: string[]; notes?: string };
+  summary: string;
+  skills: string[];
+  experience: GeneratedExperience[];
+};
+
+const defaultResume: GeneratedResumeJson = {
+  targetRole: {
+    primaryTitle: 'Head of Sales',
+    focus: ['Leadership', 'IC', 'Hybrid'],
+    industry: ['B2B SaaS', 'Healthtech'],
+    notes: 'Short guidance / refined target statement',
+  },
+  summary:
+    "Results-driven sales leader with 8+ years building and scaling high-performing GTM teams in B2B SaaS. Proven track record of driving 40%+ ARR growth through strategic outbound motions and data-driven playbooks. Seeking Head of Sales role to leverage expertise in pipeline architecture and team development.",
+  skills: ['GTM Strategy', 'Pipeline Management', 'Outbound Playbooks', 'MEDDIC', 'Team Building', 'SaaS Sales', 'Enterprise Sales', 'Salesforce'],
+  experience: [
+    {
+      company: 'Nimbus Data',
+      title: 'Head of Sales',
+      location: 'San Francisco, CA',
+      dates: '2021 – Present',
+      whyHiredSummary: 'Hired to build and scale a remote-first outbound sales org and grow ARR.',
+      bullets: [
+        'Scaled enterprise sales team from 5 to 15 reps, driving $3M → $13.2M ARR in 18 months',
+        'Implemented MEDDIC + Salesforce automation, cutting sales cycle by 25% and lifting win rate by 35%',
+        'Closed 3 enterprise deals worth $2M+ each via strategic Fortune 500 partnerships',
+      ],
+      included: true,
+    },
+    {
+      company: 'CloudSync Technologies',
+      title: 'Sales Manager',
+      location: 'Remote',
+      dates: '2018 – 2021',
+      whyHiredSummary: 'Brought in to formalize outbound motion and coach mid-market team.',
+      bullets: [
+        'Built outbound playbooks that increased SQLs by 60% QoQ',
+        'Launched weekly deal reviews improving forecast accuracy by 22%',
+        'Grew pipeline coverage from 2.5x to 4.1x within 2 quarters',
+      ],
+      included: false,
+    },
+  ],
+};
+
+async function authHeaders() {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+  return headers;
+}
 
 export default function ResumeBuilderPage() {
+  const [searchParams] = useSearchParams();
+  const draftId = searchParams.get('draftId');
+  const backend = import.meta.env.VITE_BACKEND_URL || '';
+
+  const [resume, setResume] = useState<GeneratedResumeJson>(defaultResume);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!draftId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoading(true);
+        setLoadError(null);
+        const headers = await authHeaders();
+        const res = await fetch(`${backend}/api/jobs/resume-drafts/${draftId}`, { headers });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || 'Failed to load draft');
+        const payload = (data?.draft?.generated_resume_json || null) as GeneratedResumeJson | null;
+        if (payload && !cancelled) {
+          setResume({
+            targetRole: payload.targetRole || defaultResume.targetRole,
+            summary: payload.summary || defaultResume.summary,
+            skills: Array.isArray(payload.skills) && payload.skills.length > 0 ? payload.skills : defaultResume.skills,
+            experience:
+              Array.isArray(payload.experience) && payload.experience.length > 0 ? payload.experience : defaultResume.experience,
+          });
+        }
+      } catch (e: any) {
+        if (!cancelled) setLoadError(e?.message || 'Failed to load draft');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [backend, draftId]);
+
+  const experienceList = useMemo(
+    () => (resume.experience && resume.experience.length > 0 ? resume.experience : defaultResume.experience),
+    [resume.experience]
+  );
+  const activeExperience = experienceList[0] || defaultResume.experience[0];
+  const focusList = useMemo(
+    () => (resume.targetRole.focus && resume.targetRole.focus.length > 0 ? resume.targetRole.focus : defaultResume.targetRole.focus || []),
+    [resume.targetRole.focus]
+  );
+  const industries = useMemo(
+    () =>
+      resume.targetRole.industry && resume.targetRole.industry.length > 0
+        ? resume.targetRole.industry
+        : defaultResume.targetRole.industry || [],
+    [resume.targetRole.industry]
+  );
+
   return (
     <div className="bg-[#020617] text-slate-100 font-sans antialiased">
       <div id="resume-builder-page" className="max-w-7xl mx-auto px-4 lg:px-8 py-6 lg:py-8">
@@ -28,7 +152,9 @@ export default function ResumeBuilderPage() {
             </div>
             <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-900/70 border border-slate-800/80">
               <span className="text-xs text-slate-400">Target:</span>
-              <span className="text-xs font-medium text-slate-200">Head of Sales · B2B SaaS</span>
+              <span className="text-xs font-medium text-slate-200">
+                {(resume.targetRole.primaryTitle || 'Head of Sales')} {industries.length ? `· ${industries.join(' / ')}` : ''}
+              </span>
             </div>
           </div>
 
@@ -37,6 +163,13 @@ export default function ResumeBuilderPage() {
               <FaBrain className="text-indigo-400 text-xs" />
               <span className="text-xs text-indigo-300">Prep Center / Resume Builder</span>
             </div>
+            {draftId && (
+              <div className="px-3 py-1.5 rounded-full bg-slate-900/60 border border-slate-800 text-xs text-slate-400">
+                Prefilled from draft {draftId.slice(0, 8)}…
+              </div>
+            )}
+            {loading && <div className="text-xs text-slate-400">Loading draft…</div>}
+            {loadError && <div className="text-xs text-red-300">{loadError}</div>}
           </div>
 
           <h1 className="text-3xl lg:text-4xl font-bold text-white mb-2">Resume Builder</h1>
@@ -65,7 +198,7 @@ export default function ResumeBuilderPage() {
                   <label className="block text-sm font-medium text-slate-300 mb-2">Primary title</label>
                   <input
                     type="text"
-                    defaultValue="Head of Sales"
+                    defaultValue={resume.targetRole.primaryTitle || 'Head of Sales'}
                     className="w-full px-4 py-2.5 bg-slate-950/80 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 transition-colors"
                   />
                 </div>
@@ -73,33 +206,36 @@ export default function ResumeBuilderPage() {
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">Focus</label>
                   <div className="flex flex-wrap gap-2">
-                    <button className="px-3 py-1.5 rounded-lg bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-sm font-medium hover:bg-indigo-500/30 transition-all">
-                      Leadership
-                    </button>
-                    <button className="px-3 py-1.5 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-400 text-sm font-medium hover:bg-slate-800 transition-all">
-                      IC
-                    </button>
-                    <button className="px-3 py-1.5 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-400 text-sm font-medium hover:bg-slate-800 transition-all">
-                      Hybrid
-                    </button>
+                    {focusList.map((focus, idx) => (
+                      <button
+                        key={`${focus}-${idx}`}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                          idx === 0
+                            ? 'bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/30'
+                            : 'bg-slate-800/50 border border-slate-700 text-slate-400 hover:bg-slate-800'
+                        }`}
+                      >
+                        {focus}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">Industry</label>
                   <div className="flex flex-wrap gap-2">
-                    <button className="px-3 py-1.5 rounded-lg bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-sm font-medium hover:bg-indigo-500/30 transition-all">
-                      B2B SaaS
-                    </button>
-                    <button className="px-3 py-1.5 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-400 text-sm font-medium hover:bg-slate-800 transition-all">
-                      Healthtech
-                    </button>
-                    <button className="px-3 py-1.5 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-400 text-sm font-medium hover:bg-slate-800 transition-all">
-                      Fintech
-                    </button>
-                    <button className="px-3 py-1.5 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-400 text-sm font-medium hover:bg-slate-800 transition-all">
-                      Enterprise
-                    </button>
+                    {industries.map((industry, idx) => (
+                      <button
+                        key={`${industry}-${idx}`}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                          idx === 0
+                            ? 'bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/30'
+                            : 'bg-slate-800/50 border border-slate-700 text-slate-400 hover:bg-slate-800'
+                        }`}
+                      >
+                        {industry}
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -132,47 +268,42 @@ export default function ResumeBuilderPage() {
               </div>
 
               <div className="space-y-3 mb-6">
-                <div className="p-4 rounded-xl bg-slate-950/50 border border-indigo-500/30 hover:border-indigo-500/50 transition-all cursor-pointer">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
-                      <h3 className="text-sm font-semibold text-white">Head of Sales</h3>
-                      <p className="text-xs text-slate-400">Nimbus Data</p>
+                {experienceList.map((exp, idx) => {
+                  const included = exp.included !== false;
+                  return (
+                    <div
+                      key={`${exp.company}-${idx}`}
+                      className={`p-4 rounded-xl bg-slate-950/50 border ${
+                        included ? 'border-indigo-500/30 hover:border-indigo-500/50' : 'border-slate-800 hover:border-slate-700'
+                      } transition-all cursor-pointer`}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1">
+                          <h3 className="text-sm font-semibold text-white">{exp.title || 'Role'}</h3>
+                          <p className="text-xs text-slate-400">{exp.company || 'Company'}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button className="w-7 h-7 rounded-lg bg-slate-800/50 border border-slate-700 flex items-center justify-center hover:bg-slate-800 transition-all">
+                            <FaPen className="text-xs text-slate-400" />
+                          </button>
+                          <span
+                            className={`px-2.5 py-1 rounded-md text-xs font-medium ${
+                              included
+                                ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+                                : 'bg-slate-800/50 border border-slate-700 text-slate-400'
+                            }`}
+                          >
+                            {included ? 'Included' : 'Excluded'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-slate-500">{exp.dates || 'Dates TBD'}</span>
+                        <button className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">View bullets</button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button className="w-7 h-7 rounded-lg bg-slate-800/50 border border-slate-700 flex items-center justify-center hover:bg-slate-800 transition-all">
-                        <FaPen className="text-xs text-slate-400" />
-                      </button>
-                      <span className="px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium">
-                        Included
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-slate-500">2021 – Present</span>
-                    <button className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">View bullets</button>
-                  </div>
-                </div>
-
-                <div className="p-4 rounded-xl bg-slate-950/50 border border-slate-800 hover:border-slate-700 transition-all cursor-pointer">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
-                      <h3 className="text-sm font-semibold text-white">VP of Sales</h3>
-                      <p className="text-xs text-slate-400">CloudSync Technologies</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button className="w-7 h-7 rounded-lg bg-slate-800/50 border border-slate-700 flex items-center justify-center hover:bg-slate-800 transition-all">
-                        <FaPen className="text-xs text-slate-400" />
-                      </button>
-                      <span className="px-2.5 py-1 rounded-md bg-slate-800/50 border border-slate-700 text-slate-400 text-xs font-medium">
-                        Excluded
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-slate-500">2018 – 2021</span>
-                    <button className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">View bullets</button>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
 
               <button className="w-full py-2.5 rounded-lg border-2 border-dashed border-slate-700 text-slate-400 text-sm font-medium hover:border-slate-600 hover:text-slate-300 transition-all flex items-center justify-center gap-2">
@@ -188,7 +319,7 @@ export default function ResumeBuilderPage() {
                     <label className="block text-xs font-medium text-slate-400 mb-1.5">Title</label>
                     <input
                       type="text"
-                      defaultValue="Head of Sales"
+                      defaultValue={activeExperience.title || 'Head of Sales'}
                       className="w-full px-3 py-2 bg-slate-950/80 border border-slate-800 rounded-lg text-sm text-slate-100 focus:outline-none focus:border-indigo-500/50 transition-colors"
                     />
                   </div>
@@ -196,7 +327,7 @@ export default function ResumeBuilderPage() {
                     <label className="block text-xs font-medium text-slate-400 mb-1.5">Company</label>
                     <input
                       type="text"
-                      defaultValue="Nimbus Data"
+                      defaultValue={activeExperience.company || 'Company'}
                       className="w-full px-3 py-2 bg-slate-950/80 border border-slate-800 rounded-lg text-sm text-slate-100 focus:outline-none focus:border-indigo-500/50 transition-colors"
                     />
                   </div>
@@ -204,6 +335,7 @@ export default function ResumeBuilderPage() {
                     <label className="block text-xs font-medium text-slate-400 mb-1.5">Location</label>
                     <input
                       type="text"
+                      defaultValue={activeExperience.location || ''}
                       placeholder="San Francisco, CA"
                       className="w-full px-3 py-2 bg-slate-950/80 border border-slate-800 rounded-lg text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500/50 transition-colors"
                     />
@@ -212,7 +344,7 @@ export default function ResumeBuilderPage() {
                     <label className="block text-xs font-medium text-slate-400 mb-1.5">Dates</label>
                     <input
                       type="text"
-                      defaultValue="2021 – Present"
+                      defaultValue={activeExperience.dates || ''}
                       className="w-full px-3 py-2 bg-slate-950/80 border border-slate-800 rounded-lg text-sm text-slate-100 focus:outline-none focus:border-indigo-500/50 transition-colors"
                     />
                   </div>
@@ -222,6 +354,7 @@ export default function ResumeBuilderPage() {
                   <label className="block text-xs font-medium text-slate-400 mb-1.5">Raw achievements / notes</label>
                   <textarea
                     rows={4}
+                    defaultValue={activeExperience.whyHiredSummary || ''}
                     placeholder="Paste your achievements, metrics, or notes here..."
                     className="w-full px-3 py-2 bg-slate-950/80 border border-slate-800 rounded-lg text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500/50 transition-colors resize-none"
                   />
@@ -238,39 +371,16 @@ export default function ResumeBuilderPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <div className="flex items-start gap-3 p-3 rounded-lg bg-slate-950/50 border border-slate-800">
-                    <input
-                      type="checkbox"
-                      defaultChecked
-                      className="mt-1 w-4 h-4 rounded border-slate-700 bg-slate-900 text-indigo-500 focus:ring-indigo-500/50"
-                    />
-                    <p className="text-xs text-slate-300 leading-relaxed">
-                      Increased ARR by 42% in 12 months by leading a 5-person outbound team and implementing data-driven
-                      playbooks
-                    </p>
-                  </div>
-                  <div className="flex items-start gap-3 p-3 rounded-lg bg-slate-950/50 border border-slate-800">
-                    <input
-                      type="checkbox"
-                      defaultChecked
-                      className="mt-1 w-4 h-4 rounded border-slate-700 bg-slate-900 text-indigo-500 focus:ring-indigo-500/50"
-                    />
-                    <p className="text-xs text-slate-300 leading-relaxed">
-                      Reduced sales cycle from 90 to 45 days by implementing MEDDIC qualification framework across the entire
-                      team
-                    </p>
-                  </div>
-                  <div className="flex items-start gap-3 p-3 rounded-lg bg-slate-950/50 border border-slate-800">
-                    <input
-                      type="checkbox"
-                      defaultChecked
-                      className="mt-1 w-4 h-4 rounded border-slate-700 bg-slate-900 text-indigo-500 focus:ring-indigo-500/50"
-                    />
-                    <p className="text-xs text-slate-300 leading-relaxed">
-                      Built and scaled outbound motion from 0 to $2.4M pipeline in 6 months through strategic SDR hiring and
-                      enablement
-                    </p>
-                  </div>
+                  {(activeExperience.bullets || []).map((bullet, idx) => (
+                    <div key={`${bullet}-${idx}`} className="flex items-start gap-3 p-3 rounded-lg bg-slate-950/50 border border-slate-800">
+                      <input
+                        type="checkbox"
+                        defaultChecked
+                        className="mt-1 w-4 h-4 rounded border-slate-700 bg-slate-900 text-indigo-500 focus:ring-indigo-500/50"
+                      />
+                      <p className="text-xs text-slate-300 leading-relaxed">{bullet}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -288,7 +398,7 @@ export default function ResumeBuilderPage() {
                 <label className="block text-sm font-medium text-slate-300 mb-2">Summary</label>
                 <textarea
                   rows={4}
-                  defaultValue="Results-driven sales leader with 8+ years building and scaling high-performing GTM teams in B2B SaaS. Proven track record of driving 40%+ ARR growth through strategic outbound motions and data-driven playbooks. Seeking Head of Sales role to leverage expertise in pipeline architecture and team development."
+                  defaultValue={resume.summary}
                   placeholder="2–3 lines summarizing who you are, your core value, and what you're looking for."
                   className="w-full px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 transition-colors resize-none"
                 />
@@ -301,16 +411,7 @@ export default function ResumeBuilderPage() {
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">Skills</label>
                 <div className="flex flex-wrap gap-2">
-                  {[
-                    'GTM Strategy',
-                    'Pipeline Management',
-                    'Outbound Playbooks',
-                    'MEDDIC',
-                    'Team Building',
-                    'SaaS Sales',
-                    'Enterprise Sales',
-                    'Salesforce',
-                  ].map((skill) => (
+                  {resume.skills.map((skill) => (
                     <button
                       key={skill}
                       className="px-3 py-1.5 rounded-lg bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-sm font-medium hover:bg-indigo-500/30 transition-all"

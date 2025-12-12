@@ -8,6 +8,7 @@ import ResumeBuilderPage from './ResumeBuilderPage';
 import ResumeParserPage from './ResumeParserPage';
 import LandingPageBuilderPage from './LandingPageBuilderPage';
 import JobPrepChatPage from './JobPrepChatPage';
+import ResumeWizardPage from './ResumeWizardPage';
 import JobSeekerJobsPage from './JobSeekerJobsPage';
 import JobSeekerJobDetailPage from './JobSeekerJobDetailPage';
 import JobSeekerLogin from './auth/JobSeekerLogin';
@@ -95,7 +96,9 @@ export default function JobSeekerRoutes() {
             <Route path="/jobs/:id" element={<JobSeekerJobDetailPage />} />
             <Route path="/campaigns" element={<Campaigns />} />
             <Route path="/prep" element={<PrepPage />} />
-            <Route path="/prep/resume-builder" element={<ResumeBuilderPage />} />
+            <Route path="/prep/resume/wizard" element={<ResumeWizardPage />} />
+            <Route path="/prep/resume/builder" element={<ResumeBuilderPage />} />
+            <Route path="/prep/resume-builder" element={<Navigate to="/prep/resume/builder" replace />} />
             <Route path="/prep/resume-parser" element={<ResumeParserPage />} />
             <Route path="/prep/landing-page" element={<LandingPageBuilderPage />} />
             <Route path="/prep/rex-chat" element={<JobPrepChatPage />} />

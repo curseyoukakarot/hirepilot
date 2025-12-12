@@ -86,6 +86,7 @@ import submitCandidateRouter from './src/routes/submitCandidate';
 import searchRouter from './src/routes/search';
 import activitiesRouter from './src/routes/activities';
 import featureEventsRouter from './src/routes/events.feature';
+import resumeDraftsRouter from './src/routes/resumeDrafts';
 import zapierActionsRouter from './src/routes/zapierActions';
 import opportunityPipelineRouter from './src/routes/opportunityPipeline';
 import invoicesRouter from './src/routes/invoices';
@@ -479,6 +480,7 @@ app.use('/api/jobs', requireAuthFlag, async (req, res, next) => {
   }
   next();
 });
+app.use('/api/jobs/resume-drafts', resumeDraftsRouter);
   app.use('/api', apiRouter);
 app.use('/api/admin', linkedinSessionAdminRouter);
 app.get('/api/advanced-info', getAdvancedInfo);

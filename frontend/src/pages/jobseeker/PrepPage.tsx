@@ -31,11 +31,11 @@ export default function PrepPage() {
       {/* Pill Navigation */}
       <div id="prep-nav" className="mt-4 mb-6 flex flex-wrap gap-2">
         <Link
-          to="/prep/resume-builder"
+          to="/prep/resume/wizard"
           className="inline-flex items-center gap-1 rounded-full border border-slate-700 bg-slate-900/80 px-3 py-1.5 text-xs font-medium text-slate-200 hover:border-sky-500 hover:text-sky-100 hover:bg-slate-900 transition"
         >
           <FaFileLines />
-          <span>Resume Builder</span>
+          <span>Resume Wizard</span>
         </Link>
         <Link
           to="/prep/resume-parser"
@@ -102,11 +102,18 @@ export default function PrepPage() {
             </div>
 
             <Link
-              to="/prep/resume-builder"
+              to="/prep/resume/wizard"
               className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-sky-500 px-4 py-3 text-sm font-medium text-white hover:bg-sky-600 transition"
             >
               <FaPlus />
-              <span>Start Building</span>
+              <span>Create Resume (1-Click)</span>
+            </Link>
+            <Link
+              to="/prep/resume/builder"
+              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-900/70 px-4 py-3 text-sm font-medium text-slate-200 hover:border-sky-500 transition"
+            >
+              <FaPlus />
+              <span>Open Builder</span>
             </Link>
           </div>
 
