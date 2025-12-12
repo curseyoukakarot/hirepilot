@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../../lib/supabaseClient';
-import { apiPost } from '../../../lib/api';
 import { toast } from 'react-hot-toast';
 import { FaGoogle, FaMicrosoft } from 'react-icons/fa6';
 
@@ -23,6 +22,10 @@ export default function JobSeekerSignup() {
     setForm((prev) => ({ ...prev, [key]: e.target.value }));
 
   const resolveRedirect = () => '/dashboard';
+  const backendBase = useMemo(() => {
+    const base = (import.meta.env.VITE_BACKEND_URL || 'https://api.thehirepilot.com').trim();
+    return base.replace(/\/$/, '');
+  }, []);
 
   const updateAccountType = async (userId: string) => {
     try {
@@ -46,7 +49,7 @@ export default function JobSeekerSignup() {
 
     try {
       // 1) Backend-first signup (admin createUser)
-      const backendRes = await fetch('/api/auth/signup', {
+      const backendRes = await fetch(`${backendBase}/api/auth/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -101,9 +104,10 @@ export default function JobSeekerSignup() {
 
       // 4) Provision user row with plan + account_type
       try {
-        await apiPost(
-          '/api/createUser',
-          {
+        await fetch(`${backendBase}/api/createUser`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
             id: userId,
             email,
             first_name: firstName,
@@ -112,9 +116,8 @@ export default function JobSeekerSignup() {
             linkedin_url: linkedin,
             plan: 'free',
             account_type: 'job_seeker',
-          },
-          { requireAuth: false }
-        );
+          }),
+        });
       } catch (createErr: any) {
         console.warn('Job seeker createUser non-blocking error', createErr);
       }
