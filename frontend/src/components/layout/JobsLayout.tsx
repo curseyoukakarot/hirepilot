@@ -84,14 +84,14 @@ export function JobsLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-[#0b1220] text-zinc-100 dark:bg-[#0b1220]">
       <JobsNavbar logoSrc="/images/hirepilot-logo.svg" onMenuClick={() => setOpen(true)} />
-      <div className="mx-auto flex max-w-7xl">
+      <div className="flex w-full">
         <JobsSidebar
           items={items}
           currentPath={currentPath}
           isOpenMobile={open}
           onCloseMobile={() => setOpen(false)}
         />
-        <main className="min-w-0 flex-1 px-4 py-6">{children}</main>
+        <main className="min-w-0 flex-1 px-4 py-6 md:px-6">{children}</main>
       </div>
     </div>
   );

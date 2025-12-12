@@ -22,7 +22,7 @@ export function JobsNavbar({ logoSrc, onMenuClick }: JobsNavbarProps) {
 
   return (
     <header className="sticky top-0 z-40 border-b border-zinc-200/70 bg-white/80 backdrop-blur dark:border-zinc-800/70 dark:bg-zinc-950/70">
-      <div className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-4">
+      <div className="mx-auto flex h-14 w-full items-center gap-3 px-4 lg:px-6">
         <button
           type="button"
           onClick={onMenuClick}
