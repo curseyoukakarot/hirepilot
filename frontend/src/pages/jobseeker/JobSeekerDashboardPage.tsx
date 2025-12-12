@@ -7,7 +7,7 @@ import {
   FaComments,
   FaClock,
   FaMagnifyingGlass,
-  FaUserEdit,
+  FaUserPen,
   FaFileLines,
   FaChartLine,
 } from 'react-icons/fa6';
@@ -217,7 +217,7 @@ export default function JobSeekerDashboardPage() {
               <div className="space-y-3">
                 {[
                   { icon: <FaMagnifyingGlass className="text-blue-400" />, label: 'Browse Jobs' },
-                  { icon: <FaUserEdit className="text-green-400" />, label: 'Update Profile' },
+                  { icon: <FaUserPen className="text-green-400" />, label: 'Update Profile' },
                   { icon: <FaFileLines className="text-violet-400" />, label: 'Upload Resume' },
                   { icon: <FaChartLine className="text-orange-400" />, label: 'View Analytics' },
                 ].map((action) => (
