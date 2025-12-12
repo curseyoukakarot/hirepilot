@@ -3,7 +3,7 @@ import {
   FaWandMagicSparkles,
   FaCrosshairs,
   FaPlay,
-  FaArrowUpRight,
+  FaArrowUp,
   FaEnvelope,
   FaPaperPlane,
   FaLinkedin,
@@ -85,7 +85,7 @@ export default function JobSeekerDashboardPage() {
                 </div>
                 <button className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-300 hover:border-slate-600 transition-colors">
                   View all jobs
-                  <FaArrowUpRight className="text-xs" />
+                  <FaArrowUp className="text-xs" />
                 </button>
               </div>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
