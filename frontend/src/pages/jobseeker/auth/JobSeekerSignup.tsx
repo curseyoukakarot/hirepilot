@@ -52,28 +52,29 @@ export default function JobSeekerSignup() {
           account_type: 'job_seeker',
         },
       }, { requireAuth: false });
-      } catch (primaryErr: any) {
-        // Fallback: client-side Supabase signUp (avoids backend 401)
-        try {
-          const { error: signUpErr } = await supabase.auth.signUp({
-            email: form.email,
-            password: form.password,
-            options: {
-              data: {
-                first_name: form.firstName,
-                last_name: form.lastName,
-                company: form.company,
-                linkedin_url: form.linkedin,
-                account_type: 'job_seeker',
-              }
+    } catch (primaryErr: any) {
+      // Fallback: client-side Supabase signUp (avoids backend 401)
+      try {
+        const { error: signUpErr } = await supabase.auth.signUp({
+          email: form.email,
+          password: form.password,
+          options: {
+            data: {
+              first_name: form.firstName,
+              last_name: form.lastName,
+              company: form.company,
+              linkedin_url: form.linkedin,
+              account_type: 'job_seeker',
             }
-          });
-          if (signUpErr) throw signUpErr;
-        } catch (fallbackErr) {
-          setError(primaryErr?.message || (fallbackErr as any)?.message || 'Signup failed.');
-          return;
-        }
+          }
+        });
+        if (signUpErr) throw signUpErr;
+      } catch (fallbackErr) {
+        setError(primaryErr?.message || (fallbackErr as any)?.message || 'Signup failed.');
+        setLoading(false);
+        return;
       }
+    }
 
     // create profile row
     let userId: string | undefined;
@@ -112,11 +113,11 @@ export default function JobSeekerSignup() {
 
     toast.success('Welcome to HirePilot for Job Seekers!');
     navigate(resolveRedirect(), { replace: true });
-  } catch (err: any) {
-    setError(err?.message || 'Signup failed.');
-  } finally {
-    setLoading(false);
-  }
+    } catch (err: any) {
+      setError(err?.message || 'Signup failed.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleGoogle = async () => {
