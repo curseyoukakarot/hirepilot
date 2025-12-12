@@ -113,11 +113,13 @@ export default function JobSeekerSignup() {
 
     toast.success('Welcome to HirePilot for Job Seekers!');
     navigate(resolveRedirect(), { replace: true });
-    } catch (err: any) {
-      setError(err?.message || 'Signup failed.');
-    } finally {
-      setLoading(false);
-    }
+    setLoading(false);
+    return;
+  } catch (err: any) {
+    setError(err?.message || 'Signup failed.');
+  } finally {
+    setLoading(false);
+  }
   };
 
   const handleGoogle = async () => {
