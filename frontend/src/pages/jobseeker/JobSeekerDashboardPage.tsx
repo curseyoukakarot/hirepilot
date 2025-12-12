@@ -6,7 +6,7 @@ import {
   FaEye,
   FaComments,
   FaClock,
-  FaSearch,
+  FaMagnifyingGlass,
   FaUserEdit,
   FaFileLines,
   FaChartLine,
@@ -216,7 +216,7 @@ export default function JobSeekerDashboardPage() {
               <h2 className="text-xl font-semibold text-white mb-6">Quick Actions</h2>
               <div className="space-y-3">
                 {[
-                  { icon: <FaSearch className="text-blue-400" />, label: 'Browse Jobs' },
+                  { icon: <FaMagnifyingGlass className="text-blue-400" />, label: 'Browse Jobs' },
                   { icon: <FaUserEdit className="text-green-400" />, label: 'Update Profile' },
                   { icon: <FaFileLines className="text-violet-400" />, label: 'Upload Resume' },
                   { icon: <FaChartLine className="text-orange-400" />, label: 'View Analytics' },
