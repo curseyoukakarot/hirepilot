@@ -138,8 +138,8 @@ export default function JobPrepChatPage() {
   };
 
   return (
-    <div className="bg-[#020617] text-slate-100 font-sans min-h-[calc(100vh-72px)]">
-      <div className="max-w-6xl mx-auto px-4 lg:px-8 py-6 lg:py-8 flex flex-col gap-4 h-[calc(100vh-72px)]">
+    <div className="bg-[#0b1220] text-slate-100 font-sans min-h-[calc(100vh-72px)]">
+      <div className="w-full px-4 lg:px-6 py-6 lg:py-8 flex flex-col gap-4 h-[calc(100vh-72px)]">
         {/* Header Bar */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -178,7 +178,7 @@ export default function JobPrepChatPage() {
         </div>
 
         {/* Main Layout Grid */}
-        <div className="grid flex-1 gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,2fr)_minmax(0,1.1fr)]">
+        <div className="grid flex-1 gap-4 lg:grid-cols-[320px_minmax(0,1.7fr)_340px] w-full">
           {/* Left Column */}
           <div className="rounded-2xl border border-slate-800/80 bg-slate-900/70 p-4 space-y-4 text-xs">
             <div className="space-y-2">
