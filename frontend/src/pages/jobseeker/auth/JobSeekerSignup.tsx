@@ -41,37 +41,38 @@ export default function JobSeekerSignup() {
     setLoading(true);
     try {
       // Primary path: backend admin signup (sets email_confirm)
-      await apiPost('/api/auth/signup', {
-        email: form.email,
-        password: form.password,
-        first_name: form.firstName,
-        last_name: form.lastName,
-        metadata: {
-          company: form.company,
-          linkedin_url: form.linkedin,
-          account_type: 'job_seeker',
-        },
-      }, { requireAuth: false });
-    } catch (primaryErr: any) {
-      // Fallback: client-side Supabase signUp (avoids backend 401)
-      try {
-        const { error: signUpErr } = await supabase.auth.signUp({
+      await apiPost(
+        '/api/auth/signup',
+        {
           email: form.email,
           password: form.password,
-          options: {
-            data: {
-              first_name: form.firstName,
-              last_name: form.lastName,
-              company: form.company,
-              linkedin_url: form.linkedin,
-              account_type: 'job_seeker',
-            }
-          }
-        });
-        if (signUpErr) throw signUpErr;
-      } catch (fallbackErr) {
-        setError(primaryErr?.message || (fallbackErr as any)?.message || 'Signup failed.');
-        setLoading(false);
+          first_name: form.firstName,
+          last_name: form.lastName,
+          metadata: {
+            company: form.company,
+            linkedin_url: form.linkedin,
+            account_type: 'job_seeker',
+          },
+        },
+        { requireAuth: false }
+      );
+    } catch (primaryErr: any) {
+      // Fallback: client-side Supabase signUp (avoids backend 401)
+      const { error: signUpErr } = await supabase.auth.signUp({
+        email: form.email,
+        password: form.password,
+        options: {
+          data: {
+            first_name: form.firstName,
+            last_name: form.lastName,
+            company: form.company,
+            linkedin_url: form.linkedin,
+            account_type: 'job_seeker',
+          },
+        },
+      });
+      if (signUpErr) {
+        setError(primaryErr?.message || signUpErr?.message || 'Signup failed.');
         return;
       }
     }
@@ -95,16 +96,20 @@ export default function JobSeekerSignup() {
 
     // Provision user row with plan + account_type
     try {
-      await apiPost('/api/createUser', {
-        id: userId,
-        email: form.email,
-        first_name: form.firstName,
-        last_name: form.lastName,
-        company: form.company,
-        linkedin_url: form.linkedin,
-        plan: 'free',
-        account_type: 'job_seeker',
-      }, { requireAuth: false });
+      await apiPost(
+        '/api/createUser',
+        {
+          id: userId,
+          email: form.email,
+          first_name: form.firstName,
+          last_name: form.lastName,
+          company: form.company,
+          linkedin_url: form.linkedin,
+          plan: 'free',
+          account_type: 'job_seeker',
+        },
+        { requireAuth: false }
+      );
     } catch (createErr: any) {
       console.warn('Job seeker createUser non-blocking error', createErr);
     }
@@ -113,8 +118,6 @@ export default function JobSeekerSignup() {
 
     toast.success('Welcome to HirePilot for Job Seekers!');
     navigate(resolveRedirect(), { replace: true });
-    setLoading(false);
-    return;
   } catch (err: any) {
     setError(err?.message || 'Signup failed.');
   } finally {
