@@ -7,6 +7,7 @@ import {
   FaLink,
   FaRotateLeft,
   FaWandMagicSparkles,
+  FaArrowUpRightFromSquare,
 } from 'react-icons/fa6';
 import { Link } from 'react-router-dom';
 
@@ -14,9 +15,10 @@ type Tone = 'Confident' | 'Warm' | 'Direct' | 'Story-driven';
 type SectionKey = 'about' | 'experience' | 'caseStudies' | 'testimonials' | 'contact';
 
 const initialHtml = `<section class="hero">
-  <h1>Brandon Omoregie</h1>
+  <h1>Your Name Here</h1>
   <p>Revenue leader helping B2B SaaS teams scale from $1M → $20M ARR.</p>
   <p>Head of Sales · GTM Strategy · Remote</p>
+  <a class="cta" href="#" target="_blank" rel="noreferrer">Schedule time with me</a>
 </section>
 
 <section class="about">
@@ -37,30 +39,7 @@ const initialHtml = `<section class="hero">
   <p>Email: you@example.com · LinkedIn: /in/your-handle</p>
 </section>`;
 
-const generatedHtml = `<section class="hero">
-  <h1>Brandon Omoregie</h1>
-  <p>Revenue leader helping B2B SaaS teams scale from $1M → $20M ARR.</p>
-  <p>Head of Sales · GTM Strategy · Remote</p>
-</section>
-
-<section class="about">
-  <h2>About</h2>
-  <p>I'm a results-driven revenue leader with 10+ years of experience building and scaling high-performing sales teams. My expertise lies in developing GTM strategies, optimizing sales processes, and driving sustainable growth for B2B SaaS companies.</p>
-</section>
-
-<section class="experience">
-  <h2>Selected Experience</h2>
-  <ul>
-    <li>Head of Sales – Nimbus Data (2021–Present)</li>
-    <li>VP of Sales – CloudSync Technologies (2018–2021)</li>
-    <li>Director of Sales – DataFlow Solutions (2015–2018)</li>
-  </ul>
-</section>
-
-<section class="contact">
-  <h2>Contact</h2>
-  <p>Email: brandon@example.com · LinkedIn: /in/brandon-omoregie</p>
-</section>`;
+const generatedHtml = initialHtml;
 
 const caseStudySnippet = `
 <section class="case-study">
@@ -83,6 +62,9 @@ export default function LandingPageBuilderPage() {
     "Short 1–2 sentence summary of who you are and what you do."
   );
   const [role, setRole] = useState('Head of Sales');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [calendly, setCalendly] = useState('');
   const [tones, setTones] = useState<Tone[]>([]);
   const [sections, setSections] = useState<Record<SectionKey, boolean>>({
     about: true,
@@ -108,7 +90,7 @@ export default function LandingPageBuilderPage() {
     setSections((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleGenerate = () => setHtmlContent(generatedHtml);
+  const handleGenerate = () => setHtmlContent(buildHtml());
 
   const handleInsertHero = () => {
     setHeroFocus('Revenue leader helping B2B SaaS teams scale from $1M → $20M ARR');
@@ -121,6 +103,68 @@ export default function LandingPageBuilderPage() {
 
   const toneActive = (tone: Tone) => tones.includes(tone);
   const sectionActive = (key: SectionKey) => sections[key];
+
+  const openPreviewTab = () => {
+    const html = htmlContent || buildHtml();
+    const fullDoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Landing Preview</title></head><body>${html}</body></html>`;
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.write(fullDoc);
+      win.document.close();
+    }
+  };
+
+  const buildHtml = () => {
+    const safeName = name?.trim() || 'Your Name Here';
+    const contactLine = `Email: ${email || 'you@example.com'}${calendly ? ` · Schedule: ${calendly}` : ''}`;
+    const toneLine = tones.length ? ` · Tone: ${tones.join(', ')}` : '';
+    const hero = `<section class="hero">
+  <h1>${safeName}</h1>
+  <p>${heroFocus}</p>
+  <p>${role || 'Your role here'}${toneLine}</p>
+  ${calendly ? `<a class="cta" href="${calendly}" target="_blank" rel="noreferrer">Schedule time with me</a>` : ''}
+</section>`;
+
+    const about = sections.about
+      ? `<section class="about">
+  <h2>About</h2>
+  <p>${heroSubtext}</p>
+</section>`
+      : '';
+
+    const experience = sections.experience
+      ? `<section class="experience">
+  <h2>Selected Experience</h2>
+  <ul>
+    <li>Head of Sales – Nimbus Data (2021–Present)</li>
+    <li>VP of Sales – CloudSync Technologies (2018–2021)</li>
+  </ul>
+</section>`
+      : '';
+
+    const caseStudies = sections.caseStudies
+      ? `<section class="case-study">
+  <h2>Case Study</h2>
+  <p>Challenge · Strategy · Execution · Outcome (with metrics)</p>
+</section>`
+      : '';
+
+    const testimonials = sections.testimonials
+      ? `<section class="testimonials">
+  <h2>Testimonials</h2>
+  <p>What people say about your work.</p>
+</section>`
+      : '';
+
+    const contact = sections.contact
+      ? `<section class="contact">
+  <h2>Contact</h2>
+  <p>${contactLine}</p>
+</section>`
+      : '';
+
+    return [hero, about, experience, caseStudies, testimonials, contact].filter(Boolean).join('\n\n');
+  };
 
   const previewClasses = useMemo(
     () =>
@@ -244,6 +288,39 @@ export default function LandingPageBuilderPage() {
                         </button>
                       ))}
                     </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-2">Name</label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-slate-950/80 border border-slate-800 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500/50 transition"
+                      placeholder="Your Name"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-2">Email</label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-slate-950/80 border border-slate-800 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500/50 transition"
+                      placeholder="you@email.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-2">Calendly link</label>
+                    <input
+                      type="text"
+                      value={calendly}
+                      onChange={(e) => setCalendly(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-slate-950/80 border border-slate-800 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500/50 transition"
+                      placeholder="https://calendly.com/your-link"
+                    />
                   </div>
                 </div>
 
@@ -386,6 +463,13 @@ export default function LandingPageBuilderPage() {
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold text-slate-100">Live preview</span>
               <div className="flex items-center gap-1 p-1 rounded-lg bg-slate-950/50 border border-slate-800">
+                <button
+                  onClick={openPreviewTab}
+                  className="px-2 py-1 rounded text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition"
+                  title="Open preview in new tab"
+                >
+                  <FaArrowUpRightFromSquare />
+                </button>
                 {(['dark', 'light'] as const).map((t) => (
                   <button
                     key={t}
@@ -406,12 +490,29 @@ export default function LandingPageBuilderPage() {
             >
               <div className="p-8 space-y-8">
                 <section className="hero-preview text-center space-y-3">
-                  <h1 className={`text-3xl font-bold ${previewClasses.h1}`}>Brandon Omoregie</h1>
+                  <h1 className={`text-3xl font-bold ${previewClasses.h1}`}>{name || 'Your Name Here'}</h1>
                   <p className={`text-lg ${previewClasses.pPrimary} max-w-2xl mx-auto`}>{heroFocus}</p>
-                  <p className={`text-sm ${previewClasses.p}`}>{role} · GTM Strategy · Remote</p>
-                  <button className="mt-4 px-6 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors">
-                    Contact
-                  </button>
+                  <p className={`text-sm ${previewClasses.p}`}>{role} · {tones.length ? tones.join(' · ') : 'Your focus'}</p>
+                  <div className="flex items-center justify-center gap-3 flex-wrap">
+                    {email && (
+                      <a
+                        className="mt-2 px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors"
+                        href={`mailto:${email}`}
+                      >
+                        Contact
+                      </a>
+                    )}
+                    {calendly && (
+                      <a
+                        className="mt-2 px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium transition-colors"
+                        href={calendly}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Schedule time with me
+                      </a>
+                    )}
+                  </div>
                 </section>
 
                 {sections.about && (
@@ -463,7 +564,8 @@ export default function LandingPageBuilderPage() {
                       Contact
                     </h2>
                     <p className={`text-sm ${previewClasses.p}`}>
-                      Email: you@example.com · LinkedIn: /in/your-handle
+                      Email: {email || 'you@example.com'}
+                      {calendly ? ` · Schedule: ${calendly}` : ''}
                     </p>
                   </section>
                 )}
