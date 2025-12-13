@@ -14,6 +14,13 @@ export default function JobPrepChatPage() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [role, setRole] = useState<string>('');
+  const [industry, setIndustry] = useState<string>('');
+  const [focus, setFocus] = useState<string>('');
+  const [showEditTarget, setShowEditTarget] = useState(false);
+  const [tempRole, setTempRole] = useState('');
+  const [tempIndustry, setTempIndustry] = useState('');
+  const [tempFocus, setTempFocus] = useState('');
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const isThinking = streaming || uploading;
@@ -184,33 +191,47 @@ export default function JobPrepChatPage() {
               <div className="space-y-1 text-slate-400">
                 <div className="flex justify-between">
                   <span>Role:</span>
-                  <span className="text-slate-300">Head of Sales</span>
+                  <span className="text-slate-300">{role || '—'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Industry:</span>
-                  <span className="text-slate-300">B2B SaaS</span>
+                  <span className="text-slate-300">{industry || '—'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Focus:</span>
-                  <span className="text-slate-300">Leadership · Remote-first</span>
+                  <span className="text-slate-300">{focus || '—'}</span>
                 </div>
               </div>
-              <button className="text-sky-400 hover:text-sky-300 text-xs">Edit job target</button>
+              <button
+                className="text-sky-400 hover:text-sky-300 text-xs"
+                onClick={() => {
+                  setTempRole(role);
+                  setTempIndustry(industry);
+                  setTempFocus(focus);
+                  setShowEditTarget(true);
+                }}
+              >
+                Edit job target
+              </button>
             </div>
 
             <div className="space-y-2">
               <h3 className="font-medium text-slate-200">Attached assets</h3>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-slate-300">
-                  <FaCheck className="text-emerald-400 text-xs" />
-                  <span>Resume: Brandon_Omoregie_Resume.pdf</span>
-                </div>
-                <div className="flex items-center gap-2 text-slate-300">
-                  <FaCheck className="text-emerald-400 text-xs" />
-                  <span>LinkedIn: /in/brandon</span>
-                </div>
-              </div>
-              <p className="text-slate-500 text-xs">REX will use these when rewriting content.</p>
+              {attachments.length === 0 ? (
+                <p className="text-slate-500 text-xs">No assets attached yet.</p>
+              ) : (
+                <>
+                  <div className="space-y-1">
+                    {attachments.map((att, idx) => (
+                      <div key={`${att.name}-${idx}`} className="flex items-center gap-2 text-slate-300">
+                        <FaCheck className="text-emerald-400 text-xs" />
+                        <span>{att.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-slate-500 text-xs">REX will use these when rewriting content.</p>
+                </>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -391,6 +412,67 @@ export default function JobPrepChatPage() {
           e.target.value = '';
         }}
       />
+
+      {showEditTarget && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-6 space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-white">Edit job target</h3>
+              <button className="text-slate-400 hover:text-white" onClick={() => setShowEditTarget(false)}>
+                Close
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm text-slate-300 mb-1">Role</label>
+                <input
+                  className="w-full px-3 py-2 rounded-lg bg-slate-950/70 border border-slate-800 text-slate-100 focus:outline-none focus:border-indigo-500/60"
+                  value={tempRole}
+                  onChange={(e) => setTempRole(e.target.value)}
+                  placeholder="e.g., Head of Sales"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-slate-300 mb-1">Industry</label>
+                <input
+                  className="w-full px-3 py-2 rounded-lg bg-slate-950/70 border border-slate-800 text-slate-100 focus:outline-none focus:border-indigo-500/60"
+                  value={tempIndustry}
+                  onChange={(e) => setTempIndustry(e.target.value)}
+                  placeholder="e.g., B2B SaaS"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-slate-300 mb-1">Focus</label>
+                <input
+                  className="w-full px-3 py-2 rounded-lg bg-slate-950/70 border border-slate-800 text-slate-100 focus:outline-none focus:border-indigo-500/60"
+                  value={tempFocus}
+                  onChange={(e) => setTempFocus(e.target.value)}
+                  placeholder="e.g., Leadership · Remote-first"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                className="px-4 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 hover:bg-slate-750 transition"
+                onClick={() => setShowEditTarget(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 transition"
+                onClick={() => {
+                  setRole(tempRole.trim());
+                  setIndustry(tempIndustry.trim());
+                  setFocus(tempFocus.trim());
+                  setShowEditTarget(false);
+                }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
