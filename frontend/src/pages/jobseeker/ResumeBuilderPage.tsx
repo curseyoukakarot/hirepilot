@@ -11,6 +11,7 @@ import {
   FaCopy,
 } from 'react-icons/fa6';
 import { supabase } from '../../lib/supabaseClient';
+import { useResumePreview } from '../../hooks/useResumePreview';
 
 type GeneratedExperience = {
   company: string;
@@ -83,6 +84,7 @@ export default function ResumeBuilderPage() {
   const draftId = searchParams.get('draftId');
   const backend = import.meta.env.VITE_BACKEND_URL || '';
 
+  const { preview, updateSection, copyText, downloadPdf, setDraft } = useResumePreview(defaultResume);
   const [resume, setResume] = useState<GeneratedResumeJson>(defaultResume);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -103,14 +105,16 @@ export default function ResumeBuilderPage() {
         if (!res.ok) throw new Error(data?.error || 'Failed to load draft');
         const payload = (data?.draft?.generated_resume_json || null) as GeneratedResumeJson | null;
         if (payload && !cancelled) {
-          setResume({
+          const next = {
             targetRole: payload.targetRole || defaultResume.targetRole,
             summary: payload.summary || defaultResume.summary,
             skills: Array.isArray(payload.skills) && payload.skills.length > 0 ? payload.skills : defaultResume.skills,
             experience:
               Array.isArray(payload.experience) && payload.experience.length > 0 ? payload.experience : defaultResume.experience,
             contact: payload.contact || defaultResume.contact,
-          });
+          };
+          setResume(next);
+          setDraft(next);
         }
       } catch (e: any) {
         if (!cancelled) setLoadError(e?.message || 'Failed to load draft');
@@ -136,20 +140,20 @@ export default function ResumeBuilderPage() {
   }, []);
 
   const experienceList = useMemo(
-    () => (resume.experience && resume.experience.length > 0 ? resume.experience : defaultResume.experience),
-    [resume.experience]
+    () => (preview.experience && preview.experience.length > 0 ? preview.experience : defaultResume.experience),
+    [preview.experience]
   );
   const activeExperience = experienceList[0] || defaultResume.experience[0];
   const focusList = useMemo(
-    () => (resume.targetRole.focus && resume.targetRole.focus.length > 0 ? resume.targetRole.focus : defaultResume.targetRole.focus || []),
-    [resume.targetRole.focus]
+    () => (preview.targetRole.focus && preview.targetRole.focus.length > 0 ? preview.targetRole.focus : defaultResume.targetRole.focus || []),
+    [preview.targetRole.focus]
   );
   const industries = useMemo(
     () =>
-      resume.targetRole.industry && resume.targetRole.industry.length > 0
-        ? resume.targetRole.industry
+      preview.targetRole.industry && preview.targetRole.industry.length > 0
+        ? preview.targetRole.industry
         : defaultResume.targetRole.industry || [],
-    [resume.targetRole.industry]
+    [preview.targetRole.industry]
   );
 
   const handleUpload = async (file: File) => {
@@ -195,7 +199,7 @@ export default function ResumeBuilderPage() {
             <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-900/70 border border-slate-800/80">
               <span className="text-xs text-slate-400">Target:</span>
               <span className="text-xs font-medium text-slate-200">
-                {(resume.targetRole.primaryTitle || 'Head of Sales')} {industries.length ? `· ${industries.join(' / ')}` : ''}
+                {(preview.targetRole.primaryTitle || 'Head of Sales')} {industries.length ? `· ${industries.join(' / ')}` : ''}
               </span>
             </div>
           </div>
@@ -504,14 +508,20 @@ export default function ResumeBuilderPage() {
               <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                 <span className="text-sm font-medium text-slate-300">Preview: ATS Clean</span>
                 <div className="flex items-center gap-2">
-                  <button className="px-3 py-1.5 rounded-lg bg-slate-900/50 border border-slate-800 text-slate-300 text-xs font-medium hover:bg-slate-900 transition-all flex items-center gap-2">
-                    <FaDownload className="text-xs" />
-                    Download
-                  </button>
-                  <button className="px-3 py-1.5 rounded-lg bg-slate-900/50 border border-slate-800 text-slate-300 text-xs font-medium hover:bg-slate-900 transition-all flex items-center gap-2">
-                    <FaCopy className="text-xs" />
-                    Copy text
-                  </button>
+                <button
+                  className="px-3 py-1.5 rounded-lg bg-slate-900/50 border border-slate-800 text-slate-300 text-xs font-medium hover:bg-slate-900 transition-all flex items-center gap-2"
+                  onClick={() => downloadPdf(backend, draftId || undefined)}
+                >
+                  <FaDownload className="text-xs" />
+                  Download
+                </button>
+                <button
+                  className="px-3 py-1.5 rounded-lg bg-slate-900/50 border border-slate-800 text-slate-300 text-xs font-medium hover:bg-slate-900 transition-all flex items-center gap-2"
+                  onClick={() => copyText()}
+                >
+                  <FaCopy className="text-xs" />
+                  Copy text
+                </button>
                   <button
                     className="px-3 py-1.5 rounded-lg bg-slate-900/50 border border-slate-800 text-slate-300 text-xs font-medium hover:bg-slate-900 transition-all flex items-center gap-2"
                     onClick={() => setShowExpanded(true)}
@@ -527,20 +537,20 @@ export default function ResumeBuilderPage() {
                 style={{ maxHeight: '900px' }}
               >
                 <div className="mb-6 pb-4 border-b-2 border-slate-300">
-                  <h1 className="text-3xl font-bold text-slate-900 mb-1">{resume.contact?.name || 'Your Name Here'}</h1>
+                  <h1 className="text-3xl font-bold text-slate-900 mb-1">{preview.contact?.name || 'Your Name Here'}</h1>
                   <p className="text-sm text-slate-700 font-medium mb-2">
-                    {(resume.targetRole.primaryTitle || 'Role')} · {(focusList[0] || 'Focus')} · {(industries[0] || 'Industry')}
+                    {(preview.targetRole.primaryTitle || 'Role')} · {(focusList[0] || 'Focus')} · {(industries[0] || 'Industry')}
                   </p>
                   <div className="flex items-center gap-3 text-xs text-slate-600">
-                    <span>{resume.contact?.email || 'you@email.com'}</span>
+                    <span>{preview.contact?.email || 'you@email.com'}</span>
                     <span>·</span>
-                    <span>{resume.contact?.linkedin || 'linkedin.com/in/username'}</span>
+                    <span>{preview.contact?.linkedin || 'linkedin.com/in/username'}</span>
                   </div>
                 </div>
 
                 <div className="mb-6">
                   <h2 className="text-xs font-bold tracking-wider text-slate-500 uppercase mb-2">SUMMARY</h2>
-                  <p className="text-sm text-slate-700 leading-relaxed">{resume.summary}</p>
+                  <p className="text-sm text-slate-700 leading-relaxed">{preview.summary}</p>
                 </div>
 
                 <div className="mb-6">
@@ -569,7 +579,7 @@ export default function ResumeBuilderPage() {
 
                 <div>
                   <h2 className="text-xs font-bold tracking-wider text-slate-500 uppercase mb-2">SKILLS</h2>
-                  <p className="text-xs text-slate-700 leading-relaxed">{resume.skills.join(' · ')}</p>
+                  <p className="text-xs text-slate-700 leading-relaxed">{preview.skills.join(' · ')}</p>
                 </div>
               </div>
             </div>
@@ -588,19 +598,19 @@ export default function ResumeBuilderPage() {
             </div>
             <div className="bg-slate-50 text-slate-900 rounded-xl p-8 space-y-4">
               <div className="mb-4 pb-3 border-b border-slate-200">
-                <h1 className="text-3xl font-bold mb-1">{resume.contact?.name || 'Your Name Here'}</h1>
+                <h1 className="text-3xl font-bold mb-1">{preview.contact?.name || 'Your Name Here'}</h1>
                 <p className="text-sm text-slate-700 font-medium mb-2">
-                  {(resume.targetRole.primaryTitle || 'Role')} · {(focusList[0] || 'Focus')} · {(industries[0] || 'Industry')}
+                  {(preview.targetRole.primaryTitle || 'Role')} · {(focusList[0] || 'Focus')} · {(industries[0] || 'Industry')}
                 </p>
                 <div className="flex items-center gap-3 text-xs text-slate-700">
-                  <span>{resume.contact?.email || 'you@email.com'}</span>
+                  <span>{preview.contact?.email || 'you@email.com'}</span>
                   <span>·</span>
-                  <span>{resume.contact?.linkedin || 'linkedin.com/in/username'}</span>
+                  <span>{preview.contact?.linkedin || 'linkedin.com/in/username'}</span>
                 </div>
               </div>
               <div>
                 <h2 className="text-xs font-bold tracking-wider text-slate-600 uppercase mb-2">Summary</h2>
-                <p className="text-sm leading-relaxed">{resume.summary}</p>
+                <p className="text-sm leading-relaxed">{preview.summary}</p>
               </div>
               <div>
                 <h2 className="text-xs font-bold tracking-wider text-slate-600 uppercase mb-2">Experience</h2>
@@ -628,7 +638,7 @@ export default function ResumeBuilderPage() {
               </div>
               <div>
                 <h2 className="text-xs font-bold tracking-wider text-slate-600 uppercase mb-2">Skills</h2>
-                <p className="text-xs leading-relaxed">{resume.skills.join(' · ')}</p>
+                <p className="text-xs leading-relaxed">{preview.skills.join(' · ')}</p>
               </div>
             </div>
           </div>
