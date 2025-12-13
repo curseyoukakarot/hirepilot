@@ -340,12 +340,21 @@ function InnerApp() {
   const location = useLocation();
   const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
 
+  console.log('[MODE DEBUG]', {
+    hostname,
+    path: location.pathname,
+    mode,
+  });
+
   // Onboarding: only serve on jobs domain; otherwise redirect to jobs
   if (location.pathname === '/onboarding') {
     if (hostname.startsWith('jobs.')) {
       return <JobSeekerRoutes />;
     }
-    return <Navigate to="https://jobs.thehirepilot.com/onboarding" replace />;
+    if (typeof window !== 'undefined') {
+      window.location.replace('https://jobs.thehirepilot.com/onboarding');
+    }
+    return null;
   }
 
   if (mode === 'job_seeker') {

@@ -9,6 +9,7 @@ import ResumeParserPage from './ResumeParserPage';
 import LandingPageBuilderPage from './LandingPageBuilderPage';
 import JobPrepChatPage from './JobPrepChatPage';
 import ResumeWizardPage from './ResumeWizardPage';
+import OnboardingPage from './OnboardingPage';
 import JobRequisitions from '../../screens/JobRequisitions';
 import JobRequisitionPage from '../../screens/JobRequisitionPage';
 import JobSeekerLogin from './auth/JobSeekerLogin';
@@ -50,6 +51,12 @@ function JobSeekerProtected({ children }: { children: React.ReactNode }) {
     (async () => {
       try {
         const { data } = await supabase.auth.getSession();
+        console.log('[JOBSEEKER AUTH DEBUG]', {
+          host: typeof window !== 'undefined' ? window.location.hostname : '',
+          path: typeof window !== 'undefined' ? window.location.pathname : '',
+          session: !!data?.session,
+          user: data?.session?.user?.id,
+        });
         if (!isMounted) return;
         setAuthed(!!data.session);
       } catch {
@@ -83,6 +90,8 @@ export default function JobSeekerRoutes() {
         <Routes>
           <Route path="/login" element={<JobSeekerLogin />} />
           <Route path="/signup" element={<JobSeekerSignup />} />
+          {/* Allow onboarding to render even if not authenticated */}
+          <Route path="/onboarding" element={<OnboardingPage />} />
           <Route
             element={
               <JobSeekerProtected>
@@ -109,6 +118,7 @@ export default function JobSeekerRoutes() {
             <Route path="/billing" element={<BillingScreen />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Route>
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </Suspense>
     </>
