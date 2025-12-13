@@ -793,96 +793,17 @@ export default function LandingPageBuilderPage() {
               </div>
             </div>
 
-            <div
-              id="preview-frame"
-              className={`relative flex-1 rounded-2xl border border-slate-800 overflow-auto ${previewClasses.wrapper}`}
-            >
-              <div className="p-8 space-y-8">
-                <section className="hero-preview text-center space-y-3">
-                  <h1 className={`text-3xl font-bold ${previewClasses.h1}`}>{name || 'Your Name Here'}</h1>
-                  <p className={`text-lg ${previewClasses.pPrimary} max-w-2xl mx-auto`}>{heroFocus}</p>
-                  <p className={`text-sm ${previewClasses.p}`}>{role} · {tones.length ? tones.join(' · ') : 'Your focus'}</p>
-                  <div className="flex items-center justify-center gap-3 flex-wrap">
-                    {email && (
-                      <a
-                        className="mt-2 px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors"
-                        href={`mailto:${email}`}
-                      >
-                        Contact
-                      </a>
-                    )}
-                    {calendly && (
-                      <a
-                        className="mt-2 px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium transition-colors"
-                        href={calendly}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Schedule time with me
-                      </a>
-                    )}
-                  </div>
-                </section>
-
-                {sections.about && (
-                  <section className="about-preview space-y-3">
-                    <h2 className={`text-xl font-semibold border-b border-slate-800 pb-2 ${previewClasses.h2}`}>
-                      About
-                    </h2>
-                    <p className={`text-sm leading-relaxed ${previewClasses.p}`}>
-                      {heroSubtext}
-                    </p>
-                  </section>
-                )}
-
-                {sections.experience && (
-                  <section className="experience-preview space-y-3">
-                    <h2 className={`text-xl font-semibold border-b border-slate-800 pb-2 ${previewClasses.h2}`}>
-                      Selected Experience
-                    </h2>
-                    <ul className="space-y-2">
-                      <li className={`text-sm ${previewClasses.p}`}>Head of Sales – Nimbus Data (2021–Present)</li>
-                      <li className={`text-sm ${previewClasses.p}`}>VP of Sales – CloudSync Technologies (2018–2021)</li>
-                    </ul>
-                  </section>
-                )}
-
-                {sections.caseStudies && (
-                  <section className="case-preview space-y-3">
-                    <h2 className={`text-xl font-semibold border-b border-slate-800 pb-2 ${previewClasses.h2}`}>
-                      Case Study
-                    </h2>
-                    <p className={`text-sm ${previewClasses.p}`}>
-                      Challenge · Strategy · Execution · Outcome (with metrics)
-                    </p>
-                  </section>
-                )}
-
-                {sections.testimonials && (
-                  <section className="testimonial-preview space-y-3">
-                    <h2 className={`text-xl font-semibold border-b border-slate-800 pb-2 ${previewClasses.h2}`}>
-                      Testimonials
-                    </h2>
-                    <p className={`text-sm ${previewClasses.p}`}>What people say about your work.</p>
-                  </section>
-                )}
-
-                {sections.contact && (
-                  <section className="contact-preview space-y-3">
-                    <h2 className={`text-xl font-semibold border-b border-slate-800 pb-2 ${previewClasses.h2}`}>
-                      Contact
-                    </h2>
-                    <p className={`text-sm ${previewClasses.p}`}>
-                      Email: {email || 'you@example.com'}
-                      {calendly ? ` · Schedule: ${calendly}` : ''}
-                    </p>
-                  </section>
-                )}
-              </div>
+            <div id="preview-frame" className="relative flex-1 rounded-2xl border border-slate-800 overflow-hidden bg-slate-950">
+              <iframe
+                title="Landing preview"
+                srcDoc={htmlContent || initialHtml}
+                className="w-full h-full border-0"
+                sandbox="allow-same-origin allow-popups allow-forms allow-scripts"
+              />
             </div>
 
             <p className="text-[10px] text-slate-500 text-center">
-              This is a visual approximation. The final hosted page will use your generated HTML.
+              This preview renders your current HTML content.
             </p>
           </div>
         </main>
