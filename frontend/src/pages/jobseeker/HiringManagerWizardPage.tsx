@@ -108,10 +108,35 @@ export default function HiringManagerWizardPage() {
     }));
   };
 
-  const handleLaunch = () => {
-    // Placeholder: in a full build, create campaign and redirect
-    alert('Campaign launched — targeting hiring managers');
-    navigate('/campaigns');
+  const handleLaunch = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const { data: session } = await supabase.auth.getSession();
+      const token = session?.session?.access_token;
+      if (!token) throw new Error('Not authenticated');
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/jobs/hiring-manager-launch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          job_description: state.jobDescription,
+          company_name: state.company,
+          company_size: state.companySize,
+          industry: state.industry,
+          selected_titles: state.selectedTitles,
+          campaign_title: state.company ? `HM Outreach: ${state.company}` : 'Hiring Manager Outreach',
+        }),
+      });
+      if (!res.ok) {
+        const t = await res.text();
+        throw new Error(t || 'Launch failed');
+      }
+      navigate('/campaigns');
+    } catch (e: any) {
+      setError(e?.message || 'Failed to launch');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
