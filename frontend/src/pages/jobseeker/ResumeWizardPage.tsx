@@ -12,6 +12,7 @@ import {
   FaWandMagicSparkles,
 } from 'react-icons/fa6';
 import { supabase } from '../../lib/supabaseClient';
+import { UploadProgressOverlay } from '../../components/UploadProgressOverlay';
 
 type ChecklistState = 'idle' | 'active' | 'done';
 type Draft = { id: string };
@@ -35,6 +36,7 @@ export default function ResumeWizardPage() {
   const [linkedinFileName, setLinkedinFileName] = useState<string | null>(null);
   const [uploadingResume, setUploadingResume] = useState(false);
   const [uploadingLinkedIn, setUploadingLinkedIn] = useState(false);
+  const [parsingResume, setParsingResume] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -482,7 +484,13 @@ export default function ResumeWizardPage() {
         className="hidden"
         onChange={(e) => handleLinkedInFile(e.target.files?.[0] || null)}
       />
+
+      {(uploadingResume || uploadingLinkedIn) && (
+        <UploadProgressOverlay
+          title={uploadingResume ? 'Uploading your resume…' : 'Uploading LinkedIn PDF…'}
+          message="Extracting text. This may take up to ~30 seconds for larger documents."
+        />
+      )}
     </div>
   );
 }
-

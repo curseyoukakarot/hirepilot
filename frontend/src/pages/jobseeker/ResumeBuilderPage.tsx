@@ -12,6 +12,7 @@ import {
 } from 'react-icons/fa6';
 import { supabase } from '../../lib/supabaseClient';
 import { useResumePreview } from '../../hooks/useResumePreview';
+import { UploadProgressOverlay } from '../../components/UploadProgressOverlay';
 
 type GeneratedExperience = {
   company: string;
@@ -1124,6 +1125,13 @@ export default function ResumeBuilderPage() {
         accept=".pdf,.doc,.docx,.txt"
         className="hidden"
       />
+
+      {(uploading || parsingUpload) && (
+        <UploadProgressOverlay
+          title="Processing your resume…"
+          message="Extracting text and prepping your preview. This can take ~15–30 seconds for larger files."
+        />
+      )}
     </div>
   );
 }
