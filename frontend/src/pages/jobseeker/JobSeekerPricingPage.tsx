@@ -30,7 +30,7 @@ export default function JobSeekerPricingPage() {
         const { data: sessionData } = await supabase.auth.getSession();
         const session = sessionData?.session;
         if (!session) {
-          navigate('/signup');
+          navigate(`/signup?plan=${planId}&interval=${interval}`);
           return;
         }
         const priceId = priceIds[planId]?.[interval];

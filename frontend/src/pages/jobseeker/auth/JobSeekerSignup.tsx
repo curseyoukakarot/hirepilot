@@ -1,11 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../../lib/supabaseClient';
 import { toast } from 'react-hot-toast';
 import { FaGoogle, FaMicrosoft } from 'react-icons/fa6';
+import { BILLING_CONFIG } from '../../../config/billingConfig';
 
 export default function JobSeekerSignup() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -17,6 +19,7 @@ export default function JobSeekerSignup() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [oauthLoading, setOauthLoading] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   const onChange = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [key]: e.target.value }));
@@ -26,6 +29,55 @@ export default function JobSeekerSignup() {
     const base = (import.meta.env.VITE_BACKEND_URL || 'https://api.thehirepilot.com').trim();
     return base.replace(/\/$/, '');
   }, []);
+
+  const requestedPlan = (() => {
+    const val = (searchParams.get('plan') || '').toLowerCase();
+    return val === 'pro' || val === 'elite' ? (val as 'pro' | 'elite') : null;
+  })();
+  const requestedInterval = (() => {
+    const val = (searchParams.get('interval') || '').toLowerCase();
+    return val === 'monthly' || val === 'annual' ? (val as 'monthly' | 'annual') : 'monthly';
+  })();
+
+  const startCheckout = async (planId: 'pro' | 'elite', interval: 'monthly' | 'annual') => {
+    try {
+      setCheckoutLoading(true);
+      const { data: sessionData } = await supabase.auth.getSession();
+      const session = sessionData?.session;
+      if (!session) {
+        navigate(`/login?plan=${planId}&interval=${interval}`);
+        return;
+      }
+      const priceId = BILLING_CONFIG.job_seeker[planId].priceIds[interval];
+      if (!priceId) throw new Error('Missing Stripe price');
+      const resp = await fetch(`${backendBase}/api/billing/checkout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        credentials: 'include',
+        body: JSON.stringify({ planId, interval, priceId }),
+      });
+      if (!resp.ok) {
+        const txt = await resp.text();
+        throw new Error(txt || 'Checkout failed');
+      }
+      const { url } = await resp.json();
+      if (url) {
+        window.location.href = url;
+        return;
+      }
+      navigate('/billing');
+    } catch (e: any) {
+      console.error('checkout after signup failed', e);
+      toast.error(e?.message || 'Unable to start checkout');
+      navigate('/billing');
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
 
   const updateAccountType = async (userId: string) => {
     try {
@@ -125,7 +177,11 @@ export default function JobSeekerSignup() {
       if (userId) await updateAccountType(userId);
 
       toast.success('Welcome to HirePilot for Job Seekers!');
-      navigate(resolveRedirect(), { replace: true });
+      if (requestedPlan) {
+        await startCheckout(requestedPlan, requestedInterval);
+      } else {
+        navigate(resolveRedirect(), { replace: true });
+      }
     } catch (err: any) {
       setError(err?.message || 'Signup failed.');
     } finally {
@@ -170,18 +226,18 @@ export default function JobSeekerSignup() {
           <button
             type="button"
             onClick={handleGoogle}
-            disabled={oauthLoading}
+            disabled={oauthLoading || checkoutLoading}
             className="w-full inline-flex items-center justify-center gap-3 px-4 py-3 bg-slate-800 text-white rounded-lg border border-slate-700 hover:bg-slate-750 transition"
           >
-            <FaGoogle /> {oauthLoading ? 'Redirecting…' : 'Sign up with Google'}
+            <FaGoogle /> {(oauthLoading || checkoutLoading) ? 'Redirecting…' : 'Sign up with Google'}
           </button>
           <button
             type="button"
             onClick={handleMicrosoft}
-            disabled={oauthLoading}
+            disabled={oauthLoading || checkoutLoading}
             className="w-full inline-flex items-center justify-center gap-3 px-4 py-3 bg-slate-800 text-white rounded-lg border border-slate-700 hover:bg-slate-750 transition"
           >
-            <FaMicrosoft className="text-blue-400" /> {oauthLoading ? 'Redirecting…' : 'Sign up with Outlook/365'}
+            <FaMicrosoft className="text-blue-400" /> {(oauthLoading || checkoutLoading) ? 'Redirecting…' : 'Sign up with Outlook/365'}
           </button>
         </div>
 
