@@ -15,8 +15,11 @@ RUN apt-get update && apt-get install -y \
   libexpat1 \
   libgbm1 \
   libglib2.0-0 \
+  libgobject-2.0-0 \
+  libgio-2.0-0 \
   libnspr4 \
   libnss3 \
+  libnssutil3 \
   libx11-6 \
   libx11-xcb1 \
   libxcb1 \
@@ -27,6 +30,7 @@ RUN apt-get update && apt-get install -y \
   libxkbcommon0 \
   libxrandr2 \
   libxshmfence1 \
+  libatspi2.0-0 \
   && rm -rf /var/lib/apt/lists/*
 
 # Install deps first (better caching)
