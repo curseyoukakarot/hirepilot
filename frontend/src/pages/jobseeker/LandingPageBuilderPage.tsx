@@ -386,6 +386,8 @@ export default function LandingPageBuilderPage() {
   const [htmlContent, setHtmlContent] = useState(initialHtml);
   const [isPublished, setIsPublished] = useState(false);
   const [idea, setIdea] = useState<string>('');
+  const [slug, setSlug] = useState('your-page');
+  const [slugSaved, setSlugSaved] = useState(false);
 
   const handleToneToggle = (tone: Tone) => {
     setTones((prev) => {
@@ -418,6 +420,13 @@ export default function LandingPageBuilderPage() {
   useEffect(() => {
     regenerateIdea();
   }, [name, role, heroFocus, heroSubtext, tones, calendly]);
+
+  const handleSaveSlug = () => {
+    const cleaned = slug.trim().replace(/\s+/g, '-').toLowerCase() || 'your-page';
+    setSlug(cleaned);
+    setSlugSaved(true);
+    setTimeout(() => setSlugSaved(false), 1500);
+  };
 
   const regenerateIdea = () => {
     const parts = [
@@ -525,7 +534,20 @@ export default function LandingPageBuilderPage() {
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/50 border border-slate-700/50">
                 <FaLink className="text-xs text-slate-400" />
-                <span className="text-xs text-slate-300 font-mono">jobs.thehirepilot.com/p/your-page</span>
+                <span className="text-xs text-slate-400 font-mono">jobs.thehirepilot.com/p/</span>
+                <input
+                  value={slug}
+                  onChange={(e) => setSlug(e.target.value)}
+                  className="text-xs font-mono bg-transparent border-b border-slate-700 focus:border-blue-500 text-slate-200 outline-none w-28"
+                  placeholder="your-page"
+                />
+                <button
+                  className="px-2 py-1 rounded bg-slate-700 text-xs text-slate-100 hover:bg-slate-600 transition"
+                  onClick={handleSaveSlug}
+                >
+                  Save
+                </button>
+                {slugSaved && <span className="text-[10px] text-emerald-400">Saved</span>}
               </div>
               <span
                 className={`text-[10px] font-medium px-2 py-1 rounded-full border ${
