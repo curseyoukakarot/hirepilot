@@ -116,6 +116,10 @@ export default function JobSeekerRoutes() {
           {/* Allow onboarding to render even if not authenticated */}
           <Route path="/onboarding" element={<OnboardingPage />} />
 
+          {/* Normalize singular /job paths to plural routes */}
+          <Route path="/job/:id" element={<Navigate to="/jobs/:id" replace />} />
+          <Route path="/job" element={<Navigate to="/jobs" replace />} />
+
           {/* Job routes explicitly protected and mounted before any catch-alls */}
           <Route
             path="/jobs/:id"
