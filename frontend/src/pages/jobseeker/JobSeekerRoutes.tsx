@@ -83,21 +83,23 @@ function JobSeekerProtected({ children }: { children: React.ReactNode }) {
     })();
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
       if (!isMounted) return;
-      setSession(newSession);
-      setLoading(false);
-      if (newSession?.user?.id) {
-        try {
-          const { data: profile } = await supabase
-            .from('users')
-            .select('account_type, plan, role')
-            .eq('id', newSession.user.id)
-            .maybeSingle();
-          const roleVal = profile?.account_type || profile?.plan || profile?.role || newSession.user.user_metadata?.account_type || newSession.user.user_metadata?.role;
-          setUserRole(roleVal || null);
-        } catch {
-          setUserRole(null);
+      (async () => {
+        setSession(newSession);
+        setLoading(false);
+        if (newSession?.user?.id) {
+          try {
+            const { data: profile } = await supabase
+              .from('users')
+              .select('account_type, plan, role')
+              .eq('id', newSession.user.id)
+              .maybeSingle();
+            const roleVal = profile?.account_type || profile?.plan || profile?.role || newSession.user.user_metadata?.account_type || newSession.user.user_metadata?.role;
+            setUserRole(roleVal || null);
+          } catch {
+            setUserRole(null);
+          }
         }
-      }
+      })();
     });
     return () => {
       isMounted = false;
