@@ -1,6 +1,6 @@
 // frontend/api/sendSlackNotification.js
-
-export default async function handler(req, res) {
+// Converted to CommonJS export for Node/ts-node runtime
+async function handler(req, res) {
   if (req.method !== 'POST') {
     res.status(405).json({ message: 'Method Not Allowed' });
     return;
@@ -137,3 +137,5 @@ export default async function handler(req, res) {
     res.status(500).json({ message: 'Internal Server Error', error: error.message });
   }
 }
+
+module.exports = handler;
