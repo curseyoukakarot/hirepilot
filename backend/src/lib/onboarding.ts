@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { sendEmail } from '../services/emailService';
+import { sendEmail } from '../../services/emailService';
 
 export type StepKey =
   | 'resume_generated'
