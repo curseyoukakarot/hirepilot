@@ -389,6 +389,7 @@ export default function LandingPageBuilderPage() {
   const [slug, setSlug] = useState('your-page');
   const [slugSaved, setSlugSaved] = useState(false);
   const [htmlSaved, setHtmlSaved] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const handleToneToggle = (tone: Tone) => {
     setTones((prev) => {
@@ -404,7 +405,11 @@ export default function LandingPageBuilderPage() {
     setSections((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleGenerate = () => setHtmlContent(buildHtml());
+  const handleGenerate = () => {
+    setIsGenerating(true);
+    setHtmlContent(buildHtml());
+    setTimeout(() => setIsGenerating(false), 400);
+  };
 
   const handleInsertHero = () => {
     setHeroFocus('Revenue leader helping B2B SaaS teams scale from $1M → $20M ARR');
@@ -460,54 +465,37 @@ export default function LandingPageBuilderPage() {
 
   const buildHtml = () => {
     const safeName = name?.trim() || 'Your Name Here';
-    const contactLine = `Email: ${email || 'you@example.com'}${calendly ? ` · Schedule: ${calendly}` : ''}`;
-    const toneLine = tones.length ? ` · Tone: ${tones.join(', ')}` : '';
-    const hero = `<section class="hero">
-  <h1>${safeName}</h1>
-  <p>${heroFocus}</p>
-  <p>${role || 'Your role here'}${toneLine}</p>
-  ${calendly ? `<a class="cta" href="${calendly}" target="_blank" rel="noreferrer">Schedule time with me</a>` : ''}
-</section>`;
+    const safeEmail = email?.trim() || 'you@example.com';
+    const safeCalendly = calendly?.trim() || '#';
+    const scheduleLabel = calendly?.trim() || 'Add your Calendly link';
+    const toneText = tones.length ? tones.join(', ') : 'Your tone';
+    const safeRole = role?.trim() || 'Your role';
+    const safeHeroFocus = heroFocus?.trim() || 'Your focus statement';
+    const safeHeroSubtext = heroSubtext?.trim() || 'Short 1–2 sentence summary of who you are and what you do.';
 
-    const about = sections.about
-      ? `<section class="about">
-  <h2>About</h2>
-  <p>${heroSubtext}</p>
-</section>`
-      : '';
-
-    const experience = sections.experience
-      ? `<section class="experience">
-  <h2>Selected Experience</h2>
-  <ul>
-    <li>Head of Sales – Nimbus Data (2021–Present)</li>
-    <li>VP of Sales – CloudSync Technologies (2018–2021)</li>
-  </ul>
-</section>`
-      : '';
-
-    const caseStudies = sections.caseStudies
-      ? `<section class="case-study">
-  <h2>Case Study</h2>
-  <p>Challenge · Strategy · Execution · Outcome (with metrics)</p>
-</section>`
-      : '';
-
-    const testimonials = sections.testimonials
-      ? `<section class="testimonials">
-  <h2>Testimonials</h2>
-  <p>What people say about your work.</p>
-</section>`
-      : '';
-
-    const contact = sections.contact
-      ? `<section class="contact">
-  <h2>Contact</h2>
-  <p>${contactLine}</p>
-</section>`
-      : '';
-
-    return [hero, about, experience, caseStudies, testimonials, contact].filter(Boolean).join('\n\n');
+    let html = initialHtml;
+    html = html.replace(/Your Name Here/g, safeName);
+    html = html.replace(/you@example\.com/g, safeEmail);
+    html = html.replace(/Add your Calendly link/g, scheduleLabel);
+    html = html.replace(/Head of Sales/g, safeRole);
+    html = html.replace(/Tone: Confident/g, `Tone: ${toneText}`);
+    html = html.replace(
+      /Revenue leader helping B2B SaaS teams scale from <strong>\$1M → \$20M ARR<\/strong>\./g,
+      safeHeroFocus
+    );
+    html = html.replace(
+      /Short 1–2 sentence summary of who you are and what you do\./g,
+      safeHeroSubtext
+    );
+    // schedule links
+    html = html.replace(/href="#"/g, `href="${safeCalendly}"`);
+    html = html.replace(/href="c"/g, `href="${safeCalendly}"`);
+    html = html.replace(/>c</g, `>${scheduleLabel}<`);
+    // mailto
+    html = html.replace(/mailto:you@example\.com/g, `mailto:${safeEmail}`);
+    // contact display
+    html = html.replace(/Schedule time here/g, calendly ? 'Schedule time here' : 'Add your Calendly link');
+    return html;
   };
 
   return (
@@ -709,10 +697,11 @@ export default function LandingPageBuilderPage() {
                   <button
                     id="generate-btn"
                     onClick={handleGenerate}
-                    className="w-full px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                    className="w-full px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+                    disabled={isGenerating}
                   >
                     <FaWandMagicSparkles />
-                    <span>Generate base layout with REX</span>
+                    <span>{isGenerating ? 'Generating…' : 'Generate base layout with REX'}</span>
                   </button>
                 </div>
               </div>
