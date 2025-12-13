@@ -4,7 +4,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import { usePlan } from '../context/PlanContext';
 
 export default function SettingsCredits() {
-  const { isFree } = usePlan();
+  const { isFree, role } = usePlan();
   const [status, setStatus] = useState({ total_credits: 0, used_credits: 0, remaining_credits: 0, last_updated: null });
   const [overview, setOverview] = useState({ nextInvoice: null, subscription: null });
   const [history, setHistory] = useState([]);
@@ -89,6 +89,9 @@ export default function SettingsCredits() {
   const monthlyAllocation = overview?.subscription?.planDetails?.credits || 0;
   const rollover = Math.max(0, (status.total_credits - monthlyAllocation));
 
+  const roleLc = String(role || '').toLowerCase();
+  const isJobSeekerFree = roleLc === 'job_seeker_free';
+
   return (
     <div className="p-6">
       <div className="max-w-4xl mx-auto">
@@ -111,7 +114,7 @@ export default function SettingsCredits() {
           </div>
         </div>
 
-        {!isFree && (
+        {!isFree && !isJobSeekerFree && (
         <div className="mt-6 bg-white rounded-2xl shadow border p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="text-xl font-semibold text-gray-900">Buy More Credits</div>
@@ -157,7 +160,7 @@ export default function SettingsCredits() {
           </div>
         </div>
       </div>
-      {!isFree && showMoreModal && (
+      {!isFree && !isJobSeekerFree && showMoreModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-2xl shadow-lg w-full max-w-lg p-6">
             <div className="mb-2">

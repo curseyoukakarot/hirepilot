@@ -182,9 +182,11 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
       const normalizedRole = (info.role || '').toLowerCase().replace(/\s|-/g, '_');
       const isSuperAdmin = ['super_admin', 'superadmin'].includes(normalizedRole);
       const planLc = String(info.plan || '').toLowerCase();
-      const paidRoles = ['member','admin','team_admin','team_admins','recruitpro','super_admin','superadmin'];
+      const jobSeekerPaidRoles = ['job_seeker_pro', 'job_seeker_elite'];
+      const jobSeekerFreeRole = normalizedRole === 'job_seeker_free';
+      const paidRoles = ['member','admin','team_admin','team_admins','recruitpro','super_admin','superadmin', ...jobSeekerPaidRoles];
       if (paidRoles.includes(normalizedRole) && planLc !== 'free') return false;
-      return (planLc === 'free' || normalizedRole === 'free' || normalizedRole === 'guest') && !isSuperAdmin;
+      return (planLc === 'free' || normalizedRole === 'free' || normalizedRole === 'guest' || jobSeekerFreeRole) && !isSuperAdmin;
     })(),
     remainingCredits: info.remaining_credits,
     monthlyCredits: info.monthly_credits,

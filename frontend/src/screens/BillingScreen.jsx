@@ -24,7 +24,7 @@ const stripePromise = stripeKey ? loadStripe(stripeKey) : null;
 export default function BillingScreen() {
   const mode = useAppMode();
   const PLAN_CONFIG = BILLING_CONFIG?.[mode] || BILLING_CONFIG.recruiter;
-  const { refresh: refreshPlan, plan: planTier, isFree } = usePlan();
+  const { refresh: refreshPlan, plan: planTier, isFree, role } = usePlan();
   const [billingOverview, setBillingOverview] = useState({
     subscription: null,
     credits: 0,
@@ -295,6 +295,20 @@ export default function BillingScreen() {
   const currentPlan =
     (subscription?.planTier && PLAN_CONFIG[subscription.planTier]) ? PLAN_CONFIG[subscription.planTier]
       : (PLAN_CONFIG.free || (isFree ? { name: 'Free', credits: 50 } : null));
+
+  const isJobSeekerMode = mode === 'job_seeker';
+  const roleLc = String(userRole || role || '').toLowerCase();
+  const planLc = String(planTier || '').toLowerCase();
+  const jobSeekerTier = roleLc.startsWith('job_seeker_') ? roleLc.replace('job_seeker_', '') : planLc;
+  const upgradePlanIds = (() => {
+    if (!isJobSeekerMode) {
+      return Object.keys(PLAN_CONFIG).filter((planId) => PLAN_CONFIG[planId]?.priceIds?.monthly || PLAN_CONFIG[planId]?.priceIds?.annual);
+    }
+    if (jobSeekerTier === 'elite') return [];
+    if (jobSeekerTier === 'pro') return ['elite'];
+    return ['pro', 'elite'];
+  })().filter((planId) => PLAN_CONFIG[planId]?.priceIds?.monthly || PLAN_CONFIG[planId]?.priceIds?.annual);
+  const shouldShowUpgrade = isJobSeekerMode ? upgradePlanIds.length > 0 : (isFree || !currentPlan);
   
   // Calculate credit usage percentage for animation
   const creditUsagePercentage = creditInfo.totalCredits > 0 
@@ -405,27 +419,25 @@ export default function BillingScreen() {
         </section>
 
         {/* Upgrade Section */}
-        {(isFree || !currentPlan) && (
+        {shouldShowUpgrade && (
           <section className="bg-white rounded-xl shadow-sm p-6 mb-8">
             <h2 className="text-xl font-semibold mb-4">Upgrade Plan</h2>
             <p className="text-gray-600 mb-6">Choose a plan and billing cycle. Your data remains intact; premium features unlock immediately after checkout.</p>
             <div className="grid md:grid-cols-3 gap-6">
-              {Object.keys(PLAN_CONFIG)
-                .filter((planId) => PLAN_CONFIG[planId]?.priceIds?.monthly || PLAN_CONFIG[planId]?.priceIds?.annual)
-                .map((planId) => (
-                  <div key={planId} className="border border-gray-200 rounded-xl p-5">
-                    <div className="flex items-center justify-between mb-2">
+              {upgradePlanIds.map((planId) => (
+                <div key={planId} className="border border-gray-200 rounded-xl p-5">
+                  <div className="flex items-center justify-between mb-2">
                       <h3 className="text-lg font-semibold capitalize">{PLAN_CONFIG[planId].name}</h3>
                       <span className="text-sm text-gray-500">
                         {PLAN_CONFIG[planId].credits.toLocaleString()} credits/mo
                       </span>
-                    </div>
-                    <ul className="text-sm text-gray-600 space-y-2 mb-4 list-disc pl-5">
+                  </div>
+                  <ul className="text-sm text-gray-600 space-y-2 mb-4 list-disc pl-5">
                       {PLAN_CONFIG[planId].features.slice(0, 3).map((f, i) => (
-                        <li key={i}>{f}</li>
-                      ))}
-                    </ul>
-                    <div className="flex items-center gap-3">
+                      <li key={i}>{f}</li>
+                    ))}
+                  </ul>
+                  <div className="flex items-center gap-3">
                       <button
                         onClick={() => handleUpgrade(planId, 'monthly')}
                         className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700"
@@ -438,9 +450,9 @@ export default function BillingScreen() {
                       >
                         Annual
                       </button>
-                    </div>
                   </div>
-                ))}
+                </div>
+              ))}
             </div>
           </section>
         )}
