@@ -91,6 +91,21 @@ export default function ResumeBuilderPage() {
   const [uploading, setUploading] = useState(false);
   const [showExpanded, setShowExpanded] = useState(false);
   const uploadInputRef = React.useRef<HTMLInputElement | null>(null);
+  const [targetTitle, setTargetTitle] = useState<string>(defaultResume.targetRole.primaryTitle || 'Head of Sales');
+  const [targetStyle, setTargetStyle] = useState<string>('Leadership');
+  const [targetLoading, setTargetLoading] = useState<string | null>(null);
+  const [activeExperienceIndex, setActiveExperienceIndex] = useState<number>(0);
+  const [expTitle, setExpTitle] = useState<string>(defaultResume.experience[0]?.title || '');
+  const [expCompany, setExpCompany] = useState<string>(defaultResume.experience[0]?.company || '');
+  const [expLocation, setExpLocation] = useState<string>(defaultResume.experience[0]?.location || '');
+  const [expDates, setExpDates] = useState<string>(defaultResume.experience[0]?.dates || '');
+  const [expNotes, setExpNotes] = useState<string>(defaultResume.experience[0]?.whyHiredSummary || '');
+  const [bulletsLoading, setBulletsLoading] = useState<boolean>(false);
+  const [summaryText, setSummaryText] = useState<string>(defaultResume.summary);
+  const [skillsText, setSkillsText] = useState<string>(defaultResume.skills.join(', '));
+  const [summaryLoading, setSummaryLoading] = useState<boolean>(false);
+  const [viewBullets, setViewBullets] = useState<Record<number, boolean>>({});
+  const [bulletSelections, setBulletSelections] = useState<Record<number, { text: string; selected: boolean }[]>>({});
 
   useEffect(() => {
     if (!draftId) return;
@@ -115,6 +130,9 @@ export default function ResumeBuilderPage() {
           };
           setResume(next);
           setDraft(next);
+          setTargetTitle(next.targetRole.primaryTitle || defaultResume.targetRole.primaryTitle || 'Head of Sales');
+          setSummaryText(next.summary || '');
+          setSkillsText((next.skills || []).join(', '));
         }
       } catch (e: any) {
         if (!cancelled) setLoadError(e?.message || 'Failed to load draft');
@@ -139,11 +157,39 @@ export default function ResumeBuilderPage() {
     })();
   }, []);
 
+  useEffect(() => {
+    setTargetTitle(preview.targetRole.primaryTitle || defaultResume.targetRole.primaryTitle || 'Head of Sales');
+  }, [preview.targetRole.primaryTitle]);
+
+  useEffect(() => {
+    const expList = preview.experience && preview.experience.length > 0 ? preview.experience : defaultResume.experience;
+    const current = expList[activeExperienceIndex] || expList[0] || defaultResume.experience[0];
+    setExpTitle(current?.title || '');
+    setExpCompany(current?.company || '');
+    setExpLocation(current?.location || '');
+    setExpDates(current?.dates || '');
+    setExpNotes(current?.whyHiredSummary || '');
+    if (current?.bullets?.length) {
+      setBulletSelections((prev) => {
+        if (prev[activeExperienceIndex]) return prev;
+        return {
+          ...prev,
+          [activeExperienceIndex]: current.bullets.map((b) => ({ text: b, selected: true })),
+        };
+      });
+    }
+  }, [activeExperienceIndex, preview.experience]);
+
+  useEffect(() => {
+    setSummaryText(preview.summary || '');
+    setSkillsText((preview.skills || []).join(', '));
+  }, [preview.summary, preview.skills]);
+
   const experienceList = useMemo(
     () => (preview.experience && preview.experience.length > 0 ? preview.experience : defaultResume.experience),
     [preview.experience]
   );
-  const activeExperience = experienceList[0] || defaultResume.experience[0];
+  const activeExperience = experienceList[activeExperienceIndex] || experienceList[0] || defaultResume.experience[0];
   const focusList = useMemo(
     () => (preview.targetRole.focus && preview.targetRole.focus.length > 0 ? preview.targetRole.focus : defaultResume.targetRole.focus || []),
     [preview.targetRole.focus]
@@ -179,6 +225,183 @@ export default function ResumeBuilderPage() {
       setLoadError(e?.message || 'Upload failed');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const syncExperienceAt = (idx: number, updater: (exp: GeneratedExperience) => GeneratedExperience) => {
+    const baseList = preview.experience && preview.experience.length > 0 ? preview.experience : defaultResume.experience;
+    const nextList = baseList.map((exp, i) => (i === idx ? updater({ ...exp }) : exp));
+    updateSection({ experience: nextList });
+    setResume((prev) => ({ ...prev, experience: nextList }));
+  };
+
+  const handleSelectExperience = (idx: number) => {
+    setActiveExperienceIndex(idx);
+  };
+
+  const toggleViewBullets = (idx: number) => {
+    setViewBullets((prev) => ({ ...prev, [idx]: !prev[idx] }));
+  };
+
+  const handleBulletToggle = (idx: number, bIndex: number) => {
+    setBulletSelections((prev) => {
+      const current = prev[idx] || [];
+      const updated = current.map((b, i) => (i === bIndex ? { ...b, selected: !b.selected } : b));
+      const next = { ...prev, [idx]: updated };
+      const selectedBullets = updated.filter((b) => b.selected).map((b) => b.text);
+      syncExperienceAt(idx, (exp) => ({ ...exp, bullets: selectedBullets }));
+      return next;
+    });
+  };
+
+  const addSelectedBulletsToPreview = (idx: number) => {
+    const selected = (bulletSelections[idx] || []).filter((b) => b.selected).map((b) => b.text);
+    syncExperienceAt(idx, (exp) => ({ ...exp, bullets: selected }));
+  };
+
+  const applyExperienceEdits = () => {
+    const idx = activeExperienceIndex;
+    syncExperienceAt(idx, (exp) => ({
+      ...exp,
+      title: expTitle,
+      company: expCompany,
+      location: expLocation,
+      dates: expDates,
+      whyHiredSummary: expNotes,
+    }));
+  };
+
+  const generateBullets = async () => {
+    const idx = activeExperienceIndex;
+    setBulletsLoading(true);
+    setLoadError(null);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.id) throw new Error('Sign in required');
+      const headers = await authHeaders();
+      const prompt = `You are a resume bullet generator. Write 4 concise impact bullets for this role.\nTitle: ${expTitle}\nCompany: ${expCompany}\nDates: ${expDates}\nSummary/notes: ${expNotes}\nReturn bullets as plain text lines without numbering.`;
+      const res = await fetch(`${backend}/api/rex/chat`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          userId: user.id,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'Failed to generate bullets');
+      const raw = data?.reply?.content;
+      const text =
+        typeof raw === 'string'
+          ? raw
+          : typeof raw?.text === 'string'
+            ? raw.text
+            : Array.isArray(raw)
+              ? raw.join('\n')
+              : '';
+      const parsed = text
+        .split('\n')
+        .map((l: string) => l.replace(/^[\-\*\u2022]\s*/, '').trim())
+        .filter(Boolean);
+      const bullets = parsed.length ? parsed : ['• Bullet 1', '• Bullet 2'];
+      setBulletSelections((prev) => ({
+        ...prev,
+        [idx]: bullets.map((b) => ({ text: b, selected: true })),
+      }));
+      syncExperienceAt(idx, (exp) => ({ ...exp, bullets }));
+    } catch (e: any) {
+      setLoadError(e?.message || 'Failed to generate bullets');
+    } finally {
+      setBulletsLoading(false);
+    }
+  };
+
+  const saveSummary = () => {
+    updateSection({ summary: summaryText });
+    setResume((prev) => ({ ...prev, summary: summaryText }));
+  };
+
+  const saveSkills = () => {
+    const parsed = skillsText
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    updateSection({ skills: parsed });
+    setResume((prev) => ({ ...prev, skills: parsed }));
+  };
+
+  const generateSummary = async () => {
+    setSummaryLoading(true);
+    setLoadError(null);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.id) throw new Error('Sign in required');
+      const headers = await authHeaders();
+      const prompt = `Write a tight 3-sentence resume summary for this target: ${preview.targetRole.primaryTitle ||
+        'Professional'}. Focus/industry: ${(preview.targetRole.focus || []).join(', ')} / ${(preview.targetRole.industry || []).join(', ')}.`;
+      const res = await fetch(`${backend}/api/rex/chat`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          userId: user.id,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'Failed to write summary');
+      const raw = data?.reply?.content;
+      const text =
+        typeof raw === 'string'
+          ? raw.trim()
+          : typeof raw?.text === 'string'
+            ? raw.text.trim()
+            : '';
+      setSummaryText(text || summaryText);
+      updateSection({ summary: text || summaryText });
+      setResume((prev) => ({ ...prev, summary: text || summaryText }));
+    } catch (e: any) {
+      setLoadError(e?.message || 'Failed to write summary');
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
+  const applyTargetTitle = () => {
+    const next = { ...(preview.targetRole || {}), primaryTitle: targetTitle || preview.targetRole.primaryTitle };
+    updateSection({ targetRole: next });
+    setResume((prev) => ({ ...prev, targetRole: next }));
+  };
+
+  const requestRoleStyle = async (style: string) => {
+    setTargetStyle(style);
+    setTargetLoading(style);
+    setLoadError(null);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.id) throw new Error('Sign in required');
+      const headers = await authHeaders();
+      const prompt = `You are a resume coach. Rewrite this resume target/primary title in a ${style} framing. Original: "${targetTitle ||
+        preview.targetRole.primaryTitle ||
+        'Head of Sales'}". Output only the rewritten title string, no quotes, no bullets.`;
+      const res = await fetch(`${backend}/api/rex/chat`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          userId: user.id,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'Failed to generate title');
+      const raw = data?.reply?.content;
+      const newTitle =
+        typeof raw === 'string' ? raw.trim() : typeof raw?.text === 'string' ? raw.text.trim() : (raw?.title || '').trim();
+      if (!newTitle) throw new Error('No title generated');
+      setTargetTitle(newTitle);
+    } catch (e: any) {
+      setLoadError(e?.message || 'Failed to generate title');
+    } finally {
+      setTargetLoading(null);
     }
   };
 
@@ -256,10 +479,19 @@ export default function ResumeBuilderPage() {
 
               <div className="space-y-4 mb-5">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Primary title</label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-slate-300">Primary title</label>
+                    <button
+                      onClick={applyTargetTitle}
+                      className="text-xs text-indigo-300 hover:text-indigo-200 transition-colors"
+                    >
+                      Add to resume
+                    </button>
+                  </div>
                   <input
                     type="text"
-                    defaultValue={resume.targetRole.primaryTitle || 'Head of Sales'}
+                    value={targetTitle}
+                    onChange={(e) => setTargetTitle(e.target.value)}
                     className="w-full px-4 py-2.5 bg-slate-950/80 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 transition-colors"
                   />
                 </div>
@@ -267,18 +499,23 @@ export default function ResumeBuilderPage() {
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">Focus</label>
                   <div className="flex flex-wrap gap-2">
-                    {focusList.map((focus, idx) => (
-                      <button
-                        key={`${focus}-${idx}`}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                          idx === 0
-                            ? 'bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/30'
-                            : 'bg-slate-800/50 border border-slate-700 text-slate-400 hover:bg-slate-800'
-                        }`}
-                      >
-                        {focus}
-                      </button>
-                    ))}
+                    {focusList.map((focus, idx) => {
+                      const active = focus === targetStyle;
+                      return (
+                        <button
+                          key={`${focus}-${idx}`}
+                          onClick={() => requestRoleStyle(focus)}
+                          disabled={!!targetLoading}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                            active
+                              ? 'bg-indigo-500/30 border border-indigo-500/60 text-indigo-100'
+                              : 'bg-slate-800/50 border border-slate-700 text-slate-400 hover:bg-slate-800'
+                          } ${targetLoading ? 'opacity-60 cursor-not-allowed' : ''}`}
+                        >
+                          {targetLoading === focus ? 'Thinking…' : focus}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -311,9 +548,13 @@ export default function ResumeBuilderPage() {
               </div>
 
               <div className="flex justify-end">
-                <button className="px-4 py-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-sm font-medium hover:bg-indigo-500/20 transition-all flex items-center gap-2">
+                <button
+                  className="px-4 py-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-sm font-medium hover:bg-indigo-500/20 transition-all flex items-center gap-2 disabled:opacity-60"
+                  onClick={() => requestRoleStyle(targetStyle)}
+                  disabled={!!targetLoading}
+                >
                   <FaBrain className="text-xs" />
-                  Ask REX to refine target
+                  {targetLoading ? 'Refining…' : 'Ask REX to refine target'}
                 </button>
               </div>
             </div>
@@ -331,12 +572,18 @@ export default function ResumeBuilderPage() {
               <div className="space-y-3 mb-6">
                 {experienceList.map((exp, idx) => {
                   const included = exp.included !== false;
+                  const isActive = idx === activeExperienceIndex;
                   return (
                     <div
                       key={`${exp.company}-${idx}`}
                       className={`p-4 rounded-xl bg-slate-950/50 border ${
-                        included ? 'border-indigo-500/30 hover:border-indigo-500/50' : 'border-slate-800 hover:border-slate-700'
+                        isActive
+                          ? 'border-indigo-500/60 shadow-[0_0_0_1px_rgba(129,140,248,0.35)]'
+                          : included
+                            ? 'border-indigo-500/30 hover:border-indigo-500/50'
+                            : 'border-slate-800 hover:border-slate-700'
                       } transition-all cursor-pointer`}
+                      onClick={() => handleSelectExperience(idx)}
                     >
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1">
@@ -344,7 +591,13 @@ export default function ResumeBuilderPage() {
                           <p className="text-xs text-slate-400">{exp.company || 'Company'}</p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <button className="w-7 h-7 rounded-lg bg-slate-800/50 border border-slate-700 flex items-center justify-center hover:bg-slate-800 transition-all">
+                          <button
+                            className="w-7 h-7 rounded-lg bg-slate-800/50 border border-slate-700 flex items-center justify-center hover:bg-slate-800 transition-all"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectExperience(idx);
+                            }}
+                          >
                             <FaPen className="text-xs text-slate-400" />
                           </button>
                           <span
@@ -360,8 +613,25 @@ export default function ResumeBuilderPage() {
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-slate-500">{exp.dates || 'Dates TBD'}</span>
-                        <button className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">View bullets</button>
+                        <button
+                          className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleViewBullets(idx);
+                          }}
+                        >
+                          {viewBullets[idx] ? 'Hide bullets' : 'View bullets'}
+                        </button>
                       </div>
+                      {viewBullets[idx] && (
+                        <div className="mt-3 space-y-1">
+                          {(exp.bullets || []).map((b, i) => (
+                            <p key={`${b}-${i}`} className="text-[11px] text-slate-400">
+                              • {b}
+                            </p>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -380,7 +650,8 @@ export default function ResumeBuilderPage() {
                     <label className="block text-xs font-medium text-slate-400 mb-1.5">Title</label>
                     <input
                       type="text"
-                      defaultValue={activeExperience.title || 'Head of Sales'}
+                      value={expTitle}
+                      onChange={(e) => setExpTitle(e.target.value)}
                       className="w-full px-3 py-2 bg-slate-950/80 border border-slate-800 rounded-lg text-sm text-slate-100 focus:outline-none focus:border-indigo-500/50 transition-colors"
                     />
                   </div>
@@ -388,7 +659,8 @@ export default function ResumeBuilderPage() {
                     <label className="block text-xs font-medium text-slate-400 mb-1.5">Company</label>
                     <input
                       type="text"
-                      defaultValue={activeExperience.company || 'Company'}
+                      value={expCompany}
+                      onChange={(e) => setExpCompany(e.target.value)}
                       className="w-full px-3 py-2 bg-slate-950/80 border border-slate-800 rounded-lg text-sm text-slate-100 focus:outline-none focus:border-indigo-500/50 transition-colors"
                     />
                   </div>
@@ -396,7 +668,8 @@ export default function ResumeBuilderPage() {
                     <label className="block text-xs font-medium text-slate-400 mb-1.5">Location</label>
                     <input
                       type="text"
-                      defaultValue={activeExperience.location || ''}
+                      value={expLocation}
+                      onChange={(e) => setExpLocation(e.target.value)}
                       placeholder="San Francisco, CA"
                       className="w-full px-3 py-2 bg-slate-950/80 border border-slate-800 rounded-lg text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500/50 transition-colors"
                     />
@@ -405,7 +678,8 @@ export default function ResumeBuilderPage() {
                     <label className="block text-xs font-medium text-slate-400 mb-1.5">Dates</label>
                     <input
                       type="text"
-                      defaultValue={activeExperience.dates || ''}
+                      value={expDates}
+                      onChange={(e) => setExpDates(e.target.value)}
                       className="w-full px-3 py-2 bg-slate-950/80 border border-slate-800 rounded-lg text-sm text-slate-100 focus:outline-none focus:border-indigo-500/50 transition-colors"
                     />
                   </div>
@@ -415,31 +689,49 @@ export default function ResumeBuilderPage() {
                   <label className="block text-xs font-medium text-slate-400 mb-1.5">Raw achievements / notes</label>
                   <textarea
                     rows={4}
-                    defaultValue={activeExperience.whyHiredSummary || ''}
+                    value={expNotes}
+                    onChange={(e) => setExpNotes(e.target.value)}
                     placeholder="Paste your achievements, metrics, or notes here..."
                     className="w-full px-3 py-2 bg-slate-950/80 border border-slate-800 rounded-lg text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500/50 transition-colors resize-none"
                   />
                 </div>
 
-                <div className="flex gap-2 mb-4">
-                  <button className="flex-1 px-4 py-2.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-medium transition-all flex items-center justify-center gap-2">
-                    <FaBrain className="text-xs" />
-                    Generate bullets with REX
+                <div className="flex gap-2 mb-3">
+                  <button
+                    className="px-4 py-2.5 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-300 text-sm font-medium hover:bg-slate-800 transition-all"
+                    onClick={applyExperienceEdits}
+                  >
+                    Save changes
                   </button>
-                  <button className="px-4 py-2.5 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-300 text-sm font-medium hover:bg-slate-800 transition-all">
-                    Regenerate
+                  <button
+                    className="flex-1 px-4 py-2.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+                    onClick={generateBullets}
+                    disabled={bulletsLoading}
+                  >
+                    <FaBrain className="text-xs" />
+                    {bulletsLoading ? 'Generating…' : 'Generate bullets with REX'}
+                  </button>
+                </div>
+
+                <div className="flex justify-end mb-2">
+                  <button
+                    className="text-xs text-indigo-300 hover:text-indigo-200 transition-colors"
+                    onClick={() => addSelectedBulletsToPreview(activeExperienceIndex)}
+                  >
+                    Add selected to preview
                   </button>
                 </div>
 
                 <div className="space-y-2">
-                  {(activeExperience.bullets || []).map((bullet, idx) => (
-                    <div key={`${bullet}-${idx}`} className="flex items-start gap-3 p-3 rounded-lg bg-slate-950/50 border border-slate-800">
+                  {(bulletSelections[activeExperienceIndex] || []).map((bullet, idx) => (
+                    <div key={`${bullet.text}-${idx}`} className="flex items-start gap-3 p-3 rounded-lg bg-slate-950/50 border border-slate-800">
                       <input
                         type="checkbox"
-                        defaultChecked
+                        checked={bullet.selected}
+                        onChange={() => handleBulletToggle(activeExperienceIndex, idx)}
                         className="mt-1 w-4 h-4 rounded border-slate-700 bg-slate-900 text-indigo-500 focus:ring-indigo-500/50"
                       />
-                      <p className="text-xs text-slate-300 leading-relaxed">{bullet}</p>
+                      <p className="text-xs text-slate-300 leading-relaxed">{bullet.text}</p>
                     </div>
                   ))}
                 </div>
@@ -459,27 +751,45 @@ export default function ResumeBuilderPage() {
                 <label className="block text-sm font-medium text-slate-300 mb-2">Summary</label>
                 <textarea
                   rows={4}
-                  defaultValue={resume.summary}
+                  value={summaryText}
+                  onChange={(e) => setSummaryText(e.target.value)}
                   placeholder="2–3 lines summarizing who you are, your core value, and what you're looking for."
                   className="w-full px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 transition-colors resize-none"
                 />
-                <button className="mt-2 px-4 py-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-sm font-medium hover:bg-indigo-500/20 transition-all flex items-center gap-2">
-                  <FaBrain className="text-xs" />
-                  Ask REX to write summary
-                </button>
+                <div className="flex gap-2 mt-2">
+                  <button
+                    className="px-4 py-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-sm font-medium hover:bg-indigo-500/20 transition-all flex items-center gap-2 disabled:opacity-60"
+                    onClick={generateSummary}
+                    disabled={summaryLoading}
+                  >
+                    <FaBrain className="text-xs" />
+                    {summaryLoading ? 'Writing…' : 'Ask REX to write summary'}
+                  </button>
+                  <button
+                    className="px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-200 text-sm font-medium hover:bg-slate-800 transition-all"
+                    onClick={saveSummary}
+                  >
+                    Save to preview
+                  </button>
+                </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">Skills</label>
-                <div className="flex flex-wrap gap-2">
-                  {resume.skills.map((skill) => (
-                    <button
-                      key={skill}
-                      className="px-3 py-1.5 rounded-lg bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-sm font-medium hover:bg-indigo-500/30 transition-all"
-                    >
-                      {skill}
-                    </button>
-                  ))}
+                <textarea
+                  rows={2}
+                  value={skillsText}
+                  onChange={(e) => setSkillsText(e.target.value)}
+                  placeholder="Comma-separated skills"
+                  className="w-full px-4 py-2.5 bg-slate-950/80 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 transition-colors resize-none"
+                />
+                <div className="flex justify-end mt-2">
+                  <button
+                    className="px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-200 text-sm font-medium hover:bg-slate-800 transition-all"
+                    onClick={saveSkills}
+                  >
+                    Save skills to preview
+                  </button>
                 </div>
               </div>
             </div>
