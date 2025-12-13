@@ -102,8 +102,13 @@ function JobSeekerProtected({ children }: { children: React.ReactNode }) {
   const roleLower = String(userRole || '').toLowerCase();
   const isFree = roleLower === 'free' || roleLower === 'job_seeker_free';
   const path = location.pathname;
-  if (isFree && (path.startsWith('/prep') || path.startsWith('/agent-mode'))) {
-    return <Navigate to="/dashboard" replace />;
+  const isRexChat = path.startsWith('/prep/rex-chat') || path.startsWith('/prep/rexchat');
+  if (isFree) {
+    const blockingPrep = path.startsWith('/prep') && !isRexChat;
+    const blockingAgent = path.startsWith('/agent-mode');
+    if (blockingPrep || blockingAgent) {
+      return <Navigate to="/dashboard" replace />;
+    }
   }
 
   if (children) return <>{children}</>;
