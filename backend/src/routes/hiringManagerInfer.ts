@@ -3,7 +3,7 @@ import { requireAuth } from '../../middleware/authMiddleware';
 import { openai } from '../../lib/llm';
 import { supabaseDb } from '../../lib/supabase';
 import { searchAndEnrichPeople } from '../../utils/apolloApi';
-import { sendEmail } from '../../services/sendgrid';
+import { sendEmail } from '../services/sendgrid';
 
 const router = express.Router();
 
