@@ -499,48 +499,6 @@ export default function JobSeekerLandingPage() {
         </div>
       </section>
 
-      {/* Pricing */}
-      <section id="pricing" className="py-20 bg-blue-50 text-gray-900">
-        <div className="max-w-4xl mx-auto px-6 lg:px-8 text-center">
-          <h2 className="text-4xl font-bold mb-8">Simple, transparent pricing</h2>
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="bg-white p-8 rounded-2xl shadow-sm">
-              <h3 className="text-xl font-bold mb-4">Free</h3>
-              <p className="text-gray-600 mb-6">Perfect to get started</p>
-              <button className="w-full bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold" onClick={handleStart}>
-                Start Free
-              </button>
-            </div>
-            <div className="bg-white p-8 rounded-2xl shadow-lg border-2" style={{ borderColor: primary }}>
-              <h3 className="text-xl font-bold mb-4">Pro</h3>
-              <p className="text-gray-600 mb-6">Upgrade for advanced features</p>
-              <button
-                className="w-full text-white py-3 rounded-lg font-semibold"
-                style={{ background: primary }}
-                onClick={() => navigate('/billing')}
-              >
-                Upgrade
-              </button>
-            </div>
-            <div className="bg-white p-8 rounded-2xl shadow-sm">
-              <h3 className="text-xl font-bold mb-4">Elite</h3>
-              <p className="text-gray-600 mb-6">Includes custom domains</p>
-              <button className="w-full bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold" disabled>
-                Coming Soon
-              </button>
-            </div>
-          </div>
-          <div className="mt-8">
-            <button
-              className="text-[#3b82f6] font-semibold hover:underline"
-              onClick={() => navigate('/billing')}
-            >
-              See full pricing details →
-            </button>
-          </div>
-        </div>
-      </section>
-
       {/* FAQ */}
       <section id="faq" className="py-20 bg-gray-900">
         <div className="max-w-4xl mx-auto px-6 lg:px-8">
