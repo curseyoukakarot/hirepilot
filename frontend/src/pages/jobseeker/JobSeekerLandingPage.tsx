@@ -203,58 +203,282 @@ export default function JobSeekerLandingPage() {
         </div>
       </section>
 
-      {/* REX preview */}
-      <section id="rex-preview" className="py-20 bg-gray-900">
-        <div className="max-w-4xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-white mb-4">Meet REX, your AI job coach</h2>
-            <p className="text-xl text-gray-300">Try a quick conversation to see how REX can help</p>
-          </div>
-
-          <div className="bg-gray-800 rounded-2xl p-8 max-w-2xl mx-auto border border-gray-700">
-            <div className="bg-gray-900 rounded-xl border border-gray-700 p-6 mb-6">
-              <div className="flex items-start gap-3 mb-4">
-                <div className="bg-[#3b82f6] text-white w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold">R</div>
-                <div className="bg-gray-800 rounded-lg p-3 flex-1">
-                  <p className="text-gray-200">
-                    Hi! I&apos;m REX. I can help you with resume rewrites, outreach scripts, interview prep, and more. What
-                    would you like to work on?
+      {/* REX preview (revamped) */}
+      <section id="rex-preview" className="py-16 bg-[#020617] text-slate-100">
+        <div className="max-w-6xl mx-auto px-4 lg:px-8 flex flex-col gap-4">
+          {/* Header bar */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button
+                className="text-slate-400 hover:text-slate-200 transition-colors text-sm"
+                onClick={() => navigate('/prep')}
+              >
+                <i className="fa-solid fa-arrow-left mr-2" />
+                Back to Prep
+              </button>
+              <div className="flex items-center gap-3">
+                <div className="px-3 py-1 rounded-full bg-sky-500/20 border border-sky-500/30 text-sky-300 text-xs">
+                  REX · Job Prep Assistant
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-slate-100">Ask REX anything about your job search</h2>
+                  <p className="text-sm text-slate-400">
+                    Optimize your resume, LinkedIn, outreach messages, and interview prep with an AI coach tuned to your targets.
                   </p>
                 </div>
               </div>
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-              {rexPrompts.map((p) => (
-                <button
-                  key={p}
-                  className="bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-gray-300 hover:border-[#3b82f6] hover:text-[#3b82f6]"
-                  onClick={() => goToRex(p)}
+            <div className="flex items-center gap-3">
+              <div className="px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300 text-sm">
+                Target: Head of Sales · B2B SaaS
+              </div>
+              <div className="text-xs text-slate-500 flex items-center gap-1">
+                Mode:
+                <select
+                  className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-300 text-xs"
+                  value="General"
+                  onChange={() => {}}
                 >
-                  {p.includes('resume') ? '📄' : p.includes('outreach') ? '✉️' : '🎯'} {p.split(' ')[0] === 'Help' ? p.replace('Help ', '') : p}
-                </button>
-              ))}
+                  {['General', 'Resume', 'LinkedIn', 'Outreach', 'Interview'].map((m) => (
+                    <option key={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid flex-1 gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,2fr)_minmax(0,1.1fr)]">
+            {/* Left panel */}
+            <div className="rounded-2xl border border-slate-800/80 bg-slate-900/70 p-4 space-y-4 text-xs">
+              <div className="space-y-2">
+                <h3 className="font-medium text-slate-200">Current context</h3>
+                <div className="space-y-1 text-slate-400">
+                  <div className="flex justify-between">
+                    <span>Role:</span>
+                    <span className="text-slate-300">Head of Sales</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Industry:</span>
+                    <span className="text-slate-300">B2B SaaS</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Focus:</span>
+                    <span className="text-slate-300">Leadership · Remote-first</span>
+                  </div>
+                </div>
+                <button className="text-sky-400 hover:text-sky-300 text-xs">Edit job target</button>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="font-medium text-slate-200">Attached assets</h3>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-slate-300">
+                    <i className="fa-solid fa-check text-emerald-400 text-xs" />
+                    <span>Resume: Brandon_Omoregie_Resume.pdf</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-slate-300">
+                    <i className="fa-solid fa-check text-emerald-400 text-xs" />
+                    <span>LinkedIn: /in/brandon</span>
+                  </div>
+                </div>
+                <p className="text-slate-500 text-xs">REX will use these when rewriting content.</p>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="font-medium text-slate-200">Try asking</h3>
+                <div className="space-y-2">
+                  {[
+                    'Rewrite my resume summary for a Head of Sales role.',
+                    'Give me 3 stronger bullets for my VP of Sales experience.',
+                    "Tighten this LinkedIn 'About' section.",
+                    'Draft an outreach email to a VP of Sales recruiter.',
+                  ].map((q) => (
+                    <button
+                      key={q}
+                      className="w-full text-left p-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 border border-slate-700/50 hover:border-slate-600 text-slate-300 text-xs transition-colors"
+                      onClick={() => setPrompt(q)}
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
-            <div className="flex gap-3">
-              <input
-                id="rex-input"
-                type="text"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Ask REX anything about your job search..."
-                className="flex-1 border border-gray-700 bg-gray-900 text-white rounded-lg px-4 py-3 focus:outline-none focus:border-[#3b82f6] placeholder-gray-500"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleSend();
-                }}
-              />
-              <button
-                id="rex-send"
-                className="bg-[#3b82f6] text-white px-6 py-3 rounded-lg hover:bg-blue-600"
-                onClick={handleSend}
-              >
-                <FaEnvelope />
-              </button>
+            {/* Chat panel */}
+            <div className="rounded-2xl border border-slate-800/80 bg-slate-900/70 flex flex-col h-full relative">
+              <div id="messages-area" className="flex-1 overflow-y-auto px-4 pt-4 pb-24 space-y-4">
+                <div className="flex justify-end">
+                  <div className="max-w-[70%]">
+                    <div className="bg-sky-500 text-slate-50 rounded-3xl rounded-br-lg px-4 py-3 message-bubble">
+                      Can you rewrite my resume summary for a Head of Sales role?
+                    </div>
+                    <div className="text-xs text-slate-500 mt-1 text-right">2:34 PM</div>
+                  </div>
+                </div>
+                <div className="flex justify-start">
+                  <div className="max-w-[80%]">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-medium text-slate-300 flex-shrink-0">
+                        RX
+                      </div>
+                      <div className="bg-slate-800 text-slate-100 rounded-3xl rounded-bl-lg px-4 py-3 message-bubble">
+                        <p>Here&apos;s a rewritten summary tailored for Head of Sales positions in B2B SaaS:</p>
+                        <div className="mt-3 p-3 bg-slate-900/50 rounded-lg border border-slate-700">
+                          <p className="text-sm">
+                            Results-driven sales executive with 8+ years leading high-performing teams in B2B SaaS environments. Proven track record of scaling revenue from $2M to $15M+ while building remote-first sales organizations. Expert in enterprise deal cycles, strategic partnerships, and implementing data-driven sales processes that consistently exceed targets by 20-30%.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-xs text-slate-500 mt-1 ml-11">2:34 PM</div>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <div className="max-w-[70%]">
+                    <div className="bg-sky-500 text-slate-50 rounded-3xl rounded-br-lg px-4 py-3 message-bubble">
+                      Now give me 3 bullets for my Nimbus Data experience.
+                    </div>
+                    <div className="text-xs text-slate-500 mt-1 text-right">2:36 PM</div>
+                  </div>
+                </div>
+                <div className="flex justify-start">
+                  <div className="max-w-[80%]">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-medium text-slate-300 flex-shrink-0">
+                        RX
+                      </div>
+                      <div className="bg-slate-800 text-slate-100 rounded-3xl rounded-bl-lg px-4 py-3 message-bubble">
+                        <p>Here are 3 strong bullets for your Nimbus Data experience:</p>
+                        <ul className="mt-3 space-y-2 text-sm">
+                          <li className="flex items-start gap-2">
+                            <span className="text-sky-400 mt-1">•</span>
+                            <span>Scaled enterprise sales team from 5 to 15 reps, driving 340% revenue growth ($3M to $13.2M ARR) over 18 months</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-sky-400 mt-1">•</span>
+                            <span>Implemented Salesforce automation and lead scoring system, reducing sales cycle by 25% and improving conversion rates by 35%</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-sky-400 mt-1">•</span>
+                            <span>Secured 3 enterprise deals worth $2M+ each by developing strategic partnerships with Fortune 500 technology integrators</span>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                    <div className="text-xs text-slate-500 mt-1 ml-11">2:37 PM</div>
+                  </div>
+                </div>
+
+                {/* Thinking message */}
+                <div className="flex justify-start">
+                  <div className="max-w-[80%]">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-medium text-slate-300 flex-shrink-0">
+                        RX
+                      </div>
+                      <div className="bg-slate-800 text-slate-100 rounded-3xl rounded-bl-lg px-4 py-3 message-bubble">
+                        <div className="flex gap-1 mb-2 typing-dots">
+                          <span className="w-2 h-2 bg-slate-400 rounded-full" />
+                          <span className="w-2 h-2 bg-slate-400 rounded-full" />
+                          <span className="w-2 h-2 bg-slate-400 rounded-full" />
+                        </div>
+                        <p className="text-sm text-slate-400">Analyzing attached resume...</p>
+                        <div className="mt-2 h-1 w-full rounded-full bg-slate-700">
+                          <div className="h-full w-1/2 rounded-full bg-sky-500 transition-all" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Input */}
+              <div className="absolute inset-x-0 bottom-0 px-4 pb-4">
+                <div className="rounded-2xl border border-slate-700 bg-slate-950/90 px-3 py-2 flex items-end gap-2">
+                  <textarea
+                    rows={1}
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    placeholder="Ask REX to improve your resume, LinkedIn, or outreach copy..."
+                    className="flex-1 bg-transparent text-slate-100 placeholder-slate-500 resize-none outline-none"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSend();
+                      }
+                    }}
+                  />
+                  <button className="text-slate-400 hover:text-slate-200 p-2">
+                    <i className="fa-solid fa-sparkles" />
+                  </button>
+                  <button
+                    className="bg-sky-500 hover:bg-sky-400 text-slate-50 rounded-full w-10 h-10 flex items-center justify-center transition-colors"
+                    onClick={handleSend}
+                  >
+                    <i className="fa-solid fa-arrow-up" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Right panel */}
+            <div className="rounded-2xl border border-slate-800/80 bg-slate-900/70 p-4 flex flex-col h-full text-xs">
+              <div className="space-y-2 mb-4">
+                <h3 className="font-medium text-slate-200">REX status</h3>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-slate-500 rounded-full" />
+                  <span className="text-slate-400">Idle · Ready for your next question</span>
+                </div>
+              </div>
+
+              <div className="space-y-3 mb-4">
+                <h4 className="font-medium text-slate-300">Processing steps</h4>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-4 h-4 rounded-full bg-emerald-400 flex items-center justify-center">
+                      <i className="fa-solid fa-check text-slate-900 text-xs" />
+                    </div>
+                    <span className="text-slate-300">Analyze your request</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-4 h-4 rounded-full bg-sky-400 animate-spin">
+                      <div className="w-2 h-2 bg-slate-900 rounded-full ml-1 mt-1" />
+                    </div>
+                    <span className="text-slate-200">Pull in resume / profile context</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-4 h-4 rounded-full bg-slate-600" />
+                    <span className="text-slate-500">Draft and refine response</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <button className="w-full rounded-full bg-slate-950 border border-slate-700 text-slate-200 hover:border-rose-500 hover:text-rose-300 py-2 px-4 transition-colors">
+                  <i className="fa-solid fa-stop mr-2" />
+                  Stop generating
+                </button>
+                <p className="text-slate-500 text-xs mt-2 text-center">Stopping keeps partial drafts visible in the thread.</p>
+              </div>
+
+              <div className="mt-auto">
+                <h4 className="font-medium text-slate-300 mb-2">Recent actions</h4>
+                <ul className="space-y-1 text-slate-400">
+                  <li className="flex items-center gap-2">
+                    <i className="fa-solid fa-circle text-xs text-emerald-400" />
+                    Rewrote resume summary for Head of Sales
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <i className="fa-solid fa-circle text-xs text-emerald-400" />
+                    Generated 3 new experience bullets for Nimbus Data
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <i className="fa-solid fa-circle text-xs text-slate-600" />
+                    Tightened LinkedIn About section
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
         </div>
