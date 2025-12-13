@@ -343,11 +343,6 @@ function InnerApp() {
     return <JobSeekerRoutes />;
   }
 
-  // If someone hits /onboarding on the main app domain, force the job seeker shell
-  if (location.pathname === '/onboarding') {
-    return <JobSeekerRoutes />;
-  }
-
   const landingPages = ["/", "/signup", "/join", "/login", "/reset-password", "/copilot", "/enterprise", "/pricing", "/rex", "/rexsupport", "/chromeextension", "/chromeextension/privacy", "/terms", "/apidoc", "/test-gmail", "/affiliates", "/blog/zapierguide", "/producthunt", "/dfydashboard", "/freeforever", "/jobs/share", "/apply", "/use-cases", "/use-cases/recruiting-agencies", "/use-cases/fractional-executives", "/use-cases/consultants"];
   // Treat blog landing and article pages as public landing pages (no dashboard UI)
   const isPartnerArea = location.pathname.startsWith('/partners');
