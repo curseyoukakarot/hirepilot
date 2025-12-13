@@ -19,6 +19,7 @@ import {
   FaRocket,
   FaStar,
 } from 'react-icons/fa';
+import { JobSeekerPublicNav } from '../../components/jobseeker/JobSeekerPublicNav';
 
 const primary = '#3b82f6';
 
@@ -89,32 +90,9 @@ export default function JobSeekerLandingPage() {
   return (
     <div className="bg-gray-900 font-sans text-white">
       {/* Header */}
-      <header className="bg-gray-900 border-b border-gray-800 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <div className="text-xl font-bold text-white">HirePilot Jobs</div>
-            </div>
-            <nav className="hidden md:flex items-center space-x-8 text-sm">
-              <a href="#method" className="text-gray-400 hover:text-white">
-                How it works
-              </a>
-              <a href="#rex-preview" className="text-gray-400 hover:text-white">
-                Try REX
-              </a>
-              <a href="#pricing" className="text-gray-400 hover:text-white">
-                Pricing
-              </a>
-              <button
-                className="bg-[#3b82f6] text-white px-4 py-2 rounded-lg hover:bg-blue-600"
-                onClick={handleStart}
-              >
-                Start Free
-              </button>
-            </nav>
-          </div>
-        </div>
-      </header>
+      <div className="sticky top-0 z-50">
+        <JobSeekerPublicNav variant="dark" />
+      </div>
 
       {/* Hero */}
       <section id="hero" className="bg-gradient-to-b from-gray-800 to-gray-900 py-20">

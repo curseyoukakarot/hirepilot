@@ -2,6 +2,7 @@ import React, { useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import { BILLING_CONFIG } from '../../config/billingConfig';
+import { JobSeekerPublicNav } from '../../components/jobseeker/JobSeekerPublicNav';
 
 type Interval = 'monthly' | 'annual';
 
@@ -73,45 +74,14 @@ export default function JobSeekerPricingPage() {
     return plan === 'pro' ? '$399' : '$549';
   };
 
+  const annualSubtext = (plan: 'pro' | 'elite') =>
+    plan === 'pro' ? 'Annual: $33.33/mo ($399/yr)' : 'Annual: $46/mo ($549/yr)';
+
   return (
     <div className="bg-gray-950 text-gray-100 font-inter min-h-screen">
-      <header className="bg-gray-900 shadow-sm border-b border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
-                <i className="fas fa-rocket text-white text-sm" />
-              </div>
-              <span className="text-xl font-bold text-white">HirePilot</span>
-            </div>
-            <nav className="hidden md:flex items-center space-x-8 text-sm">
-              <a href="#feature-comparison" className="text-gray-400 hover:text-white">
-                Features
-              </a>
-              <a href="#pricing-cards" className="text-white font-medium">
-                Pricing
-              </a>
-              <a href="#philosophy-section" className="text-gray-400 hover:text-white">
-                Resources
-              </a>
-              <a href="#footer" className="text-gray-400 hover:text-white">
-                Support
-              </a>
-            </nav>
-            <div className="flex items-center space-x-4 text-sm">
-              <button onClick={() => navigate('/login')} className="text-gray-400 hover:text-white">
-                Sign in
-              </button>
-              <button
-                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
-                onClick={handleStartFree}
-              >
-                Get Started
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <div className="sticky top-0 z-50">
+        <JobSeekerPublicNav variant="dark" />
+      </div>
 
       <main>
         <section id="pricing-hero" className="bg-gray-900 pt-16 pb-12">
@@ -213,7 +183,9 @@ export default function JobSeekerPricingPage() {
                   <div className="mb-4">
                     <span className="text-4xl font-bold text-white">{priceLabel('pro')}</span>
                     <span className="text-gray-400"> / {interval === 'monthly' ? 'month' : 'year'}</span>
-                    <div className="text-sm text-gray-400 mt-1">or $399/year (save ~$69)</div>
+                    <div className="text-sm text-gray-400 mt-1">
+                      {interval === 'annual' ? annualSubtext('pro') : 'or $399/year (save ~$69)'}
+                    </div>
                   </div>
                   <p className="text-gray-400 mb-8">Everything in Free — plus professional positioning tools.</p>
                 </div>
@@ -262,7 +234,9 @@ export default function JobSeekerPricingPage() {
                   <div className="mb-4">
                     <span className="text-4xl font-bold text-white">{priceLabel('elite')}</span>
                     <span className="text-gray-400"> / {interval === 'monthly' ? 'month' : 'year'}</span>
-                    <div className="text-sm text-gray-400 mt-1">or $549/year (save ~$159)</div>
+                    <div className="text-sm text-gray-400 mt-1">
+                      {interval === 'annual' ? annualSubtext('elite') : 'or $549/year (save ~$159)'}
+                    </div>
                   </div>
                   <p className="text-gray-300 mb-8">The full recruiter-grade job search system.</p>
                 </div>
