@@ -9,8 +9,8 @@ import ResumeParserPage from './ResumeParserPage';
 import LandingPageBuilderPage from './LandingPageBuilderPage';
 import JobPrepChatPage from './JobPrepChatPage';
 import ResumeWizardPage from './ResumeWizardPage';
-import JobSeekerJobsPage from './JobSeekerJobsPage';
-import JobSeekerJobDetailPage from './JobSeekerJobDetailPage';
+import JobRequisitions from '../../screens/JobRequisitions';
+import JobRequisitionPage from '../../screens/JobRequisitionPage';
 import JobSeekerLogin from './auth/JobSeekerLogin';
 import JobSeekerSignup from './auth/JobSeekerSignup';
 import LeadManagement from '../../screens/LeadManagement';
@@ -92,8 +92,8 @@ export default function JobSeekerRoutes() {
           >
             <Route path="/dashboard" element={<JobSeekerDashboardPage />} />
             <Route path="/leads" element={<LeadManagement />} />
-            <Route path="/jobs" element={<JobSeekerJobsPage />} />
-            <Route path="/jobs/:id" element={<JobSeekerJobDetailPage />} />
+            <Route path="/jobs" element={<JobRequisitions />} />
+            <Route path="/jobs/:id" element={<JobRequisitionPage />} />
             <Route path="/campaigns" element={<Campaigns />} />
             <Route path="/prep" element={<PrepPage />} />
             <Route path="/prep/resume/wizard" element={<ResumeWizardPage />} />
