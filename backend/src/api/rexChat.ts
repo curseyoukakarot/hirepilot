@@ -482,6 +482,24 @@ CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` :
         );
       }
 
+      // Safety net: ensure every tool_call_id has a tool response
+      const toolResponseIds = new Set(
+        messages.filter((m: any) => m.role === 'tool' && m.tool_call_id).map((m: any) => m.tool_call_id)
+      );
+      for (const call of toolCalls) {
+        if (!toolResponseIds.has(call.id)) {
+          messages.push(
+            assistantMessage as any,
+            {
+              role: 'tool',
+              tool_call_id: call.id,
+              name: call.function?.name || call.name || 'unknown_tool',
+              content: JSON.stringify({ error: 'tool response missing; auto-inserted stub' })
+            } as any
+          );
+        }
+      }
+
       // Now ask the model to respond after all tool results are included
       completion = await withTimeout(openai.chat.completions.create({ model: 'gpt-4o-mini', messages }), 30000);
       assistantMessage = completion.choices[0].message;
