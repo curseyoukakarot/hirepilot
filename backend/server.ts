@@ -90,6 +90,7 @@ import resumeDraftsRouter from './src/routes/resumeDrafts';
 import rexUploadsRouter from './src/routes/rexUploads';
 import resumePdfRouter from './src/routes/resumePdf';
 import zapierActionsRouter from './src/routes/zapierActions';
+import debugRuntimeRouter from './src/routes/debugRuntime';
 import opportunityPipelineRouter from './src/routes/opportunityPipeline';
 import invoicesRouter from './src/routes/invoices';
 import revenueRouter from './src/routes/revenue';
@@ -443,6 +444,8 @@ console.table(listEndpoints(app).filter((r: any) => r.path.includes('/slack')));
 // Mount legacy Slack OAuth routes to provide /api/auth/slack/* endpoints
 app.use('/api', slackRouter);
 console.table(listEndpoints(app).filter((r: any) => r.path.includes('sendgrid/sourcing')));
+// Temporary runtime debug (remove after diagnosing Playwright deps)
+app.use('/api', debugRuntimeRouter);
 app.use('/api/outreach', outreachRouter);
 app.get('/api/getCampaigns', requireAuthFlag, getCampaigns);
 app.delete('/api/deleteCampaign', deleteCampaign);
