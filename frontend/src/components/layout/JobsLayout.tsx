@@ -38,6 +38,15 @@ export function JobsLayout({ children }: { children: React.ReactNode }) {
         ),
       },
       {
+        label: 'Campaigns',
+        href: '/campaigns',
+        icon: (
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" d="M4 6h16M4 12h10M4 18h6" />
+          </svg>
+        ),
+      },
+      {
         label: 'REX Chat',
         href: '/prep/rex-chat',
         icon: (
