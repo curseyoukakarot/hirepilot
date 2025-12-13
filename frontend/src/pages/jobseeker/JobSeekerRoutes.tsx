@@ -11,6 +11,7 @@ import JobPrepChatPage from './JobPrepChatPage';
 import ResumeWizardPage from './ResumeWizardPage';
 import OnboardingPage from './OnboardingPage';
 import JobSeekerLandingPage from './JobSeekerLandingPage';
+import JobSeekerPricingPage from './JobSeekerPricingPage';
 import JobRequisitions from '../../screens/JobRequisitions';
 import JobRequisitionPage from '../../screens/JobRequisitionPage';
 import JobSeekerLogin from './auth/JobSeekerLogin';
@@ -150,6 +151,7 @@ export default function JobSeekerRoutes() {
         <Routes>
           {/* Public */}
           <Route path="/" element={<JobSeekerLandingPage />} />
+          <Route path="/pricing" element={<JobSeekerPricingPage />} />
           <Route path="/login" element={<JobSeekerLogin />} />
           <Route path="/signup" element={<JobSeekerSignup />} />
           {/* Allow onboarding to render even if not authenticated */}

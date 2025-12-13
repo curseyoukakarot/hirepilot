@@ -1,0 +1,429 @@
+import React, { useMemo, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '../../lib/supabaseClient';
+import { BILLING_CONFIG } from '../../config/billingConfig';
+
+type Interval = 'monthly' | 'annual';
+
+export default function JobSeekerPricingPage() {
+  const navigate = useNavigate();
+  const [interval, setInterval] = useState<Interval>('annual');
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const jobSeekerPlans = useMemo(() => BILLING_CONFIG.job_seeker, []);
+
+  const priceIds = useMemo(
+    () => ({
+      pro: jobSeekerPlans.pro.priceIds,
+      elite: jobSeekerPlans.elite.priceIds,
+    }),
+    [jobSeekerPlans]
+  );
+
+  const handleStartFree = useCallback(() => {
+    navigate('/signup');
+  }, [navigate]);
+
+  const handleUpgrade = useCallback(
+    async (planId: 'pro' | 'elite') => {
+      try {
+        setLoadingPlan(planId);
+        const { data: sessionData } = await supabase.auth.getSession();
+        const session = sessionData?.session;
+        if (!session) {
+          navigate('/signup');
+          return;
+        }
+        const priceId = priceIds[planId]?.[interval];
+        if (!priceId) {
+          throw new Error(`Missing priceId for ${planId}/${interval}`);
+        }
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/billing/checkout`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          credentials: 'include',
+          body: JSON.stringify({ planId, interval, priceId }),
+        });
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(errorText || 'Checkout failed');
+        }
+        const { url, sessionId } = await response.json();
+        if (url) {
+          window.location.href = url;
+        } else {
+          // fallback; redirect to billing page to complete
+          navigate('/billing');
+        }
+      } catch (e) {
+        console.error('checkout error', e);
+        alert(e?.message || 'Checkout failed');
+      } finally {
+        setLoadingPlan(null);
+      }
+    },
+    [interval, navigate, priceIds]
+  );
+
+  const priceLabel = (plan: 'pro' | 'elite') => {
+    if (interval === 'monthly') return plan === 'pro' ? '$39' : '$59';
+    return plan === 'pro' ? '$399' : '$549';
+  };
+
+  return (
+    <div className="bg-gray-950 text-gray-100 font-inter min-h-screen">
+      <header className="bg-gray-900 shadow-sm border-b border-gray-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
+                <i className="fas fa-rocket text-white text-sm" />
+              </div>
+              <span className="text-xl font-bold text-white">HirePilot</span>
+            </div>
+            <nav className="hidden md:flex items-center space-x-8 text-sm">
+              <a href="#feature-comparison" className="text-gray-400 hover:text-white">
+                Features
+              </a>
+              <a href="#pricing-cards" className="text-white font-medium">
+                Pricing
+              </a>
+              <a href="#philosophy-section" className="text-gray-400 hover:text-white">
+                Resources
+              </a>
+              <a href="#footer" className="text-gray-400 hover:text-white">
+                Support
+              </a>
+            </nav>
+            <div className="flex items-center space-x-4 text-sm">
+              <button onClick={() => navigate('/login')} className="text-gray-400 hover:text-white">
+                Sign in
+              </button>
+              <button
+                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
+                onClick={handleStartFree}
+              >
+                Get Started
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main>
+        <section id="pricing-hero" className="bg-gray-900 pt-16 pb-12">
+          <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
+            <h1 className="text-4xl md:text-5xl font-bold text-white mb-6">
+              Choose how much leverage you want in your job search.
+            </h1>
+            <p className="text-xl text-gray-400 mb-8 max-w-3xl mx-auto">
+              Start free. Upgrade when you want more control, polish, and automation.
+            </p>
+          </div>
+        </section>
+
+        <section id="pricing-toggle" className="bg-gray-900 pb-8">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-center">
+              <div className="bg-gray-800 p-1 rounded-lg flex items-center text-sm">
+                <button
+                  id="monthly-btn"
+                  className={`px-6 py-2 font-medium rounded-md ${
+                    interval === 'monthly' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400'
+                  }`}
+                  onClick={() => setInterval('monthly')}
+                >
+                  Monthly
+                </button>
+                <button
+                  id="annual-btn"
+                  className={`px-6 py-2 font-medium rounded-md ${
+                    interval === 'annual' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400'
+                  }`}
+                  onClick={() => setInterval('annual')}
+                >
+                  Annual
+                </button>
+                <span className="ml-3 text-sm text-green-400 font-medium">Save up to $159/year</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="pricing-cards" className="bg-gray-950 pb-16">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+              {/* Free */}
+              <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 relative">
+                <div className="text-center">
+                  <h3 className="text-2xl font-bold text-white mb-2">Free Forever</h3>
+                  <div className="mb-4">
+                    <span className="text-4xl font-bold text-white">$0</span>
+                    <span className="text-gray-400"> / month</span>
+                  </div>
+                  <p className="text-gray-400 mb-8">
+                    Everything you need to start landing interviews — no credit card.
+                  </p>
+                </div>
+                <div className="mb-8">
+                  <h4 className="font-semibold text-white mb-4">Includes</h4>
+                  <ul className="space-y-3 text-sm">
+                    {[
+                      'REX AI career assistant (chat anytime)',
+                      'Chrome extension for LinkedIn research',
+                      'Outreach from your own email inbox',
+                      'Bulk email outreach (starter limits)',
+                      'Apollo sourcing (included)',
+                      'LinkedIn & Sales Navigator sourcing',
+                      '50 credits/month included',
+                    ].map((item) => (
+                      <li key={item} className="flex items-start">
+                        <i className="fas fa-check text-green-400 mt-1 mr-3" />
+                        <span className="text-gray-300">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="mb-8">
+                  <h4 className="font-semibold text-white mb-3">Best for</h4>
+                  <ul className="space-y-2 text-sm text-gray-300">
+                    <li>• Early-stage job seekers</li>
+                    <li>• Exploring new roles</li>
+                    <li>• Testing direct outreach</li>
+                  </ul>
+                </div>
+                <button
+                  className="w-full bg-gray-800 text-white py-3 px-4 rounded-lg font-medium hover:bg-gray-700 transition-colors border border-gray-700"
+                  onClick={handleStartFree}
+                >
+                  Start free
+                </button>
+              </div>
+
+              {/* Pro */}
+              <div className="bg-gray-900 border-2 border-blue-500 rounded-2xl p-8 relative shadow-xl shadow-blue-500/20">
+                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                  <span className="bg-blue-500 text-white px-4 py-1 rounded-full text-sm font-medium">Most popular</span>
+                </div>
+                <div className="text-center">
+                  <h3 className="text-2xl font-bold text-white mb-2">Job Seeker Pro</h3>
+                  <div className="mb-4">
+                    <span className="text-4xl font-bold text-white">{priceLabel('pro')}</span>
+                    <span className="text-gray-400"> / {interval === 'monthly' ? 'month' : 'year'}</span>
+                    <div className="text-sm text-gray-400 mt-1">or $399/year (save ~$69)</div>
+                  </div>
+                  <p className="text-gray-400 mb-8">Everything in Free — plus professional positioning tools.</p>
+                </div>
+                <div className="mb-8">
+                  <h4 className="font-semibold text-white mb-4">Everything in Free, plus</h4>
+                  <ul className="space-y-3 text-sm">
+                    {[
+                      'Resume Builder (AI rewrite + scoring)',
+                      'Landing Page Builder (shareable profile)',
+                      'Resume scoring & optimization',
+                      'Job Prep tools (interview, outreach refinement)',
+                      'Zapier integrations',
+                      'Higher monthly credit limits',
+                    ].map((item) => (
+                      <li key={item} className="flex items-start">
+                        <i className="fas fa-check text-green-400 mt-1 mr-3" />
+                        <span className="text-gray-300">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="mb-8">
+                  <h4 className="font-semibold text-white mb-3">Best for</h4>
+                  <ul className="space-y-2 text-sm text-gray-300">
+                    <li>• Active job seekers</li>
+                    <li>• Career pivots</li>
+                    <li>• Mid–senior professionals</li>
+                  </ul>
+                </div>
+                <button
+                  className="w-full bg-blue-500 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-600 transition-colors"
+                  onClick={() => handleUpgrade('pro')}
+                  disabled={loadingPlan === 'pro'}
+                >
+                  {loadingPlan === 'pro' ? 'Starting checkout…' : 'Upgrade to Pro'}
+                </button>
+              </div>
+
+              {/* Elite */}
+              <div className="bg-gradient-to-br from-gray-900 to-gray-800 border border-yellow-500/30 rounded-2xl p-8 relative">
+                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                  <span className="bg-yellow-500 text-gray-900 px-4 py-1 rounded-full text-sm font-medium">Recruiter Playbook</span>
+                </div>
+                <div className="text-center">
+                  <h3 className="text-2xl font-bold text-white mb-2">Job Seeker Elite</h3>
+                  <div className="mb-4">
+                    <span className="text-4xl font-bold text-white">{priceLabel('elite')}</span>
+                    <span className="text-gray-400"> / {interval === 'monthly' ? 'month' : 'year'}</span>
+                    <div className="text-sm text-gray-400 mt-1">or $549/year (save ~$159)</div>
+                  </div>
+                  <p className="text-gray-300 mb-8">The full recruiter-grade job search system.</p>
+                </div>
+                <div className="mb-8">
+                  <h4 className="font-semibold text-white mb-4">Everything in Pro, plus</h4>
+                  <ul className="space-y-3 text-sm">
+                    {[
+                      'Premium resume templates',
+                      'Premium landing page templates',
+                      'Custom domain (yourname.com)',
+                      'White-labeled public landing page',
+                      'Advanced automation & Agent Mode',
+                      'Priority feature access',
+                      'Highest credit limits',
+                    ].map((item) => (
+                      <li key={item} className="flex items-start">
+                        <i className="fas fa-check text-yellow-400 mt-1 mr-3" />
+                        <span className="text-gray-300">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="mb-8">
+                  <h4 className="font-semibold text-white mb-3">Best for</h4>
+                  <ul className="space-y-2 text-sm text-gray-300">
+                    <li>• Executives & founders</li>
+                    <li>• Highly competitive markets</li>
+                    <li>• People who want maximum leverage</li>
+                  </ul>
+                </div>
+                <button
+                  className="w-full bg-yellow-500 text-gray-900 py-3 px-4 rounded-lg font-medium hover:bg-yellow-400 transition-colors"
+                  onClick={() => handleUpgrade('elite')}
+                  disabled={loadingPlan === 'elite'}
+                >
+                  {loadingPlan === 'elite' ? 'Starting checkout…' : 'Go Elite'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="feature-comparison" className="bg-gray-900 py-16">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 className="text-3xl font-bold text-center text-white mb-12">Feature Comparison</h2>
+            <div className="bg-gray-800 rounded-2xl shadow-sm overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-900">
+                    <th className="text-left py-4 px-6 font-semibold text-white">Feature</th>
+                    <th className="text-center py-4 px-6 font-semibold text-gray-400">Free</th>
+                    <th className="text-center py-4 px-6 font-semibold text-blue-400">Pro</th>
+                    <th className="text-center py-4 px-6 font-semibold text-yellow-400">Elite</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-700">
+                  {[
+                    ['REX AI Assistant', true, true, true],
+                    ['Chrome Extension', true, true, true],
+                    ['Outreach from Email', true, true, true],
+                    ['Resume Builder', false, true, true],
+                    ['Landing Page Builder', false, true, true],
+                    ['Resume Scoring', false, true, true],
+                    ['Templates', false, false, true],
+                    ['Custom Domain', false, false, true],
+                    ['Agent Mode', false, false, true],
+                  ].map(([feature, free, pro, elite]) => (
+                    <tr key={feature as string} className="bg-opacity-50">
+                      <td className="py-4 px-6 font-medium text-white">{feature}</td>
+                      {[free, pro, elite].map((val, idx) => (
+                        <td key={idx} className="text-center py-4 px-6">
+                          {val ? <i className="fas fa-check text-green-400" /> : <i className="fas fa-times text-gray-600" />}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section id="philosophy-section" className="bg-gray-900 py-16">
+          <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
+            <h2 className="text-3xl font-bold text-white mb-8">Our Philosophy</h2>
+            <div className="text-lg text-gray-400 leading-relaxed max-w-3xl mx-auto space-y-6">
+              <p>HirePilot doesn&apos;t spam job boards or auto-apply for you.</p>
+              <p>
+                We help you position yourself correctly, reach decision-makers directly, and run the same playbook recruiters use — ethically and
+                effectively.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section id="cta-section" className="bg-blue-500 py-16">
+          <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
+            <h2 className="text-3xl font-bold text-white mb-4">Ready to transform your job search?</h2>
+            <p className="text-xl text-blue-100 mb-8">Start with our Free Forever plan. No credit card required.</p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button
+                className="bg-white text-blue-500 px-8 py-3 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+                onClick={handleStartFree}
+              >
+                Start Free
+              </button>
+              <button
+                className="border-2 border-white text-white px-8 py-3 rounded-lg font-medium hover:bg-white hover:text-blue-500 transition-colors"
+                onClick={() => navigate('/prep/rex-chat')}
+              >
+                View Demo
+              </button>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer id="footer" className="bg-gray-900 text-gray-300">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="grid md:grid-cols-4 gap-8">
+            <div>
+              <div className="flex items-center space-x-2 mb-4">
+                <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
+                  <i className="fas fa-rocket text-white text-sm" />
+                </div>
+                <span className="text-xl font-bold text-white">HirePilot</span>
+              </div>
+              <p className="text-gray-400">
+                Transform your job search with AI-powered tools and recruiter-grade strategies.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-semibold text-white mb-4">Product</h3>
+              <ul className="space-y-2 text-sm">
+                <li><a href="#feature-comparison" className="hover:text-white transition-colors">Features</a></li>
+                <li><a href="#pricing-cards" className="hover:text-white transition-colors">Pricing</a></li>
+                <li><a href="#pricing-hero" className="hover:text-white transition-colors">Integrations</a></li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="font-semibold text-white mb-4">Support</h3>
+              <ul className="space-y-2 text-sm">
+                <li><a href="#feature-comparison" className="hover:text-white transition-colors">Help Center</a></li>
+                <li><a href="#feature-comparison" className="hover:text-white transition-colors">Contact</a></li>
+                <li><a href="#feature-comparison" className="hover:text-white transition-colors">Status</a></li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="font-semibold text-white mb-4">Company</h3>
+              <ul className="space-y-2 text-sm">
+                <li><a href="#pricing-hero" className="hover:text-white transition-colors">About</a></li>
+                <li><a href="#pricing-hero" className="hover:text-white transition-colors">Blog</a></li>
+                <li><a href="#pricing-hero" className="hover:text-white transition-colors">Careers</a></li>
+              </ul>
+            </div>
+          </div>
+          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-sm">
+            <p>© 2024 HirePilot. All rights reserved.</p>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
